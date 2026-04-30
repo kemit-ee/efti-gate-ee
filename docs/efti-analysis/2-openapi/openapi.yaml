@@ -1,0 +1,2085 @@
+openapi: 3.0.3
+info:
+  title: eFTI Gate API
+  version: 2.0.0
+  description: |
+    European Freight Transport Information Gate — Complete API Specification v2.0
+
+    This API implements:
+    - **Platform API**: For freight platforms to register consignment identifiers
+    - **Authority API**: For competent authorities to search and query datasets
+    - **Admin API**: For gate administrators to manage gates, platforms, authorities, users
+    - **Health API**: Kubernetes liveness/readiness probes (no auth)
+
+    ## Authentication
+    All endpoints require a JWT Bearer token (obtained via Basic Auth or TARA SSO) except `/health/*` endpoints.
+
+    ## EU Regulation Compliance
+    Data subsets EU01–EU07 are defined in EU Delegated Regulation 2024/2024.
+
+    ## Change log vs Current Gate (v1)
+    - **Improved**: Added missing `X-Request-ID` duplicate-detection header to all mutating endpoints
+    - **Improved**: All errors now use RFC 7807 `application/problem+json` format
+    - **Improved**: Consistent snake_case JSON field naming (gate camelCase preserved where it matches DB)
+    - **Added**: `GET /api/v1/consignments` now supports pagination and filter params
+    - **Added**: Audit log endpoints
+    - **Added**: `GET /health/ready` readiness probe
+  contact:
+    name: KeMIT / MKM
+    email: efti@mkm.ee
+    url: https://github.com/kemit-ee/efti-gate
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.dev.efti.ee
+    description: Development environment
+  - url: https://api.staging.efti.ee
+    description: Staging environment
+  - url: https://api.efti.ee
+    description: Production environment
+
+tags:
+  - name: Platform
+    description: APIs called by eFTI freight platforms
+  - name: Authority
+    description: APIs called by competent authorities and authority access points
+  - name: Admin - Gates
+    description: Administrative management of registered eFTI gates
+  - name: Admin - Platforms
+    description: Administrative management of registered freight platforms
+  - name: Admin - Authorities
+    description: Administrative management of competent authorities
+  - name: Admin - Users
+    description: Administrative management of system users
+  - name: Admin - Consignments
+    description: Administrative view and management of stored consignments
+  - name: Admin - Audit
+    description: Immutable audit log access (SUPER_ADMIN only)
+  - name: Health
+    description: Kubernetes liveness and readiness probes — no authentication required
+
+security:
+  - bearerAuth: []
+
+# ==============================================================================
+# PATHS
+# ==============================================================================
+paths:
+
+  # ----------------------------------------------------------------------------
+  # PLATFORM API
+  # ----------------------------------------------------------------------------
+
+  /v1/identifiers/{datasetId}:
+    post:
+      tags: [Platform]
+      summary: Register consignment identifiers
+      operationId: postIdentifiers
+      description: |
+        Platform registers consignment identifier metadata in the gate. The gate
+        extracts searchable fields (vehicle plate, mode, dangerous goods) and stores
+        them for authority queries. Subsequent authority queries for a matching
+        identifier will trigger a UIL dataset request back to the platform.
+
+        The request body must be a valid `<consignment>` XML per the
+        [consignment-identifier XSD](https://github.com/EFTI4EU/reference-implementation/blob/main/schema/xsd/consignment-identifier.xsd).
+      parameters:
+        - $ref: '#/components/parameters/DatasetIdPath'
+        - $ref: '#/components/parameters/XRequestId'
+      requestBody:
+        required: true
+        description: |
+          Consignment identifier XML. Root element: `<consignment xmlns="http://efti.eu/v1/consignment/identifier">`.
+          Must conform to XSD schema.
+        content:
+          application/xml:
+            schema:
+              type: string
+              format: xml
+            examples:
+              estoniaTruckDangerous:
+                summary: Estonian truck with dangerous goods (gasoline)
+                value: |
+                  <consignment xmlns="http://efti.eu/v1/consignment/identifier">
+                    <mainCarriageTransportMovement>
+                      <modeCode>3</modeCode>
+                      <dangerousGoodsIndicator>true</dangerousGoodsIndicator>
+                      <usedTransportMeans>
+                        <id schemeAgencyId="11">123ABC</id>
+                        <registrationCountry><code>EE</code></registrationCountry>
+                      </usedTransportMeans>
+                    </mainCarriageTransportMovement>
+                    <transportedDangerousGoods>
+                      <unNumber>1203</unNumber>
+                      <technicalName>Gasoline</technicalName>
+                    </transportedDangerousGoods>
+                    <carrierAcceptanceDateTime formatId="102">20260422</carrierAcceptanceDateTime>
+                  </consignment>
+              maritimeContainer:
+                summary: Maritime container transport
+                value: |
+                  <consignment xmlns="http://efti.eu/v1/consignment/identifier">
+                    <usedTransportEquipment>
+                      <id schemeAgencyId="5">MSCU1234567</id>
+                      <categoryCode>CN</categoryCode>
+                    </usedTransportEquipment>
+                    <mainCarriageTransportMovement>
+                      <modeCode>1</modeCode>
+                      <dangerousGoodsIndicator>false</dangerousGoodsIndicator>
+                    </mainCarriageTransportMovement>
+                    <carrierAcceptanceDateTime formatId="102">20260422</carrierAcceptanceDateTime>
+                  </consignment>
+      responses:
+        '200':
+          description: Identifiers registered successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags: [Platform]
+      summary: Delete consignment (platform-initiated)
+      operationId: deleteIdentifiers
+      description: |
+        Platform signals that a consignment dataset has been deleted or is no longer
+        active. The gate marks the stored consignment identifiers as `inactive`.
+      parameters:
+        - $ref: '#/components/parameters/DatasetIdPath'
+        - $ref: '#/components/parameters/XRequestId'
+      responses:
+        '204':
+          description: Consignment marked as deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags: [Platform]
+      summary: Update consignment metadata
+      operationId: putIdentifiers
+      description: |
+        Platform updates consignment identifier metadata (e.g., after delivery event).
+        The gate re-parses the XML and updates denormalized search fields.
+      parameters:
+        - $ref: '#/components/parameters/DatasetIdPath'
+        - $ref: '#/components/parameters/XRequestId'
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema:
+              type: string
+              format: xml
+      responses:
+        '200':
+          description: Consignment updated
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/status/{datasetId}:
+    get:
+      tags: [Platform]
+      summary: Check consignment registration status
+      operationId: getConsignmentStatus
+      description: Allows a platform to verify whether a consignment dataset is registered and its current status at this gate.
+      parameters:
+        - $ref: '#/components/parameters/DatasetIdPath'
+      responses:
+        '200':
+          description: Consignment status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsignmentStatus'
+              example:
+                datasetId: "550e8400-e29b-41d4-a716-446655440001"
+                status: "active"
+                registeredAt: "2026-04-20T08:30:00Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/ping:
+    post:
+      tags: [Platform]
+      summary: Platform availability check
+      operationId: platformPing
+      description: |
+        Gate pings this endpoint on the platform to confirm it is reachable and operational.
+        Platforms must implement this endpoint and return 200 OK.
+      responses:
+        '200':
+          description: Platform is available
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/follow-up/{datasetId}/{requestId}:
+    get:
+      tags: [Platform]
+      summary: Receive follow-up messages from authorities
+      operationId: getPlatformFollowUp
+      description: |
+        Platform receives follow-up messages sent by authorities regarding a previously
+        queried dataset. Used for enforcement notifications.
+      parameters:
+        - $ref: '#/components/parameters/DatasetIdPath'
+        - name: requestId
+          in: path
+          required: true
+          description: Request ID of the original authority dataset query
+          schema:
+            type: string
+            example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+      responses:
+        '200':
+          description: Follow-up message
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "Consignment flagged for cabotage inspection. Reference: EST-2026-04-42."
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/datasets/{datasetId}:
+    get:
+      tags: [Platform]
+      summary: Retrieve platform's own dataset (for subset filtering test)
+      operationId: getPlatformDataset
+      description: |
+        Allows a platform to retrieve its own full dataset XML. Used primarily to test
+        whether the gate's XSLT subsetter is correctly filtering subsets for platforms
+        that do not support subsetting natively (`supportsSubsetting=false`).
+      parameters:
+        - $ref: '#/components/parameters/DatasetIdPath'
+        - name: subsetId
+          in: query
+          required: false
+          description: eFTI data subsets to filter (EU01-EU07)
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/Subset'
+          style: form
+          explode: true
+      responses:
+        '200':
+          description: Dataset XML filtered to requested subsets
+          content:
+            application/xml:
+              schema:
+                type: string
+                format: xml
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ----------------------------------------------------------------------------
+  # AUTHORITY API
+  # ----------------------------------------------------------------------------
+
+  /v1/identifiers/{identifier}:
+    get:
+      tags: [Authority]
+      summary: Search consignments by identifier
+      operationId: getIdentifiers
+      description: |
+        Find datasets matching an identifier value (typically a vehicle plate number or
+        container number). Broadcasts the query to all known ONLINE gates when no
+        local match is found (or when `forceBroadcast=true`).
+
+        Supports two response modes:
+        - **JSON** (`Accept: application/json`): Waits for all gates, returns full list
+        - **SSE** (`Accept: text/event-stream`): Streams partial results as gates respond.
+          Events: `gate` (gate responded), `consignment` (match found), `complete` (all done).
+
+        The authority's permitted subsets are read from the JWT `subsets` claim and
+        enforced when the authority subsequently calls `GET /v1/dataset/...`.
+      parameters:
+        - name: identifier
+          in: path
+          required: true
+          description: Identifier value to search (vehicle plate, container number, CMR number etc.)
+          schema:
+            type: string
+            example: "123ABC"
+        - name: modeCode
+          in: query
+          required: false
+          description: Filter by transport mode
+          schema:
+            type: string
+            enum: ["1", "2", "3", "4"]
+            example: "3"
+        - name: identifierTypes
+          in: query
+          required: false
+          description: |
+            Comma-separated identifier type filter. Values: `means` (vehicle plate),
+            `equipment` (container), `carried` (cargo unit)
+          schema:
+            type: string
+            example: "means,equipment"
+        - name: registrationCountryCode
+          in: query
+          required: false
+          description: ISO 3166-1 alpha-2 country code of the vehicle registration
+          schema:
+            type: string
+            pattern: '^[A-Z]{2}$'
+            example: "EE"
+        - name: dangerousGoodsIndicator
+          in: query
+          required: false
+          description: Filter to only consignments with/without dangerous goods
+          schema:
+            type: boolean
+            example: true
+        - name: forceBroadcast
+          in: query
+          required: false
+          description: Force broadcast to all gates even when local results exist (testing)
+          schema:
+            type: boolean
+            default: false
+        - $ref: '#/components/parameters/XRequestId'
+        - name: Accept
+          in: header
+          required: false
+          description: Use `text/event-stream` for SSE streaming, `application/json` for full response
+          schema:
+            type: string
+            enum: [application/json, text/event-stream]
+            default: application/json
+      responses:
+        '200':
+          description: |
+            Search results. Format depends on `Accept` header:
+            - `application/json`: Array of matching consignment identifiers
+            - `text/event-stream`: SSE stream of gate and consignment events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConsignmentIdentifier'
+              example:
+                - uil:
+                    gateId: "eu-ee31"
+                    platformId: "plt-demo-123"
+                    datasetId: "550e8400-e29b-41d4-a716-446655440001"
+                  mainCarriageTransportMovement:
+                    - modeCode: "3"
+                      dangerousGoodsIndicator: true
+                      usedTransportMeans:
+                        id: "123ABC"
+                        registrationCountry: "EE"
+            text/event-stream:
+              schema:
+                type: string
+                description: Server-Sent Events stream
+              examples:
+                broadcastSearch:
+                  summary: Broadcast search result across 3 gates (1 timeout)
+                  value: |
+                    event: gate
+                    data: {"gateId":"eu-ee31","responseTimeMs":5}
+
+                    event: consignment
+                    id: https://eu-ee31.efti.ee/https://plt-demo-123.ee/550e8400-e29b-41d4-a716-446655440001
+                    data: {"gateId":"eu-ee31","platformId":"plt-demo-123","datasetId":"550e8400-e29b-41d4-a716-446655440001","vehicle":{"plate":"123ABC","country":"EE"},"mode":"3","dangerousGoods":true}
+
+                    event: gate
+                    data: {"gateId":"eu-fi01","responseTimeMs":42}
+
+                    event: gate
+                    data: {"gateId":"eu-de01","failure":"Connection timeout after 30s"}
+
+                    event: complete
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+
+  /v1/dataset/{gateId}/{platformId}/{datasetId}:
+    get:
+      tags: [Authority]
+      summary: Retrieve full dataset by UIL
+      operationId: getDataset
+      description: |
+        Retrieves the full consignment dataset from the originating platform, filtered
+        to the requested eFTI subsets. The authority must only request subsets they
+        are legally permitted to access (enforced via JWT `subsets` claim).
+
+        If the dataset resides on a remote gate, the request is forwarded via eDelivery AS4.
+        The operation is synchronous from the authority's perspective (gate handles AS4 round-trip).
+
+        **Subset access control**: The gate rejects requests for subsets not in the authority's
+        permitted subset list (403). The platform further filters the XML to the requested subsets
+        if `supportsSubsetting=true`; otherwise the gate applies XSLT subsetting.
+      parameters:
+        - name: gateId
+          in: path
+          required: true
+          description: Gate identifier (format eu-{country code}{number})
+          schema:
+            type: string
+            pattern: '^eu-[a-z]{2}[0-9]{2}$'
+            example: "eu-ee31"
+        - name: platformId
+          in: path
+          required: true
+          description: Platform identifier
+          schema:
+            type: string
+            example: "plt-demo-123"
+        - name: datasetId
+          in: path
+          required: true
+          description: Dataset UUID assigned by the platform
+          schema:
+            type: string
+            format: uuid
+            example: "550e8400-e29b-41d4-a716-446655440001"
+        - name: subsetId
+          in: query
+          required: true
+          description: eFTI data subsets to request (at least 1, max 7)
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/Subset'
+            minItems: 1
+          style: form
+          explode: true
+          example: ["EU01", "EU02", "EU05"]
+        - $ref: '#/components/parameters/XRequestId'
+      responses:
+        '200':
+          description: Dataset XML filtered to requested subsets
+          headers:
+            X-Request-ID:
+              description: Echo of the request ID for correlation
+              schema:
+                type: string
+          content:
+            application/xml:
+              schema:
+                type: string
+                format: xml
+              example: |
+                <consignment xmlns="http://efti.eu/v1/consignment/identifier"
+                             xmlns:edelivery="http://efti.eu/v1/edelivery">
+                  <edelivery:UIL>
+                    <edelivery:gateId>eu-ee31</edelivery:gateId>
+                    <edelivery:platformId>plt-demo-123</edelivery:platformId>
+                    <edelivery:datasetId>550e8400-e29b-41d4-a716-446655440001</edelivery:datasetId>
+                  </edelivery:UIL>
+                  <mainCarriageTransportMovement>
+                    <modeCode>3</modeCode>
+                    <dangerousGoodsIndicator>true</dangerousGoodsIndicator>
+                    <usedTransportMeans>
+                      <id schemeAgencyId="11">123ABC</id>
+                      <registrationCountry><code>EE</code></registrationCountry>
+                    </usedTransportMeans>
+                  </mainCarriageTransportMovement>
+                  <transportedDangerousGoods>
+                    <unNumber>1203</unNumber>
+                    <technicalName>Gasoline</technicalName>
+                    <adrClass>3</adrClass>
+                  </transportedDangerousGoods>
+                </consignment>
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+
+  /v1/follow-up/{gateId}/{platformId}/{datasetId}/{datasetRequestId}:
+    post:
+      tags: [Authority]
+      summary: Send follow-up message to platform
+      operationId: postFollowUp
+      description: |
+        Authorities have the right to send follow-up messages to platforms regarding
+        datasets that they find suspicious, unlawful, or requiring enforcement action.
+        The message is forwarded to the platform via the gate (eDelivery AS4 if remote).
+      parameters:
+        - name: gateId
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^eu-[a-z]{2}[0-9]{2}$'
+            example: "eu-ee31"
+        - name: platformId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "plt-demo-123"
+        - name: datasetId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "550e8400-e29b-41d4-a716-446655440001"
+        - name: datasetRequestId
+          in: path
+          required: true
+          description: Request ID of the original dataset query made previously
+          schema:
+            type: string
+            example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+        - $ref: '#/components/parameters/XRequestId'
+      requestBody:
+        required: true
+        description: Plain text follow-up message for the platform
+        content:
+          text/plain:
+            schema:
+              type: string
+              maxLength: 2000
+            example: "Consignment flagged for cabotage inspection per Regulation (EC) 1072/2009. Reference: EST-2026-04-42."
+      responses:
+        '200':
+          description: Follow-up message forwarded successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+
+  # ----------------------------------------------------------------------------
+  # ADMIN API — GATES
+  # ----------------------------------------------------------------------------
+
+  /api/v1/gates:
+    get:
+      tags: [Admin - Gates]
+      summary: List gates
+      operationId: listGates
+      description: |
+        Returns all registered eFTI gates visible to the authenticated admin user.
+        SUPER_ADMIN sees all gates; gate-scoped ADMIN sees only their own gate.
+      responses:
+        '200':
+          description: List of gates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Gate'
+              example:
+                - id: "eu-ee31"
+                  countryCode: "EE"
+                  eDeliveryUrl: "https://eu-ee31.eftisandbox.eu/services/msh"
+                  status: "ONLINE"
+                  createdAt: "2025-01-15T09:00:00Z"
+                - id: "eu-fi01"
+                  countryCode: "FI"
+                  eDeliveryUrl: "https://efti.traficom.fi/services/msh"
+                  status: "ONLINE"
+                  createdAt: "2025-02-01T10:00:00Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags: [Admin - Gates]
+      summary: Create or update gate
+      operationId: saveGate
+      description: |
+        Creates a new gate or updates an existing one (upsert by `id`). After save,
+        the gate is immediately pinged to verify connectivity.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GateWrite'
+            example:
+              id: "eu-de01"
+              countryCode: "DE"
+              eDeliveryUrl: "https://efti.bast.de/services/msh"
+              eDeliveryCert: "-----BEGIN CERTIFICATE-----\nMIIC...-----END CERTIFICATE-----"
+              status: "ONLINE"
+      responses:
+        '200':
+          description: Gate saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Gate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/gates/own:
+    get:
+      tags: [Admin - Gates]
+      summary: Get own gate configuration
+      operationId: getOwnGate
+      description: Returns the configuration of this gate itself (read from config, not DB).
+      responses:
+        '200':
+          description: Own gate configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Gate'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/gates/{gateId}:
+    delete:
+      tags: [Admin - Gates]
+      summary: Delete gate
+      operationId: deleteGate
+      description: |
+        Removes a gate from the registry. A gate cannot delete itself.
+        Requires write access to the specified gate ID.
+      parameters:
+        - $ref: '#/components/parameters/GateIdPath'
+      responses:
+        '204':
+          description: Gate deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/gates/{gateId}/ping:
+    post:
+      tags: [Admin - Gates]
+      summary: Ping gate
+      operationId: pingGate
+      description: Manually triggers an eDelivery ping to the specified gate to test connectivity.
+      parameters:
+        - $ref: '#/components/parameters/GateIdPath'
+      responses:
+        '200':
+          description: Ping successful
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+
+  # ----------------------------------------------------------------------------
+  # ADMIN API — PLATFORMS
+  # ----------------------------------------------------------------------------
+
+  /api/v1/platforms:
+    get:
+      tags: [Admin - Platforms]
+      summary: List platforms
+      operationId: listPlatforms
+      description: Returns all platforms visible to the authenticated admin user.
+      responses:
+        '200':
+          description: List of platforms
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Platform'
+              example:
+                - id: "plt-demo-123"
+                  baseUrl: "https://demo-platform.eu-ee31.eftisandbox.eu/v1"
+                  supportsSubsetting: true
+                  createdAt: "2025-01-15T09:00:00Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags: [Admin - Platforms]
+      summary: Create or update platform
+      operationId: savePlatform
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlatformWrite'
+            example:
+              id: "plt-cargo-ee"
+              baseUrl: "https://api.cargo-ee.com/efti/v1"
+              supportsSubsetting: true
+              headers:
+                X-Api-Key: "secret-key-abc123"
+      responses:
+        '200':
+          description: Platform saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Platform'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/platforms/{platformId}:
+    delete:
+      tags: [Admin - Platforms]
+      summary: Delete platform
+      operationId: deletePlatform
+      parameters:
+        - $ref: '#/components/parameters/PlatformIdPath'
+      responses:
+        '204':
+          description: Platform deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/platforms/{platformId}/ping:
+    post:
+      tags: [Admin - Platforms]
+      summary: Ping platform
+      operationId: pingPlatform
+      description: Manually triggers a connectivity check to the platform's base URL.
+      parameters:
+        - $ref: '#/components/parameters/PlatformIdPath'
+      responses:
+        '200':
+          description: Ping successful
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+
+  # ----------------------------------------------------------------------------
+  # ADMIN API — AUTHORITIES
+  # ----------------------------------------------------------------------------
+
+  /api/v1/authorities:
+    get:
+      tags: [Admin - Authorities]
+      summary: List authorities
+      operationId: listAuthorities
+      responses:
+        '200':
+          description: List of competent authorities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Authority'
+              example:
+                - id: "auth-mta"
+                  countryCode: "EE"
+                  name: "Tax and Customs Board"
+                  subsets: ["EU01", "EU02", "EU05"]
+                - id: "auth-ppa"
+                  countryCode: "EE"
+                  name: "Police and Border Guard"
+                  subsets: ["EU01", "EU02", "EU03", "EU04", "EU05"]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags: [Admin - Authorities]
+      summary: Create or update authority
+      operationId: saveAuthority
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthorityWrite'
+            example:
+              id: "auth-mta"
+              countryCode: "EE"
+              name: "Tax and Customs Board"
+              subsets: ["EU01", "EU02", "EU05"]
+      responses:
+        '200':
+          description: Authority saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Authority'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/authorities/{authorityId}:
+    get:
+      tags: [Admin - Authorities]
+      summary: Get authority
+      operationId: getAuthority
+      parameters:
+        - $ref: '#/components/parameters/AuthorityIdPath'
+      responses:
+        '200':
+          description: Authority details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Authority'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [Admin - Authorities]
+      summary: Delete authority
+      operationId: deleteAuthority
+      parameters:
+        - $ref: '#/components/parameters/AuthorityIdPath'
+      responses:
+        '204':
+          description: Authority deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ----------------------------------------------------------------------------
+  # ADMIN API — USERS
+  # ----------------------------------------------------------------------------
+
+  /api/v1/users:
+    get:
+      tags: [Admin - Users]
+      summary: List users
+      operationId: listUsers
+      description: |
+        Lists users visible to the authenticated admin. SUPER_ADMIN sees all users;
+        gate-scoped ADMIN sees only users within their gate/platform/authority scope.
+      parameters:
+        - name: gateId
+          in: query
+          required: false
+          schema:
+            type: string
+            example: "eu-ee31"
+        - name: platformId
+          in: query
+          required: false
+          schema:
+            type: string
+            example: "plt-demo-123"
+        - name: authorityId
+          in: query
+          required: false
+          schema:
+            type: string
+            example: "auth-mta"
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags: [Admin - Users]
+      summary: Create or update user
+      operationId: saveUser
+      description: |
+        Creates or updates a user. If `generateSecret=true`, a new random API secret
+        is generated and returned in the response body (shown only once).
+        For email-based users the response is the raw secret; for API key users
+        the response is `base64(id:secret)`.
+      parameters:
+        - name: generateSecret
+          in: query
+          required: false
+          description: Generate a new API secret for this user
+          schema:
+            type: boolean
+            default: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserWrite'
+            examples:
+              platformUser:
+                summary: Platform API user
+                value:
+                  name: "Cargo Platform Service Account"
+                  email: null
+                  roles:
+                    PLATFORM: ["plt-demo-123"]
+                  subsets: null
+              authorityUser:
+                summary: Authority user with subset restrictions
+                value:
+                  name: "MTA Inspector"
+                  email: "inspector@mta.ee"
+                  roles:
+                    AUTHORITY: ["auth-mta"]
+                  subsets: ["EU01", "EU02"]
+      responses:
+        '200':
+          description: |
+            User saved. If `generateSecret=true`, response body contains the new secret
+            (plain text for email users, base64 `id:secret` for API users).
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/users/{userId}:
+    delete:
+      tags: [Admin - Users]
+      summary: Delete user
+      operationId: deleteUser
+      description: Deletes a user. Admins cannot delete themselves.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+      responses:
+        '204':
+          description: User deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/user:
+    get:
+      tags: [Admin - Users]
+      summary: Get current authenticated user
+      operationId: getCurrentUser
+      description: Returns the profile of the currently authenticated user.
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ----------------------------------------------------------------------------
+  # ADMIN API — CONSIGNMENTS
+  # ----------------------------------------------------------------------------
+
+  /api/v1/consignments:
+    get:
+      tags: [Admin - Consignments]
+      summary: List consignments (admin view)
+      operationId: listConsignments
+      description: |
+        Returns stored consignment identifiers. Admin users see consignments within
+        their gate/platform scope. SUPER_ADMIN sees all.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [active, inactive, deleted]
+          example: active
+        - name: platformId
+          in: query
+          required: false
+          schema:
+            type: string
+            example: "plt-demo-123"
+        - name: mode
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: ["1", "2", "3", "4"]
+        - name: dangerousGoods
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: List of consignments with extracted identifiers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConsignmentWithIdentifiers'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/consignments/{datasetId}:
+    delete:
+      tags: [Admin - Consignments]
+      summary: Force delete consignment (SUPER_ADMIN only)
+      operationId: adminDeleteConsignment
+      description: |
+        Permanently deletes a consignment record from the database.
+        Only SUPER_ADMIN can perform this operation.
+      parameters:
+        - $ref: '#/components/parameters/DatasetIdPath'
+      responses:
+        '204':
+          description: Consignment deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ----------------------------------------------------------------------------
+  # ADMIN API — AUDIT
+  # ----------------------------------------------------------------------------
+
+  /api/v1/audit:
+    get:
+      tags: [Admin - Audit]
+      summary: Query audit log (SUPER_ADMIN only)
+      operationId: listAuditLog
+      description: |
+        Returns audit log entries. The audit log is immutable (no updates/deletes).
+        Filtered by table, row ID, date range, and acting user.
+      parameters:
+        - name: table
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gates, platforms, authorities, users, consignments]
+        - name: rowId
+          in: query
+          required: false
+          schema:
+            type: string
+            example: "eu-ee31"
+        - name: changedBy
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+            example: "2026-04-01T00:00:00Z"
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+            example: "2026-04-30T23:59:59Z"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+      responses:
+        '200':
+          description: Audit log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChangeHistoryEntry'
+              example:
+                - table: "gates"
+                  rowId: "eu-de01"
+                  column: "status"
+                  oldValue: "ONLINE"
+                  newValue: "DISABLED"
+                  changedAt: "2026-04-22T10:20:35Z"
+                  changedBy: "550e8400-e29b-41d4-a716-446655440000"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ----------------------------------------------------------------------------
+  # HEALTH
+  # ----------------------------------------------------------------------------
+
+  /health/live:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      operationId: liveness
+      description: Returns 200 OK if the application process is running. Used by Kubernetes liveness probe.
+      security: []
+      responses:
+        '200':
+          description: Application is alive
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "OK"
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /health/ready:
+    get:
+      tags: [Health]
+      summary: Readiness probe
+      operationId: readiness
+      description: Returns 200 OK only when the application is ready to serve traffic (DB connected, config loaded).
+      security: []
+      responses:
+        '200':
+          description: Application is ready
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: "OK"
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+# ==============================================================================
+# COMPONENTS
+# ==============================================================================
+components:
+
+  # ============================================================================
+  # SECURITY SCHEMES
+  # ============================================================================
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        RFC 7519 JWT token. Obtain via HTTP Basic Auth (email:secret) on any protected endpoint.
+
+        **Token MUST contain claims**:
+        - `sub`: User ID (UUID)
+        - `name`: Display name
+        - `roles`: Object mapping role names to party ID arrays
+          - Example: `{"ADMIN": ["eu-ee31"], "PLATFORM": ["plt-demo-123"]}`
+        - `subsets`: Array of permitted subset IDs (AUTHORITY role only)
+          - Example: `["EU01", "EU02", "EU05"]`
+        - `exp`: Expiration timestamp (Unix epoch)
+        - `iss`: Issuer gate ID
+
+        **Example decoded payload**:
+        ```json
+        {
+          "sub": "04fa30eb-eb08-11f0-b506-3c9c0f2eb459",
+          "name": "MTA Inspector",
+          "email": "inspector@mta.ee",
+          "roles": {"AUTHORITY": ["auth-mta"]},
+          "subsets": ["EU01", "EU02", "EU05"],
+          "exp": 1745400000,
+          "iss": "eu-ee31"
+        }
+        ```
+
+  # ============================================================================
+  # PARAMETERS
+  # ============================================================================
+  parameters:
+    DatasetIdPath:
+      name: datasetId
+      in: path
+      required: true
+      description: Dataset UUID assigned by the platform (UUID v4)
+      schema:
+        type: string
+        format: uuid
+        example: "550e8400-e29b-41d4-a716-446655440001"
+
+    GateIdPath:
+      name: gateId
+      in: path
+      required: true
+      description: Gate identifier (format eu-{ISO 3166-1 alpha-2 country code}{2-digit number})
+      schema:
+        type: string
+        pattern: '^eu-[a-z]{2}[0-9]{2}$'
+        example: "eu-ee31"
+
+    PlatformIdPath:
+      name: platformId
+      in: path
+      required: true
+      description: Platform identifier
+      schema:
+        type: string
+        example: "plt-demo-123"
+
+    AuthorityIdPath:
+      name: authorityId
+      in: path
+      required: true
+      description: Authority identifier
+      schema:
+        type: string
+        example: "auth-mta"
+
+    XRequestId:
+      name: X-Request-ID
+      in: header
+      required: false
+      description: |
+        Client-generated UUID for idempotency and request correlation. If provided,
+        the gate rejects duplicate requests with the same ID within a 10-minute window (409 Conflict).
+        The gate echoes this header in responses.
+      schema:
+        type: string
+        format: uuid
+        example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+
+  # ============================================================================
+  # RESPONSES
+  # ============================================================================
+  responses:
+    BadRequest:
+      description: Bad Request — invalid parameters, malformed XML, or missing required fields
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: "https://api.efti.ee/errors/bad-request"
+            title: "Bad Request"
+            status: 400
+            detail: "Query parameter 'subsetId' is required and must have at least 1 value"
+            instance: "/v1/dataset/eu-ee31/plt-demo-123/550e8400-e29b-41d4-a716-446655440001"
+            requestId: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+
+    Unauthorized:
+      description: Unauthorized — missing or invalid JWT token
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: "https://api.efti.ee/errors/unauthorized"
+            title: "Unauthorized"
+            status: 401
+            detail: "JWT token is missing or has expired"
+            instance: "/v1/identifiers/123ABC"
+
+    Forbidden:
+      description: Forbidden — insufficient permissions or forbidden subset
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: "https://api.efti.ee/errors/forbidden"
+            title: "Forbidden"
+            status: 403
+            detail: "Authority 'auth-mta' is not permitted to access subset 'EU06'"
+            instance: "/v1/dataset/eu-ee31/plt-demo-123/550e8400-e29b-41d4-a716-446655440001"
+
+    NotFound:
+      description: Not Found — resource does not exist
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: "https://api.efti.ee/errors/not-found"
+            title: "Not Found"
+            status: 404
+            detail: "Consignment with datasetId '550e8400-e29b-41d4-a716-446655440099' not found"
+            instance: "/api/v1/consignments/550e8400-e29b-41d4-a716-446655440099"
+
+    Conflict:
+      description: Conflict — duplicate request ID within 10-minute window
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: "https://api.efti.ee/errors/conflict"
+            title: "Conflict"
+            status: 409
+            detail: "Request ID '7c9e6679-7425-40de-944b-e07fc1f90ae7' was already processed within the last 10 minutes"
+            instance: "/v1/identifiers/550e8400-e29b-41d4-a716-446655440001"
+
+    TooManyRequests:
+      description: Too Many Requests — rate limit exceeded
+      headers:
+        Retry-After:
+          description: Seconds until the rate limit window resets
+          schema:
+            type: integer
+            example: 30
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: "https://api.efti.ee/errors/too-many-requests"
+            title: "Too Many Requests"
+            status: 429
+            detail: "Rate limit of 60 requests per minute exceeded. Retry after 30 seconds."
+            instance: "/v1/identifiers/123ABC"
+
+    InternalServerError:
+      description: Internal Server Error — unexpected server-side failure
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: "https://api.efti.ee/errors/internal-server-error"
+            title: "Internal Server Error"
+            status: 500
+            detail: "An unexpected error occurred. Please contact support with requestId."
+            instance: "/v1/identifiers/123ABC"
+            requestId: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+
+    BadGateway:
+      description: Bad Gateway — upstream gate or platform is unreachable
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: "https://api.efti.ee/errors/bad-gateway"
+            title: "Bad Gateway"
+            status: 502
+            detail: "Gate 'eu-de01' is not reachable via eDelivery AS4"
+            instance: "/v1/dataset/eu-de01/plt-cargo/550e8400-e29b-41d4-a716-446655440001"
+
+    GatewayTimeout:
+      description: Gateway Timeout — upstream gate or platform did not respond in time
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: "https://api.efti.ee/errors/gateway-timeout"
+            title: "Gateway Timeout"
+            status: 504
+            detail: "Platform 'plt-demo-123' did not respond within 30 seconds"
+            instance: "/v1/dataset/eu-ee31/plt-demo-123/550e8400-e29b-41d4-a716-446655440001"
+
+    ServiceUnavailable:
+      description: Service Unavailable — application is starting up or undergoing maintenance
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: "https://api.efti.ee/errors/service-unavailable"
+            title: "Service Unavailable"
+            status: 503
+            detail: "Database connection is not available"
+            instance: "/health/ready"
+
+  # ============================================================================
+  # SCHEMAS
+  # ============================================================================
+  schemas:
+
+    # --------------------------------------------------------------------------
+    # COMMON / ERROR
+    # --------------------------------------------------------------------------
+
+    ProblemDetails:
+      type: object
+      description: RFC 7807 Problem Details for HTTP APIs
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+          description: URI identifying the problem type
+          example: "https://api.efti.ee/errors/bad-request"
+        title:
+          type: string
+          description: Short human-readable summary of the problem type
+          example: "Bad Request"
+        status:
+          type: integer
+          description: HTTP status code
+          example: 400
+        detail:
+          type: string
+          description: Human-readable explanation of this specific problem occurrence
+          example: "Parameter 'modeCode' must be one of: 1, 2, 3, 4"
+        instance:
+          type: string
+          description: URI reference identifying the specific occurrence
+          example: "/v1/identifiers/123ABC"
+        requestId:
+          type: string
+          description: Echo of X-Request-ID header for correlation
+          example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+
+    # --------------------------------------------------------------------------
+    # ENUMS
+    # --------------------------------------------------------------------------
+
+    Subset:
+      type: string
+      description: |
+        eFTI data subsets per EU Delegated Regulation 2024/2024:
+        - **EU01**: Consignment identification (CMR number, AWB, Bill of Lading)
+        - **EU02**: Means of transport (vehicle plate, container number)
+        - **EU03**: Transported goods (commodity codes, weight, volume)
+        - **EU04**: Locations (loading/unloading addresses, route)
+        - **EU05**: Dangerous goods (UN number, ADR class, packaging group)
+        - **EU06**: Waste shipment data (Basel Convention compliance)
+        - **EU07**: Consignee/consignor commercial data (party names, addresses)
+      enum: [EU01, EU02, EU03, EU04, EU05, EU06, EU07]
+      example: "EU05"
+
+    GateStatus:
+      type: string
+      description: |
+        Operational status of an eFTI gate:
+        - **ONLINE**: Gate is reachable and accepting queries
+        - **OFFLINE**: Gate is unreachable (failed last ping)
+        - **DISABLED**: Gate manually deactivated by administrator
+      enum: [ONLINE, OFFLINE, DISABLED]
+      example: "ONLINE"
+
+    TransportMode:
+      type: string
+      description: |
+        Transport mode codes per EU eFTI classification:
+        - **1**: Maritime (sea transport)
+        - **2**: Rail (railway transport)
+        - **3**: Road (road transport, including cabotage)
+        - **4**: Air (air cargo)
+      enum: ["1", "2", "3", "4"]
+      example: "3"
+
+    IdentifierType:
+      type: string
+      description: |
+        Type of consignment identifier:
+        - **means**: Means of transport (vehicle registration plate)
+        - **equipment**: Transport equipment (container number, trailer)
+        - **carried**: Carried transport unit (swap body, pallet)
+      enum: [means, equipment, carried]
+      example: "means"
+
+    ConsignmentLifecycleStatus:
+      type: string
+      description: |
+        Lifecycle status of a stored consignment:
+        - **active**: Consignment is registered and queryable by authorities
+        - **inactive**: Consignment has expired (e.g., ROAD mode after 14-day retention) or been delivered
+        - **deleted**: Platform explicitly deleted the consignment
+      enum: [active, inactive, deleted]
+      example: "active"
+
+    # --------------------------------------------------------------------------
+    # CONSIGNMENT
+    # --------------------------------------------------------------------------
+
+    ConsignmentIdentifier:
+      type: object
+      description: Consignment identifier metadata as stored in the gate (searchable fields only)
+      properties:
+        uil:
+          $ref: '#/components/schemas/UIL'
+        mainCarriageTransportMovement:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransportMovement'
+        usedTransportEquipment:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransportEquipment'
+        carrierAcceptanceDateTime:
+          type: object
+          properties:
+            value:
+              type: string
+              example: "20260422"
+            formatId:
+              type: string
+              example: "102"
+      example:
+        uil:
+          gateId: "eu-ee31"
+          platformId: "plt-demo-123"
+          datasetId: "550e8400-e29b-41d4-a716-446655440001"
+        mainCarriageTransportMovement:
+          - modeCode: "3"
+            dangerousGoodsIndicator: true
+            usedTransportMeans:
+              id: "123ABC"
+              registrationCountry: "EE"
+
+    TransportMovement:
+      type: object
+      properties:
+        modeCode:
+          $ref: '#/components/schemas/TransportMode'
+        dangerousGoodsIndicator:
+          type: boolean
+          example: true
+        usedTransportMeans:
+          $ref: '#/components/schemas/TransportMeans'
+
+    TransportMeans:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Vehicle plate number or transport means identifier
+          example: "123ABC"
+        registrationCountry:
+          type: string
+          description: ISO 3166-1 alpha-2 registration country code
+          pattern: '^[A-Z]{2}$'
+          example: "EE"
+
+    TransportEquipment:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Container or equipment identifier
+          example: "MSCU1234567"
+        categoryCode:
+          type: string
+          description: Equipment category code (e.g., CN for container)
+          example: "CN"
+        registrationCountry:
+          type: string
+          pattern: '^[A-Z]{2}$'
+          example: "NL"
+        sequenceNumber:
+          type: integer
+          example: 1
+
+    UIL:
+      type: object
+      description: Unique Identifier Locator — globally unique reference to a consignment dataset
+      required: [gateId, platformId, datasetId]
+      properties:
+        gateId:
+          type: string
+          pattern: '^eu-[a-z]{2}[0-9]{2}$'
+          description: Gate that holds the consignment data
+          example: "eu-ee31"
+        platformId:
+          type: string
+          description: Platform that owns the dataset
+          example: "plt-demo-123"
+        datasetId:
+          type: string
+          format: uuid
+          description: UUID of the dataset on the platform
+          example: "550e8400-e29b-41d4-a716-446655440001"
+
+    ConsignmentStatus:
+      type: object
+      description: Consignment registration status response
+      properties:
+        datasetId:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        status:
+          $ref: '#/components/schemas/ConsignmentLifecycleStatus'
+        registeredAt:
+          type: string
+          format: date-time
+          example: "2026-04-20T08:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-04-22T10:15:00Z"
+
+    ConsignmentWithIdentifiers:
+      type: object
+      description: Consignment record with extracted identifier strings (admin view)
+      properties:
+        consignment:
+          $ref: '#/components/schemas/StoredConsignment'
+        identifiers:
+          type: array
+          description: List of extracted identifier values (plates, containers etc.)
+          items:
+            type: string
+          example: ["123ABC", "MSCU1234567"]
+
+    StoredConsignment:
+      type: object
+      description: Consignment as stored in the gate database
+      properties:
+        datasetId:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        platformId:
+          type: string
+          example: "plt-demo-123"
+        gateId:
+          type: string
+          example: "eu-ee31"
+        mode:
+          $ref: '#/components/schemas/TransportMode'
+        dangerousGoods:
+          type: boolean
+          example: true
+        status:
+          $ref: '#/components/schemas/ConsignmentLifecycleStatus'
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-04-20T08:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-04-22T10:15:00Z"
+        deliveredAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-04-21T18:00:00Z"
+
+    # --------------------------------------------------------------------------
+    # GATE
+    # --------------------------------------------------------------------------
+
+    Gate:
+      type: object
+      description: Registered eFTI gate
+      properties:
+        id:
+          type: string
+          pattern: '^eu-[a-z]{2}[0-9]{2}$'
+          example: "eu-ee31"
+        countryCode:
+          type: string
+          pattern: '^[A-Z]{2}$'
+          example: "EE"
+        eDeliveryUrl:
+          type: string
+          format: uri
+          example: "https://eu-ee31.eftisandbox.eu/services/msh"
+        eDeliveryCert:
+          type: string
+          description: X.509 certificate PEM (eDelivery AS4 signature verification)
+          example: "-----BEGIN CERTIFICATE-----\nMIIC...-----END CERTIFICATE-----"
+        tlsCert:
+          type: string
+          nullable: true
+          description: X.509 certificate PEM for mutual TLS (optional)
+        status:
+          $ref: '#/components/schemas/GateStatus'
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-01-15T09:00:00Z"
+
+    GateWrite:
+      type: object
+      description: Gate create/update payload
+      required: [id, countryCode, eDeliveryUrl, eDeliveryCert]
+      properties:
+        id:
+          type: string
+          pattern: '^eu-[a-z]{2}[0-9]{2}$'
+          example: "eu-de01"
+        countryCode:
+          type: string
+          pattern: '^[A-Z]{2}$'
+          example: "DE"
+        eDeliveryUrl:
+          type: string
+          format: uri
+          example: "https://efti.bast.de/services/msh"
+        eDeliveryCert:
+          type: string
+          example: "-----BEGIN CERTIFICATE-----\nMIIC...-----END CERTIFICATE-----"
+        tlsCert:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/GateStatus'
+
+    # --------------------------------------------------------------------------
+    # PLATFORM
+    # --------------------------------------------------------------------------
+
+    Platform:
+      type: object
+      description: Registered freight platform
+      properties:
+        id:
+          type: string
+          example: "plt-demo-123"
+        baseUrl:
+          type: string
+          format: uri
+          description: REST API base URL for dataset queries
+          example: "https://demo-platform.eu-ee31.eftisandbox.eu/v1"
+        supportsSubsetting:
+          type: boolean
+          description: If false, gate applies XSLT subsetting on behalf of the platform
+          example: true
+        eDeliveryCert:
+          type: string
+          nullable: true
+          description: eDelivery AS4 certificate (optional — required for AS4 transport)
+        tlsCert:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-01-15T09:00:00Z"
+
+    PlatformWrite:
+      type: object
+      description: Platform create/update payload
+      required: [id, baseUrl]
+      properties:
+        id:
+          type: string
+          example: "plt-cargo-ee"
+        baseUrl:
+          type: string
+          format: uri
+          example: "https://api.cargo-ee.com/efti/v1"
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+          description: Additional HTTP headers to include in requests to this platform
+          example:
+            X-Api-Key: "secret-key-abc123"
+        supportsSubsetting:
+          type: boolean
+          default: true
+        eDeliveryCert:
+          type: string
+          nullable: true
+        tlsCert:
+          type: string
+          nullable: true
+
+    # --------------------------------------------------------------------------
+    # AUTHORITY
+    # --------------------------------------------------------------------------
+
+    Authority:
+      type: object
+      description: Competent authority registered to query freight data
+      properties:
+        id:
+          type: string
+          example: "auth-mta"
+        countryCode:
+          type: string
+          pattern: '^[A-Z]{2}$'
+          example: "EE"
+        name:
+          type: string
+          example: "Tax and Customs Board"
+        subsets:
+          type: array
+          description: eFTI data subsets this authority is permitted to access
+          items:
+            $ref: '#/components/schemas/Subset'
+          minItems: 1
+          example: ["EU01", "EU02", "EU05"]
+
+    AuthorityWrite:
+      type: object
+      description: Authority create/update payload
+      required: [id, countryCode, subsets]
+      properties:
+        id:
+          type: string
+          example: "auth-mta"
+        countryCode:
+          type: string
+          pattern: '^[A-Z]{2}$'
+          example: "EE"
+        name:
+          type: string
+          example: "Tax and Customs Board"
+        subsets:
+          type: array
+          items:
+            $ref: '#/components/schemas/Subset'
+          minItems: 1
+          example: ["EU01", "EU02", "EU05"]
+
+    # --------------------------------------------------------------------------
+    # USER
+    # --------------------------------------------------------------------------
+
+    User:
+      type: object
+      description: System user with role-based access
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "04fa30eb-eb08-11f0-b506-3c9c0f2eb459"
+        name:
+          type: string
+          example: "MTA Inspector"
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: Email address (null for API-key-only service accounts)
+          example: "inspector@mta.ee"
+        isAdmin:
+          type: boolean
+          description: Legacy super-admin flag (use roles instead)
+          example: false
+        roles:
+          type: object
+          description: |
+            Map of role names to arrays of party IDs. Roles:
+            - **GATE**: Gate-level administrator
+            - **PLATFORM**: Platform service account
+            - **AUTHORITY**: Authority user
+            - **ADMIN**: Admin (legacy, gate-scoped)
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          example:
+            AUTHORITY: ["auth-mta"]
+        subsets:
+          type: array
+          nullable: true
+          description: Subset-level access restriction for AUTHORITY users (null = all authority subsets)
+          items:
+            $ref: '#/components/schemas/Subset'
+          example: ["EU01", "EU02"]
+
+    UserWrite:
+      type: object
+      description: User create/update payload
+      required: [name, roles]
+      properties:
+        name:
+          type: string
+          example: "MTA Inspector"
+        email:
+          type: string
+          format: email
+          nullable: true
+          example: "inspector@mta.ee"
+        roles:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          example:
+            AUTHORITY: ["auth-mta"]
+        subsets:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/Subset'
+          example: ["EU01", "EU02"]
+
+    # --------------------------------------------------------------------------
+    # AUDIT
+    # --------------------------------------------------------------------------
+
+    ChangeHistoryEntry:
+      type: object
+      description: Single field-level change record from the change_history audit table
+      properties:
+        table:
+          type: string
+          description: Database table name where the change occurred
+          example: "gates"
+        rowId:
+          type: string
+          description: Primary key of the modified record
+          example: "eu-de01"
+        column:
+          type: string
+          description: Column that was modified
+          example: "status"
+        oldValue:
+          type: string
+          nullable: true
+          description: Previous value (null for INSERTs)
+          example: "ONLINE"
+        newValue:
+          type: string
+          nullable: true
+          description: New value (null for DELETEs)
+          example: "DISABLED"
+        changedAt:
+          type: string
+          format: date-time
+          example: "2026-04-22T10:20:35Z"
+        changedBy:
+          type: string
+          format: uuid
+          nullable: true
+          description: UUID of the user who made the change (null if system-initiated)
+          example: "550e8400-e29b-41d4-a716-446655440000"

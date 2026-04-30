@@ -1,0 +1,25 @@
+stateDiagram-v2
+    [*] --> Active: Admin: POST /gates/platforms\n(platform created, immediately active)
+
+    Active --> Active: Platform: POST /identifiers/{datasetId}\n(registers/updates identifiers)
+
+    Active --> Deleted: Admin: DELETE /gates/platforms/{id}\n(platform removed from registry)
+
+    Deleted --> [*]: Platform entry removed\nAssociated users lose access\nExisting consignments remain in DB
+
+    note right of Active
+        State: Active
+        - Platform can register identifiers
+        - platformRegistry[id] returns Platform object
+        - Platform users can authenticate
+        - Dataset requests routed to platform.baseUrl
+        - supportsSubsetting: determines if gate uses full XML or subset API
+    end note
+
+    note right of Deleted
+        State: Deleted
+        - Platform removed from in-memory registry
+        - Existing consignments NOT deleted (data retention)
+        - Platform users get 401 (platformRegistry lookup fails)
+        - Dataset requests to this platform will fail
+    end note

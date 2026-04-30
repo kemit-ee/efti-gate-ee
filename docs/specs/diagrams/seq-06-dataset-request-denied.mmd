@@ -1,0 +1,34 @@
+sequenceDiagram
+    participant Authority as Authority User
+    participant GateEE as eFTI Gate (eu-ee31)
+    participant GateFI as Remote Gate (eu-fi01)
+    participant Platform as Platform (plt-fi-001)
+
+    Authority->>+GateEE: GET /dataset/eu-fi01/plt-fi-001/a1b2c3d4-e5f6-7890-abcd-ef1234567890?subsetId=full
+    Note over Authority,GateEE: Authorization: Bearer aut-demo-key<br/>X-Request-ID: req-e5f6a7b8
+
+    GateEE->>GateEE: Authenticate & authorize (role=AUTHORITY)
+    GateEE->>GateEE: Forward to remote gate eu-fi01
+
+    GateEE->>+GateFI: eDelivery AS4: UILQueryRequest<br/>(subsetId=full, requestId=req-e5f6a7b8)
+
+    GateFI->>+Platform: GET /v1/datasets/a1b2c3d4-...?subsetId=full
+
+    alt Platform denies access (403)
+        Platform-->>GateFI: 403 Forbidden\n{"error": "Access denied: authority not authorized for full subset"}
+        GateFI-->>GateEE: UILQueryResponse{status=403, body=&lt;description&gt;Access denied...&lt;/description&gt;}
+        GateEE-->>Authority: 403 Forbidden (application/xml)\n&lt;description&gt;Access denied: authority not authorized for full subset&lt;/description&gt;
+
+    else Platform dataset not found (404)
+        Platform-->>GateFI: 404 Not Found\n{"error": "Dataset not found or expired"}
+        GateFI-->>GateEE: UILQueryResponse{status=404, body=&lt;description&gt;Dataset not found...&lt;/description&gt;}
+        GateEE-->>Authority: 404 Not Found (application/xml)\n&lt;description&gt;Dataset not found or expired&lt;/description&gt;
+
+    else Platform unreachable (502)
+        Platform-->>-GateFI: Connection timeout / 5xx
+        GateFI-->>-GateEE: UILQueryResponse{status=500, body=&lt;description&gt;Platform error&lt;/description&gt;}
+        GateEE-->>Authority: 502 Bad Gateway (application/xml)\n&lt;description&gt;Platform error&lt;/description&gt;
+    end
+
+    GateEE-->>-Authority: Error response
+    Note over Authority: Dataset access denied or unavailable.<br/>Authority may send follow-up (seq-10).

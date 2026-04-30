@@ -1,0 +1,57 @@
+flowchart TD
+    Start([Authority: GET /identifiers/identifier]) --> AuthCheck[Authenticate user via API key]
+    AuthCheck --> RoleCheck{User has AUTHORITY role?}
+
+    RoleCheck -->|No| Deny403[Return 403 Forbidden]
+    RoleCheck -->|Yes| BuildQuery[Build IdentifiersQuery\nid, countryCode, mode,\ndangerousGoodsIndicator, forceBroadcast]
+
+    BuildQuery --> LocalQuery[Query local PostgreSQL\nSELECT FROM consignments JOIN identifiers\nWHERE id = identifier AND countryCode = ...]
+
+    LocalQuery --> LocalCount{local results count?}
+
+    LocalCount -->|count > 0| HasLocalResults{forceBroadcast = true?}
+    LocalCount -->|count = 0| NoLocalResults{forceBroadcast = true?}
+
+    HasLocalResults -->|No| ReturnLocalOnly[Return local results only\nNo broadcast to other gates]
+    HasLocalResults -->|Yes| DoBroadcast[Broadcast to all ONLINE gates]
+
+    NoLocalResults -->|No| DoBroadcast
+    NoLocalResults -->|Yes| DoBroadcast
+
+    DoBroadcast --> FetchOnlineGates[gateRegistry.online\nExcludes: OFFLINE, DISABLED, own gate]
+
+    FetchOnlineGates --> OpenSSE[Open SSE stream to authority\nHTTP 200 text/event-stream]
+
+    OpenSSE --> SendLocalGateEvent[event: gate\ngateId=eu-ee31, responseTimeMs=N]
+
+    SendLocalGateEvent --> HasLocalForStream{local results > 0?}
+
+    HasLocalForStream -->|Yes| StreamLocalConsignments[Stream local consignments\nevent: consignment for each result]
+    HasLocalForStream -->|No| WaitRemote[Wait for remote gate responses]
+
+    StreamLocalConsignments --> WaitRemote
+
+    WaitRemote --> RemoteResponse[Receive remote gate response\nor error/timeout]
+
+    RemoteResponse --> SendGateEvent[event: gate\ngateId=eu-fi01, responseTimeMs=N]
+
+    SendGateEvent --> HasRemoteResults{remote consignments present?}
+
+    HasRemoteResults -->|Yes| StreamRemoteConsignments[Stream remote consignments\nevent: consignment for each]
+    HasRemoteResults -->|No| CheckAllDone{All gates responded?}
+
+    StreamRemoteConsignments --> CheckAllDone
+
+    CheckAllDone -->|No| WaitRemote
+    CheckAllDone -->|Yes| SendComplete[event: complete\nClose SSE stream]
+
+    SendComplete --> End([Response complete])
+    ReturnLocalOnly --> SSELocal[Open SSE stream\nStream local results\nSend complete event]
+    SSELocal --> End
+    Deny403 --> End
+
+    style DoBroadcast fill:#ff9,stroke:#cc6
+    style LocalCount fill:#9f9,stroke:#060
+    style HasLocalResults fill:#9f9,stroke:#060
+    style NoLocalResults fill:#9f9,stroke:#060
+    style Deny403 fill:#f99,stroke:#900

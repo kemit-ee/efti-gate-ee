@@ -1,0 +1,50 @@
+sequenceDiagram
+    participant Client as API Client
+    participant Gate as eFTI Gate (eu-ee31)
+    participant Auth as AuthModule
+    participant DB as PostgreSQL
+    participant Route as Business Route
+
+    Note over Client: Client has credentials in format:<br/>email:secret (Base64 encoded) OR uuid:secret (Base64 encoded)
+
+    Client->>+Gate: GET /identifiers/123ABC
+    Note over Client,Gate: Authorization: Basic dXNlcjpzZWNyZXQ=<br/>(Base64 of "jaan.tamm@politsei.ee:generated-secret-uuid")
+
+    Gate->>+Auth: authenticate(request)
+
+    Auth->>Auth: Decode Base64 Authorization header
+    Auth->>Auth: Split by ":" → email="jaan.tamm@politsei.ee", secret="generated-secret-uuid"
+
+    Auth->>+DB: SELECT * FROM users WHERE email = 'jaan.tamm@politsei.ee'
+    DB-->>-Auth: User{id=d2e3f4a5, email=..., secretHash=sha256(...), roles={"AUTHORITY":["aut-politsei-001"]}, subsets=["EU07"]}
+
+    Auth->>Auth: sha256(secret) == user.secretHash → valid
+
+    Auth-->>-Gate: User{id=d2e3f4a5, roles={"AUTHORITY":["aut-politsei-001"]}, subsets=["EU07"]}
+
+    Gate->>+Route: handle(exchange, user)
+    Note over Route: @Access(AUTHORITY) annotation<br/>checks user.roles contains AUTHORITY
+
+    Route->>Route: before(exchange)<br/>authorityId = user.roles["AUTHORITY"].first() = "aut-politsei-001"
+
+    Route->>Route: Process identifier search
+    Route-->>-Gate: result
+
+    Gate-->>-Client: 200 OK (SSE stream)
+
+    alt Invalid credentials
+        Client->>Gate: Authorization: Basic aW52YWxpZDppbnZhbGlk
+        Gate->>Auth: authenticate(request)
+        Auth->>DB: SELECT * FROM users WHERE email = 'invalid'
+        DB-->>Auth: null
+        Auth-->>Gate: null (authentication failed)
+        Gate-->>Client: 401 Unauthorized
+    end
+
+    alt Valid credentials but wrong role
+        Client->>Gate: GET /identifiers/123ABC (platform user, not authority)
+        Gate->>Auth: authenticate
+        Auth-->>Gate: User{roles={"PLATFORM":["demo"]}}
+        Gate->>Route: @Access(AUTHORITY) check fails
+        Gate-->>Client: 403 Forbidden
+    end

@@ -1,0 +1,36 @@
+sequenceDiagram
+    participant Platform as Platform Operator
+    participant Gate as eFTI Gate (eu-ee31)
+    participant Auth as Auth (API Key)
+    participant DB as PostgreSQL
+    participant ConsReg as ConsignmentRepository
+
+    Platform->>+Gate: POST /identifiers/550e8400-e29b-41d4-a716-446655440000
+    Note over Platform,Gate: Content-Type: application/xml<br/>Authorization: Bearer plt-demo-key<br/>Body: &lt;consignment xmlns="http://efti.eu/v1/consignment/identifier"&gt;...
+
+    Gate->>+Auth: Validate API key
+    Auth-->>-Gate: User{platformId="demo", role=PLATFORM}
+
+    Gate->>Gate: Extract datasetId from XML attributes<br/>datasetId="550e8400-e29b-41d4-a716-446655440000"
+
+    Gate->>Gate: Parse identifier XML (EftiParser)
+    Note over Gate: Extracts: vehicle plate "123ABC", country "EE",<br/>mode "ROAD", dangerous goods flag
+
+    alt XML valid
+        Gate->>+ConsReg: save(consignment)
+        ConsReg->>+DB: INSERT INTO consignments<br/>(datasetId, platformId, gateId, xml, mode, dangerousGoods)
+        DB-->>-ConsReg: OK
+        ConsReg-->>-Gate: saved
+
+        Gate->>+ConsReg: save(identifiers)
+        ConsReg->>+DB: INSERT INTO identifiers<br/>(id="123ABC", datasetId, type="VEHICLE", countryCode="EE")
+        DB-->>-ConsReg: OK
+        ConsReg-->>-Gate: saved
+
+        Gate-->>-Platform: 200 OK
+        Note over Gate,Platform: Identifier registered.<br/>datasetId: 550e8400-e29b-41d4-a716-446655440000
+
+    else XML invalid or parse error
+        Gate-->>-Platform: 400 Bad Request
+        Note over Gate,Platform: {"error": "Error parsing identifiers: ..."}
+    end

@@ -1,0 +1,32 @@
+sequenceDiagram
+    participant Authority as Authority User
+    participant GateEE as eFTI Gate (eu-ee31)
+    participant GateFI as Remote Gate (eu-fi01)
+    participant Platform as Platform (plt-fi-001)
+
+    Note over Authority: Authority found consignment in search (seq-03).<br/>UIL: gateId=eu-fi01, platformId=plt-fi-001,<br/>datasetId=a1b2c3d4-e5f6-7890-abcd-ef1234567890
+
+    Authority->>+GateEE: GET /dataset/eu-fi01/plt-fi-001/a1b2c3d4-e5f6-7890-abcd-ef1234567890?subsetId=EU07
+    Note over Authority,GateEE: Authorization: Bearer aut-demo-key<br/>X-Request-ID: req-d4e5f6a7
+
+    GateEE->>GateEE: Authenticate & authorize (role=AUTHORITY)
+    GateEE->>GateEE: uil.gateId = "eu-fi01" ≠ Config.gateId "eu-ee31"<br/>→ Forward to remote gate
+
+    GateEE->>GateEE: gateRegistry["eu-fi01"] → Gate{status=ONLINE}
+    GateEE->>GateEE: checkGateAvailable(gate) → OK
+
+    GateEE->>+GateFI: eDelivery AS4: UILQueryRequest<br/>(platformId=plt-fi-001, datasetId=a1b2c3d4-..., subsetId=EU07, requestId=req-d4e5f6a7)
+
+    GateFI->>GateFI: Parse UIL query
+    GateFI->>GateFI: platformRegistry["plt-fi-001"] → Platform{baseUrl="https://..."}
+    GateFI->>+Platform: GET /v1/datasets/a1b2c3d4-e5f6-7890-abcd-ef1234567890?subsetId=EU07
+    Note over GateFI,Platform: HTTP request with platform credentials
+
+    Platform->>Platform: Retrieve dataset XML for subset EU07
+    Platform-->>-GateFI: 200 OK\n&lt;consignment xmlns="http://efti.eu/v1/consignment/identifier"&gt;...&lt;/consignment&gt;
+
+    GateFI-->>-GateEE: UILQueryResponse{status=200, body=&lt;consignment&gt;...}
+
+    GateEE-->>-Authority: 200 OK (application/xml)\nX-Request-ID: req-d4e5f6a7\n&lt;consignment xmlns="http://efti.eu/v1/consignment/identifier"&gt;...
+
+    Note over Authority: Received EU07 subset dataset for consignment.<br/>Includes transport details, route, operator info.

@@ -1,0 +1,47 @@
+stateDiagram-v2
+    [*] --> Initiated: Authority: GET /dataset/{gateId}/{platformId}/{datasetId}?subsetId=EU07
+
+    Initiated --> LocalFetch: uil.gateId == this gate\n(eu-ee31 == eu-ee31)
+
+    Initiated --> RemoteForward: uil.gateId != this gate\n(eu-ee31 != eu-fi01)
+
+    LocalFetch --> PlatformRequest: Gate sends HTTP GET\nto local platform baseUrl
+
+    RemoteForward --> GateForward: Gate sends UILQuery\nvia eDelivery AS4 or Fast HTTP\nto remote gate
+
+    GateForward --> PlatformRequest: Remote gate fetches\nfrom its local platform
+
+    PlatformRequest --> Approved: Platform returns 200 OK\nwith dataset XML
+
+    PlatformRequest --> Denied: Platform returns 403 Forbidden\n(access denied for this subset)
+
+    PlatformRequest --> NotFound: Platform returns 404 Not Found\n(dataset expired or deleted)
+
+    PlatformRequest --> Error: Platform returns 5xx\nor connection timeout
+
+    Approved --> Returned: Gate returns 200 OK\nwith dataset XML to authority
+
+    Denied --> Returned: Gate returns 403 Forbidden\nto authority
+
+    NotFound --> Returned: Gate returns 404 Not Found\nto authority
+
+    Error --> Returned: Gate returns 502 Bad Gateway\nto authority
+
+    Returned --> [*]
+
+    RemoteForward --> GateUnavailable: checkGateAvailable() fails\n(gate.status != ONLINE)
+
+    GateUnavailable --> Returned: 502 Bad Gateway\n"Cannot reach Gate eu-fi01: OFFLINE"
+
+    note right of RemoteForward
+        Routing decision based on UIL.gateId:
+        - Same gate → direct platform call
+        - Different gate → forward via eDelivery
+        Gate status checked before forwarding.
+    end note
+
+    note right of Approved
+        Authority receives full dataset XML
+        filtered to requested subset (EU07, full, etc.)
+        X-Request-ID header echoed in response.
+    end note

@@ -1,0 +1,662 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "eFTI REST API",
+    "version": "1.0"
+  },
+  "servers": [
+    {
+      "url": "https://eu-ee31.eftisandbox.eu/v1"
+    }
+  ],
+  "tags": [
+    {
+      "name": "For Platforms",
+      "description": "These APIs are called by eFTI Platforms."
+    },
+    {
+      "name": "For Authorities",
+      "description": "These APIs are called by authorities and authority access points."
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerApiKey": {
+        "bearerFormat": "API-Key",
+        "scheme": "bearer",
+        "name": "Authorization",
+        "type": "http"
+      }
+    }
+  },
+  "paths": {
+    "/identifiers/{datasetId}": {
+      "post": {
+        "operationId": "PlatformRoutes.postIdentifiers",
+        "tags": [
+          "For Platforms"
+        ],
+        "parameters": [
+          {
+            "name": "datasetId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Uniquely identifies specific consignment dataset (UUID). This will be used later to query subsets by authorities."
+          }
+        ],
+        "requestBody": {
+          "description": "&lt;consignment xmlns=\"http://efti.eu/v1/consignment/identifier\"&gt; <a target='_blank' href='https://github.com/EFTI4EU/reference-implementation/blob/main/schema/xsd/consignment-identifier.xsd'>according to XSD schema</a> and <a target='_blank' href='https://model.fintraffic-efti-dev.aws.fintraffic.cloud/?subset=identifier&find=#identifier'>Fintraffic data model for visualizing the schema</a>",
+          "content": {
+            "text/xml": {
+              "schema": {
+                "format": "xml",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No content"
+          }
+        },
+        "description": "Platform registers identifiers (consignment metadata) in the gate, which can later be queried by authorities. See the <a target='_blank' href='https://demo-platform.eu-ee31.eftisandbox.eu/v1/openapi'>Platform API</a> for what must be implemented on the platform side to make consignment data available for queries."
+      }
+    },
+    "/dataset/{gateId}/{platformId}/{datasetId}": {
+      "get": {
+        "operationId": "AuthorityRoutes.getDataset",
+        "tags": [
+          "For Authorities"
+        ],
+        "parameters": [
+          {
+            "name": "gateId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "platformId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "datasetId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "subsetId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": "eFTI subsets to filter dataset by. At least 1 required"
+          },
+          {
+            "name": "X-Request-ID",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          }
+        },
+        "description": "Get dataset by UIL from platform. Authority should use only the subsets that they are legally allowed to. Subsets and their data is defined in <a target='_blank' href='https://eur-lex.europa.eu/eli/reg_del/2024/2024'>EU regulation 2024/2024</a>"
+      }
+    },
+    "/follow-up/{gateId}/{platformId}/{datasetId}/{datasetRequestId}": {
+      "post": {
+        "operationId": "AuthorityRoutes.postFollowUp",
+        "tags": [
+          "For Authorities"
+        ],
+        "parameters": [
+          {
+            "name": "gateId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "platformId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "datasetId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "datasetRequestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Request ID of the dataset query made previously"
+          },
+          {
+            "name": "X-Request-ID",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No content"
+          }
+        },
+        "description": "Send follow up message to platform regarding previous dataset query. Authorities have the right to send follow-up messages regarding datasets that they find suspicious or unlawful."
+      }
+    },
+    "/identifiers/{identifier}": {
+      "get": {
+        "operationId": "AuthorityRoutes.getIdentifiers",
+        "tags": [
+          "For Authorities"
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Identifier value to search for (normally a car plate number)"
+          },
+          {
+            "name": "modeCode",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "identifierTypes",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "registrationCountryCode",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "EU",
+                "AL",
+                "AD",
+                "AT",
+                "BY",
+                "BE",
+                "BA",
+                "BG",
+                "HR",
+                "CY",
+                "CZ",
+                "DK",
+                "EE",
+                "FI",
+                "FR",
+                "DE",
+                "EL",
+                "HU",
+                "IS",
+                "IE",
+                "IT",
+                "LV",
+                "LI",
+                "LT",
+                "LU",
+                "MT",
+                "MD",
+                "MC",
+                "ME",
+                "NL",
+                "MK",
+                "NO",
+                "PL",
+                "PT",
+                "RO",
+                "RU",
+                "SM",
+                "RS",
+                "SK",
+                "SI",
+                "ES",
+                "SE",
+                "CH",
+                "UA",
+                "GB",
+                "VA"
+              ]
+            }
+          },
+          {
+            "name": "dangerousGoodsIndicator",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "forceBroadcast",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "For testing: broadcast query to other gates even if data is available locally"
+          },
+          {
+            "name": "X-Request-ID",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "carrierAcceptanceDateTime": {
+                        "type": "object",
+                        "properties": {
+                          "formatId": {
+                            "type": "string"
+                          },
+                          "value": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "value"
+                        ]
+                      },
+                      "deliveryEvent": {
+                        "type": "object",
+                        "properties": {
+                          "actualOccurrenceDateTime": {
+                            "type": "object",
+                            "properties": {
+                              "formatId": {
+                                "type": "string"
+                              },
+                              "instant": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "value": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "value"
+                            ]
+                          }
+                        }
+                      },
+                      "identifierCountryOfOrigin": {
+                        "type": "string",
+                        "enum": [
+                          "EU",
+                          "AL",
+                          "AD",
+                          "AT",
+                          "BY",
+                          "BE",
+                          "BA",
+                          "BG",
+                          "HR",
+                          "CY",
+                          "CZ",
+                          "DK",
+                          "EE",
+                          "FI",
+                          "FR",
+                          "DE",
+                          "EL",
+                          "HU",
+                          "IS",
+                          "IE",
+                          "IT",
+                          "LV",
+                          "LI",
+                          "LT",
+                          "LU",
+                          "MT",
+                          "MD",
+                          "MC",
+                          "ME",
+                          "NL",
+                          "MK",
+                          "NO",
+                          "PL",
+                          "PT",
+                          "RO",
+                          "RU",
+                          "SM",
+                          "RS",
+                          "SK",
+                          "SI",
+                          "ES",
+                          "SE",
+                          "CH",
+                          "UA",
+                          "GB",
+                          "VA"
+                        ]
+                      },
+                      "mainCarriageTransportMovement": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "dangerousGoodsIndicator": {
+                              "type": "boolean"
+                            },
+                            "modeCode": {
+                              "type": "string"
+                            },
+                            "usedTransportMeans": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "object",
+                                  "properties": {
+                                    "schemeAgencyId": {
+                                      "type": "string"
+                                    },
+                                    "value": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "value"
+                                  ]
+                                },
+                                "registrationCountry": {
+                                  "type": "object",
+                                  "properties": {
+                                    "code": {
+                                      "type": "string",
+                                      "enum": [
+                                        "EU",
+                                        "AL",
+                                        "AD",
+                                        "AT",
+                                        "BY",
+                                        "BE",
+                                        "BA",
+                                        "BG",
+                                        "HR",
+                                        "CY",
+                                        "CZ",
+                                        "DK",
+                                        "EE",
+                                        "FI",
+                                        "FR",
+                                        "DE",
+                                        "EL",
+                                        "HU",
+                                        "IS",
+                                        "IE",
+                                        "IT",
+                                        "LV",
+                                        "LI",
+                                        "LT",
+                                        "LU",
+                                        "MT",
+                                        "MD",
+                                        "MC",
+                                        "ME",
+                                        "NL",
+                                        "MK",
+                                        "NO",
+                                        "PL",
+                                        "PT",
+                                        "RO",
+                                        "RU",
+                                        "SM",
+                                        "RS",
+                                        "SK",
+                                        "SI",
+                                        "ES",
+                                        "SE",
+                                        "CH",
+                                        "UA",
+                                        "GB",
+                                        "VA"
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              "required": [
+                                "id"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      "uil": {
+                        "type": "object",
+                        "properties": {
+                          "datasetId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "gateId": {
+                            "type": "string"
+                          },
+                          "platformId": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "datasetId",
+                          "gateId",
+                          "platformId"
+                        ]
+                      },
+                      "usedTransportEquipment": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "carriedTransportEquipment": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "object",
+                                    "properties": {
+                                      "schemeAgencyId": {
+                                        "type": "string"
+                                      },
+                                      "value": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "value"
+                                    ]
+                                  },
+                                  "sequenceNumber": {
+                                    "type": "integer",
+                                    "format": "int32"
+                                  }
+                                },
+                                "required": [
+                                  "id"
+                                ]
+                              }
+                            },
+                            "categoryCode": {
+                              "type": "string"
+                            },
+                            "id": {
+                              "type": "object",
+                              "properties": {
+                                "schemeAgencyId": {
+                                  "type": "string"
+                                },
+                                "value": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "value"
+                              ]
+                            },
+                            "registrationCountry": {
+                              "type": "object",
+                              "properties": {
+                                "code": {
+                                  "type": "string",
+                                  "enum": [
+                                    "EU",
+                                    "AL",
+                                    "AD",
+                                    "AT",
+                                    "BY",
+                                    "BE",
+                                    "BA",
+                                    "BG",
+                                    "HR",
+                                    "CY",
+                                    "CZ",
+                                    "DK",
+                                    "EE",
+                                    "FI",
+                                    "FR",
+                                    "DE",
+                                    "EL",
+                                    "HU",
+                                    "IS",
+                                    "IE",
+                                    "IT",
+                                    "LV",
+                                    "LI",
+                                    "LT",
+                                    "LU",
+                                    "MT",
+                                    "MD",
+                                    "MC",
+                                    "ME",
+                                    "NL",
+                                    "MK",
+                                    "NO",
+                                    "PL",
+                                    "PT",
+                                    "RO",
+                                    "RU",
+                                    "SM",
+                                    "RS",
+                                    "SK",
+                                    "SI",
+                                    "ES",
+                                    "SE",
+                                    "CH",
+                                    "UA",
+                                    "GB",
+                                    "VA"
+                                  ]
+                                }
+                              }
+                            },
+                            "sequenceNumber": {
+                              "type": "integer",
+                              "format": "int32"
+                            }
+                          },
+                          "required": [
+                            "carriedTransportEquipment",
+                            "id"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "mainCarriageTransportMovement",
+                      "usedTransportEquipment"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "Find datasets by an identifier, broadcasting the query to other gates if necessary. Use EventSource/SSE requests to stream partial responses as they arrive from gates."
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerApiKey": []
+    }
+  ]
+}

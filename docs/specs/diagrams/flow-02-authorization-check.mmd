@@ -1,0 +1,56 @@
+flowchart TD
+    Start([Incoming HTTP Request]) --> ParseAuth[Parse Authorization header\nBasic Base64 decode]
+
+    ParseAuth --> HasEmail{Credential format?\nemail:secret OR uuid:secret}
+
+    HasEmail -->|email:secret| LookupByEmail[SELECT FROM users\nWHERE email = email]
+    HasEmail -->|uuid:secret| LookupByUUID[SELECT FROM users\nWHERE id = UUID]
+    HasEmail -->|No Authorization header| Anon[Anonymous request]
+
+    LookupByEmail --> UserFound{User found in DB?}
+    LookupByUUID --> UserFound
+
+    UserFound -->|No| Return401[Return 401 Unauthorized]
+    UserFound -->|Yes| VerifySecret{sha256 secret\n== user.secretHash?}
+
+    VerifySecret -->|No| Return401
+    VerifySecret -->|Yes| SetUser[Set user in request context]
+
+    SetUser --> CheckAnnotation[Check @Access annotation\non route handler]
+
+    CheckAnnotation --> RouteType{Required role?}
+
+    RouteType -->|AUTHORITY| CheckAuthorityRole{user.roles contains AUTHORITY?}
+    RouteType -->|PLATFORM| CheckPlatformRole{user.roles contains PLATFORM?}
+    RouteType -->|ADMIN| CheckAdminRole{user.isAdmin OR user.roles contains ADMIN?}
+    RouteType -->|GATE| CheckGateRole{user.roles contains GATE?}
+
+    CheckAuthorityRole -->|No| Return403[Return 403 Forbidden]
+    CheckAuthorityRole -->|Yes| AuthorityAccess[Set authorityId = user.roles.AUTHORITY.first\nProceed to route handler]
+
+    CheckPlatformRole -->|No| Return403
+    CheckPlatformRole -->|Yes| PlatformCount{user has exactly\n1 platform?}
+
+    PlatformCount -->|No, multi-platform| Return401MP[Return 401: multi-platform user\ncannot send identifiers]
+    PlatformCount -->|Yes| PlatformAccess[Set platformId\nProceed to route handler]
+
+    CheckAdminRole -->|No| Return403
+    CheckAdminRole -->|Yes| AdminAccess[Check write access for specific resource\nuser.checkWriteAccess\nProceed to route handler]
+
+    CheckGateRole -->|No| Return403
+    CheckGateRole -->|Yes| GateAccess[Proceed to gate route]
+
+    Anon --> AnonymousRoute{Route allows\nanonymous access?}
+    AnonymousRoute -->|Yes e.g. health check| AnonymousProceed[Proceed]
+    AnonymousRoute -->|No| Return401
+
+    AuthorityAccess --> RouteExecution([Execute route handler])
+    PlatformAccess --> RouteExecution
+    AdminAccess --> RouteExecution
+    GateAccess --> RouteExecution
+    AnonymousProceed --> RouteExecution
+
+    style Return401 fill:#f99,stroke:#900
+    style Return401MP fill:#f99,stroke:#900
+    style Return403 fill:#f99,stroke:#900
+    style RouteExecution fill:#9f9,stroke:#060

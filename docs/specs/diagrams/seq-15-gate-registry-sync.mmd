@@ -1,0 +1,38 @@
+sequenceDiagram
+    participant Admin as Gate Admin
+    participant Gate as eFTI Gate (eu-ee31)
+    participant GateReg as GateRegistry (in-memory)
+    participant DB as PostgreSQL
+    participant OtherNode as Gate Node 2 (eu-ee31)
+
+    Note over Gate,OtherNode: Multi-node deployment: both nodes share<br/>the same PostgreSQL. GateRegistry is<br/>in-memory (loaded at startup).
+
+    Admin->>+Gate: POST /gates
+    Note over Admin,Gate: Body: {"id":"eu-pl01","countryCode":"PL","eDeliveryUrl":"https://efti.gitd.gov.pl/as4","eDeliveryCert":"-----BEGIN CERTIFICATE-----..."}
+
+    Gate->>Gate: Authenticate admin
+    Gate->>+GateReg: save(Gate{id="eu-pl01", ...})
+
+    GateReg->>GateReg: gates["eu-pl01"] = Gate{...} (in-memory update on this node)
+
+    GateReg->>+DB: INSERT INTO gates (id, countryCode, eDeliveryUrl, eDeliveryCert, status)<br/>VALUES ('eu-pl01', 'PL', 'https://efti.gitd.gov.pl/as4', '...', 'ONLINE')<br/>ON CONFLICT (id) DO UPDATE SET ...
+    DB-->>-GateReg: OK
+
+    Note over DB,OtherNode: DB trigger fires pg_notify('registry_change', 'eu-pl01')
+
+    DB->>OtherNode: NOTIFY registry_change (channel: registry_change, payload: eu-pl01)
+
+    OtherNode->>OtherNode: Listen thread receives notification
+    OtherNode->>+DB: SELECT * FROM gates WHERE id = 'eu-pl01'
+    DB-->>-OtherNode: Gate{id="eu-pl01", ...}
+    OtherNode->>OtherNode: gateRegistry.gates["eu-pl01"] = Gate{...}
+    Note over OtherNode: In-memory registry updated on Node 2<br/>without restart required.
+
+    GateReg->>GateReg: notifyChanged(gate) → internal listeners notified
+
+    GateReg-->>-Gate: done
+
+    Gate->>+Gate: runCatching { ping(gate.id) }
+    Note over Gate: Auto-ping new gate after registration<br/>to verify connectivity
+
+    Gate-->>-Admin: 200 OK\n{"id":"eu-pl01","countryCode":"PL","status":"ONLINE",...}

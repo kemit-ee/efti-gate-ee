@@ -1,0 +1,33 @@
+sequenceDiagram
+    participant Authority as Authority User
+    participant Gate as eFTI Gate (eu-ee31)
+    participant Auth as Auth (API Key)
+    participant DB as PostgreSQL
+    participant SSE as SSE Stream
+
+    Authority->>+Gate: GET /identifiers/123ABC?registrationCountryCode=EE
+    Note over Authority,Gate: Accept: text/event-stream<br/>Authorization: Bearer aut-demo-key<br/>X-Request-ID: req-a1b2c3d4
+
+    Gate->>+Auth: Validate API key
+    Auth-->>-Gate: User{authorityId="demo", role=AUTHORITY}
+
+    Gate->>Gate: Build IdentifiersQuery<br/>(id="123ABC", countryCode="EE", forceBroadcast=false)
+
+    Gate->>Gate: getLocalIdentifiers(query)
+    Gate->>+DB: SELECT * FROM consignments c<br/>JOIN identifiers i ON i.datasetId = c.datasetId<br/>WHERE i.id = '123ABC' AND i.countryCode = 'EE'
+    DB-->>-Gate: 1 result (datasetId=550e8400-..., platformId="demo")
+
+    Gate->>Gate: local.size=1 → forceBroadcast=false<br/>→ NO broadcast (local results found)
+
+    Note over Gate: Open SSE stream to authority
+
+    Gate-->>+SSE: HTTP 200 OK (text/event-stream)
+
+    Gate-->>SSE: event: gate\ndata: {"gateId":"eu-ee31","consignments":null,"responseTimeMs":4}
+
+    Gate-->>SSE: event: consignment (id=550e8400-e29b-41d4-a716-446655440000)\ndata: {"vehicle":{"plate":"123ABC","country":"EE"},"mode":"ROAD","uil":{"platformId":"demo","datasetId":"550e8400-..."}}
+
+    Gate-->>SSE: event: complete\ndata: {}
+
+    Gate-->>-Authority: SSE stream closed
+    Note over Authority: Received 1 consignment from local gate only.<br/>No broadcast needed (results found locally).

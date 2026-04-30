@@ -1,0 +1,76 @@
+
+Test Configuration:
+  Selected Gate: eu-ee31
+  Selected Round: A
+  Test Duration: 15m
+
+
+───────────────────────────────────────────────────────────────────────────────
+UIL REMOTE SCENARIO
+───────────────────────────────────────────────────────────────────────────────
+  Total Requests: 244
+  Failed Requests: 1
+  Success Rate: 99.59%
+  Average Response Time: 2591.68 ms
+  Median Response Time: 2695.72 ms
+  Min Response Time: 82.85 ms
+  Max Response Time: 10854.25 ms
+  P95 Response Time: 5564.52 ms
+
+  Response Time by Gate:
+    EU-AT1: 2691.03 ms (53 requests)
+    eu-ee31: No requests recorded
+    EU-FR1: 3870.39 ms (69 requests)
+    eude1: 2942.62 ms (65 requests)
+    fi-tst: 551.19 ms (57 requests)
+
+  Failures by Gate:
+    eude1: 1 failures
+
+───────────────────────────────────────────────────────────────────────────────
+UIL LOCAL SCENARIO
+───────────────────────────────────────────────────────────────────────────────
+  Total Requests: 73
+  Failed Requests: 0
+  Success Rate: 100.00%
+  Average Response Time: 64.38 ms
+  Median Response Time: 51.18 ms
+  Min Response Time: 41.20 ms
+  Max Response Time: 207.08 ms
+  P95 Response Time: 134.16 ms
+  Local Gate: eu-ee31
+
+───────────────────────────────────────────────────────────────────────────────
+IDENTIFIERS SCENARIO
+───────────────────────────────────────────────────────────────────────────────
+  Total Requests: 108
+  Failed Requests: 2
+  Success Rate: 98.15%
+  Average Response Time: 3577.77 ms
+  Median Response Time: 2134.26 ms
+  Min Response Time: 333.76 ms
+  Max Response Time: 60594.67 ms
+  P95 Response Time: 5926.81 ms
+
+  Failures by Gate:
+    EU-AT1: 1 failures
+    fi-tst: 1 failures
+
+───────────────────────────────────────────────────────────────────────────────
+SAVE IDENTIFIERS SCENARIO
+───────────────────────────────────────────────────────────────────────────────
+  Total Requests: 1
+  Failed Requests: 0
+  Success Rate: 100.00%
+  Average Response Time: 25.12 ms
+  Median Response Time: 25.12 ms
+  Min Response Time: 25.12 ms
+  Max Response Time: 25.12 ms
+  P95 Response Time: 25.12 ms
+
+───────────────────────────────────────────────────────────────────────────────
+OVERALL SUMMARY
+───────────────────────────────────────────────────────────────────────────────
+  Total Requests Across All Scenarios: 426
+  Total Failed Requests: 3
+  Overall Success Rate: 99.30%

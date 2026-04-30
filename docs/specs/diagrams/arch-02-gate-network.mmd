@@ -1,0 +1,70 @@
+graph TB
+    subgraph EU["EU eFTI Gate Network (eDelivery AS4)"]
+        subgraph EE["Estonia (eu-ee31)"]
+            GateEE[eFTI Gate\neu-ee31\nhttps://efti.mnt.ee/as4]
+        end
+
+        subgraph FI["Finland (eu-fi01)"]
+            GateFI[eFTI Gate\neu-fi01\nhttps://efti.traficom.fi/as4]
+        end
+
+        subgraph DE["Germany (eu-de01)"]
+            GateDE[eFTI Gate\neu-de01\nhttps://efti.bast.de/as4]
+        end
+
+        subgraph SE["Sweden (eu-se01)"]
+            GateSE[eFTI Gate\neu-se01\nhttps://efti.trafikverket.se/as4]
+        end
+
+        subgraph LT["Lithuania (eu-lt01)"]
+            GateLT[eFTI Gate\neu-lt01\nhttps://efti.transp.lt/as4]
+        end
+
+        subgraph LV["Latvia (eu-lv01)"]
+            GateLV[eFTI Gate\neu-lv01\nhttps://efti.sam.gov.lv/as4]
+        end
+
+        subgraph PL["Poland (eu-pl01)"]
+            GatePL[eFTI Gate\neu-pl01\nhttps://efti.gitd.gov.pl/as4]
+        end
+    end
+
+    GateEE <-.->|eDelivery AS4\nIdentifierQuery / UILQuery| GateFI
+    GateEE <-.->|eDelivery AS4| GateDE
+    GateEE <-.->|eDelivery AS4| GateSE
+    GateEE <-.->|eDelivery AS4| GateLT
+    GateEE <-.->|eDelivery AS4| GateLV
+    GateEE <-.->|eDelivery AS4| GatePL
+
+    GateFI <-.->|eDelivery AS4| GateDE
+    GateFI <-.->|eDelivery AS4| GateSE
+    GateFI <-.->|eDelivery AS4| GateLT
+
+    subgraph EEPlatforms["Estonian Platforms"]
+        PltEE1[plt-abc-001\nABC Logistics OÜ]
+        PltEE2[plt-xyz-002\nXYZ Transport AS]
+    end
+
+    subgraph EEAuthorities["Estonian Authorities"]
+        AutPolitsei[aut-politsei-001\nPolice and Border Guard Board]
+        AutMaksu[aut-maksu-001\nEstonian Tax and Customs Board]
+    end
+
+    subgraph FIPlatforms["Finnish Platforms"]
+        PltFI1[plt-fi-001\nFinLog Oy]
+    end
+
+    GateEE <-->|HTTPS REST API| PltEE1
+    GateEE <-->|HTTPS REST API| PltEE2
+    GateEE <-->|HTTPS REST API| AutPolitsei
+    GateEE <-->|HTTPS REST API| AutMaksu
+    GateFI <-->|HTTPS REST API| PltFI1
+
+    style EU fill:#fff9e6,stroke:#ffc107
+    style EE fill:#e3f2fd,stroke:#2196F3
+    style FI fill:#e8f5e9,stroke:#4CAF50
+    style DE fill:#fce4ec,stroke:#E91E63
+    style SE fill:#f3e5f5,stroke:#9C27B0
+    style LT fill:#fff3e0,stroke:#FF9800
+    style LV fill:#e0f7fa,stroke:#00BCD4
+    style PL fill:#fafafa,stroke:#607D8B

@@ -1,0 +1,24 @@
+stateDiagram-v2
+    [*] --> Active: Admin: POST /gates/authorities\n(authority created, immediately active)
+
+    Active --> Active: Admin updates authority\n(name, subsets changed)
+
+    Active --> Deleted: Admin: DELETE /gates/authorities/{id}\n(authority removed)
+
+    Deleted --> [*]: Authority removed from registry\nAuthority users lose access
+
+    note right of Active
+        State: Active
+        - Authority users can search identifiers: GET /identifiers/{id}
+        - Authority users can request datasets: GET /dataset/{gateId}/{platformId}/{datasetId}
+        - Subsets field controls which eFTI subsets users may request
+        - Per-user subsets must be a subset of authority.subsets
+        - Authority users can send follow-ups: POST /follow-up/...
+    end note
+
+    note right of Deleted
+        State: Deleted
+        - authorityRegistry lookup throws error
+        - All authority users get 401 on next request
+        - Historical data access logs retained (GDPR)
+    end note

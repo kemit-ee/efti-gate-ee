@@ -1,0 +1,45 @@
+sequenceDiagram
+    participant Scheduler as Background Scheduler
+    participant PingJob as GatePing Job
+    participant GateReg as GateRegistry
+    participant GateClient as GateClient
+    participant GateFI as Remote Gate (eu-fi01)
+    participant GateDE as Remote Gate (eu-de01)
+    participant DB as PostgreSQL
+
+    Scheduler->>+PingJob: triggerPingJob()
+
+    PingJob->>+GateReg: enabled()
+    GateReg->>+DB: SELECT * FROM gates WHERE status != 'DISABLED'
+    DB-->>-GateReg: [eu-fi01{ONLINE}, eu-de01{ONLINE}, eu-lt01{OFFLINE}]
+    GateReg-->>-PingJob: [eu-fi01, eu-de01, eu-lt01]
+
+    par Ping all enabled gates (parallel)
+        PingJob->>+GateClient: ping(eu-fi01)
+
+        alt gate.isFast (HTTP endpoint)
+            GateClient->>+GateFI: POST /services/fast (X-API-Key: eu-ee31)
+            GateFI-->>-GateClient: 200 OK
+        else eDelivery (AS4 SOAP)
+            GateClient->>GateFI: AS4 SOAP ping
+            GateFI-->>GateClient: AS4 SOAP pong
+        end
+
+        GateClient->>+GateReg: save(gate.copy(status=ONLINE))
+        GateReg->>+DB: UPDATE gates SET status='ONLINE' WHERE id='eu-fi01'
+        DB-->>-GateReg: OK
+        GateReg-->>-GateClient: saved
+        GateClient-->>-PingJob: OK (eu-fi01 ONLINE)
+
+        PingJob->>+GateClient: ping(eu-de01)
+        GateClient->>+GateDE: POST /services/fast (X-API-Key: eu-ee31)
+        GateDE-->>-GateClient: 503 Service Unavailable
+        GateClient->>+GateReg: save(gate.copy(status=OFFLINE))
+        GateReg->>+DB: UPDATE gates SET status='OFFLINE' WHERE id='eu-de01'
+        DB-->>-GateReg: OK
+        GateReg-->>-GateClient: saved
+        GateClient-->>-PingJob: ERROR (eu-de01 OFFLINE)
+    end
+
+    PingJob-->>-Scheduler: ping complete
+    Note over Scheduler: eu-fi01: ONLINE, eu-de01: OFFLINE<br/>Next ping scheduled in 5 minutes

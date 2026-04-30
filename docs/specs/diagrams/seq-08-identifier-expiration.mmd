@@ -1,0 +1,25 @@
+sequenceDiagram
+    participant Scheduler as Background Scheduler
+    participant ExpiryJob as Expiry Job
+    participant DB as PostgreSQL
+    participant Log as Application Log
+
+    Note over Scheduler: Scheduled task runs daily<br/>at randomized time 03:45–05:45 local time<br/>(load spreading across EU gates)
+
+    Scheduler->>+ExpiryJob: triggerExpiryJob()
+
+    ExpiryJob->>+DB: SELECT datasetId FROM consignments<br/>WHERE deliveredAt IS NULL<br/>AND createdAt < NOW() - INTERVAL '90 days'
+    Note over DB: Query uses idx_consignments_expires_at<br/>Partial index on deliveredAt IS NULL
+    DB-->>-ExpiryJob: [550e8400-..., a1b2c3d4-..., c3d4e5f6-...]
+
+    loop For each expired consignment
+        ExpiryJob->>+DB: UPDATE consignments<br/>SET deliveredAt = NOW()<br/>WHERE datasetId = '550e8400-...'
+        DB-->>-ExpiryJob: 1 row updated
+
+        ExpiryJob->>Log: INFO: Expired consignment 550e8400-... (platformId=demo)
+    end
+
+    ExpiryJob->>Log: INFO: Expiry job complete. Expired 3 consignments.
+    ExpiryJob-->>-Scheduler: done
+
+    Note over Scheduler: Next run scheduled for tomorrow<br/>at randomized time 03:45–05:45

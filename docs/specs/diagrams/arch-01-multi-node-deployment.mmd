@@ -1,0 +1,60 @@
+graph TB
+    subgraph External["External Clients"]
+        Platform[Platform Operator\nplt-demo-001]
+        Authority[Authority User\naut-politsei-001]
+        Admin[Gate Admin\nadmin@efti.eu]
+    end
+
+    subgraph GateCluster["eFTI Gate Cluster (eu-ee31)"]
+        LB[Load Balancer\nnginx / AWS ALB]
+        Node1[Gate Node 1\nJVM / Klite HTTP]
+        Node2[Gate Node 2\nJVM / Klite HTTP]
+        Node3[Gate Node 3\nJVM / Klite HTTP]
+
+        LB --> Node1
+        LB --> Node2
+        LB --> Node3
+    end
+
+    subgraph DataLayer["Data Layer"]
+        DB[(PostgreSQL 14+\nefti_gate DB)]
+        DBReplica[(PostgreSQL Replica\nread-only)]
+    end
+
+    subgraph BackgroundJobs["Background Jobs (per node)"]
+        PingJob[GatePing Scheduler\nevery 5 minutes]
+        ExpiryJob[Identifier Expiry\n03:45–05:45 daily]
+    end
+
+    subgraph EUGates["EU eFTI Gate Network"]
+        GateFI[eu-fi01\nFinland Gate]
+        GateDE[eu-de01\nGermany Gate]
+        GateSE[eu-se01\nSweden Gate]
+        GateLT[eu-lt01\nLithuania Gate]
+    end
+
+    Platform -->|HTTPS POST /identifiers/UUID\nContent-Type: application/xml| LB
+    Authority -->|HTTPS GET /identifiers/plate\nAccept: text/event-stream| LB
+    Admin -->|HTTPS POST/DELETE /gates/*| LB
+
+    Node1 --> DB
+    Node2 --> DB
+    Node3 --> DB
+    DB --> DBReplica
+
+    Node1 -.->|pg_notify channel: registry_change| Node2
+    Node1 -.->|pg_notify channel: registry_change| Node3
+
+    Node1 --- PingJob
+    Node1 --- ExpiryJob
+
+    Node1 -.->|eDelivery AS4 or Fast HTTP| GateFI
+    Node1 -.->|eDelivery AS4 or Fast HTTP| GateDE
+    Node2 -.->|eDelivery AS4 or Fast HTTP| GateSE
+    Node3 -.->|eDelivery AS4 or Fast HTTP| GateLT
+
+    style GateCluster fill:#e8f4fd,stroke:#2196F3
+    style DataLayer fill:#fff3e0,stroke:#FF9800
+    style External fill:#f3e5f5,stroke:#9C27B0
+    style EUGates fill:#e8f5e9,stroke:#4CAF50
+    style BackgroundJobs fill:#fce4ec,stroke:#E91E63

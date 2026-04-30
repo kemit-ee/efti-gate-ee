@@ -1,0 +1,34 @@
+sequenceDiagram
+    participant Admin as Gate Admin
+    participant Gate as eFTI Gate (eu-ee31)
+    participant Auth as Auth (API Key)
+    participant PlatformReg as PlatformRegistry
+    participant DB as PostgreSQL
+
+    Admin->>+Gate: POST /gates/platforms
+    Note over Admin,Gate: Authorization: Bearer admin-key<br/>Content-Type: application/json<br/>Body: {"id":"plt-abc-001","baseUrl":"https://efti.abc-logistics.ee","supportsSubsetting":true}
+
+    Gate->>+Auth: Validate API key
+    Auth-->>-Gate: User{isAdmin=true, role=ADMIN}
+
+    Gate->>Gate: Deserialize Platform object
+
+    Gate->>+PlatformReg: save(Platform{id="plt-abc-001", ...})
+    PlatformReg->>+DB: INSERT INTO platforms (id, baseUrl, supportsSubsetting)<br/>VALUES ('plt-abc-001', 'https://efti.abc-logistics.ee', true)<br/>ON CONFLICT (id) DO UPDATE SET ...
+    DB-->>-PlatformReg: OK
+    PlatformReg-->>-Gate: saved
+
+    Gate-->>-Admin: 200 OK\n{"id":"plt-abc-001","baseUrl":"https://efti.abc-logistics.ee","supportsSubsetting":true,"createdAt":"2026-04-22T10:15:30Z"}
+
+    Note over Admin: Platform registered. Admin must now create<br/>a platform user for the platform operator.
+
+    Admin->>+Gate: POST /users?generateSecret=true
+    Note over Admin,Gate: Body: {"name":"ABC Logistics Operator","email":"operator@abc-logistics.ee","roles":{"PLATFORM":["plt-abc-001"]}}
+
+    Gate->>Gate: Generate random UUID password
+    Gate->>+DB: INSERT INTO users (name, email, roles, secretHash)<br/>VALUES ('ABC Logistics Operator', 'operator@abc-logistics.ee',<br/>         '{"PLATFORM":["plt-abc-001"]}', sha256hash(...))
+    DB-->>-Gate: user.id="c1d2e3f4-..."
+
+    Gate-->>-Admin: 200 OK\nc1d2e3f4-...:generated-secret-uuid
+
+    Note over Admin: Admin sends credentials to platform operator:<br/>email: operator@abc-logistics.ee<br/>secret: generated-secret-uuid

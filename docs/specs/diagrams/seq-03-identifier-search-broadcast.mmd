@@ -1,0 +1,53 @@
+sequenceDiagram
+    participant Authority as Authority User
+    participant Gate as eFTI Gate (eu-ee31)
+    participant DB as PostgreSQL
+    participant GateFI as Remote Gate (eu-fi01)
+    participant GateDE as Remote Gate (eu-de01)
+    participant GateSE as Remote Gate (eu-se01)
+
+    Authority->>+Gate: GET /identifiers/456XYZ?registrationCountryCode=FI
+    Note over Authority,Gate: Accept: text/event-stream<br/>Authorization: Bearer aut-demo-key<br/>X-Request-ID: req-b2c3d4e5
+
+    Gate->>Gate: Authenticate user (API key)<br/>Authorize (role=AUTHORITY)
+
+    Gate->>+DB: SELECT * FROM consignments c<br/>JOIN identifiers i ON i.datasetId = c.datasetId<br/>WHERE i.id = '456XYZ' AND i.countryCode = 'FI'
+    DB-->>-Gate: 0 results
+
+    Note over Gate: Broadcast decision:<br/>local results = 0, forceBroadcast = false<br/>→ Broadcast to all ONLINE gates
+
+    Gate->>+DB: SELECT * FROM gates WHERE status = 'ONLINE'<br/>AND id != 'eu-ee31'
+    DB-->>-Gate: [eu-fi01, eu-de01, eu-se01, eu-lt01, eu-lv01, eu-pl01]
+
+    Note over Gate: Open SSE stream to authority
+    Gate-->>Authority: HTTP 200 OK (text/event-stream)
+
+    Gate-->>Authority: event: gate\ndata: {"gateId":"eu-ee31","responseTimeMs":6,"consignments":null}
+
+    par Broadcast to all online gates (parallel, non-blocking)
+        Gate->>+GateFI: eDelivery AS4 / Fast SOAP: IdentifierQueryRequest<br/>(id="456XYZ", countryCode="FI", requestId="req-b2c3d4e5")
+        Gate->>+GateDE: eDelivery AS4 / Fast SOAP: IdentifierQueryRequest<br/>(id="456XYZ", countryCode="FI", requestId="req-b2c3d4e5")
+        Gate->>+GateSE: eDelivery AS4 / Fast SOAP: IdentifierQueryRequest<br/>(id="456XYZ", countryCode="FI", requestId="req-b2c3d4e5")
+    end
+
+    GateFI->>GateFI: Query local DB, find 1 result
+    GateFI-->>-Gate: IdentifierQueryResponse (1 consignment)
+
+    Gate-->>Authority: event: gate\ndata: {"gateId":"eu-fi01","responseTimeMs":187}
+    Gate-->>Authority: event: consignment (id=a1b2c3d4-...)\ndata: {"vehicle":{"plate":"456XYZ","country":"FI"},"uil":{"gateId":"eu-fi01","platformId":"plt-fi-001","datasetId":"a1b2c3d4-..."}}
+
+    GateDE->>GateDE: Query local DB, 0 results
+    GateDE-->>-Gate: IdentifierQueryResponse (0 consignments)
+
+    Gate-->>Authority: event: gate\ndata: {"gateId":"eu-de01","responseTimeMs":203}
+
+    GateSE->>GateSE: Query local DB, 0 results
+    GateSE-->>-Gate: IdentifierQueryResponse (0 consignments)
+
+    Gate-->>Authority: event: gate\ndata: {"gateId":"eu-se01","responseTimeMs":219}
+
+    Note over Gate: All gates responded (or 8s timeout reached)
+
+    Gate-->>Authority: event: complete\ndata: {}
+    Gate-->>-Authority: SSE stream closed
+    Note over Authority: Received 1 consignment from eu-fi01.<br/>6 gates queried in ~220ms.

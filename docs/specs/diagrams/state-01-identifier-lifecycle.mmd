@@ -1,0 +1,41 @@
+stateDiagram-v2
+    [*] --> Registered: Platform: POST /identifiers/{datasetId}
+
+    Registered --> Active: Validation successful\n(XML valid, identifiers parsed)
+
+    Registered --> Rejected: Validation failed\n(malformed XML, parse error → 400)
+
+    Rejected --> [*]: Identifier not stored
+
+    Active --> Active: Platform: POST /identifiers/{datasetId}\n(re-upload updates dataset XML)
+
+    Active --> Expired: Background expiry job\n(createdAt < NOW() - 90 days)\ndeliveredAt set to NOW()
+
+    Active --> Deleted: Admin: DELETE /admin/consignments/{datasetId}\n(immediate removal)
+
+    Expired --> Deleted: Admin: DELETE /admin/consignments/{datasetId}\nOR cascaded delete
+
+    Deleted --> [*]: Row removed from consignments\nand identifiers (CASCADE DELETE)
+
+    note right of Active
+        State: Active (deliveredAt IS NULL)
+        - Search returns this identifier
+        - Dataset XML accessible via /dataset/{gateId}/{platformId}/{datasetId}
+        - Indexed in: identifiers table (id, countryCode)
+        - Platform can update XML at any time
+    end note
+
+    note right of Expired
+        State: Expired (deliveredAt IS NOT NULL)
+        - Search does NOT return this identifier
+        - Dataset may still be accessible via direct UIL
+        - Expiry randomized: 03:45–05:45 local time
+        - Purpose: spread load across EU gates
+    end note
+
+    note right of Deleted
+        State: Deleted
+        - Both consignment and identifiers rows removed
+        - CASCADE DELETE on identifiers table
+        - Not accessible via search or dataset endpoint
+    end note

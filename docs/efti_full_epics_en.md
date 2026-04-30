@@ -1,0 +1,1649 @@
+# eFTI Gate — Complete Epics Specification
+
+> Reference document for building the eFTI Gate system. Based on: [eFTI Gate Reference Architecture](eFTI-Gate-Reference-Architecture.md) (v2.0, 2026-04-02) and EU Regulations 2024/1942 and 2025/2243.  
+> Each epic contains all acceptance criteria required to implement and verify the functionality.
+
+---
+
+## Overview
+
+The eFTI Gate is a node in the EU eFTI (Electronic Freight Transport Information) network that:
+1. **Stores identifiers** — platforms register freight transport identifiers (vehicle registration plates, containers, trailers)
+2. **Searches identifiers** — authorities can search both locally and across other EU gates (broadcast only when local result is empty)
+3. **Mediates datasets** — authorities request full datasets based on UIL (Unique Identifier for Loading)
+4. **Forwards follow-up messages** — authorities send feedback messages to platforms
+
+**Protocols and standards:** REST, eDelivery AS4 (SOAP), OpenAPI, JWT (RFC 7519), RFC 7807, XSD/XML
+
+> **Module boundaries:** This document distinguishes two categories:
+> - **EU core** — country-neutral, applies to all member states
+> - **EE extension** — Estonia-specific, implemented in a separate module without modifying core code
+
+### Core Principles (Reference Architecture §6)
+
+> **eFTI Gate is a content-agnostic router with minimal persistence** (identifiers only).
+
+| eFTI Gate **DOES** | eFTI Gate **DOES NOT** |
+|---|---|
+| Store identifiers | Store full datasets (only eFTI platform) |
+| Route queries based on UIL | Parse/validate payload content |
+| Broadcast searches to other gates | Enforce subset filters (eFTI platform does this) |
+| Aggregate results from multiple sources | Transform data formats |
+| Manage authentication/authorisation | Apply business logic |
+| Manage registries (gates, platforms, authorities) | Retain query history |
+| eDelivery AS4 protocol (signing, encryption) | — |
+| AAP (Authority Access Point) REST interface for authorities | — |
+
+### Key Terms
+
+- **UIL (Unique Identifier for Loading):** `<gateURL>/<platformURL>/<datasetId>` — globally unique reference to a specific freight transport dataset. Example: `https://gate.example.eu/https://platform.example.com/550e8400-e29b-41d4-a716-446655440000`
+- **identifier:** The searchable value used to locate a consignment (vehicle registration plate, container number, trailer ID). UIL is the full compound URL form of the identifier.
+- **AAP (Authority Access Point):** Gate's REST API interface for authorities (both H2M and M2M use)
+- **dataset:** The complete freight transport documentation stored on the eFTI platform — never stored on the eFTI Gate
+- **H2M:** Human-to-Machine (browser/application)
+- **M2M:** Machine-to-Machine (API/AS4)
+- **G2G:** Gate-to-Gate communication (eDelivery AS4)
+- **G2P:** Gate-to-Platform communication (REST or AS4)
+
+---
+
+## THEME 1 — Identity and Access
+
+**Objective:** Ensure that all parties interacting with the gate (admins, platforms, authorities, other gates) are authenticated securely and can only access resources they are permitted to access.
+
+**Requirements to address:**
+
+| Area | Current state | Requirement |
+|------|--------------|-------------|
+| Admin authentication | HTTP Basic Auth | TARA (ID-card, Mobile-ID, Smart-ID) |
+| Password-based login | Enabled | Disabled in production |
+| X-Road | Missing | Required for government authority access |
+| Platform API auth | `base64(id:password)` | RFC 7519 JWT |
+| Secrets management | Plain text in `.env` files | Runtime loading (K8s Secret / vault) |
+| Write-access control | `checkWriteAccess()` does not check role type | Role-type check enforced |
+
+**Business value:**
+- TARA authentication eliminates password management overhead and meets e-government standards (required for production)
+- Enables centralised identity management
+- GDPR Art. 30 compliance — record of processing with audit log
+
+**Theme done when:**
+- [ ] EPIC 1 (RBAC): all roles enforced, write-access type check fixed
+- [ ] EPIC 2 (Authentication): TARA login works, Basic Auth disabled in production, mTLS for G2G
+- [ ] EPIC 23 (Auth flows): all three auth sequence diagrams documented
+
+### EPIC 1 — User Management and RBAC
+
+**AS A** system administrator  
+**I WANT** role-based access control with resource-level filtering  
+**SO THAT** each user can only see and manage the resources they are permitted to access
+
+**Reference:** [Permissions Matrix](../specs/permissions-matrix.md) — Complete authorization model and role-based access control specification
+
+#### Acceptance Criteria
+
+##### Role management
+
+**Happy path:**
+- [ ] `POST /api/users` — admin creates user; new user receives only creator's roles (except Super Admin); response `201 Created` with user ID
+- [ ] `GET /api/users` — Super Admin sees all users; regular admin sees only users within their own roles; response paginated (`limit`, `offset`, `X-Total-Count`)
+- [ ] `DELETE /api/users/:userId` — admin deletes another user visible to them; response `204 No Content`
+- [ ] A user can be assigned multiple roles and multiple Party IDs under a single role
+- [ ] Creating authority user with `subsets` that are subset of Authority's `subsets` → `201 Created`
+
+**Edge cases:**
+- [ ] Admin attempts to assign Super Admin role → `403 Forbidden` with `"detail": "Super Admin role cannot be assigned by regular admin"`
+- [ ] Admin attempts to delete own account → `409 Conflict` with `"detail": "Cannot delete your own account"`
+- [ ] Creating authority user with `subsets` not in Authority's allowed list → `400 Bad Request` with `"detail": "Subset 'EU04' not permitted for authority 'mta@mta.ee'"`
+- [ ] `POST /api/users` with duplicate email → `409 Conflict`
+
+**Error handling:**
+- [ ] `POST /api/users` with missing required field (e.g. no `roles`) → `400 Bad Request` RFC 7807 with field-level detail
+- [ ] All authorisation denials logged: user ID, endpoint, reason, IP address, timestamp
+
+**Technical constraints:**
+- [ ] Passwords hashed with bcrypt, salt = user UUID — plaintext never written to database or logs
+- [ ] `generateSecret=true` creates new JWT; token value returned **only once** at creation ("Show Once" policy)
+- [ ] Bearer token: RFC 7519 JWT signed RS256, claims: `sub`, `roles`, `subsets`, `is_admin`, `exp`, `iss`
+- [ ] API tokens expire after 1 hour (configurable via `JWT_EXPIRY_SECONDS`)
+
+**Technical artifacts:**
+- [ ] OpenAPI: `POST /api/users`, `GET /api/users`, `DELETE /api/users/{userId}`
+- [ ] DB schema: `users`, `user_roles`, `party_ids` tables with FK indexes and English column comments
+
+##### Access control
+
+**Happy path:**
+- [ ] Endpoints requiring `ADMIN` role accessible only to admin users → `200 OK`
+- [ ] Endpoints requiring `PLATFORM` role accessible only to platform users → `200 OK`
+- [ ] Endpoints requiring `AUTHORITY` role accessible only to authority users → `200 OK`
+- [ ] Write-access validates both Party ID presence **and** role type
+
+**Edge cases:**
+- [ ] GATE user attempts PLATFORM write → `403 Forbidden` with `"detail": "Role type GATE cannot access PLATFORM resource"`
+- [ ] Request without Bearer token → `401 Unauthorized` RFC 7807
+- [ ] Expired JWT → `401 Unauthorized` with `"detail": "Token expired"`
+- [ ] Tampered JWT signature → `401 Unauthorized` with `"detail": "Invalid token signature"` — no internal detail exposed
+
+**Rationale:** `checkWriteAccess()` current bug — does not check role type, allowing GATE user to write to PLATFORM resource. Fix: add role-type assertion before Party ID check.
+
+### EPIC 2 — Authentication
+
+**AS A** system administrator or authority user  
+**I WANT** secure authentication mechanisms (TARA, JWT, mTLS)  
+**SO THAT** only authorized parties can access the gate
+
+**Reference:** [Permissions Matrix](../specs/permissions-matrix.md) — Authentication flow and authorization checks
+
+#### Acceptance Criteria
+
+##### Admin UI authentication (OIDC)
+
+**Happy path:**
+- [ ] Admin opens UI → redirected to TARA OIDC authorize endpoint with `client_id`, `scope=openid`, `state` (CSRF token), `redirect_uri`
+- [ ] TARA presents ID-card / Mobile-ID / Smart-ID; admin authenticates; TARA redirects to `/auth/callback?code=...&state=...`
+- [ ] eFTI Gate exchanges `code` for `id_token` (POST `/token`); validates signature, `iss`, `aud`, `exp`, `nonce`
+- [ ] Session created in database; `session_id` cookie set (HttpOnly; Secure; SameSite=Strict)
+- [ ] Session validity configurable (`SESSION_EXPIRY_SECONDS`, default 3600)
+- [ ] Session state in database — works behind load balancer without session affinity
+- [ ] TARA callback URL registered in TARA management console
+
+**Edge cases:**
+- [ ] `state` mismatch in callback → `400 Bad Request`; session not created; event logged WARN
+- [ ] `id_token` signature invalid → `401 Unauthorized`; session not created
+- [ ] Session expired → user redirected to login page (not error stack trace)
+- [ ] 5 failed login attempts within 10 minutes → account locked 15 minutes (configurable); event logged
+
+**Error handling:**
+- [ ] Logout → session deleted from database; OIDC `end_session_endpoint` called on TARA
+- [ ] Basic Auth endpoint returns `405 Method Not Allowed` in production profile
+
+**Technical constraints:**
+- [ ] `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` loaded from runtime secrets — never from committed `.env` file
+- [ ] MUST use Spring Security OAuth2 Client — no custom OIDC implementation
+
+**Technical artifacts:**
+- [ ] OpenAPI: `GET /auth/login`, `GET /auth/callback`, `POST /auth/logout`
+- [ ] Diagram: `seq-01-tara-admin-login.mmd`
+
+##### Platform/Authority API authentication
+
+**Happy path:**
+- [ ] Admin issues token via `POST /api/users` with `generateSecret=true` → `201 Created` with `{"token": "<JWT>"}` — shown once only
+- [ ] eFTI platform calls API with `Authorization: Bearer <JWT>` → gate validates signature, `exp`, `iss`, role → `200 OK`
+
+**Edge cases:**
+- [ ] Token issued by different gate's private key → `401 Unauthorized` with `"detail": "Invalid issuer"`
+- [ ] eFTI platform has 2 PLATFORM roles, omits `platformId` query parameter → `400 Bad Request` with `"detail": "Multiple platforms: specify platformId parameter"`
+
+**Error handling:**
+- [ ] Compromised token: `POST /api/users/:userId/revoke-token` → token blacklisted; subsequent requests with that token → `401 Unauthorized`
+
+**Technical constraints:**
+- [ ] Signing: RS256; gate private key loaded from K8s Secret at startup — never in container image
+- [ ] Token blacklist TTL = token `exp`; cleaned up automatically
+
+**Technical artifacts:**
+- [ ] Diagram: `seq-02-jwt-platform-auth.mmd`
+
+##### Gate-to-gate fast protocol
+
+**Happy path:**
+- [ ] eFTI Gate A calls `POST /services/fast` on eFTI Gate B with mTLS client certificate; eFTI Gate B verifies against trusted CA → `200 OK`
+
+**Edge cases:**
+- [ ] eFTI Gate A presents certificate from unknown CA → TLS handshake fails; event logged WARN with eFTI Gate A IP
+- [ ] eFTI Gate A presents revoked certificate (OCSP check fails) → connection refused; event logged
+
+**Error handling:**
+- [ ] `X-API-Key` header only (no mTLS) → `401 Unauthorized`; `X-API-Key` not accepted as authentication
+
+**Technical constraints:**
+- [ ] mTLS certificates loaded from K8s Secret at runtime — no certificates in container image
+- [ ] `X-API-Key` removed from `/services/fast` endpoint entirely
+
+**Technical artifacts:**
+- [ ] Diagram: `seq-03-mtls-fast-protocol.mmd`
+
+### EPIC 23 — Authentication and Access Flows
+
+**AS A** technical architect  
+**I WANT** documented authentication and access flows with sequence diagrams  
+**SO THAT** integration partners and developers understand exactly how authentication works in each channel type
+
+#### Acceptance Criteria
+
+- [ ] All three authentication patterns documented as sequence diagrams (see below)
+- [ ] Each flow covers: authentication, authorisation check, error cases
+- [ ] Diagrams published in GitHub documentation
+
+##### Flow 1 — Admin UI login (TARA/OIDC)
+
+```mermaid
+sequenceDiagram
+    actor Admin
+    participant UI as Admin UI
+    participant Gate as Gate Backend
+    participant TARA as TARA (OIDC)
+    participant DB as Database
+
+    Admin->>UI: Open admin UI
+    UI->>Gate: GET /auth/login
+    Gate->>TARA: Redirect OIDC authorize (client_id, scope, state)
+    TARA->>Admin: Display authentication page (ID-card / Mobile-ID / Smart-ID)
+    Admin->>TARA: Authenticate
+    TARA->>Gate: GET /auth/callback?code=...&state=...
+    Gate->>TARA: POST /token (code, client_secret)
+    TARA-->>Gate: id_token (JWT), access_token
+    Gate->>DB: Store session (session_id, user_id, exp)
+    Gate-->>UI: Set-Cookie session_id (HttpOnly, Secure)
+    UI-->>Admin: Redirect to admin home
+```
+
+##### Flow 2 — Platform/Authority API authentication (JWT Bearer)
+
+```mermaid
+sequenceDiagram
+    actor Admin
+    participant Gate as Gate Backend
+    participant Platform as Platform / Authority
+
+    Admin->>Gate: POST /api/users (generateSecret=true)
+    Gate-->>Admin: JWT token (signed RS256)
+
+    Note over Platform,Gate: Later API request
+
+    Platform->>Gate: POST /v1/identifiers/:id<br/>Authorization: Bearer <JWT>
+    Gate->>Gate: Validate JWT (signature, exp, iss)
+    Gate->>Gate: Check role type + Party ID (checkWriteAccess)
+    alt Token valid and access permitted
+        Gate-->>Platform: 200 OK
+    else Token expired / invalid signature
+        Gate-->>Platform: 401 Unauthorized (RFC 7807)
+    else Access denied
+        Gate-->>Platform: 403 Forbidden (RFC 7807)
+    end
+```
+
+##### Flow 3 — Gate-to-gate fast protocol (mTLS)
+
+```mermaid
+sequenceDiagram
+    participant GateA as Gate A
+    participant GateB as Gate B
+
+    Note over GateA,GateB: TLS handshake with mTLS
+    GateA->>GateB: TLS ClientHello + client certificate
+    GateB->>GateB: Validate GateA certificate (CA, OCSP/CRL)
+    GateB-->>GateA: TLS ServerHello + server certificate
+    GateA->>GateA: Validate GateB certificate
+
+    GateA->>GateB: POST /services/fast<br/>(identifierQuery / uilQuery)
+    GateB->>GateB: Process request
+    GateB-->>GateA: 200 OK (XML response)
+```
+
+---
+
+## THEME 2 — Core Functionality
+
+**Objective:** Implement the eFTI Gate's four core functions in accordance with EU Regulations 2020/1056 and 2024/1942: identifier registration (Platform), search (Authority), dataset retrieval by UIL, and follow-up message forwarding.
+
+**Business value:** These functions constitute the gate's core value — without them, an eFTI Gate is meaningless. EU regulation requires member states to have an operational gate by 9 July 2027.
+
+**Theme done when:**
+- [ ] EPIC 3 (Identifier registration): platforms can register/update identifiers via REST
+- [ ] EPIC 4 (Identifier search): local + broadcast search works, SSE streaming complete
+- [ ] EPIC 5 (Dataset + follow-up): UIL-based dataset retrieval and follow-up forwarding works
+
+### EPIC 3 — Identifier Management (Platform API)
+
+**AS A** eFTI platform operator  
+**I WANT** to register freight transport identifiers in the gate  
+**SO THAT** competent authorities can search for them later
+
+#### Acceptance Criteria
+
+##### Registration
+
+**Happy path:**
+- [ ] `POST /v1/identifiers/:datasetId` accepts XML body `Content-Type: application/xml`; valid per `consignment-identifier.xsd`; user has exactly 1 PLATFORM role → `201 Created` with `Location: /v1/identifiers/:datasetId`
+- [ ] Re-sending same `datasetId` with updated data → upsert; previous version set `inactive`; new version set `active` → `200 OK`
+- [ ] Stored searchable fields: `vehicle_plate`, `transport_date`, `origin_country`, `destination_country`, `mode_code`, `dangerous_goods_indicator`
+- [ ] Identifier types supported: `means` (vehicle/transport unit), `equipment` (container/trailer), `carried` (cargo)
+- [ ] Transport modes: `1`=maritime, `2`=rail, `3`=road, `4`=air — no mode-specific routing logic
+
+**Edge cases:**
+- [ ] eFTI platform omits `vehicle_plate` (pre-registration) → record stored with empty `vehicle_plate`; subsequent `POST` with same `datasetId` adds/updates plate
+- [ ] Search by plate does not return records where `vehicle_plate` is empty or null
+- [ ] Multi-platform user (>1 PLATFORM role) sends without `platformId` → `400 Bad Request` with `"detail": "Multiple platforms detected: specify platformId parameter"`
+- [ ] Multi-platform user specifies valid `platformId` → processed as single-platform for that platform
+- [ ] `countryCode` not ISO 3166-1 alpha-2 (e.g. `"EST"`) → `400 Bad Request` with field-level error
+- [ ] `datasetId` not UUID format → `400 Bad Request` with `"detail": "datasetId must be a valid UUID v4"`
+
+**Error handling:**
+- [ ] XML invalid against `consignment-identifier.xsd` → `400 Bad Request` with XSD validation error path and line number
+- [ ] `X-Request-ID` header missing → `400 Bad Request` with `"detail": "X-Request-ID header is required"`
+- [ ] `X-Request-ID` seen within 600 seconds → `400 Bad Request` with `"detail": "Duplicate request ID"`
+- [ ] Unknown eDelivery message type received → error returned to sender; not silently ignored; event logged WARN
+
+**Technical constraints:**
+- [ ] Identifiers stored in `identifiers` table: one consignment → multiple identifier rows (1:N)
+- [ ] `X-Request-ID` deduplication uses shared database table — checked across all nodes; TTL 600 seconds
+- [ ] MUST use Flyway or Liquibase for all schema migrations — no custom migration scripts
+- [ ] Rationale: procurement requirement "Tarkvara tehnilise analüüsi nõuded"
+
+**Technical artifacts:**
+- [ ] OpenAPI: `POST /v1/identifiers/{datasetId}` — request body, all error responses
+- [ ] DB schema: `consignments`, `identifiers` tables with FK indexes and English column comments
+- [ ] XSD: `consignment-identifier.xsd`
+
+### EPIC 4 — Identifier Search (Authority API)
+
+**AS A** competent authority officer  
+**I WANT** to search freight transport identifiers (e.g. by registration plate) across all EU gates  
+**SO THAT** I can verify a consignment's compliance with eFTI regulations
+
+#### Acceptance Criteria
+
+##### Local search
+
+**Happy path:**
+- [ ] `GET /v1/identifiers/:identifier` searches `identifiers` table; all filters applied at database level: `modeCode`, `identifierTypes`, `registrationCountryCode`, `dangerousGoodsIndicator`
+- [ ] Only identifiers with status `active` returned
+- [ ] Results paginated: `limit` (default 20, max 100), `offset`; response includes `X-Total-Count`
+- [ ] Empty result → `200 OK` with `{"identifiers": []}` — not `404`
+- [ ] Local DB query response time < 50 ms at p95 (requires `pg_trgm` index)
+
+**Edge cases:**
+- [ ] `limit` exceeds 100 → `400 Bad Request` with `"detail": "limit must not exceed 100"`
+- [ ] `dateFrom` after `dateTo` → `400 Bad Request` with `"detail": "dateFrom must be before dateTo"`
+- [ ] `dateFrom`/`dateTo` without `modeCode=3` → `400 Bad Request` with `"detail": "dateFrom/dateTo requires modeCode=3"`
+
+**Error handling:**
+- [ ] Missing Bearer token → `401 Unauthorized` RFC 7807
+- [ ] Authority user without search permission → `403 Forbidden` with `"detail": "Insufficient permissions for identifier search"`
+
+**Technical constraints:**
+- [ ] PostgreSQL 14+; MUST use `pg_trgm` extension for fuzzy plate search — performance requirement: < 50 ms local query
+- [ ] DB index: `CREATE INDEX CONCURRENTLY idx_identifiers_plate_trgm ON identifiers USING GIN (vehicle_plate gin_trgm_ops)`
+
+**Technical artifacts:**
+- [ ] OpenAPI: `GET /v1/identifiers/{identifier}` — all query params, response schema, all error responses
+- [ ] Diagram: `seq-04-identifier-search-local.mmd`
+
+##### Cabotage control
+
+**Happy path:**
+- [ ] `dateFrom`–`dateTo` range filter returns `inactive` road transport (`modeCode=3`) records within date range
+- [ ] Road transport UIL remains `inactive` for 14 days after `delivered_at` (art. 11 para. 4 Reg 2024/1942)
+- [ ] Result list shows record status (`active` / `inactive`) per item
+
+**Technical artifacts:**
+- [ ] OpenAPI: `dateFrom`, `dateTo` query parameters on `GET /v1/identifiers/{identifier}`
+
+##### Broadcast to other gates
+
+**Happy path:**
+- [ ] Broadcast triggered **only** when local search returns 0 results — prevents unnecessary load and privacy exposure
+- [ ] Rationale: broadcast-only-when-empty pattern from Current Gate `EftiService.kt:91`
+- [ ] Broadcast sends parallel requests to all gates with status `ACTIVE`; `DISABLED` and `OFFLINE` gates skipped
+- [ ] Per-gate response metadata: `gateId`, `responseTimeMs`, `success`, `failure`
+- [ ] Each gate interaction logged: gate ID, response time ms, success/failure
+
+**Edge cases:**
+- [ ] 3 of 15 active gates timeout after 8 seconds → partial results returned; timeout gates in `failures[]`; SSE stream still ends with `event: complete`
+- [ ] All gates offline → `200 OK` with empty identifiers and populated `failures[]` — not a 5xx error
+- [ ] One gate returns unexpected format → that gate marked `failure`; others unaffected
+
+**Technical constraints:**
+- [ ] Broadcast timeout: 8 seconds (configurable via `BROADCAST_TIMEOUT_SECONDS`)
+- [ ] All active gates queried in parallel — not sequentially
+
+**Technical artifacts:**
+- [ ] Diagram: `seq-05-identifier-search-broadcast.mmd`
+
+##### SSE (streaming)
+
+**Happy path:**
+- [ ] Request with `Accept: text/event-stream` → `Content-Type: text/event-stream` response
+- [ ] Each gate's result: `event: gate` SSE event
+- [ ] Each individual consignment: `event: consignment` with `id: <UIL>`
+- [ ] Stream ends with `event: complete` — client knows all results delivered
+- [ ] Without SSE (`Accept: application/json`) → all results returned together after all gates respond
+
+**Edge cases:**
+- [ ] Client disconnects mid-stream → gate stops sending and releases resources (no resource leak)
+- [ ] Stream open > 60 seconds (all gates timed out) → `event: complete` sent; connection closed
+
+**Technical artifacts:**
+- [ ] OpenAPI: `GET /v1/identifiers/{identifier}` with `Accept: text/event-stream` variant documented
+
+### EPIC 5 — Dataset Retrieval and Follow-up
+
+**AS A** competent authority officer  
+**I WANT** to retrieve the full dataset for a specific consignment and send a follow-up message to the platform  
+**SO THAT** I can fulfil my legal obligation in freight transport inspection
+
+#### Acceptance Criteria
+
+##### Dataset request
+
+**Happy path:**
+- [ ] `GET /v1/dataset/:gateId/:platformId/:datasetId` with ≥1 `subsetId` → JWT validated, subset permissions checked
+- [ ] Local request (own gate's platform): routes to platform client; returns `Content-Type: application/xml` unchanged
+- [ ] `X-Request-ID` echoed in response header
+- [ ] Local dataset retrieval response time < 5 seconds at p95
+
+**Edge cases:**
+- [ ] No `subsetId` parameter → `400 Bad Request` with `"detail": "At least one subsetId is required"`
+- [ ] UIL points to remote gate with status `OFFLINE` → `502 Bad Gateway` with `"detail": "Gate 'eu-fi01.efti.fi' is offline — dataset unavailable"` — checked before sending request
+
+**Error handling:**
+- [ ] User `subsets` does not include requested `subsetId` → `403 Forbidden` with `"detail": "Subset 'EU04' not in your permitted subsets"`
+- [ ] eFTI platform client returns non-200 → `502 Bad Gateway`; gate does not cache or modify dataset
+- [ ] eFTI Gate is content-agnostic: dataset XML forwarded unchanged regardless of content
+
+**Technical artifacts:**
+- [ ] OpenAPI: `GET /v1/dataset/{gateId}/{platformId}/{datasetId}`
+- [ ] Diagram: `seq-06-dataset-retrieval-local.mmd`, `seq-07-dataset-retrieval-remote.mmd`
+
+##### Subsetter module
+
+**Happy path:**
+- [ ] eFTI platform with `supportsSubsetting=false`: gate applies XSLT-based filter; only permitted subsets returned to authority
+- [ ] Filter applied before response sent — authority never receives data beyond permitted subsets
+
+**Edge cases:**
+- [ ] XSLT produces empty output → `200 OK` with empty XML body; not `404`
+- [ ] Dataset > 10 MB → SAX-based streaming parser used; dataset not fully loaded into JVM heap
+
+**Technical constraints:**
+- [ ] Subsetter MUST use SAX streaming — no DOM in-memory parsing for large payloads
+- [ ] Rationale: prevents OOM errors for large freight documents
+
+##### Follow-up
+
+**Happy path:**
+- [ ] `POST /v1/follow-up/:gateId/:platformId/:datasetId/:datasetRequestId` → JWT validated; routes by `gateId`
+- [ ] `gateId == own gate` → forwarded to platform client (REST) → `200 OK`
+- [ ] `gateId != own gate` → forwarded to gate-to-gate client → `200 OK`
+- [ ] Follow-up logged: follow-up ID, requesting user ID, `datasetRequestId`, timestamp, destination
+
+**Edge cases:**
+- [ ] eFTI platform has `eDeliveryCert` → follow-up also sent via eDelivery AS4
+- [ ] `datasetRequestId` references no prior request → still forwarded; logged DEBUG
+
+**Error handling:**
+- [ ] Remote gate offline → `502 Bad Gateway` with `"detail": "Gate 'eu-de01.efti.de' is offline"`
+- [ ] eFTI platform client error → `502 Bad Gateway`; failure logged ERROR with full trace
+
+**Technical constraints:**
+- [ ] Follow-up log record (Art 6(2)(c) Reg 2024/1942): follow-up ID, AAP/requesting gate ID, date and time of receipt — mandatory fields
+
+**Technical artifacts:**
+- [ ] OpenAPI: `POST /v1/follow-up/{gateId}/{platformId}/{datasetId}/{datasetRequestId}`
+- [ ] DB schema: `follow_up_log` table with Art 6(2)(c) mandatory fields
+
+### EPIC 24 — Identifier Search and Dataset Retrieval Flows
+
+**AS A** technical architect  
+**I WANT** documented data flows with sequence diagrams  
+**SO THAT** developers and integration partners understand exactly how identifier search, broadcast, and dataset retrieval works
+
+#### Acceptance Criteria
+
+- [ ] All four core flows documented as sequence diagrams (see below)
+- [ ] Each flow covers error cases (gate offline, empty result, unauthorised access)
+- [ ] Diagrams published in GitHub documentation
+
+##### Flow 1 — Identifier registration (Platform → Gate)
+
+```mermaid
+sequenceDiagram
+    participant Platform
+    participant Gate as Gate Backend
+    participant DB as Database
+
+    Platform->>Gate: POST /v1/identifiers/:datasetId<br/>Authorization: Bearer <JWT><br/>Body: XML (vehicle_plate, transport_mode, ...)
+    Gate->>Gate: Validate JWT + role type
+    Gate->>DB: Upsert consignment (datasetId, platformId, vehicle_plate)
+    DB-->>Gate: OK
+    Gate-->>Platform: 201 Created / 200 OK
+```
+
+##### Flow 2 — Identifier search (Authority → Gate → Broadcast)
+
+```mermaid
+sequenceDiagram
+    actor Officer as Authority Officer
+    participant Gate as Gate Backend
+    participant DB as Database
+    participant OtherGates as Other EU Gates
+
+    Officer->>Gate: GET /v1/identifiers?vehicle_plate=ABC123<br/>Accept: text/event-stream
+    Gate->>Gate: Validate JWT + authority subset permissions
+    Gate->>DB: Local search (vehicle_plate)
+
+    alt Local results found
+        DB-->>Gate: Consignment records
+        Gate-->>Officer: SSE event: data (local results)
+    else Local result empty → broadcast
+        Gate->>OtherGates: Parallel requests to all ACTIVE gates
+        OtherGates-->>Gate: Responses (XML / timeout)
+        Gate-->>Officer: SSE event: data (remote results, one per gate)
+    end
+
+    Gate-->>Officer: SSE event: name=complete
+```
+
+##### Flow 3 — Dataset retrieval by UIL
+
+```mermaid
+sequenceDiagram
+    actor Officer as Authority Officer
+    participant Gate as Gate Backend
+    participant Platform
+    participant RemoteGate as Remote Gate
+
+    Officer->>Gate: GET /v1/datasets/:uil<br/>Authorization: Bearer <JWT>
+    Gate->>Gate: Parse UIL → gateId + platformId + datasetId
+    Gate->>Gate: Check subset permissions
+
+    alt UIL points to own gate
+        Gate->>Platform: GET /datasets/:datasetId (REST or AS4)
+        Platform-->>Gate: XML dataset (full)
+        Gate->>Gate: Apply subset filter (if supportsSubsetting=false)
+        Gate-->>Officer: 200 OK XML (subset)
+    else UIL points to remote gate
+        Gate->>RemoteGate: POST /services/fast (uilQuery XML)
+        RemoteGate-->>Gate: XML response
+        Gate->>Gate: Apply subset filter
+        Gate-->>Officer: 200 OK XML (subset)
+    end
+```
+
+##### Flow 4 — Follow-up message forwarding
+
+```mermaid
+sequenceDiagram
+    actor Officer as Authority Officer
+    participant Gate as Gate Backend
+    participant Platform
+    participant RemoteGate as Remote Gate
+
+    Officer->>Gate: POST /v1/follow-up/:gateId/:platformId/:datasetId/:requestId<br/>Body: XML message
+
+    alt gateId == own gate
+        Gate->>Platform: Forward follow-up (REST client)
+        Platform-->>Gate: 200 OK
+    else gateId != own gate
+        Gate->>RemoteGate: POST /services/fast (followUp XML)
+        RemoteGate-->>Gate: 200 OK
+    end
+
+    Gate-->>Officer: 200 OK
+```
+
+
+---
+
+## THEME 3 — Registry Management
+
+**Objective:** Give administrators full control over the foundational data that drives gate operations — the EU gate list, registered platforms, competent authorities, and stored consignments — all manageable via the Admin API without direct database access.
+
+**Business value:** Registries are the foundation of gate operation. Incorrect or missing registry data causes search failures, incorrect broadcasts, or unauthorised access. Data changes must synchronise in real time to all running nodes.
+
+**Theme done when:**
+- [ ] EPIC 6 (Gates): gate CRUD + ping + LISTEN/NOTIFY sync done
+- [ ] EPIC 7 (Platforms): platform CRUD + connectivity ping + subsetting flag done
+- [ ] EPIC 8 (Authorities): authority CRUD + subset assignment done
+- [ ] EPIC 9 (Consignments): identifier expiry + CMDS lifecycle done
+
+### EPIC 6 — Gate Registry Management (Admin API)
+
+**AS A** system administrator  
+**I WANT** to manage the list of EU eFTI gates and monitor their status  
+**SO THAT** broadcast requests only reach operational gates
+
+#### Acceptance Criteria
+
+##### CRUD
+
+**Happy path:**
+- [ ] `GET /api/gates` — Super Admin sees all gates; regular Admin sees only gates in their `roles[GATE]` Party IDs; paginated
+- [ ] `POST /api/gates` — adds new gate with `baseUrl`, `eDeliveryUrl`, certificate info; write access requires matching Party ID → `201 Created`
+- [ ] `DELETE /api/gates/:gateId` — write access verified → `204 No Content`
+- [ ] `GET /api/gates/own` — returns own gate configuration
+
+**Edge cases:**
+- [ ] Admin deletes own gate → `409 Conflict` with `"detail": "Cannot delete your own gate"`
+- [ ] `POST /api/gates` with `baseUrl` already registered → `409 Conflict`
+- [ ] `DELETE` on non-existent gate → `404 Not Found`
+
+**Error handling:**
+- [ ] Write with non-matching Party ID → `403 Forbidden`
+
+**Technical artifacts:**
+- [ ] OpenAPI: `GET /api/gates`, `POST /api/gates`, `DELETE /api/gates/{gateId}`, `GET /api/gates/own`
+
+##### Ping
+
+**Happy path:**
+- [ ] `POST /api/gates/:gateId/ping` → fast protocol ping (`POST {eDeliveryUrl}` with mTLS) → `200 OK` with `responseTimeMs`
+- [ ] eDelivery ping: SOAP ping request → `200 OK` or `502`
+- [ ] Ping result updates gate status in database and in-memory registry on all nodes (via NOTIFY)
+
+**Edge cases:**
+- [ ] eFTI Gate does not respond within 10 seconds → status set `OFFLINE`; `502 Bad Gateway` with `"detail": "Gate 'eu-fi01.efti.fi' did not respond within 10 seconds"`
+- [ ] eFTI Gate was `OFFLINE`, ping succeeds → status changed to `ONLINE`; status change logged INFO
+
+**Technical constraints:**
+- [ ] Ping timeout: 10 seconds (configurable via `PING_TIMEOUT_SECONDS`)
+
+##### Automated monitoring
+
+**Happy path:**
+- [ ] Automated ping runs every 5 minutes (production only, configurable via `PING_INTERVAL_MINUTES`)
+- [ ] `DISABLED` status gates not pinged by automated job
+- [ ] Status change logged INFO: gate ID, old status, new status, timestamp
+
+**Edge cases:**
+- [ ] Ping job attempts to start on 2 nodes → database advisory lock ensures only 1 node runs it
+
+**Technical constraints:**
+- [ ] Leader election: database advisory lock (`pg_try_advisory_lock`)
+
+**Technical artifacts:**
+- [ ] OpenAPI: `POST /api/gates/{gateId}/ping`
+
+### EPIC 7 — Platform Registry Management (Admin API)
+
+**AS A** system administrator  
+**I WANT** to manage the eFTI platform registry  
+**SO THAT** platforms can register identifiers and authorities can retrieve datasets
+
+#### Acceptance Criteria
+
+**Happy path:**
+- [ ] `GET /api/platforms` — Super Admin sees all; Admin sees only platforms in their `roles[PLATFORM]` Party IDs; paginated
+- [ ] `POST /api/platforms` — adds platform with `name`, `baseUrl`, `supportsSubsetting` flag, optional `eDeliveryCert` → `201 Created`
+- [ ] `DELETE /api/platforms/:platformId` → `204 No Content`
+- [ ] `POST /api/platforms/:platformId/ping` — checks HTTP connectivity to `baseUrl` → `200 OK` with `responseTimeMs` or `502`
+- [ ] eFTI platform without `eDeliveryCert`: REST-only; with `eDeliveryCert`: also callable via eDelivery AS4
+- [ ] eFTI platform with `supportsSubsetting=false`: gate applies XSLT subsetter before returning dataset
+
+**Edge cases:**
+- [ ] `POST /api/platforms` with `baseUrl` already registered → `409 Conflict`
+- [ ] `DELETE` while platform has active identifiers → `409 Conflict` with `"detail": "Platform has 42 active identifiers — delete them first or use force=true"`
+- [ ] Ping — platform unreachable after 10 seconds → `502 Bad Gateway` with `"detail": "Platform 'mta-platform-1' did not respond within 10 seconds"`
+
+**Error handling:**
+- [ ] Write with non-matching Party ID → `403 Forbidden`
+
+**Technical constraints:**
+- [ ] Registry changes propagated to all nodes via LISTEN/NOTIFY within 500 ms
+
+**Technical artifacts:**
+- [ ] OpenAPI: `GET /api/platforms`, `POST /api/platforms`, `DELETE /api/platforms/{platformId}`, `POST /api/platforms/{platformId}/ping`
+
+### EPIC 8 — Authority Registry Management (Admin API)
+
+**AS A** system administrator  
+**I WANT** to manage the registry of Competent Authorities  
+**SO THAT** authority users have controlled access to eFTI data
+
+#### Acceptance Criteria
+
+**Happy path:**
+- [ ] `GET /api/authorities` — Super Admin sees all; Admin sees only authorities in their `roles[AUTHORITY]` Party IDs; paginated
+- [ ] `GET /api/authorities/:authorityId` — returns authority details: name, `subsets[]`, contact
+- [ ] `POST /api/authorities` — adds authority with permitted `subsets[]` → `201 Created`
+- [ ] `DELETE /api/authorities/:authorityId` → `204 No Content`
+
+**Edge cases:**
+- [ ] `DELETE` when authority has active users → `409 Conflict` with `"detail": "Authority has 3 active users — delete or reassign them first"`
+- [ ] `POST` with unknown subset code → `400 Bad Request` with `"detail": "Unknown subset: 'EU99'"`
+- [ ] Authority `subsets[]` updated to remove a subset → existing users lose access immediately (real-time, not on next login)
+- [ ] `GET /api/authorities/:authorityId` for non-existent → `404 Not Found`
+
+**Error handling:**
+- [ ] Write with non-matching Party ID → `403 Forbidden`
+
+**Technical constraints:**
+- [ ] Subset access change propagated via LISTEN/NOTIFY within 500 ms
+
+**Technical artifacts:**
+- [ ] OpenAPI: `GET /api/authorities`, `POST /api/authorities`, `DELETE /api/authorities/{authorityId}`
+
+### EPIC 9 — Consignment Management (Admin API)
+
+**AS A** system administrator  
+**I WANT** to view and manage stored consignment data  
+**SO THAT** I can audit data and remove erroneous records
+
+#### Acceptance Criteria
+
+##### Viewing and deletion
+
+**Happy path:**
+- [ ] `GET /api/consignments` — Super Admin sees all; Admin sees own platform's consignments; sorted `updatedAt DESC`; paginated
+- [ ] `DELETE /api/consignments/:datasetId` — Super Admin only; soft delete (status → `deleted`) → `204 No Content`
+
+**Edge cases:**
+- [ ] Regular admin attempts `DELETE` → `403 Forbidden` with `"detail": "Only Super Admin can delete consignments"`
+- [ ] `DELETE` on already-deleted record → `404 Not Found`
+
+**Technical artifacts:**
+- [ ] OpenAPI: `GET /api/consignments`, `DELETE /api/consignments/{datasetId}`
+
+##### Identifier status management (Regulation 2025/2243)
+
+**Happy path:**
+- [ ] Status lifecycle: `active` (searchable) → `inactive` (historical queries only) → `deleted` (returns not found)
+- [ ] eFTI platform sends updated data for same `datasetId` → previous version → `inactive`; new version → `active`
+- [ ] eFTI platform sends DELETE request → status → `deleted` (soft delete; not physically removed immediately)
+- [ ] `deleted` records physically purged after retention period
+
+**Edge cases:**
+- [ ] eFTI platform re-registers after `deleted` → new `active` record created; old `deleted` retained until retention expiry
+
+**Technical constraints:**
+- [ ] DB: `status` enum (`active`, `inactive`, `deleted`); `expires_at` timestamp per record
+- [ ] MUST use Flyway or Liquibase for schema migration — no custom scripts
+
+##### Retention rules (Regulation 2024/1942)
+
+**Happy path:**
+- [ ] All data access logs (authority queries, dataset requests) retained ≥ **2 years**
+- [ ] Road transport (`mode_code=3`): identifier deactivated (`active → inactive`) **14 days** after `delivered_at` (cabotage control, art. 11 para. 4)
+- [ ] Other transport modes: deactivated immediately after `delivered_at`
+- [ ] Expiry job purges `deleted` records past retention — database-level filter (not application memory)
+- [ ] System supports export of 5-year monitoring report data for European Commission
+
+**Edge cases:**
+- [ ] `delivered_at` not set (in transit) → identifier remains `active`; expiry job skips
+- [ ] Expiry job starts on 2 nodes simultaneously → leader election: only 1 node processes
+
+**Technical constraints:**
+- [ ] Expiry job: daily, random window 03:45–05:45 (production only); `EXPIRY_JOB_WINDOW_START` / `EXPIRY_JOB_WINDOW_END`
+- [ ] Leader election: database advisory lock (`pg_try_advisory_lock`)
+- [ ] Expiry job logs deleted record count at INFO level
+
+**Technical artifacts:**
+- [ ] DB index: `CREATE INDEX idx_consignments_expiry ON consignments (mode_code, delivered_at) WHERE status = 'deleted'`
+- [ ] Unit test: expiry logic — ROAD/non-ROAD mode, `delivered_at` set/not set
+
+---
+
+## THEME 4 — Integrations
+
+**Objective:** Ensure the gate's interoperability at both EU level (eDelivery AS4) and Estonian national level (X-Road, ANTS, and competent authority information systems).
+
+**Business value:** eDelivery AS4 is the EU-mandated data exchange protocol between eFTI gates. X-Road integration is required because Estonian government authorities use X-Road as their standard data exchange layer. ANTS integration enables fast licence plate lookups for border control.
+
+**Theme done when:**
+- [ ] EPIC 10 (eDelivery AS4): inbound/outbound AS4 messages handled; async responses delivered
+- [ ] EPIC 11 (X-Road, EE): platform registration available as X-Road service; core unchanged
+
+### EPIC 10 — eDelivery AS4 Integration
+
+**AS A** eFTI Gate  
+**I WANT** to communicate with other EU gates via the eDelivery AS4 protocol  
+**SO THAT** cross-border eFTI data exchange uses the standard EU infrastructure
+
+#### Acceptance Criteria
+
+##### Inbound messages
+
+**Happy path:**
+- [ ] `POST /services/msh` accepts SOAP/AS4 message; decrypts and parses per AS4 profile
+- [ ] `identifierQuery` → processes search; returns `identifierResponse`
+- [ ] `uilQuery` → retrieves dataset from platform; returns `uilResponse`
+- [ ] `postFollowUpRequest` → forwards follow-up to platform; returns acknowledgement
+- [ ] `saveIdentifiersRequest` → stores identifiers
+
+**Edge cases:**
+- [ ] Unknown `Action` field → error returned to sender; event logged WARN; not silently ignored
+- [ ] Unknown `CompressionType` → error returned; not silently decompressed
+- [ ] Incoming message with invalid AS4 signature → rejected; event logged WARN with sender Party ID
+
+**Error handling:**
+- [ ] SOAP parsing failure → AS4 fault returned with error code and description
+
+**Technical constraints:**
+- [ ] MUST use Domibus or compatible AS4 implementation — no custom AS4 stack
+
+**Technical artifacts:**
+- [ ] Diagram: `seq-08-edelivery-inbound.mmd`
+
+##### Outbound messages
+
+**Happy path:**
+- [ ] Gate-to-gate client logs each outbound: gate ID, protocol (Fast/eDelivery), URL, duration ms, HTTP status, error
+- [ ] eDelivery client logs: destination Party ID, requestId, duration ms, response status
+- [ ] Fast protocol: `POST {gate.eDeliveryUrl}` with mTLS (X-API-Key removed)
+- [ ] eDelivery AS4: SOAP message encrypted and signed (WS-Security) before sending
+
+**Error handling:**
+- [ ] Outbound eDelivery failure → logged ERROR with full context; caller receives `502 Bad Gateway`
+
+##### Protocol envelope and request generation
+
+**Happy path:**
+- [ ] eFTI Gate generates request envelope (identifierQuery, uilQuery XML) conforming to `xsd/edelivery.xsd`
+- [ ] Dataset content forwarded **unchanged** — eFTI Gate is content-agnostic
+- [ ] Every outbound request includes `requestId` (UUID v4) for audit trail
+- [ ] Envelope validated against XSD before sending — invalid XML returns error, not silent failure
+- [ ] Operates across all transport modes without mode-specific logic
+
+**Edge cases:**
+- [ ] XSD validation of generated envelope fails → `500` logged ERROR; not forwarded to client
+
+**Technical constraints:**
+- [ ] WS-Security signing certificate loaded from K8s Secret at runtime — never in container image
+
+##### Asynchronous response handling
+
+**Happy path:**
+- [ ] Async responses (uilResponse, identifierResponse) delivered via PostgreSQL LISTEN/NOTIFY — no session affinity needed
+- [ ] Handler runs on all nodes; each node processes only responses matching its `requestId`
+
+**Edge cases:**
+- [ ] Async response arrives after SSE stream closed → discarded; logged DEBUG
+
+**Technical artifacts:**
+- [ ] DB schema: `async_responses (request_id, gate_id, payload, received_at)`
+
+### EPIC 11 — X-Road Integration (EE extension)
+
+**AS AN** Estonian government system or transport platform  
+**I WANT** to communicate with the eFTI gate via X-Road  
+**SO THAT** the integration uses the standard Estonian national data exchange layer
+
+#### Acceptance Criteria
+
+**Happy path:**
+- [ ] X-Road service endpoint implemented in `ee-adapter` module — zero X-Road references in core module
+- [ ] eFTI platform registration available as X-Road service: `EE/GOV/70003158/efti-gate/registerPlatform/v1`
+- [ ] X-Road message headers validated: `client`, `service`, `id`, `protocolVersion`
+- [ ] Registration request forwarded to core Admin REST API
+- [ ] Response returned as valid X-Road SOAP envelope
+- [ ] Works with X-Road Security Server v6.x test environment
+
+**Edge cases:**
+- [ ] Unknown `protocolVersion` → SOAP fault `"faultCode": "Client.unknownVersion"`
+- [ ] `client` identity not authorised → `403 Forbidden` SOAP fault
+
+**Error handling:**
+- [ ] Core REST API returns `4xx/5xx` → error wrapped in X-Road SOAP fault
+
+**Technical constraints:**
+- [ ] `ee-adapter` module calls core only via published REST API — no internal dependency on core module code
+- [ ] MUST NOT modify `core` module to add X-Road support
+
+**Technical artifacts:**
+- [ ] WSDL: `efti-xroad.wsdl`
+- [ ] Diagram: `seq-09-xroad-platform-registration.mmd`
+
+##### Estonian competent authorities
+
+**Happy path:**
+- [ ] Each authority chooses: eDelivery AS4 or X-Road — both supported
+- [ ] X-Road client identity validated by X-Road Security Server — no separate Bearer token needed
+- [ ] Subset access authority-specific: TRAM/LOIS2 may only query AWB/manifest subsets — road transport filtered out at gate
+
+**Edge cases:**
+- [ ] TRAM queries road transport subset `EU02` via X-Road → `403 Forbidden` SOAP fault with `"detail": "Subset EU02 not permitted for authority 'TRAM'"`
+
+##### ANTS integration
+
+**Happy path:**
+- [ ] eFTI Gate exposes high-throughput endpoint for ANTS: existence check only — no full data returned
+- [ ] ANTS response: `{"registered": true}` or `{"registered": false}`; response time < 1 second at p95
+- [ ] ANTS integration via X-Road through NES intermediary (MTA internal system)
+
+**Edge cases:**
+- [ ] ANTS query for plate not in local registry → `{"registered": false}` — does NOT trigger broadcast (ANTS is local-only)
+
+**Technical constraints:**
+- [ ] ANTS endpoint: read-only, existence check, index-only scan on `vehicle_plate`
+- [ ] Rationale: ANTS may send > 10 000 queries/hour during border operations
+
+##### ADR 1000-point rule
+
+**Happy path:**
+- [ ] eFTI Gate calculates ADR 1.1.3.6 dangerous goods point total per vehicle (UN number × hazard class × net mass)
+- [ ] Score ≥ 1000: full ADR; < 1000: partial (ADR 1.1.3.6 exemptions); = 0: full exemption
+- [ ] ADR score appended to `EU05` subset response
+
+**Edge cases:**
+- [ ] `supportsAdrCalculation=true` on platform → gate skips calculation; platform value used as-is
+- [ ] `supportsAdrCalculation=false` → gate performs calculation and appends
+
+### EPIC 25 — eDelivery AS4 Message Flow
+
+**AS A** technical architect  
+**I WANT** documented eDelivery AS4 message flows with sequence diagrams  
+**SO THAT** developers understand exactly how inter-gate messages travel through the AS4 protocol
+
+#### Acceptance Criteria
+
+- [ ] Both AS4 flows documented (outgoing identifierQuery and incoming uilResponse)
+- [ ] Diagrams cover: SOAP envelope construction, signing, encryption, failure handling
+- [ ] Diagrams published in GitHub documentation
+
+##### Flow 1 — Outgoing identifier search (Gate → eDelivery → Remote Gate)
+
+```mermaid
+sequenceDiagram
+    participant Gate as Gate Backend
+    participant EDelivery as eDelivery (Domibus)
+    participant RemoteEDelivery as Remote Gate eDelivery
+    participant RemoteGate as Remote Gate Backend
+
+    Gate->>Gate: Build identifierQuery XML (UIL / vehicle_plate)
+    Gate->>Gate: Wrap in AS4 envelope (SOAP header: From, To, Service, Action)
+    Gate->>Gate: Sign and encrypt payload (WS-Security)
+    Gate->>EDelivery: POST /services/backend (SOAP/AS4)
+    EDelivery->>RemoteEDelivery: AS4 message (over internet)
+    RemoteEDelivery->>RemoteGate: POST /services/msh (forwarded payload)
+    RemoteGate->>RemoteGate: Process identifierQuery
+    RemoteGate-->>RemoteEDelivery: identifierResponse XML
+    RemoteEDelivery-->>EDelivery: AS4 response message
+    EDelivery-->>Gate: Incoming identifierResponse (async callback)
+    Gate->>Gate: Parse response, forward via SSE to authority officer
+```
+
+##### Flow 2 — Incoming UIL request (Remote Gate → Gate → Platform)
+
+```mermaid
+sequenceDiagram
+    participant RemoteGate as Remote Gate
+    participant EDelivery as eDelivery (Domibus)
+    participant Gate as Gate Backend
+    participant Platform
+
+    RemoteGate->>EDelivery: AS4 uilQuery message
+    EDelivery->>Gate: POST /services/msh (decrypted payload)
+    Gate->>Gate: Parse SOAP envelope, validate signature
+    Gate->>Gate: Identify message type (uilQuery / identifierQuery / followUp)
+    Gate->>Platform: GET /datasets/:datasetId (subset request)
+    Platform-->>Gate: XML dataset
+    Gate->>Gate: Build uilResponse AS4 message
+    Gate->>EDelivery: POST /services/backend (uilResponse)
+    EDelivery-->>RemoteGate: AS4 response
+```
+
+
+---
+
+## THEME 5 — Infrastructure
+
+**Objective:** Ensure the gate operates to production standards: horizontally scalable across multiple nodes, tolerant of a single node failure without data loss, and smoothly integrated with Kubernetes lifecycle management.
+
+**Theme done when:**
+- [ ] EPIC 12 (Scalability): 2+ nodes run without shared memory; registries sync via LISTEN/NOTIFY
+- [ ] EPIC 13 (Health): liveness/readiness probes pass; graceful shutdown ≤30s; `/health` public
+
+**Problem:** The current architecture uses in-memory registries — running multiple nodes results in desynchronised state. Request ID duplicate detection only works within a single node. Background jobs (ping, expiry) run on every node simultaneously. Certificates and secrets are baked into container images — reuse across environments is not possible.
+
+**Business value:**
+- N+1 redundancy (required for production SLA)
+- No session affinity needed at the load balancer — simpler infrastructure
+- Zero data loss during node failures
+- Zero-downtime rolling updates in Kubernetes
+- Kubernetes auto-healing: unhealthy pods are restarted automatically
+
+### EPIC 12 — Scalability and Statelessness
+
+**AS A** DevOps engineer  
+**I WANT** the gate to run on multiple nodes without shared memory  
+**SO THAT** the system is horizontally scalable and tolerates a single node failure
+
+#### Acceptance Criteria
+
+##### Registry synchronisation
+
+**Happy path:**
+- [ ] Registry changes → PostgreSQL NOTIFY; all nodes update in-memory copy within 500 ms
+- [ ] After node restart, registry loaded from database — no data loss
+
+**Edge cases:**
+- [ ] Node receives NOTIFY for unknown registry entry → loads from database
+- [ ] Database unreachable on startup → node does not start; readiness probe returns `503`
+
+**Technical constraints:**
+- [ ] MUST use PostgreSQL LISTEN/NOTIFY — no Redis, Hazelcast, or other shared-memory dependencies
+- [ ] Rationale: minimises infrastructure dependencies (PostgreSQL already required)
+
+##### Request ID duplicate checking
+
+**Happy path:**
+- [ ] `X-Request-ID` uniqueness checked in shared database table — checked across all nodes
+- [ ] Duplicate detection window: 600 seconds
+- [ ] Duplicate from any node → `400 Bad Request` with `"detail": "Duplicate X-Request-ID within 600 seconds"`
+
+**Edge cases:**
+- [ ] Same ID arrives at 2 nodes within 1 ms → database unique constraint prevents both succeeding; one gets `400`
+
+**Technical constraints:**
+- [ ] DB: `request_ids (request_id VARCHAR PK, received_at TIMESTAMP)` with scheduled cleanup after 600 s TTL
+
+##### Admin auth state
+
+**Happy path:**
+- [ ] Admin session stored in database — not node-local memory; works correctly behind load balancer
+
+**Edge cases:**
+- [ ] Session expires → `401 Unauthorized` on next request; admin redirected to login page
+
+##### Leader election
+
+**Happy path:**
+- [ ] Ping job runs on exactly 1 node (database advisory lock)
+- [ ] Expiry job runs on exactly 1 node
+
+**Edge cases:**
+- [ ] Leader node fails mid-job → lock released; another node takes over within next scheduling interval
+
+**Technical constraints:**
+- [ ] Leader election: `pg_try_advisory_lock` database advisory lock
+
+##### Database migrations
+
+**Happy path:**
+- [ ] Migrations use Flyway locking — no conflicts when multiple nodes start simultaneously
+- [ ] Migration lock released even if application crashes
+
+**Technical constraints:**
+- [ ] MUST use Flyway OR Liquibase — no custom migration scripts
+- [ ] Rationale: procurement requirement "Tarkvara tehnilise analüüsi nõuded"
+
+##### Database design
+
+**Happy path:**
+- [ ] All tables and fields have English comments — schema understandable to all developers
+- [ ] All foreign key fields are indexed
+- [ ] `change_history` table: change timestamp, user ID, operation, resource ID
+
+**Technical artifacts:**
+- [ ] DB schema ERD in documentation
+- [ ] Technical constraints: PostgreSQL 14+, `pg_trgm` extension for fuzzy plate search
+
+### EPIC 13 — Health Checks and Graceful Shutdown
+
+**AS A** orchestrated deployment environment  
+**I WANT** the gate to expose health check endpoints and handle graceful shutdown  
+**SO THAT** the deployment platform can manage the application lifecycle correctly
+
+#### Acceptance Criteria
+
+**Happy path:**
+- [ ] `GET /health/live` — `200 OK` when running; `503` if crashed
+- [ ] `GET /health/ready` — `200 OK` only when: database connection OK, Flyway migrations complete, registries loaded; `503` otherwise
+- [ ] Liveness and readiness are **separate** endpoints — not the same `/health`
+- [ ] `SIGTERM` received → stop accepting new connections; wait for in-flight requests (max 30 seconds); then shut down
+- [ ] During graceful shutdown, readiness returns `503` — load balancer removes node from traffic
+
+**Edge cases:**
+- [ ] Database connection lost mid-run → readiness `503`; liveness still `200` (app running but degraded)
+- [ ] In-flight request takes > 30 seconds → force-shutdown after 30 s; request receives connection reset
+
+**Technical constraints:**
+- [ ] Graceful shutdown timeout: 30 seconds (configurable via `SHUTDOWN_TIMEOUT_SECONDS`)
+- [ ] Kubernetes: `livenessProbe` → `/health/live`, `readinessProbe` → `/health/ready`, `terminationGracePeriodSeconds: 35`
+
+**Technical artifacts:**
+- [ ] OpenAPI: `GET /health/live`, `GET /health/ready`
+- [ ] Kubernetes deployment manifest with probe and graceful shutdown config
+
+---
+
+## THEME 6 — Security and Compliance
+
+**Objective:** Meet production security requirements, regulatory obligations (GDPR Art. 30, EU Reg. 2024/1942 Art. 5(4)), and ensure an audit trail for all sensitive operations.
+
+**Theme done when:**
+- [ ] EPIC 14 (Security): secrets in K8s Secrets, mTLS enforced, rate limiting active, RFC 7807 errors
+- [ ] EPIC 15 (Audit/GDPR): audit log immutable, authority queries logged with 7-year retention
+
+**Requirements to address:**
+
+| Area | Current state | Requirement |
+|------|--------------|-------------|
+| Secrets management | Plain text in `.env` files | Runtime loading (K8s Secret / vault) |
+| TLS certificates | Baked into container images | Runtime loading, rotation without redeployment |
+| Gate-to-gate auth | `X-API-Key` | Mutual TLS (mTLS) |
+| Audit log | Missing | Authority queries logged — GDPR Art. 30 |
+| Rate limiting | Missing | Limits at reverse proxy level |
+| Write-access control | Role type not checked | Role-type check enforced |
+
+**Business value:**
+- Certificate rotation is possible without restarting the application
+- Gate-to-gate communication hardened against impersonation
+- GDPR Art. 30 compliance (mandatory for production)
+- Security incident investigation is possible via audit log
+
+### EPIC 14 — Security
+
+**AS A** security auditor  
+**I WANT** the gate to meet production security requirements  
+**SO THAT** the system passes a security audit and complies with e-government standards
+
+#### Acceptance Criteria
+
+##### Secrets management
+
+**Happy path:**
+- [ ] No secret (password, API key, private key) stored in configuration file or build artefact
+- [ ] Secrets loaded at runtime from external secrets store (K8s Secret / vault); environment variable injection supported
+- [ ] Secrets manager supports multiple backends (development vs production) without code changes
+- [ ] TLS certificates loaded from mounted volume or secrets store — not embedded in build artefact
+- [ ] Certificate rotation possible without application restart
+- [ ] Demo/test certificates absent from production-runnable code; repository provides only certificate generation instructions
+- [ ] System-generated passwords and API tokens shown to user **only once** at creation ("Show Once") — thereafter only hash stored
+- [ ] API Bearer tokens revocable without deleting user; new token issued as replacement
+
+**Edge cases:**
+- [ ] Secrets store unavailable on startup → application refuses to start; logs ERROR with missing secret name (not value)
+
+**Technical constraints:**
+- [ ] Demo certificates (`*.p12`, `*.pem`, `*.crt` test files) MUST NOT exist in production build path
+- [ ] Rationale: Askend security audit finding
+
+##### Certificate validity checks (Art 5(4) 2024/1942)
+
+**Happy path:**
+- [ ] Outgoing eDelivery connections verify destination certificate status (OCSP or CRL) before sending
+- [ ] Revoked/expired/non-compliant certificate → connection aborted; event logged with peer identity
+
+**Edge cases:**
+- [ ] OCSP responder unreachable → fail closed (connection refused), not fail open; event logged WARN
+- [ ] Incoming AS4 message with revoked signing certificate → rejected; event logged WARN with sender Party ID
+
+**Rationale:** Art 5(4) Reg 2024/1942 requires certificate validity verification for all inter-gate communication.
+
+##### Platform compliance check (Art 7 + Art 12 Reg 2020/1056)
+
+**Happy path:**
+- [ ] eFTI Gate verifies communicating platform is listed as active in EU central registry of eFTI platforms
+- [ ] Configuration includes EU registry query URL and refresh schedule
+
+**Edge cases:**
+- [ ] eFTI platform removed from EU registry → requests logged and answered with warning; not immediately blocked
+
+**Technical constraints:**
+- [ ] EU registry URL configurable via `EU_PLATFORM_REGISTRY_URL`; refresh interval via `EU_PLATFORM_REGISTRY_REFRESH_MINUTES`
+
+##### Fast protocol (fast adapter)
+
+**Happy path:**
+- [ ] `/services/fast` endpoint uses mTLS — `X-API-Key` removed
+- [ ] eFTI Gate identity verified by TLS certificate
+
+##### Rate limiting
+
+**Happy path:**
+- [ ] Rate limiting configured at reverse proxy level
+- [ ] `/v1/` endpoints: max 100 req/min per IP (configurable via `RATE_LIMIT_PER_MINUTE`)
+- [ ] Rate limit exceeded → `429 Too Many Requests` RFC 7807 format
+
+**Edge cases:**
+- [ ] Burst of 101 requests in 1 minute from same IP → 101st returns `429`; first 100 processed normally
+
+##### Error formats
+
+**Happy path:**
+- [ ] All REST API errors in RFC 7807 JSON: `{type, title, status, detail, instance, requestId}`
+- [ ] Error messages do not expose internal stack traces or system information
+- [ ] XML API errors (`/services/`) returned in XML format
+- [ ] `robots.txt` present and disallows search engine access to all endpoints
+
+**Edge cases:**
+- [ ] Unhandled exception → `500 Internal Server Error` with generic message; full stack trace logged server-side only; `requestId` present in response for incident correlation
+
+### EPIC 15 — Audit and GDPR Compliance
+
+**AS A** GDPR data controller  
+**I WANT** data changes and admin actions to be logged, and authority query auditing to be configurable  
+**SO THAT** the Gate complies with GDPR Article 30 requirements and jurisdiction-specific obligations
+
+**References:** 
+- [Permissions Matrix](../specs/permissions-matrix.md) — Authorization decisions and audit logging requirements
+- [Logging Specification](../specs/logging-spec.md) — Complete logging format and audit trail specification
+
+> **Note:** EU Regulations 2024/1942 and 2025/2243 do not explicitly require persistent audit logging of authority queries at the gate level. Member states must decide based on their own jurisdictional requirements. This epic implements a reasonable default behaviour with configurability.
+
+#### Acceptance Criteria
+
+##### Mandatory audit log (data changes)
+
+**Happy path:**
+- [ ] `audit_log` table: `id`, `userId`, `action`, `resource`, `resourceId`, `timestamp`, `ipAddress`, `details`
+- [ ] Audit log is immutable — append-only (no UPDATE/DELETE rights for the application user)
+- [ ] Always-logged events:
+  - Successful and failed logins (user ID, IP, method)
+  - Admin actions: user creation/modification/deletion
+  - Gate/Platform/Authority creation/modification/deletion
+  - Identifier save and deletion (by platform)
+- [ ] `GET /api/audit` — Super Admin can query the audit log (paginated)
+- [ ] Sensitive data (passwords, tokens) never stored in audit log
+
+**Edge cases:**
+- [ ] Audit log write fails → application logs ERROR server-side; the triggering operation is NOT rolled back (audit failure must not cause service failure)
+- [ ] Audit log query with large date range → response paginated; max 1000 rows per page
+
+**Technical constraints:**
+- [ ] `audit_log` table: PostgreSQL row-level security or separate DB user with INSERT-only permission
+- [ ] Rationale: GDPR Art. 30 requires immutable processing record
+
+##### Configurable authority query audit
+
+**Happy path:**
+- [ ] Logging of authority requests toggled via `AUTHORITY_QUERY_AUDIT=enabled|disabled` environment variable
+- [ ] When enabled, logged fields: user ID, UIL, subsets, timestamp, IP address
+- [ ] Member state operator responsible for meeting jurisdictional requirements
+
+**Edge cases:**
+- [ ] `AUTHORITY_QUERY_AUDIT` not set → defaults to `enabled` (fail-safe default)
+
+**Technical artifacts:**
+- [ ] OpenAPI: `GET /api/audit`
+- [ ] DB schema: `audit_log` table
+
+---
+
+## THEME 7 — Observability
+
+**Objective:** Ensure every request is traceable end-to-end across all components, the operations team is notified of incidents before users are affected, and 95% of incidents are resolved within 4 hours.
+
+**Theme done when:**
+- [ ] EPIC 16 (Logging): all logs in ECS JSON, X-Request-ID propagated end-to-end
+- [ ] EPIC 17 (Monitoring): Prometheus + Grafana active, alert rules configured
+
+**Problem:** Current logging is inconsistent:
+- `GateClient`, `EDeliveryClient`, `PlatformClient` outgoing requests are not logged
+- Correlation IDs are not propagated across all log lines (MDC missing)
+- Business logic routing decisions (broadcast vs local) are not visible in logs
+- Authorisation denials are logged without user identity or reason
+- Structured JSON logging (ECS) is missing — centralised collection is not feasible
+- Prometheus metrics, Grafana dashboards, and alerting are entirely absent
+
+**Business value:**
+- Every failed request can be traced end-to-end using a correlation ID
+- All gate-to-gate communication is visible in logs (which gate, response time, success/failure)
+- Proactive incident detection reduces downtime
+- SLA compliance: 95% of incidents resolved within 4 hours
+
+### EPIC 16 — Logging and Observability
+
+**AS A** operations engineer  
+**I WANT** structured JSON logs, request tracing, and operational visibility  
+**SO THAT** I can troubleshoot issues, monitor performance, and ensure GDPR compliance
+
+**Reference:** [Logging Specification](../specs/logging-spec.md) — Complete logging format, ECS schema, and audit trail specification
+
+#### Acceptance Criteria
+
+##### Structured logging
+
+**Happy path:**
+- [ ] All log lines in JSON conforming to Elastic Common Schema (ECS)
+- [ ] Mandatory fields: `@timestamp`, `log.level`, `trace.id` (requestId), `service.name`, `user.id`, `url.path`, `client.ip`, `http.response.status_code`, `event.duration`
+- [ ] JSON/text format switchable via `LOG_FORMAT=json|text`
+
+**Edge cases:**
+- [ ] `user.id` not available (unauthenticated request) → field set to `"anonymous"`; not omitted
+- [ ] `event.duration` not calculable (connection dropped) → field set to `-1`; not omitted
+
+**Technical constraints:**
+- [ ] MUST use Logback or Log4j2 with ECS encoder — no custom JSON formatting
+
+##### Request ID propagation
+
+**Happy path:**
+- [ ] `X-Request-ID` header added to MDC at start of each request
+- [ ] All log lines for same request contain same `trace.id` value
+- [ ] Log context cleared at end of request (thread safety)
+
+**Edge cases:**
+- [ ] Inbound request without `X-Request-ID` → gate generates UUID and uses it; logs it as `generated=true`
+
+##### Outbound request logging
+
+**Happy path:**
+- [ ] Gate-to-gate client logs each gate called: gate ID, protocol, URL, duration ms, HTTP status, error (if any)
+- [ ] eDelivery client logs: recipient Party ID, requestId, duration ms, response status
+- [ ] eFTI platform client logs REST and eDelivery: platform ID, URL, duration ms, HTTP status
+
+**Edge cases:**
+- [ ] Outbound request times out → logged at WARN with gate ID and configured timeout value
+
+##### Business logic logging
+
+**Happy path:**
+- [ ] Identifier search logs: local result count, broadcast gate count, result per gate, `broadcastTriggered: true/false`
+- [ ] Dataset request logs: UIL, routing decision (local vs remote), duration ms
+- [ ] Authorisation denials: user ID, endpoint, reason for denial
+
+**Technical artifacts:**
+- [ ] Logging configuration: `logback-spring.xml` with ECS encoder
+- [ ] Environment variable: `LOG_FORMAT=json|text`
+
+### EPIC 17 — Monitoring and Alerting
+
+**AS AN** operations engineer  
+**I WANT** real-time metrics, dashboards, and automated alerts  
+**SO THAT** I can detect and resolve incidents before users are affected
+
+#### Acceptance Criteria
+
+**Happy path:**
+- [ ] Metrics endpoint exposes: HTTP request count/duration/errors, eDelivery message count, total identifier count, gate ONLINE/OFFLINE status
+- [ ] Real-time dashboard: req/min, latency (p50/p95/p99), error rate, gate status
+- [ ] Centralised log aggregation — logs from all pods collected in central system (Loki/ELK)
+- [ ] Alerts configured:
+  - Gate error rate > 5% in last 5 minutes
+  - Application node restarting repeatedly (> 3 restarts in 10 minutes)
+  - Database connection failure
+  - Disk usage > 90%
+  - eDelivery message processing stalled > 15 minutes
+
+**Edge cases:**
+- [ ] Metrics endpoint unavailable (app crash) → Prometheus marks target as DOWN; alert fires after 2 missed scrapes
+
+**Technical constraints:**
+- [ ] Prometheus scrape interval: 15 seconds (configurable)
+- [ ] Grafana dashboard exported as JSON and committed to repository
+
+##### Performance and SLA
+
+**Happy path:**
+- [ ] System handles > 1 million queries per year without performance degradation
+- [ ] Single node capacity: ≥ 100 requests/sec without exceeding p95 latency threshold
+- [ ] End-to-end response time for roadside inspections < 60 seconds (EU Reg 2024/1942)
+- [ ] Service availability ≥ 99.9% during business hours (10:00–16:00 CET minimum — Art 8(3) Reg 2024/1942)
+- [ ] Performance tests run in CI/CD — regressions cause build failure
+- [ ] Incident resolution SLA: 95% of incidents resolvable within 4 hours
+
+**Technical artifacts:**
+- [ ] Grafana dashboard JSON in `monitoring/` directory
+- [ ] Prometheus alert rules in `monitoring/alerts.yaml`
+
+---
+
+## THEME 8 — Software Quality
+
+**Objective:** Ensure every change is automatically tested, documented, securely packaged, and deployed in an auditable way. This is the foundation of KeMIT NFR (Non-Functional Requirements) compliance.
+
+**Theme done when:**
+- [ ] EPIC 18 (Tests): unit coverage ≥80%, E2E gate-to-gate flow passes in CI
+- [ ] EPIC 19 (API docs): OpenAPI 3.0 spec published, Swagger UI live, versioning `/v1/` in place
+- [ ] EPIC 20 (CI/CD): every PR builds + tests + scans; `main` → staging auto-deploy; git tag → production
+
+**Business value:**
+- Automated tests catch regressions before production — increases release confidence
+- CI/CD automation reduces deployment risk and enables fast rollback (within minutes)
+- SonarQube quality gates, SBOM, and Trivy scanning are KeMIT project supply chain security requirements
+- OpenAPI specification and API versioning allows partners to integrate without direct technical support
+- Semantic versioning with CHANGELOG provides a traceable release history
+
+### EPIC 18 — Test Coverage and Quality
+
+**AS A** developer  
+**I WANT** automated tests covering the core business logic  
+**SO THAT** regressions are caught before reaching production
+
+#### Acceptance Criteria
+
+##### Unit tests
+
+**Happy path:**
+- [ ] Business logic layer coverage ≥ 80%: local vs remote routing, broadcast parallelism, error handling (gate offline, invalid XML, timeout)
+- [ ] Access control unit tests: all role combinations × endpoints, Super Admin, regular Admin, denial
+- [ ] User management unit tests: role restriction, subset validation, self-deletion prevention
+- [ ] Request ID validator unit tests: duplicate detection, TTL expiry behaviour
+- [ ] eDelivery message parsing: all message types, unknown compression type, unknown rootTag
+
+**Edge cases tested:**
+- [ ] `broadcast-only-when-empty`: test that broadcast is NOT triggered when local results > 0
+- [ ] Multi-platform user with/without `platformId` parameter
+- [ ] Expiry job with ROAD mode and `delivered_at + 14 days` boundary
+
+**Technical constraints:**
+- [ ] Test framework: JUnit 5 + Mockito; no custom test frameworks
+
+##### Integration tests
+
+**Happy path:**
+- [ ] eFTI platform client tests: REST vs eDelivery selection, subsetting, timeout, error handling
+- [ ] Identifier repository tests: search filters at database level, role-based filtering
+- [ ] Expiry job tests: 14-day expiry logic, ROAD mode only
+
+##### E2E tests
+
+**Happy path:**
+- [ ] Gate-to-gate identifier request (between 2 gate instances)
+- [ ] eFTI platform → eFTI Gate identifier save → Authority query → SSE stream (full happy path)
+- [ ] Follow-up message forwarding — local and remote
+
+**Technical artifacts:**
+- [ ] CI: test coverage report published as artefact
+- [ ] Test: subsetter with 10 MB XML, heap usage < 256 MB
+
+### EPIC 19 — API Standardisation
+
+**AS A** integration partner  
+**I WANT** a well-documented, versioned API  
+**SO THAT** I can integrate with the gate without direct technical support
+
+#### Acceptance Criteria
+
+**Happy path:**
+- [ ] OpenAPI 3.0+ specification automatically generated from source code
+- [ ] Swagger UI available at `/api/openapi` and `/v1/openapi` — including ability to test authentication
+- [ ] URL-based API versioning: `/api/v1/` (admin), `/v1/` (eFTI) — existing URLs redirected
+- [ ] Version deprecation policy: old version supported ≥ 6 months after new version released
+- [ ] CORS policy configured: `ALLOWED_ORIGINS` environment variable; default same-origin in production
+- [ ] Identifier search results paginated: `limit`, `offset` parameters; response includes `X-Total-Count`
+
+**Edge cases:**
+- [ ] `ALLOWED_ORIGINS` not set → CORS defaults to same-origin; not `*` (open)
+- [ ] Client requests deprecated API version → `200 OK` with `Deprecation: true` response header and migration link
+
+**Technical artifacts:**
+- [ ] OpenAPI spec committed to repository as `openapi.yaml`
+
+### EPIC 20 — CI/CD and Supply Chain Security
+
+**AS A** DevOps engineer  
+**I WANT** automated build, test, security analysis, and deployment pipelines  
+**SO THAT** every release is repeatable, auditable, and secure
+
+#### Acceptance Criteria
+
+##### CI pipeline (per PR)
+
+**Happy path:**
+- [ ] Build + unit tests pass
+- [ ] Static analysis quality gate: 0 critical/high issues, coverage ≥ 80%
+- [ ] Container image security scanning: blocks CRITICAL/HIGH CVE vulnerabilities (Trivy)
+- [ ] XSD validation: XML sample files validated against schemas in `xsd/`
+- [ ] Software Bill of Materials (SBOM) in CycloneDX format generated for each artefact
+
+**Edge cases:**
+- [ ] New dependency introduces HIGH CVE → PR blocked; developer receives CVE details in CI report
+
+##### CD pipeline
+
+**Happy path:**
+- [ ] `main` branch update → automatic deployment to staging environment
+- [ ] Version tag (e.g. `v1.2.3`) → automatic deployment to production
+- [ ] Container image tagged with: commit hash, semantic version, `latest`
+- [ ] Images published to container registry
+- [ ] Rolling update: new version starts before old one removed (zero downtime)
+- [ ] Single-action rollback to previous version
+
+**Edge cases:**
+- [ ] Rollback needed → single command: `kubectl rollout undo deployment/efti-gate`; completes within 2 minutes
+
+##### Versioning
+
+**Happy path:**
+- [ ] SemVer MAJOR.MINOR.PATCH process established
+- [ ] `CHANGELOG.md` following Keep a Changelog 1.1.0 standard
+- [ ] Git tags in format `vX.Y.Z` for every production release
+
+---
+
+## THEME 9 — User Interfaces
+
+**Objective:** Provide usable, accessible, and Estonian e-government-compliant web interfaces for both authority officers (roadside inspections) and system administrators (registry management).
+
+**Theme done when:**
+- [ ] EPIC 21 (Authority UI): identifier search with real-time SSE results works; WCAG 2.2 AA
+- [ ] EPIC 22 (Admin UI): all registry CRUD accessible via UI; TARA login functional
+
+**Business value:**
+- Authority officers (PPA, MTA, TRAM, KeA) need a fast, intuitive, mobile-friendly interface for roadside checks — without a separate IT system
+- Administrators need a secure management interface with TARA authentication (required for production)
+- TEDI design system ensures consistency with other Estonian government services
+- WCAG 2.2 AA compliance is a legal requirement (accessibility for all)
+- Multi-role users can switch their active role without re-authenticating
+- Auto-saved form drafts reduce user errors
+
+### EPIC 21 — Authority UI (AAP — H2M Interface)
+
+**AS A** competent authority officer  
+**I WANT** a web interface for searching identifiers and viewing datasets  
+**SO THAT** I can conduct roadside inspections without a separate IT system
+
+#### Acceptance Criteria
+
+##### Authentication
+
+**Happy path:**
+- [ ] Authority UI uses OIDC via TARA; supported: ID card, Mobile-ID, Smart-ID
+- [ ] TARA personal identification code mapped to authority user account (e.g. PPA officer → PPA Authority role)
+- [ ] M2M access uses Bearer token (JWT RFC 7519) — OIDC does not apply to API clients
+- [ ] Session expires after configurable period of inactivity
+- [ ] Logout invalidates session and notifies TARA
+
+**Edge cases:**
+- [ ] Authority officer's TARA identity not mapped to any authority account → `403 Forbidden` with `"detail": "Your identity is not registered as an authority user. Contact your administrator."` — not an error stack trace
+
+##### Design and language
+
+**Happy path:**
+- [ ] UI uses TEDI (Tehik) design system components (https://tedi.tehik.ee/)
+- [ ] i18n translation files; default language Estonian; language selector available
+- [ ] WCAG 2.2 AA compliance verified by automated accessibility scan in CI
+- [ ] Mobile device support: touch-friendly controls, minimum touch target 44×44 px
+
+##### Functionality
+
+**Happy path:**
+- [ ] Search view: enter identifier (e.g. registration plate), select filters (mode, country, DGI), view results in real time (SSE)
+- [ ] Identifier can be entered manually, by QR code scan, or NFC reading
+- [ ] Clicking result allows requesting dataset — subset selection per user's permitted subsets
+- [ ] Dataset displayed in human-readable form (XML rendered as structured table)
+- [ ] Follow-up message can be sent directly to a UIL
+- [ ] AAP provides both H2M (web interface) and M2M (REST API) — same backend endpoint
+- [ ] When multiple UILs returned, all displayed — officer selects most relevant
+- [ ] Search results paginated
+
+**Edge cases:**
+- [ ] SSE stream takes > 30 seconds → UI shows progress indicator; partial results displayed as they arrive
+- [ ] Dataset XML rendering fails (malformed XML from platform) → UI shows raw XML with warning; does not crash
+
+**Technical artifacts:**
+- [ ] UI component: plate search with real-time SSE result display
+- [ ] Accessibility: automated scan (axe-core) in CI
+
+### EPIC 22 — Admin UI
+
+**AS AN** administrator  
+**I WANT** a web-based management interface for users, registries and configuration  
+**SO THAT** I can administer the system without direct database access
+
+#### Acceptance Criteria
+
+##### Authentication
+
+**Happy path:**
+- [ ] Admin UI uses OIDC via TARA; supported: ID card, Mobile-ID, Smart-ID
+- [ ] Basic Auth (email:password) disabled in production environments
+- [ ] Session expires after configurable period; repeated failures trigger temporary lockout
+- [ ] Logout invalidates session and notifies TARA
+
+**Edge cases:**
+- [ ] Admin account locked (5 failed attempts) → UI shows `"Account temporarily locked. Try again in 15 minutes."` — not error code
+
+##### Design and language
+
+**Happy path:**
+- [ ] UI uses TEDI (Tehik) design system (https://tedi.tehik.ee/)
+- [ ] i18n translation files; default language Estonian
+- [ ] WCAG 2.2 AA: icon-only buttons have `aria-label`, modals have `aria-labelledby`, skip navigation link, colour contrast minimum 4.5:1
+
+##### Role selection and navigation
+
+**Happy path:**
+- [ ] User with multiple roles shown role selection screen after login
+- [ ] Active role clearly visible in UI throughout session
+- [ ] Role can be switched without re-authenticating
+
+**Edge cases:**
+- [ ] User has only 1 role → role selection screen skipped; directly to main view
+
+##### Forms
+
+**Happy path:**
+- [ ] Real-time validation before form submission
+- [ ] Long forms: periodic automatic draft saving (interval configurable via `DRAFT_SAVE_INTERVAL_SECONDS`, default 30)
+- [ ] Draft restored when user returns to unfinished form
+
+**Edge cases:**
+- [ ] Draft save fails (network error) → UI shows non-blocking warning `"Draft save failed — your data is not lost, but will not be restored on refresh"`
+
+##### Error handling
+
+**Happy path:**
+- [ ] JS errors logged to server via `POST /api/js-error`
+- [ ] Users see clear, understandable error message — not a technical stack trace
+- [ ] Error page includes `requestId` for support correlation
+
+**Technical artifacts:**
+- [ ] OpenAPI: `POST /api/js-error`
+
+---
+
+## Priority Summary
+
+| Phase | Theme | Epics | Rationale |
+|-------|-------|-------|-----------|
+| **1 — Production readiness** | T1, T5, T6 | 2 (Authentication), 12 (Scalability), 13 (Health), 14 (Security) | Cannot go to production without these |
+| **2 — Core functionality** | T1, T2, T3 | 1 (RBAC), 3–5 (Platform/Authority API), 6–9 (Admin CRUD) | Core business logic of the system |
+| **3 — Integrations** | T4 | 10 (eDelivery), 11 (X-Road) | EU and national interoperability |
+| **4 — Quality** | T6, T7 | 15 (Audit), 16 (Logging), 17 (Monitoring) | Operational maturity |
+| **5 — Standards and UI** | T8, T9 | 18–20 (Tests/API/CI/CD), 21–22 (UI) | KeMIT MFN compliance |
+
+---
+
+## Reference Architecture Compliance Check
+
+| RA Principle | Epic | Status |
+|---|---|---|
+| Gate is a content-agnostic router | EPIC 3, 4, 5, 10 | ✅ Covered |
+| Broadcast only on 0 local results | EPIC 4 | ✅ Covered |
+| Platform filters subsets | EPIC 5 | ✅ Clarified |
+| Gate does not store full datasets | EPIC 5, 9 | ✅ Covered |
+| UIL = URL-based structure | EPIC 3, 4, 5 | ✅ Covered |
+| CMDS statuses active/inactive/deleted | EPIC 9 | ✅ Addressed |
+| AAP = authority REST interface (H2M + M2M) | EPIC 21 | ✅ Covered |
+| Identifier `expires_at` field | EPIC 9 | ✅ Addressed |
+| Audit logging jurisdiction question | EPIC 15 | ✅ Clarified |
+| Multimodal support (road/sea/rail/air) | EPIC 3, 10 | ✅ Covered |
+
+> **Architecture reference:** For component diagrams, security layers, and full design rationale see [eFTI Gate Reference Architecture](architecture/eFTI-Gate-Reference-Architecture.md).

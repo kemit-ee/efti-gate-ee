@@ -1,0 +1,45 @@
+stateDiagram-v2
+    [*] --> ONLINE: Admin: POST /gates\n(registered, auto-pinged)
+
+    ONLINE --> OFFLINE: Ping fails\n(ConnectException or non-2xx HTTP response)\nGatePing background job detects failure
+
+    OFFLINE --> ONLINE: Ping succeeds\n(next scheduled ping cycle)
+
+    ONLINE --> DISABLED: Admin: POST /gates (update with status=DISABLED)\n(manual disable, e.g. maintenance)
+
+    OFFLINE --> DISABLED: Admin manually disables\nunreachable gate
+
+    DISABLED --> ONLINE: Admin re-enables gate\nAND next ping succeeds
+
+    ONLINE --> Deleted: Admin: DELETE /gates/{gateId}
+
+    OFFLINE --> Deleted: Admin: DELETE /gates/{gateId}
+
+    DISABLED --> Deleted: Admin: DELETE /gates/{gateId}
+
+    Deleted --> [*]: Gate removed from registry\nNo longer used in broadcasts
+
+    note right of ONLINE
+        Status: ONLINE
+        - Included in identifier search broadcasts
+        - gateRegistry.online() returns this gate
+        - Last successful ping recorded
+        - eDelivery or Fast HTTP calls routed here
+    end note
+
+    note right of OFFLINE
+        Status: OFFLINE
+        - Excluded from identifier search broadcasts
+        - gateRegistry.online() does NOT return this gate
+        - Direct dataset requests (GET /dataset/{eu-fi01}/...) fail
+          with 502 Bad Gateway
+        - Ping job continues trying to reconnect
+    end note
+
+    note right of DISABLED
+        Status: DISABLED
+        - Excluded from broadcasts AND ping job
+        - gateRegistry.enabled() does NOT return this gate
+        - Admin explicitly disabled (e.g. scheduled maintenance)
+        - Will NOT auto-recover (requires admin re-enable)
+    end note
