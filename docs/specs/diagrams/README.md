@@ -12,7 +12,7 @@
 
 | # | File | Description | Epic |
 |---|------|-------------|------|
-| 1 | [seq-01-identifier-registration.mmd](seq-01-identifier-registration.mmd) | Platform registers identifier via POST /api/v1/identifiers/{datasetId} | [Epic 3](../../epics/epic_3_en.md) |
+| 1 | [seq-01-identifier-registration.mmd](seq-01-identifier-registration.mmd) | Platform registers identifier via POST /v1/identifiers/{datasetId} | [Epic 3](../../epics/epic_3_en.md) |
 | 2 | [seq-02-identifier-search-local-only.mmd](seq-02-identifier-search-local-only.mmd) | Authority search — results found locally, no broadcast | [Epic 4](../../epics/epic_4_en.md) |
 | 3 | [seq-03-identifier-search-broadcast.mmd](seq-03-identifier-search-broadcast.mmd) | Authority search — empty local results, broadcast to all ONLINE gates | [Epic 4](../../epics/epic_4_en.md) |
 | 4 | [seq-04-identifier-search-no-results.mmd](seq-04-identifier-search-no-results.mmd) | Authority search — no results in any gate | [Epic 4](../../epics/epic_4_en.md) |

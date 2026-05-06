@@ -63,17 +63,22 @@ Each `User` has `roles: Map<Role, Set<PartyId<*>>>` — a role mapped to one or 
 
 ## 3. Permissions matrix
 
-All paths are rooted at `/api/v1/...`. ✅ = allowed; ❌ = denied; "All" = no row-level filter; "Own *" = filtered to user's party scope.
+**Path conventions:**
+- Platform + Authority APIs (called by external systems) use `/v1/...`.
+- Admin API (called by gate operators) uses `/api/v1/...`.
+- Health probes use `/health/...` (no auth).
+
+✅ = allowed; ❌ = denied; "All" = no row-level filter; "Own *" = filtered to user's party scope.
 
 ### 3.1 Platform API
 
 | Endpoint | Method | ADMIN | PLATFORM | AUTHORITY | GATE | Unauth |
 |---|---|---|---|---|---|---|
-| `/api/v1/identifiers/{datasetId}` | POST | ✅ All | ✅ Own platform only | ❌ | ❌ | ❌ |
+| `/v1/identifiers/{datasetId}` | POST | ✅ All | ✅ Own platform only | ❌ | ❌ | ❌ |
 
 ```mermaid
 flowchart TD
-    REQ[POST /api/v1/identifiers/datasetId] --> A{User authenticated?}
+    REQ[POST /v1/identifiers/datasetId] --> A{User authenticated?}
     A --No--> R401[401 Unauthorized]
     A --Yes--> B{isAdmin?}
     B --Yes--> SET[platformId = body or first role]
@@ -93,9 +98,9 @@ flowchart TD
 
 | Endpoint | Method | ADMIN | PLATFORM | AUTHORITY | GATE | Unauth |
 |---|---|---|---|---|---|---|
-| `/api/v1/identifiers/{identifier}` | GET | ✅ All | ❌ | ✅ All (audit logged) | ❌ | ❌ |
-| `/api/v1/dataset/{gateId}/{platformId}/{datasetId}` | GET | ✅ All | ❌ | ✅ Own subsets only | ❌ | ❌ |
-| `/api/v1/follow-up/{gateId}/{platformId}/{datasetId}/{datasetRequestId}` | POST | ✅ | ❌ | ✅ | ❌ | ❌ |
+| `/v1/identifiers/{identifier}` | GET | ✅ All | ❌ | ✅ All (audit logged) | ❌ | ❌ |
+| `/v1/dataset/{gateId}/{platformId}/{datasetId}` | GET | ✅ All | ❌ | ✅ Own subsets only | ❌ | ❌ |
+| `/v1/follow-up/{gateId}/{platformId}/{datasetId}/{datasetRequestId}` | POST | ✅ | ❌ | ✅ | ❌ | ❌ |
 
 ```mermaid
 flowchart TD

@@ -6,7 +6,7 @@ sequenceDiagram
     participant GateDE as Remote Gate (eu-de01)
     participant GateSE as Remote Gate (eu-se01)
 
-    Authority->>+Gate: GET /identifiers/456XYZ?registrationCountryCode=FI
+    Authority->>+Gate: GET /v1/identifiers/456XYZ?registrationCountryCode=FI
     Note over Authority,Gate: Accept: text/event-stream<br/>Authorization: Bearer aut-demo-key<br/>X-Request-ID: req-b2c3d4e5
 
     Gate->>Gate: Authenticate user (API key)<br/>Authorize (role=AUTHORITY)

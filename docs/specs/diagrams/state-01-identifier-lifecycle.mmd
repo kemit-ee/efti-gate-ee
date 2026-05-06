@@ -1,5 +1,5 @@
 stateDiagram-v2
-    [*] --> Registered: Platform: POST /identifiers/{datasetId}
+    [*] --> Registered: Platform: POST /v1/identifiers/{datasetId}
 
     Registered --> Active: Validation successful\n(XML valid, identifiers parsed)
 
@@ -7,7 +7,7 @@ stateDiagram-v2
 
     Rejected --> [*]: Identifier not stored
 
-    Active --> Active: Platform: POST /identifiers/{datasetId}\n(re-upload updates dataset XML)
+    Active --> Active: Platform: POST /v1/identifiers/{datasetId}\n(re-upload updates dataset XML)
 
     Active --> Expired: Background expiry job\n(createdAt < NOW() - 90 days)\ndeliveredAt set to NOW()
 

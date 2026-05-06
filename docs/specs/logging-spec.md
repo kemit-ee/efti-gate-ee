@@ -70,7 +70,7 @@ All log entries **must** be valid JSON on a single line. Format follows [Elastic
 | `event.duration` | long (ns) | Nanoseconds elapsed |
 | `http.request.id` | UUID string | X-Request-ID; propagated across G2G hops |
 | `http.request.method` | string | HTTP verb |
-| `http.request.path` | string | Exact request path (e.g. `/api/v1/identifiers/...`) |
+| `http.request.path` | string | Exact request path (e.g. `/v1/identifiers/...`) |
 | `http.request.body.bytes` | int | Request body size (bytes) — never log body content at INFO+ |
 | `http.response.status_code` | int | HTTP response status |
 | `user.id` | UUID string | `users.id` of the authenticated user |
@@ -156,7 +156,7 @@ Five templates cover every event shape in the gate. Per-event variations live in
   "http": {
     "request.id": "550e8400-e29b-41d4-a716-446655440000",
     "request.method": "POST",
-    "request.path": "/api/v1/identifiers/550e8400-e29b-41d4-a716-446655440000",
+    "request.path": "/v1/identifiers/550e8400-e29b-41d4-a716-446655440000",
     "request.body.bytes": 1842,
     "response.status_code": 200
   },
@@ -196,7 +196,7 @@ Five templates cover every event shape in the gate. Per-event variations live in
   "http": {
     "request.id": "660f9511-f39c-42e5-b827-557766551111",
     "request.method": "POST",
-    "request.path": "/api/v1/identifiers/660f9511-f39c-42e5-b827-557766551111",
+    "request.path": "/v1/identifiers/660f9511-f39c-42e5-b827-557766551111",
     "request.body.bytes": 542,
     "response.status_code": 400
   },
@@ -224,7 +224,7 @@ Five templates cover every event shape in the gate. Per-event variations live in
   "event.outcome": "failure",
   "http": {
     "request.method": "POST",
-    "request.path": "/api/v1/identifiers/550e8400-e29b-41d4-a716-446655440000",
+    "request.path": "/v1/identifiers/550e8400-e29b-41d4-a716-446655440000",
     "response.status_code": 403
   },
   "user": { "id": "04fa30eb-eb08-11f0-b506-3c9c0f2eb459", "roles": ["AUTHORITY"] },
@@ -252,7 +252,7 @@ Five templates cover every event shape in the gate. Per-event variations live in
   "http": {
     "request.id": "ee5lh399-h15k-20gd-j605-335544339999",
     "request.method": "GET",
-    "request.path": "/api/v1/dataset/eu-ee31/demo/550e8400-e29b-41d4-a716-446655440000",
+    "request.path": "/v1/dataset/eu-ee31/demo/550e8400-e29b-41d4-a716-446655440000",
     "response.status_code": 500
   },
   "efti": { "dataset.id": "550e8400-e29b-41d4-a716-446655440000", "error.code": "DATABASE_ERROR" },
@@ -306,17 +306,17 @@ Every entry below uses the §4 templates — pick the matching shape, fill in `e
 
 | Surface | `event.action` | Endpoint / trigger | Default level | Audit? |
 |---|---|---|---|---|
-| Platform | `identifier.register` | POST `/api/v1/identifiers/{datasetId}` (success) | INFO | N (90d retention) |
+| Platform | `identifier.register` | POST `/v1/identifiers/{datasetId}` (success) | INFO | N (90d retention) |
 | Platform | `identifier.register` | Same — XML parse / validation error → 400 | WARN | N |
 | Platform | `identifier.register` | Same — duplicate datasetId → 409 | WARN | N |
 | Job | `identifier.expire` | `IdentifierExpirationJob` deletes expired rows | INFO | **Y** (data deletion) |
-| Authority | `identifier.search` | GET `/api/v1/identifiers/{identifier}` — local hit | INFO | **Y** |
+| Authority | `identifier.search` | GET `/v1/identifiers/{identifier}` — local hit | INFO | **Y** |
 | Authority | `identifier.search.broadcast` | Same — broadcast invoked | INFO | **Y** |
 | Authority | `identifier.search.broadcast` | Same — broadcast partial failure (gate timeout) | WARN | **Y** |
-| Authority | `dataset.deliver` | GET `/api/v1/dataset/{gateId}/{platformId}/{datasetId}` (local platform) | INFO | **Y** |
+| Authority | `dataset.deliver` | GET `/v1/dataset/{gateId}/{platformId}/{datasetId}` (local platform) | INFO | **Y** |
 | Authority | `dataset.deliver` | Same — platform timeout → 504 | WARN | **Y** |
 | Authority | `dataset.proxy` | Same — UIL targets remote gate, served via G2G | INFO | **Y** |
-| Authority | `followup.send` | POST `/api/v1/follow-up/{gateId}/{platformId}/{datasetId}/{datasetRequestId}` | INFO | **Y** |
+| Authority | `followup.send` | POST `/v1/follow-up/{gateId}/{platformId}/{datasetId}/{datasetRequestId}` | INFO | **Y** |
 | Admin | `user.login` | `AccessChecker.before()` resolves credentials | INFO | **Y** |
 | Admin | `user.login` | Same — invalid credentials → 401 | WARN | **Y** |
 | Admin | `user.access.denied` | Authenticated but role mismatch → 403 | WARN | **Y** |
@@ -339,7 +339,7 @@ Every entry below uses the §4 templates — pick the matching shape, fill in `e
 | System | `jvm.memory.warning` | Heap > 80 % of `-Xmx` | WARN | N (30d) |
 | SSE | `sse.stream.open` / `sse.stream.close` | Authority `Accept: text/event-stream` lifecycle | INFO | N |
 
-**HTTP path note**: every request path uses the `/api/v1/...` prefix. All admin endpoints are rooted at `/api/v1/` (e.g. `/api/v1/platforms`, `/api/v1/users`) — there is no separate `/admin` namespace.
+**HTTP path note**: Platform + Authority APIs (called by external systems) use `/v1/...`; Admin API (called by gate operators) uses `/api/v1/...`. There is no separate `/admin` namespace. Health probes are at `/health/...` (unauthenticated).
 
 ---
 

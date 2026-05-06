@@ -6,7 +6,7 @@ sequenceDiagram
 
     Note over Authority: Authority found consignment in search (seq-03).<br/>UIL: gateId=eu-fi01, platformId=plt-fi-001,<br/>datasetId=a1b2c3d4-e5f6-7890-abcd-ef1234567890
 
-    Authority->>+GateEE: GET /dataset/eu-fi01/plt-fi-001/a1b2c3d4-e5f6-7890-abcd-ef1234567890?subsetId=EU07
+    Authority->>+GateEE: GET /v1/dataset/eu-fi01/plt-fi-001/a1b2c3d4-e5f6-7890-abcd-ef1234567890?subsetId=EU07
     Note over Authority,GateEE: Authorization: Bearer aut-demo-key<br/>X-Request-ID: req-d4e5f6a7
 
     GateEE->>GateEE: Authenticate & authorize (role=AUTHORITY)

@@ -5,7 +5,7 @@ sequenceDiagram
     participant DB as PostgreSQL
     participant ConsReg as ConsignmentRepository
 
-    Platform->>+Gate: POST /identifiers/550e8400-e29b-41d4-a716-446655440000
+    Platform->>+Gate: POST /v1/identifiers/550e8400-e29b-41d4-a716-446655440000
     Note over Platform,Gate: Content-Type: application/xml<br/>Authorization: Bearer plt-demo-key<br/>Body: &lt;consignment xmlns="http://efti.eu/v1/consignment/identifier"&gt;...
 
     Gate->>+Auth: Validate API key

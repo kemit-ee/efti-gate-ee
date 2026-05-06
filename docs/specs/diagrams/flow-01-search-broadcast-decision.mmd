@@ -1,5 +1,5 @@
 flowchart TD
-    Start([Authority: GET /identifiers/identifier]) --> AuthCheck[Authenticate user via API key]
+    Start([Authority: GET /v1/identifiers/identifier]) --> AuthCheck[Authenticate user via API key]
     AuthCheck --> RoleCheck{User has AUTHORITY role?}
 
     RoleCheck -->|No| Deny403[Return 403 Forbidden]

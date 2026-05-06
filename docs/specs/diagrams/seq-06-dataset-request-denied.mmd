@@ -4,7 +4,7 @@ sequenceDiagram
     participant GateFI as Remote Gate (eu-fi01)
     participant Platform as Platform (plt-fi-001)
 
-    Authority->>+GateEE: GET /dataset/eu-fi01/plt-fi-001/a1b2c3d4-e5f6-7890-abcd-ef1234567890?subsetId=full
+    Authority->>+GateEE: GET /v1/dataset/eu-fi01/plt-fi-001/a1b2c3d4-e5f6-7890-abcd-ef1234567890?subsetId=full
     Note over Authority,GateEE: Authorization: Bearer aut-demo-key<br/>X-Request-ID: req-e5f6a7b8
 
     GateEE->>GateEE: Authenticate & authorize (role=AUTHORITY)

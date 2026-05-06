@@ -5,7 +5,7 @@ sequenceDiagram
     participant PlatformReg as PlatformRegistry
     participant DB as PostgreSQL
 
-    Admin->>+Gate: POST /gates/platforms
+    Admin->>+Gate: POST /api/v1/platforms
     Note over Admin,Gate: Authorization: Bearer admin-key<br/>Content-Type: application/json<br/>Body: {"id":"plt-abc-001","baseUrl":"https://efti.abc-logistics.ee","supportsSubsetting":true}
 
     Gate->>+Auth: Validate API key
@@ -22,7 +22,7 @@ sequenceDiagram
 
     Note over Admin: Platform registered. Admin must now create<br/>a platform user for the platform operator.
 
-    Admin->>+Gate: POST /users?generateSecret=true
+    Admin->>+Gate: POST /api/v1/users?generateSecret=true
     Note over Admin,Gate: Body: {"name":"ABC Logistics Operator","email":"operator@abc-logistics.ee","roles":{"PLATFORM":["plt-abc-001"]}}
 
     Gate->>Gate: Generate random UUID password

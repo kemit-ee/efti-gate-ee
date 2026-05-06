@@ -7,7 +7,7 @@ sequenceDiagram
 
     Note over Client: Client has credentials in format:<br/>email:secret (Base64 encoded) OR uuid:secret (Base64 encoded)
 
-    Client->>+Gate: GET /identifiers/123ABC
+    Client->>+Gate: GET /v1/identifiers/123ABC
     Note over Client,Gate: Authorization: Basic dXNlcjpzZWNyZXQ=<br/>(Base64 of "jaan.tamm@politsei.ee:generated-secret-uuid")
 
     Gate->>+Auth: authenticate(request)
@@ -42,7 +42,7 @@ sequenceDiagram
     end
 
     alt Valid credentials but wrong role
-        Client->>Gate: GET /identifiers/123ABC (platform user, not authority)
+        Client->>Gate: GET /v1/identifiers/123ABC (platform user, not authority)
         Gate->>Auth: authenticate
         Auth-->>Gate: User{roles={"PLATFORM":["demo"]}}
         Gate->>Route: @Access(AUTHORITY) check fails

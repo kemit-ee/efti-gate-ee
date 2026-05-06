@@ -10,8 +10,8 @@
 - [DB Schema](../specs/db/README.md) — Database schema for identifiers and consignments
 - [XSD](../efti-analysis/xsd/consignment-identifier.xsd) — Identifier XML schema
 - [Data Transformations](../specs/data-transformations.md) — XML→DB extraction (XPath maps for denormalised columns)
-- [OpenAPI](../specs/openapi.yaml) — `POST /api/v1/identifiers/{datasetId}` contract
-- [RA §2.1 UIL](../architecture/eFTI-Gate-Reference-Architecture.md#21-uil-unique-identifier-for-loading) — UIL structure and identifier registration concepts
+- [OpenAPI](../specs/openapi.yaml) — `POST /v1/identifiers/{datasetId}` contract
+- [RA §2.1 UIL](../architecture/eFTI-Gate-Reference-Architecture.md#21-uil-unique-identifier-locator) — UIL structure and identifier registration concepts
 - [RA §2.2 Identifiers vs Datasets](../architecture/eFTI-Gate-Reference-Architecture.md#22-identifiers-vs-datasets) — What the gate stores vs what platforms store
 - [RA §3 Data Lifecycle](../architecture/eFTI-Gate-Reference-Architecture.md#3-data-lifecycle--ownership) — Identifier lifecycle and ownership rules
 

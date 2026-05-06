@@ -5,7 +5,7 @@ sequenceDiagram
     participant DB as PostgreSQL
     participant SSE as SSE Stream
 
-    Authority->>+Gate: GET /identifiers/123ABC?registrationCountryCode=EE
+    Authority->>+Gate: GET /v1/identifiers/123ABC?registrationCountryCode=EE
     Note over Authority,Gate: Accept: text/event-stream<br/>Authorization: Bearer aut-demo-key<br/>X-Request-ID: req-a1b2c3d4
 
     Gate->>+Auth: Validate API key

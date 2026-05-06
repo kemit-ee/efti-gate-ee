@@ -7,7 +7,7 @@ sequenceDiagram
 
     Note over User: User has access to multiple platforms:<br/>roles = {"PLATFORM": ["plt-abc-001", "plt-xyz-002"]}
 
-    User->>+Gate: POST /identifiers/550e8400-e29b-41d4-a716-446655440000
+    User->>+Gate: POST /v1/identifiers/550e8400-e29b-41d4-a716-446655440000
     Note over User,Gate: Authorization: Basic [multi-platform user credentials]<br/>Content-Type: application/xml
 
     Gate->>+Auth: authenticate(request)
@@ -28,7 +28,7 @@ sequenceDiagram
 
     Note over User: Admin creates separate user for each platform:<br/>plt-abc-user: roles={"PLATFORM":["plt-abc-001"]}<br/>plt-xyz-user: roles={"PLATFORM":["plt-xyz-002"]}
 
-    User->>+Gate: POST /identifiers/550e8400-... (using plt-abc-user credentials)
+    User->>+Gate: POST /v1/identifiers/550e8400-... (using plt-abc-user credentials)
     Gate->>+Route: PlatformRoutes.before(exchange)
     Route->>Route: platformIds = ["plt-abc-001"]<br/>platformIds.size = 1 → OK
     Route->>Route: platform = platformRegistry["plt-abc-001"]

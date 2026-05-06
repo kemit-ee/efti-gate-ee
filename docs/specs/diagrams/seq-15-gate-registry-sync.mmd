@@ -7,7 +7,7 @@ sequenceDiagram
 
     Note over Gate,OtherNode: Multi-node deployment: both nodes share<br/>the same PostgreSQL. GateRegistry is<br/>in-memory (loaded at startup).
 
-    Admin->>+Gate: POST /gates
+    Admin->>+Gate: POST /api/v1/gates
     Note over Admin,Gate: Body: {"id":"eu-pl01","countryCode":"PL","eDeliveryUrl":"https://efti.gitd.gov.pl/as4","eDeliveryCert":"-----BEGIN CERTIFICATE-----..."}
 
     Gate->>Gate: Authenticate admin

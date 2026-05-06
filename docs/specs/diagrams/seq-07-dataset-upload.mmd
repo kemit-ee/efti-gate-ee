@@ -5,7 +5,7 @@ sequenceDiagram
 
     Note over Platform: Platform has a consignment to register/update.<br/>datasetId: 550e8400-e29b-41d4-a716-446655440000
 
-    Platform->>+Gate: POST /identifiers/550e8400-e29b-41d4-a716-446655440000
+    Platform->>+Gate: POST /v1/identifiers/550e8400-e29b-41d4-a716-446655440000
     Note over Platform,Gate: Content-Type: application/xml<br/>Authorization: Bearer demo-platform-key<br/>Body: full consignment XML with identifiers
 
     Gate->>Gate: Authenticate user → platformId="demo"

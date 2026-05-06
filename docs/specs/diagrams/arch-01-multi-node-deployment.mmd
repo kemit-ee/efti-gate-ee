@@ -33,9 +33,9 @@ graph TB
         GateLT[eu-lt01\nLithuania Gate]
     end
 
-    Platform -->|HTTPS POST /identifiers/UUID\nContent-Type: application/xml| LB
-    Authority -->|HTTPS GET /identifiers/plate\nAccept: text/event-stream| LB
-    Admin -->|HTTPS POST/DELETE /gates/*| LB
+    Platform -->|HTTPS POST /v1/identifiers/UUID\nContent-Type: application/xml| LB
+    Authority -->|HTTPS GET /v1/identifiers/plate\nAccept: text/event-stream| LB
+    Admin -->|HTTPS POST/DELETE /api/v1/gates/*| LB
 
     Node1 --> DB
     Node2 --> DB

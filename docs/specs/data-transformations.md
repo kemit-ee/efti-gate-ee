@@ -21,15 +21,15 @@ The four directions (XML→DB ingest, DB→JSON search results, DB→AS4 G2G wra
 
 ```mermaid
 graph LR
-    PL[Platform] -->|"XML identifier schema<br/>(POST /api/v1/identifiers/{id})"| ING[XML→DB ingest<br/>EftiParser.parseIdentifiers]
+    PL[Platform] -->|"XML identifier schema<br/>(POST /v1/identifiers/{id})"| ING[XML→DB ingest<br/>EftiParser.parseIdentifiers]
     ING -->|INSERT consignments + identifiers<br/>denormalised search columns| DB[(PostgreSQL)]
-    AUTH[Authority] -->|GET /api/v1/identifiers/{id}| Q[DB→JSON search<br/>ConsignmentRepository.find]
+    AUTH[Authority] -->|GET /v1/identifiers/{id}| Q[DB→JSON search<br/>ConsignmentRepository.find]
     Q --> DB
     DB -->|JAXB marshal +<br/>SSE / JSON| AUTH
     Q -.broadcast.-> G2G[DB→AS4 wrap<br/>EftiService.handleIdentifierQuery]
     G2G -->|"&lt;identifierResponse&gt;<br/>(eDelivery schema)"| RG[Remote gate]
     RG -.AS4 in.-> Q
-    AUTH2[Authority] -->|GET /api/v1/dataset/...| PT[Platform passthrough<br/>EftiService.getDataset]
+    AUTH2[Authority] -->|GET /v1/dataset/...| PT[Platform passthrough<br/>EftiService.getDataset]
     PT -->|HTTP / AS4| PL2[Platform / Remote gate]
     PL2 -->|XML byte-for-byte| PT
     PT --> AUTH2
@@ -122,7 +122,7 @@ If JAXB throws (`JAXBException` / `SAXParseException`), `EftiService.saveIdentif
 
 #### 3.1.1 End-to-end example A — Single vehicle, road transport
 
-**Input XML** (POST `/api/v1/identifiers/550e8400-e29b-41d4-a716-446655440000`):
+**Input XML** (POST `/v1/identifiers/550e8400-e29b-41d4-a716-446655440000`):
 
 ```xml
 <consignment xmlns="http://efti.eu/v1/consignment/identifier">
@@ -154,7 +154,7 @@ VALUES ('123ABC', '550e8400-e29b-41d4-a716-446655440000', 'means', 'EE');
 
 #### 3.1.2 End-to-end example B — Container + dangerous goods
 
-**Input XML** (POST `/api/v1/identifiers/770fa622-a49d-53f6-c938-668877662222`):
+**Input XML** (POST `/v1/identifiers/770fa622-a49d-53f6-c938-668877662222`):
 
 ```xml
 <consignment xmlns="http://efti.eu/v1/consignment/identifier">
@@ -237,7 +237,7 @@ which holds only the original XML fragment for round-trip retrieval.
 
 For `Accept: text/event-stream`, the result is streamed as SSE events instead of a JSON array (see §3.2.2).
 
-#### 3.2.1 Canonical example — Authority `GET /api/v1/identifiers/123ABC`
+#### 3.2.1 Canonical example — Authority `GET /v1/identifiers/123ABC`
 
 ```json
 [

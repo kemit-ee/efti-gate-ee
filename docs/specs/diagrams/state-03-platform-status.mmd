@@ -1,9 +1,9 @@
 stateDiagram-v2
-    [*] --> Active: Admin: POST /gates/platforms\n(platform created, immediately active)
+    [*] --> Active: Admin: POST /api/v1/platforms\n(platform created, immediately active)
 
-    Active --> Active: Platform: POST /identifiers/{datasetId}\n(registers/updates identifiers)
+    Active --> Active: Platform: POST /v1/identifiers/{datasetId}\n(registers/updates identifiers)
 
-    Active --> Deleted: Admin: DELETE /gates/platforms/{id}\n(platform removed from registry)
+    Active --> Deleted: Admin: DELETE /api/v1/platforms/{id}\n(platform removed from registry)
 
     Deleted --> [*]: Platform entry removed\nAssociated users lose access\nExisting consignments remain in DB
 
