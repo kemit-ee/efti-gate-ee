@@ -1,6 +1,6 @@
 # eFTI Gate v2 — Project Overview
 
-Visual map of the 9 themes and 25 epics that make up the v2 spec. For artifacts and design rules, see [`docs/planning/SPEC-INDEX.md`](docs/planning/SPEC-INDEX.md).
+Visual map of the 9 themes and 25 epics that make up the v2 spec. For artifacts and design rules, see [`SPEC-INDEX.md`](SPEC-INDEX.md).
 
 ```mermaid
 graph TB

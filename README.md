@@ -7,7 +7,7 @@ Estonian implementation of the **eFTI Gate**: a national node in the EU electron
 | You want to | Read |
 |---|---|
 | 1-page project map (themes / epics) | [`PROJECT-OVERVIEW.md`](PROJECT-OVERVIEW.md) |
-| Authoritative artifact list + design rules | [`docs/planning/SPEC-INDEX.md`](docs/planning/SPEC-INDEX.md) |
+| Authoritative artifact list + design rules | [`SPEC-INDEX.md`](SPEC-INDEX.md) |
 | Acceptance criteria, per epic | [`docs/epics/`](docs/epics/) |
 | OpenAPI 3.0 contract | [`docs/specs/openapi.yaml`](docs/specs/openapi.yaml) |
 | PostgreSQL schema | [`docs/specs/db/schema.sql`](docs/specs/db/schema.sql) |
@@ -19,8 +19,8 @@ Estonian implementation of the **eFTI Gate**: a national node in the EU electron
 - **`docs/specs/`** — authoritative v2 specifications: OpenAPI, PostgreSQL schema, errors catalog, logging spec, permissions matrix, data transformations, 26 Mermaid diagrams.
 - **`docs/epics/`** plus **`docs/efti_full_epics_{en,et}.md`** — 25 epics across 9 themes (English + Estonian canonical aggregate; English split per epic).
 - **`docs/architecture/`** — target reference architecture per EU Reg 2020/1056, 2024/1942, 2024/2024, 2025/2243.
-- **`docs/planning/`** — `SPEC-INDEX.md` (entry point for new readers and LLMs) plus the KeMIT prompts that drove the v2 specification generation.
-- **`docs/efti-analysis/`** — Askend Estonia OÜ procurement-deliverable analysis (hange 303988); historical, superseded by `docs/specs/` for v2 work.
+- **`docs/planning/`** — KeMIT's LLM prompts (`PROMPT-00..09`) that drove the v2 specification generation, plus the executive summary explaining v1 gaps. (The repo-level entry point [`SPEC-INDEX.md`](SPEC-INDEX.md) sits at the root.)
+- **`docs/efti-analysis/`** — surviving background material from Askend Estonia OÜ's procurement deliverable: broad project analysis, ER diagram, and the eFTI XML schemas (used by the implementation). Sections superseded by `docs/specs/` have been removed.
 
 ## Status
 
