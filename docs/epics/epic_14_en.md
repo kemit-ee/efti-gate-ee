@@ -11,6 +11,19 @@
 - [Error formats](../specs/errors.json) — RFC 7807 error catalogue
 - [RA §8.1 Security Layers](../architecture/eFTI-Gate-Reference-Architecture.md#81-security-layers) — Full security layer stack: secrets, mTLS, rate limiting, error formats
 
+**Security layer stack at a glance:**
+
+```mermaid
+flowchart TD
+    In[Inbound request] --> RL[Rate limit<br/>100 req/min/IP → 429]
+    RL --> TLS[TLS / mTLS termination<br/>K8s Secret-loaded certs<br/>OCSP/CRL check]
+    TLS --> AuthN[AuthN: TARA OIDC / JWT RS256 / mTLS]
+    AuthN --> AuthZ[AuthZ: role + Party ID + subset]
+    AuthZ --> EUReg[EU platform registry check<br/>Art 7+12 Reg 2020/1056]
+    EUReg --> Audit[audit_log INSERT-only<br/>RFC 7807 errors out]
+    Audit --> Handler[Resource handler]
+```
+
 #### Acceptance Criteria
 
 ##### Secrets management

@@ -8,6 +8,18 @@
 
 **Reference:** [Logging Specification](../specs/logging-spec.md) — Complete logging format, ECS schema, and audit trail specification
 
+**Log pipeline at a glance:**
+
+```mermaid
+flowchart LR
+    Req[Inbound request<br/>X-Request-ID] --> MDC["MDC put trace.id<br/>generated UUID if missing"]
+    MDC --> Logback[Logback / Log4j2<br/>ECS encoder]
+    Logback --> Stdout[stdout JSON<br/>@timestamp, log.level, trace.id,<br/>user.id, http.response.status_code,<br/>event.duration]
+    Stdout --> Aggregator[Log aggregator<br/>Loki / ELK]
+    Aggregator --> Search[Searchable by trace.id<br/>across all nodes]
+    MDC -.cleared on response.- Req
+```
+
 #### Acceptance Criteria
 
 ##### Structured logging

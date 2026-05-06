@@ -9,9 +9,37 @@
 **References:**
 - [DB Schema](../specs/db/README.md) — Database schema for dataset retrieval
 - [Permissions Matrix](../specs/permissions-matrix.md) — Subset access permissions
+- [Data Transformations](../specs/data-transformations.md) — XML→JSON marshalling, eDelivery AS4 wrapping, SSE streaming
+- [OpenAPI](../specs/openapi.yaml) — `GET /v1/dataset/{gateId}/{platformId}/{datasetId}` and `POST /v1/follow-up/...` contracts
+- [Errors](../specs/errors.json) — `DATASET_NOT_FOUND`, `FORBIDDEN_SUBSET`, `BAD_GATEWAY`, `FOLLOW_UP_GATE_MISMATCH`
 - [RA §2.3 Data Subsets](../architecture/eFTI-Gate-Reference-Architecture.md#23-data-subsets) — Subset filtering — gate vs platform responsibility
 - [RA §5.2 Dataset Query](../architecture/eFTI-Gate-Reference-Architecture.md#52-dataset-query-request-full-data) — UIL-based dataset retrieval flow
 - [RA §5.3 Follow-Up](../architecture/eFTI-Gate-Reference-Architecture.md#53-follow-up-message) — Follow-up message flow
+
+**Dataset retrieval at a glance:**
+
+```mermaid
+sequenceDiagram
+    actor Officer as Authority
+    participant Gate as eFTI Gate
+    participant Remote as Remote Gate
+    participant Platform
+    Officer->>Gate: GET /v1/dataset/{gateId}/{platformId}/{datasetId}?subsetId=...
+    Gate->>Gate: Check JWT + subset permission
+    alt gateId == own gate
+        Gate->>Platform: GET /datasets/{datasetId}
+        Platform-->>Gate: XML dataset
+    else remote gate
+        Gate->>Remote: AS4 uilQuery / fast /services/fast
+        Remote-->>Gate: uilResponse XML
+    end
+    Gate->>Gate: XSLT subset filter (if !supportsSubsetting)
+    Gate-->>Officer: 200 OK XML
+    Officer->>Gate: POST /v1/follow-up/.../{datasetRequestId}<br/>(optional)
+    Gate-->>Officer: 200 OK
+```
+
+See `seq-05-dataset-request.mmd` and `seq-06-dataset-request-denied.mmd` for full detail.
 
 #### Acceptance Criteria
 
@@ -34,7 +62,7 @@
 
 **Technical artifacts:**
 - [ ] OpenAPI: `GET /v1/dataset/{gateId}/{platformId}/{datasetId}`
-- [ ] Diagram: `seq-06-dataset-retrieval-local.mmd`, `seq-07-dataset-retrieval-remote.mmd`
+- [ ] Diagram: `seq-05-dataset-request.mmd`, `seq-06-dataset-request-denied.mmd`
 
 ##### Subsetter module
 

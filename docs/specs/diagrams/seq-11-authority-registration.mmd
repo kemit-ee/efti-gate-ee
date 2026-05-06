@@ -4,21 +4,21 @@ sequenceDiagram
     participant DB as PostgreSQL
 
     Admin->>+Gate: POST /gates/authorities
-    Note over Admin,Gate: Authorization: Bearer admin-key<br/>Body: {"id":"aut-politsei-001","name":"Police and Border Guard Board","countryCode":"EE","subsets":["EU07","full"]}
+    Note over Admin,Gate: Authorization: Bearer admin-key<br/>Body: {"id":"aut-politsei-001","name":"Police and Border Guard Board","countryCode":"EE","subsets":["EU07","EU01"]}
 
     Gate->>Gate: Authenticate & authorize (role=ADMIN)
 
     Gate->>+DB: INSERT INTO authorities (id, name, countryCode, subsets)<br/>VALUES ('aut-politsei-001', 'Police and Border Guard Board', 'EE', '{EU07,full}')
     DB-->>-Gate: OK
 
-    Gate-->>Admin: 200 OK\n{"id":"aut-politsei-001","name":"Police and Border Guard Board","countryCode":"EE","subsets":["EU07","full"]}
+    Gate-->>Admin: 200 OK\n{"id":"aut-politsei-001","name":"Police and Border Guard Board","countryCode":"EE","subsets":["EU07","EU01"]}
 
     Note over Admin: Authority registered with allowed subsets.<br/>Now create authority users.
 
     Admin->>+Gate: POST /users?generateSecret=true
     Note over Admin,Gate: Body: {"name":"Officer Jaan Tamm","email":"jaan.tamm@politsei.ee","roles":{"AUTHORITY":["aut-politsei-001"]},"subsets":["EU07"]}
 
-    Gate->>Gate: Validate user subsets against authority subsets:<br/>user.subsets=["EU07"] ⊆ authority.subsets=["EU07","full"] → OK
+    Gate->>Gate: Validate user subsets against authority subsets:<br/>user.subsets=["EU07"] ⊆ authority.subsets=["EU07","EU01"] → OK
 
     Gate->>Gate: Generate random secret
 
@@ -30,7 +30,7 @@ sequenceDiagram
     Note over Admin: Authority user created with EU07 subset only.<br/>User can now call GET /identifiers and GET /dataset?subsetId=EU07
 
     alt Invalid subsets (user requests more than authority allows)
-        Admin->>Gate: POST /users (subsets=["full"] but authority only has ["EU07"])
-        Gate->>Gate: Validate: ["full"] ⊄ ["EU07"] → validation fails
+        Admin->>Gate: POST /users (subsets=["EU01"] but authority only has ["EU07"])
+        Gate->>Gate: Validate: ["EU01"] ⊄ ["EU07"] → validation fails
         Gate-->>Admin: 400 Bad Request\n{"error": "Subsets must match Authority's subsets"}
     end

@@ -57,6 +57,8 @@ tags:
     description: Administrative view and management of stored consignments
   - name: Admin - Audit
     description: Immutable audit log access (SUPER_ADMIN only)
+  - name: Auth
+    description: Token issuance, logout, and revocation
   - name: Health
     description: Kubernetes liveness and readiness probes — no authentication required
 
@@ -67,6 +69,77 @@ security:
 # PATHS
 # ==============================================================================
 paths:
+
+  # ----------------------------------------------------------------------------
+  # AUTH API
+  # ----------------------------------------------------------------------------
+
+  /api/v1/auth/token:
+    post:
+      tags: [Auth]
+      summary: Issue an API token
+      operationId: issueToken
+      description: |
+        Exchange credentials (Basic Auth) for a JWT bearer token. The user's
+        roles, subsets, gate scope, and `is_admin` flag are embedded as JWT
+        claims (signed RS256, issuer = own gate ID, expiry = `JWT_EXPIRY_SECONDS`,
+        default 3600). Subsequent API calls present the token in
+        `Authorization: Bearer <jwt>`.
+      security:
+        - basicAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ttlSeconds:
+                  type: integer
+                  description: Optional override for token TTL in seconds; capped at `JWT_EXPIRY_SECONDS_MAX`.
+                  example: 3600
+      responses:
+        '200':
+          description: Token issued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token, tokenType, expiresAt]
+                properties:
+                  token:
+                    type: string
+                    description: Signed JWT (RS256)
+                    example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3YzllNjY3OS03NDI1LTQwZGUtOTQ0Yi1lMDdmYzFmOTBhZTciLCJpc3MiOiJldS1lZTMxIiwicm9sZXMiOlsiQVVUSE9SSVRZIl0sInN1YnNldHMiOlsiRVUwNyJdLCJpc19hZG1pbiI6ZmFsc2UsImV4cCI6MTc4MTUyMzQzM30.signature..."
+                  tokenType:
+                    type: string
+                    enum: [Bearer]
+                    example: Bearer
+                  expiresAt:
+                    type: string
+                    format: date-time
+                    example: "2026-04-23T11:15:30Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke the current token
+      operationId: logout
+      description: |
+        Add the presented bearer token to the blacklist for its remaining TTL.
+        Subsequent requests with this token return 401. Idempotent — already-logged-out
+        tokens still return 204.
+      responses:
+        '204':
+          description: Token revoked
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   # ----------------------------------------------------------------------------
   # PLATFORM API
@@ -345,7 +418,7 @@ paths:
           description: Filter by transport mode
           schema:
             type: string
-            enum: ["1", "2", "3", "4"]
+            enum: ["1", "2", "3", "4", "5"]
             example: "3"
         - name: identifierTypes
           in: query
@@ -371,6 +444,20 @@ paths:
           schema:
             type: boolean
             example: true
+        - $ref: '#/components/parameters/DateFromQuery'
+        - $ref: '#/components/parameters/DateToQuery'
+        - name: status
+          in: query
+          required: false
+          description: |
+            Filter by consignment status. Default `active`. Use `inactive` for cabotage
+            queries (Reg 2024/1942 Art X — last 14 days of road consignments) and
+            `all` to combine both.
+          schema:
+            type: string
+            enum: [active, inactive, all]
+            default: active
+            example: active
         - name: forceBroadcast
           in: query
           required: false
@@ -625,9 +712,19 @@ paths:
       description: |
         Returns all registered eFTI gates visible to the authenticated admin user.
         SUPER_ADMIN sees all gates; gate-scoped ADMIN sees only their own gate.
+        Paginated; total row count returned in `X-Total-Count` header.
+      parameters:
+        - $ref: '#/components/parameters/PageLimit'
+        - $ref: '#/components/parameters/PageOffset'
       responses:
         '200':
           description: List of gates
+          headers:
+            X-Total-Count:
+              description: Total number of rows matching the filter (across all pages).
+              schema:
+                type: integer
+                example: 42
           content:
             application/json:
               schema:
@@ -760,10 +857,19 @@ paths:
       tags: [Admin - Platforms]
       summary: List platforms
       operationId: listPlatforms
-      description: Returns all platforms visible to the authenticated admin user.
+      description: Returns all platforms visible to the authenticated admin user. Paginated; total row count in `X-Total-Count` header.
+      parameters:
+        - $ref: '#/components/parameters/PageLimit'
+        - $ref: '#/components/parameters/PageOffset'
       responses:
         '200':
           description: List of platforms
+          headers:
+            X-Total-Count:
+              description: Total number of rows matching the filter (across all pages).
+              schema:
+                type: integer
+                example: 12
           content:
             application/json:
               schema:
@@ -862,9 +968,19 @@ paths:
       tags: [Admin - Authorities]
       summary: List authorities
       operationId: listAuthorities
+      description: Paginated; total row count in `X-Total-Count` header.
+      parameters:
+        - $ref: '#/components/parameters/PageLimit'
+        - $ref: '#/components/parameters/PageOffset'
       responses:
         '200':
           description: List of competent authorities
+          headers:
+            X-Total-Count:
+              description: Total number of rows matching the filter (across all pages).
+              schema:
+                type: integer
+                example: 8
           content:
             application/json:
               schema:
@@ -967,6 +1083,7 @@ paths:
       description: |
         Lists users visible to the authenticated admin. SUPER_ADMIN sees all users;
         gate-scoped ADMIN sees only users within their gate/platform/authority scope.
+        Paginated; total row count in `X-Total-Count` header.
       parameters:
         - name: gateId
           in: query
@@ -986,9 +1103,17 @@ paths:
           schema:
             type: string
             example: "auth-mta"
+        - $ref: '#/components/parameters/PageLimit'
+        - $ref: '#/components/parameters/PageOffset'
       responses:
         '200':
           description: List of users
+          headers:
+            X-Total-Count:
+              description: Total number of rows matching the filter (across all pages).
+              schema:
+                type: integer
+                example: 24
           content:
             application/json:
               schema:
@@ -1087,6 +1212,35 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /api/v1/users/{userId}/revoke-token:
+    post:
+      tags: [Admin - Users]
+      summary: Revoke a user's outstanding tokens
+      operationId: revokeUserToken
+      description: |
+        Adds the user's currently-issued bearer tokens to the blacklist for their remaining TTL,
+        forcing re-authentication. Used when a token is compromised or a user is offboarded
+        without being deleted. Idempotent.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+      responses:
+        '204':
+          description: Tokens revoked
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /api/v1/user:
     get:
       tags: [Admin - Users]
@@ -1134,15 +1288,25 @@ paths:
           required: false
           schema:
             type: string
-            enum: ["1", "2", "3", "4"]
+            enum: ["1", "2", "3", "4", "5"]
         - name: dangerousGoods
           in: query
           required: false
           schema:
             type: boolean
+        - $ref: '#/components/parameters/DateFromQuery'
+        - $ref: '#/components/parameters/DateToQuery'
+        - $ref: '#/components/parameters/PageLimit'
+        - $ref: '#/components/parameters/PageOffset'
       responses:
         '200':
           description: List of consignments with extracted identifiers
+          headers:
+            X-Total-Count:
+              description: Total number of rows matching the filter (across all pages).
+              schema:
+                type: integer
+                example: 1247
           content:
             application/json:
               schema:
@@ -1223,16 +1387,17 @@ paths:
             type: string
             format: date-time
             example: "2026-04-30T23:59:59Z"
-        - name: limit
-          in: query
-          required: false
-          schema:
-            type: integer
-            default: 100
-            maximum: 1000
+        - $ref: '#/components/parameters/PageLimit'
+        - $ref: '#/components/parameters/PageOffset'
       responses:
         '200':
           description: Audit log entries
+          headers:
+            X-Total-Count:
+              description: Total number of rows matching the filter (across all pages).
+              schema:
+                type: integer
+                example: 5421
           content:
             application/json:
               schema:
@@ -1303,6 +1468,12 @@ components:
   # SECURITY SCHEMES
   # ============================================================================
   securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: |
+        HTTP Basic Auth with `email:secret`. Used only on `POST /api/v1/auth/token`
+        to exchange credentials for a bearer JWT. All other endpoints use bearerAuth.
     bearerAuth:
       type: http
       scheme: bearer
@@ -1387,6 +1558,49 @@ components:
         type: string
         format: uuid
         example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+
+    PageLimit:
+      name: limit
+      in: query
+      required: false
+      description: Page size. Maximum rows returned in a single response.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 100
+        example: 100
+
+    PageOffset:
+      name: offset
+      in: query
+      required: false
+      description: Zero-based row offset within the result set. Use together with `limit` for paging.
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+        example: 0
+
+    DateFromQuery:
+      name: dateFrom
+      in: query
+      required: false
+      description: Filter results to those with `transport_date` (or registration timestamp, depending on endpoint) >= this date. ISO 8601 date.
+      schema:
+        type: string
+        format: date
+        example: "2026-04-01"
+
+    DateToQuery:
+      name: dateTo
+      in: query
+      required: false
+      description: Filter results to those with `transport_date` (or registration timestamp) <= this date. ISO 8601 date.
+      schema:
+        type: string
+        format: date
+        example: "2026-04-30"
 
   # ============================================================================
   # RESPONSES
@@ -1541,8 +1755,8 @@ components:
 
     ProblemDetails:
       type: object
-      description: RFC 7807 Problem Details for HTTP APIs
-      required: [type, title, status]
+      description: RFC 7807 Problem Details for HTTP APIs. The `code` field is an enum bound to the canonical error catalog (`specs/errors.json`); clients should switch on `code`, not on `title` or `detail` text.
+      required: [type, title, status, code]
       properties:
         type:
           type: string
@@ -1557,10 +1771,12 @@ components:
           type: integer
           description: HTTP status code
           example: 400
+        code:
+          $ref: '#/components/schemas/ErrorCode'
         detail:
           type: string
           description: Human-readable explanation of this specific problem occurrence
-          example: "Parameter 'modeCode' must be one of: 1, 2, 3, 4"
+          example: "Parameter 'modeCode' must be one of: 1, 2, 3, 4, 5"
         instance:
           type: string
           description: URI reference identifying the specific occurrence
@@ -1569,6 +1785,52 @@ components:
           type: string
           description: Echo of X-Request-ID header for correlation
           example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+
+    ErrorCode:
+      type: string
+      description: |
+        Canonical error code from `specs/errors.json`. Clients MUST switch on
+        this field rather than on `title`/`detail` text. The enum below is
+        kept in sync with the error catalog.
+      enum:
+        - BAD_REQUEST_GENERAL
+        - INVALID_XML
+        - INVALID_DATASET_ID
+        - INVALID_IDENTIFIER
+        - INVALID_SUBSET
+        - INVALID_GATE_ID
+        - INVALID_PLATFORM_ID
+        - MISSING_REQUIRED_HEADER
+        - MISSING_REQUIRED_FIELD
+        - INVALID_FIELD_FORMAT
+        - UNAUTHORIZED
+        - INVALID_TOKEN
+        - EXPIRED_TOKEN
+        - INVALID_ISSUER
+        - FORBIDDEN
+        - FORBIDDEN_SUBSET
+        - FORBIDDEN_PLATFORM
+        - FORBIDDEN_OWNERSHIP
+        - FORBIDDEN_MULTI_PLATFORM
+        - FORBIDDEN_SELF_DELETE
+        - NOT_FOUND
+        - DATASET_NOT_FOUND
+        - GATE_NOT_FOUND
+        - PLATFORM_NOT_FOUND
+        - AUTHORITY_NOT_FOUND
+        - USER_NOT_FOUND
+        - DUPLICATE_REQUEST
+        - DUPLICATE_RESOURCE
+        - FOLLOW_UP_GATE_MISMATCH
+        - RATE_LIMIT_EXCEEDED
+        - INTERNAL_ERROR
+        - DATABASE_ERROR
+        - BAD_GATEWAY
+        - GATE_OFFLINE
+        - PLATFORM_UNREACHABLE
+        - SERVICE_UNAVAILABLE
+        - GATEWAY_TIMEOUT
+      example: BAD_REQUEST_GENERAL
 
     # --------------------------------------------------------------------------
     # ENUMS
@@ -1601,12 +1863,13 @@ components:
     TransportMode:
       type: string
       description: |
-        Transport mode codes per EU eFTI classification:
+        Transport mode codes per EU Reg 2024/2024 Annex I; matches `transport_mode` enum in `schema.sql`.
         - **1**: Maritime (sea transport)
         - **2**: Rail (railway transport)
-        - **3**: Road (road transport, including cabotage)
+        - **3**: Road (road transport — cabotage rules apply)
         - **4**: Air (air cargo)
-      enum: ["1", "2", "3", "4"]
+        - **5**: Multimodal (combined transport)
+      enum: ["1", "2", "3", "4", "5"]
       example: "3"
 
     IdentifierType:

@@ -6,6 +6,21 @@
 **I WANT** automated build, test, security analysis, and deployment pipelines  
 **SO THAT** every release is repeatable, auditable, and secure
 
+**Pipeline at a glance:**
+
+```mermaid
+flowchart LR
+    Commit[git push / PR] --> Build[Build + unit tests<br/>JUnit 5]
+    Build --> Static[Static analysis<br/>0 critical/high, coverage ≥ 80%]
+    Static --> Scan[Trivy CVE scan<br/>block CRITICAL/HIGH]
+    Scan --> SBOM[CycloneDX SBOM]
+    SBOM --> Image[Container image<br/>tags: commit, vX.Y.Z, latest]
+    Image --> Stage{branch?}
+    Stage -- main --> Staging[auto-deploy staging]
+    Stage -- vX.Y.Z tag --> Prod[auto-deploy prod<br/>rolling update, zero downtime]
+    Prod --> Rollback[kubectl rollout undo<br/>≤ 2 min]
+```
+
 #### Acceptance Criteria
 
 ##### CI pipeline (per PR)

@@ -10,13 +10,13 @@
       "httpStatus": 400,
       "title": "Bad Request",
       "description": "The request contains invalid parameters or malformed data that cannot be parsed.",
-      "type": "https://efti.eu/errors/bad-request",
+      "type": "https://api.efti.ee/errors/bad-request",
       "examples": [
         {
           "scenario": "Body is not valid XML",
           "request": "POST /identifiers/550e8400-e29b-41d4-a716-446655440000 with plain-text body",
           "response": {
-            "type": "https://efti.eu/errors/bad-request",
+            "type": "https://api.efti.ee/errors/bad-request",
             "title": "Bad Request",
             "status": 400,
             "detail": "Request body could not be parsed: Content is not valid XML",
@@ -32,13 +32,13 @@
       "httpStatus": 400,
       "title": "Invalid XML",
       "description": "The submitted XML document is malformed (unclosed tags, invalid characters, encoding errors) or does not conform to the eFTI consignment identifier XSD schema.",
-      "type": "https://efti.eu/errors/invalid-xml",
+      "type": "https://api.efti.ee/errors/invalid-xml",
       "examples": [
         {
           "scenario": "Unclosed XML element in consignment identifier payload",
           "request": "POST /identifiers/550e8400-e29b-41d4-a716-446655440000 with '<consignment><mainCarriageTransportMovement><modeCode>1</modeCode>'",
           "response": {
-            "type": "https://efti.eu/errors/invalid-xml",
+            "type": "https://api.efti.ee/errors/invalid-xml",
             "title": "Invalid XML",
             "status": 400,
             "detail": "Error parsing identifiers: XML parse error at line 3: element 'mainCarriageTransportMovement' is not closed",
@@ -49,7 +49,7 @@
           "scenario": "XML with invalid UTF-8 sequence",
           "request": "POST /identifiers/660f9511-f39c-42e5-b827-557766551111 with binary-corrupted XML",
           "response": {
-            "type": "https://efti.eu/errors/invalid-xml",
+            "type": "https://api.efti.ee/errors/invalid-xml",
             "title": "Invalid XML",
             "status": 400,
             "detail": "Error parsing identifiers: Invalid UTF-8 byte sequence at position 142",
@@ -66,13 +66,13 @@
       "httpStatus": 400,
       "title": "Invalid Dataset ID",
       "description": "The datasetId path parameter is not a valid UUID v4.",
-      "type": "https://efti.eu/errors/invalid-dataset-id",
+      "type": "https://api.efti.ee/errors/invalid-dataset-id",
       "examples": [
         {
           "scenario": "Non-UUID value in path",
           "request": "POST /identifiers/not-a-uuid",
           "response": {
-            "type": "https://efti.eu/errors/invalid-dataset-id",
+            "type": "https://api.efti.ee/errors/invalid-dataset-id",
             "title": "Invalid Dataset ID",
             "status": 400,
             "detail": "Path parameter 'datasetId' must be a valid UUID v4, got: 'not-a-uuid'",
@@ -88,13 +88,13 @@
       "httpStatus": 400,
       "title": "Invalid Request ID",
       "description": "The X-Request-ID header value is present but does not conform to UUID v4 format.",
-      "type": "https://efti.eu/errors/invalid-request-id",
+      "type": "https://api.efti.ee/errors/invalid-request-id",
       "examples": [
         {
           "scenario": "X-Request-ID is not a valid UUID",
           "request": "GET /identifiers/123ABC with header X-Request-ID: my-custom-id-123",
           "response": {
-            "type": "https://efti.eu/errors/invalid-request-id",
+            "type": "https://api.efti.ee/errors/invalid-request-id",
             "title": "Invalid Request ID",
             "status": 400,
             "detail": "Header 'X-Request-ID' must be a valid UUID v4, got: 'my-custom-id-123'",
@@ -110,13 +110,13 @@
       "httpStatus": 400,
       "title": "Missing Required Header",
       "description": "A required HTTP header is absent from the request.",
-      "type": "https://efti.eu/errors/missing-required-header",
+      "type": "https://api.efti.ee/errors/missing-required-header",
       "examples": [
         {
           "scenario": "X-Request-ID header missing on authority search",
           "request": "GET /identifiers/123ABC without X-Request-ID header",
           "response": {
-            "type": "https://efti.eu/errors/missing-required-header",
+            "type": "https://api.efti.ee/errors/missing-required-header",
             "title": "Missing Required Header",
             "status": 400,
             "detail": "Required header 'X-Request-ID' is missing",
@@ -132,16 +132,16 @@
       "httpStatus": 400,
       "title": "Invalid Subset",
       "description": "One or more requested subset IDs do not match any known eFTI regulation subset (full, identifier, dangerous-goods, etc.).",
-      "type": "https://efti.eu/errors/invalid-subset",
+      "type": "https://api.efti.ee/errors/invalid-subset",
       "examples": [
         {
           "scenario": "Unknown subset ID in dataset query",
           "request": "GET /dataset/eu-ee31/demo/550e8400-e29b-41d4-a716-446655440000?subsetId=EU99",
           "response": {
-            "type": "https://efti.eu/errors/invalid-subset",
+            "type": "https://api.efti.ee/errors/invalid-subset",
             "title": "Invalid Subset",
             "status": 400,
-            "detail": "Unknown subset ID 'EU99'. Valid values: full, identifier, dangerous-goods, road-consignment",
+            "detail": "Unknown subset ID 'EU99'. Valid values: EU01, EU02, EU03, EU04, EU05, EU06, EU07",
             "instance": "/dataset/eu-ee31/demo/550e8400-e29b-41d4-a716-446655440000"
           }
         }
@@ -154,13 +154,13 @@
       "httpStatus": 400,
       "title": "Missing Subset Parameter",
       "description": "At least one subsetId query parameter is required for dataset retrieval but none was provided.",
-      "type": "https://efti.eu/errors/missing-subset",
+      "type": "https://api.efti.ee/errors/missing-subset",
       "examples": [
         {
           "scenario": "Dataset request without subsetId",
           "request": "GET /dataset/eu-ee31/demo/550e8400-e29b-41d4-a716-446655440000 (no ?subsetId=)",
           "response": {
-            "type": "https://efti.eu/errors/missing-subset",
+            "type": "https://api.efti.ee/errors/missing-subset",
             "title": "Missing Subset Parameter",
             "status": 400,
             "detail": "Query parameter 'subsetId' is required. At least one subset must be specified.",
@@ -176,13 +176,13 @@
       "httpStatus": 401,
       "title": "Authentication Required",
       "description": "The request does not contain any authentication credentials or the Authorization header is absent.",
-      "type": "https://efti.eu/errors/unauthorized",
+      "type": "https://api.efti.ee/errors/unauthorized",
       "examples": [
         {
           "scenario": "No Authorization header on protected endpoint",
           "request": "POST /identifiers/550e8400-e29b-41d4-a716-446655440000 without Authorization header",
           "response": {
-            "type": "https://efti.eu/errors/unauthorized",
+            "type": "https://api.efti.ee/errors/unauthorized",
             "title": "Authentication Required",
             "status": 401,
             "detail": "Authentication required. Provide credentials via 'Authorization: Bearer <uuid>:<secret>' header.",
@@ -199,13 +199,13 @@
       "httpStatus": 401,
       "title": "Invalid Token",
       "description": "The supplied Bearer token cannot be decoded, is structurally incorrect, or the credentials do not match any known user.",
-      "type": "https://efti.eu/errors/token-invalid",
+      "type": "https://api.efti.ee/errors/token-invalid",
       "examples": [
         {
           "scenario": "Bearer token does not match any user",
           "request": "POST /identifiers/550e8400-e29b-41d4-a716-446655440000 with Authorization: Bearer 175791a3-da82-11f0-b10c-3c9c0f2eb459:wrongsecret",
           "response": {
-            "type": "https://efti.eu/errors/token-invalid",
+            "type": "https://api.efti.ee/errors/token-invalid",
             "title": "Invalid Token",
             "status": 401,
             "detail": "Invalid authorization (must be valid Basic or Bearer token)",
@@ -216,7 +216,7 @@
           "scenario": "Malformed Bearer token (cannot be base64-decoded)",
           "request": "Authorization: Bearer !!!not-base64!!!",
           "response": {
-            "type": "https://efti.eu/errors/token-invalid",
+            "type": "https://api.efti.ee/errors/token-invalid",
             "title": "Invalid Token",
             "status": 401,
             "detail": "Invalid authorization (must be valid Basic or Bearer token)",
@@ -233,13 +233,13 @@
       "httpStatus": 401,
       "title": "Token Expired",
       "description": "The bearer token was valid but has passed its expiry time. The client must re-authenticate.",
-      "type": "https://efti.eu/errors/token-expired",
+      "type": "https://api.efti.ee/errors/token-expired",
       "examples": [
         {
           "scenario": "JWT token issued more than 24 hours ago",
           "request": "GET /identifiers/123ABC with stale JWT token",
           "response": {
-            "type": "https://efti.eu/errors/token-expired",
+            "type": "https://api.efti.ee/errors/token-expired",
             "title": "Token Expired",
             "status": 401,
             "detail": "Bearer token expired at 2026-04-22T10:00:00Z. Please re-authenticate.",
@@ -255,13 +255,13 @@
       "httpStatus": 403,
       "title": "Forbidden",
       "description": "The authenticated user does not have the required role to access this endpoint.",
-      "type": "https://efti.eu/errors/forbidden",
+      "type": "https://api.efti.ee/errors/forbidden",
       "examples": [
         {
           "scenario": "AUTHORITY role user attempts to POST identifiers (PLATFORM-only endpoint)",
           "request": "POST /identifiers/550e8400-e29b-41d4-a716-446655440000 as authority user",
           "response": {
-            "type": "https://efti.eu/errors/forbidden",
+            "type": "https://api.efti.ee/errors/forbidden",
             "title": "Forbidden",
             "status": 403,
             "detail": "Access denied: endpoint requires PLATFORM role",
@@ -272,7 +272,7 @@
           "scenario": "GATE role user attempts to access PLATFORM resource",
           "request": "POST /identifiers/660f9511-f39c-42e5-b827-557766551111 as gate user",
           "response": {
-            "type": "https://efti.eu/errors/forbidden",
+            "type": "https://api.efti.ee/errors/forbidden",
             "title": "Forbidden",
             "status": 403,
             "detail": "Access denied: GATE role cannot write PLATFORM resources",
@@ -289,13 +289,13 @@
       "httpStatus": 403,
       "title": "No Platform Access",
       "description": "The authenticated user has the PLATFORM role but is not associated with any platform party ID, or the platform association is missing.",
-      "type": "https://efti.eu/errors/forbidden-no-platform",
+      "type": "https://api.efti.ee/errors/forbidden-no-platform",
       "examples": [
         {
           "scenario": "Platform user with empty roles map",
           "request": "POST /identifiers/550e8400-e29b-41d4-a716-446655440000",
           "response": {
-            "type": "https://efti.eu/errors/forbidden-no-platform",
+            "type": "https://api.efti.ee/errors/forbidden-no-platform",
             "title": "No Platform Access",
             "status": 403,
             "detail": "User has no platform access. Assign a PLATFORM party ID to this user.",
@@ -312,13 +312,13 @@
       "httpStatus": 403,
       "title": "Multi-Platform User Cannot Send",
       "description": "The user is associated with more than one platform. Such users cannot be used as senders of eFTI identifier data — a dedicated single-platform system user is required.",
-      "type": "https://efti.eu/errors/forbidden-multi-platform",
+      "type": "https://api.efti.ee/errors/forbidden-multi-platform",
       "examples": [
         {
           "scenario": "User linked to plt-123 and plt-456 tries to POST identifiers",
           "request": "POST /identifiers/550e8400-e29b-41d4-a716-446655440000",
           "response": {
-            "type": "https://efti.eu/errors/forbidden-multi-platform",
+            "type": "https://api.efti.ee/errors/forbidden-multi-platform",
             "title": "Multi-Platform User Cannot Send",
             "status": 403,
             "detail": "User has more than one platform registered. This user cannot be used as a sender of eFTI data. Please create a new system user.",
@@ -335,13 +335,13 @@
       "httpStatus": 403,
       "title": "Write Access Denied",
       "description": "The authenticated user does not have write access to the specified party (platform or authority). The party ID does not belong to the user's roles.",
-      "type": "https://efti.eu/errors/forbidden-write-access",
+      "type": "https://api.efti.ee/errors/forbidden-write-access",
       "examples": [
         {
           "scenario": "Platform user tries to write to a platform they do not own",
           "request": "Attempt to manage platform 'plt-456' while authenticated as 'plt-123'",
           "response": {
-            "type": "https://efti.eu/errors/forbidden-write-access",
+            "type": "https://api.efti.ee/errors/forbidden-write-access",
             "title": "Write Access Denied",
             "status": 403,
             "detail": "No access to plt-456",
@@ -358,16 +358,16 @@
       "httpStatus": 403,
       "title": "Subset Access Denied",
       "description": "The authority user requested a dataset subset that exceeds their permitted subsets as configured in the authorities table.",
-      "type": "https://efti.eu/errors/forbidden-subset",
+      "type": "https://api.efti.ee/errors/forbidden-subset",
       "examples": [
         {
-          "scenario": "Authority permitted only 'identifier' subset requests 'full'",
-          "request": "GET /dataset/eu-ee31/demo/550e8400-e29b-41d4-a716-446655440000?subsetId=full",
+          "scenario": "Authority permitted only ['EU07'] subset requests 'EU01'",
+          "request": "GET /dataset/eu-ee31/demo/550e8400-e29b-41d4-a716-446655440000?subsetId=EU01",
           "response": {
-            "type": "https://efti.eu/errors/forbidden-subset",
+            "type": "https://api.efti.ee/errors/forbidden-subset",
             "title": "Subset Access Denied",
             "status": 403,
-            "detail": "Authority 'aut-001' is not permitted to access subset 'full'. Permitted subsets: identifier, dangerous-goods",
+            "detail": "Authority 'aut-001' is not permitted to access subset 'EU01'. Permitted subsets: EU07",
             "instance": "/dataset/eu-ee31/demo/550e8400-e29b-41d4-a716-446655440000"
           }
         }
@@ -380,13 +380,13 @@
       "httpStatus": 404,
       "title": "Not Found",
       "description": "The requested resource does not exist.",
-      "type": "https://efti.eu/errors/not-found",
+      "type": "https://api.efti.ee/errors/not-found",
       "examples": [
         {
           "scenario": "Generic 404 for an unknown route",
           "request": "GET /v1/unknown-path",
           "response": {
-            "type": "https://efti.eu/errors/not-found",
+            "type": "https://api.efti.ee/errors/not-found",
             "title": "Not Found",
             "status": 404,
             "detail": "The requested path '/v1/unknown-path' does not exist",
@@ -402,13 +402,13 @@
       "httpStatus": 404,
       "title": "Consignment Not Found",
       "description": "No consignment record found for the given datasetId in the local consignments table.",
-      "type": "https://efti.eu/errors/consignment-not-found",
+      "type": "https://api.efti.ee/errors/consignment-not-found",
       "examples": [
         {
           "scenario": "Authority requests dataset for unknown datasetId",
           "request": "GET /dataset/eu-ee31/demo/aaaabbbb-cccc-dddd-eeee-ffffffffffff?subsetId=full",
           "response": {
-            "type": "https://efti.eu/errors/consignment-not-found",
+            "type": "https://api.efti.ee/errors/consignment-not-found",
             "title": "Consignment Not Found",
             "status": 404,
             "detail": "No consignment found with datasetId 'aaaabbbb-cccc-dddd-eeee-ffffffffffff' on platform 'demo'",
@@ -424,13 +424,13 @@
       "httpStatus": 404,
       "title": "Gate Not Found",
       "description": "The specified gateId does not exist in the gate registry.",
-      "type": "https://efti.eu/errors/gate-not-found",
+      "type": "https://api.efti.ee/errors/gate-not-found",
       "examples": [
         {
           "scenario": "Authority requests dataset via unknown gateId",
           "request": "GET /dataset/eu-xx99/demo/550e8400-e29b-41d4-a716-446655440000?subsetId=full",
           "response": {
-            "type": "https://efti.eu/errors/gate-not-found",
+            "type": "https://api.efti.ee/errors/gate-not-found",
             "title": "Gate Not Found",
             "status": 404,
             "detail": "Gate 'eu-xx99' is not registered in this gate's registry",
@@ -446,13 +446,13 @@
       "httpStatus": 404,
       "title": "Platform Not Found",
       "description": "The specified platformId does not exist in the platforms table.",
-      "type": "https://efti.eu/errors/platform-not-found",
+      "type": "https://api.efti.ee/errors/platform-not-found",
       "examples": [
         {
           "scenario": "Dataset request with unknown platformId",
           "request": "GET /dataset/eu-ee31/unknown-platform/550e8400-e29b-41d4-a716-446655440000?subsetId=full",
           "response": {
-            "type": "https://efti.eu/errors/platform-not-found",
+            "type": "https://api.efti.ee/errors/platform-not-found",
             "title": "Platform Not Found",
             "status": 404,
             "detail": "Platform 'unknown-platform' is not registered in this gate",
@@ -468,13 +468,13 @@
       "httpStatus": 404,
       "title": "Authority Not Found",
       "description": "The specified authorityId does not exist in the authorities table.",
-      "type": "https://efti.eu/errors/authority-not-found",
+      "type": "https://api.efti.ee/errors/authority-not-found",
       "examples": [
         {
           "scenario": "Admin attempts to update a non-existent authority",
           "request": "PUT /admin/authorities/aut-999",
           "response": {
-            "type": "https://efti.eu/errors/authority-not-found",
+            "type": "https://api.efti.ee/errors/authority-not-found",
             "title": "Authority Not Found",
             "status": 404,
             "detail": "Authority 'aut-999' does not exist",
@@ -490,13 +490,13 @@
       "httpStatus": 404,
       "title": "User Not Found",
       "description": "The specified userId does not exist in the users table.",
-      "type": "https://efti.eu/errors/user-not-found",
+      "type": "https://api.efti.ee/errors/user-not-found",
       "examples": [
         {
           "scenario": "Admin tries to delete a user that does not exist",
           "request": "DELETE /admin/users/175791a3-da82-ffff-b10c-3c9c0f2eb000",
           "response": {
-            "type": "https://efti.eu/errors/user-not-found",
+            "type": "https://api.efti.ee/errors/user-not-found",
             "title": "User Not Found",
             "status": 404,
             "detail": "User '175791a3-da82-ffff-b10c-3c9c0f2eb000' does not exist",
@@ -512,13 +512,13 @@
       "httpStatus": 409,
       "title": "Conflict",
       "description": "The request conflicts with the current state of the resource. Typically a duplicate key violation.",
-      "type": "https://efti.eu/errors/conflict",
+      "type": "https://api.efti.ee/errors/conflict",
       "examples": [
         {
           "scenario": "Platform registration with an ID that already exists",
           "request": "POST /admin/platforms with id='demo'",
           "response": {
-            "type": "https://efti.eu/errors/conflict",
+            "type": "https://api.efti.ee/errors/conflict",
             "title": "Conflict",
             "status": 409,
             "detail": "Resource already exists with id 'demo'",
@@ -534,13 +534,13 @@
       "httpStatus": 409,
       "title": "Duplicate Dataset ID",
       "description": "A consignment with this datasetId already exists in the consignments table (primary key violation).",
-      "type": "https://efti.eu/errors/duplicate-dataset-id",
+      "type": "https://api.efti.ee/errors/duplicate-dataset-id",
       "examples": [
         {
           "scenario": "Platform re-posts identifiers for a datasetId already registered",
           "request": "POST /identifiers/550e8400-e29b-41d4-a716-446655440000 (second time)",
           "response": {
-            "type": "https://efti.eu/errors/duplicate-dataset-id",
+            "type": "https://api.efti.ee/errors/duplicate-dataset-id",
             "title": "Duplicate Dataset ID",
             "status": 409,
             "detail": "Consignment with datasetId '550e8400-e29b-41d4-a716-446655440000' already exists. Use PUT to update.",
@@ -557,13 +557,13 @@
       "httpStatus": 409,
       "title": "Duplicate Request ID",
       "description": "The X-Request-ID value has already been used for a previous request. Each request must use a unique UUID v4.",
-      "type": "https://efti.eu/errors/duplicate-request-id",
+      "type": "https://api.efti.ee/errors/duplicate-request-id",
       "examples": [
         {
           "scenario": "Authority sends identifier search with a previously-used request ID",
           "request": "GET /identifiers/123ABC with X-Request-ID: 550e8400-e29b-41d4-a716-446655440000 (already seen)",
           "response": {
-            "type": "https://efti.eu/errors/duplicate-request-id",
+            "type": "https://api.efti.ee/errors/duplicate-request-id",
             "title": "Duplicate Request ID",
             "status": 409,
             "detail": "X-Request-ID '550e8400-e29b-41d4-a716-446655440000' has already been used. Generate a new UUID v4 for each request.",
@@ -579,13 +579,13 @@
       "httpStatus": 429,
       "title": "Rate Limit Exceeded",
       "description": "The caller has sent too many requests within the allowed time window. Applies to gate-to-gate (100 req/min per source gate) and authority search endpoints.",
-      "type": "https://efti.eu/errors/rate-limit-exceeded",
+      "type": "https://api.efti.ee/errors/rate-limit-exceeded",
       "examples": [
         {
           "scenario": "Gate eu-fi01 exceeds 100 requests/minute to this gate",
           "request": "G2G identifier search from eu-fi01 (101st request in 60 seconds)",
           "response": {
-            "type": "https://efti.eu/errors/rate-limit-exceeded",
+            "type": "https://api.efti.ee/errors/rate-limit-exceeded",
             "title": "Rate Limit Exceeded",
             "status": 429,
             "detail": "Rate limit of 100 requests per 60 seconds exceeded for gate 'eu-fi01'. Retry after 38 seconds.",
@@ -602,13 +602,13 @@
       "httpStatus": 500,
       "title": "Internal Server Error",
       "description": "An unexpected error occurred inside the Gate. This is a server-side fault; the client should not retry immediately.",
-      "type": "https://efti.eu/errors/internal-error",
+      "type": "https://api.efti.ee/errors/internal-error",
       "examples": [
         {
           "scenario": "Unhandled NullPointerException during request processing",
           "request": "Any request that triggers an unhandled exception",
           "response": {
-            "type": "https://efti.eu/errors/internal-error",
+            "type": "https://api.efti.ee/errors/internal-error",
             "title": "Internal Server Error",
             "status": 500,
             "detail": "An unexpected error occurred. Please contact support with requestId '770fa622-a49d-53f6-c938-668877662222'.",
@@ -624,13 +624,13 @@
       "httpStatus": 500,
       "title": "Database Error",
       "description": "An unexpected error occurred when accessing the PostgreSQL database (e.g., connection lost, query timeout, constraint violation not caught as business error).",
-      "type": "https://efti.eu/errors/database-error",
+      "type": "https://api.efti.ee/errors/database-error",
       "examples": [
         {
           "scenario": "PostgreSQL connection lost during identifier save",
           "request": "POST /identifiers/550e8400-e29b-41d4-a716-446655440000",
           "response": {
-            "type": "https://efti.eu/errors/database-error",
+            "type": "https://api.efti.ee/errors/database-error",
             "title": "Database Error",
             "status": 500,
             "detail": "Database operation failed. Please try again later.",
@@ -646,13 +646,13 @@
       "httpStatus": 500,
       "title": "Data Transformation Error",
       "description": "An unexpected error occurred during XML marshalling/unmarshalling that is not caused by invalid client input.",
-      "type": "https://efti.eu/errors/transformation-error",
+      "type": "https://api.efti.ee/errors/transformation-error",
       "examples": [
         {
           "scenario": "JAXB marshaller fails due to internal misconfiguration",
           "request": "GET /identifiers/123ABC (Gate trying to marshal response)",
           "response": {
-            "type": "https://efti.eu/errors/transformation-error",
+            "type": "https://api.efti.ee/errors/transformation-error",
             "title": "Data Transformation Error",
             "status": 500,
             "detail": "Internal error during data transformation. Contact support.",
@@ -668,13 +668,13 @@
       "httpStatus": 502,
       "title": "Bad Gateway",
       "description": "The Gate attempted to contact a remote gate or platform and received an invalid or no response.",
-      "type": "https://efti.eu/errors/bad-gateway",
+      "type": "https://api.efti.ee/errors/bad-gateway",
       "examples": [
         {
           "scenario": "Remote gate eu-fi01 returns HTTP 500 to a dataset request",
           "request": "GET /dataset/eu-fi01/plt-456/550e8400-e29b-41d4-a716-446655440000?subsetId=full",
           "response": {
-            "type": "https://efti.eu/errors/bad-gateway",
+            "type": "https://api.efti.ee/errors/bad-gateway",
             "title": "Bad Gateway",
             "status": 502,
             "detail": "Cannot reach Gate eu-fi01: OFFLINE",
@@ -691,13 +691,13 @@
       "httpStatus": 502,
       "title": "Platform Unavailable",
       "description": "The Gate attempted to forward a dataset or follow-up request to the platform and received no valid response (connection refused, timeout, or HTTP error from platform).",
-      "type": "https://efti.eu/errors/platform-unavailable",
+      "type": "https://api.efti.ee/errors/platform-unavailable",
       "examples": [
         {
           "scenario": "Platform 'demo' returns connection refused during dataset fetch",
           "request": "GET /dataset/eu-ee31/demo/550e8400-e29b-41d4-a716-446655440000?subsetId=full",
           "response": {
-            "type": "https://efti.eu/errors/platform-unavailable",
+            "type": "https://api.efti.ee/errors/platform-unavailable",
             "title": "Platform Unavailable",
             "status": 502,
             "detail": "Platform 'demo' did not respond: Connection refused to http://demo-platform:8070",
@@ -713,13 +713,13 @@
       "httpStatus": 503,
       "title": "Service Unavailable",
       "description": "The Gate itself is temporarily unavailable (starting up, overloaded, or in maintenance mode). Clients should retry with exponential backoff.",
-      "type": "https://efti.eu/errors/service-unavailable",
+      "type": "https://api.efti.ee/errors/service-unavailable",
       "examples": [
         {
           "scenario": "Gate is starting up and database connections not yet established",
           "request": "Any request during startup",
           "response": {
-            "type": "https://efti.eu/errors/service-unavailable",
+            "type": "https://api.efti.ee/errors/service-unavailable",
             "title": "Service Unavailable",
             "status": 503,
             "detail": "eFTI Gate is temporarily unavailable. Please retry after a few seconds.",
@@ -736,13 +736,13 @@
       "httpStatus": 504,
       "title": "Platform Timeout",
       "description": "The platform did not respond to a dataset or follow-up request within the configured timeout (default: 30 seconds).",
-      "type": "https://efti.eu/errors/platform-timeout",
+      "type": "https://api.efti.ee/errors/platform-timeout",
       "examples": [
         {
           "scenario": "Platform 'demo' takes more than 30 seconds to return dataset",
           "request": "GET /dataset/eu-ee31/demo/550e8400-e29b-41d4-a716-446655440000?subsetId=full",
           "response": {
-            "type": "https://efti.eu/errors/platform-timeout",
+            "type": "https://api.efti.ee/errors/platform-timeout",
             "title": "Platform Timeout",
             "status": 504,
             "detail": "Platform 'demo' did not respond within 30 seconds. The platform may be overloaded.",
@@ -758,13 +758,13 @@
       "httpStatus": 504,
       "title": "Gate Timeout",
       "description": "A remote gate did not respond to a gate-to-gate identifier search broadcast within the configured timeout (default: 8 seconds per gate).",
-      "type": "https://efti.eu/errors/gate-timeout",
+      "type": "https://api.efti.ee/errors/gate-timeout",
       "examples": [
         {
           "scenario": "Gate eu-de01 does not respond to broadcast identifier search within 8 seconds",
           "request": "GET /identifiers/123ABC (triggers broadcast to all online gates)",
           "response": {
-            "type": "https://efti.eu/errors/gate-timeout",
+            "type": "https://api.efti.ee/errors/gate-timeout",
             "title": "Gate Timeout",
             "status": 504,
             "detail": "Gate 'eu-de01' did not respond within 8 seconds. Partial results may be returned.",
@@ -781,13 +781,13 @@
       "httpStatus": 502,
       "title": "eDelivery Network Error",
       "description": "Communication with the eDelivery AS4 access point failed (SOAP fault, TLS error, network unreachable).",
-      "type": "https://efti.eu/errors/edelivery-error",
+      "type": "https://api.efti.ee/errors/edelivery-error",
       "examples": [
         {
           "scenario": "AS4 SOAP fault received when sending identifier query to gate eu-fi01",
           "request": "Internal G2G identifier broadcast",
           "response": {
-            "type": "https://efti.eu/errors/edelivery-error",
+            "type": "https://api.efti.ee/errors/edelivery-error",
             "title": "eDelivery Network Error",
             "status": 502,
             "detail": "eDelivery communication failed for gate 'eu-fi01': SOAP Fault - eb:Severity=Failure, eb:ErrorCode=EBMS:0004",
@@ -803,13 +803,13 @@
       "httpStatus": 400,
       "title": "Follow-Up Gate Mismatch",
       "description": "The gateId in the follow-up request does not match this gate's own ID. Follow-up messages can only be sent to the gate that owns the referenced dataset.",
-      "type": "https://efti.eu/errors/follow-up-gate-mismatch",
+      "type": "https://api.efti.ee/errors/follow-up-gate-mismatch",
       "examples": [
         {
           "scenario": "Authority sends follow-up to eu-ee31 but UIL references gate eu-fi01",
           "request": "POST /follow-up/eu-fi01/plt-456/550e8400-e29b-41d4-a716-446655440000/req-abc",
           "response": {
-            "type": "https://efti.eu/errors/follow-up-gate-mismatch",
+            "type": "https://api.efti.ee/errors/follow-up-gate-mismatch",
             "title": "Follow-Up Gate Mismatch",
             "status": 400,
             "detail": "Follow up gateId 'eu-fi01' does not match this gate's ID 'eu-ee31'",

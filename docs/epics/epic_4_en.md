@@ -9,8 +9,26 @@
 **References:**
 - [DB Schema](../specs/db/README.md) — Database schema for identifier search
 - [Permissions Matrix](../specs/permissions-matrix.md) — Authority access control rules
+- [Data Transformations](../specs/data-transformations.md) — XML→DB extraction; denormalised search columns drive the no-JOIN query path
+- [OpenAPI](../specs/openapi.yaml) — `GET /v1/identifiers/{identifier}` contract incl. SSE streaming and dateFrom/dateTo filters
+- [Errors](../specs/errors.json) — Error codes for invalid plate / country / mode / subset
 - [RA §5.1 Identifier Query](../architecture/eFTI-Gate-Reference-Architecture.md#51-identifier-query-cross-border-search) — Cross-border identifier search flow
 - [RA §6.1 Gate Responsibilities](../architecture/eFTI-Gate-Reference-Architecture.md#61-gate-responsibilities) — Broadcast-only-when-empty rule
+
+**Search decision at a glance:**
+
+```mermaid
+flowchart TD
+    Q[GET /v1/identifiers/{identifier}<br/>Accept: text/event-stream] --> Local[Query identifiers table<br/>status=active, pg_trgm plate match]
+    Local --> Count{local count > 0<br/>OR forceBroadcast?}
+    Count -- local hits, no force --> SSEonly[SSE: stream local<br/>+ event: complete]
+    Count -- empty or force --> Broadcast[Broadcast to ONLINE gates<br/>parallel, 8 s timeout]
+    Broadcast --> Stream["SSE: gate, consignment, complete<br/>per-gate failures array"]
+    SSEonly --> End([200 OK])
+    Stream --> End
+```
+
+See `flow-01-search-broadcast-decision.mmd` and `seq-03-identifier-search-broadcast.mmd` for full detail.
 
 #### Acceptance Criteria
 
@@ -38,7 +56,7 @@
 
 **Technical artifacts:**
 - [ ] OpenAPI: `GET /v1/identifiers/{identifier}` — all query params, response schema, all error responses
-- [ ] Diagram: `seq-04-identifier-search-local.mmd`
+- [ ] Diagram: `seq-02-identifier-search-local-only.mmd`
 
 ##### Cabotage control
 
@@ -69,7 +87,7 @@
 - [ ] All active gates queried in parallel — not sequentially
 
 **Technical artifacts:**
-- [ ] Diagram: `seq-05-identifier-search-broadcast.mmd`
+- [ ] Diagram: `seq-03-identifier-search-broadcast.mmd`
 
 ##### SSE (streaming)
 

@@ -306,7 +306,7 @@ Token kehtib kuni kasutaja parool vahetatakse või kasutaja kustutatakse.
 
 ### 10.2 Kavandatav JWT claim'ide struktuur
 
-Kui Bearer Auth standardiseeritakse JWT-le (vt [Parandusettepanekud](eFTI_improvements_et.md) ettepanek 1.5), peaks token'i struktuur olema:
+Kui Bearer Auth standardiseeritakse JWT-le (vt [Parandusettepanekud](../8-codereview/eFTI_improvements_et.md) ettepanek 1.5), peaks token'i struktuur olema:
 
 ```json
 {

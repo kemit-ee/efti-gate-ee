@@ -21,11 +21,13 @@ For this PoC eFTI gate we had 4 main design principles:
 * [Docker](https://www.docker.com/) images for easy deployment
 
 ### Project structure (Modules)
-* [gate](../gate) - eFTI Gate application
-* [demo-platform](../demo-platform) - Demo eFTI Platform that can publish datasets
-* [edelivery](../edelivery) - fast eDelivery implementation
-* [ui](../ui) - Admin UI
-* [e2e-tests](../e2e-tests) - End-to-end tests via Browser and UI
+* `gate/` — eFTI Gate application
+* `demo-platform/` — Demo eFTI Platform that can publish datasets
+* `edelivery/` — fast eDelivery implementation
+* `ui/` — Admin UI
+* `e2e-tests/` — End-to-end tests via Browser and UI
+
+(Source-code directories sit at the repo root, alongside `docs/`. They are not materialised in docs-only sparse-checkout views.)
 
 ### In order to achieve all previously mentioned goals we have done the following:
 #### 1. Custom eDelivery implementation

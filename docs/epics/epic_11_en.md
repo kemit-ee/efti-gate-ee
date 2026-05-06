@@ -10,6 +10,26 @@
 - [RA §9.1 Platform API](../architecture/eFTI-Gate-Reference-Architecture.md#91-platform-api) — Platform API endpoints exposed via X-Road
 - [RA §1 System Actors](../architecture/eFTI-Gate-Reference-Architecture.md#1-system-actors--components) — EE-specific actor roles (X-Road, ANTS)
 
+**X-Road integration at a glance:**
+
+```mermaid
+sequenceDiagram
+    participant Client as EE client<br/>(TRAM / LOIS2 / ANTS via NES)
+    participant SS as X-Road Security Server
+    participant Adapter as ee-adapter module
+    participant Core as core REST API
+    Client->>SS: SOAP request<br/>EE/GOV/70003158/efti-gate/...
+    SS->>SS: Verify client identity (mTLS)
+    SS->>Adapter: Forward SOAP (client, service, id)
+    Adapter->>Adapter: Validate protocolVersion + headers
+    Adapter->>Core: REST call (Admin or Authority API)
+    Core-->>Adapter: JSON / XML response
+    Adapter-->>SS: SOAP response (or X-Road fault)
+    SS-->>Client: SOAP response
+```
+
+`ee-adapter` calls `core` only via the published REST API; no internal core dependency.
+
 #### Acceptance Criteria
 
 **Happy path:**
@@ -33,7 +53,7 @@
 
 **Technical artifacts:**
 - [ ] WSDL: `efti-xroad.wsdl`
-- [ ] Diagram: `seq-09-xroad-platform-registration.mmd`
+- [ ] Diagram: `seq-10-platform-registration.mmd`
 
 ##### Estonian competent authorities
 

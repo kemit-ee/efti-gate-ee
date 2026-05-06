@@ -8,6 +8,23 @@
 
 **Reference:** [Permissions Matrix](../specs/permissions-matrix.md) — Authentication flow and authorization checks
 
+**Three authentication channels at a glance:**
+
+```mermaid
+flowchart TD
+    Caller[Caller] --> Channel{Channel type?}
+    Channel -- Admin UI --> TARA[TARA OIDC<br/>ID-card / Mobile-ID / Smart-ID]
+    TARA --> Session[Session cookie<br/>HttpOnly Secure SameSite=Strict]
+    Channel -- Platform/Authority API --> JWT[Bearer JWT RS256<br/>iss, exp, role check]
+    JWT --> Resource[Resource access]
+    Channel -- Gate-to-gate --> MTLS[mTLS client cert<br/>OCSP/CRL check]
+    MTLS --> Fast[POST /services/fast]
+    Session --> Resource
+    Fast --> Resource
+```
+
+See `seq-12-user-authentication.mmd` and `seq-16-mtls-fast-protocol.mmd` for full detail.
+
 #### Acceptance Criteria
 
 ##### Admin UI authentication (OIDC)
@@ -37,12 +54,12 @@
 
 **Technical artifacts:**
 - [ ] OpenAPI: `GET /auth/login`, `GET /auth/callback`, `POST /auth/logout`
-- [ ] Diagram: `seq-01-tara-admin-login.mmd`
+- [ ] Diagram: `seq-12-user-authentication.mmd`
 
 ##### Platform/Authority API authentication
 
 **Happy path:**
-- [ ] Admin issues token via `POST /api/users` with `generateSecret=true` → `201 Created` with `{"token": "<JWT>"}` — shown once only
+- [ ] Admin issues token via `POST /api/v1/users` with `generateSecret=true` → `201 Created` with `{"token": "<JWT>"}` — shown once only
 - [ ] eFTI platform calls API with `Authorization: Bearer <JWT>` → gate validates signature, `exp`, `iss`, role → `200 OK`
 
 **Edge cases:**
@@ -50,14 +67,14 @@
 - [ ] eFTI platform has 2 PLATFORM roles, omits `platformId` query parameter → `400 Bad Request` with `"detail": "Multiple platforms: specify platformId parameter"`
 
 **Error handling:**
-- [ ] Compromised token: `POST /api/users/:userId/revoke-token` → token blacklisted; subsequent requests with that token → `401 Unauthorized`
+- [ ] Compromised token: `POST /api/v1/users/:userId/revoke-token` → token blacklisted; subsequent requests with that token → `401 Unauthorized`
 
 **Technical constraints:**
 - [ ] Signing: RS256; gate private key loaded from K8s Secret at startup — never in container image
 - [ ] Token blacklist TTL = token `exp`; cleaned up automatically
 
 **Technical artifacts:**
-- [ ] Diagram: `seq-02-jwt-platform-auth.mmd`
+- [ ] Diagram: `seq-12-user-authentication.mmd`
 
 ##### Gate-to-gate fast protocol
 
@@ -76,4 +93,4 @@
 - [ ] `X-API-Key` removed from `/services/fast` endpoint entirely
 
 **Technical artifacts:**
-- [ ] Diagram: `seq-03-mtls-fast-protocol.mmd`
+- [ ] Diagram: [`../specs/diagrams/seq-16-mtls-fast-protocol.mmd`](../specs/diagrams/seq-16-mtls-fast-protocol.mmd)

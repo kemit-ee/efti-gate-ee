@@ -6,7 +6,7 @@
 | **Ettevõte** | Askend Estonia OÜ |
 | **Kontakt** | sten.viljus@askend.com |
 
-Koondatud kõigist analüüsidokumentidest: [Koodianalüüs](eFTI_codereview_et.md), [Skaleeritavuse analüüs](eFTI_scalability_et.md), [Paigaldamise juhend](eFTI_deployment_et.md), [Vigade ja logimise spetsifikatsioon](eFTI_errors_logging_et.md), [Õiguste ja ligipääsuhalduse dokument](eFTI_rights_and_permissions_et.md).
+Koondatud kõigist analüüsidokumentidest: [Koodianalüüs](eFTI_codereview_et.md), [Skaleeritavuse analüüs](eFTI_scalability_et.md), [Paigaldamise juhend](eFTI_deployment_et.md), [Vigade ja logimise spetsifikatsioon](../5-errors-n-logging/eFTI_errors_logging_et.md), [Õiguste ja ligipääsuhalduse dokument](../4-rights-n-permissions/eFTI_rights_and_permissions_et.md).
 
 ---
 
@@ -36,7 +36,7 @@ Koondatud kõigist analüüsidokumentidest: [Koodianalüüs](eFTI_codereview_et.
 | 2.2 | **EDeliveryClient väljaminevate päringute logimine** — logida sihtpunkt, saaja Party ID, request ID, vastuse staatuskood, kestus. Meetodid: `send()`, `sendAndReceive()`, `ping()` | KÕRGE | ~1 päev | logimise analüüs |
 | 2.3 | **Request ID propageerimine** — SLF4J MDC mehhanism, et kõik logisõnumid oleks korreleeritavad ühe päringu piires | KÕRGE | ~1-2 päeva | logimise analüüs |
 | 2.4 | **EftiService äriloogika logimine** — logida routing otsused (lokaalne vs remote), broadcast algus/tulemus, salvestatud identifikaatorite arv, follow-up suunamine | KESKMINE | ~1-2 päeva | logimise analüüs |
-| 2.5 | **Struktureeritud logimine (JSON + ECS)** — lisada `logback-classic` + `logstash-logback-encoder`, JSON formaat ECS standardis tootmiskeskkonnas (env muutujaga lülitatav). Kohustuslikud väljad: `@timestamp`, `log.level`, `trace.id` (requestId), `service.name`, `user.id`, `user.roles`, `url.path`, `client.ip`, `http.response.status_code`, `event.duration`. Vt [Vigade ja logimise spetsifikatsioon](eFTI_errors_logging_et.md) ptk 4.1b | KÕRGE | ~2-3 päeva | logimise analüüs, KeMIT MFN |
+| 2.5 | **Struktureeritud logimine (JSON + ECS)** — lisada `logback-classic` + `logstash-logback-encoder`, JSON formaat ECS standardis tootmiskeskkonnas (env muutujaga lülitatav). Kohustuslikud väljad: `@timestamp`, `log.level`, `trace.id` (requestId), `service.name`, `user.id`, `user.roles`, `url.path`, `client.ip`, `http.response.status_code`, `event.duration`. Vt [Vigade ja logimise spetsifikatsioon](../5-errors-n-logging/eFTI_errors_logging_et.md) ptk 4.1b | KÕRGE | ~2-3 päeva | logimise analüüs, KeMIT MFN |
 | 2.6 | **PlatformClient eDelivery variandi logimine** — praegu logib ainult REST varianti, eDelivery delegeerib ilma logimiseta | KESKMINE | ~0.5 päeva | logimise analüüs |
 | 2.7 | **Autoriseerimise keeldumiste logimine** — `AccessChecker` ja `User.checkWriteAccess()` peavad logima keeldumised enne `ForbiddenException` viskamist. Praegu keeldumised ei ole logides nähtavad — turvaintsidendid jäävad märkamatuks | KESKMINE | ~0.5 päeva | vigade ja logimise spets. |
 

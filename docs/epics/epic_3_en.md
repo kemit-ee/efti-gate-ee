@@ -8,10 +8,32 @@
 
 **References:**
 - [DB Schema](../specs/db/README.md) — Database schema for identifiers and consignments
-- [XSD](../../xsd/consignment-identifier.xsd) — Identifier XML schema
+- [XSD](../efti-analysis/xsd/consignment-identifier.xsd) — Identifier XML schema
+- [Data Transformations](../specs/data-transformations.md) — XML→DB extraction (XPath maps for denormalised columns)
+- [OpenAPI](../specs/openapi.yaml) — `POST /api/v1/identifiers/{datasetId}` contract
 - [RA §2.1 UIL](../architecture/eFTI-Gate-Reference-Architecture.md#21-uil-unique-identifier-for-loading) — UIL structure and identifier registration concepts
 - [RA §2.2 Identifiers vs Datasets](../architecture/eFTI-Gate-Reference-Architecture.md#22-identifiers-vs-datasets) — What the gate stores vs what platforms store
 - [RA §3 Data Lifecycle](../architecture/eFTI-Gate-Reference-Architecture.md#3-data-lifecycle--ownership) — Identifier lifecycle and ownership rules
+
+**Registration flow at a glance:**
+
+```mermaid
+sequenceDiagram
+    participant Platform
+    participant Gate as eFTI Gate
+    participant DB as PostgreSQL
+    Platform->>Gate: POST /v1/identifiers/{datasetId}<br/>Authorization: Bearer <JWT><br/>Content-Type: application/xml
+    Gate->>Gate: Validate XSD (consignment-identifier.xsd)<br/>Check X-Request-ID dedup (600 s TTL)
+    alt new datasetId
+        Gate->>DB: INSERT consignments + identifiers<br/>(status=active)
+        Gate-->>Platform: 201 Created<br/>Location: /v1/identifiers/{datasetId}
+    else existing datasetId
+        Gate->>DB: previous → inactive; new row → active
+        Gate-->>Platform: 200 OK
+    end
+```
+
+See `seq-01-identifier-registration.mmd` for full detail.
 
 #### Acceptance Criteria
 

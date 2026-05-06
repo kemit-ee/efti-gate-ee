@@ -10,6 +10,23 @@
 - [Error formats](../specs/errors.json) — RFC 7807 error catalogue used across all endpoints
 - [RA §9 API Reference](../architecture/eFTI-Gate-Reference-Architecture.md#9-api-reference) — API endpoint reference for versioning and standardisation
 
+**Request handling at a glance:**
+
+```mermaid
+flowchart TD
+    Req[Request to /api/v1/* or /v1/*] --> CORS[CORS check<br/>ALLOWED_ORIGINS or same-origin]
+    CORS --> Ver{Version supported?}
+    Ver -- deprecated --> Dep[200 OK<br/>Deprecation: true header]
+    Ver -- current --> Schema{OpenAPI 3.0 schema valid?}
+    Ver -- unsupported --> R410[410 Gone]
+    Schema -- no --> R400[400 Bad Request<br/>RFC 7807 field errors]
+    Schema -- yes --> Handler[Resource handler]
+    Handler --> Page[Paginate: limit, offset,<br/>X-Total-Count]
+    Handler --> Err[Error → RFC 7807<br/>type, title, status, detail, requestId]
+```
+
+Swagger UI: `/api/openapi`, `/v1/openapi`.
+
 #### Acceptance Criteria
 
 **Happy path:**

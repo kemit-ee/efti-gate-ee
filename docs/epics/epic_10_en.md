@@ -7,10 +7,32 @@
 **SO THAT** cross-border eFTI data exchange uses the standard EU infrastructure
 
 **References:**
-- [eDelivery XSD](../../xsd/edelivery/gate.xsd) — eDelivery message schema
+- [eDelivery XSD](../efti-analysis/xsd/edelivery/gate.xsd) — eDelivery message schema
 - [DB Schema](../specs/db/README.md) — async_responses table schema
+- [Data Transformations](../specs/data-transformations.md) — JSON ↔ AS4 envelope wrapping; SOAP fault handling
+- [Diagrams](../specs/diagrams/seq-14-gate-to-gate-search.mmd) — Gate-to-gate AS4 search; [seq-16](../specs/diagrams/seq-16-mtls-fast-protocol.mmd) — mTLS fast-protocol alternative
+- [Errors](../specs/errors.json) — `BAD_GATEWAY`, `GATE_OFFLINE`, `GATEWAY_TIMEOUT`
 - [RA §4 Protocol Architecture](../architecture/eFTI-Gate-Reference-Architecture.md#4-protocol-architecture-generic-envelope--variable-payload) — Generic envelope and AS4 protocol model
 - [RA §5.1 Identifier Query](../architecture/eFTI-Gate-Reference-Architecture.md#51-identifier-query-cross-border-search) — Cross-border AS4 message flow
+
+**AS4 message exchange at a glance:**
+
+```mermaid
+sequenceDiagram
+    participant GateA as Gate A
+    participant DomA as Domibus A
+    participant DomB as Domibus B
+    participant GateB as Gate B
+    GateA->>GateA: Build identifierQuery / uilQuery XML<br/>(XSD validate, sign + encrypt WS-Security)
+    GateA->>DomA: POST /services/backend (SOAP/AS4)
+    DomA->>DomB: AS4 envelope (Action, requestId)
+    DomB->>GateB: POST /services/msh
+    GateB-->>DomB: identifierResponse / uilResponse
+    DomB-->>DomA: AS4 response
+    DomA-->>GateA: async callback → async_responses table<br/>(LISTEN/NOTIFY routes to owning node)
+```
+
+See `seq-14-gate-to-gate-search.mmd` and `seq-16-mtls-fast-protocol.mmd` for full detail.
 
 #### Acceptance Criteria
 
@@ -35,7 +57,7 @@
 - [ ] MUST use Domibus or compatible AS4 implementation — no custom AS4 stack
 
 **Technical artifacts:**
-- [ ] Diagram: `seq-08-edelivery-inbound.mmd`
+- [ ] Diagram: `seq-14-gate-to-gate-search.mmd`
 
 ##### Outbound messages
 

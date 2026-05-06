@@ -7,8 +7,24 @@
 **SO THAT** developers understand exactly how inter-gate messages travel through the AS4 protocol
 
 **References:**
+- [Data Transformations](../specs/data-transformations.md) — XML→AS4 envelope wrapping; XSD validation; SOAP fault mapping
+- [Diagrams](../specs/diagrams/seq-14-gate-to-gate-search.mmd) — Gate-to-gate AS4 search sequence; [seq-16](../specs/diagrams/seq-16-mtls-fast-protocol.mmd) — mTLS fast-protocol alternative
+- [eDelivery XSD](../efti-analysis/xsd/edelivery/gate.xsd) — eDelivery message schema
 - [RA §4 Protocol Architecture](../architecture/eFTI-Gate-Reference-Architecture.md#4-protocol-architecture-generic-envelope--variable-payload) — AS4 envelope and protocol model
 - [RA §5.1 Identifier Query](../architecture/eFTI-Gate-Reference-Architecture.md#51-identifier-query-cross-border-search) — Cross-border search flow
+
+**AS4 message types at a glance:**
+
+```mermaid
+flowchart LR
+    GA[Gate A] -- identifierQuery / uilQuery / postFollowUpRequest --> Dom[Domibus AS4<br/>SOAP, WS-Security<br/>sign + encrypt]
+    Dom --> GB[Gate B]
+    GB -- identifierResponse / uilResponse --> Dom
+    Dom -- async via async_responses<br/>+ LISTEN/NOTIFY --> GA
+    GB -. SOAP fault on parse error<br/>or unknown Action .-> Dom
+```
+
+Detailed sequence diagrams for outgoing and incoming flows follow below.
 
 #### Acceptance Criteria
 

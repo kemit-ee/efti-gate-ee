@@ -10,31 +10,56 @@
 - [DB Schema](../specs/db/README.md) — Gate registry schema
 - [RA §1 System Actors](../architecture/eFTI-Gate-Reference-Architecture.md#1-system-actors--components) — Gate actor roles and registry context
 
+**Gate lifecycle at a glance:**
+
+```mermaid
+stateDiagram-v2
+    [*] --> ONLINE: POST /api/v1/gates
+    ONLINE --> OFFLINE: ping fails (10 s timeout)
+    OFFLINE --> ONLINE: ping succeeds (5 min cycle)
+    ONLINE --> DISABLED: Admin sets status=DISABLED
+    OFFLINE --> DISABLED: Admin disables unreachable gate
+    DISABLED --> ONLINE: Admin re-enables + ping OK
+    ONLINE --> [*]: DELETE /api/v1/gates/{gateId}
+    OFFLINE --> [*]: DELETE /api/v1/gates/{gateId}
+    DISABLED --> [*]: DELETE /api/v1/gates/{gateId}
+    note right of ONLINE
+        Included in broadcasts;
+        gateRegistry.online() returns
+    end note
+    note right of DISABLED
+        Excluded from broadcasts AND ping job;
+        will not auto-recover
+    end note
+```
+
+See `state-05-gate-health.mmd` for full detail.
+
 #### Acceptance Criteria
 
 ##### CRUD
 
 **Happy path:**
-- [ ] `GET /api/gates` — Super Admin sees all gates; regular Admin sees only gates in their `roles[GATE]` Party IDs; paginated
-- [ ] `POST /api/gates` — adds new gate with `baseUrl`, `eDeliveryUrl`, certificate info; write access requires matching Party ID → `201 Created`
-- [ ] `DELETE /api/gates/:gateId` — write access verified → `204 No Content`
-- [ ] `GET /api/gates/own` — returns own gate configuration
+- [ ] `GET /api/v1/gates` — Super Admin sees all gates; regular Admin sees only gates in their `roles[GATE]` Party IDs; paginated
+- [ ] `POST /api/v1/gates` — adds new gate with `baseUrl`, `eDeliveryUrl`, certificate info; write access requires matching Party ID → `201 Created`
+- [ ] `DELETE /api/v1/gates/:gateId` — write access verified → `204 No Content`
+- [ ] `GET /api/v1/gates/own` — returns own gate configuration
 
 **Edge cases:**
 - [ ] Admin deletes own gate → `409 Conflict` with `"detail": "Cannot delete your own gate"`
-- [ ] `POST /api/gates` with `baseUrl` already registered → `409 Conflict`
+- [ ] `POST /api/v1/gates` with `baseUrl` already registered → `409 Conflict`
 - [ ] `DELETE` on non-existent gate → `404 Not Found`
 
 **Error handling:**
 - [ ] Write with non-matching Party ID → `403 Forbidden`
 
 **Technical artifacts:**
-- [ ] OpenAPI: `GET /api/gates`, `POST /api/gates`, `DELETE /api/gates/{gateId}`, `GET /api/gates/own`
+- [ ] OpenAPI: `GET /api/v1/gates`, `POST /api/v1/gates`, `DELETE /api/v1/gates/{gateId}`, `GET /api/v1/gates/own`
 
 ##### Ping
 
 **Happy path:**
-- [ ] `POST /api/gates/:gateId/ping` → fast protocol ping (`POST {eDeliveryUrl}` with mTLS) → `200 OK` with `responseTimeMs`
+- [ ] `POST /api/v1/gates/:gateId/ping` → fast protocol ping (`POST {eDeliveryUrl}` with mTLS) → `200 OK` with `responseTimeMs`
 - [ ] eDelivery ping: SOAP ping request → `200 OK` or `502`
 - [ ] Ping result updates gate status in database and in-memory registry on all nodes (via NOTIFY)
 
@@ -59,4 +84,4 @@
 - [ ] Leader election: database advisory lock (`pg_try_advisory_lock`)
 
 **Technical artifacts:**
-- [ ] OpenAPI: `POST /api/gates/{gateId}/ping`
+- [ ] OpenAPI: `POST /api/v1/gates/{gateId}/ping`

@@ -308,7 +308,7 @@ The token is valid until the user's password is changed or the user is deleted.
 
 ### 10.2 Planned JWT Claims Structure
 
-If Bearer Auth is standardized to JWT (see [Improvement Proposals](eFTI_improvements_en.md) proposal 1.5), the token structure should be:
+If Bearer Auth is standardized to JWT (see [Improvement Proposals](../8-codereview/eFTI_improvements_en.md) proposal 1.5), the token structure should be:
 
 ```json
 {

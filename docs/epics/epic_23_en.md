@@ -8,6 +8,21 @@
 
 **Reference:** [RA §8.1 Security Layers](../architecture/eFTI-Gate-Reference-Architecture.md#81-security-layers) — Authentication architecture for all three flows
 
+**Three authentication channels at a glance:**
+
+```mermaid
+flowchart TD
+    Caller[Caller] --> Type{Channel?}
+    Type -- Admin UI --> F1[Flow 1: TARA/OIDC<br/>session cookie]
+    Type -- Platform/Authority API --> F2[Flow 2: Bearer JWT RS256<br/>signature + exp + role check]
+    Type -- Gate-to-gate --> F3[Flow 3: mTLS<br/>cert OCSP/CRL check]
+    F1 --> Allow[Resource access]
+    F2 --> Allow
+    F3 --> Allow
+```
+
+Detailed sequences for each flow follow below.
+
 #### Acceptance Criteria
 
 - [ ] All three authentication patterns documented as sequence diagrams (see below)
@@ -45,7 +60,7 @@ sequenceDiagram
     participant Gate as Gate Backend
     participant Platform as Platform / Authority
 
-    Admin->>Gate: POST /api/users (generateSecret=true)
+    Admin->>Gate: POST /api/v1/users (generateSecret=true)
     Gate-->>Admin: JWT token (signed RS256)
 
     Note over Platform,Gate: Later API request

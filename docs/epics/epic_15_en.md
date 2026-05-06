@@ -12,6 +12,21 @@
 
 > **Note:** EU Regulations 2024/1942 and 2025/2243 do not explicitly require persistent audit logging of authority queries at the gate level. Member states must decide based on their own jurisdictional requirements. This epic implements a reasonable default behaviour with configurability.
 
+**Audit write paths at a glance:**
+
+```mermaid
+flowchart TD
+    Action{Action type} --> DataChange[Data change<br/>user/gate/platform/authority<br/>create/modify/delete<br/>identifier save/delete]
+    Action --> Login[Login success or failure]
+    Action --> AuthQ[Authority identifier query<br/>or dataset request]
+    DataChange --> AuditLog[(audit_log<br/>INSERT-only,<br/>RLS / DB user)]
+    Login --> AuditLog
+    AuthQ --> Toggle{AUTHORITY_QUERY_AUDIT<br/>enabled?}
+    Toggle -->|yes - default| AuditLog
+    Toggle -->|disabled| Skip[skipped]
+    AuditLog --> Query[GET /api/v1/audit<br/>Super Admin only, paginated]
+```
+
 #### Acceptance Criteria
 
 ##### Mandatory audit log (data changes)
@@ -24,7 +39,7 @@
   - Admin actions: user creation/modification/deletion
   - Gate/Platform/Authority creation/modification/deletion
   - Identifier save and deletion (by platform)
-- [ ] `GET /api/audit` — Super Admin can query the audit log (paginated)
+- [ ] `GET /api/v1/audit` — Super Admin can query the audit log (paginated)
 - [ ] Sensitive data (passwords, tokens) never stored in audit log
 
 **Edge cases:**
@@ -46,7 +61,7 @@
 - [ ] `AUTHORITY_QUERY_AUDIT` not set → defaults to `enabled` (fail-safe default)
 
 **Technical artifacts:**
-- [ ] OpenAPI: `GET /api/audit`
+- [ ] OpenAPI: `GET /api/v1/audit`
 - [ ] DB schema: `audit_log` table
 
 ---

@@ -16,8 +16,21 @@
 --   - gates: status enum replaces ad-hoc text; disabledAt removed (use status=DISABLED)
 --   - platforms: headers kept as JSONB; eDeliveryCert/tlsCert renamed for consistency
 --   - Added: request_id_cache, sessions, jobs_execution_log tables
+--   - Added: follow_up_log (Art 6(2)(c) Reg 2024/1942) and audit_log (action-level)
 --   - Added: full COMMENT ON TABLE / COLUMN coverage (GDPR Art 30 traceability)
 --   - Added: partial and trigram indexes for high-performance plate searches
+--   - Persistence taxonomy (see specs/db/README.md):
+--       Ledger    (change_history, audit_log, follow_up_log) — INSERT only;
+--                 UPDATE/DELETE rejected by BEFORE trigger raising exception.
+--       Ephemeral (request_id_cache, sessions, jobs_execution_log) — INSERT
+--                 only by app; aged out by partition rotation under a
+--                 maintenance role.
+--       Registry  (gates, platforms, authorities, users, consignments,
+--                 identifiers) — UPDATE allowed; every UPDATE captured into
+--                 change_history. DELETE never granted; logical deletion via
+--                 status enums.
+--     `app` role: SELECT/INSERT on every table; UPDATE on registry tables only;
+--     DELETE on no table. FKs do not cascade.
 -- ============================================================================
 
 -- ============================================================================
@@ -74,6 +87,13 @@ CREATE TYPE job_status AS ENUM (
 );
 
 COMMENT ON TYPE job_status IS 'Execution status of a scheduled background job';
+
+CREATE TYPE follow_up_status AS ENUM (
+  'delivered',  -- Successfully forwarded to destination platform/gate
+  'failed'      -- Destination unreachable or rejected the message
+);
+
+COMMENT ON TYPE follow_up_status IS 'Outcome of a follow-up message forwarding attempt';
 
 -- ============================================================================
 -- 2. HELPER FUNCTION — auto-update updated_at
@@ -152,9 +172,23 @@ CREATE INDEX idx_change_history_table_row ON change_history ("table", row_id);
 CREATE INDEX idx_change_history_changed_at ON change_history (changed_at DESC);
 CREATE INDEX idx_change_history_changed_by ON change_history (changed_by) WHERE changed_by IS NOT NULL;
 
--- Immutability: prevent updates and deletes on audit records
-CREATE RULE change_history_no_update AS ON UPDATE TO change_history DO INSTEAD NOTHING;
-CREATE RULE change_history_no_delete AS ON DELETE TO change_history DO INSTEAD NOTHING;
+-- Immutability: ledger tables are append-only. UPDATE/DELETE attempts raise an
+-- exception (BEFORE trigger), regardless of role. Defense-in-depth: also REVOKE
+-- UPDATE/DELETE from PUBLIC and grant SELECT, INSERT only to the runtime app role
+-- (see section 4.14 grants).
+CREATE OR REPLACE FUNCTION reject_modification() RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'ledger table % is append-only — % rejected', TG_TABLE_NAME, TG_OP
+    USING ERRCODE = 'feature_not_supported';
+END;
+$$;
+
+COMMENT ON FUNCTION reject_modification() IS 'Trigger function for ledger tables (change_history, audit_log, follow_up_log). Raises an exception on UPDATE or DELETE.';
+
+CREATE TRIGGER change_history_no_modify
+  BEFORE UPDATE OR DELETE ON change_history
+  FOR EACH ROW EXECUTE FUNCTION reject_modification();
+
 REVOKE UPDATE, DELETE ON change_history FROM PUBLIC;
 
 -- Trigger function that records every changed column value
@@ -277,7 +311,7 @@ CREATE TABLE authorities (
 
   CONSTRAINT authorities_country_code_fmt  CHECK (country_code ~ '^[A-Z]{2}$'),
   CONSTRAINT authorities_subsets_not_empty CHECK (array_length(subsets, 1) > 0),
-  CONSTRAINT authorities_subsets_valid     CHECK (subsets <@ ARRAY['EU01','EU02','EU03','EU04','EU05','EU06','EU07','full']::text[])
+  CONSTRAINT authorities_subsets_valid     CHECK (subsets <@ ARRAY['EU01','EU02','EU03','EU04','EU05','EU06','EU07']::text[])
 );
 
 COMMENT ON TABLE  authorities IS 'Registry of competent authorities (e.g. customs, police, transport inspectorates) permitted to query eFTI freight data';
@@ -312,7 +346,7 @@ CREATE TABLE users (
   secret_hash  TEXT,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  created_by   UUID REFERENCES users (id) ON DELETE SET NULL
+  created_by   UUID REFERENCES users (id)
 );
 
 COMMENT ON TABLE  users IS 'User accounts for gate administrators, platform service accounts, and authority inspectors';
@@ -344,7 +378,7 @@ CREATE TRIGGER users_change_history
 
 CREATE TABLE consignments (
   dataset_id          UUID              PRIMARY KEY DEFAULT uuid_generate_v4(),
-  platform_id         CITEXT            NOT NULL REFERENCES platforms (id) ON DELETE CASCADE,
+  platform_id         CITEXT            NOT NULL REFERENCES platforms (id),
   gate_id             CITEXT            NOT NULL,
   xml                 TEXT              NOT NULL,
   status              consignment_status NOT NULL DEFAULT 'active',
@@ -407,7 +441,7 @@ CREATE TRIGGER consignments_updated_at
 
 CREATE TABLE identifiers (
   id               UUID             PRIMARY KEY DEFAULT uuid_generate_v4(),
-  dataset_id       UUID             NOT NULL REFERENCES consignments (dataset_id) ON DELETE CASCADE,
+  dataset_id       UUID             NOT NULL REFERENCES consignments (dataset_id),
   identifier_type  identifier_type  NOT NULL,
   identifier_value VARCHAR(200)     NOT NULL,
   country_code     CHAR(2),
@@ -476,7 +510,7 @@ CREATE INDEX idx_request_id_cache_expires ON request_id_cache (expires_at);
 
 CREATE TABLE sessions (
   id          UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id     UUID        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  user_id     UUID        NOT NULL REFERENCES users (id),
   token_hash  VARCHAR(64) NOT NULL UNIQUE,
   expires_at  TIMESTAMPTZ NOT NULL,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -521,8 +555,97 @@ CREATE INDEX idx_jobs_log_job_name   ON jobs_execution_log (job_name, started_at
 CREATE INDEX idx_jobs_log_started_at ON jobs_execution_log (started_at DESC);
 
 -- ----------------------------------------------------------------------------
--- 4.12 db_user — application database user and grants
--- (mirrors gate/db/app_user.sql)
+-- 4.12 follow_up_log — record of follow-up messages forwarded by the gate
+-- (mandatory fields per Art 6(2)(c) Reg 2024/1942)
+-- ----------------------------------------------------------------------------
+
+CREATE TABLE follow_up_log (
+  follow_up_id            UUID             PRIMARY KEY DEFAULT uuid_generate_v4(),
+  requesting_gate_id      CITEXT           NOT NULL,
+  requesting_user_id      UUID             REFERENCES users (id),
+  dataset_request_id      UUID             NOT NULL,
+  destination_gate_id     CITEXT           NOT NULL,
+  destination_platform_id CITEXT           NOT NULL,
+  payload                 TEXT             NOT NULL,
+  status                  follow_up_status NOT NULL,
+  failure_reason          TEXT,
+  received_at             TIMESTAMPTZ      NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE  follow_up_log IS 'Log of follow-up messages received by the AAP and forwarded to the destination platform/gate. Mandatory fields per Art 6(2)(c) Reg 2024/1942: follow_up_id, requesting_gate_id, received_at.';
+COMMENT ON COLUMN follow_up_log.follow_up_id            IS 'Unique identifier for the follow-up message (UUIDv4). Mandatory per Art 6(2)(c).';
+COMMENT ON COLUMN follow_up_log.requesting_gate_id      IS 'Gate that originated the follow-up (AAP). May be the local gate or a remote gate via G2G. Mandatory per Art 6(2)(c).';
+COMMENT ON COLUMN follow_up_log.requesting_user_id      IS 'Authority user who issued the follow-up. NULL when the follow-up arrived over G2G eDelivery without user attribution.';
+COMMENT ON COLUMN follow_up_log.dataset_request_id      IS 'Dataset request being followed up on. Not a foreign key — referenced request may have been issued by a peer gate.';
+COMMENT ON COLUMN follow_up_log.destination_gate_id     IS 'Gate that owns the target platform. Equals own gate for local platforms, peer gate ID for remote.';
+COMMENT ON COLUMN follow_up_log.destination_platform_id IS 'Platform to which the follow-up was delivered.';
+COMMENT ON COLUMN follow_up_log.payload                 IS 'Follow-up message body, forwarded unchanged. Stored for audit traceability.';
+COMMENT ON COLUMN follow_up_log.status                  IS 'Final outcome of the forwarding attempt. delivered=accepted by destination; failed=rejected or unreachable.';
+COMMENT ON COLUMN follow_up_log.failure_reason          IS 'Error description when status=failed (HTTP status, AS4 fault, network error). NULL otherwise.';
+COMMENT ON COLUMN follow_up_log.received_at             IS 'Timestamp when the follow-up was received by the AAP. Mandatory per Art 6(2)(c).';
+
+CREATE INDEX idx_follow_up_log_received_at  ON follow_up_log (received_at DESC);
+CREATE INDEX idx_follow_up_log_dataset_req  ON follow_up_log (dataset_request_id);
+CREATE INDEX idx_follow_up_log_requesting   ON follow_up_log (requesting_gate_id, received_at DESC);
+
+-- Append-only enforcement (uses reject_modification() defined in section 4.1).
+CREATE TRIGGER follow_up_log_no_modify
+  BEFORE UPDATE OR DELETE ON follow_up_log
+  FOR EACH ROW EXECUTE FUNCTION reject_modification();
+
+REVOKE UPDATE, DELETE ON follow_up_log FROM PUBLIC;
+
+-- ----------------------------------------------------------------------------
+-- 4.13 audit_log — high-level user-action audit trail
+-- (distinct from change_history, which captures column-level row mutations)
+-- ----------------------------------------------------------------------------
+
+CREATE TABLE audit_log (
+  id          UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id     UUID         REFERENCES users (id),
+  action      VARCHAR(64)  NOT NULL,
+  resource    VARCHAR(64)  NOT NULL,
+  resource_id VARCHAR(200),
+  ip_address  INET,
+  details     JSONB,
+  recorded_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE  audit_log IS 'High-level user-action audit trail. Captures who did what to which resource and when. Distinct from change_history (column-level row mutations); audit_log is at the application action level (login, search, dataset request, follow-up sent, etc.).';
+COMMENT ON COLUMN audit_log.id          IS 'Unique identifier for the audit record (UUIDv4).';
+COMMENT ON COLUMN audit_log.user_id     IS 'User who performed the action. NULL for system actions or pre-authentication events (e.g. failed login).';
+COMMENT ON COLUMN audit_log.action      IS 'Action verb (e.g. login, login_failed, search_identifiers, request_dataset, send_follow_up, register_platform).';
+COMMENT ON COLUMN audit_log.resource    IS 'Resource type touched by the action (e.g. dataset, identifier, platform, gate, user).';
+COMMENT ON COLUMN audit_log.resource_id IS 'Identifier of the resource (UUID, plate string, gate ID, etc.). NULL for collection-level actions (list).';
+COMMENT ON COLUMN audit_log.ip_address  IS 'Source IP address of the request. INET supports both IPv4 and IPv6.';
+COMMENT ON COLUMN audit_log.details     IS 'Additional structured context (search filters, query parameters, error reason). JSONB for arbitrary action-specific fields.';
+COMMENT ON COLUMN audit_log.recorded_at IS 'Timestamp when the action was logged.';
+
+CREATE INDEX idx_audit_log_user_recorded ON audit_log (user_id, recorded_at DESC);
+CREATE INDEX idx_audit_log_action        ON audit_log (action, recorded_at DESC);
+CREATE INDEX idx_audit_log_resource      ON audit_log (resource, resource_id);
+CREATE INDEX idx_audit_log_recorded_at   ON audit_log (recorded_at DESC);
+
+-- Append-only enforcement (uses reject_modification() defined in section 4.1).
+CREATE TRIGGER audit_log_no_modify
+  BEFORE UPDATE OR DELETE ON audit_log
+  FOR EACH ROW EXECUTE FUNCTION reject_modification();
+
+REVOKE UPDATE, DELETE ON audit_log FROM PUBLIC;
+
+-- ----------------------------------------------------------------------------
+-- 4.14 db_user — application database user and grants
+-- ----------------------------------------------------------------------------
+-- Persistence taxonomy (see specs/db/README.md for full table):
+--   - Ledger tables (change_history, audit_log, follow_up_log): SELECT, INSERT
+--     only. UPDATE/DELETE additionally rejected by BEFORE trigger.
+--   - Ephemeral tables (request_id_cache, sessions, jobs_execution_log):
+--     SELECT, INSERT only. Aged out by partition rotation under a separate
+--     maintenance role (not `app`).
+--   - Registry tables (gates, platforms, authorities, users, consignments,
+--     identifiers): SELECT, INSERT, UPDATE. DELETE never granted; logical
+--     deletion via status enums.
+-- DELETE is not granted to `app` on any table.
 -- ----------------------------------------------------------------------------
 
 DO $$
@@ -534,12 +657,30 @@ END;
 $$;
 
 GRANT USAGE ON SCHEMA public TO app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE ON TABLES    TO app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT         ON SEQUENCES  TO app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE               ON FUNCTIONS  TO app;
 
--- app user must not modify audit tables directly
-REVOKE UPDATE, DELETE ON change_history FROM app;
+-- Defaults for any tables added later by migrations.
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT ON TABLES    TO app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT  ON SEQUENCES TO app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE        ON FUNCTIONS TO app;
+
+-- Registry tables: SELECT, INSERT, UPDATE (UPDATE captured into change_history
+-- by AFTER UPDATE triggers). DELETE not granted.
+GRANT SELECT, INSERT, UPDATE ON
+  gates, platforms, authorities, users,
+  consignments, identifiers
+  TO app;
+
+-- Ledger tables: SELECT, INSERT only. UPDATE/DELETE additionally rejected by
+-- BEFORE trigger that RAISE EXCEPTIONs (defense in depth).
+GRANT SELECT, INSERT ON
+  change_history, audit_log, follow_up_log
+  TO app;
+
+-- Ephemeral tables: SELECT, INSERT only. Aged out by partition rotation under
+-- a separate maintenance role (not `app`).
+GRANT SELECT, INSERT ON
+  request_id_cache, sessions, jobs_execution_log
+  TO app;
 
 -- ============================================================================
 -- 5. SEED DATA
@@ -617,7 +758,7 @@ INSERT INTO authorities (id, country_code, name, subsets) VALUES
   ('auth-vtko', 'EE', 'Transport Administration',      ARRAY['EU01','EU02','EU03','EU04']),
   ('auth-vet',  'EE', 'Veterinary and Food Board',     ARRAY['EU06','EU07']),
   ('auth-trafi','FI', 'Traficom (FI Transport Auth)',  ARRAY['EU01','EU02','EU03']),
-  ('demo',      'EE', 'Demo Authority (dev only)',      ARRAY['full']);
+  ('demo',      'EE', 'Demo Authority (dev only)',      ARRAY['EU01','EU02','EU03','EU04','EU05','EU06','EU07']);
 
 -- --------------------------------------------------------------------------
 -- 5.4 Users

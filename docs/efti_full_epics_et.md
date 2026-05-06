@@ -1,6 +1,6 @@
 # eFTI Gate
 
-> Referentsdokument eFTI Gate süsteemi ehitamiseks. Alus: [eFTI Gate Reference Architecture](eFTI-Gate-Reference-Architecture.md) (v2.0, 2026-04-02) ning EU regulatsioonid 2024/1942 ja 2025/2243.  
+> Referentsdokument eFTI Gate süsteemi ehitamiseks. Alus: [eFTI Gate Reference Architecture](architecture/eFTI-Gate-Reference-Architecture.md) (v2.0, 2026-04-02) ning EU regulatsioonid 2024/1942 ja 2025/2243.  
 > Iga epik sisaldab kõik vastuvõtutingimused, mille alusel saab funktsionaalsust implementeerida ja testida.
 
 ---
@@ -10,7 +10,7 @@
 eFTI Gate on Euroopa Liidu eFTI (Electronic Freight Transport Information) võrgustiku sõlmpunkt, mis:
 1. **Salvestab identifikaatoreid** — platvormid registreerivad kaubaveo identifikaatoreid (sõiduki numbrimärgid, konteinerid, haagised)
 2. **Otsib identifikaatoreid** — asutused saavad otsida nii lokaalselt kui ka teistelt EU gate'idelt (broadcast ainult kui lokaalne tulemus on tühi)
-3. **Vahendab dataset'e** — asutused pärgivad täisandmestikke UIL (Unique Identifier for Loading) alusel
+3. **Vahendab dataset'e** — asutused pärgivad täisandmestikke UIL (Unique Identifier Locator) alusel
 4. **Edastab follow-up sõnumeid** — asutused saadavad tagasiside sõnumeid platvormidele
 
 **Protokollid ja standardid:** REST, eDelivery AS4 (SOAP), OpenAPI, JWT (RFC 7519), RFC 7807, XSD/XML
@@ -39,7 +39,7 @@ eFTI Gate on Euroopa Liidu eFTI (Electronic Freight Transport Information) võrg
 ### Põhiterminid
 
 - **identifier:** Otsitav väärtus, mida kasutatakse consignment'i leidmiseks (sõiduki numbrimärk, konteineri number, haagise ID). UIL on identifikaatori täielik URL-vorm.
-- **UIL (Unique Identifier for Loading):** `<gateURL>/<platformURL>/<datasetId>` — globaalselt unikaalne viide konkreetsele kaubaveo andmestikule. Näide: `https://gate.example.eu/https://platform.example.com/550e8400-e29b-41d4-a716-446655440000`
+- **UIL (Unique Identifier Locator):** `<gateURL>/<platformURL>/<datasetId>` — globaalselt unikaalne viide konkreetsele kaubaveo andmestikule. Näide: `https://eu-ee31.eftisandbox.eu/https://demo-platform.eu-ee31.eftisandbox.eu/v1/550e8400-e29b-41d4-a716-446655440000`
 - **AAP (Authority Access Point):** Gate'i asutustele suunatud REST API liides (nii H2M kui M2M kasutuseks)
 - **CMDS (eFTI Common Data Set):** Täielik transpordidokumentatsioon — asub eFTI platvormil, mitte eFTI gate'il
 - **H2M:** Human-to-Machine (brauser/rakendus)
@@ -80,16 +80,16 @@ eFTI Gate on Euroopa Liidu eFTI (Electronic Freight Transport Information) võrg
 **I WANT** rollipõhist ligipääsu kontrolli koos ressursipõhise filtreerimisega  
 **SO THAT** iga kasutaja näeb ja haldab ainult talle lubatud ressursse
 
-**Viide:** [Õiguste maatriks](../specs/permissions-matrix.md) — Täielik autorisatsiooni mudel ja rollipõhine ligipääsu kontroll
+**Viide:** [Õiguste maatriks](specs/permissions-matrix.md) — Täielik autorisatsiooni mudel ja rollipõhine ligipääsu kontroll
 
 #### Acceptance Criteria
 
 ##### Rollide loomine ja haldamine
 
 **Happy path:**
-- [ ] `POST /api/users` — admin loob kasutaja; uus kasutaja saab ainult looja rollid (v.a. Super Admin); vastus `201 Created` kasutaja ID-ga
-- [ ] `GET /api/users` — Super Admin näeb kõiki kasutajaid; tavaline admin ainult oma rollide kasutajaid; vastus pagineeritud (`limit`, `offset`, `X-Total-Count`)
-- [ ] `DELETE /api/users/:userId` — admin kustutab teise tema nähtava kasutaja; vastus `204 No Content`
+- [ ] `POST /api/v1/users` — admin loob kasutaja; uus kasutaja saab ainult looja rollid (v.a. Super Admin); vastus `201 Created` kasutaja ID-ga
+- [ ] `GET /api/v1/users` — Super Admin näeb kõiki kasutajaid; tavaline admin ainult oma rollide kasutajaid; vastus pagineeritud (`limit`, `offset`, `X-Total-Count`)
+- [ ] `DELETE /api/v1/users/:userId` — admin kustutab teise tema nähtava kasutaja; vastus `204 No Content`
 - [ ] Kasutajale saab määrata mitu rolli ja mitu Party ID-d ühe rolli all
 - [ ] Authority kasutaja loomisel: `subsets` on Authority `subsets` alamhulk → `201 Created`
 
@@ -97,10 +97,10 @@ eFTI Gate on Euroopa Liidu eFTI (Electronic Freight Transport Information) võrg
 - [ ] Admin üritab määrata Super Admin rolli → `403 Forbidden` teatega `"detail": "Super Admin rolli ei saa tavaadmin määrata"`
 - [ ] Admin üritab kustutada oma kontot → `409 Conflict` teatega `"detail": "Ei saa kustutada oma kontot"`
 - [ ] Authority kasutaja loomisel `subsets` ei ole Authority lubatud nimekirjas → `400 Bad Request` teatega `"detail": "Subset 'EU04' ei ole lubatud asutusele 'mta@mta.ee'"`
-- [ ] `POST /api/users` korduvalt sama e-postiga → `409 Conflict`
+- [ ] `POST /api/v1/users` korduvalt sama e-postiga → `409 Conflict`
 
 **Veakäsitlus:**
-- [ ] `POST /api/users` puuduva kohustusliku väljaga (nt `roles` puudub) → `400 Bad Request` RFC 7807 koos väljapõhise kirjeldusega
+- [ ] `POST /api/v1/users` puuduva kohustusliku väljaga (nt `roles` puudub) → `400 Bad Request` RFC 7807 koos väljapõhise kirjeldusega
 - [ ] Kõik autoriseerimise keeldumised logitakse: kasutaja ID, endpoint, põhjus, IP-aadress, ajatempel
 
 **Tehnilised piirangud:**
@@ -110,8 +110,8 @@ eFTI Gate on Euroopa Liidu eFTI (Electronic Freight Transport Information) võrg
 - [ ] API tokenid aeguvad 1 tunni pärast (konfigureeritav `JWT_EXPIRY_SECONDS` kaudu)
 
 **Tehnilised artefaktid:**
-- [ ] OpenAPI: `POST /api/users`, `GET /api/users`, `DELETE /api/users/{userId}`
-- [ ] DB skeem: `users`, `user_roles`, `party_ids` tabelid FK-indeksite ja ingliskeelsete veergude kommentaaridega
+- [ ] OpenAPI: `POST /api/v1/users`, `GET /api/v1/users`, `DELETE /api/v1/users/{userId}`
+- [ ] DB skeem: `users` tabel `roles JSONB` veeruga (eraldi `user_roles` / `party_ids` tabeleid ei ole); ingliskeelne `COMMENT ON` kate
 
 ##### Ligipääsu kontroll
 
@@ -135,7 +135,7 @@ eFTI Gate on Euroopa Liidu eFTI (Electronic Freight Transport Information) võrg
 **I WANT** autentida turvalise mehhanismiga  
 **SO THAT** admin liides on kaitstud ning toetab liikmesriigi autentimisinfrastruktuuri
 
-**Viide:** [Õiguste maatriks](../specs/permissions-matrix.md) — Autentimisvoog ja autoriseerimiskontrollid
+**Viide:** [Õiguste maatriks](specs/permissions-matrix.md) — Autentimisvoog ja autoriseerimiskontrollid
 
 #### Acceptance Criteria
 
@@ -165,12 +165,12 @@ eFTI Gate on Euroopa Liidu eFTI (Electronic Freight Transport Information) võrg
 
 **Tehnilised artefaktid:**
 - [ ] OpenAPI: `GET /auth/login`, `GET /auth/callback`, `POST /auth/logout`
-- [ ] Diagramm: `seq-01-tara-admin-login.mmd`
+- [ ] Diagramm: `seq-12-user-authentication.mmd`
 
 ##### Platform/Authority API autentimine
 
 **Happy path:**
-- [ ] Admin väljastab tokeni `POST /api/users` kaudu `generateSecret=true` → `201 Created` koos `{"token": "<JWT>"}` — kuvatakse ainult üks kord
+- [ ] Admin väljastab tokeni `POST /api/v1/users` kaudu `generateSecret=true` → `201 Created` koos `{"token": "<JWT>"}` — kuvatakse ainult üks kord
 - [ ] Platvorm kutsub API-t `Authorization: Bearer <JWT>` → gate valideerib allkirja, `exp`, `iss`, rolli → `200 OK`
 
 **Edge cases:**
@@ -178,14 +178,14 @@ eFTI Gate on Euroopa Liidu eFTI (Electronic Freight Transport Information) võrg
 - [ ] Platvormil on 2 PLATFORM rolli, `platformId` query parameeter puudub → `400 Bad Request` teatega `"detail": "Mitu platvormi: täpsusta platformId parameeter"`
 
 **Veakäsitlus:**
-- [ ] Kompromiteeritud token: `POST /api/users/:userId/revoke-token` → token lisatakse musta nimekirja; edaspidised päringud selle tokeniga → `401 Unauthorized`
+- [ ] Kompromiteeritud token: `POST /api/v1/users/:userId/revoke-token` → token lisatakse musta nimekirja; edaspidised päringud selle tokeniga → `401 Unauthorized`
 
 **Tehnilised piirangud:**
 - [ ] Allkirjastamine: RS256; gate'i privaatvõti laaditakse K8s Secret'ist käivitumisel — mitte konteinerpildis
 - [ ] Tokeni mustanimekirja TTL = tokeni `exp`; puhastatakse automaatselt
 
 **Tehnilised artefaktid:**
-- [ ] Diagramm: `seq-02-jwt-platform-auth.mmd`
+- [ ] Diagramm: `seq-12-user-authentication.mmd`
 
 ##### Gate-to-gate fast protocol
 
@@ -204,7 +204,7 @@ eFTI Gate on Euroopa Liidu eFTI (Electronic Freight Transport Information) võrg
 - [ ] `X-API-Key` eemaldatakse `/services/fast` endpointilt täielikult
 
 **Tehnilised artefaktid:**
-- [ ] Diagramm: `seq-03-mtls-fast-protocol.mmd`
+- [ ] Diagramm: [`specs/diagrams/seq-16-mtls-fast-protocol.mmd`](specs/diagrams/seq-16-mtls-fast-protocol.mmd)
 
 ### EPIC 23 — Autentimis- ja ligipääsuvoog
 
@@ -249,7 +249,7 @@ sequenceDiagram
     participant Gate as Gate Backend
     participant Platform as Platform / Authority
 
-    Admin->>Gate: POST /api/users (generateSecret=true)
+    Admin->>Gate: POST /api/v1/users (generateSecret=true)
     Gate-->>Admin: JWT token (allkirjastatud RS256)
 
     Note over Platform,Gate: Hilisem API päring
@@ -370,7 +370,7 @@ sequenceDiagram
 
 **Tehnilised artefaktid:**
 - [ ] OpenAPI: `GET /v1/identifiers/{identifier}` — kõik query parameetrid, vastuse skeem, kõik veavastused
-- [ ] Diagramm: `seq-04-identifier-search-local.mmd`
+- [ ] Diagramm: `seq-02-identifier-search-local-only.mmd`
 
 ##### Kabotaažkontroll
 
@@ -400,7 +400,7 @@ sequenceDiagram
 - [ ] Kõiki aktiivseid gate'e küsitletakse paralleelselt — mitte järjestikku
 
 **Tehnilised artefaktid:**
-- [ ] Diagramm: `seq-05-identifier-search-broadcast.mmd`
+- [ ] Diagramm: `seq-03-identifier-search-broadcast.mmd`
 
 ##### SSE (streaming)
 
@@ -445,7 +445,7 @@ sequenceDiagram
 
 **Tehnilised artefaktid:**
 - [ ] OpenAPI: `GET /v1/dataset/{gateId}/{platformId}/{datasetId}`
-- [ ] Diagrammid: `seq-06-dataset-retrieval-local.mmd`, `seq-07-dataset-retrieval-remote.mmd`
+- [ ] Diagrammid: `seq-05-dataset-request.mmd`, `seq-06-dataset-request-denied.mmd`
 
 ##### Subsetter moodul
 
@@ -610,26 +610,26 @@ sequenceDiagram
 ##### CRUD
 
 **Happy path:**
-- [ ] `GET /api/gates` — Super Admin näeb kõiki gate'e; tavaline Admin ainult oma gate'e (`roles[GATE]` Party ID-d); pagineeritud
-- [ ] `POST /api/gates` — lisab uue gate'i `baseUrl`, `eDeliveryUrl`, sertifikaadi infoga; kirjutusrõigus nõuab ühtivat Party ID-d → `201 Created`
-- [ ] `DELETE /api/gates/:gateId` — kirjutusrõigus kontrollitud → `204 No Content`
-- [ ] `GET /api/gates/own` — tagastab oma gate'i konfiguratsiooni
+- [ ] `GET /api/v1/gates` — Super Admin näeb kõiki gate'e; tavaline Admin ainult oma gate'e (`roles[GATE]` Party ID-d); pagineeritud
+- [ ] `POST /api/v1/gates` — lisab uue gate'i `baseUrl`, `eDeliveryUrl`, sertifikaadi infoga; kirjutusrõigus nõuab ühtivat Party ID-d → `201 Created`
+- [ ] `DELETE /api/v1/gates/:gateId` — kirjutusrõigus kontrollitud → `204 No Content`
+- [ ] `GET /api/v1/gates/own` — tagastab oma gate'i konfiguratsiooni
 
 **Edge cases:**
 - [ ] Admin kustutab oma gate'i → `409 Conflict` teatega `"detail": "Ei saa kustutada oma gate'i"`
-- [ ] `POST /api/gates` juba registreeritud `baseUrl`-ga → `409 Conflict`
+- [ ] `POST /api/v1/gates` juba registreeritud `baseUrl`-ga → `409 Conflict`
 - [ ] `DELETE` olematule gate'ile → `404 Not Found`
 
 **Veakäsitlus:**
 - [ ] Kirjutamine mitteühtivatest Party ID-ga → `403 Forbidden`
 
 **Tehnilised artefaktid:**
-- [ ] OpenAPI: `GET /api/gates`, `POST /api/gates`, `DELETE /api/gates/{gateId}`, `GET /api/gates/own`
+- [ ] OpenAPI: `GET /api/v1/gates`, `POST /api/v1/gates`, `DELETE /api/v1/gates/{gateId}`, `GET /api/v1/gates/own`
 
 ##### Ping
 
 **Happy path:**
-- [ ] `POST /api/gates/:gateId/ping` → fast protocol ping (`POST {eDeliveryUrl}` mTLS-iga) → `200 OK` koos `responseTimeMs`-ga
+- [ ] `POST /api/v1/gates/:gateId/ping` → fast protocol ping (`POST {eDeliveryUrl}` mTLS-iga) → `200 OK` koos `responseTimeMs`-ga
 - [ ] eDelivery ping: SOAP ping päring → `200 OK` või `502`
 - [ ] Ping tulemus uuendab gate'i staatust andmebaasis ja in-memory registris kõigil node'idel (NOTIFY kaudu)
 
@@ -654,7 +654,7 @@ sequenceDiagram
 - [ ] Liidri valimine: andmebaasi nõuandelukk (`pg_try_advisory_lock`)
 
 **Tehnilised artefaktid:**
-- [ ] OpenAPI: `POST /api/gates/{gateId}/ping`
+- [ ] OpenAPI: `POST /api/v1/gates/{gateId}/ping`
 
 ### EPIC 7 — Platvormide haldus (Admin API)
 
@@ -665,15 +665,15 @@ sequenceDiagram
 #### Acceptance Criteria
 
 **Happy path:**
-- [ ] `GET /api/platforms` — Super Admin näeb kõiki; Admin ainult oma platvorme (`roles[PLATFORM]` Party ID-d); pagineeritud
-- [ ] `POST /api/platforms` — lisab platvormi `name`, `baseUrl`, `supportsSubsetting` lipuga, valikulise `eDeliveryCert`-iga → `201 Created`
-- [ ] `DELETE /api/platforms/:platformId` → `204 No Content`
-- [ ] `POST /api/platforms/:platformId/ping` — kontrollib HTTP ühendust `baseUrl`-le → `200 OK` koos `responseTimeMs`-ga või `502`
+- [ ] `GET /api/v1/platforms` — Super Admin näeb kõiki; Admin ainult oma platvorme (`roles[PLATFORM]` Party ID-d); pagineeritud
+- [ ] `POST /api/v1/platforms` — lisab platvormi `name`, `baseUrl`, `supportsSubsetting` lipuga, valikulise `eDeliveryCert`-iga → `201 Created`
+- [ ] `DELETE /api/v1/platforms/:platformId` → `204 No Content`
+- [ ] `POST /api/v1/platforms/:platformId/ping` — kontrollib HTTP ühendust `baseUrl`-le → `200 OK` koos `responseTimeMs`-ga või `502`
 - [ ] Platvorm ilma `eDeliveryCert`-ita: ainult REST; sertifikaadiga: saab ka eDelivery AS4 kaudu kutsuda
 - [ ] `supportsSubsetting=false` platvorm: gate rakendab XSLT subsetter'it enne dataset'i tagastamist
 
 **Edge cases:**
-- [ ] `POST /api/platforms` juba registreeritud `baseUrl`-ga → `409 Conflict`
+- [ ] `POST /api/v1/platforms` juba registreeritud `baseUrl`-ga → `409 Conflict`
 - [ ] `DELETE` platvormil aktiivsete identifikaatoritega → `409 Conflict` teatega `"detail": "Platvormil on 42 aktiivset identifikaatorit — kustuta need esmalt või kasuta force=true"`
 - [ ] Ping — platvorm ei vasta 10 sekundi jooksul → `502 Bad Gateway` teatega `"detail": "Platvorm 'mta-platform-1' ei vastanud 10 sekundi jooksul"`
 
@@ -684,7 +684,7 @@ sequenceDiagram
 - [ ] Registrimuudatused levivad kõigile node'idele LISTEN/NOTIFY kaudu 500 ms jooksul
 
 **Tehnilised artefaktid:**
-- [ ] OpenAPI: `GET /api/platforms`, `POST /api/platforms`, `DELETE /api/platforms/{platformId}`, `POST /api/platforms/{platformId}/ping`
+- [ ] OpenAPI: `GET /api/v1/platforms`, `POST /api/v1/platforms`, `DELETE /api/v1/platforms/{platformId}`, `POST /api/v1/platforms/{platformId}/ping`
 
 ### EPIC 8 — Asutuste haldus (Admin API)
 
@@ -695,16 +695,16 @@ sequenceDiagram
 #### Acceptance Criteria
 
 **Happy path:**
-- [ ] `GET /api/authorities` — Super Admin näeb kõiki; Admin ainult oma asutusi (`roles[AUTHORITY]` Party ID-d); pagineeritud
-- [ ] `GET /api/authorities/:authorityId` — tagastab asutuse detailid: nimi, `subsets[]`, kontakt
-- [ ] `POST /api/authorities` — lisab asutuse lubatud `subsets[]`-ga → `201 Created`
-- [ ] `DELETE /api/authorities/:authorityId` → `204 No Content`
+- [ ] `GET /api/v1/authorities` — Super Admin näeb kõiki; Admin ainult oma asutusi (`roles[AUTHORITY]` Party ID-d); pagineeritud
+- [ ] `GET /api/v1/authorities/:authorityId` — tagastab asutuse detailid: nimi, `subsets[]`, kontakt
+- [ ] `POST /api/v1/authorities` — lisab asutuse lubatud `subsets[]`-ga → `201 Created`
+- [ ] `DELETE /api/v1/authorities/:authorityId` → `204 No Content`
 
 **Edge cases:**
 - [ ] `DELETE` asutusel aktiivsete kasutajatega → `409 Conflict` teatega `"detail": "Asutusel on 3 aktiivset kasutajat — kustuta või määra ümber esmalt"`
 - [ ] `POST` tundmatu subset koodiga → `400 Bad Request` teatega `"detail": "Tundmatu subset: 'EU99'"`
 - [ ] Asutuse `subsets[]` uuendatakse subset'i eemaldamisega → olemasolevad kasutajad kaotavad ligipääsu kohe (reaalajas, mitte järgmisel sisselogimisel)
-- [ ] `GET /api/authorities/:authorityId` olematule asutusele → `404 Not Found`
+- [ ] `GET /api/v1/authorities/:authorityId` olematule asutusele → `404 Not Found`
 
 **Veakäsitlus:**
 - [ ] Kirjutamine mitteühtivatest Party ID-ga → `403 Forbidden`
@@ -713,7 +713,7 @@ sequenceDiagram
 - [ ] Subset'i ligipääsu muutus levitatakse LISTEN/NOTIFY kaudu 500 ms jooksul
 
 **Tehnilised artefaktid:**
-- [ ] OpenAPI: `GET /api/authorities`, `POST /api/authorities`, `DELETE /api/authorities/{authorityId}`
+- [ ] OpenAPI: `GET /api/v1/authorities`, `POST /api/v1/authorities`, `DELETE /api/v1/authorities/{authorityId}`
 
 ### EPIC 9 — Consignment'ide haldus (Admin API)
 
@@ -726,15 +726,15 @@ sequenceDiagram
 ##### Vaatamine ja kustutamine
 
 **Happy path:**
-- [ ] `GET /api/consignments` — Super Admin näeb kõiki; Admin ainult oma platvormi consignment'e; sorteeritud `updatedAt DESC`; pagineeritud
-- [ ] `DELETE /api/consignments/:datasetId` — ainult Super Admin; soft delete (staatus → `deleted`) → `204 No Content`
+- [ ] `GET /api/v1/consignments` — Super Admin näeb kõiki; Admin ainult oma platvormi consignment'e; sorteeritud `updatedAt DESC`; pagineeritud
+- [ ] `DELETE /api/v1/consignments/:datasetId` — ainult Super Admin; soft delete (staatus → `deleted`) → `204 No Content`
 
 **Edge cases:**
 - [ ] Tavaline admin üritab `DELETE`-d → `403 Forbidden` teatega `"detail": "Ainult Super Admin saab consignment'e kustutada"`
 - [ ] `DELETE` juba kustutatud kirjele → `404 Not Found`
 
 **Tehnilised artefaktid:**
-- [ ] OpenAPI: `GET /api/consignments`, `DELETE /api/consignments/{datasetId}`
+- [ ] OpenAPI: `GET /api/v1/consignments`, `DELETE /api/v1/consignments/{datasetId}`
 
 ##### Identifikaatorite staatuste haldus (Regulatsioon 2025/2243)
 
@@ -814,7 +814,7 @@ sequenceDiagram
 - [ ] PEAB kasutama Domibust või ühilduvat AS4 implementatsiooni — kohandatud AS4 stekki ei kasutata
 
 **Tehnilised artefaktid:**
-- [ ] Diagramm: `seq-08-edelivery-inbound.mmd`
+- [ ] Diagramm: `seq-14-gate-to-gate-search.mmd`
 
 ##### Väljaminevad sõnumid
 
@@ -885,7 +885,7 @@ sequenceDiagram
 
 **Tehnilised artefaktid:**
 - [ ] WSDL: `efti-xroad.wsdl`
-- [ ] Diagramm: `seq-09-xroad-platform-registration.mmd`
+- [ ] Diagramm: `seq-10-platform-registration.mmd`
 
 ##### Eesti pädevad asutused
 
@@ -1028,7 +1028,7 @@ sequenceDiagram
 - [ ] Sama ID saabub 2 node'ile 1 ms jooksul → andmebaasi unikaalsuspiirang takistab mõlemal õnnestumast; üks saab `400`
 
 **Tehnilised piirangud:**
-- [ ] DB: `request_ids (request_id VARCHAR PK, received_at TIMESTAMP)` planeeritud puhastusega pärast 600 s TTL-i
+- [ ] DB: `request_id_cache (request_id VARCHAR PK, seen_at TIMESTAMPTZ, expires_at TIMESTAMPTZ)` 10-minutilise TTL-iga (vt `schema.sql`)
 
 ##### Admin auth state
 
@@ -1210,8 +1210,8 @@ sequenceDiagram
 **SO THAT** Gate vastab GDPR Artikkel 30 nõuetele ja jurisdiktsiooni-spetsiifilistele nõuetele
 
 **Viited:**
-- [Õiguste maatriks](../specs/permissions-matrix.md) — Autoriseerimisotsused ja auditilogimise nõuded
-- [Logimise spetsifikatsioon](../specs/logging-spec.md) — Täielik logimisvorming ja auditijälg
+- [Õiguste maatriks](specs/permissions-matrix.md) — Autoriseerimisotsused ja auditilogimise nõuded
+- [Logimise spetsifikatsioon](specs/logging-spec.md) — Täielik logimisvorming ja auditijälg
 
 > **Märkus:** EU regulatsioonid 2024/1942 ja 2025/2243 ei nõua eksplitsiitselt authority päringute püsivat auditlogimist gate tasemel. Liikmesriigid peavad ise otsustama jurisdiktsiooni nõuete põhjal. Käesolev epikas rakendab mõistlikku vaikekäitumist koos konfigureeritavusega.
 
@@ -1227,7 +1227,7 @@ sequenceDiagram
   - Admin tegevused: kasutaja loomine/muutmine/kustutamine
   - Gate/Platform/Authority loomine/muutmine/kustutamine
   - Identifikaatori salvestamine ja kustutamine (platvormi poolt)
-- [ ] `GET /api/audit` — Super Admin saab pärida auditilogi (pagineeritud)
+- [ ] `GET /api/v1/audit` — Super Admin saab pärida auditilogi (pagineeritud)
 - [ ] Tundlik info (paroolid, tokenid) ei salvestata auditilogi
 
 **Edge cases:**
@@ -1249,7 +1249,7 @@ sequenceDiagram
 - [ ] `AUTHORITY_QUERY_AUDIT` on seadmata → vaikimisi `enabled` (turvalise vaikimisi poliitika alusel)
 
 **Tehnilised artefaktid:**
-- [ ] OpenAPI: `GET /api/audit`
+- [ ] OpenAPI: `GET /api/v1/audit`
 - [ ] DB skeem: `audit_log` tabel
 
 ---
@@ -1282,7 +1282,7 @@ sequenceDiagram
 **I WANT** struktureeritud logimist koos korrelatsioon ID-dega  
 **SO THAT** iga päringu saab jälgida läbi kõigi komponentide
 
-**Viide:** [Logimise spetsifikatsioon](../specs/logging-spec.md) — Täielik logimisvorming, ECS skeem ja auditijälg
+**Viide:** [Logimise spetsifikatsioon](specs/logging-spec.md) — Täielik logimisvorming, ECS skeem ja auditijälg
 
 #### Acceptance Criteria
 

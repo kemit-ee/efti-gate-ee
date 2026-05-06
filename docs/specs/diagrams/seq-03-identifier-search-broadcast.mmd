@@ -11,7 +11,7 @@ sequenceDiagram
 
     Gate->>Gate: Authenticate user (API key)<br/>Authorize (role=AUTHORITY)
 
-    Gate->>+DB: SELECT * FROM consignments c<br/>JOIN identifiers i ON i.datasetId = c.datasetId<br/>WHERE i.id = '456XYZ' AND i.countryCode = 'FI'
+    Gate->>+DB: SELECT dataset_id, platform_id, mode, vehicle_plate FROM consignments<br/>WHERE vehicle_plate = '456XYZ' AND vehicle_country = 'FI' AND status = 'active'
     DB-->>-Gate: 0 results
 
     Note over Gate: Broadcast decision:<br/>local results = 0, forceBroadcast = false<br/>→ Broadcast to all ONLINE gates

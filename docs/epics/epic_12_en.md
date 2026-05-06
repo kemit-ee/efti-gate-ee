@@ -7,8 +7,24 @@
 **SO THAT** the system is horizontally scalable and tolerates a single node failure
 
 **References:**
-- [DB Schema](../specs/db/README.md) — request_ids deduplication table, change_history table
+- [DB Schema](../specs/db/README.md) — `request_id_cache` deduplication table, `change_history` table
 - [RA §7.1 Logical Component Layers](../architecture/eFTI-Gate-Reference-Architecture.md#71-logical-component-layers) — Stateless application layer and shared database architecture
+
+**Multi-node topology at a glance:**
+
+```mermaid
+graph TD
+    LB[Load Balancer<br/>no session affinity]
+    LB --> N1[Gate node 1]
+    LB --> N2[Gate node 2]
+    LB --> N3[Gate node N]
+    N1 -.LISTEN/NOTIFY.- DB[(PostgreSQL 14+<br/>request_id_cache,<br/>sessions, registries,<br/>change_history)]
+    N2 -.LISTEN/NOTIFY.- DB
+    N3 -.LISTEN/NOTIFY.- DB
+    DB --> Lock[pg_try_advisory_lock<br/>ping job, expiry job<br/>1 leader at a time]
+```
+
+See `arch-01-multi-node-deployment.mmd` and `seq-15-gate-registry-sync.mmd` for full detail.
 
 #### Acceptance Criteria
 
@@ -37,7 +53,7 @@
 - [ ] Same ID arrives at 2 nodes within 1 ms → database unique constraint prevents both succeeding; one gets `400`
 
 **Technical constraints:**
-- [ ] DB: `request_ids (request_id VARCHAR PK, received_at TIMESTAMP)` with scheduled cleanup after 600 s TTL
+- [ ] DB: `request_id_cache (request_id VARCHAR PK, seen_at TIMESTAMPTZ, expires_at TIMESTAMPTZ)` with 10-minute TTL (per `schema.sql`)
 
 ##### Admin auth state
 

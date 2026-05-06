@@ -8,6 +8,16 @@
 
 **Reference:** [RA §7.1 Logical Component Layers](../architecture/eFTI-Gate-Reference-Architecture.md#71-logical-component-layers) — Monitoring and metrics in infrastructure layer
 
+**Monitoring pipeline at a glance:**
+
+```mermaid
+flowchart LR
+    Gate[Gate node<br/>/metrics endpoint<br/>HTTP req/duration/errors,<br/>eDelivery msg count,<br/>gate ONLINE/OFFLINE] --> Prom[Prometheus<br/>15 s scrape]
+    Prom --> Graf[Grafana dashboard<br/>p50/p95/p99,<br/>error rate, gate status]
+    Prom --> Rules[Alert rules<br/>error rate > 5%/5 min,<br/>restarts > 3/10 min,<br/>DB down, disk > 90%]
+    Rules --> Alert[Alertmanager → on-call]
+```
+
 #### Acceptance Criteria
 
 **Happy path:**

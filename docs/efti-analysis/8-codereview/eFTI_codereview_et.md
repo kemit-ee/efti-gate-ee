@@ -327,7 +327,7 @@ Detailsema kontroll saab nginx `ConfigMap`'i kaudu, kus saab defineerida erineva
 - eDelivery endpoint'ile (`/services/msh`) tuleb leebemad limiidid — broadcast query'd võivad genereerida mitmeid samaaegseid päringuid
 - Gate'ide vahelised IP-d tasub lisada **whitelist'i**, et nende suhtlust mitte piirata
 
-Täiendavad turvariskid ja -ettepanekud on dokumenteeritud [Õiguste ja ligipääsuhalduse dokumendis](eFTI_rights_and_permissions_et.md) (sektsioon 10) ja [Parandusettepanekutes](eFTI_improvements_et.md) (sektsioon 1).
+Täiendavad turvariskid ja -ettepanekud on dokumenteeritud [Õiguste ja ligipääsuhalduse dokumendis](../4-rights-n-permissions/eFTI_rights_and_permissions_et.md) (sektsioon 10) ja [Parandusettepanekutes](eFTI_improvements_et.md) (sektsioon 1).
 
 ---
 

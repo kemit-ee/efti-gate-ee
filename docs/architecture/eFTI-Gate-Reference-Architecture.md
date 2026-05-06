@@ -61,7 +61,7 @@ graph TB
 
 ## 2. Core Concepts
 
-### 2.1 UIL (Unique Identifier for Loading)
+### 2.1 UIL (Unique Identifier Locator)
 
 **Purpose:** Globally unique reference to a specific consignment dataset
 
@@ -69,8 +69,8 @@ graph TB
 UIL Structure: <gateURL>/<platformURL>/<datasetId>
 
 Official Format (per Regulation 2024/1942):
-- Gate URL: https://gate.example.eu
-- Platform URL: https://platform.example.com
+- Gate URL: https://eu-ee31.eftisandbox.eu
+- Platform URL: https://demo-platform.eu-ee31.eftisandbox.eu/v1
 - Dataset ID: UUID v4
 
 Simplified Example: eu-ee31/platform-demo/550e8400-e29b-41d4-a716-446655440000
@@ -801,7 +801,7 @@ Platform is responsible for GDPR compliance of full datasets.
 | Term | Definition |
 |------|------------|
 | **AAP** | Authority Access Point - Gate's authority-facing REST API interface (H2M + M2M) |
-| **UIL** | Unique Identifier for Loading - global reference to dataset (URL-based) |
+| **UIL** | Unique Identifier Locator - global reference to dataset (URL-based) |
 | **CMDS** | eFTI Common Data Set - complete transport documentation |
 | **Gate** | National eFTI infrastructure node (router) |
 | **Platform** | Transport operator's system (data owner) |

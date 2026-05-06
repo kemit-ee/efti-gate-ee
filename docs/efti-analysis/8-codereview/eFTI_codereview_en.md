@@ -325,7 +325,7 @@ More detailed control is available via nginx `ConfigMap`, where different zones 
 - eDelivery endpoint (`/services/msh`) should have more lenient limits — broadcast queries may generate multiple simultaneous requests
 - Inter-gate IPs should be added to the **whitelist** to avoid limiting their communication
 
-Additional security risks and proposals are documented in the [Rights and Access Control Document](eFTI_rights_and_permissions_en.md) (section 10) and [Improvement Proposals](eFTI_improvements_en.md) (section 1).
+Additional security risks and proposals are documented in the [Rights and Access Control Document](../4-rights-n-permissions/eFTI_rights_and_permissions_en.md) (section 10) and [Improvement Proposals](eFTI_improvements_en.md) (section 1).
 
 ---
 

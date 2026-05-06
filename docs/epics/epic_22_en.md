@@ -10,6 +10,25 @@
 - [Permissions Matrix](../specs/permissions-matrix.md) — Admin role capabilities and access control
 - [RA §7.1 Logical Component Layers](../architecture/eFTI-Gate-Reference-Architecture.md#71-logical-component-layers) — Admin UI layer in component architecture
 
+**Admin journey at a glance:**
+
+```mermaid
+flowchart LR
+    Login[TARA OIDC login<br/>Basic Auth disabled in prod] --> Roles{Multiple roles?}
+    Roles -- yes --> Pick[Role selection screen]
+    Roles -- no --> Home[Main view]
+    Pick --> Home
+    Home --> Manage{Manage what?}
+    Manage --> Users[Users<br/>/api/v1/users]
+    Manage --> Gates[Gates<br/>/api/v1/gates]
+    Manage --> Platforms[Platforms<br/>/api/v1/platforms]
+    Manage --> Authorities[Authorities<br/>/api/v1/authorities]
+    Manage --> Cons[Consignments<br/>/api/v1/consignments]
+    Manage --> Audit[Audit log<br/>/api/v1/audit]
+```
+
+UI uses TEDI (Tehik); WCAG 2.2 AA; draft auto-save every 30 s.
+
 #### Acceptance Criteria
 
 ##### Authentication
@@ -89,4 +108,4 @@
 | Audit logging jurisdiction question | EPIC 15 | ✅ Clarified |
 | Multimodal support (road/sea/rail/air) | EPIC 3, 10 | ✅ Covered |
 
-> **Architecture reference:** For component diagrams, security layers, and full design rationale see [eFTI Gate Reference Architecture](architecture/eFTI-Gate-Reference-Architecture.md).
+> **Architecture reference:** For component diagrams, security layers, and full design rationale see [eFTI Gate Reference Architecture](../architecture/eFTI-Gate-Reference-Architecture.md).

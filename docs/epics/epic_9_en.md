@@ -8,23 +8,45 @@
 
 **References:**
 - [DB Schema](../specs/db/README.md) — Consignment lifecycle schema
+- [Data Transformations](../specs/data-transformations.md) — XML→DB column mapping for denormalised search columns
+- [OpenAPI](../specs/openapi.yaml) — `GET /api/v1/consignments`, `DELETE /api/v1/consignments/{datasetId}` contracts
 - [RA §3 Data Lifecycle](../architecture/eFTI-Gate-Reference-Architecture.md#3-data-lifecycle--ownership) — CMDS active/inactive/deleted lifecycle
 - [RA §6.2 Data Processing Matrix](../architecture/eFTI-Gate-Reference-Architecture.md#62-data-processing-matrix) — What data is stored and where
+
+**Consignment lifecycle at a glance:**
+
+```mermaid
+stateDiagram-v2
+    [*] --> active: POST /v1/identifiers/{datasetId}<br/>(searchable)
+    active --> active: re-register same datasetId<br/>(new row active, old → inactive)
+    active --> inactive: delivered_at + 14 d (ROAD)<br/>or immediate (other modes)
+    inactive --> active: re-registered by platform
+    active --> deleted: platform DELETE<br/>or Super Admin DELETE
+    inactive --> deleted: platform DELETE<br/>or Super Admin DELETE
+    deleted --> [*]: expiry job purges<br/>after retention (≥ 2 y logs)
+    note right of inactive
+        Returned by /v1/identifiers
+        only with dateFrom/dateTo
+        (cabotage control)
+    end note
+```
+
+See `state-01-identifier-lifecycle.mmd` and `seq-08-identifier-expiration.mmd` for full detail.
 
 #### Acceptance Criteria
 
 ##### Viewing and deletion
 
 **Happy path:**
-- [ ] `GET /api/consignments` — Super Admin sees all; Admin sees own platform's consignments; sorted `updatedAt DESC`; paginated
-- [ ] `DELETE /api/consignments/:datasetId` — Super Admin only; soft delete (status → `deleted`) → `204 No Content`
+- [ ] `GET /api/v1/consignments` — Super Admin sees all; Admin sees own platform's consignments; sorted `updatedAt DESC`; paginated
+- [ ] `DELETE /api/v1/consignments/:datasetId` — Super Admin only; soft delete (status → `deleted`) → `204 No Content`
 
 **Edge cases:**
 - [ ] Regular admin attempts `DELETE` → `403 Forbidden` with `"detail": "Only Super Admin can delete consignments"`
 - [ ] `DELETE` on already-deleted record → `404 Not Found`
 
 **Technical artifacts:**
-- [ ] OpenAPI: `GET /api/consignments`, `DELETE /api/consignments/{datasetId}`
+- [ ] OpenAPI: `GET /api/v1/consignments`, `DELETE /api/v1/consignments/{datasetId}`
 
 ##### Identifier status management (Regulation 2025/2243)
 

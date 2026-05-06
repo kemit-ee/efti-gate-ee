@@ -10,7 +10,7 @@ sequenceDiagram
 
     Gate->>Gate: Authenticate & authorize (role=AUTHORITY)
 
-    Gate->>+DB: SELECT * FROM consignments c<br/>JOIN identifiers i ON i.datasetId = c.datasetId<br/>WHERE i.id = '999ZZZ'
+    Gate->>+DB: SELECT dataset_id, platform_id FROM consignments<br/>WHERE vehicle_plate = '999ZZZ' AND status = 'active'
     DB-->>-Gate: 0 results
 
     Note over Gate: local = 0 → broadcast to all online gates

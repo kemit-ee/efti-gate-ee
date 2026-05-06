@@ -6,7 +6,7 @@
 | **Company** | Askend Estonia OÜ |
 | **Contact** | sten.viljus@askend.com |
 
-Consolidated from all analysis documents: [Code Review](eFTI_codereview_en.md), [Scalability Analysis](eFTI_scalability_en.md), [Deployment Guide](eFTI_deployment_en.md), [Error Handling and Logging Specification](eFTI_errors_logging_en.md), [Rights and Access Control Document](eFTI_rights_and_permissions_en.md).
+Consolidated from all analysis documents: [Code Review](eFTI_codereview_en.md), [Scalability Analysis](eFTI_scalability_en.md), [Deployment Guide](eFTI_deployment_en.md), [Error Handling and Logging Specification](../5-errors-n-logging/eFTI_errors_logging_en.md), [Rights and Access Control Document](../4-rights-n-permissions/eFTI_rights_and_permissions_en.md).
 
 ---
 
@@ -36,7 +36,7 @@ Consolidated from all analysis documents: [Code Review](eFTI_codereview_en.md), 
 | 2.2 | **EDeliveryClient outgoing request logging** — Log destination, receiver Party ID, request ID, response status code, duration. Methods: `send()`, `sendAndReceive()`, `ping()` | HIGH | ~1 day | logging analysis |
 | 2.3 | **Request ID propagation** — SLF4J MDC mechanism so all log messages are correlatable within a single request | HIGH | ~1-2 days | logging analysis |
 | 2.4 | **EftiService business logic logging** — Log routing decisions (local vs remote), broadcast start/result, saved identifier count, follow-up routing | MEDIUM | ~1-2 days | logging analysis |
-| 2.5 | **Structured logging (JSON + ECS)** — Add `logback-classic` + `logstash-logback-encoder`, JSON format in ECS standard for production (switchable via env variable). Mandatory fields: `@timestamp`, `log.level`, `trace.id` (requestId), `service.name`, `user.id`, `user.roles`, `url.path`, `client.ip`, `http.response.status_code`, `event.duration`. See [Error Handling and Logging Specification](eFTI_errors_logging_en.md) ch. 4.1b | HIGH | ~2-3 days | logging analysis, KeMIT MFN |
+| 2.5 | **Structured logging (JSON + ECS)** — Add `logback-classic` + `logstash-logback-encoder`, JSON format in ECS standard for production (switchable via env variable). Mandatory fields: `@timestamp`, `log.level`, `trace.id` (requestId), `service.name`, `user.id`, `user.roles`, `url.path`, `client.ip`, `http.response.status_code`, `event.duration`. See [Error Handling and Logging Specification](../5-errors-n-logging/eFTI_errors_logging_en.md) ch. 4.1b | HIGH | ~2-3 days | logging analysis, KeMIT MFN |
 | 2.6 | **PlatformClient eDelivery variant logging** — Currently only logs REST variant, eDelivery delegated without logging | MEDIUM | ~0.5 days | logging analysis |
 | 2.7 | **Authorization denial logging** — `AccessChecker` and `User.checkWriteAccess()` must log denials before throwing `ForbiddenException`. Currently denials are not visible in logs — security incidents remain unnoticed | MEDIUM | ~0.5 days | error and logging spec. |
 

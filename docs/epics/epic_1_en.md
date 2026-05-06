@@ -8,14 +8,31 @@
 
 **Reference:** [Permissions Matrix](../specs/permissions-matrix.md) — Complete authorization model and role-based access control specification
 
+**Authorisation at a glance:**
+
+```mermaid
+flowchart TD
+    Req[Request + Bearer JWT] --> Auth{JWT valid?}
+    Auth -- no --> R401[401 Unauthorized]
+    Auth -- yes --> Role{Role type matches resource?<br/>ADMIN / PLATFORM / AUTHORITY / GATE}
+    Role -- no --> R403["403 Forbidden<br/>Role type X cannot access Y resource"]
+    Role -- yes --> Party{Party ID in user.roles?}
+    Party -- no --> R403
+    Party -- yes --> Subset{Subset in user.subsets?<br/>authority writes only}
+    Subset -- no --> R403
+    Subset -- yes --> Allow[200 OK / 201 Created]
+```
+
+See `flow-02-authorization-check.mmd` for the full decision tree.
+
 #### Acceptance Criteria
 
 ##### Role management
 
 **Happy path:**
-- [ ] `POST /api/users` — admin creates user; new user receives only creator's roles (except Super Admin); response `201 Created` with user ID
-- [ ] `GET /api/users` — Super Admin sees all users; regular admin sees only users within their own roles; response paginated (`limit`, `offset`, `X-Total-Count`)
-- [ ] `DELETE /api/users/:userId` — admin deletes another user visible to them; response `204 No Content`
+- [ ] `POST /api/v1/users` — admin creates user; new user receives only creator's roles (except Super Admin); response `201 Created` with user ID
+- [ ] `GET /api/v1/users` — Super Admin sees all users; regular admin sees only users within their own roles; response paginated (`limit`, `offset`, `X-Total-Count`)
+- [ ] `DELETE /api/v1/users/:userId` — admin deletes another user visible to them; response `204 No Content`
 - [ ] A user can be assigned multiple roles and multiple Party IDs under a single role
 - [ ] Creating authority user with `subsets` that are subset of Authority's `subsets` → `201 Created`
 
@@ -23,10 +40,10 @@
 - [ ] Admin attempts to assign Super Admin role → `403 Forbidden` with `"detail": "Super Admin role cannot be assigned by regular admin"`
 - [ ] Admin attempts to delete own account → `409 Conflict` with `"detail": "Cannot delete your own account"`
 - [ ] Creating authority user with `subsets` not in Authority's allowed list → `400 Bad Request` with `"detail": "Subset 'EU04' not permitted for authority 'mta@mta.ee'"`
-- [ ] `POST /api/users` with duplicate email → `409 Conflict`
+- [ ] `POST /api/v1/users` with duplicate email → `409 Conflict`
 
 **Error handling:**
-- [ ] `POST /api/users` with missing required field (e.g. no `roles`) → `400 Bad Request` RFC 7807 with field-level detail
+- [ ] `POST /api/v1/users` with missing required field (e.g. no `roles`) → `400 Bad Request` RFC 7807 with field-level detail
 - [ ] All authorisation denials logged: user ID, endpoint, reason, IP address, timestamp
 
 **Technical constraints:**
@@ -36,8 +53,8 @@
 - [ ] API tokens expire after 1 hour (configurable via `JWT_EXPIRY_SECONDS`)
 
 **Technical artifacts:**
-- [ ] OpenAPI: `POST /api/users`, `GET /api/users`, `DELETE /api/users/{userId}`
-- [ ] DB schema: `users`, `user_roles`, `party_ids` tables with FK indexes and English column comments
+- [ ] OpenAPI: `POST /api/v1/users`, `GET /api/v1/users`, `DELETE /api/v1/users/{userId}`
+- [ ] DB schema: `users` table with `roles JSONB` column (no separate `user_roles` / `party_ids` tables); English `COMMENT ON` coverage
 
 ##### Access control
 

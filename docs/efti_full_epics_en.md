@@ -1,6 +1,6 @@
 # eFTI Gate — Complete Epics Specification
 
-> Reference document for building the eFTI Gate system. Based on: [eFTI Gate Reference Architecture](eFTI-Gate-Reference-Architecture.md) (v2.0, 2026-04-02) and EU Regulations 2024/1942 and 2025/2243.  
+> Reference document for building the eFTI Gate system. Based on: [eFTI Gate Reference Architecture](architecture/eFTI-Gate-Reference-Architecture.md) (v2.0, 2026-04-02) and EU Regulations 2024/1942 and 2025/2243.  
 > Each epic contains all acceptance criteria required to implement and verify the functionality.
 
 ---
@@ -10,7 +10,7 @@
 The eFTI Gate is a node in the EU eFTI (Electronic Freight Transport Information) network that:
 1. **Stores identifiers** — platforms register freight transport identifiers (vehicle registration plates, containers, trailers)
 2. **Searches identifiers** — authorities can search both locally and across other EU gates (broadcast only when local result is empty)
-3. **Mediates datasets** — authorities request full datasets based on UIL (Unique Identifier for Loading)
+3. **Mediates datasets** — authorities request full datasets based on UIL (Unique Identifier Locator)
 4. **Forwards follow-up messages** — authorities send feedback messages to platforms
 
 **Protocols and standards:** REST, eDelivery AS4 (SOAP), OpenAPI, JWT (RFC 7519), RFC 7807, XSD/XML
@@ -36,7 +36,7 @@ The eFTI Gate is a node in the EU eFTI (Electronic Freight Transport Information
 
 ### Key Terms
 
-- **UIL (Unique Identifier for Loading):** `<gateURL>/<platformURL>/<datasetId>` — globally unique reference to a specific freight transport dataset. Example: `https://gate.example.eu/https://platform.example.com/550e8400-e29b-41d4-a716-446655440000`
+- **UIL (Unique Identifier Locator):** `<gateURL>/<platformURL>/<datasetId>` — globally unique reference to a specific freight transport dataset. Example: `https://eu-ee31.eftisandbox.eu/https://demo-platform.eu-ee31.eftisandbox.eu/v1/550e8400-e29b-41d4-a716-446655440000`
 - **identifier:** The searchable value used to locate a consignment (vehicle registration plate, container number, trailer ID). UIL is the full compound URL form of the identifier.
 - **AAP (Authority Access Point):** Gate's REST API interface for authorities (both H2M and M2M use)
 - **dataset:** The complete freight transport documentation stored on the eFTI platform — never stored on the eFTI Gate
@@ -78,16 +78,33 @@ The eFTI Gate is a node in the EU eFTI (Electronic Freight Transport Information
 **I WANT** role-based access control with resource-level filtering  
 **SO THAT** each user can only see and manage the resources they are permitted to access
 
-**Reference:** [Permissions Matrix](../specs/permissions-matrix.md) — Complete authorization model and role-based access control specification
+**Reference:** [Permissions Matrix](specs/permissions-matrix.md) — Complete authorization model and role-based access control specification
+
+**Authorisation at a glance:**
+
+```mermaid
+flowchart TD
+    Req[Request + Bearer JWT] --> Auth{JWT valid?}
+    Auth -- no --> R401[401 Unauthorized]
+    Auth -- yes --> Role{Role type matches resource?<br/>ADMIN / PLATFORM / AUTHORITY / GATE}
+    Role -- no --> R403["403 Forbidden<br/>Role type X cannot access Y resource"]
+    Role -- yes --> Party{Party ID in user.roles?}
+    Party -- no --> R403
+    Party -- yes --> Subset{Subset in user.subsets?<br/>authority writes only}
+    Subset -- no --> R403
+    Subset -- yes --> Allow[200 OK / 201 Created]
+```
+
+See `flow-02-authorization-check.mmd` for the full decision tree.
 
 #### Acceptance Criteria
 
 ##### Role management
 
 **Happy path:**
-- [ ] `POST /api/users` — admin creates user; new user receives only creator's roles (except Super Admin); response `201 Created` with user ID
-- [ ] `GET /api/users` — Super Admin sees all users; regular admin sees only users within their own roles; response paginated (`limit`, `offset`, `X-Total-Count`)
-- [ ] `DELETE /api/users/:userId` — admin deletes another user visible to them; response `204 No Content`
+- [ ] `POST /api/v1/users` — admin creates user; new user receives only creator's roles (except Super Admin); response `201 Created` with user ID
+- [ ] `GET /api/v1/users` — Super Admin sees all users; regular admin sees only users within their own roles; response paginated (`limit`, `offset`, `X-Total-Count`)
+- [ ] `DELETE /api/v1/users/:userId` — admin deletes another user visible to them; response `204 No Content`
 - [ ] A user can be assigned multiple roles and multiple Party IDs under a single role
 - [ ] Creating authority user with `subsets` that are subset of Authority's `subsets` → `201 Created`
 
@@ -95,10 +112,10 @@ The eFTI Gate is a node in the EU eFTI (Electronic Freight Transport Information
 - [ ] Admin attempts to assign Super Admin role → `403 Forbidden` with `"detail": "Super Admin role cannot be assigned by regular admin"`
 - [ ] Admin attempts to delete own account → `409 Conflict` with `"detail": "Cannot delete your own account"`
 - [ ] Creating authority user with `subsets` not in Authority's allowed list → `400 Bad Request` with `"detail": "Subset 'EU04' not permitted for authority 'mta@mta.ee'"`
-- [ ] `POST /api/users` with duplicate email → `409 Conflict`
+- [ ] `POST /api/v1/users` with duplicate email → `409 Conflict`
 
 **Error handling:**
-- [ ] `POST /api/users` with missing required field (e.g. no `roles`) → `400 Bad Request` RFC 7807 with field-level detail
+- [ ] `POST /api/v1/users` with missing required field (e.g. no `roles`) → `400 Bad Request` RFC 7807 with field-level detail
 - [ ] All authorisation denials logged: user ID, endpoint, reason, IP address, timestamp
 
 **Technical constraints:**
@@ -108,8 +125,8 @@ The eFTI Gate is a node in the EU eFTI (Electronic Freight Transport Information
 - [ ] API tokens expire after 1 hour (configurable via `JWT_EXPIRY_SECONDS`)
 
 **Technical artifacts:**
-- [ ] OpenAPI: `POST /api/users`, `GET /api/users`, `DELETE /api/users/{userId}`
-- [ ] DB schema: `users`, `user_roles`, `party_ids` tables with FK indexes and English column comments
+- [ ] OpenAPI: `POST /api/v1/users`, `GET /api/v1/users`, `DELETE /api/v1/users/{userId}`
+- [ ] DB schema: `users` table with `roles JSONB` column (no separate `user_roles` / `party_ids` tables); English `COMMENT ON` coverage
 
 ##### Access control
 
@@ -133,7 +150,24 @@ The eFTI Gate is a node in the EU eFTI (Electronic Freight Transport Information
 **I WANT** secure authentication mechanisms (TARA, JWT, mTLS)  
 **SO THAT** only authorized parties can access the gate
 
-**Reference:** [Permissions Matrix](../specs/permissions-matrix.md) — Authentication flow and authorization checks
+**Reference:** [Permissions Matrix](specs/permissions-matrix.md) — Authentication flow and authorization checks
+
+**Three authentication channels at a glance:**
+
+```mermaid
+flowchart TD
+    Caller[Caller] --> Channel{Channel type?}
+    Channel -- Admin UI --> TARA[TARA OIDC<br/>ID-card / Mobile-ID / Smart-ID]
+    TARA --> Session[Session cookie<br/>HttpOnly Secure SameSite=Strict]
+    Channel -- Platform/Authority API --> JWT[Bearer JWT RS256<br/>iss, exp, role check]
+    JWT --> Resource[Resource access]
+    Channel -- Gate-to-gate --> MTLS[mTLS client cert<br/>OCSP/CRL check]
+    MTLS --> Fast[POST /services/fast]
+    Session --> Resource
+    Fast --> Resource
+```
+
+See `seq-12-user-authentication.mmd` and `seq-16-mtls-fast-protocol.mmd` for full detail.
 
 #### Acceptance Criteria
 
@@ -164,12 +198,12 @@ The eFTI Gate is a node in the EU eFTI (Electronic Freight Transport Information
 
 **Technical artifacts:**
 - [ ] OpenAPI: `GET /auth/login`, `GET /auth/callback`, `POST /auth/logout`
-- [ ] Diagram: `seq-01-tara-admin-login.mmd`
+- [ ] Diagram: `seq-12-user-authentication.mmd`
 
 ##### Platform/Authority API authentication
 
 **Happy path:**
-- [ ] Admin issues token via `POST /api/users` with `generateSecret=true` → `201 Created` with `{"token": "<JWT>"}` — shown once only
+- [ ] Admin issues token via `POST /api/v1/users` with `generateSecret=true` → `201 Created` with `{"token": "<JWT>"}` — shown once only
 - [ ] eFTI platform calls API with `Authorization: Bearer <JWT>` → gate validates signature, `exp`, `iss`, role → `200 OK`
 
 **Edge cases:**
@@ -177,14 +211,14 @@ The eFTI Gate is a node in the EU eFTI (Electronic Freight Transport Information
 - [ ] eFTI platform has 2 PLATFORM roles, omits `platformId` query parameter → `400 Bad Request` with `"detail": "Multiple platforms: specify platformId parameter"`
 
 **Error handling:**
-- [ ] Compromised token: `POST /api/users/:userId/revoke-token` → token blacklisted; subsequent requests with that token → `401 Unauthorized`
+- [ ] Compromised token: `POST /api/v1/users/:userId/revoke-token` → token blacklisted; subsequent requests with that token → `401 Unauthorized`
 
 **Technical constraints:**
 - [ ] Signing: RS256; gate private key loaded from K8s Secret at startup — never in container image
 - [ ] Token blacklist TTL = token `exp`; cleaned up automatically
 
 **Technical artifacts:**
-- [ ] Diagram: `seq-02-jwt-platform-auth.mmd`
+- [ ] Diagram: `seq-12-user-authentication.mmd`
 
 ##### Gate-to-gate fast protocol
 
@@ -203,13 +237,28 @@ The eFTI Gate is a node in the EU eFTI (Electronic Freight Transport Information
 - [ ] `X-API-Key` removed from `/services/fast` endpoint entirely
 
 **Technical artifacts:**
-- [ ] Diagram: `seq-03-mtls-fast-protocol.mmd`
+- [ ] Diagram: [`specs/diagrams/seq-16-mtls-fast-protocol.mmd`](specs/diagrams/seq-16-mtls-fast-protocol.mmd)
 
 ### EPIC 23 — Authentication and Access Flows
 
 **AS A** technical architect  
 **I WANT** documented authentication and access flows with sequence diagrams  
 **SO THAT** integration partners and developers understand exactly how authentication works in each channel type
+
+**Three authentication channels at a glance:**
+
+```mermaid
+flowchart TD
+    Caller[Caller] --> Type{Channel?}
+    Type -- Admin UI --> F1[Flow 1: TARA/OIDC<br/>session cookie]
+    Type -- Platform/Authority API --> F2[Flow 2: Bearer JWT RS256<br/>signature + exp + role check]
+    Type -- Gate-to-gate --> F3[Flow 3: mTLS<br/>cert OCSP/CRL check]
+    F1 --> Allow[Resource access]
+    F2 --> Allow
+    F3 --> Allow
+```
+
+Detailed sequences for each flow follow below.
 
 #### Acceptance Criteria
 
@@ -248,7 +297,7 @@ sequenceDiagram
     participant Gate as Gate Backend
     participant Platform as Platform / Authority
 
-    Admin->>Gate: POST /api/users (generateSecret=true)
+    Admin->>Gate: POST /api/v1/users (generateSecret=true)
     Gate-->>Admin: JWT token (signed RS256)
 
     Note over Platform,Gate: Later API request
@@ -302,6 +351,26 @@ sequenceDiagram
 **I WANT** to register freight transport identifiers in the gate  
 **SO THAT** competent authorities can search for them later
 
+**Registration flow at a glance:**
+
+```mermaid
+sequenceDiagram
+    participant Platform
+    participant Gate as eFTI Gate
+    participant DB as PostgreSQL
+    Platform->>Gate: POST /v1/identifiers/{datasetId}<br/>Authorization: Bearer <JWT><br/>Content-Type: application/xml
+    Gate->>Gate: Validate XSD (consignment-identifier.xsd)<br/>Check X-Request-ID dedup (600 s TTL)
+    alt new datasetId
+        Gate->>DB: INSERT consignments + identifiers<br/>(status=active)
+        Gate-->>Platform: 201 Created<br/>Location: /v1/identifiers/{datasetId}
+    else existing datasetId
+        Gate->>DB: previous → inactive; new row → active
+        Gate-->>Platform: 200 OK
+    end
+```
+
+See `seq-01-identifier-registration.mmd` for full detail.
+
 #### Acceptance Criteria
 
 ##### Registration
@@ -344,6 +413,21 @@ sequenceDiagram
 **I WANT** to search freight transport identifiers (e.g. by registration plate) across all EU gates  
 **SO THAT** I can verify a consignment's compliance with eFTI regulations
 
+**Search decision at a glance:**
+
+```mermaid
+flowchart TD
+    Q[GET /v1/identifiers/{identifier}<br/>Accept: text/event-stream] --> Local[Query identifiers table<br/>status=active, pg_trgm plate match]
+    Local --> Count{local count > 0<br/>OR forceBroadcast?}
+    Count -- local hits, no force --> SSEonly[SSE: stream local<br/>+ event: complete]
+    Count -- empty or force --> Broadcast[Broadcast to ONLINE gates<br/>parallel, 8 s timeout]
+    Broadcast --> Stream["SSE: gate, consignment, complete<br/>per-gate failures array"]
+    SSEonly --> End([200 OK])
+    Stream --> End
+```
+
+See `flow-01-search-broadcast-decision.mmd` and `seq-03-identifier-search-broadcast.mmd` for full detail.
+
 #### Acceptance Criteria
 
 ##### Local search
@@ -370,7 +454,7 @@ sequenceDiagram
 
 **Technical artifacts:**
 - [ ] OpenAPI: `GET /v1/identifiers/{identifier}` — all query params, response schema, all error responses
-- [ ] Diagram: `seq-04-identifier-search-local.mmd`
+- [ ] Diagram: `seq-02-identifier-search-local-only.mmd`
 
 ##### Cabotage control
 
@@ -401,7 +485,7 @@ sequenceDiagram
 - [ ] All active gates queried in parallel — not sequentially
 
 **Technical artifacts:**
-- [ ] Diagram: `seq-05-identifier-search-broadcast.mmd`
+- [ ] Diagram: `seq-03-identifier-search-broadcast.mmd`
 
 ##### SSE (streaming)
 
@@ -425,6 +509,31 @@ sequenceDiagram
 **I WANT** to retrieve the full dataset for a specific consignment and send a follow-up message to the platform  
 **SO THAT** I can fulfil my legal obligation in freight transport inspection
 
+**Dataset retrieval at a glance:**
+
+```mermaid
+sequenceDiagram
+    actor Officer as Authority
+    participant Gate as eFTI Gate
+    participant Remote as Remote Gate
+    participant Platform
+    Officer->>Gate: GET /v1/dataset/{gateId}/{platformId}/{datasetId}?subsetId=...
+    Gate->>Gate: Check JWT + subset permission
+    alt gateId == own gate
+        Gate->>Platform: GET /datasets/{datasetId}
+        Platform-->>Gate: XML dataset
+    else remote gate
+        Gate->>Remote: AS4 uilQuery / fast /services/fast
+        Remote-->>Gate: uilResponse XML
+    end
+    Gate->>Gate: XSLT subset filter (if !supportsSubsetting)
+    Gate-->>Officer: 200 OK XML
+    Officer->>Gate: POST /v1/follow-up/.../{datasetRequestId}<br/>(optional)
+    Gate-->>Officer: 200 OK
+```
+
+See `seq-05-dataset-request.mmd` and `seq-06-dataset-request-denied.mmd` for full detail.
+
 #### Acceptance Criteria
 
 ##### Dataset request
@@ -446,7 +555,7 @@ sequenceDiagram
 
 **Technical artifacts:**
 - [ ] OpenAPI: `GET /v1/dataset/{gateId}/{platformId}/{datasetId}`
-- [ ] Diagram: `seq-06-dataset-retrieval-local.mmd`, `seq-07-dataset-retrieval-remote.mmd`
+- [ ] Diagram: `seq-05-dataset-request.mmd`, `seq-06-dataset-request-denied.mmd`
 
 ##### Subsetter module
 
@@ -490,6 +599,23 @@ sequenceDiagram
 **AS A** technical architect  
 **I WANT** documented data flows with sequence diagrams  
 **SO THAT** developers and integration partners understand exactly how identifier search, broadcast, and dataset retrieval works
+
+**Four data flows at a glance:**
+
+```mermaid
+flowchart LR
+    P[Platform] -- F1: register --> G1[Gate]
+    A[Authority Officer] -- F2: search identifier --> G2[Gate]
+    G2 -. F2: broadcast if local empty .-> Other[Other EU Gates]
+    A -- F3: GET /v1/dataset/{uil} --> G3[Gate]
+    G3 -- F3: own gate --> Plat[Platform]
+    G3 -- F3: remote --> RG[Remote Gate]
+    A -- F4: POST /v1/follow-up/... --> G4[Gate]
+    G4 -- F4: route by gateId --> Plat
+    G4 -- F4: route by gateId --> RG
+```
+
+Detailed sequence diagrams for each flow follow below.
 
 #### Acceptance Criteria
 
@@ -606,31 +732,56 @@ sequenceDiagram
 **I WANT** to manage the list of EU eFTI gates and monitor their status  
 **SO THAT** broadcast requests only reach operational gates
 
+**Gate lifecycle at a glance:**
+
+```mermaid
+stateDiagram-v2
+    [*] --> ONLINE: POST /api/v1/gates
+    ONLINE --> OFFLINE: ping fails (10 s timeout)
+    OFFLINE --> ONLINE: ping succeeds (5 min cycle)
+    ONLINE --> DISABLED: Admin sets status=DISABLED
+    OFFLINE --> DISABLED: Admin disables unreachable gate
+    DISABLED --> ONLINE: Admin re-enables + ping OK
+    ONLINE --> [*]: DELETE /api/v1/gates/{gateId}
+    OFFLINE --> [*]: DELETE /api/v1/gates/{gateId}
+    DISABLED --> [*]: DELETE /api/v1/gates/{gateId}
+    note right of ONLINE
+        Included in broadcasts;
+        gateRegistry.online() returns
+    end note
+    note right of DISABLED
+        Excluded from broadcasts AND ping job;
+        will not auto-recover
+    end note
+```
+
+See `state-05-gate-health.mmd` for full detail.
+
 #### Acceptance Criteria
 
 ##### CRUD
 
 **Happy path:**
-- [ ] `GET /api/gates` — Super Admin sees all gates; regular Admin sees only gates in their `roles[GATE]` Party IDs; paginated
-- [ ] `POST /api/gates` — adds new gate with `baseUrl`, `eDeliveryUrl`, certificate info; write access requires matching Party ID → `201 Created`
-- [ ] `DELETE /api/gates/:gateId` — write access verified → `204 No Content`
-- [ ] `GET /api/gates/own` — returns own gate configuration
+- [ ] `GET /api/v1/gates` — Super Admin sees all gates; regular Admin sees only gates in their `roles[GATE]` Party IDs; paginated
+- [ ] `POST /api/v1/gates` — adds new gate with `baseUrl`, `eDeliveryUrl`, certificate info; write access requires matching Party ID → `201 Created`
+- [ ] `DELETE /api/v1/gates/:gateId` — write access verified → `204 No Content`
+- [ ] `GET /api/v1/gates/own` — returns own gate configuration
 
 **Edge cases:**
 - [ ] Admin deletes own gate → `409 Conflict` with `"detail": "Cannot delete your own gate"`
-- [ ] `POST /api/gates` with `baseUrl` already registered → `409 Conflict`
+- [ ] `POST /api/v1/gates` with `baseUrl` already registered → `409 Conflict`
 - [ ] `DELETE` on non-existent gate → `404 Not Found`
 
 **Error handling:**
 - [ ] Write with non-matching Party ID → `403 Forbidden`
 
 **Technical artifacts:**
-- [ ] OpenAPI: `GET /api/gates`, `POST /api/gates`, `DELETE /api/gates/{gateId}`, `GET /api/gates/own`
+- [ ] OpenAPI: `GET /api/v1/gates`, `POST /api/v1/gates`, `DELETE /api/v1/gates/{gateId}`, `GET /api/v1/gates/own`
 
 ##### Ping
 
 **Happy path:**
-- [ ] `POST /api/gates/:gateId/ping` → fast protocol ping (`POST {eDeliveryUrl}` with mTLS) → `200 OK` with `responseTimeMs`
+- [ ] `POST /api/v1/gates/:gateId/ping` → fast protocol ping (`POST {eDeliveryUrl}` with mTLS) → `200 OK` with `responseTimeMs`
 - [ ] eDelivery ping: SOAP ping request → `200 OK` or `502`
 - [ ] Ping result updates gate status in database and in-memory registry on all nodes (via NOTIFY)
 
@@ -655,7 +806,7 @@ sequenceDiagram
 - [ ] Leader election: database advisory lock (`pg_try_advisory_lock`)
 
 **Technical artifacts:**
-- [ ] OpenAPI: `POST /api/gates/{gateId}/ping`
+- [ ] OpenAPI: `POST /api/v1/gates/{gateId}/ping`
 
 ### EPIC 7 — Platform Registry Management (Admin API)
 
@@ -663,18 +814,35 @@ sequenceDiagram
 **I WANT** to manage the eFTI platform registry  
 **SO THAT** platforms can register identifiers and authorities can retrieve datasets
 
+**Platform lifecycle at a glance:**
+
+```mermaid
+stateDiagram-v2
+    [*] --> Active: POST /api/v1/platforms<br/>(name, baseUrl, supportsSubsetting, eDeliveryCert?)
+    Active --> Active: POST /platforms/{id}/ping<br/>(updates responseTimeMs)
+    Active --> ConflictDelete: DELETE with active identifiers<br/>409 Conflict
+    ConflictDelete --> Active: retry after force=true<br/>or remove identifiers
+    Active --> [*]: DELETE /api/v1/platforms/{id}<br/>204 No Content
+    note right of Active
+        Registry change → LISTEN/NOTIFY
+        propagated to all nodes ≤ 500 ms
+    end note
+```
+
+See `seq-10-platform-registration.mmd` and `state-03-platform-status.mmd` for full detail.
+
 #### Acceptance Criteria
 
 **Happy path:**
-- [ ] `GET /api/platforms` — Super Admin sees all; Admin sees only platforms in their `roles[PLATFORM]` Party IDs; paginated
-- [ ] `POST /api/platforms` — adds platform with `name`, `baseUrl`, `supportsSubsetting` flag, optional `eDeliveryCert` → `201 Created`
-- [ ] `DELETE /api/platforms/:platformId` → `204 No Content`
-- [ ] `POST /api/platforms/:platformId/ping` — checks HTTP connectivity to `baseUrl` → `200 OK` with `responseTimeMs` or `502`
+- [ ] `GET /api/v1/platforms` — Super Admin sees all; Admin sees only platforms in their `roles[PLATFORM]` Party IDs; paginated
+- [ ] `POST /api/v1/platforms` — adds platform with `name`, `baseUrl`, `supportsSubsetting` flag, optional `eDeliveryCert` → `201 Created`
+- [ ] `DELETE /api/v1/platforms/:platformId` → `204 No Content`
+- [ ] `POST /api/v1/platforms/:platformId/ping` — checks HTTP connectivity to `baseUrl` → `200 OK` with `responseTimeMs` or `502`
 - [ ] eFTI platform without `eDeliveryCert`: REST-only; with `eDeliveryCert`: also callable via eDelivery AS4
 - [ ] eFTI platform with `supportsSubsetting=false`: gate applies XSLT subsetter before returning dataset
 
 **Edge cases:**
-- [ ] `POST /api/platforms` with `baseUrl` already registered → `409 Conflict`
+- [ ] `POST /api/v1/platforms` with `baseUrl` already registered → `409 Conflict`
 - [ ] `DELETE` while platform has active identifiers → `409 Conflict` with `"detail": "Platform has 42 active identifiers — delete them first or use force=true"`
 - [ ] Ping — platform unreachable after 10 seconds → `502 Bad Gateway` with `"detail": "Platform 'mta-platform-1' did not respond within 10 seconds"`
 
@@ -685,7 +853,7 @@ sequenceDiagram
 - [ ] Registry changes propagated to all nodes via LISTEN/NOTIFY within 500 ms
 
 **Technical artifacts:**
-- [ ] OpenAPI: `GET /api/platforms`, `POST /api/platforms`, `DELETE /api/platforms/{platformId}`, `POST /api/platforms/{platformId}/ping`
+- [ ] OpenAPI: `GET /api/v1/platforms`, `POST /api/v1/platforms`, `DELETE /api/v1/platforms/{platformId}`, `POST /api/v1/platforms/{platformId}/ping`
 
 ### EPIC 8 — Authority Registry Management (Admin API)
 
@@ -693,19 +861,37 @@ sequenceDiagram
 **I WANT** to manage the registry of Competent Authorities  
 **SO THAT** authority users have controlled access to eFTI data
 
+**Authority lifecycle at a glance:**
+
+```mermaid
+stateDiagram-v2
+    [*] --> Active: POST /api/v1/authorities<br/>(name, subsets list)
+    Active --> Active: PATCH subsets<br/>user subsets must remain ⊆ authority.subsets
+    Active --> ConflictDelete: DELETE with active users<br/>409 Conflict
+    ConflictDelete --> Active: reassign / remove users
+    Active --> [*]: DELETE /api/v1/authorities/{id}<br/>204 No Content
+    note right of Active
+        Subset removal → LISTEN/NOTIFY
+        users lose access ≤ 500 ms
+        (real-time, not on next login)
+    end note
+```
+
+See `seq-11-authority-registration.mmd` and `state-04-authority-status.mmd` for full detail.
+
 #### Acceptance Criteria
 
 **Happy path:**
-- [ ] `GET /api/authorities` — Super Admin sees all; Admin sees only authorities in their `roles[AUTHORITY]` Party IDs; paginated
-- [ ] `GET /api/authorities/:authorityId` — returns authority details: name, `subsets[]`, contact
-- [ ] `POST /api/authorities` — adds authority with permitted `subsets[]` → `201 Created`
-- [ ] `DELETE /api/authorities/:authorityId` → `204 No Content`
+- [ ] `GET /api/v1/authorities` — Super Admin sees all; Admin sees only authorities in their `roles[AUTHORITY]` Party IDs; paginated
+- [ ] `GET /api/v1/authorities/:authorityId` — returns authority details: name, `subsets[]`, contact
+- [ ] `POST /api/v1/authorities` — adds authority with permitted `subsets[]` → `201 Created`
+- [ ] `DELETE /api/v1/authorities/:authorityId` → `204 No Content`
 
 **Edge cases:**
 - [ ] `DELETE` when authority has active users → `409 Conflict` with `"detail": "Authority has 3 active users — delete or reassign them first"`
 - [ ] `POST` with unknown subset code → `400 Bad Request` with `"detail": "Unknown subset: 'EU99'"`
 - [ ] Authority `subsets[]` updated to remove a subset → existing users lose access immediately (real-time, not on next login)
-- [ ] `GET /api/authorities/:authorityId` for non-existent → `404 Not Found`
+- [ ] `GET /api/v1/authorities/:authorityId` for non-existent → `404 Not Found`
 
 **Error handling:**
 - [ ] Write with non-matching Party ID → `403 Forbidden`
@@ -714,7 +900,7 @@ sequenceDiagram
 - [ ] Subset access change propagated via LISTEN/NOTIFY within 500 ms
 
 **Technical artifacts:**
-- [ ] OpenAPI: `GET /api/authorities`, `POST /api/authorities`, `DELETE /api/authorities/{authorityId}`
+- [ ] OpenAPI: `GET /api/v1/authorities`, `POST /api/v1/authorities`, `DELETE /api/v1/authorities/{authorityId}`
 
 ### EPIC 9 — Consignment Management (Admin API)
 
@@ -722,20 +908,40 @@ sequenceDiagram
 **I WANT** to view and manage stored consignment data  
 **SO THAT** I can audit data and remove erroneous records
 
+**Consignment lifecycle at a glance:**
+
+```mermaid
+stateDiagram-v2
+    [*] --> active: POST /v1/identifiers/{datasetId}<br/>(searchable)
+    active --> active: re-register same datasetId<br/>(new row active, old → inactive)
+    active --> inactive: delivered_at + 14 d (ROAD)<br/>or immediate (other modes)
+    inactive --> active: re-registered by platform
+    active --> deleted: platform DELETE<br/>or Super Admin DELETE
+    inactive --> deleted: platform DELETE<br/>or Super Admin DELETE
+    deleted --> [*]: expiry job purges<br/>after retention (≥ 2 y logs)
+    note right of inactive
+        Returned by /v1/identifiers
+        only with dateFrom/dateTo
+        (cabotage control)
+    end note
+```
+
+See `state-01-identifier-lifecycle.mmd` and `seq-08-identifier-expiration.mmd` for full detail.
+
 #### Acceptance Criteria
 
 ##### Viewing and deletion
 
 **Happy path:**
-- [ ] `GET /api/consignments` — Super Admin sees all; Admin sees own platform's consignments; sorted `updatedAt DESC`; paginated
-- [ ] `DELETE /api/consignments/:datasetId` — Super Admin only; soft delete (status → `deleted`) → `204 No Content`
+- [ ] `GET /api/v1/consignments` — Super Admin sees all; Admin sees own platform's consignments; sorted `updatedAt DESC`; paginated
+- [ ] `DELETE /api/v1/consignments/:datasetId` — Super Admin only; soft delete (status → `deleted`) → `204 No Content`
 
 **Edge cases:**
 - [ ] Regular admin attempts `DELETE` → `403 Forbidden` with `"detail": "Only Super Admin can delete consignments"`
 - [ ] `DELETE` on already-deleted record → `404 Not Found`
 
 **Technical artifacts:**
-- [ ] OpenAPI: `GET /api/consignments`, `DELETE /api/consignments/{datasetId}`
+- [ ] OpenAPI: `GET /api/v1/consignments`, `DELETE /api/v1/consignments/{datasetId}`
 
 ##### Identifier status management (Regulation 2025/2243)
 
@@ -792,6 +998,25 @@ sequenceDiagram
 **I WANT** to communicate with other EU gates via the eDelivery AS4 protocol  
 **SO THAT** cross-border eFTI data exchange uses the standard EU infrastructure
 
+**AS4 message exchange at a glance:**
+
+```mermaid
+sequenceDiagram
+    participant GateA as Gate A
+    participant DomA as Domibus A
+    participant DomB as Domibus B
+    participant GateB as Gate B
+    GateA->>GateA: Build identifierQuery / uilQuery XML<br/>(XSD validate, sign + encrypt WS-Security)
+    GateA->>DomA: POST /services/backend (SOAP/AS4)
+    DomA->>DomB: AS4 envelope (Action, requestId)
+    DomB->>GateB: POST /services/msh
+    GateB-->>DomB: identifierResponse / uilResponse
+    DomB-->>DomA: AS4 response
+    DomA-->>GateA: async callback → async_responses table<br/>(LISTEN/NOTIFY routes to owning node)
+```
+
+See `seq-14-gate-to-gate-search.mmd` and `seq-16-mtls-fast-protocol.mmd` for full detail.
+
 #### Acceptance Criteria
 
 ##### Inbound messages
@@ -815,7 +1040,7 @@ sequenceDiagram
 - [ ] MUST use Domibus or compatible AS4 implementation — no custom AS4 stack
 
 **Technical artifacts:**
-- [ ] Diagram: `seq-08-edelivery-inbound.mmd`
+- [ ] Diagram: `seq-14-gate-to-gate-search.mmd`
 
 ##### Outbound messages
 
@@ -861,6 +1086,26 @@ sequenceDiagram
 **I WANT** to communicate with the eFTI gate via X-Road  
 **SO THAT** the integration uses the standard Estonian national data exchange layer
 
+**X-Road integration at a glance:**
+
+```mermaid
+sequenceDiagram
+    participant Client as EE client<br/>(TRAM / LOIS2 / ANTS via NES)
+    participant SS as X-Road Security Server
+    participant Adapter as ee-adapter module
+    participant Core as core REST API
+    Client->>SS: SOAP request<br/>EE/GOV/70003158/efti-gate/...
+    SS->>SS: Verify client identity (mTLS)
+    SS->>Adapter: Forward SOAP (client, service, id)
+    Adapter->>Adapter: Validate protocolVersion + headers
+    Adapter->>Core: REST call (Admin or Authority API)
+    Core-->>Adapter: JSON / XML response
+    Adapter-->>SS: SOAP response (or X-Road fault)
+    SS-->>Client: SOAP response
+```
+
+`ee-adapter` calls `core` only via the published REST API; no internal core dependency.
+
 #### Acceptance Criteria
 
 **Happy path:**
@@ -884,7 +1129,7 @@ sequenceDiagram
 
 **Technical artifacts:**
 - [ ] WSDL: `efti-xroad.wsdl`
-- [ ] Diagram: `seq-09-xroad-platform-registration.mmd`
+- [ ] Diagram: `seq-10-platform-registration.mmd`
 
 ##### Estonian competent authorities
 
@@ -926,6 +1171,19 @@ sequenceDiagram
 **AS A** technical architect  
 **I WANT** documented eDelivery AS4 message flows with sequence diagrams  
 **SO THAT** developers understand exactly how inter-gate messages travel through the AS4 protocol
+
+**AS4 message types at a glance:**
+
+```mermaid
+flowchart LR
+    GA[Gate A] -- identifierQuery / uilQuery / postFollowUpRequest --> Dom[Domibus AS4<br/>SOAP, WS-Security<br/>sign + encrypt]
+    Dom --> GB[Gate B]
+    GB -- identifierResponse / uilResponse --> Dom
+    Dom -- async via async_responses<br/>+ LISTEN/NOTIFY --> GA
+    GB -. SOAP fault on parse error<br/>or unknown Action .-> Dom
+```
+
+Detailed sequence diagrams for outgoing and incoming flows follow below.
 
 #### Acceptance Criteria
 
@@ -1001,6 +1259,22 @@ sequenceDiagram
 **I WANT** the gate to run on multiple nodes without shared memory  
 **SO THAT** the system is horizontally scalable and tolerates a single node failure
 
+**Multi-node topology at a glance:**
+
+```mermaid
+graph TD
+    LB[Load Balancer<br/>no session affinity]
+    LB --> N1[Gate node 1]
+    LB --> N2[Gate node 2]
+    LB --> N3[Gate node N]
+    N1 -.LISTEN/NOTIFY.- DB[(PostgreSQL 14+<br/>request_id_cache,<br/>sessions, registries,<br/>change_history)]
+    N2 -.LISTEN/NOTIFY.- DB
+    N3 -.LISTEN/NOTIFY.- DB
+    DB --> Lock[pg_try_advisory_lock<br/>ping job, expiry job<br/>1 leader at a time]
+```
+
+See `arch-01-multi-node-deployment.mmd` and `seq-15-gate-registry-sync.mmd` for full detail.
+
 #### Acceptance Criteria
 
 ##### Registry synchronisation
@@ -1028,7 +1302,7 @@ sequenceDiagram
 - [ ] Same ID arrives at 2 nodes within 1 ms → database unique constraint prevents both succeeding; one gets `400`
 
 **Technical constraints:**
-- [ ] DB: `request_ids (request_id VARCHAR PK, received_at TIMESTAMP)` with scheduled cleanup after 600 s TTL
+- [ ] DB: `request_id_cache (request_id VARCHAR PK, seen_at TIMESTAMPTZ, expires_at TIMESTAMPTZ)` with 10-minute TTL (per `schema.sql`)
 
 ##### Admin auth state
 
@@ -1076,6 +1350,19 @@ sequenceDiagram
 **AS A** orchestrated deployment environment  
 **I WANT** the gate to expose health check endpoints and handle graceful shutdown  
 **SO THAT** the deployment platform can manage the application lifecycle correctly
+
+**Liveness vs readiness at a glance:**
+
+```mermaid
+flowchart TD
+    Probe{Probe type} --> Live[GET /health/live]
+    Probe --> Ready[GET /health/ready]
+    Live --> LiveResp[200 OK if process alive<br/>503 only if crashed]
+    Ready --> Checks{DB reachable?<br/>Flyway done?<br/>Registries loaded?<br/>Not in shutdown?}
+    Checks -- all yes --> Ready200[200 OK<br/>LB routes traffic]
+    Checks -- any no --> Ready503[503<br/>LB removes from rotation]
+    SIGTERM[SIGTERM] --> Drain[Stop accepting new conns<br/>readiness → 503<br/>wait ≤ 30 s for in-flight]
+```
 
 #### Acceptance Criteria
 
@@ -1130,6 +1417,19 @@ sequenceDiagram
 **AS A** security auditor  
 **I WANT** the gate to meet production security requirements  
 **SO THAT** the system passes a security audit and complies with e-government standards
+
+**Security layer stack at a glance:**
+
+```mermaid
+flowchart TD
+    In[Inbound request] --> RL[Rate limit<br/>100 req/min/IP → 429]
+    RL --> TLS[TLS / mTLS termination<br/>K8s Secret-loaded certs<br/>OCSP/CRL check]
+    TLS --> AuthN[AuthN: TARA OIDC / JWT RS256 / mTLS]
+    AuthN --> AuthZ[AuthZ: role + Party ID + subset]
+    AuthZ --> EUReg[EU platform registry check<br/>Art 7+12 Reg 2020/1056]
+    EUReg --> Audit[audit_log INSERT-only<br/>RFC 7807 errors out]
+    Audit --> Handler[Resource handler]
+```
 
 #### Acceptance Criteria
 
@@ -1210,10 +1510,25 @@ sequenceDiagram
 **SO THAT** the Gate complies with GDPR Article 30 requirements and jurisdiction-specific obligations
 
 **References:** 
-- [Permissions Matrix](../specs/permissions-matrix.md) — Authorization decisions and audit logging requirements
-- [Logging Specification](../specs/logging-spec.md) — Complete logging format and audit trail specification
+- [Permissions Matrix](specs/permissions-matrix.md) — Authorization decisions and audit logging requirements
+- [Logging Specification](specs/logging-spec.md) — Complete logging format and audit trail specification
 
 > **Note:** EU Regulations 2024/1942 and 2025/2243 do not explicitly require persistent audit logging of authority queries at the gate level. Member states must decide based on their own jurisdictional requirements. This epic implements a reasonable default behaviour with configurability.
+
+**Audit write paths at a glance:**
+
+```mermaid
+flowchart TD
+    Action{Action type} --> DataChange[Data change<br/>user/gate/platform/authority<br/>create/modify/delete<br/>identifier save/delete]
+    Action --> Login[Login success or failure]
+    Action --> AuthQ[Authority identifier query<br/>or dataset request]
+    DataChange --> AuditLog[(audit_log<br/>INSERT-only,<br/>RLS / DB user)]
+    Login --> AuditLog
+    AuthQ --> Toggle{AUTHORITY_QUERY_AUDIT<br/>enabled?}
+    Toggle -->|yes - default| AuditLog
+    Toggle -->|disabled| Skip[skipped]
+    AuditLog --> Query[GET /api/v1/audit<br/>Super Admin only, paginated]
+```
 
 #### Acceptance Criteria
 
@@ -1227,7 +1542,7 @@ sequenceDiagram
   - Admin actions: user creation/modification/deletion
   - Gate/Platform/Authority creation/modification/deletion
   - Identifier save and deletion (by platform)
-- [ ] `GET /api/audit` — Super Admin can query the audit log (paginated)
+- [ ] `GET /api/v1/audit` — Super Admin can query the audit log (paginated)
 - [ ] Sensitive data (passwords, tokens) never stored in audit log
 
 **Edge cases:**
@@ -1249,7 +1564,7 @@ sequenceDiagram
 - [ ] `AUTHORITY_QUERY_AUDIT` not set → defaults to `enabled` (fail-safe default)
 
 **Technical artifacts:**
-- [ ] OpenAPI: `GET /api/audit`
+- [ ] OpenAPI: `GET /api/v1/audit`
 - [ ] DB schema: `audit_log` table
 
 ---
@@ -1282,7 +1597,19 @@ sequenceDiagram
 **I WANT** structured JSON logs, request tracing, and operational visibility  
 **SO THAT** I can troubleshoot issues, monitor performance, and ensure GDPR compliance
 
-**Reference:** [Logging Specification](../specs/logging-spec.md) — Complete logging format, ECS schema, and audit trail specification
+**Reference:** [Logging Specification](specs/logging-spec.md) — Complete logging format, ECS schema, and audit trail specification
+
+**Log pipeline at a glance:**
+
+```mermaid
+flowchart LR
+    Req[Inbound request<br/>X-Request-ID] --> MDC["MDC put trace.id<br/>generated UUID if missing"]
+    MDC --> Logback[Logback / Log4j2<br/>ECS encoder]
+    Logback --> Stdout[stdout JSON<br/>@timestamp, log.level, trace.id,<br/>user.id, http.response.status_code,<br/>event.duration]
+    Stdout --> Aggregator[Log aggregator<br/>Loki / ELK]
+    Aggregator --> Search[Searchable by trace.id<br/>across all nodes]
+    MDC -.cleared on response.- Req
+```
 
 #### Acceptance Criteria
 
@@ -1336,6 +1663,16 @@ sequenceDiagram
 **AS AN** operations engineer  
 **I WANT** real-time metrics, dashboards, and automated alerts  
 **SO THAT** I can detect and resolve incidents before users are affected
+
+**Monitoring pipeline at a glance:**
+
+```mermaid
+flowchart LR
+    Gate[Gate node<br/>/metrics endpoint<br/>HTTP req/duration/errors,<br/>eDelivery msg count,<br/>gate ONLINE/OFFLINE] --> Prom[Prometheus<br/>15 s scrape]
+    Prom --> Graf[Grafana dashboard<br/>p50/p95/p99,<br/>error rate, gate status]
+    Prom --> Rules[Alert rules<br/>error rate > 5%/5 min,<br/>restarts > 3/10 min,<br/>DB down, disk > 90%]
+    Rules --> Alert[Alertmanager → on-call]
+```
 
 #### Acceptance Criteria
 
@@ -1438,6 +1775,23 @@ sequenceDiagram
 **I WANT** a well-documented, versioned API  
 **SO THAT** I can integrate with the gate without direct technical support
 
+**Request handling at a glance:**
+
+```mermaid
+flowchart TD
+    Req[Request to /api/v1/* or /v1/*] --> CORS[CORS check<br/>ALLOWED_ORIGINS or same-origin]
+    CORS --> Ver{Version supported?}
+    Ver -- deprecated --> Dep[200 OK<br/>Deprecation: true header]
+    Ver -- current --> Schema{OpenAPI 3.0 schema valid?}
+    Ver -- unsupported --> R410[410 Gone]
+    Schema -- no --> R400[400 Bad Request<br/>RFC 7807 field errors]
+    Schema -- yes --> Handler[Resource handler]
+    Handler --> Page[Paginate: limit, offset,<br/>X-Total-Count]
+    Handler --> Err[Error → RFC 7807<br/>type, title, status, detail, requestId]
+```
+
+Swagger UI: `/api/openapi`, `/v1/openapi`.
+
 #### Acceptance Criteria
 
 **Happy path:**
@@ -1460,6 +1814,21 @@ sequenceDiagram
 **AS A** DevOps engineer  
 **I WANT** automated build, test, security analysis, and deployment pipelines  
 **SO THAT** every release is repeatable, auditable, and secure
+
+**Pipeline at a glance:**
+
+```mermaid
+flowchart LR
+    Commit[git push / PR] --> Build[Build + unit tests<br/>JUnit 5]
+    Build --> Static[Static analysis<br/>0 critical/high, coverage ≥ 80%]
+    Static --> Scan[Trivy CVE scan<br/>block CRITICAL/HIGH]
+    Scan --> SBOM[CycloneDX SBOM]
+    SBOM --> Image[Container image<br/>tags: commit, vX.Y.Z, latest]
+    Image --> Stage{branch?}
+    Stage -- main --> Staging[auto-deploy staging]
+    Stage -- vX.Y.Z tag --> Prod[auto-deploy prod<br/>rolling update, zero downtime]
+    Prod --> Rollback[kubectl rollout undo<br/>≤ 2 min]
+```
 
 #### Acceptance Criteria
 
@@ -1519,6 +1888,20 @@ sequenceDiagram
 **I WANT** a web interface for searching identifiers and viewing datasets  
 **SO THAT** I can conduct roadside inspections without a separate IT system
 
+**Officer journey at a glance:**
+
+```mermaid
+flowchart LR
+    Login[TARA OIDC login<br/>ID-card / Mobile-ID / Smart-ID] --> Search[Search view<br/>plate / QR / NFC<br/>filters: mode, country, DGI]
+    Search --> SSE[SSE results stream<br/>partial as they arrive]
+    SSE --> Pick[Officer picks UIL<br/>from result list]
+    Pick --> Subset[Select subsetIds<br/>from permitted subsets]
+    Subset --> Dataset[GET /v1/dataset/...<br/>rendered as structured table]
+    Dataset --> FollowUp[Send follow-up message<br/>POST /v1/follow-up/...]
+```
+
+UI uses TEDI (Tehik) design system; WCAG 2.2 AA verified in CI.
+
 #### Acceptance Criteria
 
 ##### Authentication
@@ -1566,6 +1949,25 @@ sequenceDiagram
 **AS AN** administrator  
 **I WANT** a web-based management interface for users, registries and configuration  
 **SO THAT** I can administer the system without direct database access
+
+**Admin journey at a glance:**
+
+```mermaid
+flowchart LR
+    Login[TARA OIDC login<br/>Basic Auth disabled in prod] --> Roles{Multiple roles?}
+    Roles -- yes --> Pick[Role selection screen]
+    Roles -- no --> Home[Main view]
+    Pick --> Home
+    Home --> Manage{Manage what?}
+    Manage --> Users[Users<br/>/api/v1/users]
+    Manage --> Gates[Gates<br/>/api/v1/gates]
+    Manage --> Platforms[Platforms<br/>/api/v1/platforms]
+    Manage --> Authorities[Authorities<br/>/api/v1/authorities]
+    Manage --> Cons[Consignments<br/>/api/v1/consignments]
+    Manage --> Audit[Audit log<br/>/api/v1/audit]
+```
+
+UI uses TEDI (Tehik); WCAG 2.2 AA; draft auto-save every 30 s.
 
 #### Acceptance Criteria
 

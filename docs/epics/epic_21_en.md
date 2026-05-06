@@ -10,6 +10,20 @@
 - [Permissions Matrix](../specs/permissions-matrix.md) — Authority subset access permissions
 - [RA §9.2 Authority API (AAP)](../architecture/eFTI-Gate-Reference-Architecture.md#92-authority-api-aap) — AAP endpoint reference — H2M and M2M interface
 
+**Officer journey at a glance:**
+
+```mermaid
+flowchart LR
+    Login[TARA OIDC login<br/>ID-card / Mobile-ID / Smart-ID] --> Search[Search view<br/>plate / QR / NFC<br/>filters: mode, country, DGI]
+    Search --> SSE[SSE results stream<br/>partial as they arrive]
+    SSE --> Pick[Officer picks UIL<br/>from result list]
+    Pick --> Subset[Select subsetIds<br/>from permitted subsets]
+    Subset --> Dataset[GET /v1/dataset/...<br/>rendered as structured table]
+    Dataset --> FollowUp[Send follow-up message<br/>POST /v1/follow-up/...]
+```
+
+UI uses TEDI (Tehik) design system; WCAG 2.2 AA verified in CI.
+
 #### Acceptance Criteria
 
 ##### Authentication

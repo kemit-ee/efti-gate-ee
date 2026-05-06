@@ -8,6 +8,19 @@
 
 **Reference:** [RA §7.1 Logical Component Layers](../architecture/eFTI-Gate-Reference-Architecture.md#71-logical-component-layers) — Health check endpoints in application layer
 
+**Liveness vs readiness at a glance:**
+
+```mermaid
+flowchart TD
+    Probe{Probe type} --> Live[GET /health/live]
+    Probe --> Ready[GET /health/ready]
+    Live --> LiveResp[200 OK if process alive<br/>503 only if crashed]
+    Ready --> Checks{DB reachable?<br/>Flyway done?<br/>Registries loaded?<br/>Not in shutdown?}
+    Checks -- all yes --> Ready200[200 OK<br/>LB routes traffic]
+    Checks -- any no --> Ready503[503<br/>LB removes from rotation]
+    SIGTERM[SIGTERM] --> Drain[Stop accepting new conns<br/>readiness → 503<br/>wait ≤ 30 s for in-flight]
+```
+
 #### Acceptance Criteria
 
 **Happy path:**

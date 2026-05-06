@@ -10,18 +10,35 @@
 - [DB Schema](../specs/db/README.md) — Platform registry schema
 - [RA §1 System Actors](../architecture/eFTI-Gate-Reference-Architecture.md#1-system-actors--components) — Platform actor roles and registry context
 
+**Platform lifecycle at a glance:**
+
+```mermaid
+stateDiagram-v2
+    [*] --> Active: POST /api/v1/platforms<br/>(name, baseUrl, supportsSubsetting, eDeliveryCert?)
+    Active --> Active: POST /platforms/{id}/ping<br/>(updates responseTimeMs)
+    Active --> ConflictDelete: DELETE with active identifiers<br/>409 Conflict
+    ConflictDelete --> Active: retry after force=true<br/>or remove identifiers
+    Active --> [*]: DELETE /api/v1/platforms/{id}<br/>204 No Content
+    note right of Active
+        Registry change → LISTEN/NOTIFY
+        propagated to all nodes ≤ 500 ms
+    end note
+```
+
+See `seq-10-platform-registration.mmd` and `state-03-platform-status.mmd` for full detail.
+
 #### Acceptance Criteria
 
 **Happy path:**
-- [ ] `GET /api/platforms` — Super Admin sees all; Admin sees only platforms in their `roles[PLATFORM]` Party IDs; paginated
-- [ ] `POST /api/platforms` — adds platform with `name`, `baseUrl`, `supportsSubsetting` flag, optional `eDeliveryCert` → `201 Created`
-- [ ] `DELETE /api/platforms/:platformId` → `204 No Content`
-- [ ] `POST /api/platforms/:platformId/ping` — checks HTTP connectivity to `baseUrl` → `200 OK` with `responseTimeMs` or `502`
+- [ ] `GET /api/v1/platforms` — Super Admin sees all; Admin sees only platforms in their `roles[PLATFORM]` Party IDs; paginated
+- [ ] `POST /api/v1/platforms` — adds platform with `name`, `baseUrl`, `supportsSubsetting` flag, optional `eDeliveryCert` → `201 Created`
+- [ ] `DELETE /api/v1/platforms/:platformId` → `204 No Content`
+- [ ] `POST /api/v1/platforms/:platformId/ping` — checks HTTP connectivity to `baseUrl` → `200 OK` with `responseTimeMs` or `502`
 - [ ] eFTI platform without `eDeliveryCert`: REST-only; with `eDeliveryCert`: also callable via eDelivery AS4
 - [ ] eFTI platform with `supportsSubsetting=false`: gate applies XSLT subsetter before returning dataset
 
 **Edge cases:**
-- [ ] `POST /api/platforms` with `baseUrl` already registered → `409 Conflict`
+- [ ] `POST /api/v1/platforms` with `baseUrl` already registered → `409 Conflict`
 - [ ] `DELETE` while platform has active identifiers → `409 Conflict` with `"detail": "Platform has 42 active identifiers — delete them first or use force=true"`
 - [ ] Ping — platform unreachable after 10 seconds → `502 Bad Gateway` with `"detail": "Platform 'mta-platform-1' did not respond within 10 seconds"`
 
@@ -32,4 +49,4 @@
 - [ ] Registry changes propagated to all nodes via LISTEN/NOTIFY within 500 ms
 
 **Technical artifacts:**
-- [ ] OpenAPI: `GET /api/platforms`, `POST /api/platforms`, `DELETE /api/platforms/{platformId}`, `POST /api/platforms/{platformId}/ping`
+- [ ] OpenAPI: `GET /api/v1/platforms`, `POST /api/v1/platforms`, `DELETE /api/v1/platforms/{platformId}`, `POST /api/v1/platforms/{platformId}/ping`

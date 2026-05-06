@@ -10,6 +10,23 @@
 - [RA §5.1 Identifier Query](../architecture/eFTI-Gate-Reference-Architecture.md#51-identifier-query-cross-border-search) — Identifier search flow diagrams
 - [RA §5.2 Dataset Query](../architecture/eFTI-Gate-Reference-Architecture.md#52-dataset-query-request-full-data) — Dataset retrieval flow diagrams
 
+**Four data flows at a glance:**
+
+```mermaid
+flowchart LR
+    P[Platform] -- F1: register --> G1[Gate]
+    A[Authority Officer] -- F2: search identifier --> G2[Gate]
+    G2 -. F2: broadcast if local empty .-> Other[Other EU Gates]
+    A -- F3: GET /v1/dataset/{uil} --> G3[Gate]
+    G3 -- F3: own gate --> Plat[Platform]
+    G3 -- F3: remote --> RG[Remote Gate]
+    A -- F4: POST /v1/follow-up/... --> G4[Gate]
+    G4 -- F4: route by gateId --> Plat
+    G4 -- F4: route by gateId --> RG
+```
+
+Detailed sequence diagrams for each flow follow below.
+
 #### Acceptance Criteria
 
 - [ ] All four core flows documented as sequence diagrams (see below)

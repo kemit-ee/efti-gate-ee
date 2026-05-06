@@ -14,7 +14,7 @@ sequenceDiagram
     Gate->>Gate: Build IdentifiersQuery<br/>(id="123ABC", countryCode="EE", forceBroadcast=false)
 
     Gate->>Gate: getLocalIdentifiers(query)
-    Gate->>+DB: SELECT * FROM consignments c<br/>JOIN identifiers i ON i.datasetId = c.datasetId<br/>WHERE i.id = '123ABC' AND i.countryCode = 'EE'
+    Gate->>+DB: SELECT dataset_id, platform_id, mode, vehicle_plate<br/>FROM consignments<br/>WHERE vehicle_plate = '123ABC' AND vehicle_country = 'EE'<br/>AND status = 'active'
     DB-->>-Gate: 1 result (datasetId=550e8400-..., platformId="demo")
 
     Gate->>Gate: local.size=1 → forceBroadcast=false<br/>→ NO broadcast (local results found)

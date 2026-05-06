@@ -1,6 +1,6 @@
 # Andmemudel
 
-> **v2.0 spetsifikatsioon:** [`../../specs/db/README.md`](../../specs/db/README.md) — täielik PostgreSQL andmebaasi dokumentatsioon koos migratsiooni skriptidega.
+> **v2.0 spetsifikatsioon:** [`../../specs/db/schema.sql`](../../specs/db/schema.sql) — täielik PostgreSQL andmebaasi skeem (lühike ülevaade: [`../../specs/db/README.md`](../../specs/db/README.md)).
 
 ## Andmemudeli ülevaade
 eFTI värava (Gate) andmemudel on loodud toetama kiiret ja turvalist sõnumivahetust 
