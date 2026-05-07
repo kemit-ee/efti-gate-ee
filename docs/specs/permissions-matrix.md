@@ -235,9 +235,9 @@ All errors share the schema `{type, title, status, detail, instance, errorCode?}
 
 This spec is the contract — the implementation lives elsewhere. Do **not** redefine the schema or copy SQL/Kotlin into this document.
 
-- **Database schema** for `users`, `platforms`, `authorities`, `gates` (including `roles JSONB`, `subsets text[]`, `secretHash`, `isAdmin`, `gates.status`): `docs/specs/db/schema.sql` — every column carries `COMMENT ON …`. Append-only enforcement and `change_history` triggers also live there.
+- **Database schema** for `users`, `platforms`, `authorities`, `gates` (including `roles JSONB`, `subsets text[]`, `secretHash`, `isAdmin`, `gates.status`): `docs/specs/db/schema.sql` — every column carries `COMMENT ON …`. Append-only enforcement is by GRANT (the runtime `app` role has `SELECT, INSERT` only; no UPDATE, no DELETE on any table); state transitions are INSERTs of new rows sharing the same logical id, and the latest row by `created_at` is the current state. There are no `_history` companion tables — the operational table itself is its own change log.
 - **Endpoint definitions** with `@Access` annotations and request/response schemas: `docs/specs/openapi.yaml`.
-- **Error catalog** (full payloads, all 35 codes): `docs/specs/errors.json`.
+- **Error catalog** (full payloads, all 37 codes): `docs/specs/errors.json`.
 - **AccessChecker / Routes / repositories** runtime code: `gate/src/efti/...` — `AccessChecker.before()`, `PlatformRoutes.before()`, `AuthorityRoutes.before()`, `User.checkWriteAccess()`, `UserRepository.byCredentials()`, `UserRepository.setAppUser()`. The pseudocode below is the canonical pattern; production code may diverge in error wrapping and logging detail.
 
 ### 8.1 Canonical AccessChecker pattern

@@ -1356,24 +1356,29 @@ paths:
       summary: Query audit log (SUPER_ADMIN only)
       operationId: listAuditLog
       description: |
-        Returns audit log entries. The audit log is immutable (no updates/deletes).
-        Filtered by table, row ID, date range, and acting user.
+        Returns action-level audit log entries from the `audit_log` table. The audit log is
+        append-only (the `app` role has SELECT, INSERT only) and is preserved indefinitely on
+        the live database — the CronManager archival sweep does not touch it.
+        Filterable by resource type, resource ID, acting user, and date range.
       parameters:
-        - name: table
+        - name: resource
           in: query
           required: false
+          description: Resource type touched by the action (matches `audit_log.resource`)
           schema:
             type: string
-            enum: [gates, platforms, authorities, users, consignments]
-        - name: rowId
+            enum: [gates, platforms, authorities, users, consignments, identifiers, dataset, session]
+        - name: resourceId
           in: query
           required: false
+          description: Specific resource identifier (matches `audit_log.resource_id`)
           schema:
             type: string
             example: "eu-ee31"
-        - name: changedBy
+        - name: userId
           in: query
           required: false
+          description: Acting user (matches `audit_log.user_id`)
           schema:
             type: string
             format: uuid
@@ -1407,19 +1412,117 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/ChangeHistoryEntry'
+                  $ref: '#/components/schemas/AuditLogEntry'
               example:
-                - table: "gates"
-                  rowId: "eu-de01"
-                  column: "status"
-                  oldValue: "ONLINE"
-                  newValue: "DISABLED"
-                  changedAt: "2026-04-22T10:20:35Z"
-                  changedBy: "550e8400-e29b-41d4-a716-446655440000"
+                - rowId: "01923a8c-4f7c-7a1b-9c2e-fd0d9b0a4e11"
+                  userId: "550e8400-e29b-41d4-a716-446655440000"
+                  action: "register_platform"
+                  resource: "platforms"
+                  resourceId: "platform-acme-001"
+                  ipAddress: "203.0.113.45"
+                  details:
+                    name: "Acme Logistics"
+                    subsets: ["EU01", "EU02"]
+                  recordedAt: "2026-04-22T10:20:35Z"
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/admin/archive:
+    post:
+      tags: [Admin - Audit]
+      summary: Run the append-only archival sweep (called by CronManager)
+      operationId: runArchive
+      description: |
+        Moves all non-latest rows of every operational table to archival storage,
+        plus expired rows of ephemeral tables. Called by CronManager on schedule
+        (default cron `0 0 3 * * ?`); see `docs/specs/deploy/cronmanager-archive.yaml`.
+
+        Authentication: bearerAuth, ops-role only. Non-ops admins receive 403.
+
+        Behaviour:
+        - Per-table batches of `batch_size` rows; commits each batch transactionally.
+          Storage failure mid-batch rolls back the batch; the live DB is unchanged.
+        - Stops cleanly when `max_runtime_seconds` budget is exhausted; remaining
+          rows picked up by the next run. Response then carries `partial: true`.
+        - Idempotent: a second invocation immediately after produces all-zero counts.
+        - DELETE on the live DB runs as the separate `db_archiver` PostgreSQL role
+          (declared in `schema.sql`); the runtime `app` role retains SELECT, INSERT
+          only and is not used here.
+
+        See Epic 26 for the full contract.
+      requestBody:
+        required: false
+        description: "Optional run-time parameters. Defaults — all operational tables, batch_size 1000, max_runtime_seconds 600."
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArchiveRequest'
+            example:
+              tables: ["consignments", "identifiers", "gates", "platforms", "authorities", "users", "sessions", "async_responses", "request_id_cache", "jobs_execution_log", "follow_up_log", "audit_log"]
+              batch_size: 1000
+              max_runtime_seconds: 1800
+      responses:
+        '200':
+          description: Archival run complete (possibly partial — see `partial` field).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArchiveResponse'
+              example:
+                started_at: "2026-04-23T03:00:00Z"
+                finished_at: "2026-04-23T03:14:21Z"
+                duration_ms: 861000
+                partial: false
+                archived:
+                  consignments: 12345
+                  identifiers: 38912
+                  gates: 1024
+                  platforms: 8
+                  authorities: 12
+                  users: 47
+                  sessions: 502
+                  async_responses: 18
+                  request_id_cache: 21504
+                  jobs_execution_log: 730
+                  follow_up_log: 156
+                  audit_log: 4821
+                next_archivable_count_estimate:
+                  consignments: 0
+                  identifiers: 0
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Archival run already in progress.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: "https://api.efti.ee/errors/archive-in-progress"
+                code: ARCHIVE_IN_PROGRESS
+                title: "Archive run already in progress"
+                status: 409
+                detail: "Another archive run started at 2026-04-23T03:00:00Z is still active."
+                instance: "/api/v1/admin/archive"
+        '502':
+          description: Archive destination storage unavailable.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: "https://api.efti.ee/errors/archive-storage-unavailable"
+                code: ARCHIVE_STORAGE_UNAVAILABLE
+                title: "Archive storage unavailable"
+                status: 502
+                detail: "Connection to s3://efti-archive timed out after 30s. No rows have been deleted from the live database."
+                instance: "/api/v1/admin/archive"
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -1797,6 +1900,8 @@ components:
         this field rather than on `title`/`detail` text. This enum mirrors the
         catalog exactly; if the catalog changes, regenerate this enum from it.
       enum:
+        - ARCHIVE_IN_PROGRESS
+        - ARCHIVE_STORAGE_UNAVAILABLE
         - AUTHORITY_NOT_FOUND
         - BAD_REQUEST_GENERAL
         - CONFLICT
@@ -1873,6 +1978,70 @@ components:
         - **5**: Multimodal (combined transport)
       enum: ["1", "2", "3", "4", "5"]
       example: "3"
+
+    ArchiveRequest:
+      type: object
+      description: Optional run-time parameters for `POST /api/v1/admin/archive`.
+      properties:
+        tables:
+          type: array
+          description: Tables to sweep on this run. Defaults to all 12 operational + ephemeral + ledger tables.
+          items:
+            type: string
+            enum:
+              - gates
+              - platforms
+              - authorities
+              - users
+              - consignments
+              - identifiers
+              - sessions
+              - async_responses
+              - request_id_cache
+              - jobs_execution_log
+              - follow_up_log
+              - audit_log
+        batch_size:
+          type: integer
+          minimum: 1
+          maximum: 10000
+          default: 1000
+          description: Maximum rows per transactional batch.
+        max_runtime_seconds:
+          type: integer
+          minimum: 60
+          maximum: 7200
+          default: 600
+          description: "Total budget in seconds. The job stops between batches when this is reached and returns `partial=true`."
+
+    ArchiveResponse:
+      type: object
+      description: Result of an archival sweep.
+      required: [started_at, finished_at, duration_ms, partial, archived]
+      properties:
+        started_at:
+          type: string
+          format: date-time
+          description: When the run began (ISO 8601 UTC).
+        finished_at:
+          type: string
+          format: date-time
+        duration_ms:
+          type: integer
+          description: Wall-clock duration of the run.
+        partial:
+          type: boolean
+          description: True if `max_runtime_seconds` was reached and rows remain unarchived. Next run continues.
+        archived:
+          type: object
+          description: Per-table count of rows moved to archive on this run.
+          additionalProperties:
+            type: integer
+        next_archivable_count_estimate:
+          type: object
+          description: Per-table estimate of rows still eligible for archival after this run (used by monitoring to detect backlog growth).
+          additionalProperties:
+            type: integer
 
     IdentifierType:
       type: string
@@ -2312,39 +2481,50 @@ components:
     # AUDIT
     # --------------------------------------------------------------------------
 
-    ChangeHistoryEntry:
+    AuditLogEntry:
       type: object
-      description: Single field-level change record from the change_history audit table
+      description: |
+        One row from the `audit_log` table — an action-level event capturing who did what,
+        when, against which resource. INSERT-only; preserved indefinitely on the live DB.
       properties:
-        table:
-          type: string
-          description: Database table name where the change occurred
-          example: "gates"
         rowId:
           type: string
-          description: Primary key of the modified record
-          example: "eu-de01"
-        column:
-          type: string
-          description: Column that was modified
-          example: "status"
-        oldValue:
-          type: string
-          nullable: true
-          description: Previous value (null for INSERTs)
-          example: "ONLINE"
-        newValue:
-          type: string
-          nullable: true
-          description: New value (null for DELETEs)
-          example: "DISABLED"
-        changedAt:
-          type: string
-          format: date-time
-          example: "2026-04-22T10:20:35Z"
-        changedBy:
+          format: uuid
+          description: Synthetic primary key of the audit_log row
+          example: "01923a8c-4f7c-7a1b-9c2e-fd0d9b0a4e11"
+        userId:
           type: string
           format: uuid
           nullable: true
-          description: UUID of the user who made the change (null if system-initiated)
+          description: Logical users.id of the actor; NULL for system actions or pre-authentication events
           example: "550e8400-e29b-41d4-a716-446655440000"
+        action:
+          type: string
+          description: Action verb (login, login_failed, search_identifiers, request_dataset, send_follow_up, register_platform, …)
+          example: "register_platform"
+        resource:
+          type: string
+          description: Resource type touched (gates, platforms, authorities, users, consignments, identifiers, dataset, session)
+          example: "platforms"
+        resourceId:
+          type: string
+          nullable: true
+          description: Identifier of the resource (UUID, plate string, gate ID, …); NULL for collection-level actions
+          example: "platform-acme-001"
+        ipAddress:
+          type: string
+          nullable: true
+          description: Source IP address (IPv4 or IPv6)
+          example: "203.0.113.45"
+        details:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: Structured context (search filters, query parameters, error reason, …)
+          example:
+            subsets: ["EU01", "EU02"]
+        recordedAt:
+          type: string
+          format: date-time
+          description: When the action happened (NOT when the row was inserted; for append-only purposes the two are equal)
+          example: "2026-04-22T10:20:35Z"

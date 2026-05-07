@@ -557,36 +557,66 @@ CREATE INDEX idx_async_responses_pending  ON async_responses (receiver_id, reque
 CREATE INDEX idx_async_responses_created  ON async_responses (created_at);
 
 -- ============================================================================
--- 5. APP DATABASE USER + GRANTS
+-- 5. DATABASE ROLES + GRANTS
 -- ============================================================================
--- The runtime `app` role has SELECT, INSERT — and only those — on every
--- table. UPDATE and DELETE are not granted on any table. Every state
--- transition is an INSERT. CronManager-driven archival runs as a separate
--- elevated role outside the gate process; that role's grants live with the
--- archival-process configuration, not in this baseline file.
+-- Two roles, two responsibilities:
+--
+--   `app`         — runtime gate process. SELECT + INSERT on every operational
+--                   table. No UPDATE, no DELETE. Every state transition is an
+--                   INSERT. The gate cannot, by grant, mutate or remove rows.
+--
+--   `db_archiver` — CronManager-driven archival sweep. SELECT + DELETE on
+--                   operational tables only. No INSERT, no UPDATE. The gate
+--                   process never authenticates as this role; CronManager
+--                   calls the gate's `POST /api/v1/admin/archive` endpoint,
+--                   and the archival worker behind that endpoint connects
+--                   with the `db_archiver` credentials (separate connection
+--                   pool, separate Kubernetes Secret). DELETE is granted on
+--                   operational tables ONLY — never on `audit_log` (the
+--                   audit trail is preserved indefinitely on the live DB
+--                   per logging-spec retention policy; copying to cold
+--                   storage is out of scope of this role).
+--
+-- See Epic 26 (Append-Only Archival via CronManager) and
+-- `docs/specs/deploy/cronmanager-archive.yaml` for the operational contract.
 
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'app') THEN
     CREATE USER app WITH PASSWORD 'app-secret';
   END IF;
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'db_archiver') THEN
+    CREATE USER db_archiver WITH PASSWORD 'archiver-secret';
+  END IF;
 END;
 $$;
 
 GRANT USAGE ON SCHEMA public TO app;
+GRANT USAGE ON SCHEMA public TO db_archiver;
 
 -- Defaults for any future tables added by Liquibase changesets.
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT ON TABLES    TO app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT  ON SEQUENCES TO app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE        ON FUNCTIONS TO app;
 
--- Explicit grants for tables defined in this file. SELECT + INSERT only —
--- no UPDATE, no DELETE on any table. Period.
+-- Explicit grants for `app` — SELECT + INSERT only on every table. No
+-- UPDATE, no DELETE. Period.
 GRANT SELECT, INSERT ON
   gates, platforms, authorities, users, consignments, identifiers,
   request_id_cache, sessions, jobs_execution_log,
   follow_up_log, audit_log, async_responses
   TO app;
+
+-- Explicit grants for `db_archiver` — SELECT + DELETE on operational tables
+-- only. NOT granted on `audit_log` (preserved indefinitely on live DB).
+-- No INSERT, no UPDATE. The archival worker reads non-latest rows, copies
+-- them to archival storage, then DELETEs the same rows in batches.
+GRANT SELECT, DELETE ON
+  gates, platforms, authorities, users, consignments, identifiers,
+  request_id_cache, sessions, jobs_execution_log,
+  follow_up_log, async_responses
+  TO db_archiver;
+GRANT SELECT ON audit_log TO db_archiver;
 
 -- ============================================================================
 -- 6. SEED DATA

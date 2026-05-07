@@ -28,15 +28,19 @@ Steady-state estimates for a single national gate handling Estonia's freight vol
 
 | Dimension | Steady state | Peak (4× steady, e.g. month-end) | Notes |
 |---|---|---|---|
-| Identifier registrations | 2 / sec | 8 / sec | Platform-driven; each = 1 INSERT into `consignments` + N inserts into `identifiers`. |
+| Identifier registrations | 2 / sec | 8 / sec | Platform-driven; each = 1 INSERT into `consignments` + N INSERTs into `identifiers`. |
 | Authority searches | 0.3 / sec | 1.2 / sec | Includes both local-only and broadcast paths. |
 | Dataset retrievals | 0.05 / sec | 0.2 / sec | Each forwards to a platform/peer-gate. |
 | Follow-up messages | 0.01 / sec | 0.04 / sec | |
 | G2G AS4 inbound | 0.5 / sec | 2 / sec | EU-wide aggregate from peer gates. |
-| DB row growth (`consignments`) | ~170 K / day | — | At 2 reg/sec × 86 400 s. ~62 M rows/year before status='inactive' aging. |
-| DB row growth (`change_history`) | ~10 K / day | — | One row per UPDATE on registry tables (mostly gates pings, status flips). |
-| DB row growth (`audit_log`) | ~30 K / day | — | One row per Authority action + admin mutation. |
-| DB total size after 3 y | ~50 GB | — | With partitioning / retention; without, ~200 GB. |
+| DB row growth (`consignments`) | ~250 K / day | — | First-INSERT at 2 reg/sec × 86 400 s ≈ 170 K, plus ~80 K/day of state-transition rows (expiration → `inactive`, re-uploads, status flips). Append-only, so each transition is its own row. |
+| DB row growth (`identifiers`) | ~300 K / day | — | ~1.5 identifiers per consignment on average; both initial registration and re-upload INSERT new rows. |
+| DB row growth (`gates`) | ~290 rows/day **per gate** | — | Ping cadence is one INSERT every 5 min ⇒ 288 rows/day per gate. Across all peer gates whose pings this gate stores in its local registry copy, the total is `peer_gate_count × 288`. For ~30 EU gates that is ~8 700 rows/day in this table; if peer-ping rows are not replicated locally, only the ~290 self-ping rows remain. |
+| DB row growth (`sessions`) | ~5 K / day | — | Append-only: one INSERT on login, one INSERT on logout / token revocation. |
+| DB row growth (`async_responses` + `request_id_cache`) | ~50 K / day combined | — | Receive INSERT + consume INSERT per async response; correlation-id cache entries (TTL 24 h, then archived). |
+| DB row growth (`audit_log`) | ~30 K / day | — | One row per Authority action + admin mutation; never archived (preserved indefinitely on the live DB per §5). |
+| Live DB size after 3 y | ~80 GB | — | Live DB stays **bounded** because CronManager (Epic 26) sweeps non-latest rows of every operational table nightly into archival storage. The figure assumes the sweep keeps up with steady-state growth; if archival is paused, the live DB grows at ~150 GB/year. |
+| Cold archive size after 3 y | ~500 GB | — | Monotonically growing JSON-Lines on the archival destination (S3-compatible store, secondary Postgres, or append-only file system). 7-year minimum retention for auditable tables. |
 | JVM heap | 1 GB | — | `-Xmx1g`; alarm at 80 % per logging-spec.md §2.3. |
 | Connection pool | 10 | — | HikariCP default; alarm when < 2 available. |
 

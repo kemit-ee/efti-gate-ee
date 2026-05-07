@@ -19,8 +19,8 @@ The implementation contracts. Build the new gate against these.
 |---|---|---|
 | OpenAPI 3.0 | [`docs/specs/openapi.yaml`](docs/specs/openapi.yaml) | Platform, Authority, Admin, Health, Auth APIs (RFC 7807 errors, JWT, pagination, audit, SSE) |
 | DB schema | [`docs/specs/db/schema.sql`](docs/specs/db/schema.sql) | PostgreSQL 14+; every table and column carries `COMMENT ON …` |
-| DB design rules | [`docs/specs/db/README.md`](docs/specs/db/README.md) | Persistence taxonomy (ledger / ephemeral / registry), denormalised reads, retention |
-| Errors | [`docs/specs/errors.json`](docs/specs/errors.json) | RFC 7807 catalog, 35 codes with realistic payloads |
+| DB design rules | [`docs/specs/db/README.md`](docs/specs/db/README.md) | Append-only everywhere (no UPDATE, no DELETE); latest-row reads (`DISTINCT ON`); denormalised columns; archival by CronManager |
+| Errors | [`docs/specs/errors.json`](docs/specs/errors.json) | RFC 7807 catalog, 37 codes with realistic payloads |
 | Logging | [`docs/specs/logging-spec.md`](docs/specs/logging-spec.md) | ECS 8.x dotted-field taxonomy, `efti.*` namespace |
 | Permissions | [`docs/specs/permissions-matrix.md`](docs/specs/permissions-matrix.md) | Endpoint × role matrix, RLS rules, subset enforcement |
 | Transformations | [`docs/specs/data-transformations.md`](docs/specs/data-transformations.md) | XML ↔ DB ↔ JSON ↔ AS4 ↔ SSE conversions, denormalised-column mapping |
@@ -53,12 +53,12 @@ Honest list of what's known to be incomplete or deferred. None of these blocks a
 
 **Phase-2 deferred (intentional):**
 
-- **Deployment artefacts.** [`docs/specs/deploy/`](docs/specs/deploy/) describes the topology contract but ships no Helm chart values, Kubernetes manifests, or `docker-compose`. These are produced during implementation, after vendor selection.
+- **Deployment artefacts — documented gap, not closed.** [`docs/specs/deploy/README.md`](docs/specs/deploy/README.md) explains *why* the directory ships no Helm chart values, Kubernetes manifests, `Dockerfile`, or `docker-compose` — the topology contract is binding, the YAML/manifest specifics are negotiable on day 1 of the engagement. The placeholder document closes the documentation gap; it does not produce the artefacts. The only concrete deployment file shipped today is [`cronmanager-archive.yaml`](docs/specs/deploy/cronmanager-archive.yaml) (canonical CronManager job for Epic 26).
 - **Threat model.** No STRIDE-per-surface document yet; `docs/specs/permissions-matrix.md` covers the access-control side, but a proactive threat model (informed by Reg 2025/2243) is operator-supplied.
 - **On-call runbook.** Alert thresholds (`db.pool < 2`, `heap > 80%` from `logging-spec.md` §2.3) are documented; the playbook for what an on-call engineer does when each fires is not.
 - **Load-test plan.** `docs/specs/non-functional.md` §1 sets SLOs; the k6/JMeter scenarios that validate them against the topology in §3 are an implementation deliverable.
-- **Capacity-plan revisions.** §2 numbers are first-pass estimates; re-derive after Test Fest 4+.
-- **Partition rotation jobs.** `docs/specs/db/README.md` documents the per-table retention strategy; the `pg_partman` (or equivalent) configuration that enforces it is an operator-supplied piece.
+- **Capacity-plan re-validation.** §2 numbers are recalculated for the append-only growth model (every state transition is a new row); they remain first-pass estimates and should be re-derived against Test Fest 4+ data.
+- **Archival worker implementation.** Epic 26 specifies the `POST /api/v1/admin/archive` contract, the `db_archiver` PostgreSQL role with `SELECT, DELETE` grants on operational tables (and `SELECT`-only on `audit_log`), and the canonical CronManager job YAML. The Kotlin/SQL implementation of the per-table archival sweep itself is an implementation deliverable.
 
 **Coverage gaps in the spec itself:**
 

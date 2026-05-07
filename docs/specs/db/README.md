@@ -70,6 +70,21 @@ The archival contract:
 
 The full contract — endpoint shape, batching strategy, idempotency rules, retention windows — lives in **Epic 26** ([`../../epics/epic_26_en.md`](../../epics/epic_26_en.md)).
 
+## Roles — `app` vs `db_archiver`
+
+The schema declares two PostgreSQL roles with strictly disjoint capabilities:
+
+| Role | Grants | Connects from | Cannot |
+|---|---|---|---|
+| `app` | `SELECT, INSERT` on every operational table | Gate process (runtime) | UPDATE, DELETE — anywhere |
+| `db_archiver` | `SELECT, DELETE` on operational tables; `SELECT` on `audit_log` | Archival worker invoked by `POST /api/v1/admin/archive` | INSERT, UPDATE — anywhere |
+
+**Why two roles, not one.** The append-only invariant ("the gate cannot mutate or remove rows") is enforced by grant, not by convention. If `app` had DELETE, a single misrouted code path could destroy history; the database itself prevents that. The archival worker, conversely, has DELETE but no INSERT — it can only remove rows it has already copied to cold storage.
+
+**`db_archiver` cannot DELETE from `audit_log`.** The audit ledger is preserved indefinitely on the live DB per [`../logging-spec.md`](../logging-spec.md) and `../non-functional.md` §5; copying it to cold storage is a separate concern handled outside this archival job.
+
+**Where the credentials live.** The `db_archiver` password lives in a Kubernetes Secret consumed by the archival-worker connection pool that backs `POST /api/v1/admin/archive`. The gate's main connection pool authenticates as `app` and never sees the `db_archiver` credentials. CronManager itself never connects to PostgreSQL — it only calls the gate's HTTPS admin endpoint with a Bearer token (see [`../deploy/cronmanager-archive.yaml`](../deploy/cronmanager-archive.yaml)).
+
 ## Pointers
 
 - [`schema.sql`](./schema.sql) — canonical schema with full `COMMENT ON` coverage

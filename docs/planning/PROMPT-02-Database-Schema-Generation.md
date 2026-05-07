@@ -1,5 +1,7 @@
 # LLM Prompt: Generate Complete PostgreSQL Database Schema for eFTI Gate v2.0
 
+> **Superseded on the audit-table design.** This prompt instructed the schema generator to create a `change_history` table populated by `AFTER UPDATE` triggers. The decision was reversed: the current canonical schema is **append-only everywhere** — every operational table is INSERT-only, the runtime `app` role has no UPDATE/DELETE grants, and the operational tables themselves are their own change log (latest row by `created_at` per logical id wins). Archival of non-latest rows is done by external [CronManager](https://github.com/Buerostack/CronManager); see [Epic 26](../epics/epic_26_en.md) and [`../specs/db/README.md`](../specs/db/README.md). Section 10 below ("change_history") and the trigger pseudocode that follows are **no longer the contract** — they are kept for historical reference only.
+
 ## Context
 
 You are tasked with creating a **complete, executable PostgreSQL database schema** for the European Freight Transport Information (eFTI) Gate system. This schema must support:

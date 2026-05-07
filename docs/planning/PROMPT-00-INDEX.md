@@ -1,5 +1,12 @@
 # LLM Prompt Index for eFTI Gate v2.0 Specification Generation
 
+> **Historical artefact — preserved as-is.** These prompts are the *original* generation brief used to bootstrap the specification. Some instructions in them have been **superseded** by later design decisions and no longer match the canonical specs in `docs/specs/`. Most notably:
+>
+> - **PROMPT-02 (Database schema)** demands a `change_history` audit table and `AFTER UPDATE` triggers; the current schema is **append-only everywhere** — no `change_history` table, no UPDATE triggers, the runtime `app` role has `SELECT, INSERT` only. See [`../specs/db/README.md`](../specs/db/README.md) and Epic 26.
+> - The error-catalog count quoted in some prompts (35) is now **37** (Epic 26 added `ARCHIVE_IN_PROGRESS` and `ARCHIVE_STORAGE_UNAVAILABLE`).
+>
+> When the prompt and the spec disagree, the spec wins. Read these prompts for the *direction of travel*, not for the final answer.
+
 ## Purpose
 
 This directory contains **LLM-optimized prompts** for Askend to use with their AI assistants (Claude, GPT-4, etc.) to generate the complete technical specification for eFTI Gate v2.0.

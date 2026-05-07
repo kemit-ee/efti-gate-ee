@@ -342,7 +342,7 @@ Subset values on the wire are always the canonical `EU01`..`EU07` codes from `us
 
 ### 3.5 Error transformations
 
-All transformation errors surface as RFC 7807 problem JSON with `type: "https://api.efti.ee/errors/<slug>"`. The complete catalog (35 codes, full payloads) is in `docs/specs/errors.json` — do not duplicate it here. The transformation-specific subset:
+All transformation errors surface as RFC 7807 problem JSON with `type: "https://api.efti.ee/errors/<slug>"`. The complete catalog (37 codes, full payloads) is in `docs/specs/errors.json` — do not duplicate it here. The transformation-specific subset:
 
 | Trigger | HTTP | `errorCode` (in `efti.error.code` log field) | Type slug |
 |---|---|---|---|
