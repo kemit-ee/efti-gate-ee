@@ -1,25 +1,27 @@
 sequenceDiagram
     participant Scheduler as Background Scheduler
-    participant ExpiryJob as Expiry Job
+    participant ExpiryJob as IdentifierExpirationJob
     participant DB as PostgreSQL
-    participant Log as Application Log
+    participant Log as ECS JSON log
 
-    Note over Scheduler: Scheduled task runs daily<br/>at randomized time 03:45–05:45 local time<br/>(load spreading across EU gates)
+    Note over Scheduler: Scheduled task runs daily at a randomised time 03:45–05:45 local<br/>(load spread across EU gates). Configurable via IDENTIFIER_EXPIRY_CRON.
 
     Scheduler->>+ExpiryJob: triggerExpiryJob()
+    ExpiryJob->>+Log: INSERT INTO jobs_execution_log (job_name, started_at, status='running')
 
-    ExpiryJob->>+DB: SELECT datasetId FROM consignments<br/>WHERE deliveredAt IS NULL<br/>AND createdAt < NOW() - INTERVAL '90 days'
-    Note over DB: Query uses idx_consignments_expires_at<br/>Partial index on deliveredAt IS NULL
-    DB-->>-ExpiryJob: [550e8400-..., a1b2c3d4-..., c3d4e5f6-...]
+    ExpiryJob->>+DB: SELECT dataset_id FROM consignments<br/>WHERE status='active' AND mode='road'<br/>AND transport_date + INTERVAL '14 days' < NOW()
+    Note over DB: Uses idx_consignments_expires_at (partial index<br/>on status='active' AND expires_at IS NOT NULL).<br/>Cabotage retention per Reg 2024/1942 Art 11(4).
+    DB-->>-ExpiryJob: [550e8400-…, a1b2c3d4-…, c3d4e5f6-…]
 
-    loop For each expired consignment
-        ExpiryJob->>+DB: UPDATE consignments<br/>SET deliveredAt = NOW()<br/>WHERE datasetId = '550e8400-...'
+    loop For each expired road consignment
+        ExpiryJob->>+DB: UPDATE consignments<br/>SET status='inactive'<br/>WHERE dataset_id='550e8400-…' AND status='active'
         DB-->>-ExpiryJob: 1 row updated
-
-        ExpiryJob->>Log: INFO: Expired consignment 550e8400-... (platformId=demo)
+        Note over DB: AFTER UPDATE trigger consignments_change_history<br/>writes (table='consignments', row_id='550e8400-…',<br/>column='status', old='active', new='inactive') to change_history.
+        ExpiryJob->>Log: { event.action: "identifier.expire",<br/>efti.dataset.id: "550e8400-…", efti.expiry.reason: "cabotage_14d" }
     end
 
-    ExpiryJob->>Log: INFO: Expiry job complete. Expired 3 consignments.
+    ExpiryJob->>+DB: UPDATE jobs_execution_log<br/>SET finished_at=NOW(), status='completed',<br/>details=jsonb_build_object('expired_count', 3)
+    DB-->>-ExpiryJob: ok
     ExpiryJob-->>-Scheduler: done
 
-    Note over Scheduler: Next run scheduled for tomorrow<br/>at randomized time 03:45–05:45
+    Note over Scheduler: Non-road modes (maritime/rail/air/multimodal)<br/>are NOT expired by this job — Reg 2024/1942 Art 11(4)<br/>cabotage retention applies to road only.

@@ -16,16 +16,16 @@ sequenceDiagram
     Auth->>Auth: Split by ":" → email="jaan.tamm@politsei.ee", secret="generated-secret-uuid"
 
     Auth->>+DB: SELECT * FROM users WHERE email = 'jaan.tamm@politsei.ee'
-    DB-->>-Auth: User{id=d2e3f4a5, email=..., secretHash=sha256(...), roles={"AUTHORITY":["aut-politsei-001"]}, subsets=["EU07"]}
+    DB-->>-Auth: User{id=d2e3f4a5, email=..., secretHash=sha256(...), roles={"AUTHORITY":["auth-politsei-001"]}, subsets=["EU07"]}
 
     Auth->>Auth: sha256(secret) == user.secretHash → valid
 
-    Auth-->>-Gate: User{id=d2e3f4a5, roles={"AUTHORITY":["aut-politsei-001"]}, subsets=["EU07"]}
+    Auth-->>-Gate: User{id=d2e3f4a5, roles={"AUTHORITY":["auth-politsei-001"]}, subsets=["EU07"]}
 
     Gate->>+Route: handle(exchange, user)
     Note over Route: @Access(AUTHORITY) annotation<br/>checks user.roles contains AUTHORITY
 
-    Route->>Route: before(exchange)<br/>authorityId = user.roles["AUTHORITY"].first() = "aut-politsei-001"
+    Route->>Route: before(exchange)<br/>authorityId = user.roles["AUTHORITY"].first() = "auth-politsei-001"
 
     Route->>Route: Process identifier search
     Route-->>-Gate: result

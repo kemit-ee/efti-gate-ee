@@ -1,41 +1,38 @@
 stateDiagram-v2
-    [*] --> Registered: Platform: POST /v1/identifiers/{datasetId}
+    [*] --> active: Platform: POST /v1/identifiers/{datasetId}<br/>(XSD valid → INSERT consignments + identifiers)
 
-    Registered --> Active: Validation successful\n(XML valid, identifiers parsed)
+    [*] --> rejected: XSD invalid<br/>(JAXB throws → 400 INVALID_XML, no DB write)
+    rejected --> [*]
 
-    Registered --> Rejected: Validation failed\n(malformed XML, parse error → 400)
+    active --> active: Platform: POST /v1/identifiers/{datasetId}<br/>(re-upload — INSERT new consignments row, replaces previous)
 
-    Rejected --> [*]: Identifier not stored
+    active --> inactive: IdentifierExpirationJob<br/>(mode='road' AND transport_date + 14 days < NOW())<br/>UPDATE consignments SET status='inactive'<br/>per Reg 2024/1942 Art 11(4) — cabotage retention
 
-    Active --> Active: Platform: POST /v1/identifiers/{datasetId}\n(re-upload updates dataset XML)
+    inactive --> active: rare — re-registration of same datasetId<br/>(treated as a new consignment row)
 
-    Active --> Expired: Background expiry job\n(createdAt < NOW() - 90 days)\ndeliveredAt set to NOW()
+    active --> deleted: Admin: DELETE /api/v1/consignments/{datasetId}<br/>UPDATE consignments SET status='deleted'<br/>(soft delete — row retained for audit)
+    inactive --> deleted: Admin: DELETE /api/v1/consignments/{datasetId}<br/>UPDATE consignments SET status='deleted'
 
-    Active --> Deleted: Admin: DELETE /admin/consignments/{datasetId}\n(immediate removal)
-
-    Expired --> Deleted: Admin: DELETE /admin/consignments/{datasetId}\nOR cascaded delete
-
-    Deleted --> [*]: Row removed from consignments\nand identifiers (CASCADE DELETE)
-
-    note right of Active
-        State: Active (deliveredAt IS NULL)
-        - Search returns this identifier
-        - Dataset XML accessible via /dataset/{gateId}/{platformId}/{datasetId}
-        - Indexed in: identifiers table (id, countryCode)
-        - Platform can update XML at any time
+    note right of active
+        Status enum value: 'active'
+        - Authority search returns this consignment.
+        - Dataset XML retrievable via GET /v1/dataset/...
+        - Indexed via consignments denormalised columns
+          (vehicle_plate, vehicle_country, mode, …).
     end note
 
-    note right of Expired
-        State: Expired (deliveredAt IS NOT NULL)
-        - Search does NOT return this identifier
-        - Dataset may still be accessible via direct UIL
-        - Expiry randomized: 03:45–05:45 local time
-        - Purpose: spread load across EU gates
+    note right of inactive
+        Status enum value: 'inactive'
+        - Authority default search excludes (status=active filter).
+        - Returned only with explicit status=inactive|all
+          (cabotage queries: dateFrom/dateTo + status=inactive).
+        - Dataset XML still retrievable via direct UIL.
     end note
 
-    note right of Deleted
-        State: Deleted
-        - Both consignment and identifiers rows removed
-        - CASCADE DELETE on identifiers table
-        - Not accessible via search or dataset endpoint
+    note right of deleted
+        Status enum value: 'deleted'
+        - Soft delete: row retained for audit retention.
+        - DELETE never granted to the runtime app role.
+        - Excluded from all default queries (status=active filter).
+        - Physical removal only via partition rotation by maintenance role.
     end note

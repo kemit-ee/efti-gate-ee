@@ -250,7 +250,7 @@ Five templates cover every event shape in the gate. Per-event variations live in
   "event.action": "dataset.deliver",
   "event.outcome": "failure",
   "http": {
-    "request.id": "ee5lh399-h15k-20gd-j605-335544339999",
+    "request.id": "2a90e81e-17d3-48d9-b7a7-64c26e2df44b",
     "request.method": "GET",
     "request.path": "/v1/dataset/eu-ee31/demo/550e8400-e29b-41d4-a716-446655440000",
     "response.status_code": 500
