@@ -65,7 +65,7 @@ The archival contract:
 
 - All operational tables are scanned per-logical-id; every row except the latest is moved to archival storage.
 - For tables with TTL (`request_id_cache`, `sessions`), entries past `expires_at` are also moved.
-- Archived data must be retained per the compliance windows (see [`../non-functional.md`](../non-functional.md) §5: 7 years for audit ledgers, indefinite for change history).
+- Archived data must be retained per the compliance windows in [`../non-functional.md`](../non-functional.md) §5: minimum 7 years for `audit_log` on the live DB (operator may extend indefinitely; not archived), and 7 years on live DB **plus archive** for `follow_up_log` and every other operational table.
 - Archive destination is implementation-defined (S3-compatible object store, secondary Postgres, etc.); the live DB does not depend on archive location.
 
 The full contract — endpoint shape, batching strategy, idempotency rules, retention windows — lives in **Epic 26** ([`../../epics/epic_26_en.md`](../../epics/epic_26_en.md)).
