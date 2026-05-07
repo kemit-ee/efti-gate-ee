@@ -4,3 +4,4 @@ docs/efti-analysis/8-codereview/eFTI_codereview_en.pdf
 
 # Internal working notes, not part of the spec corpus — never push.
 CHANGES-FROM-ASKEND.md
+INTEGRITY-AUDIT.md
