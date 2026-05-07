@@ -145,10 +145,12 @@ If JAXB throws (`JAXBException` / `SAXParseException`), `EftiService.saveIdentif
 **Output:**
 
 ```sql
-INSERT INTO consignments (dataset_id, platform_id, gate_id, xml, mode, dangerous_goods, delivered_at, created_at, updated_at)
+INSERT INTO consignments (dataset_id, platform_id, gate_id, xml, mode, dangerous_goods, delivered_at, created_at)
 VALUES ('550e8400-e29b-41d4-a716-446655440000', 'demo', 'eu-ee31',
         '<consignment xmlns="http://efti.eu/v1/consignment/identifier">...</consignment>',
-        'road', false, '2026-04-23T07:15:00Z', now(), now());
+        'road', false, '2026-04-23T07:15:00Z', now());
+-- No `updated_at` column under the append-only schema. State changes write
+-- a new row; the latest row by `created_at` is the current state.
 
 -- identifiers.id is auto-generated UUIDv4 by uuid_generate_v4(); the XML-derived
 -- vehicle plate is stored in identifier_value, the discriminator in identifier_type.
@@ -410,11 +412,13 @@ The Gate does **not** validate XML against the full XSD schema. JAXB maps known 
 
 ### 5.3 Database constraints
 
+The append-only schema uses synthetic `row_id UUID` primary keys; the previous "primary key" columns (`consignments.dataset_id`, `identifiers.id`) are now **non-unique logical identifiers**. There is no PRIMARY KEY violation on `dataset_id` and no FOREIGN KEY between operational tables — referential integrity is enforced at the application layer (see [`db/README.md`](db/README.md) "Foreign keys"). Re-uploads against an existing `dataset_id` succeed as new rows; the latest row by `created_at` is the current state.
+
 | Constraint | Table | Column | Error |
 |---|---|---|---|
-| PRIMARY KEY | `consignments` | `dataset_id` | `DUPLICATE_DATASET_ID` (409) |
-| FOREIGN KEY | `identifiers` | `dataset_id → consignments(dataset_id)` | `DATABASE_ERROR` (500) |
+| PRIMARY KEY (synthetic) | every operational table | `row_id` | n/a — auto-generated UUID, cannot collide |
 | NOT NULL | `consignments` | `platform_id`, `gate_id`, `xml` | `DATABASE_ERROR` (500) |
+| CHECK / domain enums | every operational table | various | `BAD_REQUEST_GENERAL` (400) at app boundary; `DATABASE_ERROR` (500) if it slips through |
 
 ---
 

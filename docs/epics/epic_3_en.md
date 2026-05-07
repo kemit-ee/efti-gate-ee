@@ -50,8 +50,8 @@ See `seq-01-identifier-registration.mmd` for full detail.
 **Edge cases:**
 - [ ] eFTI platform omits `vehicle_plate` (pre-registration) → record stored with empty `vehicle_plate`; subsequent `POST` with same `datasetId` adds/updates plate
 - [ ] Search by plate does not return records where `vehicle_plate` is empty or null
-- [ ] Multi-platform user (>1 PLATFORM role) sends without `platformId` → `400 Bad Request` with `"detail": "Multiple platforms detected: specify platformId parameter"`
-- [ ] Multi-platform user specifies valid `platformId` → processed as single-platform for that platform
+- [ ] Client cert subject DN resolves to >1 active row in `platforms.cert_subject` → `403 Forbidden` with `code: FORBIDDEN_MULTI_PLATFORM` (configuration error, not a runtime user choice — see `seq-13-multi-platform-user.mmd`)
+- [ ] Client cert subject DN resolves to 0 active rows → `403 Forbidden` with `code: FORBIDDEN_NO_PLATFORM`
 - [ ] `countryCode` not ISO 3166-1 alpha-2 (e.g. `"EST"`) → `400 Bad Request` with field-level error
 - [ ] `datasetId` not UUID format → `400 Bad Request` with `"detail": "datasetId must be a valid UUID v4"`
 

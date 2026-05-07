@@ -4,33 +4,31 @@ sequenceDiagram
     participant DB as PostgreSQL
 
     Admin->>+Gate: POST /api/v1/authorities
-    Note over Admin,Gate: Authorization: Bearer admin-key<br/>Body: {"id":"aut-politsei-001","name":"Police and Border Guard Board","countryCode":"EE","subsets":["EU07","EU01"]}
+    Note over Admin,Gate: Authorization: Bearer {TARA-JWT, role=ADMIN}<br/>Body: {"id":"aut-politsei-001","name":"Police and Border Guard Board","countryCode":"EE","subsets":["EU07","EU01"]}
 
-    Gate->>Gate: Authenticate & authorize (role=ADMIN)
+    Gate->>Gate: Validate JWT (signature, exp, iss, aud);<br/>require resource_access.efti-gate.roles ∋ ADMIN
 
-    Gate->>+DB: INSERT INTO authorities (id, name, countryCode, subsets)<br/>VALUES ('aut-politsei-001', 'Police and Border Guard Board', 'EE', '{EU07,full}')
-    DB-->>-Gate: OK
+    Gate->>+DB: INSERT INTO authorities (id, name, country_code, subsets, created_by, created_at)<br/>VALUES ('aut-politsei-001', 'Police and Border Guard Board', 'EE', '{EU07,EU01}', $admin_uid, NOW())
+    DB-->>-Gate: OK (new row; latest row for this id wins)
 
-    Gate-->>Admin: 200 OK\n{"id":"aut-politsei-001","name":"Police and Border Guard Board","countryCode":"EE","subsets":["EU07","EU01"]}
+    Gate-->>Admin: 201 Created\n{"id":"aut-politsei-001","name":"Police and Border Guard Board","countryCode":"EE","subsets":["EU07","EU01"]}
 
     Note over Admin: Authority registered with allowed subsets.<br/>Now create authority users.
 
-    Admin->>+Gate: POST /api/v1/users?generateSecret=true
-    Note over Admin,Gate: Body: {"name":"Officer Jaan Tamm","email":"jaan.tamm@politsei.ee","roles":{"AUTHORITY":["aut-politsei-001"]},"subsets":["EU07"]}
+    Admin->>+Gate: POST /api/v1/users
+    Note over Admin,Gate: Body: {"name":"Officer Jaan Tamm","email":"jaan.tamm@politsei.ee","roles":{"AUTHORITY":["aut-politsei-001"]},"subsets":["EU07"]}<br/>(no secret — primary auth is TARA-issued JWT)
 
-    Gate->>Gate: Validate user subsets against authority subsets:<br/>user.subsets=["EU07"] ⊆ authority.subsets=["EU07","EU01"] → OK
+    Gate->>Gate: Validate user.subsets ⊆ authority.subsets:<br/>["EU07"] ⊆ ["EU07","EU01"] → OK
 
-    Gate->>Gate: Generate random secret
+    Gate->>+DB: INSERT INTO users (id, name, email, roles, subsets, secret_hash, created_by, created_at)<br/>VALUES (uuid_generate_v4(), 'Officer Jaan Tamm', 'jaan.tamm@politsei.ee',<br/>'{"AUTHORITY":["aut-politsei-001"]}', '{EU07}', NULL, $admin_uid, NOW())
+    DB-->>-Gate: row inserted; user.id="d2e3f4a5-..."
 
-    Gate->>+DB: INSERT INTO users (name, email, roles, subsets, secretHash)<br/>VALUES ('Officer Jaan Tamm', 'jaan.tamm@politsei.ee',<br/>         '{"AUTHORITY":["aut-politsei-001"]}', '{EU07}', sha256hash(...))
-    DB-->>-Gate: user.id="d2e3f4a5-..."
+    Gate-->>-Admin: 201 Created\n{"id":"d2e3f4a5-...","name":"Officer Jaan Tamm","email":"jaan.tamm@politsei.ee","roles":{"AUTHORITY":["aut-politsei-001"]},"subsets":["EU07"]}
 
-    Gate-->>-Admin: 200 OK\nd2e3f4a5-...:generated-secret-uuid
-
-    Note over Admin: Authority user created with EU07 subset only.<br/>User can now call GET /v1/identifiers and GET /v1/dataset?subsetId=EU07
+    Note over Admin: Authority user created with EU07 subset only.<br/>User authenticates via TARA OIDC; the gate's `users.id`<br/>is matched on first login by the TARA `sub` claim<br/>(Estonian PIC) against `users.email` (or a separate<br/>`users.tara_sub` column in a future migration).
 
     alt Invalid subsets (user requests more than authority allows)
-        Admin->>Gate: POST /api/v1/users (subsets=["EU01"] but authority only has ["EU07"])
-        Gate->>Gate: Validate: ["EU01"] ⊄ ["EU07"] → validation fails
-        Gate-->>Admin: 400 Bad Request\n{"error": "Subsets must match Authority's subsets"}
+        Admin->>Gate: POST /api/v1/users (subsets=["EU01","EU03"], authority subsets=["EU07","EU01"])
+        Gate->>Gate: Validate: ["EU01","EU03"] ⊄ ["EU07","EU01"] → fails
+        Gate-->>Admin: 400 Bad Request\n{"code":"BAD_REQUEST_GENERAL","detail":"User subsets must be a subset of the authority's subsets."}
     end

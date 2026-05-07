@@ -15,13 +15,15 @@
 
 **AS4 message types at a glance:**
 
+> **Implementation choice (not mandated by EU regs).** The diagrams below show "AS4 access point" generically. Operators may use the gate's embedded AS4 implementation (Askend baseline) or [Domibus](https://ec.europa.eu/digital-building-blocks/sites/display/DIGITAL/Domibus) — both are protocol-compatible per Reg 2024/1942 Art 11. Wherever the diagrams say "eDelivery AS4 AP" the deployed implementation could be either.
+
 ```mermaid
 flowchart LR
-    GA[Gate A] -- identifierQuery / uilQuery / postFollowUpRequest --> Dom[Domibus AS4<br/>SOAP, WS-Security<br/>sign + encrypt]
-    Dom --> GB[Gate B]
-    GB -- identifierResponse / uilResponse --> Dom
-    Dom -- async via async_responses<br/>+ LISTEN/NOTIFY --> GA
-    GB -. SOAP fault on parse error<br/>or unknown Action .-> Dom
+    GA[Gate A] -- identifierQuery / uilQuery / postFollowUpRequest --> AP[eDelivery AS4 AP<br/>embedded or Domibus<br/>SOAP, WS-Security, sign + encrypt]
+    AP --> GB[Gate B]
+    GB -- identifierResponse / uilResponse --> AP
+    AP -- async via async_responses<br/>+ LISTEN/NOTIFY --> GA
+    GB -. SOAP fault on parse error<br/>or unknown Action .-> AP
 ```
 
 Detailed sequence diagrams for outgoing and incoming flows follow below.
@@ -37,7 +39,7 @@ Detailed sequence diagrams for outgoing and incoming flows follow below.
 ```mermaid
 sequenceDiagram
     participant Gate as Gate Backend
-    participant EDelivery as eDelivery (Domibus)
+    participant EDelivery as eDelivery AS4 AP (embedded or Domibus)
     participant RemoteEDelivery as Remote Gate eDelivery
     participant RemoteGate as Remote Gate Backend
 
@@ -59,7 +61,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant RemoteGate as Remote Gate
-    participant EDelivery as eDelivery (Domibus)
+    participant EDelivery as eDelivery AS4 AP (embedded or Domibus)
     participant Gate as Gate Backend
     participant Platform
 

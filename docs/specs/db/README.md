@@ -81,14 +81,14 @@ The schema declares two PostgreSQL roles with strictly disjoint capabilities:
 
 **Why two roles, not one.** The append-only invariant ("the gate cannot mutate or remove rows") is enforced by grant, not by convention. If `app` had DELETE, a single misrouted code path could destroy history; the database itself prevents that. The archival worker, conversely, has DELETE but no INSERT — it can only remove rows it has already copied to cold storage.
 
-**`db_archiver` cannot DELETE from `audit_log`.** The audit ledger is preserved indefinitely on the live DB per [`../logging-spec.md`](../logging-spec.md) and `../non-functional.md` §5; copying it to cold storage is a separate concern handled outside this archival job.
+**`db_archiver` cannot DELETE from `audit_log`.** The audit ledger is preserved on the live DB for **at least 7 years** (compliance floor — GDPR Art 30, Reg 2024/1942 Art 6; see `../non-functional.md` §5); operators may extend indefinitely. Copying it to cold storage is a separate concern handled outside this archival job.
 
 **Where the credentials live.** The `db_archiver` password lives in a Kubernetes Secret consumed by the archival-worker connection pool that backs `POST /api/v1/admin/archive`. The gate's main connection pool authenticates as `app` and never sees the `db_archiver` credentials. CronManager itself never connects to PostgreSQL — it only calls the gate's HTTPS admin endpoint with a Bearer token (see [`../deploy/cronmanager-archive.yaml`](../deploy/cronmanager-archive.yaml)).
 
 ## Pointers
 
 - [`schema.sql`](./schema.sql) — canonical schema with full `COMMENT ON` coverage
-- ER diagram: [`../../efti-analysis/3-model/er-diagram.png`](../../efti-analysis/3-model/er-diagram.png) *(stale — does not yet reflect the append-only redesign; refresh planned in Phase 3)*
+- ER diagram: **deferred to Phase 3.** The pre-rewrite ER diagram at `../../efti-analysis/3-model/er-diagram.png` is no longer accurate (it shows FK constraints and PK uniqueness on `dataset_id` that the append-only schema explicitly forbids — see "Foreign keys" above). Don't follow it. The canonical structural truth is `schema.sql` itself plus the read-pattern documented in this file.
 - Read patterns and XML/JSON transformations: [`../data-transformations.md`](../data-transformations.md)
 - Permission rules: [`../permissions-matrix.md`](../permissions-matrix.md)
 - Error catalog: [`../errors.json`](../errors.json)

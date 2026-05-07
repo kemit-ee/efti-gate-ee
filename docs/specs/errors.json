@@ -161,29 +161,6 @@
       "logLevel": "ERROR",
       "retryable": true
     },
-    "DUPLICATE_DATASET_ID": {
-      "code": "DUPLICATE_DATASET_ID",
-      "httpStatus": 409,
-      "title": "Duplicate Dataset ID",
-      "description": "A consignment with this datasetId already exists in the consignments table (primary key violation).",
-      "type": "https://api.efti.ee/errors/duplicate-dataset-id",
-      "examples": [
-        {
-          "scenario": "Platform re-posts identifiers for a datasetId already registered",
-          "request": "POST /identifiers/550e8400-e29b-41d4-a716-446655440000 (second time)",
-          "response": {
-            "type": "https://api.efti.ee/errors/duplicate-dataset-id",
-            "title": "Duplicate Dataset ID",
-            "status": 409,
-            "detail": "Consignment with datasetId '550e8400-e29b-41d4-a716-446655440000' already exists. Use PUT to update.",
-            "instance": "/identifiers/550e8400-e29b-41d4-a716-446655440000"
-          }
-        }
-      ],
-      "errorMapping": "DataIntegrityViolationException (primary key on consignments.datasetId)",
-      "logLevel": "WARN",
-      "retryable": false
-    },
     "DUPLICATE_REQUEST_ID": {
       "code": "DUPLICATE_REQUEST_ID",
       "httpStatus": 409,
@@ -882,7 +859,6 @@
     "BadRequestException": "INVALID_XML",
     "UnauthorizedException": "UNAUTHORIZED",
     "ForbiddenException": "FORBIDDEN",
-    "DataIntegrityViolationException": "DUPLICATE_DATASET_ID",
     "StatusCodeException(BadGateway)": "GATEWAY_UNAVAILABLE",
     "ConnectException": "PLATFORM_UNAVAILABLE",
     "SocketTimeoutException": "PLATFORM_TIMEOUT",

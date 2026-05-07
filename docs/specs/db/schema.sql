@@ -257,7 +257,7 @@ CREATE TABLE users (
   is_admin      BOOLEAN      NOT NULL DEFAULT FALSE,
   roles         JSONB        NOT NULL DEFAULT '{}'::jsonb,  -- {"PLATFORM":["plt-demo"]}, {"AUTHORITY":["auth-mta"]}, ...
   subsets       TEXT[]       NOT NULL DEFAULT ARRAY[]::TEXT[],
-  secret_hash   TEXT,        -- bcrypt hash of (UUID:secret); NULL means token-only login
+  secret_hash   TEXT,        -- bcrypt of break-glass local-admin password. NULL for the typical user (TARA OIDC JWT).
   is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
   created_by    UUID,
   created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -273,7 +273,7 @@ COMMENT ON COLUMN users.name          IS 'Display name';
 COMMENT ON COLUMN users.is_admin      IS 'Bypass flag: TRUE skips role-level @Access checks';
 COMMENT ON COLUMN users.roles         IS 'Role → party-IDs mapping. Example: {"PLATFORM":["plt-demo"]}, {"AUTHORITY":["auth-mta"]}, {"GATE":["eu-fi01"]}, or {} for Super Admin.';
 COMMENT ON COLUMN users.subsets       IS 'eFTI subsets this user (typically AUTHORITY role) is permitted to request. Must be a subset of the authority''s subsets.';
-COMMENT ON COLUMN users.secret_hash   IS 'bcrypt hash of (id:secret) used for Bearer-token authentication. NULL for users that authenticate only via JWT issued through TARA SSO.';
+COMMENT ON COLUMN users.secret_hash   IS 'bcrypt hash of the break-glass local-admin password. NULL for the typical user — primary auth is TARA-issued OIDC JWT (Authority + Admin) or the platform''s eDelivery AP X.509 cert (Platform). Populated only on the single local-root row used during TARA outages and initial bootstrap; the break-glass path is exposed via POST /api/v1/auth/local-token, default-disabled (LOCAL_ADMIN_FALLBACK_ENABLED=false).';
 COMMENT ON COLUMN users.is_active     IS 'Logical-deletion flag';
 COMMENT ON COLUMN users.created_by    IS 'users.row_id of the actor that wrote this row (the admin creating/editing). NULL for self-registration / TARA-on-first-login flows.';
 COMMENT ON COLUMN users.created_at    IS 'When this row was inserted';
@@ -402,30 +402,38 @@ COMMENT ON COLUMN request_id_cache.expires_at IS 'After this timestamp the row i
 CREATE INDEX idx_request_id_cache_expires ON request_id_cache (expires_at);
 
 -- ----------------------------------------------------------------------------
--- 4.2 sessions — JWT revocation marker
+-- 4.2 sessions — JWT denylist (revocation list)
 -- ----------------------------------------------------------------------------
--- INSERT-only. Each row is either a "session created" event or a "session
--- revoked" event for the same token_hash. The latest row per token_hash
--- (by created_at) determines whether the token is currently valid.
+-- Append-only. Holds revocation entries for TARA-issued JWTs whose `jti` claim
+-- has been explicitly revoked before TARA-side `exp`. AccessChecker rejects
+-- any presented JWT whose `jti` is in this table AND whose `exp` is still in
+-- the future. Old (expired-naturally) entries are archived nightly by
+-- CronManager (Epic 26).
+--
+-- Primary auth is TARA OIDC JWT; this table is consulted only on the
+-- denylist-check path. There is no "session created" event — the JWT itself
+-- is the session. Only revocation is persisted.
 
 CREATE TABLE sessions (
   row_id      UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id     UUID         NOT NULL,                 -- logical users.id
-  token_hash  VARCHAR(64)  NOT NULL,                 -- SHA-256 of the JWT; logical identifier for the token
-  expires_at  TIMESTAMPTZ  NOT NULL,
-  revoked_at  TIMESTAMPTZ,                            -- NULL = create event; non-NULL = revoke event
+  user_id     UUID         NOT NULL,                 -- logical users.id (extracted from JWT sub at revocation time)
+  jti         VARCHAR(255) NOT NULL,                 -- JWT ID claim (RFC 7519 §4.1.7); logical identifier for the token
+  expires_at  TIMESTAMPTZ  NOT NULL,                 -- copied from JWT exp; rows past this are eligible for archival
+  revoked_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  reason      VARCHAR(64),                            -- 'logout' | 'admin_revoke' | 'incident' | …
   created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-COMMENT ON TABLE  sessions IS 'JWT lifecycle events. Append-only: login INSERTs a row with revoked_at=NULL; logout / admin revoke INSERTs another row with the same token_hash and revoked_at populated. Token is valid iff the latest row per token_hash has revoked_at IS NULL AND expires_at > NOW().';
+COMMENT ON TABLE  sessions IS 'JWT denylist. INSERT-only. Holds (jti, revoked_at) entries for tokens explicitly revoked before TARA-side exp. AccessChecker rejects any JWT whose jti is here AND whose exp is in the future. Rows past expires_at are archived by CronManager.';
 COMMENT ON COLUMN sessions.row_id      IS 'Synthetic primary key';
-COMMENT ON COLUMN sessions.user_id     IS 'Logical users.id (the user the JWT was issued for). Denormalised, no FK.';
-COMMENT ON COLUMN sessions.token_hash  IS 'SHA-256 hash of the JWT token string. The logical session identifier — many rows over a token''s lifetime.';
-COMMENT ON COLUMN sessions.expires_at  IS 'Natural expiry from the JWT exp claim; same value on every row for a given token_hash.';
-COMMENT ON COLUMN sessions.revoked_at  IS 'Timestamp of revocation event. NULL on create event. Latest non-NULL means token revoked.';
-COMMENT ON COLUMN sessions.created_at  IS 'When this row was inserted';
+COMMENT ON COLUMN sessions.user_id     IS 'Logical users.id of the JWT subject at revocation time. Denormalised, no FK.';
+COMMENT ON COLUMN sessions.jti         IS 'JWT ID claim (RFC 7519 §4.1.7) — the logical identifier of the revoked token.';
+COMMENT ON COLUMN sessions.expires_at  IS 'Copied from the JWT exp claim. Once exp < NOW() the row stops being load-bearing and becomes archival candidate.';
+COMMENT ON COLUMN sessions.revoked_at  IS 'When the revocation event was recorded.';
+COMMENT ON COLUMN sessions.reason      IS 'Revocation reason: ''logout'' (user-initiated), ''admin_revoke'' (POST /api/v1/users/{id}/revoke-token), ''incident'' (operator forced), …';
+COMMENT ON COLUMN sessions.created_at  IS 'When this row was inserted (== revoked_at).';
 
-CREATE INDEX idx_sessions_token_latest ON sessions (token_hash, created_at DESC);
+CREATE INDEX idx_sessions_jti          ON sessions (jti);
 CREATE INDEX idx_sessions_user_id      ON sessions (user_id);
 CREATE INDEX idx_sessions_expires_at   ON sessions (expires_at);
 
@@ -598,6 +606,15 @@ GRANT USAGE ON SCHEMA public TO db_archiver;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT ON TABLES    TO app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT  ON SEQUENCES TO app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE        ON FUNCTIONS TO app;
+
+-- Same defaults for `db_archiver` so any new operational table added later by
+-- Liquibase is automatically sweepable. NOTE: any new audit-style table that
+-- must be preserved indefinitely on the live DB (like `audit_log`) MUST be
+-- explicitly REVOKEd from db_archiver in the Liquibase changeset that creates
+-- it. This is a deliberate trade-off: defaulting db_archiver to "can DELETE"
+-- means new tables are archivable by default; the operator opts out per-table.
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, DELETE ON TABLES    TO db_archiver;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT  ON SEQUENCES TO db_archiver;
 
 -- Explicit grants for `app` — SELECT + INSERT only on every table. No
 -- UPDATE, no DELETE. Period.

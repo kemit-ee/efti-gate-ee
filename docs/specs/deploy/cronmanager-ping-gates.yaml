@@ -1,0 +1,27 @@
+# CronManager job definition: peer-gate health probe
+# https://github.com/Buerostack/CronManager
+#
+# Probes every peer gate in the local registry over AS4 or Fast HTTP
+# every 5 minutes; INSERTs new `gates` rows with the latest health
+# status. Drop into CronManager's DSL/jobs/ directory; restart
+# CronManager to load. Inject BEARER_OPS_TOKEN from the Kubernetes
+# Secret — do NOT commit a token in this YAML.
+
+efti_gate_ping_gates:
+  # Quartz cron: every 5 minutes. Operator-tunable, but going much
+  # rarer than 5 min hurts the registry-sync detection latency.
+  trigger: "0 */5 * * * ?"
+
+  type: http
+  method: POST
+  url: "${GATE_BASE_URL}/api/v1/admin/ping-gates"
+
+  headers:
+    Authorization: "Bearer ${BEARER_OPS_TOKEN}"
+
+  retry:
+    max_attempts: 2
+    backoff: linear
+    initial_delay: "10s"
+
+  timeout: "120s"

@@ -24,9 +24,14 @@ Consolidated SLOs, SLIs, availability targets, capacity assumptions, and pinned 
 
 ## 2. Capacity model
 
-Steady-state estimates for a single national gate handling Estonia's freight volume. Derived from EU Statistical Office road-freight figures (~30 M tonnes/year cross-border road, ~6 M consignments/year as a rough divisor) and the EU eFTI Sounding Board's projected member-state load.
+Steady-state estimates for a single national gate handling Estonia's outbound freight volume. Two reference points framed the original numbers:
 
-| Dimension | Steady state | Peak (4× steady, e.g. month-end) | Notes |
+- **Estonia-only baseline** — Estonian Statistical Office road freight (~30 M tonnes/year cross-border road; rough divisor ~6 M consignments/year ⇒ ~0.2 reg/sec steady-state, ~0.8 reg/sec peak).
+- **EU-wide-traffic-passing-through scenario** — eFTI Sounding Board projection assuming Estonia's gate also brokers transit traffic crossing through the country. ~63 M consignments/year ⇒ ~2 reg/sec steady-state, ~8 reg/sec peak.
+
+The numbers below adopt the **EU-wide-passthrough scenario** because (a) it dimensions safely for Test Fest 4+ load and (b) the gate process is the same regardless of caller volume — over-provisioning at SLO-design time is cheap. Operators handling only Estonian-origin traffic can divide every per-second / per-day row in this table by 10 to get their actual load.
+
+| Dimension | Steady state (EU-passthrough) | Peak (4× steady) | Notes |
 |---|---|---|---|
 | Identifier registrations | 2 / sec | 8 / sec | Platform-driven; each = 1 INSERT into `consignments` + N INSERTs into `identifiers`. |
 | Authority searches | 0.3 / sec | 1.2 / sec | Includes both local-only and broadcast paths. |
@@ -38,7 +43,7 @@ Steady-state estimates for a single national gate handling Estonia's freight vol
 | DB row growth (`gates`) | ~290 rows/day **per gate** | — | Ping cadence is one INSERT every 5 min ⇒ 288 rows/day per gate. Across all peer gates whose pings this gate stores in its local registry copy, the total is `peer_gate_count × 288`. For ~30 EU gates that is ~8 700 rows/day in this table; if peer-ping rows are not replicated locally, only the ~290 self-ping rows remain. |
 | DB row growth (`sessions`) | ~5 K / day | — | Append-only: one INSERT on login, one INSERT on logout / token revocation. |
 | DB row growth (`async_responses` + `request_id_cache`) | ~50 K / day combined | — | Receive INSERT + consume INSERT per async response; correlation-id cache entries (TTL 24 h, then archived). |
-| DB row growth (`audit_log`) | ~30 K / day | — | One row per Authority action + admin mutation; never archived (preserved indefinitely on the live DB per §5). |
+| DB row growth (`audit_log`) | ~30 K / day | — | One row per Authority action + admin mutation; **not archived** (retained on the live DB for ≥ 7 years per §5; operator may extend indefinitely). |
 | Live DB size after 3 y | ~80 GB | — | Live DB stays **bounded** because CronManager (Epic 26) sweeps non-latest rows of every operational table nightly into archival storage. The figure assumes the sweep keeps up with steady-state growth; if archival is paused, the live DB grows at ~150 GB/year. |
 | Cold archive size after 3 y | ~500 GB | — | Monotonically growing JSON-Lines on the archival destination (S3-compatible store, secondary Postgres, or append-only file system). 7-year minimum retention for auditable tables. |
 | JVM heap | 1 GB | — | `-Xmx1g`; alarm at 80 % per logging-spec.md §2.3. |
@@ -48,7 +53,7 @@ Steady-state estimates for a single national gate handling Estonia's freight vol
 
 - **Two nodes minimum** in production (active/active behind a Layer-7 load balancer). One node alone leaves zero error budget for rolling upgrade or single-host failure.
 - **One PostgreSQL primary** plus a streaming-replica standby for DR. PostgreSQL 14+; same major version on primary and standby.
-- **`pg_notify`** for in-cluster registry sync (gate-list refresh on Admin write). Documented in `arch-01-multi-node-deployment.mmd`.
+- **`pg_notify`** for in-cluster registry sync (gate-list refresh on Admin write). The application emits `pg_notify('registry_change', '<gate-id>')` from the same transaction that INSERTs the new `gates` row — no DB-side trigger; trigger-driven NOTIFY would not commit until the surrounding transaction commits anyway, so app-level emission is functionally equivalent and avoids a hidden side-effect at the schema layer. Other nodes LISTEN on `registry_change` and reload the affected row from `gates` on receipt. Documented in `arch-01-multi-node-deployment.mmd` and `seq-15-gate-registry-sync.mmd`.
 - **Reverse proxy** (e.g. Caddy / Traefik / nginx) terminates TLS; gate processes do not handle TLS directly.
 - **eDelivery AS4 access point**: the gate currently embeds its own AS4 implementation (Askend baseline). Domibus is an alternative for member states that already operate one — both are supported by the protocol; the choice is operator-level.
 - **[CronManager](https://github.com/Buerostack/CronManager)** is a strict requirement, not optional. Deployed as a sibling container/Pod alongside the gate, with its own Postgres for Quartz state. CronManager owns every scheduled task — including the **append-only archival sweep** (Epic 26) that moves non-latest rows of every operational table to archival storage on a configurable cron schedule. The gate's runtime never schedules its own jobs; it only exposes the admin endpoints that CronManager calls. See `docs/specs/deploy/cronmanager-archive.yaml` for the canonical job definition.
@@ -68,16 +73,36 @@ The reference implementation will pin these exactly; alternative implementations
 | JDBC pool | HikariCP via `klite-jdbc` | |
 | XML | JAXB (`jakarta.xml.bind` 4.x) | Used for both eFTI consignment XML and AS4 SOAP envelopes. |
 | Cryptography | JCA (AES-GCM, RSA-OAEP) | For eDelivery message encryption. |
+| **JWT validation** | JJWT (`io.jsonwebtoken:jjwt-jackson` ≥ 0.12) **or** Nimbus JOSE+JWT | RS256, JWKS via `taraJwt` discovery. |
+| **Bcrypt** | `at.favre.lib:bcrypt` (or equivalent) | Break-glass local-admin password only. |
 | Logging | Logback + `net.logstash.logback:logstash-logback-encoder:7.4` | Per logging-spec.md Appendix B. |
 | Schema migrations | Liquibase | Per `schema.sql` migration-policy header note. |
 | AS4 implementation | Custom (Askend baseline) **or** Domibus | Operator's choice; both protocol-compatible. |
 | UI (optional) | Svelte 4 (no runes) | Admin/authority H2M UIs; out of scope for the core gate. |
 
+### 4.1 Required environment variables
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `TARA_OIDC_DISCOVERY_URL` | Where the gate fetches JWKS, `iss`, supported algorithms. | `https://tara.ria.ee/.well-known/openid-configuration` (test issuer for non-prod) |
+| `TARA_CLIENT_ID` | The gate's TARA `aud` claim. | required, no default |
+| `TARA_CLIENT_SECRET` | Required only for the OIDC code-exchange flow consumed by the admin/authority browser UI. The gate's REST API itself only validates JWTs; it does not exchange codes. | optional |
+| `TARA_JWKS_CACHE_SECONDS` | TTL for the JWKS cache. | 3600 |
+| `ARCHIVE_OPS_TOKEN` | The static Bearer secret accepted on `/api/v1/admin/archive`, `/expire-identifiers`, `/ping-gates`. 256-bit random; provisioned via Kubernetes Secret. | required, no default |
+| `LOCAL_ADMIN_FALLBACK_ENABLED` | If `true`, `POST /api/v1/auth/local-token` returns 200 with a gate-signed JWT instead of 503. | `false` |
+| `BREAK_GLASS_JWT_SIGNING_KEY` | PEM-encoded RSA private key the gate uses to sign break-glass JWTs (only consulted when `LOCAL_ADMIN_FALLBACK_ENABLED=true`). | optional |
+| `BREAK_GLASS_JWT_TTL_SECONDS` | Hardcoded ceiling 600. Operator may shorten further. | 600 |
+| `MTLS_HEADER_SUBJECT` / `MTLS_HEADER_SERIAL` | Which trusted-proxy headers carry the platform cert subject DN and serial. | `X-Client-Cert-Subject` / `X-Client-Cert-Serial` |
+| `GATE_ID` / `COUNTRY_CODE` | Identity of this gate (`iss` for break-glass JWTs and `Config.gateId` for follow-up validation). | required, no default |
+| `EU_PLATFORM_REGISTRY_URL` / `EU_PLATFORM_REGISTRY_REFRESH_MINUTES` | EU central registry of certified platforms (Reg 2020/1056 Art 7+12). | required, no default / 60 |
+
+There is **no** `JWT_EXPIRY_SECONDS` env var on the primary auth path — TARA owns expiry policy. The earlier draft of the spec referenced these variables; they are removed. The break-glass path's TTL is hardcoded to 600 s and operator-shortenable via `BREAK_GLASS_JWT_TTL_SECONDS`.
+
 ## 5. Compliance targets
 
 | Topic | Requirement | Anchor |
 |---|---|---|
-| Audit retention | 7 years for `audit_log`, `follow_up_log`, and every operational table's archived rows | GDPR Art 30; Reg 2024/1942 Art 6 |
+| Audit retention | **Minimum 7 years on the live DB** for `audit_log` (operator may extend indefinitely — `db_archiver` has no DELETE on this table); 7 years on the live DB **plus archive** for `follow_up_log` and every other operational table. | GDPR Art 30; Reg 2024/1942 Art 6 |
 | Cabotage retention | Road consignments held for 14 days post-transport_date in `inactive` status | Reg 2024/1942 Art 11(4) |
 | Personal-data redaction | `users.secret_hash`, `Authorization` headers, partial vehicle plates in audit contexts | logging-spec.md §6 |
 | Cross-border interoperability | Any EU eFTI gate may query any other gate over AS4 | Reg 2020/1056 |

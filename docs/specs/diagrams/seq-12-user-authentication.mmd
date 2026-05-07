@@ -1,50 +1,67 @@
 sequenceDiagram
-    participant Client as API Client
+    participant Officer as Authority Officer (browser)
+    participant TARA as TARA (RIA OIDC OP)
+    participant UI as Gate Authority UI
     participant Gate as eFTI Gate (eu-ee31)
-    participant Auth as AuthModule
+    participant Auth as AccessChecker
     participant DB as PostgreSQL
     participant Route as Business Route
 
-    Note over Client: Client has credentials in format:<br/>email:secret (Base64 encoded) OR uuid:secret (Base64 encoded)
+    Note over Officer,TARA: Step 1 — TARA OIDC login (out-of-band of the gate's REST API).<br/>Officer authenticates with Estonian eID / Mobile-ID / Smart-ID;<br/>TARA returns an ID Token (RS256-signed JWT, claims: iss, aud,<br/>sub=Estonian PIC, resource_access.efti-gate.roles, subsets,<br/>efti.scope, exp, jti).
 
-    Client->>+Gate: GET /v1/identifiers/123ABC
-    Note over Client,Gate: Authorization: Basic dXNlcjpzZWNyZXQ=<br/>(Base64 of "jaan.tamm@politsei.ee:generated-secret-uuid")
+    Officer->>+TARA: OIDC authorize / authenticate
+    TARA-->>-Officer: ID Token (JWT)
+
+    Note over Officer,UI: Step 2 — UI bearer-attaches the JWT to subsequent gate calls.
+
+    Officer->>+UI: Search "123ABC"
+    UI->>+Gate: GET /v1/identifiers/123ABC<br/>Authorization: Bearer <TARA-JWT>
 
     Gate->>+Auth: authenticate(request)
+    Auth->>Auth: Validate JWT signature against cached JWKS<br/>(fetched from TARA_OIDC_DISCOVERY_URL)
+    Auth->>Auth: Validate iss == TARA, aud == TARA_CLIENT_ID, exp > NOW()
+    Auth->>+DB: SELECT 1 FROM sessions WHERE jti = $1 AND expires_at > NOW()
+    DB-->>-Auth: 0 rows (not in denylist)
 
-    Auth->>Auth: Decode Base64 Authorization header
-    Auth->>Auth: Split by ":" → email="jaan.tamm@politsei.ee", secret="generated-secret-uuid"
+    Note over Auth: All permission claims come from the JWT —<br/>no per-request DB lookup for roles/subsets.
 
-    Auth->>+DB: SELECT * FROM users WHERE email = 'jaan.tamm@politsei.ee'
-    DB-->>-Auth: User{id=d2e3f4a5, email=..., secretHash=sha256(...), roles={"AUTHORITY":["auth-politsei-001"]}, subsets=["EU07"]}
-
-    Auth->>Auth: sha256(secret) == user.secretHash → valid
-
-    Auth-->>-Gate: User{id=d2e3f4a5, roles={"AUTHORITY":["auth-politsei-001"]}, subsets=["EU07"]}
+    Auth-->>-Gate: AuthenticatedUser{<br/>sub="38001011234", roles=["AUTHORITY"],<br/>scope=["aut-politsei-001"], subsets=["EU07"], jti="abc..." }
 
     Gate->>+Route: handle(exchange, user)
-    Note over Route: @Access(AUTHORITY) annotation<br/>checks user.roles contains AUTHORITY
-
-    Route->>Route: before(exchange)<br/>authorityId = user.roles["AUTHORITY"].first() = "auth-politsei-001"
-
-    Route->>Route: Process identifier search
+    Note over Route: @Access(AUTHORITY) — user.roles contains AUTHORITY → OK
+    Route->>Route: authorityId = user.scope.first() = "aut-politsei-001"
+    Route->>Route: subsetCheck: requested ⊆ user.subsets → OK
+    Route->>Route: Execute identifier search (SELECT DISTINCT ON …)
     Route-->>-Gate: result
+    Gate-->>-UI: 200 OK (SSE stream)
+    UI-->>-Officer: Search results
 
-    Gate-->>-Client: 200 OK (SSE stream)
-
-    alt Invalid credentials
-        Client->>Gate: Authorization: Basic aW52YWxpZDppbnZhbGlk
-        Gate->>Auth: authenticate(request)
-        Auth->>DB: SELECT * FROM users WHERE email = 'invalid'
-        DB-->>Auth: null
-        Auth-->>Gate: null (authentication failed)
-        Gate-->>Client: 401 Unauthorized
+    alt Invalid JWT signature / expired / aud mismatch
+        Officer->>Gate: GET /v1/identifiers/123ABC<br/>Authorization: Bearer <bad-jwt>
+        Gate->>Auth: authenticate
+        Auth-->>Gate: null (signature/exp/aud invalid)
+        Gate-->>Officer: 401 Unauthorized<br/>{"code":"TOKEN_INVALID"}
     end
 
-    alt Valid credentials but wrong role
-        Client->>Gate: GET /v1/identifiers/123ABC (platform user, not authority)
+    alt JWT in denylist (revoked via /api/v1/auth/logout)
+        Officer->>Gate: GET /v1/identifiers/123ABC<br/>Authorization: Bearer <revoked-jwt>
         Gate->>Auth: authenticate
-        Auth-->>Gate: User{roles={"PLATFORM":["demo"]}}
-        Gate->>Route: @Access(AUTHORITY) check fails
-        Gate-->>Client: 403 Forbidden
+        Auth->>DB: SELECT 1 FROM sessions WHERE jti = $1 AND expires_at > NOW()
+        DB-->>Auth: 1 row (revoked)
+        Auth-->>Gate: null
+        Gate-->>Officer: 401 Unauthorized<br/>{"code":"TOKEN_INVALID","detail":"Token has been revoked"}
+    end
+
+    alt Valid JWT but wrong role
+        Officer->>Gate: GET /api/v1/gates (admin endpoint)<br/>Authorization: Bearer <authority-only-jwt>
+        Gate->>Auth: authenticate → AuthenticatedUser{roles=["AUTHORITY"]}
+        Gate->>Route: @Access(ADMIN) — user.roles ∌ ADMIN → fails
+        Gate-->>Officer: 403 Forbidden<br/>{"code":"FORBIDDEN"}
+    end
+
+    alt Authority requests subset outside scope
+        Officer->>Gate: GET /v1/dataset/...?subsetId=EU03 (user.subsets=["EU07"])
+        Gate->>Auth: authenticate → ok
+        Gate->>Route: subsetCheck: ["EU03"] ⊄ ["EU07"] → fails
+        Gate-->>Officer: 403 Forbidden<br/>{"code":"FORBIDDEN_SUBSET"}
     end

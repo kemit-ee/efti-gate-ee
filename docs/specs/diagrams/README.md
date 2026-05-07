@@ -19,11 +19,11 @@
 | 5 | [seq-05-dataset-request.mmd](seq-05-dataset-request.mmd) | Authority requests dataset by UIL (cross-gate, via eDelivery) | [Epic 5](../../epics/epic_5_en.md) |
 | 6 | [seq-06-dataset-request-denied.mmd](seq-06-dataset-request-denied.mmd) | Platform denies or cannot serve dataset request (403/404/502) | [Epic 5](../../epics/epic_5_en.md) |
 | 7 | [seq-07-dataset-upload.mmd](seq-07-dataset-upload.mmd) | Platform uploads or updates dataset XML (upsert) | [Epic 3](../../epics/epic_3_en.md) |
-| 8 | [seq-08-identifier-expiration.mmd](seq-08-identifier-expiration.mmd) | Background job marks consignments as delivered/expired | [Epic 5](../../epics/epic_5_en.md), [Epic 17](../../epics/epic_17_en.md) |
-| 9 | [seq-09-gate-ping.mmd](seq-09-gate-ping.mmd) | Background job pings all enabled remote gates, updates status | [Epic 6](../../epics/epic_6_en.md) |
+| 8 | [seq-08-identifier-expiration.mmd](seq-08-identifier-expiration.mmd) | CronManager triggers `POST /api/v1/admin/expire-identifiers`; gate INSERTs `status='inactive'` rows for cabotage-expired road consignments (Reg 2024/1942 Art 11(4)) | [Epic 5](../../epics/epic_5_en.md), [Epic 17](../../epics/epic_17_en.md), [Epic 26](../../epics/epic_26_en.md) |
+| 9 | [seq-09-gate-ping.mmd](seq-09-gate-ping.mmd) | CronManager triggers `POST /api/v1/admin/ping-gates`; gate probes peer registry and INSERTs latest health rows | [Epic 6](../../epics/epic_6_en.md), [Epic 26](../../epics/epic_26_en.md) |
 | 10 | [seq-10-platform-registration.mmd](seq-10-platform-registration.mmd) | Admin registers platform and creates platform user | [Epic 7](../../epics/epic_7_en.md) |
 | 11 | [seq-11-authority-registration.mmd](seq-11-authority-registration.mmd) | Admin registers authority and creates user with subset validation | [Epic 8](../../epics/epic_8_en.md) |
-| 12 | [seq-12-user-authentication.mmd](seq-12-user-authentication.mmd) | JWT authentication flow (Basic auth → token issuance, claim verification) | [Epic 2](../../epics/epic_2_en.md), [Epic 23](../../epics/epic_23_en.md) |
+| 12 | [seq-12-user-authentication.mmd](seq-12-user-authentication.mmd) | TARA OIDC authentication flow — JWT validation against TARA JWKS, denylist check, role/subset enforcement | [Epic 2](../../epics/epic_2_en.md), [Epic 23](../../epics/epic_23_en.md) |
 | 13 | [seq-13-multi-platform-user.mmd](seq-13-multi-platform-user.mmd) | Multi-platform user restriction for identifier submission | [Epic 1](../../epics/epic_1_en.md) |
 | 14 | [seq-14-gate-to-gate-search.mmd](seq-14-gate-to-gate-search.mmd) | Gate receives identifier query from remote gate and responds | [Epic 4](../../epics/epic_4_en.md), [Epic 10](../../epics/epic_10_en.md) |
 | 15 | [seq-15-gate-registry-sync.mmd](seq-15-gate-registry-sync.mmd) | Admin adds gate, in-memory registry syncs across nodes via pg_notify | [Epic 6](../../epics/epic_6_en.md) |

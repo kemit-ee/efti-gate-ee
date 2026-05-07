@@ -15,10 +15,10 @@ sequenceDiagram
 
     GateReg->>GateReg: in-memory cache: gates["eu-pl01"] = Gate{...}<br/>(this node only)
 
-    GateReg->>+DB: INSERT INTO gates<br/>(id, country_code, e_delivery_url, e_delivery_cert,<br/>status, created_by, created_at)<br/>VALUES ('eu-pl01', 'PL', 'https://efti.gitd.gov.pl/as4', '...',<br/>'ONLINE', $admin_uid, NOW())
+    GateReg->>+DB: BEGIN;<br/>INSERT INTO gates<br/>(id, country_code, e_delivery_url, e_delivery_cert,<br/>status, created_by, created_at)<br/>VALUES ('eu-pl01', 'PL', 'https://efti.gitd.gov.pl/as4', '...',<br/>'ONLINE', $admin_uid, NOW());<br/>SELECT pg_notify('registry_change', 'eu-pl01');<br/>COMMIT;
     DB-->>-GateReg: OK (new row; latest row for id wins on next read)
 
-    Note over DB,OtherNode: AFTER INSERT trigger on gates fires<br/>pg_notify('registry_change', 'eu-pl01')
+    Note over DB,OtherNode: pg_notify is emitted by the application in the<br/>same transaction as the INSERT — NO DB-side trigger.<br/>NOTIFY is delivered to LISTENers on transaction commit.
 
     DB->>OtherNode: NOTIFY registry_change (channel: registry_change, payload: eu-pl01)
 

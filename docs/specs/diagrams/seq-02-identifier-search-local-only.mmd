@@ -1,20 +1,21 @@
 sequenceDiagram
     participant Authority as Authority User
     participant Gate as eFTI Gate (eu-ee31)
-    participant Auth as Auth (API Key)
+    participant Auth as AccessChecker (TARA JWT)
     participant DB as PostgreSQL
     participant SSE as SSE Stream
 
     Authority->>+Gate: GET /v1/identifiers/123ABC?registrationCountryCode=EE
-    Note over Authority,Gate: Accept: text/event-stream<br/>Authorization: Bearer aut-demo-key<br/>X-Request-ID: req-a1b2c3d4
+    Note over Authority,Gate: Accept: text/event-stream<br/>Authorization: Bearer <TARA-JWT, role=AUTHORITY><br/>X-Request-ID: req-a1b2c3d4
 
-    Gate->>+Auth: Validate API key
-    Auth-->>-Gate: User{authorityId="demo", role=AUTHORITY}
+    Gate->>+Auth: validate(JWT)
+    Auth-->>-Gate: AuthenticatedUser{authorityId="auth-mta", subsets=["EU01","EU02"]}
 
     Gate->>Gate: Build IdentifiersQuery<br/>(id="123ABC", countryCode="EE", forceBroadcast=false)
 
     Gate->>Gate: getLocalIdentifiers(query)
-    Gate->>+DB: SELECT dataset_id, platform_id, mode, vehicle_plate<br/>FROM consignments<br/>WHERE vehicle_plate = '123ABC' AND vehicle_country = 'EE'<br/>AND status = 'active'
+    Gate->>+DB: SELECT dataset_id, platform_id, mode, vehicle_plate<br/>FROM (<br/>  SELECT DISTINCT ON (dataset_id) dataset_id, platform_id, mode,<br/>         vehicle_plate, vehicle_country, status<br/>  FROM consignments<br/>  WHERE vehicle_plate = '123ABC' AND vehicle_country = 'EE'<br/>  ORDER BY dataset_id, created_at DESC<br/>) latest<br/>WHERE status = 'active';
+    Note over DB: DISTINCT ON gives the latest row per dataset_id;<br/>the outer WHERE filters to currently active.<br/>Avoids returning historical rows whose latest is now inactive.
     DB-->>-Gate: 1 result (datasetId=550e8400-..., platformId="demo")
 
     Gate->>Gate: local.size=1 → forceBroadcast=false<br/>→ NO broadcast (local results found)
@@ -22,12 +23,8 @@ sequenceDiagram
     Note over Gate: Open SSE stream to authority
 
     Gate-->>+SSE: HTTP 200 OK (text/event-stream)
-
     Gate-->>SSE: event: gate\ndata: {"gateId":"eu-ee31","consignments":null,"responseTimeMs":4}
-
-    Gate-->>SSE: event: consignment (id=550e8400-e29b-41d4-a716-446655440000)\ndata: {"vehicle":{"plate":"123ABC","country":"EE"},"mode":"ROAD","uil":{"platformId":"demo","datasetId":"550e8400-..."}}
-
+    Gate-->>SSE: event: consignment (id=550e8400-e29b-41d4-a716-446655440000)\ndata: {"vehicle":{"plate":"123ABC","country":"EE"},"mode":"3","uil":{"platformId":"demo","datasetId":"550e8400-..."}}
     Gate-->>SSE: event: complete\ndata: {}
-
     Gate-->>-Authority: SSE stream closed
     Note over Authority: Received 1 consignment from local gate only.<br/>No broadcast needed (results found locally).

@@ -1,0 +1,35 @@
+# CronManager job definition: daily cabotage-expiry sweep
+# https://github.com/Buerostack/CronManager
+#
+# Sister job to cronmanager-archive.yaml. Marks road consignments
+# inactive once `transport_date + 14 days < NOW()` per Reg 2024/1942
+# Art 11(4) (cabotage retention). Drop into CronManager's DSL/jobs/
+# directory; restart CronManager to load. Inject BEARER_OPS_TOKEN from
+# the Kubernetes Secret — do NOT commit a token in this YAML.
+
+efti_gate_expire_identifiers:
+  # Quartz cron: 03:45 every day. Slightly after the archive sweep
+  # (03:00) — operator-tunable.
+  trigger: "0 45 3 * * ?"
+
+  type: http
+  method: POST
+  url: "${GATE_BASE_URL}/api/v1/admin/expire-identifiers"
+
+  headers:
+    Authorization: "Bearer ${BEARER_OPS_TOKEN}"
+    Content-Type: "application/json"
+
+  # Optional body. Default behaviour: full sweep, no dry-run, real "now"
+  # cutoff. Operators can override during incident replay or test.
+  body: |
+    {
+      "dryRun": false
+    }
+
+  retry:
+    max_attempts: 3
+    backoff: exponential
+    initial_delay: "30s"
+
+  timeout: "600s"

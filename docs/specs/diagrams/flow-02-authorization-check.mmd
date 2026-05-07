@@ -1,56 +1,60 @@
 flowchart TD
-    Start([Incoming HTTP Request]) --> ParseAuth[Parse Authorization header\nBasic Base64 decode]
+    Start([Incoming HTTP Request]) --> ProxyType{Cred type?}
 
-    ParseAuth --> HasEmail{Credential format?\nemail:secret OR uuid:secret}
+    ProxyType -->|"X-Client-Cert-Subject<br/>(mTLS, Platform API)"| LookupCert["SELECT DISTINCT ON (id) id<br/>FROM platforms<br/>WHERE cert_subject = $1<br/>AND cert_serial = $2<br/>AND is_active = TRUE<br/>ORDER BY id, created_at DESC"]
+    ProxyType -->|"Authorization: Bearer JWT<br/>(Authority / Admin)"| ValidateJwt[Validate JWT signature<br/>against cached JWKS;<br/>check iss, aud, exp]
+    ProxyType -->|"Authorization: Bearer ARCHIVE_OPS_TOKEN<br/>(CronManager admin/*)"| OpsCompare["Literal compare<br/>token == ARCHIVE_OPS_TOKEN env var"]
+    ProxyType -->|"None"| Anon[Anonymous request]
 
-    HasEmail -->|email:secret| LookupByEmail[SELECT FROM users\nWHERE email = email]
-    HasEmail -->|uuid:secret| LookupByUUID[SELECT FROM users\nWHERE id = UUID]
-    HasEmail -->|No Authorization header| Anon[Anonymous request]
+    LookupCert --> CertCount{Active platforms<br/>matching cert?}
+    CertCount -->|0| Ret403NP[403 FORBIDDEN_NO_PLATFORM]
+    CertCount -->|>1| Ret403MP[403 FORBIDDEN_MULTI_PLATFORM<br/>config error]
+    CertCount -->|1| PlatformAccess[Set platformId in context<br/>Proceed to platform route handler]
 
-    LookupByEmail --> UserFound{User found in DB?}
-    LookupByUUID --> UserFound
+    ValidateJwt --> JwtValid{Signature/iss/aud/exp ok?}
+    JwtValid -->|No| Ret401[401 TOKEN_INVALID]
+    JwtValid -->|Yes| Denylist["SELECT 1 FROM sessions<br/>WHERE jti = $1 AND expires_at > NOW()"]
 
-    UserFound -->|No| Return401[Return 401 Unauthorized]
-    UserFound -->|Yes| VerifySecret{sha256 secret\n== user.secretHash?}
+    Denylist --> Revoked{In denylist?}
+    Revoked -->|Yes| Ret401Rev[401 TOKEN_INVALID<br/>token revoked]
+    Revoked -->|No| ExtractClaims[Read claims:<br/>roles, subsets, scope, sub]
 
-    VerifySecret -->|No| Return401
-    VerifySecret -->|Yes| SetUser[Set user in request context]
+    ExtractClaims --> RouteType{Required role on route?}
+    RouteType -->|AUTHORITY| CheckAuth{roles ∋ AUTHORITY?}
+    RouteType -->|ADMIN| CheckAdmin{roles ∋ ADMIN?}
+    RouteType -->|OPS| Ret403Wrong[403 FORBIDDEN<br/>OPS routes use opsToken, not JWT]
 
-    SetUser --> CheckAnnotation[Check @Access annotation\non route handler]
+    CheckAuth -->|No| Ret403[403 FORBIDDEN]
+    CheckAuth -->|Yes| AuthorityAccess[Set authorityId from scope<br/>subsetCheck against requested subsets<br/>Proceed to authority route]
 
-    CheckAnnotation --> RouteType{Required role?}
+    CheckAdmin -->|No| Ret403
+    CheckAdmin -->|Yes| AdminWrite{Mutating endpoint<br/>with entityId param?}
+    AdminWrite -->|Yes| CheckScope{entityId ∈ scope claim?}
+    AdminWrite -->|No| AdminAccess[Proceed to admin route]
+    CheckScope -->|No| Ret403WA[403 FORBIDDEN_WRITE_ACCESS]
+    CheckScope -->|Yes| AdminAccess
 
-    RouteType -->|AUTHORITY| CheckAuthorityRole{user.roles contains AUTHORITY?}
-    RouteType -->|PLATFORM| CheckPlatformRole{user.roles contains PLATFORM?}
-    RouteType -->|ADMIN| CheckAdminRole{user.isAdmin OR user.roles contains ADMIN?}
-    RouteType -->|GATE| CheckGateRole{user.roles contains GATE?}
+    OpsCompare --> OpsMatch{Tokens equal?}
+    OpsMatch -->|No| Ret403Ops[403 FORBIDDEN]
+    OpsMatch -->|Yes| OpsAccess[Proceed to /api/v1/admin/ route]
 
-    CheckAuthorityRole -->|No| Return403[Return 403 Forbidden]
-    CheckAuthorityRole -->|Yes| AuthorityAccess[Set authorityId = user.roles.AUTHORITY.first\nProceed to route handler]
+    Anon --> AnonRoute{Route allows<br/>anonymous?}
+    AnonRoute -->|Yes /health| AnonProceed[Proceed]
+    AnonRoute -->|No| Ret401Unauth[401 Unauthorized]
 
-    CheckPlatformRole -->|No| Return403
-    CheckPlatformRole -->|Yes| PlatformCount{user has exactly\n1 platform?}
+    PlatformAccess --> Exec([Execute route handler])
+    AuthorityAccess --> Exec
+    AdminAccess --> Exec
+    OpsAccess --> Exec
+    AnonProceed --> Exec
 
-    PlatformCount -->|No, multi-platform| Return401MP[Return 401: multi-platform user\ncannot send identifiers]
-    PlatformCount -->|Yes| PlatformAccess[Set platformId\nProceed to route handler]
-
-    CheckAdminRole -->|No| Return403
-    CheckAdminRole -->|Yes| AdminAccess[Check write access for specific resource\nuser.checkWriteAccess\nProceed to route handler]
-
-    CheckGateRole -->|No| Return403
-    CheckGateRole -->|Yes| GateAccess[Proceed to gate route]
-
-    Anon --> AnonymousRoute{Route allows\nanonymous access?}
-    AnonymousRoute -->|Yes e.g. health check| AnonymousProceed[Proceed]
-    AnonymousRoute -->|No| Return401
-
-    AuthorityAccess --> RouteExecution([Execute route handler])
-    PlatformAccess --> RouteExecution
-    AdminAccess --> RouteExecution
-    GateAccess --> RouteExecution
-    AnonymousProceed --> RouteExecution
-
-    style Return401 fill:#f99,stroke:#900
-    style Return401MP fill:#f99,stroke:#900
-    style Return403 fill:#f99,stroke:#900
-    style RouteExecution fill:#9f9,stroke:#060
+    style Ret401 fill:#f99,stroke:#900
+    style Ret401Rev fill:#f99,stroke:#900
+    style Ret401Unauth fill:#f99,stroke:#900
+    style Ret403 fill:#f99,stroke:#900
+    style Ret403Wrong fill:#f99,stroke:#900
+    style Ret403WA fill:#f99,stroke:#900
+    style Ret403Ops fill:#f99,stroke:#900
+    style Ret403NP fill:#f99,stroke:#900
+    style Ret403MP fill:#f99,stroke:#900
+    style Exec fill:#9f9,stroke:#060

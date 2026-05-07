@@ -131,24 +131,29 @@ flowchart TD
 
 ### 3.3 Admin API
 
-All admin endpoints require `@Access(ADMIN)`. Path prefix `/api/v1/`.
+Admin endpoints require a valid TARA-issued JWT carrying `resource_access.efti-gate.roles[]` containing `ADMIN` (or `OPS` for the CronManager-driven endpoints). Path prefix `/api/v1/`. The CronManager endpoints (`/api/v1/admin/*`) take a static `opsToken` Bearer instead of a JWT — see §6.
 
 | Endpoint | Method | ADMIN | Other roles | Unauth |
 |---|---|---|---|---|
-| `/api/v1/auth/token` | POST | ✅ (via Basic Auth) | ✅ (any user via Basic Auth) | ✅ (entry point — Basic challenge) |
+| `/api/v1/auth/local-token` | POST | ✅ (via Basic Auth, default-disabled) | ❌ | ✅ (Basic challenge) |
 | `/api/v1/auth/logout` | POST | ✅ | ✅ (any authenticated user) | ❌ |
 | `/api/v1/user` | GET | ✅ Own user | ❌ | ❌ |
-| `/api/v1/platforms`, `/api/v1/platforms/{id}` | GET/POST/PUT/DELETE | ✅ (write needs `checkWriteAccess`) | ❌ | ❌ |
+| `/api/v1/platforms` | GET / POST | ✅ (POST needs `checkWriteAccess`; returns 201 on create, 409 on existing id) | ❌ | ❌ |
+| `/api/v1/platforms/{platformId}` | PUT / DELETE | ✅ (write needs `checkWriteAccess`; PUT 404 on unknown id) | ❌ | ❌ |
 | `/api/v1/platforms/{platformId}/ping` | POST | ✅ (Super Admin or matching scope) | ❌ | ❌ |
-| `/api/v1/authorities`, `/api/v1/authorities/{id}` | GET/POST/PUT/DELETE | ✅ (write needs `checkWriteAccess`) | ❌ | ❌ |
-| `/api/v1/gates`, `/api/v1/gates/{id}` | GET/POST/PUT/DELETE | ✅ (write needs `checkWriteAccess`) | ❌ | ❌ |
+| `/api/v1/authorities` | GET / POST | ✅ (write needs `checkWriteAccess`) | ❌ | ❌ |
+| `/api/v1/authorities/{authorityId}` | GET / PUT / DELETE | ✅ (write needs `checkWriteAccess`) | ❌ | ❌ |
+| `/api/v1/gates` | GET / POST | ✅ (write needs `checkWriteAccess`) | ❌ | ❌ |
+| `/api/v1/gates/{gateId}` | PUT / DELETE | ✅ (write needs `checkWriteAccess`) | ❌ | ❌ |
 | `/api/v1/gates/own` | GET | ✅ | ❌ | ❌ |
 | `/api/v1/gates/{gateId}/ping` | POST | ✅ (Super Admin or matching scope) | ❌ | ❌ |
-| `/api/v1/users`, `/api/v1/users/{id}` | GET/POST/DELETE | ✅ (cannot delete self → 400 `BAD_REQUEST_GENERAL`) | ❌ | ❌ |
+| `/api/v1/users`, `/api/v1/users/{id}` | GET / POST / DELETE | ✅ (cannot delete self → 400 `BAD_REQUEST_GENERAL`) | ❌ | ❌ |
 | `/api/v1/users/{userId}/revoke-token` | POST | ✅ (Super Admin or matching scope) | ❌ | ❌ |
-| `/api/v1/consignments`, `/api/v1/consignments/{datasetId}` | GET/DELETE | ✅ (DELETE = soft, sets `status='deleted'`) | ❌ | ❌ |
+| `/api/v1/consignments`, `/api/v1/consignments/{datasetId}` | GET / DELETE | ✅ (DELETE = soft, INSERTs row with `status='deleted'`) | ❌ | ❌ |
 | `/api/v1/audit` | GET | ✅ Super Admin only | ❌ | ❌ |
-| `/api/v1/admin/archive` | POST | ✅ Ops role only (configured Bearer token; non-ops admins → 403 `FORBIDDEN`) | ❌ | ❌ |
+| `/api/v1/admin/archive` | POST | ❌ (rejected — opsToken-only) | ✅ OPS (`opsToken` Bearer) | ❌ |
+| `/api/v1/admin/expire-identifiers` | POST | ❌ (rejected — opsToken-only) | ✅ OPS (`opsToken` Bearer) | ❌ |
+| `/api/v1/admin/ping-gates` | POST | ❌ (rejected — opsToken-only) | ✅ OPS (`opsToken` Bearer) | ❌ |
 
 ```mermaid
 flowchart TD
@@ -204,14 +209,22 @@ INSERT INTO users (name, isAdmin, roles, secretHash) VALUES
 
 ## 6. Authentication
 
-| Aspect | Detail |
-|---|---|
-| **Bearer format** | `Authorization: Bearer {userId}:{secret}` (base64-encoded `userId:secret`). `userId` is UUID v4; `secret` is plaintext (hashed in DB as `secretHash`). |
-| **Basic Auth** | `Authorization: Basic {base64(email:password)}`. Admin only. **Disabled in production** — replaced by TARA in EE extension module. |
-| **Password hashing** | `secretHash = SHA-256(password + userId-as-salt)`. Stored in `users.secretHash`. |
-| **PG row-level context** | After auth, `userRepository.setAppUser(user)` runs `SET LOCAL app.user_id = ':userId'` so PostgreSQL RLS policies (if configured) can apply. |
-| **Public endpoints** | `/health` and OpenAPI/Swagger UI (annotated `@Public`). 401 challenge sets `WWW-Authenticate: Basic realm="eFTI Gate Admin"`. |
-| **CORS preflight** | `OPTIONS` requests bypass `AccessChecker`. |
+Three mechanisms, one per surface, mirroring the EFTI4EU reference implementation. The EC does not mandate a single protocol at REST surfaces (Reg 2020/1056 Recital 21 + Art 9; Impl Reg 2024/1942 Art 4 — "Member States may set up the AAPs … integrated in their respective eFTI Gate"). The choices below follow the reference impl pattern and the Estonian e-Government precedent.
+
+| Surface | Mechanism | Detail |
+|---|---|---|
+| **Authority API** (`/v1/identifiers/{identifier}`, `/v1/dataset/...`, `/v1/follow-up/...`) | **OIDC JWT issued by TARA** (Estonian state authentication broker, RIA) | RS256, JWKS fetched from `https://tara.ria.ee/.well-known/openid-configuration` and cached. Validated as an OAuth 2.0 Resource Server. Required claims: `iss`, `aud`, `exp`, `sub` (Estonian PIC). Authorisation claims: `resource_access.efti-gate.roles` (mapped to `AUTHORITY` / `ADMIN` / `OPS`), `subsets` (subset codes `EU01..EU07`), `efti.scope` (gate ids for ADMIN, authority ids for AUTHORITY). |
+| **Admin API** (`/api/v1/...`, except the three CronManager endpoints) | **OIDC JWT issued by TARA**, same validator as Authority API; differentiated by the `roles` claim. | Same JWKS, same RS256 chain. |
+| **Platform API** (`/v1/identifiers/{datasetId}`, `/v1/datasets/...`, `/v1/status/...`, `/v1/follow-up/{datasetId}/...`, `/v1/ping`) | **mTLS with the platform's eDelivery AP certificate** (the same Member-State-issued X.509 cert mandated by Impl Reg 2024/1942 Art 11). | Reverse proxy terminates mTLS; forwards `X-Client-Cert-Subject` and `X-Client-Cert-Serial` headers; gate looks them up in `platforms.cert_subject` / `platforms.cert_serial`. No second credential — the cert is already mandatory. |
+| **CronManager admin endpoints** (`POST /api/v1/admin/archive`, `…/expire-identifiers`, `…/ping-gates`) | **Static Bearer token** | `Authorization: Bearer <ARCHIVE_OPS_TOKEN>`. Operator provisions a 256-bit random secret into a Kubernetes Secret; CronManager injects it as `BEARER_OPS_TOKEN`. Gate compares the literal value against the `ARCHIVE_OPS_TOKEN` env var. No DB lookup, no JWT verification, no user record. Mismatch → 403 `FORBIDDEN`. Intentionally a non-human credential — TARA models people, not scheduled jobs. |
+| **Health** (`/health/...`) | None | Public (Kubernetes probes). |
+| **Break-glass** (`/api/v1/auth/local-token`) | HTTP Basic Auth + bcrypt | Default-disabled; enabled only via `LOCAL_ADMIN_FALLBACK_ENABLED=true`. Issues a short-lived (600 s) gate-signed JWT carrying the same claim shape as TARA, so downstream `AccessChecker` is identical. Used during TARA outages and initial bootstrap. |
+
+**JWT denylist (revocation).** The `sessions` table is repurposed under TARA-issued JWTs: holds `jti, revoked_at, reason` rows; `POST /api/v1/auth/logout` and `POST /api/v1/users/{userId}/revoke-token` insert into it; `AccessChecker` rejects any presented JWT whose `jti` is in the denylist. The denylist is consulted only for tokens whose `exp` is still in the future — the denylist itself is bounded by JWT lifetime.
+
+**`AccessChecker.before()`** does NOT consult the database for permission decisions on Authority and Admin requests — every permission claim is in the JWT. Only `checkWriteAccess(entityId)` (admin scoped writes) requires a `users` lookup, and only on the mutating endpoints.
+
+**Password hashing.** Bcrypt only, used for the single break-glass local-admin row in `users.secret_hash`. Other rows have `secret_hash = NULL` because their auth path is TARA, not password.
 
 ---
 
@@ -221,13 +234,13 @@ All errors share the schema `{type, title, status, detail, instance, errorCode?}
 
 | HTTP | `errorCode` | `type` slug | Triggered when |
 |---|---|---|---|
-| 401 | (no code) | `unauthorized` | No `Authorization` header on a protected route. Response also sets `WWW-Authenticate: Basic`. |
-| 401 | `TOKEN_INVALID` | `unauthorized` | Credentials provided but cannot be decoded or do not match any user. |
-| 403 | `FORBIDDEN` | `forbidden` | Authenticated, but `checkAccess()` finds no matching role. |
-| 403 | `FORBIDDEN_NO_PLATFORM` | `forbidden-no-platform` | `@Access(PLATFORM)` matched but `roles[PLATFORM]` is empty. |
-| 403 | `FORBIDDEN_MULTI_PLATFORM` | `forbidden-multi-platform` | `roles[PLATFORM].size > 1` on POST identifiers. |
-| 403 | `FORBIDDEN_WRITE_ACCESS` | `forbidden-write-access` | `User.checkWriteAccess(entityId)` — admin's roles do not include the target party ID. |
-| 403 | `FORBIDDEN_SUBSET` | `forbidden-subset` | Authority requested a subset not in `users.subsets`. |
+| 401 | (no code) | `unauthorized` | No `Authorization` header on a protected route, or JWT signature/exp/iss/aud invalid, or platform mTLS cert not present / not in `platforms.cert_subject` registry. |
+| 401 | `TOKEN_INVALID` | `unauthorized` | JWT presented but malformed, or `jti` is in the revocation denylist (`sessions` table). |
+| 403 | `FORBIDDEN` | `forbidden` | Authenticated, but `roles` claim does not include any role permitted on this surface (e.g. AUTHORITY-only JWT calling Admin endpoint), **or** `Authorization: Bearer …` value does not match `ARCHIVE_OPS_TOKEN` on a CronManager admin endpoint. |
+| 403 | `FORBIDDEN_NO_PLATFORM` | `forbidden-no-platform` | mTLS cert presented but `platforms.cert_subject` lookup yields no active platform, or matched a `is_active=FALSE` row. |
+| 403 | `FORBIDDEN_MULTI_PLATFORM` | `forbidden-multi-platform` | mTLS cert subject resolves to more than one active `platforms` row (configuration error). Always 403 — never 401, 400. |
+| 403 | `FORBIDDEN_WRITE_ACCESS` | `forbidden-write-access` | `User.checkWriteAccess(entityId)` — JWT's `efti.scope` does not include the target entity id. |
+| 403 | `FORBIDDEN_SUBSET` | `forbidden-subset` | Authority requested a subset not in JWT's `subsets` claim. |
 | 400 | `BAD_REQUEST_GENERAL` | `bad-request` | Admin tried to delete themselves (`userId == currentUser.id`). |
 
 ---

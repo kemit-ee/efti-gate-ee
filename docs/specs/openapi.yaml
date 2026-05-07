@@ -63,7 +63,19 @@ tags:
     description: Kubernetes liveness and readiness probes — no authentication required
 
 security:
-  - bearerAuth: []
+  - taraJwt: []
+
+# Authentication summary (per API surface):
+#   Platform API   (`/v1/identifiers/{datasetId}` POST/DELETE)         → platformMtls
+#   Authority API  (`/v1/identifiers/{identifier}`, `/v1/dataset/...`,
+#                   `/v1/follow-up/...`)                               → taraJwt
+#   Admin API      (`/api/v1/...`)                                     → taraJwt
+#     except `/api/v1/admin/archive`, `/api/v1/admin/expire-identifiers`,
+#                 `/api/v1/admin/ping-gates` (CronManager-driven)      → opsToken
+#   Auth API       (`/api/v1/auth/local-token`)                        → http basic (break-glass only, default-disabled)
+#   Auth API       (`/api/v1/auth/logout`, `/api/v1/users/{id}/revoke-token`)  → taraJwt
+#   Health         (`/health/...`)                                     → no auth
+# Per-operation `security:` blocks override this default.
 
 # ==============================================================================
 # PATHS
@@ -74,33 +86,29 @@ paths:
   # AUTH API
   # ----------------------------------------------------------------------------
 
-  /api/v1/auth/token:
+  /api/v1/auth/local-token:
     post:
       tags: [Auth]
-      summary: Issue an API token
-      operationId: issueToken
+      summary: Issue a break-glass local-admin token (default-disabled)
+      operationId: issueLocalToken
       description: |
-        Exchange credentials (Basic Auth) for a JWT bearer token. The user's
-        roles, subsets, gate scope, and `is_admin` flag are embedded as JWT
-        claims (signed RS256, issuer = own gate ID, expiry = `JWT_EXPIRY_SECONDS`,
-        default 3600). Subsequent API calls present the token in
-        `Authorization: Bearer <jwt>`.
+        **Break-glass only.** Default state: HTTP 503. Enabled by setting
+        `LOCAL_ADMIN_FALLBACK_ENABLED=true` (operator-level decision, intended for
+        TARA-outage recovery and initial bootstrap).
+
+        When enabled, exchanges the local-root bcrypt-hashed credential in `users`
+        for a short-lived gate-issued JWT (RS256, signed with the gate's break-glass
+        signing key, expiry hardcoded to 600 s). The token carries the same claim
+        shape as a TARA-issued JWT (`sub`, `resource_access.efti-gate.roles`,
+        `efti.scope`) so downstream `AccessChecker` logic is identical.
+
+        Primary (TARA) authentication is described under `taraJwt` in security
+        schemes. This endpoint is the deliberate fallback.
       security:
         - basicAuth: []
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                ttlSeconds:
-                  type: integer
-                  description: Optional override for token TTL in seconds; capped at `JWT_EXPIRY_SECONDS_MAX`.
-                  example: 3600
       responses:
         '200':
-          description: Token issued
+          description: Break-glass token issued
           content:
             application/json:
               schema:
@@ -109,8 +117,7 @@ paths:
                 properties:
                   token:
                     type: string
-                    description: Signed JWT (RS256)
-                    example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3YzllNjY3OS03NDI1LTQwZGUtOTQ0Yi1lMDdmYzFmOTBhZTciLCJpc3MiOiJldS1lZTMxIiwicm9sZXMiOlsiQVVUSE9SSVRZIl0sInN1YnNldHMiOlsiRVUwNyJdLCJpc19hZG1pbiI6ZmFsc2UsImV4cCI6MTc4MTUyMzQzM30.signature..."
+                    description: Gate-signed JWT (RS256)
                   tokenType:
                     type: string
                     enum: [Bearer]
@@ -118,21 +125,25 @@ paths:
                   expiresAt:
                     type: string
                     format: date-time
-                    example: "2026-04-23T11:15:30Z"
+                    example: "2026-04-23T11:25:30Z"
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+        '503':
+          description: Break-glass fallback disabled (`LOCAL_ADMIN_FALLBACK_ENABLED=false`)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
 
   /api/v1/auth/logout:
     post:
       tags: [Auth]
-      summary: Revoke the current token
+      summary: Add the presented JWT to the denylist
       operationId: logout
       description: |
-        Add the presented bearer token to the blacklist for its remaining TTL.
-        Subsequent requests with this token return 401. Idempotent — already-logged-out
-        tokens still return 204.
+        Adds the presented JWT's `jti` claim to the `sessions` denylist for the
+        remainder of its `exp` window. Subsequent requests carrying the same JWT
+        return 401. Idempotent — already-revoked tokens still return 204.
       responses:
         '204':
           description: Token revoked
@@ -150,17 +161,24 @@ paths:
       tags: [Platform]
       summary: Register consignment identifiers
       operationId: postIdentifiers
+      security:
+        - platformMtls: []
       description: |
         Platform registers consignment identifier metadata in the gate. The gate
         extracts searchable fields (vehicle plate, mode, dangerous goods) and stores
         them for authority queries. Subsequent authority queries for a matching
         identifier will trigger a UIL dataset request back to the platform.
 
+        **Auth:** mTLS with the Member-State-issued certificate the platform's
+        eDelivery AP holds (Impl Reg 2024/1942 Art 11). The reverse proxy validates
+        the cert chain and forwards `X-Client-Cert-Subject` / `X-Client-Cert-Serial`;
+        the gate looks them up in `platforms.cert_subject` / `platforms.cert_serial`.
+
         The request body must be a valid `<consignment>` XML per the
         [consignment-identifier XSD](https://github.com/EFTI4EU/reference-implementation/blob/main/schema/xsd/consignment-identifier.xsd).
       parameters:
         - $ref: '#/components/parameters/DatasetIdPath'
-        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/XRequestIdRequired'
       requestBody:
         required: true
         description: |
@@ -222,15 +240,22 @@ paths:
       tags: [Platform]
       summary: Delete consignment (platform-initiated)
       operationId: deleteIdentifiers
+      security:
+        - platformMtls: []
       description: |
-        Platform signals that a consignment dataset has been deleted or is no longer
-        active. The gate marks the stored consignment identifiers as `inactive`.
+        Platform signals that a consignment dataset has been deleted at source. The
+        gate INSERTs a new `consignments` row with `status='deleted'` (append-only;
+        the previous row is unchanged). Subsequent authority queries for this
+        `dataset_id` see the latest row and return 404.
+
+        For lifecycle-driven transitions (e.g. road-cabotage 14-day expiry → `inactive`),
+        see `POST /api/v1/admin/expire-identifiers` (CronManager-driven).
       parameters:
         - $ref: '#/components/parameters/DatasetIdPath'
-        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/XRequestIdRequired'
       responses:
         '204':
-          description: Consignment marked as deleted
+          description: Consignment marked as deleted (latest row written with `status='deleted'`)
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -240,44 +265,19 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-    put:
-      tags: [Platform]
-      summary: Update consignment metadata
-      operationId: putIdentifiers
-      description: |
-        Platform updates consignment identifier metadata (e.g., after delivery event).
-        The gate re-parses the XML and updates denormalized search fields.
-      parameters:
-        - $ref: '#/components/parameters/DatasetIdPath'
-        - $ref: '#/components/parameters/XRequestId'
-      requestBody:
-        required: true
-        content:
-          application/xml:
-            schema:
-              type: string
-              format: xml
-      responses:
-        '200':
-          description: Consignment updated
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+    # NOTE: there is no PUT on this path. Re-uploads of consignment metadata are
+    # POSTs against the same `dataset_id` — the gate INSERTs a new row sharing the
+    # same logical id; the latest row by `created_at` is the current state. PUT
+    # would imply mutate-in-place, which the append-only schema explicitly forbids.
+    # See `db/README.md` "State transitions are INSERTs".
 
   /v1/status/{datasetId}:
     get:
       tags: [Platform]
       summary: Check consignment registration status
       operationId: getConsignmentStatus
+      security:
+        - platformMtls: []
       description: Allows a platform to verify whether a consignment dataset is registered and its current status at this gate.
       parameters:
         - $ref: '#/components/parameters/DatasetIdPath'
@@ -304,6 +304,8 @@ paths:
       tags: [Platform]
       summary: Platform availability check
       operationId: platformPing
+      security:
+        - platformMtls: []
       description: |
         Gate pings this endpoint on the platform to confirm it is reachable and operational.
         Platforms must implement this endpoint and return 200 OK.
@@ -320,6 +322,8 @@ paths:
       tags: [Platform]
       summary: Receive follow-up messages from authorities
       operationId: getPlatformFollowUp
+      security:
+        - platformMtls: []
       description: |
         Platform receives follow-up messages sent by authorities regarding a previously
         queried dataset. Used for enforcement notifications.
@@ -352,6 +356,8 @@ paths:
       tags: [Platform]
       summary: Retrieve platform's own dataset (for subset filtering test)
       operationId: getPlatformDataset
+      security:
+        - platformMtls: []
       description: |
         Allows a platform to retrieve its own full dataset XML. Used primarily to test
         whether the gate's XSLT subsetter is correctly filtering subsets for platforms
@@ -455,7 +461,7 @@ paths:
           required: false
           description: |
             Filter by consignment status. Default `active`. Use `inactive` for cabotage
-            queries (Reg 2024/1942 Art X — last 14 days of road consignments) and
+            queries (Reg 2024/1942 Art 11(4) — last 14 days of road consignments) and
             `all` to combine both.
           schema:
             type: string
@@ -678,7 +684,7 @@ paths:
           schema:
             type: string
             example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
-        - $ref: '#/components/parameters/XRequestId'
+        - $ref: '#/components/parameters/XRequestIdRequired'
       requestBody:
         required: true
         description: Plain text follow-up message for the platform
@@ -755,11 +761,13 @@ paths:
 
     post:
       tags: [Admin - Gates]
-      summary: Create or update gate
-      operationId: saveGate
+      summary: Create gate
+      operationId: createGate
       description: |
-        Creates a new gate or updates an existing one (upsert by `id`). After save,
-        the gate is immediately pinged to verify connectivity.
+        Creates a new gate record. The body's `id` must not already exist — if it
+        does, returns 409. After successful create, the gate is immediately pinged
+        to verify connectivity. To update an existing gate, use
+        `PUT /api/v1/gates/{gateId}`.
       requestBody:
         required: true
         content:
@@ -773,8 +781,8 @@ paths:
               eDeliveryCert: "-----BEGIN CERTIFICATE-----\nMIIC...-----END CERTIFICATE-----"
               status: "ONLINE"
       responses:
-        '200':
-          description: Gate saved successfully
+        '201':
+          description: Gate created successfully
           content:
             application/json:
               schema:
@@ -785,6 +793,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -807,18 +817,58 @@ paths:
           $ref: '#/components/responses/Forbidden'
 
   /api/v1/gates/{gateId}:
+    put:
+      tags: [Admin - Gates]
+      summary: Update gate
+      operationId: updateGate
+      description: |
+        Updates an existing gate record. Append-only: the gate INSERTs a new
+        `gates` row sharing the same logical `id`; the latest row by `created_at`
+        is the current state. Operator-driven status transitions
+        (`ONLINE`→`DEGRADED`, manual `DISABLED`) go through here. After successful
+        update, the gate is pinged to verify the new configuration.
+
+        404 if `gateId` is unknown. To create a new gate, use `POST /api/v1/gates`.
+      parameters:
+        - $ref: '#/components/parameters/GateIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GateWrite'
+      responses:
+        '200':
+          description: Gate updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Gate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
     delete:
       tags: [Admin - Gates]
       summary: Delete gate
       operationId: deleteGate
       description: |
         Removes a gate from the registry. A gate cannot delete itself.
-        Requires write access to the specified gate ID.
+        Requires write access to the specified gate ID. Append-only: writes a
+        latest row with `is_active=FALSE`; cross-border G2G traffic to/from this
+        gate stops on the next registry-sync NOTIFY.
       parameters:
         - $ref: '#/components/parameters/GateIdPath'
       responses:
         '204':
-          description: Gate deleted
+          description: Gate deleted (latest row written with `is_active=FALSE`)
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -892,8 +942,12 @@ paths:
 
     post:
       tags: [Admin - Platforms]
-      summary: Create or update platform
-      operationId: savePlatform
+      summary: Create platform
+      operationId: createPlatform
+      description: |
+        Creates a new platform record. The body's `id` must not already exist —
+        if it does, returns 409. To update an existing platform, use
+        `PUT /api/v1/platforms/{platformId}`.
       requestBody:
         required: true
         content:
@@ -907,8 +961,8 @@ paths:
               headers:
                 X-Api-Key: "secret-key-abc123"
       responses:
-        '200':
-          description: Platform saved
+        '201':
+          description: Platform created
           content:
             application/json:
               schema:
@@ -919,19 +973,64 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
   /api/v1/platforms/{platformId}:
+    put:
+      tags: [Admin - Platforms]
+      summary: Update platform
+      operationId: updatePlatform
+      description: |
+        Updates an existing platform record. Append-only: the gate INSERTs a new
+        `platforms` row sharing the same logical `id`; the latest row by
+        `created_at` becomes the current state. The previous row remains in the
+        live DB until the next CronManager archival sweep.
+
+        404 if `platformId` is unknown. To create a new platform, use
+        `POST /api/v1/platforms`.
+      parameters:
+        - $ref: '#/components/parameters/PlatformIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlatformWrite'
+      responses:
+        '200':
+          description: Platform updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Platform'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
     delete:
       tags: [Admin - Platforms]
       summary: Delete platform
       operationId: deletePlatform
+      description: |
+        Soft-deletes the platform. Append-only: the gate INSERTs a new `platforms`
+        row with `is_active=FALSE`; the latest row by `created_at` resolves the
+        platform to inactive. Existing consignments registered by this platform
+        remain queryable; new registrations from this platform return 403.
       parameters:
         - $ref: '#/components/parameters/PlatformIdPath'
       responses:
         '204':
-          description: Platform deleted
+          description: Platform deleted (latest row written with `is_active=FALSE`)
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1007,8 +1106,11 @@ paths:
 
     post:
       tags: [Admin - Authorities]
-      summary: Create or update authority
-      operationId: saveAuthority
+      summary: Create authority
+      operationId: createAuthority
+      description: |
+        Creates a new authority record. The body's `id` must not already exist —
+        if it does, returns 409. To update, use `PUT /api/v1/authorities/{authorityId}`.
       requestBody:
         required: true
         content:
@@ -1021,8 +1123,8 @@ paths:
               name: "Tax and Customs Board"
               subsets: ["EU01", "EU02", "EU05"]
       responses:
-        '200':
-          description: Authority saved
+        '201':
+          description: Authority created
           content:
             application/json:
               schema:
@@ -1033,6 +1135,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -1057,15 +1161,52 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+    put:
+      tags: [Admin - Authorities]
+      summary: Update authority
+      operationId: updateAuthority
+      description: |
+        Updates an existing authority record. Append-only: INSERTs a new
+        `authorities` row sharing the same logical `id`; latest row by `created_at`
+        is the current state. 404 if `authorityId` is unknown.
+      parameters:
+        - $ref: '#/components/parameters/AuthorityIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthorityWrite'
+      responses:
+        '200':
+          description: Authority updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Authority'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
     delete:
       tags: [Admin - Authorities]
       summary: Delete authority
       operationId: deleteAuthority
+      description: |
+        Soft-deletes the authority. Append-only: latest row written with
+        `is_active=FALSE`.
       parameters:
         - $ref: '#/components/parameters/AuthorityIdPath'
       responses:
         '204':
-          description: Authority deleted
+          description: Authority deleted (latest row written with `is_active=FALSE`)
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1357,8 +1498,9 @@ paths:
       operationId: listAuditLog
       description: |
         Returns action-level audit log entries from the `audit_log` table. The audit log is
-        append-only (the `app` role has SELECT, INSERT only) and is preserved indefinitely on
-        the live database — the CronManager archival sweep does not touch it.
+        append-only (the `app` role has `SELECT, INSERT` only) and is retained on the live
+        database for **at least 7 years** (compliance floor — GDPR Art 30, Reg 2024/1942
+        Art 6); the CronManager archival sweep does not touch it.
         Filterable by resource type, resource ID, acting user, and date range.
       parameters:
         - name: resource
@@ -1436,12 +1578,23 @@ paths:
       tags: [Admin - Audit]
       summary: Run the append-only archival sweep (called by CronManager)
       operationId: runArchive
+      security:
+        - opsToken: []
       description: |
-        Moves all non-latest rows of every operational table to archival storage,
-        plus expired rows of ephemeral tables. Called by CronManager on schedule
-        (default cron `0 0 3 * * ?`); see `docs/specs/deploy/cronmanager-archive.yaml`.
+        Moves all non-latest rows of every archivable operational table to archival
+        storage. Called by CronManager on schedule (default cron `0 0 3 * * ?`);
+        see `docs/specs/deploy/cronmanager-archive.yaml`.
 
-        Authentication: bearerAuth, ops-role only. Non-ops admins receive 403.
+        **Auth**: `opsToken` only — `Authorization: Bearer <ARCHIVE_OPS_TOKEN>`. The
+        gate compares the token literal against the env var; no DB lookup, no JWT
+        verification. Mismatch → 403 FORBIDDEN.
+
+        **Concurrency guard.** Mutex via `pg_try_advisory_lock(<archive-lock-key>)`
+        taken at handler entry. If the lock is already held by an in-flight run,
+        return 409 `ARCHIVE_IN_PROGRESS` immediately. Lock released in a `finally`
+        block. The advisory lock survives node restarts (it is per-connection in
+        PostgreSQL, so the broken connection releases automatically). Multi-node
+        safe.
 
         Behaviour:
         - Per-table batches of `batch_size` rows; commits each batch transactionally.
@@ -1525,6 +1678,164 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /api/v1/admin/expire-identifiers:
+    post:
+      tags: [Admin - Audit]
+      summary: Mark cabotage-expired road consignments inactive (called by CronManager)
+      operationId: runIdentifierExpiry
+      security:
+        - opsToken: []
+      description: |
+        Scans `consignments` for the latest row per `dataset_id` where
+        `mode='road' AND status='active' AND transport_date + interval '14 days' < NOW()`
+        and INSERTs a new row with `status='inactive'` for each match (Reg 2024/1942
+        Art 11(4) cabotage retention).
+
+        Append-only — the previous row is unchanged; the new row's `created_at`
+        becomes the latest by which downstream reads (`SELECT DISTINCT ON (dataset_id)`)
+        resolve the entity to `inactive`.
+
+        Called by CronManager once daily; default schedule chosen by the operator
+        (typically 03:45–05:45, slightly after the archival sweep). See
+        `seq-08-identifier-expiration.mmd`.
+
+        **Auth**: `opsToken` (same token as `/api/v1/admin/archive`). Mismatch → 403.
+
+        **Concurrency**: same `pg_try_advisory_lock` pattern as archive — distinct
+        lock key.
+      requestBody:
+        required: false
+        description: Optional run-time parameters.
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                dryRun:
+                  type: boolean
+                  default: false
+                  description: If true, returns the count of would-be-expired rows but does not INSERT.
+                cutoffOverride:
+                  type: string
+                  format: date-time
+                  description: Override the "now" timestamp used for the 14-day window. For replay/testing only.
+      responses:
+        '200':
+          description: Expiry sweep complete.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [expired_count, started_at, finished_at, duration_ms]
+                properties:
+                  expired_count:
+                    type: integer
+                    description: Number of `consignments` rows newly INSERTed with status='inactive'
+                  started_at:
+                    type: string
+                    format: date-time
+                  finished_at:
+                    type: string
+                    format: date-time
+                  duration_ms:
+                    type: integer
+                  dry_run:
+                    type: boolean
+              example:
+                expired_count: 137
+                started_at: "2026-04-23T04:00:00Z"
+                finished_at: "2026-04-23T04:00:14Z"
+                duration_ms: 14210
+                dry_run: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Expiry job already running.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/v1/admin/ping-gates:
+    post:
+      tags: [Admin - Audit]
+      summary: Probe peer gates and write health rows (called by CronManager)
+      operationId: runGatePing
+      security:
+        - opsToken: []
+      description: |
+        Probes every peer gate in the local registry over AS4 (`/services/msh`
+        health probe) and INSERTs a new `gates` row for each peer with the latest
+        `status` (`ONLINE` / `OFFLINE` / `DEGRADED`) and `last_ping_at = NOW()`.
+        Append-only.
+
+        Called by CronManager every 5 minutes (default schedule operator-tunable).
+        See `seq-09-gate-ping.mmd`. The CronManager YAML for this job is alongside
+        `cronmanager-archive.yaml` in `docs/specs/deploy/`.
+
+        **Auth**: `opsToken`. Mismatch → 403.
+
+        **Concurrency**: `pg_try_advisory_lock` (distinct key); 409 if already running.
+
+        **Failure mode**: a single peer-gate timeout records `OFFLINE` for that
+        peer; does not fail the overall sweep. Network failure to *all* peers logs
+        ERROR and returns 200 with `failed_gates` populated.
+      responses:
+        '200':
+          description: Ping sweep complete.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [gates_pinged, online_count, offline_count, started_at, finished_at, duration_ms]
+                properties:
+                  gates_pinged:
+                    type: integer
+                  online_count:
+                    type: integer
+                  offline_count:
+                    type: integer
+                  degraded_count:
+                    type: integer
+                  failed_gates:
+                    type: array
+                    items:
+                      type: string
+                    description: Gate ids where the probe failed (network error, not just OFFLINE)
+                  started_at:
+                    type: string
+                    format: date-time
+                  finished_at:
+                    type: string
+                    format: date-time
+                  duration_ms:
+                    type: integer
+              example:
+                gates_pinged: 27
+                online_count: 24
+                offline_count: 2
+                degraded_count: 1
+                failed_gates: []
+                started_at: "2026-04-23T04:05:00Z"
+                finished_at: "2026-04-23T04:05:18Z"
+                duration_ms: 18430
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Ping sweep already running.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   # ----------------------------------------------------------------------------
   # HEALTH
   # ----------------------------------------------------------------------------
@@ -1574,41 +1885,67 @@ components:
   # SECURITY SCHEMES
   # ============================================================================
   securitySchemes:
-    basicAuth:
-      type: http
-      scheme: basic
+    taraJwt:
+      type: openIdConnect
+      openIdConnectUrl: https://tara.ria.ee/.well-known/openid-configuration
       description: |
-        HTTP Basic Auth with `email:secret`. Used only on `POST /api/v1/auth/token`
-        to exchange credentials for a bearer JWT. All other endpoints use bearerAuth.
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+        OIDC ID Token issued by **TARA** (Estonian state authentication broker, RIA).
+        Validated as an OAuth 2.0 Resource Server JWT — RS256, JWKS fetched from the
+        OIDC discovery endpoint and cached. Used for **Authority** and **Admin** APIs.
+
+        **Required claims** (validated on every request):
+        - `iss` — must equal `https://tara.ria.ee` (or operator's TARA test issuer).
+        - `aud` — must include the gate's TARA client_id.
+        - `exp` — must be in the future. (TARA owns expiry policy; the gate does not extend.)
+        - `sub` — Estonian PIC (personal identification code) of the authenticated person.
+
+        **Authorisation claims** (used by `AccessChecker` for permission decisions):
+        - `resource_access.efti-gate.roles` — array of role strings. Maps to the
+          gate's role enum: `ADMIN`, `OPS`, `AUTHORITY`. (No `GATE` or `PLATFORM`
+          role here — see `platformMtls` and `opsToken` below.)
+        - `subsets` — array of subset codes (`EU01..EU07`); used by Authority API
+          to gate access to subset-restricted datasets.
+        - `efti.scope` — array of scope ids (gate ids for ADMIN role; authority
+          ids for AUTHORITY role); used by `checkWriteAccess`.
+
+        **Revocation:** the `sessions` table acts as a JWT denylist (jti, revoked_at).
+        Operators / admins can call `POST /api/v1/auth/logout` (self) or
+        `POST /api/v1/users/{userId}/revoke-token` (admin) to add a `jti` to the
+        denylist before TARA-side `exp`.
+
+        **Break-glass local admin.** When TARA is unreachable (incident response,
+        initial bootstrap), a single bcrypt-hashed local-root credential in `users`
+        can be exchanged for a short-lived gate-issued JWT via Basic Auth on
+        `POST /api/v1/auth/local-token`. This path is **disabled by default** and
+        must be explicitly enabled via `LOCAL_ADMIN_FALLBACK_ENABLED=true`.
+
+    platformMtls:
+      type: mutualTLS
       description: |
-        RFC 7519 JWT token. Obtain via HTTP Basic Auth (email:secret) on any protected endpoint.
+        X.509 client certificate (mTLS) — the **same Member-State-issued certificate
+        the platform's eDelivery Access Point already holds** per Implementing Reg
+        (EU) 2024/1942 Art 11. No second credential.
 
-        **Token MUST contain claims**:
-        - `sub`: User ID (UUID)
-        - `name`: Display name
-        - `roles`: Object mapping role names to party ID arrays
-          - Example: `{"ADMIN": ["eu-ee31"], "PLATFORM": ["plt-demo-123"]}`
-        - `subsets`: Array of permitted subset IDs (AUTHORITY role only)
-          - Example: `["EU01", "EU02", "EU05"]`
-        - `exp`: Expiration timestamp (Unix epoch)
-        - `iss`: Issuer gate ID
+        The reverse proxy (Caddy / Traefik / nginx) terminates mTLS and forwards
+        `X-Client-Cert-Subject` and `X-Client-Cert-Serial` headers; the gate looks up
+        the subject DN + serial in `platforms.cert_subject` / `platforms.cert_serial`
+        to resolve the platform identity. Used only for the **Platform API**.
 
-        **Example decoded payload**:
-        ```json
-        {
-          "sub": "04fa30eb-eb08-11f0-b506-3c9c0f2eb459",
-          "name": "MTA Inspector",
-          "email": "inspector@mta.ee",
-          "roles": {"AUTHORITY": ["auth-mta"]},
-          "subsets": ["EU01", "EU02", "EU05"],
-          "exp": 1745400000,
-          "iss": "eu-ee31"
-        }
-        ```
+    opsToken:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: |
+        Static Bearer token for the **system identity** that drives scheduled jobs
+        (CronManager calling `/api/v1/admin/archive`, `/api/v1/admin/expire-identifiers`,
+        `/api/v1/admin/ping-gates`). Operator provisions a 256-bit random secret
+        into a Kubernetes Secret; CronManager injects it as `BEARER_OPS_TOKEN`; the
+        gate compares the literal value of `Authorization: Bearer <token>` against
+        the `ARCHIVE_OPS_TOKEN` env var. No DB lookup, no JWT verification, no user
+        record. Mismatch → 403 FORBIDDEN.
+
+        This is intentionally a non-human credential — TARA models people, not
+        scheduled-job processes.
 
   # ============================================================================
   # PARAMETERS
@@ -1657,9 +1994,25 @@ components:
       in: header
       required: false
       description: |
-        Client-generated UUID for idempotency and request correlation. If provided,
-        the gate rejects duplicate requests with the same ID within a 10-minute window (409 Conflict).
-        The gate echoes this header in responses.
+        Client-generated UUID for request correlation. Optional on read-only endpoints.
+        Mutating endpoints use the `XRequestIdRequired` parameter and reject the request
+        with 400 `MISSING_REQUIRED_HEADER` when this header is absent. The gate echoes
+        the header in responses.
+      schema:
+        type: string
+        format: uuid
+        example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+
+    XRequestIdRequired:
+      name: X-Request-ID
+      in: header
+      required: true
+      description: |
+        Client-generated UUID. **Required** on every mutating endpoint (POST / PUT /
+        DELETE) for idempotency and duplicate-detection. The gate rejects a second
+        request with the same ID within a 10-minute window (`request_id_cache` TTL)
+        with 409 `DUPLICATE_REQUEST_ID`. Header missing → 400 `MISSING_REQUIRED_HEADER`.
+        The gate echoes the header in responses.
       schema:
         type: string
         format: uuid
@@ -1906,7 +2259,6 @@ components:
         - CONFLICT
         - CONSIGNMENT_NOT_FOUND
         - DATABASE_ERROR
-        - DUPLICATE_DATASET_ID
         - DUPLICATE_REQUEST_ID
         - EDELIVERY_ERROR
         - FOLLOW_UP_GATE_MISMATCH
@@ -1986,9 +2338,10 @@ components:
           type: array
           description: |
             Tables to sweep on this run. Defaults to all 11 archivable tables.
-            `audit_log` is intentionally **not** archivable — it is preserved indefinitely on
-            the live DB (the `db_archiver` PostgreSQL role has only `SELECT` on it; no
-            DELETE). See `db/README.md` and `non-functional.md` §2.
+            `audit_log` is intentionally **not** archivable — it is retained on the live DB
+            for **at least 7 years** (compliance floor — GDPR Art 30, Reg 2024/1942 Art 6;
+            operator may extend indefinitely). The `db_archiver` PostgreSQL role has only
+            `SELECT` on it; no DELETE. See `db/README.md` and `non-functional.md` §5.
           items:
             type: string
             enum:
@@ -2180,10 +2533,11 @@ components:
         registeredAt:
           type: string
           format: date-time
-          example: "2026-04-20T08:30:00Z"
-        updatedAt:
-          type: string
-          format: date-time
+          description: |
+            Timestamp of the LATEST `consignments` row for this `dataset_id`
+            (i.e. the most recent state-write — initial registration, re-upload,
+            or status flip). Resolved by `MAX(created_at) WHERE dataset_id = ?`
+            under the append-only schema; there is no separate "updated_at".
           example: "2026-04-22T10:15:00Z"
 
     ConsignmentWithIdentifiers:
@@ -2223,11 +2577,11 @@ components:
         createdAt:
           type: string
           format: date-time
+          description: |
+            Timestamp of THIS row. Under the append-only schema the latest row
+            per `dataset_id` is the current state — there is no "updated_at"
+            because rows are never mutated; a state change writes a new row.
           example: "2026-04-20T08:30:00Z"
-        updatedAt:
-          type: string
-          format: date-time
-          example: "2026-04-22T10:15:00Z"
         deliveredAt:
           type: string
           format: date-time
@@ -2322,9 +2676,18 @@ components:
         tlsCert:
           type: string
           nullable: true
+        isActive:
+          type: boolean
+          description: |
+            Whether the latest row for this `id` has `is_active=TRUE`. Soft-deleted
+            platforms are returned by GET (so admins can audit them) but with
+            `isActive=false`; subsequent registrations from the cert mapped to a
+            soft-deleted platform return 403 `FORBIDDEN_NO_PLATFORM`.
+          example: true
         createdAt:
           type: string
           format: date-time
+          description: Timestamp of the latest `platforms` row for this `id` (state's "as-of").
           example: "2025-01-15T09:00:00Z"
 
     PlatformWrite:
@@ -2381,6 +2744,13 @@ components:
             $ref: '#/components/schemas/Subset'
           minItems: 1
           example: ["EU01", "EU02", "EU05"]
+        isActive:
+          type: boolean
+          description: |
+            Whether the latest row for this `id` has `is_active=TRUE`. Soft-deleted
+            authorities are returned by GET with `isActive=false`; their users lose
+            authority-side access on the next read.
+          example: true
 
     AuthorityWrite:
       type: object
@@ -2450,6 +2820,14 @@ components:
           items:
             $ref: '#/components/schemas/Subset'
           example: ["EU01", "EU02"]
+        isActive:
+          type: boolean
+          description: |
+            Whether the latest row for this `id` has `is_active=TRUE`. Soft-deleted
+            users cannot authenticate (TARA login still succeeds, but the gate's
+            user lookup resolves to `is_active=FALSE` and the request is rejected
+            with 401 `TOKEN_INVALID`).
+          example: true
 
     UserWrite:
       type: object
@@ -2487,7 +2865,8 @@ components:
       type: object
       description: |
         One row from the `audit_log` table — an action-level event capturing who did what,
-        when, against which resource. INSERT-only; preserved indefinitely on the live DB.
+        when, against which resource. INSERT-only; retained on the live DB for at least
+        7 years (compliance floor — see `non-functional.md` §5).
       properties:
         rowId:
           type: string
