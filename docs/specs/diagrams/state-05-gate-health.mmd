@@ -1,45 +1,37 @@
 stateDiagram-v2
-    [*] --> ONLINE: Admin: POST /api/v1/gates\n(registered, auto-pinged)
+    [*] --> ONLINE: Admin: POST /api/v1/gates<br/>→ INSERT gates (id, …, status='ONLINE')<br/>(auto-pinged on next cycle)
 
-    ONLINE --> OFFLINE: Ping fails\n(ConnectException or non-2xx HTTP response)\nGatePing background job detects failure
+    ONLINE --> OFFLINE: Ping fails<br/>GatePing job → INSERT gates row with status='OFFLINE'
 
-    OFFLINE --> ONLINE: Ping succeeds\n(next scheduled ping cycle)
+    OFFLINE --> ONLINE: Ping succeeds<br/>GatePing job → INSERT gates row with status='ONLINE',<br/>last_ping_at=NOW()
 
-    ONLINE --> DISABLED: Admin: POST /api/v1/gates (update with status=DISABLED)\n(manual disable, e.g. maintenance)
+    ONLINE --> DISABLED: Admin: PUT /api/v1/gates/{id}<br/>→ INSERT gates row with status='DISABLED'<br/>(manual disable — maintenance / decommission)
 
-    OFFLINE --> DISABLED: Admin manually disables\nunreachable gate
+    OFFLINE --> DISABLED: Admin: PUT /api/v1/gates/{id}<br/>→ INSERT gates row with status='DISABLED'
 
-    DISABLED --> ONLINE: Admin re-enables gate\nAND next ping succeeds
+    DISABLED --> ONLINE: Admin: PUT /api/v1/gates/{id}<br/>→ INSERT gates row with status='ONLINE'<br/>AND next ping succeeds
 
-    ONLINE --> Deleted: Admin: DELETE /api/v1/gates/{gateId}
-
-    OFFLINE --> Deleted: Admin: DELETE /api/v1/gates/{gateId}
-
-    DISABLED --> Deleted: Admin: DELETE /api/v1/gates/{gateId}
-
-    Deleted --> [*]: Gate removed from registry\nNo longer used in broadcasts
+    DISABLED --> [*]: Admin: DELETE /api/v1/gates/{id}<br/>→ INSERT gates row with status='DISABLED'<br/>(terminal — gate effectively retired)
 
     note right of ONLINE
-        Status: ONLINE
-        - Included in identifier search broadcasts
-        - gateRegistry.online() returns this gate
-        - Last successful ping recorded
-        - eDelivery or Fast HTTP calls routed here
+        Latest gates row for this id has status='ONLINE'.
+        - Included in identifier search broadcasts.
+        - gateRegistry.online() returns this gate.
+        - last_ping_at on the latest row is recent.
+        - eDelivery or Fast HTTP calls routed here.
     end note
 
     note right of OFFLINE
-        Status: OFFLINE
-        - Excluded from identifier search broadcasts
-        - gateRegistry.online() does NOT return this gate
-        - Direct dataset requests (GET /v1/dataset/{eu-fi01}/...) fail
-          with 502 Bad Gateway
-        - Ping job continues trying to reconnect
+        Latest gates row has status='OFFLINE'.
+        - Excluded from broadcasts.
+        - Direct GET /v1/dataset/{eu-fi01}/… → 502 GATEWAY_UNAVAILABLE.
+        - Ping job continues trying every 5 min;
+          if reachable, INSERTs a new ONLINE row.
     end note
 
     note right of DISABLED
-        Status: DISABLED
-        - Excluded from broadcasts AND ping job
-        - gateRegistry.enabled() does NOT return this gate
-        - Admin explicitly disabled (e.g. scheduled maintenance)
-        - Will NOT auto-recover (requires admin re-enable)
+        Latest gates row has status='DISABLED'.
+        - Excluded from broadcasts AND ping job.
+        - Will NOT auto-recover. Requires admin PUT to flip back.
+        - Old gates rows archived nightly by CronManager (Epic 26).
     end note

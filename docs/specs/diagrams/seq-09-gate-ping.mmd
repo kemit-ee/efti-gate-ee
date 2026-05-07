@@ -7,10 +7,10 @@ sequenceDiagram
     participant GateDE as Remote Gate (eu-de01)
     participant DB as PostgreSQL
 
-    Scheduler->>+PingJob: triggerPingJob()
+    Scheduler->>+PingJob: triggerPingJob() (every 5 min)
 
     PingJob->>+GateReg: enabled()
-    GateReg->>+DB: SELECT * FROM gates WHERE status != 'DISABLED'
+    GateReg->>+DB: SELECT DISTINCT ON (id) * FROM gates<br/>ORDER BY id, created_at DESC<br/>WHERE status != 'DISABLED'
     DB-->>-GateReg: [eu-fi01{ONLINE}, eu-de01{ONLINE}, eu-lt01{OFFLINE}]
     GateReg-->>-PingJob: [eu-fi01, eu-de01, eu-lt01]
 
@@ -25,9 +25,9 @@ sequenceDiagram
             GateFI-->>GateClient: AS4 SOAP pong
         end
 
-        GateClient->>+GateReg: save(gate.copy(status=ONLINE))
-        GateReg->>+DB: UPDATE gates SET status='ONLINE' WHERE id='eu-fi01'
-        DB-->>-GateReg: OK
+        GateClient->>+GateReg: save(gate.copy(status=ONLINE, last_ping_at=NOW()))
+        GateReg->>+DB: INSERT INTO gates<br/>(id, country_code, e_delivery_url, e_delivery_cert, tls_cert,<br/>status, last_ping_at, created_at)<br/>VALUES ('eu-fi01', 'FI', …, 'ONLINE', NOW(), NOW())
+        DB-->>-GateReg: OK (new row inserted; latest row for eu-fi01 wins)
         GateReg-->>-GateClient: saved
         GateClient-->>-PingJob: OK (eu-fi01 ONLINE)
 
@@ -35,11 +35,11 @@ sequenceDiagram
         GateClient->>+GateDE: POST /services/fast (X-API-Key: eu-ee31)
         GateDE-->>-GateClient: 503 Service Unavailable
         GateClient->>+GateReg: save(gate.copy(status=OFFLINE))
-        GateReg->>+DB: UPDATE gates SET status='OFFLINE' WHERE id='eu-de01'
+        GateReg->>+DB: INSERT INTO gates<br/>(id, country_code, …, status, last_ping_at, created_at)<br/>VALUES ('eu-de01', 'DE', …, 'OFFLINE', NULL, NOW())
         DB-->>-GateReg: OK
         GateReg-->>-GateClient: saved
         GateClient-->>-PingJob: ERROR (eu-de01 OFFLINE)
     end
 
     PingJob-->>-Scheduler: ping complete
-    Note over Scheduler: eu-fi01: ONLINE, eu-de01: OFFLINE<br/>Next ping scheduled in 5 minutes
+    Note over Scheduler: eu-fi01: ONLINE, eu-de01: OFFLINE<br/>(latest gates row per id determines current state)<br/>Next ping in 5 minutes. Old rows archived nightly by CronManager.

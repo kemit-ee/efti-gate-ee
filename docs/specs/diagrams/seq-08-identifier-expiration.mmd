@@ -4,24 +4,23 @@ sequenceDiagram
     participant DB as PostgreSQL
     participant Log as ECS JSON log
 
-    Note over Scheduler: Scheduled task runs daily at a randomised time 03:45–05:45 local<br/>(load spread across EU gates). Configurable via IDENTIFIER_EXPIRY_CRON.
+    Note over Scheduler: Daily at a randomised time 03:45–05:45 local<br/>(load spread across EU gates). Configurable via IDENTIFIER_EXPIRY_CRON.
 
     Scheduler->>+ExpiryJob: triggerExpiryJob()
-    ExpiryJob->>+Log: INSERT INTO jobs_execution_log (job_name, started_at, status='running')
 
-    ExpiryJob->>+DB: SELECT dataset_id FROM consignments<br/>WHERE status='active' AND mode='road'<br/>AND transport_date + INTERVAL '14 days' < NOW()
-    Note over DB: Uses idx_consignments_expires_at (partial index<br/>on status='active' AND expires_at IS NOT NULL).<br/>Cabotage retention per Reg 2024/1942 Art 11(4).
-    DB-->>-ExpiryJob: [550e8400-…, a1b2c3d4-…, c3d4e5f6-…]
+    ExpiryJob->>+DB: SELECT DISTINCT ON (dataset_id) *<br/>FROM consignments<br/>ORDER BY dataset_id, created_at DESC<br/>(filter: status='active' AND mode='road'<br/> AND transport_date + INTERVAL '14 days' < NOW())
+    Note over DB: Uses idx_consignments_dataset_latest +<br/>idx_consignments_status_active partial index.<br/>Cabotage retention per Reg 2024/1942 Art 11(4).
+    DB-->>-ExpiryJob: [550e8400-…, a1b2c3d4-…, c3d4e5f6-…] (latest rows)
 
     loop For each expired road consignment
-        ExpiryJob->>+DB: UPDATE consignments<br/>SET status='inactive'<br/>WHERE dataset_id='550e8400-…' AND status='active'
-        DB-->>-ExpiryJob: 1 row updated
-        Note over DB: AFTER UPDATE trigger consignments_change_history<br/>writes (table='consignments', row_id='550e8400-…',<br/>column='status', old='active', new='inactive') to change_history.
+        ExpiryJob->>+DB: INSERT INTO consignments<br/>(dataset_id, platform_id, gate_id, xml,<br/>status, mode, vehicle_plate, …,<br/>transport_date, expires_at, created_at)<br/>VALUES (… same as latest row, but status='inactive')
+        DB-->>-ExpiryJob: new row inserted
+        Note over DB: No UPDATE — append-only. The newly-inserted<br/>row becomes the latest for this dataset_id;<br/>reads picking DISTINCT ON now see status='inactive'.
         ExpiryJob->>Log: { event.action: "identifier.expire",<br/>efti.dataset.id: "550e8400-…", efti.expiry.reason: "cabotage_14d" }
     end
 
-    ExpiryJob->>+DB: UPDATE jobs_execution_log<br/>SET finished_at=NOW(), status='completed',<br/>details=jsonb_build_object('expired_count', 3)
+    ExpiryJob->>+DB: INSERT INTO jobs_execution_log<br/>(job_name, started_at, finished_at, status, details)<br/>VALUES ('expiry-job', $start, NOW(), 'completed',<br/>jsonb_build_object('expired_count', 3))
     DB-->>-ExpiryJob: ok
     ExpiryJob-->>-Scheduler: done
 
-    Note over Scheduler: Non-road modes (maritime/rail/air/multimodal)<br/>are NOT expired by this job — Reg 2024/1942 Art 11(4)<br/>cabotage retention applies to road only.
+    Note over Scheduler: Non-road modes (maritime/rail/air/multimodal)<br/>are NOT expired by this job — Reg 2024/1942 Art 11(4)<br/>cabotage retention applies to road only.<br/>Old (non-latest) consignments rows are archived<br/>nightly by CronManager (Epic 26).

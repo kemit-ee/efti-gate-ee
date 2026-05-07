@@ -3,29 +3,27 @@ sequenceDiagram
     participant Gate as eFTI Gate (eu-ee31)
     participant DB as PostgreSQL
 
-    Note over Platform: Platform has a consignment to register/update.<br/>datasetId: 550e8400-e29b-41d4-a716-446655440000
+    Note over Platform: Platform has a consignment to register or re-register.<br/>datasetId: 550e8400-e29b-41d4-a716-446655440000
 
     Platform->>+Gate: POST /v1/identifiers/550e8400-e29b-41d4-a716-446655440000
-    Note over Platform,Gate: Content-Type: application/xml<br/>Authorization: Bearer demo-platform-key<br/>Body: full consignment XML with identifiers
+    Note over Platform,Gate: Content-Type: application/xml<br/>Authorization: Bearer demo-platform-key<br/>X-Request-ID: <uuid><br/>Body: full consignment XML with identifiers
 
-    Gate->>Gate: Authenticate user → platformId="demo"
-    Gate->>Gate: Extract datasetId from XML: "550e8400-e29b-41d4-a716-446655440000"
-    Gate->>Gate: Drop XML root wrapper (dropXmlRoot)
-    Gate->>Gate: Parse identifiers XML (EftiParser.parseIdentifiers)
+    Gate->>Gate: Authenticate user → platform_id="demo"
+    Gate->>Gate: Check X-Request-ID dedup<br/>(INSERT into request_id_cache; conflict → 409)
+    Gate->>Gate: Extract datasetId from path: "550e8400-e29b-41d4-a716-446655440000"
+    Gate->>Gate: dropXmlHeader, parse via EftiParser.parseIdentifiers
 
     alt Parse successful
-        Gate->>+DB: INSERT INTO consignments (datasetId, platformId, gateId, xml, mode, dangerousGoods)<br/>ON CONFLICT (datasetId) DO UPDATE SET xml=EXCLUDED.xml, updatedAt=NOW()
-        DB-->>-Gate: OK (upserted)
+        Gate->>+DB: INSERT INTO consignments<br/>(dataset_id, platform_id, gate_id, xml, status, mode,<br/>vehicle_plate, vehicle_country, dangerous_goods,<br/>origin_country, destination_country, transport_date,<br/>expires_at, created_by, created_at)<br/>VALUES ('550e8400-…', 'demo', 'eu-ee31', $xml, 'active', …)
+        DB-->>-Gate: new consignments row (always INSERT — append-only).<br/>If a prior row exists for this dataset_id, the new row<br/>becomes the latest.
 
-        Gate->>+DB: DELETE FROM identifiers WHERE datasetId = '550e8400-...'
-        DB-->>-Gate: OK
-
-        Gate->>+DB: INSERT INTO identifiers (id, datasetId, type, countryCode)<br/>VALUES ('123ABC', '550e8400-...', 'VEHICLE', 'EE')
-        DB-->>-Gate: OK (1 row)
+        Gate->>+DB: INSERT INTO identifiers<br/>(consignment_row, dataset_id, identifier_type,<br/>identifier_value, country_code)<br/>VALUES (newConsignmentRowId, '550e8400-…', 'means', '123ABC', 'EE'),<br/>       (…additional identifiers extracted from XML…)
+        DB-->>-Gate: N rows (one per identifier extracted)
+        Note over DB: Old identifiers rows for this dataset_id<br/>remain in the table — archived nightly by CronManager.
 
         Gate-->>-Platform: 200 OK
-        Note over Gate,Platform: Consignment registered/updated.<br/>Identifiers: [{id="123ABC", type="VEHICLE", country="EE"}]
+        Note over Gate,Platform: Authority searches will see the new row<br/>(SELECT DISTINCT ON dataset_id ORDER BY created_at DESC).
 
     else Parse error (malformed XML)
-        Gate-->>-Platform: 400 Bad Request\n{"error": "Error parsing identifiers: SAXParseException: ..."}
+        Gate-->>-Platform: 400 Bad Request<br/>{ "type":"https://api.efti.ee/errors/invalid-xml",<br/>"code":"INVALID_XML", "title":"Invalid XML",<br/>"status":400, "detail":"SAXParseException: …" }
     end

@@ -1,20 +1,20 @@
 stateDiagram-v2
-    [*] --> active: Platform: POST /v1/identifiers/{datasetId}<br/>(XSD valid → INSERT consignments + identifiers)
+    [*] --> active: Platform: POST /v1/identifiers/{datasetId}<br/>(XSD valid → INSERT consignments + identifiers, status='active')
 
     [*] --> rejected: XSD invalid<br/>(JAXB throws → 400 INVALID_XML, no DB write)
     rejected --> [*]
 
-    active --> active: Platform: POST /v1/identifiers/{datasetId}<br/>(re-upload — INSERT new consignments row, replaces previous)
+    active --> active: Platform: POST /v1/identifiers/{datasetId}<br/>(re-upload — INSERT new consignments row sharing dataset_id;<br/>previous row remains, latest wins)
 
-    active --> inactive: IdentifierExpirationJob<br/>(mode='road' AND transport_date + 14 days < NOW())<br/>UPDATE consignments SET status='inactive'<br/>per Reg 2024/1942 Art 11(4) — cabotage retention
+    active --> inactive: IdentifierExpirationJob (cron 03:45–05:45)<br/>mode='road' AND transport_date + 14 days < NOW()<br/>→ INSERT new consignments row with status='inactive'<br/>per Reg 2024/1942 Art 11(4) cabotage retention
 
-    inactive --> active: rare — re-registration of same datasetId<br/>(treated as a new consignment row)
+    inactive --> active: rare — re-registration of same dataset_id<br/>(INSERT new row with status='active')
 
-    active --> deleted: Admin: DELETE /api/v1/consignments/{datasetId}<br/>UPDATE consignments SET status='deleted'<br/>(soft delete — row retained for audit)
-    inactive --> deleted: Admin: DELETE /api/v1/consignments/{datasetId}<br/>UPDATE consignments SET status='deleted'
+    active --> deleted: Admin: DELETE /api/v1/consignments/{datasetId}<br/>→ INSERT new consignments row with status='deleted'<br/>(logical delete; nothing physically removed)
+    inactive --> deleted: Admin: DELETE /api/v1/consignments/{datasetId}<br/>→ INSERT new consignments row with status='deleted'
 
     note right of active
-        Status enum value: 'active'
+        consignments.status='active' (latest row).
         - Authority search returns this consignment.
         - Dataset XML retrievable via GET /v1/dataset/...
         - Indexed via consignments denormalised columns
@@ -22,17 +22,17 @@ stateDiagram-v2
     end note
 
     note right of inactive
-        Status enum value: 'inactive'
-        - Authority default search excludes (status=active filter).
+        consignments.status='inactive' (latest row).
+        - Default authority search excludes (status=active).
         - Returned only with explicit status=inactive|all
           (cabotage queries: dateFrom/dateTo + status=inactive).
         - Dataset XML still retrievable via direct UIL.
     end note
 
     note right of deleted
-        Status enum value: 'deleted'
-        - Soft delete: row retained for audit retention.
-        - DELETE never granted to the runtime app role.
+        consignments.status='deleted' (latest row).
+        - Logical delete: no row physically removed.
+        - DELETE not granted to the runtime app role.
         - Excluded from all default queries (status=active filter).
-        - Physical removal only via partition rotation by maintenance role.
+        - Old (non-latest) rows archived nightly by CronManager (Epic 26).
     end note

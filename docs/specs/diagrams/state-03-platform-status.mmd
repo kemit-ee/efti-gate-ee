@@ -1,25 +1,27 @@
 stateDiagram-v2
-    [*] --> Active: Admin: POST /api/v1/platforms\n(platform created, immediately active)
+    [*] --> Active: Admin: POST /api/v1/platforms<br/>→ INSERT platforms (id, …, is_active=TRUE)
 
-    Active --> Active: Platform: POST /v1/identifiers/{datasetId}\n(registers/updates identifiers)
+    Active --> Active: Admin: PUT /api/v1/platforms/{id}<br/>→ INSERT new platforms row sharing the same id<br/>(updated base_url / headers / certs)
 
-    Active --> Deleted: Admin: DELETE /api/v1/platforms/{id}\n(platform removed from registry)
+    Active --> Inactive: Admin: DELETE /api/v1/platforms/{id}<br/>→ INSERT new platforms row with is_active=FALSE
 
-    Deleted --> [*]: Platform entry removed\nAssociated users lose access\nExisting consignments remain in DB
+    Inactive --> Active: Admin: POST again<br/>→ INSERT new row with is_active=TRUE
 
     note right of Active
-        State: Active
-        - Platform can register identifiers
-        - platformRegistry[id] returns Platform object
-        - Platform users can authenticate
-        - Dataset requests routed to platform.baseUrl
-        - supportsSubsetting: determines if gate uses full XML or subset API
+        Latest platforms row for this id has is_active=TRUE.
+        - Platform can register identifiers via POST /v1/identifiers
+        - Latest-row lookup returns this platform
+        - Platform users authenticate
+        - Dataset requests routed to platform.base_url
+        - supports_subsetting controls full-XML vs subset API
     end note
 
-    note right of Deleted
-        State: Deleted
-        - Platform removed from in-memory registry
-        - Existing consignments NOT deleted (data retention)
-        - Platform users get 401 (platformRegistry lookup fails)
-        - Dataset requests to this platform will fail
+    note right of Inactive
+        Latest platforms row has is_active=FALSE.
+        - Latest-row lookup excludes this platform
+          (filter is_active=TRUE)
+        - Platform users get 401 (lookup fails)
+        - Existing consignments rows remain in their own table;
+          CronManager archives non-latest rows nightly.
+        - The Inactive row stays for audit until archival sweep.
     end note

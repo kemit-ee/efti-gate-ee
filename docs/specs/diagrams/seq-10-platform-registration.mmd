@@ -14,7 +14,7 @@ sequenceDiagram
     Gate->>Gate: Deserialize Platform object
 
     Gate->>+PlatformReg: save(Platform{id="plt-abc-001", ...})
-    PlatformReg->>+DB: INSERT INTO platforms (id, baseUrl, supportsSubsetting)<br/>VALUES ('plt-abc-001', 'https://efti.abc-logistics.ee', true)<br/>ON CONFLICT (id) DO UPDATE SET ...
+    PlatformReg->>+DB: INSERT INTO platforms<br/>(id, base_url, supports_subsetting, is_active, created_by, created_at)<br/>VALUES ('plt-abc-001', 'https://efti.abc-logistics.ee', TRUE,<br/>TRUE, $admin_uid, NOW())<br/>(append-only — re-saves are new rows; latest wins)
     DB-->>-PlatformReg: OK
     PlatformReg-->>-Gate: saved
 
@@ -26,7 +26,7 @@ sequenceDiagram
     Note over Admin,Gate: Body: {"name":"ABC Logistics Operator","email":"operator@abc-logistics.ee","roles":{"PLATFORM":["plt-abc-001"]}}
 
     Gate->>Gate: Generate random UUID password
-    Gate->>+DB: INSERT INTO users (name, email, roles, secretHash)<br/>VALUES ('ABC Logistics Operator', 'operator@abc-logistics.ee',<br/>         '{"PLATFORM":["plt-abc-001"]}', sha256hash(...))
+    Gate->>+DB: INSERT INTO users<br/>(id, email, name, roles, secret_hash, is_active, created_by, created_at)<br/>VALUES (uuid_generate_v4(), 'operator@abc-logistics.ee',<br/>'ABC Logistics Operator', '{"PLATFORM":["plt-abc-001"]}',<br/>bcrypt(...), TRUE, $admin_uid, NOW())
     DB-->>-Gate: user.id="c1d2e3f4-..."
 
     Gate-->>-Admin: 200 OK\nc1d2e3f4-...:generated-secret-uuid

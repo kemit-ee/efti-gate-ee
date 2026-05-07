@@ -5,34 +5,33 @@ sequenceDiagram
     participant DB as PostgreSQL
     participant OtherNode as Gate Node 2 (eu-ee31)
 
-    Note over Gate,OtherNode: Multi-node deployment: both nodes share<br/>the same PostgreSQL. GateRegistry is<br/>in-memory (loaded at startup).
+    Note over Gate,OtherNode: Multi-node deployment: both nodes share the same<br/>PostgreSQL. GateRegistry is an in-memory cache of<br/>the latest gates row per id (loaded at startup).
 
     Admin->>+Gate: POST /api/v1/gates
-    Note over Admin,Gate: Body: {"id":"eu-pl01","countryCode":"PL","eDeliveryUrl":"https://efti.gitd.gov.pl/as4","eDeliveryCert":"-----BEGIN CERTIFICATE-----..."}
+    Note over Admin,Gate: Body: {"id":"eu-pl01","country_code":"PL",<br/>"e_delivery_url":"https://efti.gitd.gov.pl/as4",<br/>"e_delivery_cert":"-----BEGIN CERTIFICATE-----..."}
 
     Gate->>Gate: Authenticate admin
     Gate->>+GateReg: save(Gate{id="eu-pl01", ...})
 
-    GateReg->>GateReg: gates["eu-pl01"] = Gate{...} (in-memory update on this node)
+    GateReg->>GateReg: in-memory cache: gates["eu-pl01"] = Gate{...}<br/>(this node only)
 
-    GateReg->>+DB: INSERT INTO gates (id, countryCode, eDeliveryUrl, eDeliveryCert, status)<br/>VALUES ('eu-pl01', 'PL', 'https://efti.gitd.gov.pl/as4', '...', 'ONLINE')<br/>ON CONFLICT (id) DO UPDATE SET ...
-    DB-->>-GateReg: OK
+    GateReg->>+DB: INSERT INTO gates<br/>(id, country_code, e_delivery_url, e_delivery_cert,<br/>status, created_by, created_at)<br/>VALUES ('eu-pl01', 'PL', 'https://efti.gitd.gov.pl/as4', '...',<br/>'ONLINE', $admin_uid, NOW())
+    DB-->>-GateReg: OK (new row; latest row for id wins on next read)
 
-    Note over DB,OtherNode: DB trigger fires pg_notify('registry_change', 'eu-pl01')
+    Note over DB,OtherNode: AFTER INSERT trigger on gates fires<br/>pg_notify('registry_change', 'eu-pl01')
 
     DB->>OtherNode: NOTIFY registry_change (channel: registry_change, payload: eu-pl01)
 
     OtherNode->>OtherNode: Listen thread receives notification
-    OtherNode->>+DB: SELECT * FROM gates WHERE id = 'eu-pl01'
-    DB-->>-OtherNode: Gate{id="eu-pl01", ...}
+    OtherNode->>+DB: SELECT DISTINCT ON (id) *<br/>FROM gates WHERE id = 'eu-pl01'<br/>ORDER BY id, created_at DESC
+    DB-->>-OtherNode: latest Gate{id="eu-pl01", …}
     OtherNode->>OtherNode: gateRegistry.gates["eu-pl01"] = Gate{...}
-    Note over OtherNode: In-memory registry updated on Node 2<br/>without restart required.
+    Note over OtherNode: In-memory registry updated on Node 2<br/>without restart.
 
-    GateReg->>GateReg: notifyChanged(gate) → internal listeners notified
-
+    GateReg->>GateReg: notifyChanged(gate) → internal listeners
     GateReg-->>-Gate: done
 
     Gate->>+Gate: runCatching { ping(gate.id) }
-    Note over Gate: Auto-ping new gate after registration<br/>to verify connectivity
+    Note over Gate: Auto-ping new gate after registration to verify connectivity.<br/>Successful ping INSERTs another gates row with status='ONLINE'<br/>and last_ping_at=NOW().
 
-    Gate-->>-Admin: 200 OK\n{"id":"eu-pl01","countryCode":"PL","status":"ONLINE",...}
+    Gate-->>-Admin: 200 OK\n{"id":"eu-pl01","country_code":"PL","status":"ONLINE",...}
