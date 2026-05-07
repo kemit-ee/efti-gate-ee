@@ -213,9 +213,11 @@ Every scenario uses the same canonical pipeline; only the rule listed below diff
 
 The `consignments` table carries denormalised search columns that hold the
 projection of XML fields most commonly filtered by authorities. The Gate
-populates them on INSERT (and only on INSERT, since `consignments` accepts
-UPDATE only via the IdentifierExpirationJob status transition) so that the
-authority search path is a single-table read with no JOINs.
+populates them on every INSERT (the table is append-only — every state
+change is a new row); state transitions like `IdentifierExpirationJob`
+flipping `status` to `inactive` also INSERT a new row, copying the prior
+row's other columns. Authority search is a single-table read using
+`SELECT DISTINCT ON (dataset_id) …` — no JOIN.
 
 | `consignments` column | XPath in the identifier XML | Notes |
 |-----------------------|------------------------------|-------|

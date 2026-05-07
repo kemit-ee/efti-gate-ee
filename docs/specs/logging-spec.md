@@ -79,7 +79,7 @@ All log entries **must** be valid JSON on a single line. Format follows [Elastic
 | `error.message` | string | Exception message |
 | `error.stack_trace` | string | First 10 stack frames (ERROR level only) |
 | `db.table` | string | Primary table touched |
-| `db.operation` | string | `INSERT`/`UPDATE`/`SELECT`/`DELETE` |
+| `db.operation` | string | `SELECT` or `INSERT` (the gate is append-only — see `db/README.md`) |
 | `db.duration_ms` | int | Query duration |
 | `g2g.source_gate` | string | Originating gate ID for G2G inbound |
 | `g2g.target_gate` | string | Target gate ID for G2G outbound |

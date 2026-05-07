@@ -34,13 +34,9 @@ The implementation contracts. Build the new gate against these.
 
 ## Non-negotiable rules
 
-1. **Persistence taxonomy** (three classes — not blanket "append-only"):
-   - **Ledger tables** (`change_history`, `audit_log`, `follow_up_log`) — truly immutable, INSERT-only. Enforced at the DB level via `BEFORE UPDATE OR DELETE` triggers that `RAISE EXCEPTION`.
-   - **Ephemeral tables** (`request_id_cache`, `sessions`, `jobs_execution_log`) — INSERT-only at the application layer; rows age out via partition rotation (DDL) by a maintenance role, not via app-issued `DELETE`.
-   - **Registry tables** (`gates`, `platforms`, `authorities`, `users`, `consignments`, `identifiers`) — `UPDATE` allowed (status transitions, `last_ping_at`, password resets, identifier expiry); `DELETE` never granted to the runtime `app` role; logical deletion uses status enums (`gates.status='DISABLED'`, `consignments.status='deleted'`). Every `UPDATE` is captured into `change_history` by an `AFTER UPDATE` trigger.
-   - The runtime `app` role has `SELECT, INSERT` on every table plus `UPDATE` on registry tables only. `DELETE` is not granted to `app` on any table.
-2. **Denormalised reads.** No `JOIN` in application hot paths. The `consignments` table carries all search columns directly (`vehicle_plate`, `vehicle_country`, `mode`, `dangerous_goods`, `origin_country`, `destination_country`, `transport_date`).
-3. **Immutable audit.** `change_history`, `audit_log`, `follow_up_log` are locked at the DB level via `BEFORE UPDATE OR DELETE` trigger that `RAISE EXCEPTION`, plus `REVOKE UPDATE, DELETE FROM PUBLIC`.
+1. **Append-only everywhere.** Every operational table is INSERT-only. No `UPDATE`, no `DELETE`, anywhere. The runtime `app` role has `SELECT, INSERT` only on every table — `UPDATE` and `DELETE` are not granted. Editing an entity means INSERTing a new row sharing the same logical identifier; the latest row by `created_at` is the current state. State transitions (gate ping, identifier expiry, password reset, status flip, token revocation, async-response consumption) are all INSERTs of a new row.
+2. **Latest-row reads, no `JOIN`.** Reads use `SELECT DISTINCT ON (logical_id) … ORDER BY logical_id, created_at DESC`. Single-table. Search columns are denormalised onto `consignments` directly (`vehicle_plate`, `vehicle_country`, `mode`, `dangerous_goods`, `origin_country`, `destination_country`, `transport_date`); the no-`JOIN` rule holds for the hot path.
+3. **Archival by CronManager.** The live database carries every event ever written; non-latest rows are moved to archival storage by [**CronManager**](https://github.com/Buerostack/CronManager) — a separate Quartz-based scheduler service deployed alongside the gate. CronManager calls a gate admin endpoint on schedule (e.g. nightly); that endpoint runs the archival sweep. See Epic 26.
 4. **Content-agnostic gate.** The gate stores identifiers and routes queries; it does not parse, validate, transform, or enforce business logic on dataset payloads. Dataset content lives on the platform, not the gate.
 
 ## Repository layout

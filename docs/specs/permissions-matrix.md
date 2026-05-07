@@ -182,7 +182,7 @@ flowchart TD
 
 ## 4. Append-only & audit (callout)
 
-> **Append-only design rule.** Per the repo `README.md` non-negotiables, `change_history`, `audit_log` and `follow_up_log` are ledger tables — INSERT-only, enforced at the DB level. Registry tables (`users`, `platforms`, `authorities`, `gates`, `consignments`, `identifiers`) allow UPDATE for status/credential transitions; every UPDATE is captured into `change_history` by an `AFTER UPDATE` trigger. The runtime `app` role has no `DELETE` privilege on any table. Logical deletion uses status enums (`gates.status='DISABLED'`, `consignments.status='deleted'`).
+> **Append-only design rule.** Every operational table is INSERT-only. The runtime `app` role has `SELECT, INSERT` only on every table — `UPDATE` and `DELETE` are not granted, period. "Edit" operations on registry rows (admin updates a gate, password reset, status flip, token revocation, async-response consumption) all INSERT a new row sharing the logical identifier. Reads use `SELECT DISTINCT ON (logical_id) … ORDER BY logical_id, created_at DESC` to fetch the current state. Non-latest rows are moved to archival storage by CronManager (Epic 26).
 
 > **GDPR Art. 30 callout.** Every authority data access (`identifier.search`, `dataset.deliver`, `followup.send`) and every admin write must produce an audit log entry. Retention: **7 years**. Field schema and example payloads are in `logging-spec.md` §2 and §4. Authentication failures and authorisation denials are also retained 7 years.
 
