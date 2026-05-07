@@ -4,9 +4,10 @@ This directory will hold the runtime deployment artefacts (Helm chart values, Ku
 
 ## What's documented
 
-- **Deployment topology** — see [`../non-functional.md`](../non-functional.md) §3: two-node minimum, PostgreSQL primary + DR standby, Layer-7 LB, reverse proxy for TLS, AS4 access point (custom or Domibus).
+- **Deployment topology** — see [`../non-functional.md`](../non-functional.md) §3: two-node minimum, PostgreSQL primary + DR standby, Layer-7 LB, reverse proxy for TLS, AS4 access point (custom or Domibus), CronManager sibling.
 - **Multi-node component diagram** — [`../diagrams/arch-01-multi-node-deployment.mmd`](../diagrams/arch-01-multi-node-deployment.mmd).
 - **Environment-parity rule** — test/stage/prod must be identical; dev (developer's machine) is allowed minor looseness. Same software, same versions, same backend. No "Redis in prod, Postgres in dev" splits.
+- **CronManager archival job** — canonical YAML at [`cronmanager-archive.yaml`](cronmanager-archive.yaml). Strict requirement (Epic 26): CronManager is deployed as a sibling Pod/container alongside the gate; on cron schedule it calls `POST /api/v1/admin/archive` to sweep non-latest rows out of the live database to archival storage.
 
 ## What's missing (intentional Phase-2 scope)
 

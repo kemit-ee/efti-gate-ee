@@ -47,6 +47,8 @@ Steady-state estimates for a single national gate handling Estonia's freight vol
 - **`pg_notify`** for in-cluster registry sync (gate-list refresh on Admin write). Documented in `arch-01-multi-node-deployment.mmd`.
 - **Reverse proxy** (e.g. Caddy / Traefik / nginx) terminates TLS; gate processes do not handle TLS directly.
 - **eDelivery AS4 access point**: the gate currently embeds its own AS4 implementation (Askend baseline). Domibus is an alternative for member states that already operate one — both are supported by the protocol; the choice is operator-level.
+- **[CronManager](https://github.com/Buerostack/CronManager)** is a strict requirement, not optional. Deployed as a sibling container/Pod alongside the gate, with its own Postgres for Quartz state. CronManager owns every scheduled task — including the **append-only archival sweep** (Epic 26) that moves non-latest rows of every operational table to archival storage on a configurable cron schedule. The gate's runtime never schedules its own jobs; it only exposes the admin endpoints that CronManager calls. See `docs/specs/deploy/cronmanager-archive.yaml` for the canonical job definition.
+- **Archival destination** (separate from live PostgreSQL) is operator-configurable but must satisfy environment parity: same software in dev / test / stage / prod. Acceptable: an S3-compatible object store (real S3 in prod; MinIO/LocalStack in dev as long as the wire protocol is the same), a secondary PostgreSQL on a different cluster, or an append-only file storage. JSON-Lines partitioned by `(table, year, month)`; 7-year minimum retention.
 
 ## 4. Pinned dependency versions
 
@@ -71,7 +73,7 @@ The reference implementation will pin these exactly; alternative implementations
 
 | Topic | Requirement | Anchor |
 |---|---|---|
-| Audit retention | 7 years for `audit_log`, `change_history`, `follow_up_log` | GDPR Art 30; Reg 2024/1942 Art 6 |
+| Audit retention | 7 years for `audit_log`, `follow_up_log`, and every operational table's archived rows | GDPR Art 30; Reg 2024/1942 Art 6 |
 | Cabotage retention | Road consignments held for 14 days post-transport_date in `inactive` status | Reg 2024/1942 Art 11(4) |
 | Personal-data redaction | `users.secret_hash`, `Authorization` headers, partial vehicle plates in audit contexts | logging-spec.md §6 |
 | Cross-border interoperability | Any EU eFTI gate may query any other gate over AS4 | Reg 2020/1056 |

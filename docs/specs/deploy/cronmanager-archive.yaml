@@ -1,0 +1,50 @@
+# CronManager job definition: nightly append-only archival sweep
+# https://github.com/Buerostack/CronManager
+#
+# Canonical reference for Epic 26 (Append-Only Archival via CronManager).
+# Drop this file (or an operator-tuned variant) into CronManager's
+# DSL/jobs/ directory; restart CronManager to load. Operators MUST
+# inject the BEARER_OPS_TOKEN env var from a Kubernetes Secret —
+# do NOT commit a token in this YAML.
+
+efti_gate_archive:
+  # Quartz cron: 03:00 every day. Operator-overridable.
+  # Pick a window that doesn't collide with the IdentifierExpirationJob
+  # (default 03:45–05:45) — the archival sweep is heavier and should
+  # finish before the expiry job starts producing fresh non-latest rows.
+  trigger: "0 0 3 * * ?"
+
+  type: http
+  method: POST
+  url: "${GATE_BASE_URL}/api/v1/admin/archive"
+
+  headers:
+    Authorization: "Bearer ${BEARER_OPS_TOKEN}"
+    Content-Type: "application/json"
+
+  # Optional body: defaults are { all operational tables, batch_size 1000,
+  # max_runtime_seconds 600 }. Override here if your gate is large and
+  # needs longer / smaller batches.
+  body: |
+    {
+      "tables": [
+        "gates", "platforms", "authorities", "users",
+        "consignments", "identifiers",
+        "request_id_cache", "sessions", "async_responses",
+        "jobs_execution_log", "follow_up_log", "audit_log"
+      ],
+      "batch_size": 1000,
+      "max_runtime_seconds": 1800
+    }
+
+  # CronManager-native retry policy. The gate already returns 409
+  # ARCHIVE_IN_PROGRESS if a previous run is still active; CronManager
+  # treats that as success-ish (no retry needed).
+  retry:
+    max_attempts: 3
+    backoff: exponential
+    initial_delay: "30s"
+
+  # Time-out for the HTTP call (longer than max_runtime_seconds because
+  # the gate returns when its budget is exhausted, not when CronManager's is).
+  timeout: "2100s"
