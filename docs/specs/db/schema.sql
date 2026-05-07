@@ -8,6 +8,12 @@
 --   createdb efti
 --   psql -U postgres -d efti -f schema.sql
 --
+-- Migration policy:
+--   This file is the v0 baseline. Apply once against an empty database; do not
+--   re-run on a populated cluster. All subsequent schema changes go through
+--   Liquibase changesets in `gate/db/changelog/` (matching the Askend baseline
+--   tooling choice). No ad-hoc DDL — every change is a versioned changeset.
+--
 -- Design notes vs current gate (v1 Liquibase changesets):
 --   - Consolidated from separate *.sql changeset files into one executable schema
 --   - consignments: added status column, vehicle_plate/country denormalised for fast search
@@ -195,10 +201,13 @@ REVOKE UPDATE, DELETE ON change_history FROM PUBLIC;
 CREATE OR REPLACE FUNCTION add_change_history()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE
+  v_pk_col   name := COALESCE(TG_ARGV[0], 'id');  -- pass non-default PK as trigger argument
+  v_pk_val   text;
   v_col      name;
   v_old_val  text;
   v_new_val  text;
 BEGIN
+  EXECUTE format('SELECT ($1.%I)::text', v_pk_col) USING NEW INTO v_pk_val;
   FOR v_col IN (
     SELECT a.attname
     FROM   pg_catalog.pg_attribute a
@@ -210,7 +219,7 @@ BEGIN
     EXECUTE format('SELECT ($1.%I)::text', v_col) USING OLD INTO v_old_val;
     CONTINUE WHEN v_old_val IS NOT DISTINCT FROM v_new_val;
     INSERT INTO change_history ("table", row_id, "column", old_value, new_value, changed_by)
-    VALUES (TG_TABLE_NAME, NEW.id::text, v_col, v_old_val, v_new_val, get_app_user());
+    VALUES (TG_TABLE_NAME, v_pk_val, v_col, v_old_val, v_new_val, get_app_user());
   END LOOP;
   RETURN NEW;
 END;
@@ -218,7 +227,9 @@ $$;
 
 COMMENT ON FUNCTION add_change_history() IS
   'Trigger function: records each changed column as a row in change_history. '
-  'Attach AFTER UPDATE on tables that need full field-level audit.';
+  'Attach AFTER UPDATE on registry tables that need field-level audit. '
+  'For tables whose primary key is not named "id", pass the PK column as a trigger '
+  'argument: CREATE TRIGGER … EXECUTE FUNCTION add_change_history(''dataset_id'').';
 
 -- ----------------------------------------------------------------------------
 -- 4.2 gates
@@ -402,7 +413,7 @@ CREATE TABLE consignments (
 
 COMMENT ON TABLE  consignments IS 'Stored consignment identifier metadata registered by eFTI platforms. Core query target for authority identifier searches.';
 COMMENT ON COLUMN consignments.dataset_id          IS 'UUID assigned by the platform to uniquely identify this consignment dataset. Used in UIL (Unique Identifier Locator) references.';
-COMMENT ON COLUMN consignments.platform_id         IS 'FK to platforms.id — the platform that registered this consignment. Cascades delete.';
+COMMENT ON COLUMN consignments.platform_id         IS 'FK to platforms.id. No cascade — DELETE is not granted to the runtime app role; logical deletion uses status enums.';
 COMMENT ON COLUMN consignments.gate_id             IS 'Gate that owns this consignment record (denormalised for query performance, always this gate''s own ID for locally registered consignments).';
 COMMENT ON COLUMN consignments.xml                 IS 'Raw consignment identifier XML body (without <?xml?> declaration). Parsed fields extracted into denormalised columns for fast search. Full XML preserved for authority dataset queries.';
 COMMENT ON COLUMN consignments.status              IS 'Lifecycle status. active=queryable, inactive=expired/delivered, deleted=platform-removed.';
@@ -434,6 +445,12 @@ CREATE TRIGGER consignments_updated_at
   BEFORE UPDATE ON consignments
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+-- consignments PK is dataset_id (not "id"); pass it as a trigger argument
+-- so the parametrised add_change_history() function looks up the right column.
+CREATE TRIGGER consignments_change_history
+  AFTER UPDATE ON consignments
+  FOR EACH ROW EXECUTE FUNCTION add_change_history('dataset_id');
+
 -- ----------------------------------------------------------------------------
 -- 4.7 identifiers
 -- (individual identifier values extracted from consignments, normalised 1:N)
@@ -452,7 +469,7 @@ CREATE TABLE identifiers (
 
 COMMENT ON TABLE  identifiers IS 'Normalised individual identifier values extracted from consignment XML. One consignment may have multiple identifiers (e.g. vehicle plate + container number).';
 COMMENT ON COLUMN identifiers.id               IS 'UUID primary key';
-COMMENT ON COLUMN identifiers.dataset_id       IS 'FK to consignments.dataset_id. Cascades delete.';
+COMMENT ON COLUMN identifiers.dataset_id       IS 'FK to consignments.dataset_id. No cascade — DELETE is not granted to the runtime app role.';
 COMMENT ON COLUMN identifiers.identifier_type  IS 'Type of identifier: means (vehicle plate), equipment (container), carried (cargo unit)';
 COMMENT ON COLUMN identifiers.identifier_value IS 'The actual identifier string (e.g. "123ABC", "MSCU1234567"). Indexed for exact and fuzzy search.';
 COMMENT ON COLUMN identifiers.country_code     IS 'ISO 3166-1 alpha-2 registration country of this identifier, if applicable. NULL for non-country-specific identifiers.';
@@ -462,6 +479,11 @@ CREATE INDEX idx_identifiers_dataset_id    ON identifiers (dataset_id);
 CREATE INDEX idx_identifiers_value         ON identifiers (identifier_value);
 CREATE INDEX idx_identifiers_value_trgm    ON identifiers USING gin (identifier_value gin_trgm_ops);
 CREATE INDEX idx_identifiers_type          ON identifiers (identifier_type);
+
+-- identifiers.id is the default-named UUID PK, so no trigger argument needed.
+CREATE TRIGGER identifiers_change_history
+  AFTER UPDATE ON identifiers
+  FOR EACH ROW EXECUTE FUNCTION add_change_history();
 
 -- ----------------------------------------------------------------------------
 -- 4.8 async_responses
@@ -519,7 +541,7 @@ CREATE TABLE sessions (
 
 COMMENT ON TABLE  sessions IS 'Active and revoked JWT sessions. Used for token blacklisting on logout and for enforcing single-session policies.';
 COMMENT ON COLUMN sessions.id         IS 'UUID primary key';
-COMMENT ON COLUMN sessions.user_id    IS 'FK to the user who owns this session. Cascades delete.';
+COMMENT ON COLUMN sessions.user_id    IS 'FK to the user who owns this session. No cascade — sessions age out via TTL on expires_at, not via parent DELETE.';
 COMMENT ON COLUMN sessions.token_hash IS 'SHA-256 hash of the JWT token string. Used for O(1) blacklist lookup on each request.';
 COMMENT ON COLUMN sessions.expires_at IS 'Natural expiry of the JWT token (from exp claim). Session is invalid after this timestamp regardless of revocation.';
 COMMENT ON COLUMN sessions.created_at IS 'Timestamp when the session was created (login time)';

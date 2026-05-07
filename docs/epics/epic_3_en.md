@@ -63,7 +63,7 @@ See `seq-01-identifier-registration.mmd` for full detail.
 **Technical constraints:**
 - [ ] Identifiers stored in `identifiers` table: one consignment → multiple identifier rows (1:N)
 - [ ] `X-Request-ID` deduplication uses shared database table — checked across all nodes; TTL 600 seconds
-- [ ] MUST use Flyway or Liquibase for all schema migrations — no custom migration scripts
+- [ ] Schema migrations MUST use Liquibase (matches Askend baseline). `docs/specs/db/schema.sql` is the v0 baseline applied once against an empty database; all subsequent changes go through Liquibase changesets at `gate/db/changelog/` — no custom migration scripts.
 - [ ] Rationale: procurement requirement "Tarkvara tehnilise analüüsi nõuded"
 
 **Technical artifacts:**

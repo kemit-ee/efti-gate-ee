@@ -424,11 +424,15 @@ paths:
           in: query
           required: false
           description: |
-            Comma-separated identifier type filter. Values: `means` (vehicle plate),
-            `equipment` (container), `carried` (cargo unit)
+            Identifier type filter; repeat the parameter or comma-separate values.
+            Values defined in the `IdentifierType` schema.
           schema:
-            type: string
-            example: "means,equipment"
+            type: array
+            items:
+              $ref: '#/components/schemas/IdentifierType'
+            example: [means, equipment]
+          style: form
+          explode: false
         - name: registrationCountryCode
           in: query
           required: false
