@@ -153,6 +153,7 @@ CREATE TABLE gates (
   tls_cert        TEXT,
   status          gate_status  NOT NULL,
   last_ping_at    TIMESTAMPTZ,
+  is_active       BOOLEAN      NOT NULL DEFAULT TRUE,  -- logical-deletion flag (operator-driven)
   created_by      UUID,                          -- denormalised users.row_id of actor (NULL for ping job)
   created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
@@ -167,14 +168,16 @@ COMMENT ON COLUMN gates.country_code    IS 'ISO 3166-1 alpha-2 country code';
 COMMENT ON COLUMN gates.e_delivery_url  IS 'AS4 access-point URL for inbound G2G messages';
 COMMENT ON COLUMN gates.e_delivery_cert IS 'Public certificate (PEM) used to verify AS4 messages from this gate';
 COMMENT ON COLUMN gates.tls_cert        IS 'Public TLS certificate (PEM) used to verify the gate''s HTTPS endpoint';
-COMMENT ON COLUMN gates.status          IS 'Operational status snapshot at row time: ONLINE / OFFLINE / DISABLED';
+COMMENT ON COLUMN gates.status          IS 'Operational status snapshot at row time: ONLINE (recent ping success) / OFFLINE (recent ping fail or never pinged) / DISABLED (operator manually disabled). Set by the ping job.';
 COMMENT ON COLUMN gates.last_ping_at    IS 'Timestamp of the latest successful ping that produced this row. NULL if this row pre-dates first ping.';
+COMMENT ON COLUMN gates.is_active       IS 'Logical-deletion flag (operator-driven, distinct from status which is ping-job-driven). FALSE excludes the gate from registry sync, peer broadcast, and ping sweeps; the row remains for audit.';
 COMMENT ON COLUMN gates.created_by      IS 'Denormalised users.row_id of the actor that wrote this row. NULL for system events (ping job, registry sync).';
 COMMENT ON COLUMN gates.created_at      IS 'When this row was inserted. Latest created_at per id is the current state.';
 
 CREATE INDEX idx_gates_id_latest    ON gates (id, created_at DESC);
 CREATE INDEX idx_gates_status       ON gates (status);
 CREATE INDEX idx_gates_country      ON gates (country_code);
+CREATE INDEX idx_gates_active       ON gates (is_active) WHERE is_active = TRUE;
 
 -- ----------------------------------------------------------------------------
 -- 3.2 platforms — registered eFTI platforms
@@ -187,6 +190,8 @@ CREATE TABLE platforms (
   headers             JSONB        NOT NULL DEFAULT '{}'::jsonb,
   e_delivery_cert     TEXT,
   tls_cert            TEXT,
+  cert_subject        TEXT,                                 -- DN string from the platform's eDelivery AP cert (for inbound mTLS lookup)
+  cert_serial         TEXT,                                 -- serial number of the same cert; (subject, serial) is the natural key for the lookup
   supports_subsetting BOOLEAN      NOT NULL DEFAULT FALSE,
   is_active           BOOLEAN      NOT NULL DEFAULT TRUE,  -- logical-deletion flag
   created_by          UUID,
@@ -200,13 +205,16 @@ COMMENT ON COLUMN platforms.base_url            IS 'Platform''s REST API base UR
 COMMENT ON COLUMN platforms.headers             IS 'Custom headers (e.g. API key) the gate sends with platform requests';
 COMMENT ON COLUMN platforms.e_delivery_cert     IS 'Public certificate (PEM) for AS4 communication with this platform';
 COMMENT ON COLUMN platforms.tls_cert            IS 'Public TLS certificate (PEM) for HTTPS communication';
+COMMENT ON COLUMN platforms.cert_subject        IS 'Subject DN of the platform''s eDelivery AP X.509 certificate (Member-State-issued per Impl Reg 2024/1942 Art 11). The reverse proxy terminates mTLS on inbound Platform-API calls and forwards X-Client-Cert-Subject; the gate looks up (cert_subject, cert_serial) to resolve the platform identity.';
+COMMENT ON COLUMN platforms.cert_serial         IS 'Serial number of the eDelivery AP certificate. Together with cert_subject forms the natural key for inbound-mTLS lookup. NULL during transition before the platform''s cert is registered.';
 COMMENT ON COLUMN platforms.supports_subsetting IS 'TRUE if the platform applies subset filtering itself; FALSE means the gate must run the subsetter';
 COMMENT ON COLUMN platforms.is_active           IS 'Logical-deletion flag. FALSE excludes this platform from normal operations; the platform row remains in the table for audit.';
 COMMENT ON COLUMN platforms.created_by          IS 'users.row_id of the actor that wrote this row';
 COMMENT ON COLUMN platforms.created_at          IS 'When this row was inserted';
 
-CREATE INDEX idx_platforms_id_latest ON platforms (id, created_at DESC);
-CREATE INDEX idx_platforms_active    ON platforms (is_active) WHERE is_active = TRUE;
+CREATE INDEX idx_platforms_id_latest    ON platforms (id, created_at DESC);
+CREATE INDEX idx_platforms_active       ON platforms (is_active) WHERE is_active = TRUE;
+CREATE INDEX idx_platforms_cert_lookup  ON platforms (cert_subject, cert_serial) WHERE is_active = TRUE;
 
 -- ----------------------------------------------------------------------------
 -- 3.3 authorities — registered competent authorities
@@ -252,10 +260,11 @@ CREATE INDEX idx_authorities_active    ON authorities (is_active) WHERE is_activ
 CREATE TABLE users (
   row_id        UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
   id            UUID         NOT NULL,                 -- logical user identifier; NOT unique
+  tara_sub      TEXT,        -- TARA OIDC `sub` claim (Estonian PIC). NULL for break-glass local admin and pre-TARA seed accounts.
   email         CITEXT       NOT NULL,
   name          TEXT         NOT NULL,
   is_admin      BOOLEAN      NOT NULL DEFAULT FALSE,
-  roles         JSONB        NOT NULL DEFAULT '{}'::jsonb,  -- {"PLATFORM":["plt-demo"]}, {"AUTHORITY":["auth-mta"]}, ...
+  roles         JSONB        NOT NULL DEFAULT '{}'::jsonb,  -- {"AUTHORITY":["auth-mta"]} or {"ADMIN":["eu-ee31"]}; Platform identity is NOT modelled here (mTLS via platforms.cert_subject).
   subsets       TEXT[]       NOT NULL DEFAULT ARRAY[]::TEXT[],
   secret_hash   TEXT,        -- bcrypt of break-glass local-admin password. NULL for the typical user (TARA OIDC JWT).
   is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
@@ -265,13 +274,14 @@ CREATE TABLE users (
   CONSTRAINT users_subsets_valid CHECK (subsets <@ ARRAY['EU01','EU02','EU03','EU04','EU05','EU06','EU07']::text[])
 );
 
-COMMENT ON TABLE  users IS 'Users of all categories (admins, platform users, authority users, gate-to-gate system users). Append-only: every credential change or role change INSERTs a new row with the same id. Login authenticates against the latest row per email.';
+COMMENT ON TABLE  users IS 'Human users of the gate (authority officers and gate admins). Append-only: every role/subset change INSERTs a new row with the same id. Primary auth is TARA OIDC; the gate matches the JWT `sub` claim against `tara_sub` to resolve a JWT to its users row. Platform identity is NOT modelled here (Platform API uses mTLS against platforms.cert_subject); G2G identity is at the AS4 access point.';
 COMMENT ON COLUMN users.row_id        IS 'Synthetic primary key, unique per row';
 COMMENT ON COLUMN users.id            IS 'Logical user identifier (UUID). Many rows over time; latest wins.';
-COMMENT ON COLUMN users.email         IS 'Login email. CITEXT for case-insensitive match.';
+COMMENT ON COLUMN users.tara_sub      IS 'TARA OIDC `sub` claim — Estonian PIC (personal identification code). On JWT validation the gate looks up the latest active users row WHERE tara_sub = jwt.sub to resolve identity. Populated either by admin pre-provisioning or by first-login auto-create. NULL for break-glass local admin and any seed accounts that pre-date TARA wiring.';
+COMMENT ON COLUMN users.email         IS 'Display / contact email. CITEXT for case-insensitive match. Used for the human-facing UI and audit-trail readability — NOT the auth identifier; tara_sub is.';
 COMMENT ON COLUMN users.name          IS 'Display name';
-COMMENT ON COLUMN users.is_admin      IS 'Bypass flag: TRUE skips role-level @Access checks';
-COMMENT ON COLUMN users.roles         IS 'Role → party-IDs mapping. Example: {"PLATFORM":["plt-demo"]}, {"AUTHORITY":["auth-mta"]}, {"GATE":["eu-fi01"]}, or {} for Super Admin.';
+COMMENT ON COLUMN users.is_admin      IS 'Bypass flag: TRUE skips role-level @Access checks (super admin).';
+COMMENT ON COLUMN users.roles         IS 'Role → scope-IDs mapping. Only AUTHORITY and ADMIN entries: {"AUTHORITY":["auth-mta"]} for an authority officer, {"ADMIN":["eu-ee31"]} for a gate-scoped admin, or {} for a super admin. PLATFORM and GATE roles do not exist here — Platform is mTLS via platforms.cert_subject, G2G is mTLS at the AS4 access point.';
 COMMENT ON COLUMN users.subsets       IS 'eFTI subsets this user (typically AUTHORITY role) is permitted to request. Must be a subset of the authority''s subsets.';
 COMMENT ON COLUMN users.secret_hash   IS 'bcrypt hash of the break-glass local-admin password. NULL for the typical user — primary auth is TARA-issued OIDC JWT (Authority + Admin) or the platform''s eDelivery AP X.509 cert (Platform). Populated only on the single local-root row used during TARA outages and initial bootstrap; the break-glass path is exposed via POST /api/v1/auth/local-token, default-disabled (LOCAL_ADMIN_FALLBACK_ENABLED=false).';
 COMMENT ON COLUMN users.is_active     IS 'Logical-deletion flag';
@@ -280,6 +290,7 @@ COMMENT ON COLUMN users.created_at    IS 'When this row was inserted';
 
 CREATE INDEX idx_users_id_latest    ON users (id, created_at DESC);
 CREATE INDEX idx_users_email_latest ON users (email, created_at DESC);
+CREATE INDEX idx_users_tara_sub     ON users (tara_sub, created_at DESC) WHERE tara_sub IS NOT NULL;
 CREATE INDEX idx_users_active       ON users (is_active) WHERE is_active = TRUE;
 
 -- ----------------------------------------------------------------------------
@@ -643,11 +654,13 @@ GRANT SELECT ON audit_log TO db_archiver;
 BEGIN;
 
 -- Seed users (these become created_by references for subsequent rows)
-INSERT INTO users (id, email, name, is_admin, roles, secret_hash) VALUES
-  ('a0000000-0000-4000-8000-000000000001', 'admin@efti-ee31.ee', 'Estonia Gate Super Admin', TRUE,  '{}',                                NULL),
-  ('a0000000-0000-4000-8000-000000000002', 'admin@efti.ee',      'Multi-Gate Super Admin',   TRUE,  '{}',                                NULL),
-  ('a0000000-0000-4000-8000-000000000003', 'inspector@mta.ee',   'MTA Inspector',            FALSE, '{"AUTHORITY":["auth-mta"]}'::jsonb, NULL),
-  ('a0000000-0000-4000-8000-000000000004', 'border@ppa.ee',      'PPA Border Officer',       FALSE, '{"AUTHORITY":["auth-ppa"]}'::jsonb, NULL);
+-- tara_sub examples are placeholders ('EE'+11-digit PIC); the bcrypt-hashed
+-- break-glass local admin is the sole row with secret_hash NOT NULL.
+INSERT INTO users (id, tara_sub, email, name, is_admin, roles, secret_hash) VALUES
+  ('a0000000-0000-4000-8000-000000000001', NULL,            'admin@efti-ee31.ee', 'Break-glass Local Admin', TRUE,  '{}',                                '$2a$12$REPLACE_WITH_REAL_BCRYPT_HASH_DURING_BOOTSTRAP'),
+  ('a0000000-0000-4000-8000-000000000002', 'EE38001011234', 'admin@efti.ee',      'Multi-Gate Super Admin',  TRUE,  '{}',                                NULL),
+  ('a0000000-0000-4000-8000-000000000003', 'EE39003101122', 'inspector@mta.ee',   'MTA Inspector',           FALSE, '{"AUTHORITY":["auth-mta"]}'::jsonb, NULL),
+  ('a0000000-0000-4000-8000-000000000004', 'EE49102200033', 'border@ppa.ee',      'PPA Border Officer',      FALSE, '{"AUTHORITY":["auth-ppa"]}'::jsonb, NULL);
 
 -- Seed gates
 INSERT INTO gates (id, country_code, e_delivery_url, status, last_ping_at) VALUES

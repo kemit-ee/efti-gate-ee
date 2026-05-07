@@ -39,25 +39,27 @@ graph TD
 
 ---
 
-## 2. User roles
+## 2. Identity model
 
-Roles are defined in `users.Role`:
+Two kinds of caller identity, modelled in two different ways. The legacy "single Role enum" abstraction has been retired in favour of separate identity sources per surface.
 
-```kotlin
-enum class Role { ADMIN, GATE, PLATFORM, AUTHORITY }
-```
+| Surface | Identity source | Where the identity lives | Authorisation claims |
+|---|---|---|---|
+| **Authority API** | TARA OIDC JWT `sub` (Estonian PIC) | A `users` row with matching `tara_sub` | JWT `resource_access.efti-gate.roles` (must include `AUTHORITY`); JWT `subsets` (∈ `EU01..EU07`); JWT `efti.scope` (authority ids). |
+| **Admin API** | TARA OIDC JWT `sub` | A `users` row with matching `tara_sub` | JWT `resource_access.efti-gate.roles` (must include `ADMIN`); JWT `efti.scope` (gate ids). |
+| **Platform API** | mTLS X.509 client cert | A `platforms` row whose `cert_subject` + `cert_serial` match | None — cert subject = platform identity. |
+| **CronManager admin endpoints** | Static `Authorization: Bearer <ARCHIVE_OPS_TOKEN>` | Env var; **no DB row** | None — token comparison is the whole authorisation. |
+| **G2G (gate ↔ gate)** | mTLS at the AS4 access point (Member-State-issued cert) | A `gates` row whose `e_delivery_cert` matches | None — gate identity is the cert subject; trust is established by the cert chain rooted at the EU Trust Service. |
+| **Break-glass local admin** | HTTP Basic + bcrypt | A single `users` row with `secret_hash != NULL` | Same `roles` / `efti.scope` claim shape, populated server-side at token issue. Default-disabled (`LOCAL_ADMIN_FALLBACK_ENABLED=false`). |
 
-Each `User` has `roles: Map<Role, Set<PartyId<*>>>` — a role mapped to one or more party IDs (platform IDs, authority IDs, or gate IDs). `users.subsets` carries the permitted eFTI subset list (`EU01`..`EU07`) for AUTHORITY users.
+**`users.roles`** is a JSONB map carrying *only* `AUTHORITY` and `ADMIN` entries (e.g. `{"AUTHORITY":["auth-mta"]}` or `{"ADMIN":["eu-ee31"]}`). There is **no** `PLATFORM` or `GATE` entry — those identities don't have user records.
 
-| Role | Description | Auth | `roles` JSONB example | Restrictions |
-|------|-------------|------|------------------------|--------------|
-| **ADMIN** | Gate operator. Manages platforms, authorities, users, gates. Bypasses `@Access` role checks. | Basic Auth (email:password) or Bearer (UUID:secret) | `{}` (Super Admin) or `{"ADMIN":["eu-ee31"]}` (gate-scoped) | `checkWriteAccess(entityId)` enforces party scope unless Super Admin. |
-| **PLATFORM** | Platform operator. Registers identifier metadata. | Bearer (UUID:secret) | `{"PLATFORM":["demo"]}` | `roles[PLATFORM].size > 1` ⇒ 403 `FORBIDDEN_MULTI_PLATFORM` (single-platform M2M users only). |
-| **AUTHORITY** | Competent authority inspector. Searches identifiers, requests datasets, posts follow-ups. | Bearer (UUID:secret) | `{"AUTHORITY":["demo"]}` + `subsets=ARRAY['EU01','EU07']` | Subset filter on `/dataset/...` — `users.subsets` ⊆ `authorities.subsets`. |
-| **GATE** | Gate-to-gate system user (fast HTTP G2G fallback when AS4 not used). | Bearer or mTLS (AS4 cert) | `{"GATE":["eu-fi01"]}` | Cannot write to PLATFORM resources (`User.checkWriteAccess()` validates party-ID type). |
+**Super Admin** = `is_admin=TRUE` AND `roles={}` — unrestricted.
+**Regular Admin** = `is_admin=TRUE` AND `roles={"ADMIN":["<gate-id>"]}` — scoped to that gate's resources by `checkWriteAccess(entityId)`.
 
-**Super Admin** = `isAdmin=true` AND `roles={}` — unrestricted.
-**Regular Admin** = `isAdmin=true` AND `roles={ADMIN: {gateId}}` — scoped to that gate's resources.
+**`users.subsets`** carries the permitted eFTI subset list (`EU01..EU07`) for AUTHORITY users; must satisfy `users.subsets ⊆ authorities.subsets` of every authority listed in `roles.AUTHORITY`.
+
+**`users.tara_sub`** carries the Estonian PIC the gate matches against the inbound JWT's `sub` claim. NULL only on the break-glass local-admin row and on seed accounts created before TARA wiring.
 
 ---
 

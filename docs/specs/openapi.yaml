@@ -1272,21 +1272,19 @@ paths:
 
     post:
       tags: [Admin - Users]
-      summary: Create or update user
-      operationId: saveUser
+      summary: Create user
+      operationId: createUser
       description: |
-        Creates or updates a user. If `generateSecret=true`, a new random API secret
-        is generated and returned in the response body (shown only once).
-        For email-based users the response is the raw secret; for API key users
-        the response is `base64(id:secret)`.
-      parameters:
-        - name: generateSecret
-          in: query
-          required: false
-          description: Generate a new API secret for this user
-          schema:
-            type: boolean
-            default: false
+        Creates a `users` row representing a human caller (authority officer or
+        gate admin). The user authenticates via TARA OIDC; the `tara_sub` field
+        in the body is the user's Estonian PIC. On the first inbound JWT whose
+        `sub` matches this `tara_sub`, the gate has a row to bind to.
+
+        The gate does **not** issue user secrets — TARA owns auth. Platform
+        identity is mTLS via `platforms.cert_subject`, not a user row; G2G
+        identity is mTLS at the AS4 access point. Neither has a `users` record.
+
+        409 if `tara_sub` already exists on an active row.
       requestBody:
         required: true
         content:
@@ -1294,38 +1292,39 @@ paths:
             schema:
               $ref: '#/components/schemas/UserWrite'
             examples:
-              platformUser:
-                summary: Platform API user
-                value:
-                  name: "Cargo Platform Service Account"
-                  email: null
-                  roles:
-                    PLATFORM: ["plt-demo-123"]
-                  subsets: null
               authorityUser:
                 summary: Authority user with subset restrictions
                 value:
+                  taraSub: "EE39003101122"
                   name: "MTA Inspector"
                   email: "inspector@mta.ee"
                   roles:
                     AUTHORITY: ["auth-mta"]
                   subsets: ["EU01", "EU02"]
+              gateAdminUser:
+                summary: Gate-scoped admin
+                value:
+                  taraSub: "EE38001011234"
+                  name: "Gate Admin (Estonia)"
+                  email: "admin@kemit.ee"
+                  isAdmin: true
+                  roles:
+                    ADMIN: ["eu-ee31"]
       responses:
-        '200':
-          description: |
-            User saved. If `generateSecret=true`, response body contains the new secret
-            (plain text for email users, base64 `id:secret` for API users).
+        '201':
+          description: User created
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
-              example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+                $ref: '#/components/schemas/User'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -2686,6 +2685,16 @@ components:
         tlsCert:
           type: string
           nullable: true
+        certSubject:
+          type: string
+          nullable: true
+          description: Subject DN of the platform's eDelivery AP cert (used by inbound mTLS lookup).
+          example: "CN=eDelivery-Platform, O=Acme Logistics OÜ, C=EE"
+        certSerial:
+          type: string
+          nullable: true
+          description: Serial number of the same certificate.
+          example: "0123456789ABCDEF"
         isActive:
           type: boolean
           description: |
@@ -2716,7 +2725,7 @@ components:
           type: object
           additionalProperties:
             type: string
-          description: Additional HTTP headers to include in requests to this platform
+          description: Additional HTTP headers the gate sends with outbound requests to this platform.
           example:
             X-Api-Key: "secret-key-abc123"
         supportsSubsetting:
@@ -2728,6 +2737,21 @@ components:
         tlsCert:
           type: string
           nullable: true
+        certSubject:
+          type: string
+          nullable: true
+          description: |
+            Subject DN of the platform's eDelivery AP X.509 certificate. The reverse
+            proxy validates inbound mTLS against this; the gate matches on
+            `(certSubject, certSerial)` to resolve the platform identity. Required
+            in production — without this, no Platform-API request from this
+            platform can authenticate.
+          example: "CN=eDelivery-Platform, O=Cargo Logistics OÜ, C=EE"
+        certSerial:
+          type: string
+          nullable: true
+          description: Serial number of the same certificate.
+          example: "0123456789ABCDEF"
 
     # --------------------------------------------------------------------------
     # AUTHORITY
@@ -2790,33 +2814,45 @@ components:
 
     User:
       type: object
-      description: System user with role-based access
+      description: |
+        Human caller of the gate (authority officer or gate admin). Primary auth
+        is TARA OIDC; the gate matches the JWT `sub` against `taraSub` to
+        resolve a JWT to this row. Platform identity is NOT modelled here —
+        Platform API uses mTLS against `platforms.cert_subject`. G2G identity
+        is mTLS at the AS4 access point.
       properties:
         id:
           type: string
           format: uuid
           example: "04fa30eb-eb08-11f0-b506-3c9c0f2eb459"
+        taraSub:
+          type: string
+          nullable: true
+          description: |
+            TARA OIDC `sub` claim — Estonian PIC. Used to resolve an inbound
+            JWT to this user record. NULL only on the break-glass local-admin
+            row (which uses bcrypt secret_hash) and seed accounts predating
+            TARA wiring.
+          example: "EE39003101122"
         name:
           type: string
           example: "MTA Inspector"
         email:
           type: string
           format: email
-          nullable: true
-          description: Email address (null for API-key-only service accounts)
+          description: Display / contact email (NOT the auth identifier — `taraSub` is).
           example: "inspector@mta.ee"
         isAdmin:
           type: boolean
-          description: Legacy super-admin flag (use roles instead)
+          description: Super-admin bypass flag (`is_admin=TRUE` AND `roles={}`).
           example: false
         roles:
           type: object
           description: |
-            Map of role names to arrays of party IDs. Roles:
-            - **GATE**: Gate-level administrator
-            - **PLATFORM**: Platform service account
-            - **AUTHORITY**: Authority user
-            - **ADMIN**: Admin (legacy, gate-scoped)
+            Map of role → scope-IDs. Only `AUTHORITY` and `ADMIN` are valid keys
+            here. PLATFORM and GATE roles do not exist on `users` — Platform
+            identity is via mTLS (`platforms.cert_subject`); G2G identity is
+            via mTLS at the AS4 access point.
           additionalProperties:
             type: array
             items:
@@ -2841,19 +2877,32 @@ components:
 
     UserWrite:
       type: object
-      description: User create/update payload
+      description: |
+        User create/update payload. `taraSub` is required for typical TARA-authenticated
+        users; the only admissible exception is the single break-glass local-admin row,
+        which carries `taraSub: null` and is provisioned out-of-band.
       required: [name, roles]
       properties:
+        taraSub:
+          type: string
+          nullable: true
+          description: TARA `sub` claim (Estonian PIC); NULL only for break-glass.
+          example: "EE39003101122"
         name:
           type: string
           example: "MTA Inspector"
         email:
           type: string
           format: email
-          nullable: true
           example: "inspector@mta.ee"
+        isAdmin:
+          type: boolean
+          default: false
         roles:
           type: object
+          description: |
+            Only `AUTHORITY` and `ADMIN` keys are valid. PLATFORM and GATE roles
+            do not exist on `users`.
           additionalProperties:
             type: array
             items:
