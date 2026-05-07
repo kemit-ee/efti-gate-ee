@@ -7,8 +7,8 @@
 **SO THAT** the live database stays lean while the full event history is preserved for audit and forensics
 
 **References:**
-- [DB Schema](../specs/db/README.md) — Append-only design rule, latest-row-wins read pattern
-- [Schema](../specs/db/schema.sql) — Operational tables (gates, platforms, authorities, users, consignments, identifiers, sessions, async_responses) + ephemeral (request_id_cache) + ledgers (audit_log, follow_up_log, jobs_execution_log)
+- [DB Schema](../specs/db/README.md) — Append-only design rule, latest-row-wins read pattern, two-role model (`app` SELECT+INSERT only / `db_archiver` SELECT+DELETE on operational tables, SELECT-only on `audit_log`)
+- [Schema](../specs/db/schema.sql) — All operational tables are append-only and INSERT-only at the GRANT layer. The 11 archivable tables (`gates`, `platforms`, `authorities`, `users`, `consignments`, `identifiers`, `sessions`, `async_responses`, `request_id_cache`, `jobs_execution_log`, `follow_up_log`) have non-latest rows swept by this archival job. `audit_log` is intentionally **excluded** from the sweep — it is preserved indefinitely on the live DB.
 - [Non-functional contracts](../specs/non-functional.md) — Retention windows + archival shape
 - [CronManager](https://github.com/Buerostack/CronManager) — External Quartz-based job scheduler that drives the archival sweep
 - [Permissions Matrix](../specs/permissions-matrix.md) — Admin endpoint authorisation
@@ -79,7 +79,7 @@ See `seq-08-identifier-expiration.mmd` for a related job pattern.
 - [ ] Archival query uses the canonical `NOT IN (SELECT DISTINCT ON (logical_id) row_id …)` pattern documented in `db/README.md`; or its `ROW_NUMBER() OVER (…)` equivalent — whichever the implementation chooses, but no JOINs.
 - [ ] `DELETE` on the live DB is performed by a separate database role (`db_archiver`), NOT the runtime `app` role. The `app` role still has SELECT, INSERT only on every table — Epic 26 does not weaken Rule 1.
 - [ ] Archival destination is operator-configurable (S3-compatible object store, secondary Postgres on a different cluster, append-only file storage). The destination shape is JSON-Lines with one row per line, partitioned by `(table, year, month)`.
-- [ ] Retention in archive: 7 years for `audit_log`, `follow_up_log`, all rows of registry/operational tables; indefinite is acceptable (compliance floor is 7 y).
+- [ ] Retention in archive: 7-year minimum for archived rows of every operational table; indefinite is acceptable (compliance floor is 7 y per `non-functional.md` §5). `audit_log` does not appear in the archive at all — it stays on the live DB for the full retention period.
 - [ ] Idempotent: running the archive twice in a row produces zero output on the second run.
 
 **Technical artifacts:**

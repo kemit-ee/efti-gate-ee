@@ -310,6 +310,7 @@ Every entry below uses the §4 templates — pick the matching shape, fill in `e
 | Platform | `identifier.register` | Same — XML parse / validation error → 400 | WARN | N |
 | Platform | `identifier.register` | Same — duplicate datasetId → 409 | WARN | N |
 | Job | `identifier.expire` | `IdentifierExpirationJob` INSERTs `status='inactive'` rows for expired datasets | INFO | **Y** (state transition) |
+| Job | `archive.run` | `POST /api/v1/admin/archive` invoked by CronManager — start, per-table commit, finish; `details` JSON carries per-table archived counts, duration, partial flag (Epic 26) | INFO; WARN on `partial=true`; ERROR on storage failure | **Y** |
 | Authority | `identifier.search` | GET `/v1/identifiers/{identifier}` — local hit | INFO | **Y** |
 | Authority | `identifier.search.broadcast` | Same — broadcast invoked | INFO | **Y** |
 | Authority | `identifier.search.broadcast` | Same — broadcast partial failure (gate timeout) | WARN | **Y** |

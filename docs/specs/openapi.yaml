@@ -1462,7 +1462,7 @@ paths:
             schema:
               $ref: '#/components/schemas/ArchiveRequest'
             example:
-              tables: ["consignments", "identifiers", "gates", "platforms", "authorities", "users", "sessions", "async_responses", "request_id_cache", "jobs_execution_log", "follow_up_log", "audit_log"]
+              tables: ["consignments", "identifiers", "gates", "platforms", "authorities", "users", "sessions", "async_responses", "request_id_cache", "jobs_execution_log", "follow_up_log"]
               batch_size: 1000
               max_runtime_seconds: 1800
       responses:
@@ -1489,7 +1489,6 @@ paths:
                   request_id_cache: 21504
                   jobs_execution_log: 730
                   follow_up_log: 156
-                  audit_log: 4821
                 next_archivable_count_estimate:
                   consignments: 0
                   identifiers: 0
@@ -1985,7 +1984,11 @@ components:
       properties:
         tables:
           type: array
-          description: Tables to sweep on this run. Defaults to all 12 operational + ephemeral + ledger tables.
+          description: |
+            Tables to sweep on this run. Defaults to all 11 archivable tables.
+            `audit_log` is intentionally **not** archivable — it is preserved indefinitely on
+            the live DB (the `db_archiver` PostgreSQL role has only `SELECT` on it; no
+            DELETE). See `db/README.md` and `non-functional.md` §2.
           items:
             type: string
             enum:
@@ -2000,7 +2003,6 @@ components:
               - request_id_cache
               - jobs_execution_log
               - follow_up_log
-              - audit_log
         batch_size:
           type: integer
           minimum: 1

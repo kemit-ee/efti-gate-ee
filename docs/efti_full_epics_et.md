@@ -1118,7 +1118,7 @@ CronManageri integreerimine:
 
 Arhiivi-otspunkt (gate'i poolel):
 - [ ] `POST /api/v1/admin/archive` defineeritud `openapi.yaml`-is. Auth: bearerAuth + ops-roll; teised admin-id → `403 Forbidden`.
-- [ ] Valikuline keha `{ "tables": [...], "batch_size": 1000, "max_runtime_seconds": 600 }` (vaikimisi: kõik operatsioonitabelid, 1000, 600).
+- [ ] Valikuline keha `{ "tables": [...], "batch_size": 1000, "max_runtime_seconds": 600 }` (vaikimisi: kõik 11 arhiveeritavat tabelit — `audit_log` on välja jäetud ja säilib live-DB-s tähtajatult; batch_size 1000; runtime 600s).
 - [ ] Vastus: `200 OK` arhiveeritud ridade arvuga tabeli kohta + kestus + `next_archivable_count_estimate`.
 - [ ] Arhiivitöö juba käib → `409 Conflict` koodiga `ARCHIVE_IN_PROGRESS`.
 - [ ] Arhiivisihtkoht kättesaamatu vooru keskel → `502 Bad Gateway` koodiga `ARCHIVE_STORAGE_UNAVAILABLE`; live-DB ei muutu (paketipõhine transaktsionaalsus).

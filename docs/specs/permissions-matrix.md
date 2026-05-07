@@ -148,6 +148,7 @@ All admin endpoints require `@Access(ADMIN)`. Path prefix `/api/v1/`.
 | `/api/v1/users/{userId}/revoke-token` | POST | ✅ (Super Admin or matching scope) | ❌ | ❌ |
 | `/api/v1/consignments`, `/api/v1/consignments/{datasetId}` | GET/DELETE | ✅ (DELETE = soft, sets `status='deleted'`) | ❌ | ❌ |
 | `/api/v1/audit` | GET | ✅ Super Admin only | ❌ | ❌ |
+| `/api/v1/admin/archive` | POST | ✅ Ops role only (configured Bearer token; non-ops admins → 403 `FORBIDDEN`) | ❌ | ❌ |
 
 ```mermaid
 flowchart TD

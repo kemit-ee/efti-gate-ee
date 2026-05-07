@@ -1405,7 +1405,7 @@ CronManager integration:
 
 Archive endpoint (gate side):
 - [ ] `POST /api/v1/admin/archive` defined in `openapi.yaml`. Auth: bearerAuth + ops-role only; non-ops admins → `403 Forbidden`.
-- [ ] Optional body `{ "tables": [...], "batch_size": 1000, "max_runtime_seconds": 600 }` (defaults: all operational tables, 1000, 600).
+- [ ] Optional body `{ "tables": [...], "batch_size": 1000, "max_runtime_seconds": 600 }` (defaults: all 11 archivable tables — `audit_log` is excluded and preserved indefinitely on the live DB; batch_size 1000; runtime 600s).
 - [ ] Response: `200 OK` with per-table archived counts, durations, and a `next_archivable_count_estimate` for monitoring.
 - [ ] Archive job already running → `409 Conflict` with `code: ARCHIVE_IN_PROGRESS`.
 - [ ] Archive destination unavailable mid-batch → `502 Bad Gateway` with `code: ARCHIVE_STORAGE_UNAVAILABLE`; live DB unchanged (per-batch transactional).

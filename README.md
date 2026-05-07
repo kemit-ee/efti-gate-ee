@@ -65,7 +65,7 @@ Honest list of what's known to be incomplete or deferred. None of these blocks a
 - **Epic ↔ artifact links remain sparse for errors and logging.** `errors.json` is cited by 3 / 26 epics; `logging-spec.md` by 2 / 26. Backfill would improve AC traceability but doesn't block implementation — every epic's request/response shape is anchored in OpenAPI which carries the canonical references.
 - **Verbosity of `logging-spec.md`, `permissions-matrix.md`, `data-transformations.md`** was compacted in Phase 2 (~−45 % bytes); the field tables remain long because they document every ECS field / endpoint × role cell / XPath mapping. Further reduction would drop information; not recommended.
 
-**Closed in this round** (cf. the second deep-dive review): API path-prefix drift, error catalog vs OpenAPI enum sync, schema field-name drift in transformations, consignments change-history trigger gap, two diagrams encoding v1 lifecycle rules, permissions matrix coverage gaps, epic AC contradictions with OpenAPI, FK CASCADE comment lies, OpenAPI orphan schema, migration tooling ambiguity.
+**Closed in this round** (cf. the second deep-dive review): API path-prefix drift, error catalog vs OpenAPI enum sync, schema field-name drift in transformations, two diagrams encoding v1 lifecycle rules, permissions matrix coverage gaps, epic AC contradictions with OpenAPI, FK CASCADE comment lies, OpenAPI orphan schema, migration tooling ambiguity. Subsequent rewrite to **append-only everywhere** (commit `2c0ce58`) replaced the original `change_history` design — the runtime `app` PostgreSQL role now has `SELECT, INSERT` only on every operational table, and Epic 26 introduces a separate `db_archiver` role for nightly CronManager-driven archival sweeps.
 
 ## Status
 

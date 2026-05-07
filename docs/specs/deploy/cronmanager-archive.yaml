@@ -22,16 +22,21 @@ efti_gate_archive:
     Authorization: "Bearer ${BEARER_OPS_TOKEN}"
     Content-Type: "application/json"
 
-  # Optional body: defaults are { all operational tables, batch_size 1000,
+  # Optional body: defaults are { all 11 archivable tables, batch_size 1000,
   # max_runtime_seconds 600 }. Override here if your gate is large and
   # needs longer / smaller batches.
+  #
+  # NOTE: audit_log is intentionally NOT in the list. It is preserved
+  # indefinitely on the live DB — the db_archiver PostgreSQL role has only
+  # SELECT on audit_log (no DELETE). Archiving it would violate the GRANT
+  # contract in schema.sql §5. See db/README.md "Roles" section.
   body: |
     {
       "tables": [
         "gates", "platforms", "authorities", "users",
         "consignments", "identifiers",
         "request_id_cache", "sessions", "async_responses",
-        "jobs_execution_log", "follow_up_log", "audit_log"
+        "jobs_execution_log", "follow_up_log"
       ],
       "batch_size": 1000,
       "max_runtime_seconds": 1800
