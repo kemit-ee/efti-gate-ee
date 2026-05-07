@@ -532,7 +532,7 @@ When transformation fails:
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <consignment xmlns="urn:efti:eu:2024:dataset:eu01">
-  <id>770fa622-g49d-53f6-c938-668877662222</id>
+  <id>40a2af73-c502-48f7-a400-964bf61f164e</id>
   <vehicle>
     <plate>456XYZ</plate>
     <country>FI</country>
@@ -547,7 +547,7 @@ When transformation fails:
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <consignment xmlns="urn:efti:eu:2024:dataset:eu07">
-  <id>880fb733-h59e-64g7-d049-779988773333</id>
+  <id>3df2c1eb-7abc-4d8e-9f01-2a3b4c5d6e7f</id>
   <vehicle>
     <plate>789DEF</plate>
     <country>DE</country>

@@ -555,7 +555,7 @@ Here's what the first 3 scenarios should look like in your output:
   "event.outcome": "failure",
   "event.duration": 3200000,
   "http": {
-    "request.id": "770fa622-g49d-53f6-c938-668877662222",
+    "request.id": "40a2af73-c502-48f7-a400-964bf61f164e",
     "request.method": "POST",
     "request.path": "/v1/platform/identifiers",
     "response.status_code": 409
