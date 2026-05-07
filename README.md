@@ -28,6 +28,8 @@ The implementation contracts. Build the new gate against these.
 | Epics (canonical) | [`docs/efti_full_epics_en.md`](docs/efti_full_epics_en.md) | 25 epics across 9 themes; acceptance criteria |
 | Epics (per-epic split) | [`docs/epics/`](docs/epics/) | Per-epic / per-theme files; each opens with a Mermaid mini-diagram |
 | Reference architecture | [`docs/architecture/eFTI-Gate-Reference-Architecture.md`](docs/architecture/eFTI-Gate-Reference-Architecture.md) | Target architecture per EU 2020/1056, 2024/1942, 2024/2024, 2025/2243 |
+| Non-functional contracts | [`docs/specs/non-functional.md`](docs/specs/non-functional.md) | SLOs / SLIs per surface, capacity model, deployment topology, pinned dependency versions, compliance retention |
+| Deployment | [`docs/specs/deploy/`](docs/specs/deploy/) | Topology constraints; concrete Helm/k8s/compose artefacts deferred to implementation phase |
 | XSDs | [`docs/efti-analysis/xsd/`](docs/efti-analysis/xsd/) | eFTI consignment + eDelivery XML schemas (used by epics 3, 10, 25) |
 
 ## Non-negotiable rules
@@ -51,8 +53,23 @@ The implementation contracts. Build the new gate against these.
 
 ## Open issues
 
-- **Epic ↔ artifact links are still sparse for errors and logging.** `errors.json` is cited by 2 / 25 epics, `logging-spec.md` by 2 / 25. Backfill needed for full acceptance-criterion traceability.
-- **Verbosity of `logging-spec.md` and `permissions-matrix.md`** has been compacted (~−45 % bytes), but the field tables remain long because they document every ECS field / endpoint × role cell. Further reduction would drop information; not recommended.
+Honest list of what's known to be incomplete or deferred. None of these blocks an implementer from starting; they're items that vendor + KeMIT will wire up together during the implementation phase.
+
+**Phase-2 deferred (intentional):**
+
+- **Deployment artefacts.** [`docs/specs/deploy/`](docs/specs/deploy/) describes the topology contract but ships no Helm chart values, Kubernetes manifests, or `docker-compose`. These are produced during implementation, after vendor selection.
+- **Threat model.** No STRIDE-per-surface document yet; `docs/specs/permissions-matrix.md` covers the access-control side, but a proactive threat model (informed by Reg 2025/2243) is operator-supplied.
+- **On-call runbook.** Alert thresholds (`db.pool < 2`, `heap > 80%` from `logging-spec.md` §2.3) are documented; the playbook for what an on-call engineer does when each fires is not.
+- **Load-test plan.** `docs/specs/non-functional.md` §1 sets SLOs; the k6/JMeter scenarios that validate them against the topology in §3 are an implementation deliverable.
+- **Capacity-plan revisions.** §2 numbers are first-pass estimates; re-derive after Test Fest 4+.
+- **Partition rotation jobs.** `docs/specs/db/README.md` documents the per-table retention strategy; the `pg_partman` (or equivalent) configuration that enforces it is an operator-supplied piece.
+
+**Coverage gaps in the spec itself:**
+
+- **Epic ↔ artifact links remain sparse for errors and logging.** `errors.json` is cited by 3 / 25 epics; `logging-spec.md` by 2 / 25. Backfill would improve AC traceability but doesn't block implementation — every epic's request/response shape is anchored in OpenAPI which carries the canonical references.
+- **Verbosity of `logging-spec.md`, `permissions-matrix.md`, `data-transformations.md`** was compacted in Phase 2 (~−45 % bytes); the field tables remain long because they document every ECS field / endpoint × role cell / XPath mapping. Further reduction would drop information; not recommended.
+
+**Closed in this round** (cf. the second deep-dive review): API path-prefix drift, error catalog vs OpenAPI enum sync, schema field-name drift in transformations, consignments change-history trigger gap, two diagrams encoding v1 lifecycle rules, permissions matrix coverage gaps, epic AC contradictions with OpenAPI, FK CASCADE comment lies, OpenAPI orphan schema, migration tooling ambiguity.
 
 ## Status
 
