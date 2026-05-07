@@ -22,14 +22,15 @@ sequenceDiagram
     participant Platform
     participant Gate as eFTI Gate
     participant DB as PostgreSQL
-    Platform->>Gate: POST /v1/identifiers/{datasetId}<br/>Authorization: Bearer <JWT><br/>Content-Type: application/xml
-    Gate->>Gate: Validate XSD (consignment-identifier.xsd)<br/>Check X-Request-ID dedup (600 s TTL)
-    alt new datasetId
-        Gate->>DB: INSERT consignments + identifiers<br/>(status=active)
-        Gate-->>Platform: 201 Created<br/>Location: /v1/identifiers/{datasetId}
-    else existing datasetId
-        Gate->>DB: previous → inactive; new row → active
+    Platform->>Gate: POST /v1/identifiers/{datasetId}<br/>Authorization: Bearer <JWT><br/>Content-Type: application/xml<br/>X-Request-ID: <uuid>
+    Gate->>Gate: Validate XSD (consignment-identifier.xsd)<br/>Check X-Request-ID dedup (10-min TTL)
+    alt new (or updated) datasetId
+        Gate->>DB: INSERT consignments + identifiers<br/>(status='active'; previous row set to 'inactive' if upsert)
         Gate-->>Platform: 200 OK
+    else duplicate X-Request-ID within TTL
+        Gate-->>Platform: 409 Conflict<br/>code: DUPLICATE_REQUEST_ID
+    else XSD invalid
+        Gate-->>Platform: 400 Bad Request<br/>code: INVALID_XML
     end
 ```
 
@@ -40,11 +41,11 @@ See `seq-01-identifier-registration.mmd` for full detail.
 ##### Registration
 
 **Happy path:**
-- [ ] `POST /v1/identifiers/:datasetId` accepts XML body `Content-Type: application/xml`; valid per `consignment-identifier.xsd`; user has exactly 1 PLATFORM role → `201 Created` with `Location: /v1/identifiers/:datasetId`
-- [ ] Re-sending same `datasetId` with updated data → upsert; previous version set `inactive`; new version set `active` → `200 OK`
-- [ ] Stored searchable fields: `vehicle_plate`, `transport_date`, `origin_country`, `destination_country`, `mode_code`, `dangerous_goods_indicator`
-- [ ] Identifier types supported: `means` (vehicle/transport unit), `equipment` (container/trailer), `carried` (cargo)
-- [ ] Transport modes: `1`=maritime, `2`=rail, `3`=road, `4`=air — no mode-specific routing logic
+- [ ] `POST /v1/identifiers/{datasetId}` accepts XML body `Content-Type: application/xml`; valid per `consignment-identifier.xsd`; user has exactly 1 PLATFORM role → `200 OK`
+- [ ] Re-sending same `datasetId` with updated data → upsert; previous version's `consignments.status` set to `inactive`; new row's `status='active'` → `200 OK`
+- [ ] Stored searchable fields on `consignments`: `vehicle_plate`, `vehicle_country`, `transport_date`, `origin_country`, `destination_country`, `mode`, `dangerous_goods` (snake_case per `schema.sql`)
+- [ ] Identifier types supported (`identifiers.identifier_type` enum): `means` (vehicle / transport unit), `equipment` (container / trailer), `carried` (cargo unit)
+- [ ] Transport modes (`consignments.mode` enum, EU Reg 2024/2024 Annex I): `maritime` (XML modeCode=1), `rail` (=2), `road` (=3), `air` (=4), `multimodal` (=5) — see `data-transformations.md` §2.4 for the mapping
 
 **Edge cases:**
 - [ ] eFTI platform omits `vehicle_plate` (pre-registration) → record stored with empty `vehicle_plate`; subsequent `POST` with same `datasetId` adds/updates plate
@@ -57,12 +58,12 @@ See `seq-01-identifier-registration.mmd` for full detail.
 **Error handling:**
 - [ ] XML invalid against `consignment-identifier.xsd` → `400 Bad Request` with XSD validation error path and line number
 - [ ] `X-Request-ID` header missing → `400 Bad Request` with `"detail": "X-Request-ID header is required"`
-- [ ] `X-Request-ID` seen within 600 seconds → `400 Bad Request` with `"detail": "Duplicate request ID"`
+- [ ] `X-Request-ID` seen within 10 minutes (`request_id_cache` TTL) → `409 Conflict` with `code: DUPLICATE_REQUEST_ID` per `errors.json`
 - [ ] Unknown eDelivery message type received → error returned to sender; not silently ignored; event logged WARN
 
 **Technical constraints:**
 - [ ] Identifiers stored in `identifiers` table: one consignment → multiple identifier rows (1:N)
-- [ ] `X-Request-ID` deduplication uses shared database table — checked across all nodes; TTL 600 seconds
+- [ ] `X-Request-ID` deduplication uses the shared `request_id_cache` table — checked across all nodes; TTL 10 minutes (per `schema.sql` `request_id_cache.expires_at` default)
 - [ ] Schema migrations MUST use Liquibase (matches Askend baseline). `docs/specs/db/schema.sql` is the v0 baseline applied once against an empty database; all subsequent changes go through Liquibase changesets at `gate/db/changelog/` — no custom migration scripts.
 - [ ] Rationale: procurement requirement "Tarkvara tehnilise analüüsi nõuded"
 

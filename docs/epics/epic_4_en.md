@@ -35,16 +35,16 @@ See `flow-01-search-broadcast-decision.mmd` and `seq-03-identifier-search-broadc
 ##### Local search
 
 **Happy path:**
-- [ ] `GET /v1/identifiers/:identifier` searches `identifiers` table; all filters applied at database level: `modeCode`, `identifierTypes`, `registrationCountryCode`, `dangerousGoodsIndicator`
-- [ ] Only identifiers with status `active` returned
-- [ ] Results paginated: `limit` (default 20, max 100), `offset`; response includes `X-Total-Count`
-- [ ] Empty result → `200 OK` with `{"identifiers": []}` — not `404`
-- [ ] Local DB query response time < 50 ms at p95 (requires `pg_trgm` index)
+- [ ] `GET /v1/identifiers/{identifier}` queries the `consignments` table directly via its denormalised search columns (`vehicle_plate`, `vehicle_country`, `mode`, `dangerous_goods`, `origin_country`, `destination_country`, `transport_date`); no `JOIN` to `identifiers` in the hot path. All filters applied at the database level: `modeCode`, `identifierTypes`, `registrationCountryCode`, `dangerousGoodsIndicator`, `dateFrom`, `dateTo`, `status`.
+- [ ] Default `status` is `active` (omit parameter); use `status=inactive` for cabotage queries; `status=all` returns both.
+- [ ] Results paginated: `limit` (default 100, max 1000 per `PageLimit` parameter), `offset`; response includes `X-Total-Count` header.
+- [ ] Empty result → `200 OK` with empty array `[]` (per OpenAPI response schema — `type: array`).
+- [ ] Local DB query response time &lt; 50 ms at p95 (requires `pg_trgm` GIN index on `consignments.vehicle_plate`).
 
 **Edge cases:**
-- [ ] `limit` exceeds 100 → `400 Bad Request` with `"detail": "limit must not exceed 100"`
-- [ ] `dateFrom` after `dateTo` → `400 Bad Request` with `"detail": "dateFrom must be before dateTo"`
-- [ ] `dateFrom`/`dateTo` without `modeCode=3` → `400 Bad Request` with `"detail": "dateFrom/dateTo requires modeCode=3"`
+- [ ] `limit` exceeds 1000 → `400 Bad Request` with `code: BAD_REQUEST_GENERAL` and `"detail": "limit must not exceed 1000"`.
+- [ ] `dateFrom` after `dateTo` → `400 Bad Request` with `"detail": "dateFrom must be on or before dateTo"`.
+- [ ] `dateFrom`/`dateTo` without an explicit `modeCode` filter — accepted; the database filter applies regardless of mode (the cabotage retention rule itself is road-only — see "Cabotage control" below — but the date-range parameter is general-purpose).
 
 **Error handling:**
 - [ ] Missing Bearer token → `401 Unauthorized` RFC 7807
@@ -52,7 +52,7 @@ See `flow-01-search-broadcast-decision.mmd` and `seq-03-identifier-search-broadc
 
 **Technical constraints:**
 - [ ] PostgreSQL 14+; MUST use `pg_trgm` extension for fuzzy plate search — performance requirement: < 50 ms local query
-- [ ] DB index: `CREATE INDEX CONCURRENTLY idx_identifiers_plate_trgm ON identifiers USING GIN (vehicle_plate gin_trgm_ops)`
+- [ ] DB indexes: `idx_consignments_plate_trgm` (GIN trigram on `consignments.vehicle_plate`) for fuzzy search; `idx_consignments_status_active` (partial, `WHERE status='active'`) for the default search path; `idx_identifiers_value_trgm` (GIN trigram on `identifiers.identifier_value`) for non-plate identifier types.
 
 **Technical artifacts:**
 - [ ] OpenAPI: `GET /v1/identifiers/{identifier}` — all query params, response schema, all error responses
@@ -61,9 +61,9 @@ See `flow-01-search-broadcast-decision.mmd` and `seq-03-identifier-search-broadc
 ##### Cabotage control
 
 **Happy path:**
-- [ ] `dateFrom`–`dateTo` range filter returns `inactive` road transport (`modeCode=3`) records within date range
-- [ ] Road transport UIL remains `inactive` for 14 days after `delivered_at` (art. 11 para. 4 Reg 2024/1942)
-- [ ] Result list shows record status (`active` / `inactive`) per item
+- [ ] `dateFrom`/`dateTo` + `status=inactive` + `modeCode=3` returns inactive road consignments whose `transport_date` falls in the range. The 14-day inactive-retention window for road consignments is documented at Reg 2024/1942 Art 11(4).
+- [ ] `IdentifierExpirationJob` flips `consignments.status` from `active` to `inactive` 14 days after `transport_date` for `mode='road'` only (see `seq-08-identifier-expiration.mmd`).
+- [ ] Result list shows record status (`active` / `inactive`) per item via the `status` field on each row.
 
 **Technical artifacts:**
 - [ ] OpenAPI: `dateFrom`, `dateTo` query parameters on `GET /v1/identifiers/{identifier}`
@@ -73,7 +73,7 @@ See `flow-01-search-broadcast-decision.mmd` and `seq-03-identifier-search-broadc
 **Happy path:**
 - [ ] Broadcast triggered **only** when local search returns 0 results — prevents unnecessary load and privacy exposure
 - [ ] Rationale: broadcast-only-when-empty pattern from Current Gate `EftiService.kt:91`
-- [ ] Broadcast sends parallel requests to all gates with status `ACTIVE`; `DISABLED` and `OFFLINE` gates skipped
+- [ ] Broadcast sends parallel requests to all gates with status `ONLINE` (per `gate_status` enum); `OFFLINE` and `DISABLED` gates skipped
 - [ ] Per-gate response metadata: `gateId`, `responseTimeMs`, `success`, `failure`
 - [ ] Each gate interaction logged: gate ID, response time ms, success/failure
 

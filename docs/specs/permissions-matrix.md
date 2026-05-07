@@ -75,6 +75,12 @@ Each `User` has `roles: Map<Role, Set<PartyId<*>>>` — a role mapped to one or 
 | Endpoint | Method | ADMIN | PLATFORM | AUTHORITY | GATE | Unauth |
 |---|---|---|---|---|---|---|
 | `/v1/identifiers/{datasetId}` | POST | ✅ All | ✅ Own platform only | ❌ | ❌ | ❌ |
+| `/v1/identifiers/{datasetId}` | DELETE | ✅ All | ✅ Own platform only (sets `status='deleted'`) | ❌ | ❌ | ❌ |
+| `/v1/identifiers/{datasetId}` | PUT | ✅ All | ✅ Own platform only (re-extract from XML) | ❌ | ❌ | ❌ |
+| `/v1/status/{datasetId}` | GET | ✅ All | ✅ Own platform only | ❌ | ❌ | ❌ |
+| `/v1/datasets/{datasetId}` | GET | ✅ All | ✅ Own platform only (self-fetch from gate's stored XML) | ❌ | ❌ | ❌ |
+| `/v1/follow-up/{datasetId}/{requestId}` | GET | ✅ All | ✅ Own platform receives | ❌ | ❌ | ❌ |
+| `/v1/ping` | POST | ✅ | ✅ | ❌ | ❌ | ❌ |
 
 ```mermaid
 flowchart TD
@@ -129,13 +135,19 @@ All admin endpoints require `@Access(ADMIN)`. Path prefix `/api/v1/`.
 
 | Endpoint | Method | ADMIN | Other roles | Unauth |
 |---|---|---|---|---|
+| `/api/v1/auth/token` | POST | ✅ (via Basic Auth) | ✅ (any user via Basic Auth) | ✅ (entry point — Basic challenge) |
+| `/api/v1/auth/logout` | POST | ✅ | ✅ (any authenticated user) | ❌ |
 | `/api/v1/user` | GET | ✅ Own user | ❌ | ❌ |
-| `/api/v1/switch` | GET | ✅ | ❌ | ❌ |
 | `/api/v1/platforms`, `/api/v1/platforms/{id}` | GET/POST/PUT/DELETE | ✅ (write needs `checkWriteAccess`) | ❌ | ❌ |
+| `/api/v1/platforms/{platformId}/ping` | POST | ✅ (Super Admin or matching scope) | ❌ | ❌ |
 | `/api/v1/authorities`, `/api/v1/authorities/{id}` | GET/POST/PUT/DELETE | ✅ (write needs `checkWriteAccess`) | ❌ | ❌ |
 | `/api/v1/gates`, `/api/v1/gates/{id}` | GET/POST/PUT/DELETE | ✅ (write needs `checkWriteAccess`) | ❌ | ❌ |
-| `/api/v1/users`, `/api/v1/users/{id}` | GET/POST/DELETE | ✅ (cannot delete self) | ❌ | ❌ |
-| `/api/v1/consignments`, `/api/v1/consignments/{datasetId}` | GET/DELETE | ✅ | ❌ | ❌ |
+| `/api/v1/gates/own` | GET | ✅ | ❌ | ❌ |
+| `/api/v1/gates/{gateId}/ping` | POST | ✅ (Super Admin or matching scope) | ❌ | ❌ |
+| `/api/v1/users`, `/api/v1/users/{id}` | GET/POST/DELETE | ✅ (cannot delete self → 400 `BAD_REQUEST_GENERAL`) | ❌ | ❌ |
+| `/api/v1/users/{userId}/revoke-token` | POST | ✅ (Super Admin or matching scope) | ❌ | ❌ |
+| `/api/v1/consignments`, `/api/v1/consignments/{datasetId}` | GET/DELETE | ✅ (DELETE = soft, sets `status='deleted'`) | ❌ | ❌ |
+| `/api/v1/audit` | GET | ✅ Super Admin only | ❌ | ❌ |
 
 ```mermaid
 flowchart TD
@@ -162,7 +174,8 @@ flowchart TD
 
 | Endpoint | Method | Access |
 |---|---|---|
-| `/health` (or equivalent) | GET | Public — anyone |
+| `/health/live` | GET | Public — anyone (Kubernetes liveness probe) |
+| `/health/ready` | GET | Public — anyone (Kubernetes readiness probe; returns 503 when DB unreachable) |
 | OpenAPI/Swagger UI | GET | Public — anyone |
 
 ---
