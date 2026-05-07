@@ -11,7 +11,7 @@
 - [DB Schema](../specs/db/README.md) — async_responses table schema
 - [Data Transformations](../specs/data-transformations.md) — JSON ↔ AS4 envelope wrapping; SOAP fault handling
 - [Diagrams](../specs/diagrams/seq-14-gate-to-gate-search.mmd) — Gate-to-gate AS4 search; [seq-16](../specs/diagrams/seq-16-mtls-fast-protocol.mmd) — mTLS fast-protocol alternative
-- [Errors](../specs/errors.json) — `BAD_GATEWAY`, `GATE_OFFLINE`, `GATEWAY_TIMEOUT`
+- [Errors](../specs/errors.json) — `GATEWAY_UNAVAILABLE`, `GATE_TIMEOUT`, `EDELIVERY_ERROR`
 - [RA §4 Protocol Architecture](../architecture/eFTI-Gate-Reference-Architecture.md#4-protocol-architecture-generic-envelope--variable-payload) — Generic envelope and AS4 protocol model
 - [RA §5.1 Identifier Query](../architecture/eFTI-Gate-Reference-Architecture.md#51-identifier-query-cross-border-search) — Cross-border AS4 message flow
 

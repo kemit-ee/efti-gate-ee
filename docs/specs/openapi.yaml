@@ -1790,46 +1790,44 @@ components:
       type: string
       description: |
         Canonical error code from `specs/errors.json`. Clients MUST switch on
-        this field rather than on `title`/`detail` text. The enum below is
-        kept in sync with the error catalog.
+        this field rather than on `title`/`detail` text. This enum mirrors the
+        catalog exactly; if the catalog changes, regenerate this enum from it.
       enum:
-        - BAD_REQUEST_GENERAL
-        - INVALID_XML
-        - INVALID_DATASET_ID
-        - INVALID_IDENTIFIER
-        - INVALID_SUBSET
-        - INVALID_GATE_ID
-        - INVALID_PLATFORM_ID
-        - MISSING_REQUIRED_HEADER
-        - MISSING_REQUIRED_FIELD
-        - INVALID_FIELD_FORMAT
-        - UNAUTHORIZED
-        - INVALID_TOKEN
-        - EXPIRED_TOKEN
-        - INVALID_ISSUER
-        - FORBIDDEN
-        - FORBIDDEN_SUBSET
-        - FORBIDDEN_PLATFORM
-        - FORBIDDEN_OWNERSHIP
-        - FORBIDDEN_MULTI_PLATFORM
-        - FORBIDDEN_SELF_DELETE
-        - NOT_FOUND
-        - DATASET_NOT_FOUND
-        - GATE_NOT_FOUND
-        - PLATFORM_NOT_FOUND
         - AUTHORITY_NOT_FOUND
-        - USER_NOT_FOUND
-        - DUPLICATE_REQUEST
-        - DUPLICATE_RESOURCE
-        - FOLLOW_UP_GATE_MISMATCH
-        - RATE_LIMIT_EXCEEDED
-        - INTERNAL_ERROR
+        - BAD_REQUEST_GENERAL
+        - CONFLICT
+        - CONSIGNMENT_NOT_FOUND
         - DATABASE_ERROR
-        - BAD_GATEWAY
-        - GATE_OFFLINE
-        - PLATFORM_UNREACHABLE
+        - DUPLICATE_DATASET_ID
+        - DUPLICATE_REQUEST_ID
+        - EDELIVERY_ERROR
+        - FOLLOW_UP_GATE_MISMATCH
+        - FORBIDDEN
+        - FORBIDDEN_MULTI_PLATFORM
+        - FORBIDDEN_NO_PLATFORM
+        - FORBIDDEN_SUBSET
+        - FORBIDDEN_WRITE_ACCESS
+        - GATEWAY_UNAVAILABLE
+        - GATE_NOT_FOUND
+        - GATE_TIMEOUT
+        - INTERNAL_ERROR
+        - INVALID_DATASET_ID
+        - INVALID_REQUEST_ID
+        - INVALID_SUBSET
+        - INVALID_XML
+        - MISSING_REQUIRED_HEADER
+        - MISSING_SUBSET
+        - NOT_FOUND
+        - PLATFORM_NOT_FOUND
+        - PLATFORM_TIMEOUT
+        - PLATFORM_UNAVAILABLE
+        - RATE_LIMIT_EXCEEDED
         - SERVICE_UNAVAILABLE
-        - GATEWAY_TIMEOUT
+        - TOKEN_EXPIRED
+        - TOKEN_INVALID
+        - TRANSFORMATION_ERROR
+        - UNAUTHORIZED
+        - USER_NOT_FOUND
       example: BAD_REQUEST_GENERAL
 
     # --------------------------------------------------------------------------

@@ -822,7 +822,16 @@
       "retryable": false
     }
   },
-  "errorMapping": {
+  "rfcReference": "RFC 7807 Problem Details for HTTP APIs — https://www.rfc-editor.org/rfc/rfc7807",
+  "notes": [
+    "All error responses include Content-Type: application/problem+json",
+    "The 'instance' field always reflects the exact request path that produced the error",
+    "Sensitive data (credentials, certificate content, full XML payloads) must never appear in error detail messages",
+    "Gate-to-gate broadcast partial failures (individual gates timing out) are reported inline in SSE stream events, not as HTTP errors",
+    "Error codes prefixed ERR_ in log entries correspond 1:1 with the 'code' field in this catalog"
+  ],
+  "referenceImplementationMappingNote": "Non-normative reference: maps Java/Kotlin exception types from the Klite/JAXB reference implementation (Askend PoC) to canonical error codes. Implementations in other stacks may map their own exception classes; this mapping is documentation, not contract.",
+  "referenceImplementationMapping": {
     "SAXParseException": "INVALID_XML",
     "BadRequestException": "INVALID_XML",
     "UnauthorizedException": "UNAUTHORIZED",
@@ -834,13 +843,5 @@
     "JAXBException": "TRANSFORMATION_ERROR",
     "PSQLException": "DATABASE_ERROR",
     "IllegalArgumentException(UUID)": "INVALID_DATASET_ID"
-  },
-  "rfcReference": "RFC 7807 Problem Details for HTTP APIs — https://www.rfc-editor.org/rfc/rfc7807",
-  "notes": [
-    "All error responses include Content-Type: application/problem+json",
-    "The 'instance' field always reflects the exact request path that produced the error",
-    "Sensitive data (credentials, certificate content, full XML payloads) must never appear in error detail messages",
-    "Gate-to-gate broadcast partial failures (individual gates timing out) are reported inline in SSE stream events, not as HTTP errors",
-    "Error codes prefixed ERR_ in log entries correspond 1:1 with the 'code' field in this catalog"
-  ]
+  }
 }

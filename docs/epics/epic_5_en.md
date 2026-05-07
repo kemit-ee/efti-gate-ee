@@ -11,7 +11,7 @@
 - [Permissions Matrix](../specs/permissions-matrix.md) — Subset access permissions
 - [Data Transformations](../specs/data-transformations.md) — XML→JSON marshalling, eDelivery AS4 wrapping, SSE streaming
 - [OpenAPI](../specs/openapi.yaml) — `GET /v1/dataset/{gateId}/{platformId}/{datasetId}` and `POST /v1/follow-up/...` contracts
-- [Errors](../specs/errors.json) — `DATASET_NOT_FOUND`, `FORBIDDEN_SUBSET`, `BAD_GATEWAY`, `FOLLOW_UP_GATE_MISMATCH`
+- [Errors](../specs/errors.json) — `CONSIGNMENT_NOT_FOUND`, `FORBIDDEN_SUBSET`, `GATEWAY_UNAVAILABLE`, `FOLLOW_UP_GATE_MISMATCH`
 - [RA §2.3 Data Subsets](../architecture/eFTI-Gate-Reference-Architecture.md#23-data-subsets) — Subset filtering — gate vs platform responsibility
 - [RA §5.2 Dataset Query](../architecture/eFTI-Gate-Reference-Architecture.md#52-dataset-query-request-full-data) — UIL-based dataset retrieval flow
 - [RA §5.3 Follow-Up](../architecture/eFTI-Gate-Reference-Architecture.md#53-follow-up-message) — Follow-up message flow
