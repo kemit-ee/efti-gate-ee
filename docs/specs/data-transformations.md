@@ -61,16 +61,18 @@ The identifier XML carries transport metadata used for searching. The Gate extra
 
 | XML path | Database column | Type | Required |
 |---|---|---|---|
-| `//mainCarriageTransportMovement[1]/modeCode` | `consignments.mode` | text | No |
-| `//mainCarriageTransportMovement[1]/dangerousGoodsIndicator` | `consignments.dangerousGoods` | boolean | No |
-| `//deliveryEvent/actualOccurrenceDateTime` | `consignments.deliveredAt` | timestamptz | No |
-| `//mainCarriageTransportMovement/usedTransportMeans/id` | `identifiers.id` (type=`means`) | text | No |
-| `//mainCarriageTransportMovement/usedTransportMeans/registrationCountry/code` | `identifiers.countryCode` | varchar(2) | No |
-| `//usedTransportEquipment/id` | `identifiers.id` (type=`equipment`) | text | No |
-| `//usedTransportEquipment/registrationCountry/code` | `identifiers.countryCode` | varchar(2) | No |
-| `//usedTransportEquipment/carriedTransportEquipment/id` | `identifiers.id` (type=`carried`) | text | No |
+| `//mainCarriageTransportMovement[1]/modeCode` | `consignments.mode` | `transport_mode` enum | No |
+| `//mainCarriageTransportMovement[1]/dangerousGoodsIndicator` | `consignments.dangerous_goods` | boolean | No |
+| `//deliveryEvent/actualOccurrenceDateTime` | `consignments.delivered_at` | timestamptz | No |
+| `//mainCarriageTransportMovement/usedTransportMeans/id` | `identifiers.identifier_value` (with `identifier_type='means'`) | varchar(200) | No |
+| `//mainCarriageTransportMovement/usedTransportMeans/registrationCountry/code` | `identifiers.country_code` | char(2) | No |
+| `//usedTransportEquipment/id` | `identifiers.identifier_value` (with `identifier_type='equipment'`) | varchar(200) | No |
+| `//usedTransportEquipment/registrationCountry/code` | `identifiers.country_code` | char(2) | No |
+| `//usedTransportEquipment/carriedTransportEquipment/id` | `identifiers.identifier_value` (with `identifier_type='carried'`) | varchar(200) | No |
 
-### 2.3 Identifier types (`identifiers.type` enum)
+> **Schema note.** `identifiers.id` is a UUID v4 primary key generated on INSERT (`uuid_generate_v4()`); it is **not** the identifier-value column. The XML-derived value (vehicle plate, container number, etc.) is stored in `identifiers.identifier_value`, with `identifiers.identifier_type` carrying the corresponding `means` / `equipment` / `carried` discriminator. Together `(identifier_value, identifier_type, country_code)` is the search-target.
+
+### 2.3 Identifier types (`identifiers.identifier_type` enum)
 
 | Enum | Description | Example |
 |---|---|---|
@@ -143,13 +145,15 @@ If JAXB throws (`JAXBException` / `SAXParseException`), `EftiService.saveIdentif
 **Output:**
 
 ```sql
-INSERT INTO consignments (datasetId, platformId, gateId, xml, mode, dangerousGoods, deliveredAt, createdAt, updatedAt)
+INSERT INTO consignments (dataset_id, platform_id, gate_id, xml, mode, dangerous_goods, delivered_at, created_at, updated_at)
 VALUES ('550e8400-e29b-41d4-a716-446655440000', 'demo', 'eu-ee31',
         '<consignment xmlns="http://efti.eu/v1/consignment/identifier">...</consignment>',
-        '3', false, '2026-04-23T07:15:00Z', now(), now());
+        'road', false, '2026-04-23T07:15:00Z', now(), now());
 
-INSERT INTO identifiers (id, datasetId, type, countryCode)
-VALUES ('123ABC', '550e8400-e29b-41d4-a716-446655440000', 'means', 'EE');
+-- identifiers.id is auto-generated UUIDv4 by uuid_generate_v4(); the XML-derived
+-- vehicle plate is stored in identifier_value, the discriminator in identifier_type.
+INSERT INTO identifiers (dataset_id, identifier_type, identifier_value, country_code)
+VALUES ('550e8400-e29b-41d4-a716-446655440000', 'means', '123ABC', 'EE');
 ```
 
 #### 3.1.2 End-to-end example B — Container + dangerous goods
@@ -179,16 +183,16 @@ VALUES ('123ABC', '550e8400-e29b-41d4-a716-446655440000', 'means', 'EE');
 **Output:**
 
 ```sql
-INSERT INTO consignments (datasetId, platformId, gateId, xml, mode, dangerousGoods)
-VALUES ('770fa622-a49d-53f6-c938-668877662222', 'demo', 'eu-ee31', '...xml...', '3', true);
+INSERT INTO consignments (dataset_id, platform_id, gate_id, xml, mode, dangerous_goods)
+VALUES ('770fa622-a49d-53f6-c938-668877662222', 'demo', 'eu-ee31', '...xml...', 'road', true);
 
-INSERT INTO identifiers (id, datasetId, type, countryCode) VALUES
-  ('123ABC',      '770fa622-a49d-53f6-c938-668877662222', 'means',     'EE'),
-  ('MSCU1234567', '770fa622-a49d-53f6-c938-668877662222', 'equipment', 'EE'),
-  ('TRLU9876543', '770fa622-a49d-53f6-c938-668877662222', 'carried',   NULL);
+INSERT INTO identifiers (dataset_id, identifier_type, identifier_value, country_code) VALUES
+  ('770fa622-a49d-53f6-c938-668877662222', 'means',     '123ABC',      'EE'),
+  ('770fa622-a49d-53f6-c938-668877662222', 'equipment', 'MSCU1234567', 'EE'),
+  ('770fa622-a49d-53f6-c938-668877662222', 'carried',   'TRLU9876543', NULL);
 ```
 
-`carriedTransportEquipment` does **not** inherit the parent's country — `countryCode` is NULL unless the carried element has its own `registrationCountry`.
+`carriedTransportEquipment` does **not** inherit the parent's country — `country_code` is NULL unless the carried element has its own `registrationCountry`.
 
 #### 3.1.3 Additional ingest scenarios — what each one teaches
 
@@ -196,13 +200,13 @@ Every scenario uses the same canonical pipeline; only the rule listed below diff
 
 | Scenario | The one rule it teaches |
 |---|---|
-| Multiple `mainCarriageTransportMovement` (e.g. tractor + trailer) | Loop step 5 produces one `Identifier(means)` per movement; primary movement (step 3) drives `consignments.mode` / `dangerousGoods`. |
-| XML missing optional fields (only `usedTransportMeans/id`) | All optional columns become `NULL` (`mode`, `dangerousGoods`, `countryCode`, `deliveredAt`); INSERT still succeeds. |
-| `registrationCountry` missing on a `usedTransportMeans` | `identifiers.countryCode = NULL` for that row. |
-| `deliveryEvent` missing | `consignments.deliveredAt = NULL`. |
+| Multiple `mainCarriageTransportMovement` (e.g. tractor + trailer) | Loop step 5 produces one row in `identifiers` (with `identifier_type='means'`) per movement; primary movement (step 3) drives `consignments.mode` / `dangerous_goods`. |
+| XML missing optional fields (only `usedTransportMeans/id`) | All optional columns become `NULL` (`mode`, `dangerous_goods`, `country_code`, `delivered_at`); INSERT still succeeds. |
+| `registrationCountry` missing on a `usedTransportMeans` | `identifiers.country_code = NULL` for that row. |
+| `deliveryEvent` missing | `consignments.delivered_at = NULL`. |
 | Malformed XML (e.g. unclosed `<modeCode>`) | JAXB throws → `BadRequestException` → 400 RFC 7807 with `efti.error.code = INVALID_XML`. **No DB write.** |
 | XML with `<?xml version="1.0"?>` declaration | `dropXmlHeader()` strips the first line before parsing **and before storage** in `consignments.xml`. |
-| `actualOccurrenceDateTime formatId="102"` / `"203"` / `"205"` | Parsed via the §2.5 format table; `consignments.deliveredAt` stored in UTC. |
+| `actualOccurrenceDateTime formatId="102"` / `"203"` / `"205"` | Parsed via the §2.5 format table; `consignments.delivered_at` stored in UTC. |
 | Multi-leg (sea → road) transport | First-leg attributes go to denormalised columns (see §3.1.4); subsequent legs live only in the stored `xml`. |
 
 #### 3.1.4 XML → denormalised search columns
@@ -406,9 +410,9 @@ The Gate does **not** validate XML against the full XSD schema. JAXB maps known 
 
 | Constraint | Table | Column | Error |
 |---|---|---|---|
-| PRIMARY KEY | `consignments` | `datasetId` | `DUPLICATE_DATASET_ID` (409) |
-| FOREIGN KEY | `identifiers` | `datasetId → consignments` | `DATABASE_ERROR` (500) |
-| NOT NULL | `consignments` | `platformId`, `gateId`, `xml` | `DATABASE_ERROR` (500) |
+| PRIMARY KEY | `consignments` | `dataset_id` | `DUPLICATE_DATASET_ID` (409) |
+| FOREIGN KEY | `identifiers` | `dataset_id → consignments(dataset_id)` | `DATABASE_ERROR` (500) |
+| NOT NULL | `consignments` | `platform_id`, `gate_id`, `xml` | `DATABASE_ERROR` (500) |
 
 ---
 
@@ -510,10 +514,12 @@ The Gate does **not** validate XML against the full XSD schema. JAXB maps known 
 
 | Data element | XPath | Stored in | Example |
 |---|---|---|---|
-| Mode code | `//mainCarriageTransportMovement[1]/modeCode` | `consignments.mode` | `"3"` |
-| Dangerous goods | `//mainCarriageTransportMovement[1]/dangerousGoodsIndicator` | `consignments.dangerousGoods` | `true` |
-| Delivery datetime | `//deliveryEvent/actualOccurrenceDateTime` | `consignments.deliveredAt` | `"2026-04-23T07:15:00Z"` |
-| Vehicle plate (means) | `//mainCarriageTransportMovement/usedTransportMeans/id` | `identifiers.id` (means) | `"123ABC"` |
-| Vehicle country | `//mainCarriageTransportMovement/usedTransportMeans/registrationCountry/code` | `identifiers.countryCode` | `"EE"` |
-| Container ID | `//usedTransportEquipment/id` | `identifiers.id` (equipment) | `"MSCU1234567"` |
-| Nested equipment | `//usedTransportEquipment/carriedTransportEquipment/id` | `identifiers.id` (carried) | `"TRLU9876543"` |
+| Mode code | `//mainCarriageTransportMovement[1]/modeCode` | `consignments.mode` | `"road"` (mapped from XML `"3"`) |
+| Dangerous goods | `//mainCarriageTransportMovement[1]/dangerousGoodsIndicator` | `consignments.dangerous_goods` | `true` |
+| Delivery datetime | `//deliveryEvent/actualOccurrenceDateTime` | `consignments.delivered_at` | `"2026-04-23T07:15:00Z"` |
+| Vehicle plate (means) | `//mainCarriageTransportMovement/usedTransportMeans/id` | `identifiers.identifier_value` (with `identifier_type='means'`) | `"123ABC"` |
+| Vehicle country | `//mainCarriageTransportMovement/usedTransportMeans/registrationCountry/code` | `identifiers.country_code` | `"EE"` |
+| Container ID | `//usedTransportEquipment/id` | `identifiers.identifier_value` (with `identifier_type='equipment'`) | `"MSCU1234567"` |
+| Nested equipment | `//usedTransportEquipment/carriedTransportEquipment/id` | `identifiers.identifier_value` (with `identifier_type='carried'`) | `"TRLU9876543"` |
+
+> `identifiers.id` is a UUID v4 primary key generated by `uuid_generate_v4()`; it is *never* the identifier-value column. See §2.2 for the schema note.
