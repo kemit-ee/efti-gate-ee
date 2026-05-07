@@ -1267,7 +1267,7 @@ graph TD
     LB --> N1[Gate node 1]
     LB --> N2[Gate node 2]
     LB --> N3[Gate node N]
-    N1 -.LISTEN/NOTIFY.- DB[(PostgreSQL 14+<br/>request_id_cache,<br/>sessions, registries,<br/>change_history)]
+    N1 -.LISTEN/NOTIFY.- DB[(PostgreSQL 14+<br/>request_id_cache,<br/>sessions, registries,<br/>audit_log)]
     N2 -.LISTEN/NOTIFY.- DB
     N3 -.LISTEN/NOTIFY.- DB
     DB --> Lock[pg_try_advisory_lock<br/>ping job, expiry job<br/>1 leader at a time]
@@ -1339,7 +1339,7 @@ See `arch-01-multi-node-deployment.mmd` and `seq-15-gate-registry-sync.mmd` for 
 **Happy path:**
 - [ ] All tables and fields have English comments — schema understandable to all developers
 - [ ] All foreign key fields are indexed
-- [ ] `change_history` table: change timestamp, user ID, operation, resource ID
+- [ ] `audit_log` table (action-level audit trail): row_id, user_id, action, resource, resource_id, recorded_at
 
 **Technical artifacts:**
 - [ ] DB schema ERD in documentation
@@ -1384,6 +1384,50 @@ flowchart TD
 **Technical artifacts:**
 - [ ] OpenAPI: `GET /health/live`, `GET /health/ready`
 - [ ] Kubernetes deployment manifest with probe and graceful shutdown config
+
+### EPIC 26 — Append-Only Archival via CronManager
+
+**AS A** gate operator
+**I WANT** non-latest rows of every operational table moved to archival storage on a regular schedule
+**SO THAT** the live database stays lean while the full event history is preserved for audit and forensics
+
+**References:**
+- DB schema design rule (append-only) — `specs/db/README.md`
+- CronManager — https://github.com/Buerostack/CronManager (Quartz-based external scheduler)
+- Non-functional contracts — `specs/non-functional.md`
+
+**Acceptance Criteria:**
+
+CronManager integration:
+- [ ] CronManager YAML job (`DSL/jobs/efti-gate-archive.yaml`) defines an HTTP job with cron `"0 0 3 * * ?"` (default 03:00 daily; operator-overridable). Target = `POST {GATE_BASE_URL}/api/v1/admin/archive`.
+- [ ] Authentication: ops-only Bearer token sourced from a Kubernetes Secret; never in plaintext YAML.
+- [ ] Failure path: CronManager retries on next tick with exponential backoff; failures recorded in CronManager's own log.
+
+Archive endpoint (gate side):
+- [ ] `POST /api/v1/admin/archive` defined in `openapi.yaml`. Auth: bearerAuth + ops-role only; non-ops admins → `403 Forbidden`.
+- [ ] Optional body `{ "tables": [...], "batch_size": 1000, "max_runtime_seconds": 600 }` (defaults: all operational tables, 1000, 600).
+- [ ] Response: `200 OK` with per-table archived counts, durations, and a `next_archivable_count_estimate` for monitoring.
+- [ ] Archive job already running → `409 Conflict` with `code: ARCHIVE_IN_PROGRESS`.
+- [ ] Archive destination unavailable mid-batch → `502 Bad Gateway` with `code: ARCHIVE_STORAGE_UNAVAILABLE`; live DB unchanged (per-batch transactional).
+- [ ] `max_runtime_seconds` reached mid-table → response `200 OK` with `partial: true`; remaining rows picked up by next run.
+- [ ] Idempotent: a second run immediately after produces zero counts.
+
+Technical constraints:
+- [ ] Archival selection uses the canonical `NOT IN (SELECT DISTINCT ON (logical_id) row_id …)` (or `ROW_NUMBER() OVER (…)` equivalent); no JOINs.
+- [ ] DELETE on the live DB is performed by a separate database role `db_archiver`, NOT the runtime `app` role. The `app` role retains its `SELECT, INSERT` only privilege — Epic 26 does NOT weaken Rule 1.
+- [ ] Archive destination operator-configurable: S3-compatible object store, secondary Postgres on a different cluster, or append-only file storage. Storage shape: JSON-Lines, partitioned by `(table, year, month)`.
+- [ ] Retention in archive: 7 years minimum (compliance floor); indefinite acceptable.
+- [ ] Environment parity: same software in dev/test/stage/prod (no Redis-vs-Postgres splits, no LocalStack-only-in-dev unless the prod choice is also S3-compatible).
+
+Operator deployment:
+- [ ] CronManager deployed as a sibling container/Pod to the gate; its own Postgres for Quartz state (separate from the gate DB).
+- [ ] Internal-only ports for both CronManager (`:9010`) and the gate's `/api/v1/admin/archive` endpoint.
+
+Technical artifacts:
+- [ ] OpenAPI: `POST /api/v1/admin/archive` operation + `ARCHIVE_IN_PROGRESS`, `ARCHIVE_STORAGE_UNAVAILABLE` error codes.
+- [ ] DB role: `db_archiver` with DELETE on operational tables; documented in `db/README.md`.
+- [ ] CronManager YAML example: `docs/specs/deploy/cronmanager-archive.yaml`.
+- [ ] Logging: `event.action: archive.run`, audit-meaningful, records archived counts per table.
 
 ---
 

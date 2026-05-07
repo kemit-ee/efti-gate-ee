@@ -1065,7 +1065,7 @@ sequenceDiagram
 **Happy path:**
 - [ ] Kõigil tabelitel ja väljadel on ingliskeelsed kommentaarid — skeem on kõigile arendajatele arusaadav
 - [ ] Kõik võõrvõtme väljad on indekseeritud
-- [ ] `change_history` tabel: muutmise ajatempel, kasutaja ID, toiming, ressursi ID
+- [ ] `audit_log` tabel (toimingute auditijälg): row_id, user_id, action, resource, resource_id, recorded_at
 
 **Tehnilised artefaktid:**
 - [ ] DB skeemi ERD dokumentatsioonis
@@ -1097,6 +1097,50 @@ sequenceDiagram
 **Tehnilised artefaktid:**
 - [ ] OpenAPI: `GET /health/live`, `GET /health/ready`
 - [ ] Kubernetes deployment manifest proovi ja graceful shutdown konfiguratsiooniga
+
+### EPIC 26 — Append-only arhiveerimine CronManageriga
+
+**KASUTAJANA** gate-i operaator
+**SOOVIN** et iga operatsiooni-tabeli mitte-viimased read viidaks regulaarselt arhiivi
+**ET** live-andmebaas püsiks kompaktne, kuid täielik sündmusajalugu säiliks auditiks
+
+**Viited:**
+- DB skeem (append-only reegel) — `specs/db/README.md`
+- CronManager — https://github.com/Buerostack/CronManager (Quartz-põhine välimine planeerija)
+- Funktsionaalsed nõuded — `specs/non-functional.md`
+
+**Vastuvõtukriteeriumid:**
+
+CronManageri integreerimine:
+- [ ] CronManageri YAML töömäärang (`DSL/jobs/efti-gate-archive.yaml`) defineerib HTTP töö cron-ajakavaga `"0 0 3 * * ?"` (vaikimisi 03:00 päevas; operaator võib üle kirjutada). Sihtmärk: `POST {GATE_BASE_URL}/api/v1/admin/archive`.
+- [ ] Autentimine: ops-rolli Bearer token Kubernetes Secretist; mitte kunagi avatekstis YAML-is.
+- [ ] Veatöötlus: CronManager proovib uuesti järgmisel cron-tähtajal eksponentsiaalselt aeglustudes; vead salvestatakse CronManageri enda logisse.
+
+Arhiivi-otspunkt (gate'i poolel):
+- [ ] `POST /api/v1/admin/archive` defineeritud `openapi.yaml`-is. Auth: bearerAuth + ops-roll; teised admin-id → `403 Forbidden`.
+- [ ] Valikuline keha `{ "tables": [...], "batch_size": 1000, "max_runtime_seconds": 600 }` (vaikimisi: kõik operatsioonitabelid, 1000, 600).
+- [ ] Vastus: `200 OK` arhiveeritud ridade arvuga tabeli kohta + kestus + `next_archivable_count_estimate`.
+- [ ] Arhiivitöö juba käib → `409 Conflict` koodiga `ARCHIVE_IN_PROGRESS`.
+- [ ] Arhiivisihtkoht kättesaamatu vooru keskel → `502 Bad Gateway` koodiga `ARCHIVE_STORAGE_UNAVAILABLE`; live-DB ei muutu (paketipõhine transaktsionaalsus).
+- [ ] `max_runtime_seconds` kätte ületamata → vastus `200 OK` koos `partial: true`; ülejäänud read võetakse järgmisel käivitusel.
+- [ ] Idempotentne: koheselt järgnev käivitamine annab nullkogused.
+
+Tehnilised piirangud:
+- [ ] Arhiivi valikupäring kasutab kanoonilist `NOT IN (SELECT DISTINCT ON (logical_id) row_id …)` (või `ROW_NUMBER() OVER (…)` analoogi); JOIN-e ei kasutata.
+- [ ] DELETE live-DB-s teostab eraldi DB-roll `db_archiver`, MITTE töökeskkonna `app` roll. `app` rollil säilib oma `SELECT, INSERT` ainsus — Epic 26 ei nõrgesta Reeglit 1.
+- [ ] Arhiivisihtkoht operaatori poolt valitav: S3-ühilduv objektihoidla, sekundaarne Postgres teises klastris või append-only failihoidla. Andmevorming: JSON-Lines, partitsioneeritud `(table, year, month)` järgi.
+- [ ] Arhiivi säilitamine: vähemalt 7 aastat (vastavusnõue); piiramatu vastuvõetav.
+- [ ] Keskkondade võrdsus: sama tarkvara dev/test/stage/prod (ei Redis-vs-Postgres jagunemisi, ei LocalStack-ainult-dev'is kui prod ei ole samuti S3-ühilduv).
+
+Operaatori juurutus:
+- [ ] CronManager juurutatud gate'i kõrvalkonteinerina/Pod'ina; oma Postgres Quartzi olekule (gate'i DB-st eraldi).
+- [ ] Sisemine ainult juurdepääs nii CronManagerile (`:9010`) kui ka gate'i `/api/v1/admin/archive` otspunktile.
+
+Tehnilised artefaktid:
+- [ ] OpenAPI: `POST /api/v1/admin/archive` operatsioon + `ARCHIVE_IN_PROGRESS`, `ARCHIVE_STORAGE_UNAVAILABLE` veakoodid.
+- [ ] DB roll: `db_archiver` DELETE-õigusega operatsioonitabelitele; dokumenteeritud failis `db/README.md`.
+- [ ] CronManager YAML-i näide: `docs/specs/deploy/cronmanager-archive.yaml`.
+- [ ] Logimine: `event.action: archive.run`, audit-meaningful, salvestab arhiveeritud ridade arvu tabeli kohta.
 
 ---
 

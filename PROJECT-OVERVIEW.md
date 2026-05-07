@@ -1,6 +1,6 @@
 # eFTI Gate v2 — Project Overview
 
-Visual map of the 9 themes and 25 epics that make up the v2 spec. For artifacts and design rules, see [`README.md`](README.md).
+Visual map of the 9 themes and 26 epics that make up the v2 spec. For artifacts and design rules, see [`README.md`](README.md).
 
 ```mermaid
 graph TB
@@ -38,6 +38,7 @@ graph TB
         direction TB
         E12[EPIC 12<br/>Scalability<br/>& Statelessness]
         E13[EPIC 13<br/>Health Checks<br/>& Graceful Shutdown]
+        E26[EPIC 26<br/>Append-Only Archival<br/><i>via CronManager</i>]
     end
 
     subgraph T6["THEME 6 — Security & Compliance"]
@@ -68,7 +69,7 @@ graph TB
     classDef theme fill:#e8f4f8,stroke:#2b6cb0,stroke-width:2px
     classDef epic  fill:#fff,stroke:#4a5568,stroke-width:1px,cursor:pointer
     class T1,T2,T3,T4,T5,T6,T7,T8,T9 theme
-    class E1,E2,E3,E4,E5,E6,E7,E8,E9,E10,E11,E12,E13,E14,E15,E16,E17,E18,E19,E20,E21,E22,E23,E24,E25 epic
+    class E1,E2,E3,E4,E5,E6,E7,E8,E9,E10,E11,E12,E13,E14,E15,E16,E17,E18,E19,E20,E21,E22,E23,E24,E25,E26 epic
 
     click E1  "docs/epics/epic_1_en.md"  "User Management & RBAC"
     click E2  "docs/epics/epic_2_en.md"  "Authentication"
@@ -95,6 +96,7 @@ graph TB
     click E23 "docs/epics/epic_23_en.md" "Authentication & Access Flows"
     click E24 "docs/epics/epic_24_en.md" "Identifier Search & Dataset Retrieval Flows"
     click E25 "docs/epics/epic_25_en.md" "eDelivery AS4 Message Flow"
+    click E26 "docs/epics/epic_26_en.md" "Append-Only Archival via CronManager"
 ```
 
-**Totals:** 9 themes, 25 epics. Per-epic acceptance criteria live in [`docs/epics/`](docs/epics/) (split files) and [`docs/efti_full_epics_en.md`](docs/efti_full_epics_en.md) (canonical).
+**Totals:** 9 themes, 26 epics. Per-epic acceptance criteria live in [`docs/epics/`](docs/epics/) (split files) and [`docs/efti_full_epics_en.md`](docs/efti_full_epics_en.md) (canonical).

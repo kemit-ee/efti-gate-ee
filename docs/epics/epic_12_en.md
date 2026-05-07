@@ -7,7 +7,7 @@
 **SO THAT** the system is horizontally scalable and tolerates a single node failure
 
 **References:**
-- [DB Schema](../specs/db/README.md) — `request_id_cache` deduplication table, `change_history` table
+- [DB Schema](../specs/db/README.md) — `request_id_cache` deduplication table, `audit_log` table
 - [RA §7.1 Logical Component Layers](../architecture/eFTI-Gate-Reference-Architecture.md#71-logical-component-layers) — Stateless application layer and shared database architecture
 
 **Multi-node topology at a glance:**
@@ -18,7 +18,7 @@ graph TD
     LB --> N1[Gate node 1]
     LB --> N2[Gate node 2]
     LB --> N3[Gate node N]
-    N1 -.LISTEN/NOTIFY.- DB[(PostgreSQL 14+<br/>request_id_cache,<br/>sessions, registries,<br/>change_history)]
+    N1 -.LISTEN/NOTIFY.- DB[(PostgreSQL 14+<br/>request_id_cache,<br/>sessions, registries,<br/>audit_log)]
     N2 -.LISTEN/NOTIFY.- DB
     N3 -.LISTEN/NOTIFY.- DB
     DB --> Lock[pg_try_advisory_lock<br/>ping job, expiry job<br/>1 leader at a time]
@@ -90,7 +90,7 @@ See `arch-01-multi-node-deployment.mmd` and `seq-15-gate-registry-sync.mmd` for 
 **Happy path:**
 - [ ] All tables and fields have English comments — schema understandable to all developers
 - [ ] All foreign key fields are indexed
-- [ ] `change_history` table: change timestamp, user ID, operation, resource ID
+- [ ] `audit_log` table (action-level audit trail): row_id, user_id, action, resource, resource_id, recorded_at
 
 **Technical artifacts:**
 - [ ] DB schema ERD in documentation

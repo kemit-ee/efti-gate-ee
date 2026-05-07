@@ -25,7 +25,7 @@ The implementation contracts. Build the new gate against these.
 | Permissions | [`docs/specs/permissions-matrix.md`](docs/specs/permissions-matrix.md) | Endpoint × role matrix, RLS rules, subset enforcement |
 | Transformations | [`docs/specs/data-transformations.md`](docs/specs/data-transformations.md) | XML ↔ DB ↔ JSON ↔ AS4 ↔ SSE conversions, denormalised-column mapping |
 | Diagrams | [`docs/specs/diagrams/`](docs/specs/diagrams/) | 26 Mermaid diagrams (16 sequence / 5 state / 3 flow / 2 architecture) |
-| Epics (canonical) | [`docs/efti_full_epics_en.md`](docs/efti_full_epics_en.md) | 25 epics across 9 themes; acceptance criteria |
+| Epics (canonical) | [`docs/efti_full_epics_en.md`](docs/efti_full_epics_en.md) | 26 epics across 9 themes; acceptance criteria |
 | Epics (per-epic split) | [`docs/epics/`](docs/epics/) | Per-epic / per-theme files; each opens with a Mermaid mini-diagram |
 | Reference architecture | [`docs/architecture/eFTI-Gate-Reference-Architecture.md`](docs/architecture/eFTI-Gate-Reference-Architecture.md) | Target architecture per EU 2020/1056, 2024/1942, 2024/2024, 2025/2243 |
 | Non-functional contracts | [`docs/specs/non-functional.md`](docs/specs/non-functional.md) | SLOs / SLIs per surface, capacity model, deployment topology, pinned dependency versions, compliance retention |
@@ -42,7 +42,7 @@ The implementation contracts. Build the new gate against these.
 ## Repository layout
 
 - **`docs/specs/`** — authoritative v2 specifications: OpenAPI, PostgreSQL schema, errors catalog, logging spec, permissions matrix, data transformations, 26 Mermaid diagrams.
-- **`docs/epics/`** plus **`docs/efti_full_epics_{en,et}.md`** — 25 epics across 9 themes (English + Estonian canonical aggregate; English split per epic).
+- **`docs/epics/`** plus **`docs/efti_full_epics_{en,et}.md`** — 26 epics across 9 themes (English + Estonian canonical aggregate; English split per epic).
 - **`docs/architecture/`** — target reference architecture per EU Reg 2020/1056, 2024/1942, 2024/2024, 2025/2243.
 - **`docs/planning/`** — KeMIT's LLM prompts (`PROMPT-00..09`) that drove the v2 specification generation, plus the executive summary explaining v1 gaps. Background only; not authoritative input.
 - **`docs/efti-analysis/`** — surviving background material from Askend Estonia OÜ's procurement deliverable: broad project analysis (`1-analysis/`), ER diagram (`3-model/`), and the eFTI XML schemas (`xsd/`). Sections superseded by `docs/specs/` have been removed; original full analysis preserved on the `kemit-ee/efti-gate` repo's `feature/v2` branch (`askend-baseline` tag).
@@ -62,7 +62,7 @@ Honest list of what's known to be incomplete or deferred. None of these blocks a
 
 **Coverage gaps in the spec itself:**
 
-- **Epic ↔ artifact links remain sparse for errors and logging.** `errors.json` is cited by 3 / 25 epics; `logging-spec.md` by 2 / 25. Backfill would improve AC traceability but doesn't block implementation — every epic's request/response shape is anchored in OpenAPI which carries the canonical references.
+- **Epic ↔ artifact links remain sparse for errors and logging.** `errors.json` is cited by 3 / 26 epics; `logging-spec.md` by 2 / 26. Backfill would improve AC traceability but doesn't block implementation — every epic's request/response shape is anchored in OpenAPI which carries the canonical references.
 - **Verbosity of `logging-spec.md`, `permissions-matrix.md`, `data-transformations.md`** was compacted in Phase 2 (~−45 % bytes); the field tables remain long because they document every ECS field / endpoint × role cell / XPath mapping. Further reduction would drop information; not recommended.
 
 **Closed in this round** (cf. the second deep-dive review): API path-prefix drift, error catalog vs OpenAPI enum sync, schema field-name drift in transformations, consignments change-history trigger gap, two diagrams encoding v1 lifecycle rules, permissions matrix coverage gaps, epic AC contradictions with OpenAPI, FK CASCADE comment lies, OpenAPI orphan schema, migration tooling ambiguity.

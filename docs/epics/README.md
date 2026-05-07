@@ -33,6 +33,7 @@
 
 - [EPIC 12 — Scalability and Statelessness](epic_12_en.md)
 - [EPIC 13 — Health Checks and Graceful Shutdown](epic_13_en.md)
+- [EPIC 26 — Append-Only Archival via CronManager](epic_26_en.md)
 
 ## [THEME 6 — Security and Compliance](theme_6_en.md)
 
