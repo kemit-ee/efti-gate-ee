@@ -28,7 +28,7 @@ sequenceDiagram
             GateFI-->>GateClient: AS4 SOAP pong
         end
         GateClient->>+GateReg: save(gate.copy(status=ONLINE, last_ping_at=NOW()))
-        GateReg->>+DB: INSERT INTO gates<br/>(id, country_code, e_delivery_url, e_delivery_cert, tls_cert,<br/>status, last_ping_at, created_at)<br/>VALUES ('eu-fi01', 'FI', …, 'ONLINE', NOW(), NOW())
+        GateReg->>+DB: INSERT INTO gates<br/>(id, country_code, e_delivery_url, e_delivery_cert, tls_cert,<br/>status, last_ping_at, is_active, created_by, created_at)<br/>VALUES ('eu-fi01', 'FI', …, 'ONLINE', NOW(), TRUE, NULL, NOW())
         DB-->>-GateReg: OK (new row inserted; latest row for eu-fi01 wins)
         GateReg-->>-GateClient: saved
         GateClient-->>-Gate: OK (eu-fi01 ONLINE)
@@ -37,7 +37,7 @@ sequenceDiagram
         GateClient->>+GateDE: POST /services/fast (X-API-Key: eu-ee31)
         GateDE-->>-GateClient: 503 Service Unavailable
         GateClient->>+GateReg: save(gate.copy(status=OFFLINE))
-        GateReg->>+DB: INSERT INTO gates<br/>(id, country_code, …, status, last_ping_at, created_at)<br/>VALUES ('eu-de01', 'DE', …, 'OFFLINE', NULL, NOW())
+        GateReg->>+DB: INSERT INTO gates<br/>(id, country_code, …, status, last_ping_at, is_active, created_by, created_at)<br/>VALUES ('eu-de01', 'DE', …, 'OFFLINE', NULL, TRUE, NULL, NOW())
         DB-->>-GateReg: OK
         GateReg-->>-GateClient: saved
         GateClient-->>-Gate: ERROR (eu-de01 OFFLINE)

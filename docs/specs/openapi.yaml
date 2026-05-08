@@ -57,6 +57,8 @@ tags:
     description: Administrative view and management of stored consignments
   - name: Admin - Audit
     description: Immutable audit log access (SUPER_ADMIN only)
+  - name: Admin - Cron
+    description: CronManager-driven scheduled job endpoints (archive, expire-identifiers, ping-gates) — `opsToken` only
   - name: Auth
     description: Token issuance, logout, and revocation
   - name: Health
@@ -817,6 +819,27 @@ paths:
           $ref: '#/components/responses/Forbidden'
 
   /api/v1/gates/{gateId}:
+    get:
+      tags: [Admin - Gates]
+      summary: Get gate
+      operationId: getGate
+      description: Returns the latest row for the given gate id (resolved by `SELECT DISTINCT ON (id) … ORDER BY id, created_at DESC`).
+      parameters:
+        - $ref: '#/components/parameters/GateIdPath'
+      responses:
+        '200':
+          description: Gate details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Gate'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
     put:
       tags: [Admin - Gates]
       summary: Update gate
@@ -979,6 +1002,27 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 
   /api/v1/platforms/{platformId}:
+    get:
+      tags: [Admin - Platforms]
+      summary: Get platform
+      operationId: getPlatform
+      description: Returns the latest row for the given platform id.
+      parameters:
+        - $ref: '#/components/parameters/PlatformIdPath'
+      responses:
+        '200':
+          description: Platform details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Platform'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
     put:
       tags: [Admin - Platforms]
       summary: Update platform
@@ -1329,6 +1373,74 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 
   /api/v1/users/{userId}:
+    get:
+      tags: [Admin - Users]
+      summary: Get user
+      operationId: getUser
+      description: Returns the latest row for the given user id.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Admin - Users]
+      summary: Update user
+      operationId: updateUser
+      description: |
+        Updates an existing user. Append-only: INSERTs a new `users` row sharing the
+        same logical `id`; the latest row by `created_at` is the current state.
+        404 if `userId` is unknown. The body's `taraSub` may be NULL only on the
+        single break-glass row; for all other users it is required.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserWrite'
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
     delete:
       tags: [Admin - Users]
       summary: Delete user
@@ -1574,7 +1686,7 @@ paths:
 
   /api/v1/admin/archive:
     post:
-      tags: [Admin - Audit]
+      tags: [Admin - Cron]
       summary: Run the append-only archival sweep (called by CronManager)
       operationId: runArchive
       security:
@@ -1679,7 +1791,7 @@ paths:
 
   /api/v1/admin/expire-identifiers:
     post:
-      tags: [Admin - Audit]
+      tags: [Admin - Cron]
       summary: Mark cabotage-expired road consignments inactive (called by CronManager)
       operationId: runIdentifierExpiry
       security:
@@ -1761,7 +1873,7 @@ paths:
 
   /api/v1/admin/ping-gates:
     post:
-      tags: [Admin - Audit]
+      tags: [Admin - Cron]
       summary: Probe peer gates and write health rows (called by CronManager)
       operationId: runGatePing
       security:
@@ -2081,7 +2193,8 @@ components:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
           example:
-            type: "https://api.efti.ee/errors/bad-request"
+            type: "https://api.efti.ee/errors/bad-request-general"
+            code: BAD_REQUEST_GENERAL
             title: "Bad Request"
             status: 400
             detail: "Query parameter 'subsetId' is required and must have at least 1 value"
@@ -2089,26 +2202,28 @@ components:
             requestId: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
 
     Unauthorized:
-      description: Unauthorized — missing or invalid JWT token
+      description: Unauthorized — missing, malformed, expired, or revoked JWT (Authority/Admin) or absent client cert (Platform)
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
           example:
-            type: "https://api.efti.ee/errors/unauthorized"
+            type: "https://api.efti.ee/errors/token-invalid"
+            code: TOKEN_INVALID
             title: "Unauthorized"
             status: 401
-            detail: "JWT token is missing or has expired"
+            detail: "JWT signature invalid, exp in the past, or jti present in the revocation denylist"
             instance: "/v1/identifiers/123ABC"
 
     Forbidden:
-      description: Forbidden — insufficient permissions or forbidden subset
+      description: Forbidden — caller authenticated but not permitted on this surface (mismatched role / out-of-scope entity / out-of-scope subset / opsToken mismatch)
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
           example:
-            type: "https://api.efti.ee/errors/forbidden"
+            type: "https://api.efti.ee/errors/forbidden-subset"
+            code: FORBIDDEN_SUBSET
             title: "Forbidden"
             status: 403
             detail: "Authority 'auth-mta' is not permitted to access subset 'EU06'"
@@ -2121,20 +2236,22 @@ components:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
           example:
-            type: "https://api.efti.ee/errors/not-found"
+            type: "https://api.efti.ee/errors/consignment-not-found"
+            code: CONSIGNMENT_NOT_FOUND
             title: "Not Found"
             status: 404
             detail: "Consignment with datasetId '550e8400-e29b-41d4-a716-446655440099' not found"
             instance: "/api/v1/consignments/550e8400-e29b-41d4-a716-446655440099"
 
     Conflict:
-      description: Conflict — duplicate request ID within 10-minute window
+      description: Conflict — duplicate request ID within 10-minute window, or POST against an existing logical id
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
           example:
-            type: "https://api.efti.ee/errors/conflict"
+            type: "https://api.efti.ee/errors/duplicate-request-id"
+            code: DUPLICATE_REQUEST_ID
             title: "Conflict"
             status: 409
             detail: "Request ID '7c9e6679-7425-40de-944b-e07fc1f90ae7' was already processed within the last 10 minutes"
@@ -2153,7 +2270,8 @@ components:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
           example:
-            type: "https://api.efti.ee/errors/too-many-requests"
+            type: "https://api.efti.ee/errors/rate-limit-exceeded"
+            code: RATE_LIMIT_EXCEEDED
             title: "Too Many Requests"
             status: 429
             detail: "Rate limit of 60 requests per minute exceeded. Retry after 30 seconds."
@@ -2166,7 +2284,8 @@ components:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
           example:
-            type: "https://api.efti.ee/errors/internal-server-error"
+            type: "https://api.efti.ee/errors/internal-error"
+            code: INTERNAL_ERROR
             title: "Internal Server Error"
             status: 500
             detail: "An unexpected error occurred. Please contact support with requestId."
@@ -2180,7 +2299,8 @@ components:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
           example:
-            type: "https://api.efti.ee/errors/bad-gateway"
+            type: "https://api.efti.ee/errors/gateway-unavailable"
+            code: GATEWAY_UNAVAILABLE
             title: "Bad Gateway"
             status: 502
             detail: "Gate 'eu-de01' is not reachable via eDelivery AS4"
@@ -2193,7 +2313,8 @@ components:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
           example:
-            type: "https://api.efti.ee/errors/gateway-timeout"
+            type: "https://api.efti.ee/errors/platform-timeout"
+            code: PLATFORM_TIMEOUT
             title: "Gateway Timeout"
             status: 504
             detail: "Platform 'plt-demo-123' did not respond within 30 seconds"
@@ -2207,6 +2328,7 @@ components:
             $ref: '#/components/schemas/ProblemDetails'
           example:
             type: "https://api.efti.ee/errors/service-unavailable"
+            code: SERVICE_UNAVAILABLE
             title: "Service Unavailable"
             status: 503
             detail: "Database connection is not available"
@@ -2627,6 +2749,14 @@ components:
           description: X.509 certificate PEM for mutual TLS (optional)
         status:
           $ref: '#/components/schemas/GateStatus'
+          description: Ping-job-driven operational state (ONLINE / OFFLINE / DISABLED).
+        isActive:
+          type: boolean
+          description: |
+            Operator-driven logical-deletion flag (distinct from `status`, which is
+            ping-job-driven). `isActive=false` excludes the gate from registry sync,
+            peer broadcast, and ping sweeps. The row remains in the table for audit.
+          example: true
         createdAt:
           type: string
           format: date-time
@@ -2657,6 +2787,10 @@ components:
           nullable: true
         status:
           $ref: '#/components/schemas/GateStatus'
+        isActive:
+          type: boolean
+          default: true
+          description: Operator-driven logical-deletion flag.
 
     # --------------------------------------------------------------------------
     # PLATFORM

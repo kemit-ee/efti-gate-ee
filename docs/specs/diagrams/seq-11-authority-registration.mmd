@@ -16,16 +16,17 @@ sequenceDiagram
     Note over Admin: Authority registered with allowed subsets.<br/>Now create authority users.
 
     Admin->>+Gate: POST /api/v1/users
-    Note over Admin,Gate: Body: {"name":"Officer Jaan Tamm","email":"jaan.tamm@politsei.ee","roles":{"AUTHORITY":["aut-politsei-001"]},"subsets":["EU07"]}<br/>(no secret — primary auth is TARA-issued JWT)
+    Note over Admin,Gate: Body (UserWrite):<br/>{<br/>  "taraSub":"EE39003101122",<br/>  "name":"Officer Jaan Tamm",<br/>  "email":"jaan.tamm@politsei.ee",<br/>  "roles":{"AUTHORITY":["aut-politsei-001"]},<br/>  "subsets":["EU07"]<br/>}<br/>(no secret — primary auth is TARA-issued JWT)
 
     Gate->>Gate: Validate user.subsets ⊆ authority.subsets:<br/>["EU07"] ⊆ ["EU07","EU01"] → OK
+    Gate->>Gate: Validate taraSub uniqueness against active users<br/>(409 if already in use)
 
-    Gate->>+DB: INSERT INTO users (id, name, email, roles, subsets, secret_hash, created_by, created_at)<br/>VALUES (uuid_generate_v4(), 'Officer Jaan Tamm', 'jaan.tamm@politsei.ee',<br/>'{"AUTHORITY":["aut-politsei-001"]}', '{EU07}', NULL, $admin_uid, NOW())
+    Gate->>+DB: INSERT INTO users (id, tara_sub, name, email, roles, subsets, secret_hash,<br/>is_active, created_by, created_at)<br/>VALUES (uuid_generate_v4(), 'EE39003101122', 'Officer Jaan Tamm',<br/>'jaan.tamm@politsei.ee', '{"AUTHORITY":["aut-politsei-001"]}', '{EU07}',<br/>NULL, TRUE, $admin_uid, NOW())
     DB-->>-Gate: row inserted; user.id="d2e3f4a5-..."
 
-    Gate-->>-Admin: 201 Created\n{"id":"d2e3f4a5-...","name":"Officer Jaan Tamm","email":"jaan.tamm@politsei.ee","roles":{"AUTHORITY":["aut-politsei-001"]},"subsets":["EU07"]}
+    Gate-->>-Admin: 201 Created<br/>{"id":"d2e3f4a5-...","taraSub":"EE39003101122","name":"Officer Jaan Tamm",<br/>"email":"jaan.tamm@politsei.ee","roles":{"AUTHORITY":["aut-politsei-001"]},<br/>"subsets":["EU07"],"isActive":true}
 
-    Note over Admin: Authority user created with EU07 subset only.<br/>User authenticates via TARA OIDC; the gate's `users.id`<br/>is matched on first login by the TARA `sub` claim<br/>(Estonian PIC) against `users.email` (or a separate<br/>`users.tara_sub` column in a future migration).
+    Note over Admin: User authenticates via TARA OIDC. The gate matches the JWT's<br/>`sub` claim against `users.tara_sub` on every request<br/>(latest active row per tara_sub via SELECT DISTINCT ON).
 
     alt Invalid subsets (user requests more than authority allows)
         Admin->>Gate: POST /api/v1/users (subsets=["EU01","EU03"], authority subsets=["EU07","EU01"])

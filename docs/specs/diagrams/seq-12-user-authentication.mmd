@@ -22,10 +22,12 @@ sequenceDiagram
     Auth->>Auth: Validate iss == TARA, aud == TARA_CLIENT_ID, exp > NOW()
     Auth->>+DB: SELECT 1 FROM sessions WHERE jti = $1 AND expires_at > NOW()
     DB-->>-Auth: 0 rows (not in denylist)
+    Auth->>+DB: SELECT DISTINCT ON (tara_sub) id, roles, subsets, is_admin, is_active<br/>FROM users WHERE tara_sub = $jwt_sub<br/>ORDER BY tara_sub, created_at DESC
+    DB-->>-Auth: User{id='d2e3f4a5-…', is_active=TRUE, roles={'AUTHORITY':['aut-politsei-001']}, subsets=['EU07']}
 
-    Note over Auth: All permission claims come from the JWT —<br/>no per-request DB lookup for roles/subsets.
+    Note over Auth: Permission claims are read from the resolved users row,<br/>NOT directly from the JWT — TARA's `resource_access` may<br/>differ from the gate's `users.roles` if admin has updated<br/>scope since the JWT was issued. JWT carries the identity<br/>(`sub`); the gate carries the authorisation.<br/><br/>Missing-row policy: if no users row matches the JWT `sub`,<br/>respond 401 TOKEN_INVALID with detail "no provisioned user".<br/>Admin must POST /api/v1/users first.
 
-    Auth-->>-Gate: AuthenticatedUser{<br/>sub="38001011234", roles=["AUTHORITY"],<br/>scope=["aut-politsei-001"], subsets=["EU07"], jti="abc..." }
+    Auth-->>-Gate: AuthenticatedUser{<br/>userId="d2e3f4a5-…", roles=["AUTHORITY"],<br/>scope=["aut-politsei-001"], subsets=["EU07"], jti="abc..." }
 
     Gate->>+Route: handle(exchange, user)
     Note over Route: @Access(AUTHORITY) — user.roles contains AUTHORITY → OK

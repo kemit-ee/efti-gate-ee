@@ -20,21 +20,32 @@ The authorization model for eFTI Gate v2.0 — who can call which endpoint, what
 ```mermaid
 graph TD
     REQ[HTTP Request] --> AC[AccessChecker.before]
-    AC --> AUTH{Authorization header?}
-    AUTH --No--> PUB{Public endpoint?}
-    PUB --Yes--> ALLOW[Allow]
-    PUB --No--> UNAUTH[401 Unauthorized<br/>WWW-Authenticate: Basic]
-    AUTH --Yes--> CRED[Validate credentials<br/>UserRepository.byCredentials]
-    CRED --Invalid--> FORBIDDEN[403 → 401 challenge]
-    CRED --Valid--> ROLE{isAdmin?}
-    ROLE --Yes--> ALLOW
-    ROLE --No--> ANNOTATION{@Access annotation?}
-    ANNOTATION --Missing--> ERROR[500 Internal Error<br/>@Access required]
-    ANNOTATION --Present--> MATCH{User role in<br/>allowed roles?}
-    MATCH --No--> FORBIDDEN2[403 Forbidden]
-    MATCH --Yes--> RLS[Row-Level Security<br/>per-route handler]
-    RLS --Fail--> FORBIDDEN3[403 Forbidden]
-    RLS --Pass--> ALLOW
+    AC --> CRED{Credential type?}
+    CRED -->|None| PUB{Public route?<br/>/health, OpenAPI UI}
+    PUB -->|Yes| ALLOW[Allow]
+    PUB -->|No| UNAUTH[401 Unauthorized]
+    CRED -->|Bearer JWT<br/>Authority/Admin| TARA[Validate TARA JWT:<br/>signature/iss/aud/exp;<br/>jti not in denylist]
+    CRED -->|mTLS X.509<br/>Platform| MTLS[Lookup platforms<br/>WHERE cert_subject = $1<br/>AND cert_serial = $2<br/>AND is_active = TRUE]
+    CRED -->|Bearer ARCHIVE_OPS_TOKEN<br/>CronManager admin| OPS[Literal compare against<br/>ARCHIVE_OPS_TOKEN env var]
+    CRED -->|HTTP Basic<br/>break-glass only| BG[Validate against bcrypt<br/>secret_hash on the single<br/>local-admin row]
+    TARA -->|Invalid| ERR401[401 TOKEN_INVALID]
+    TARA -->|Valid| TARASUB[Lookup users<br/>WHERE tara_sub = jwt.sub<br/>AND is_active = TRUE]
+    TARASUB -->|0 rows| NOUSER[401 TOKEN_INVALID<br/>no provisioned user]
+    TARASUB -->|1 row| AUTHZ[Read users.roles, users.subsets<br/>as the authorisation source]
+    MTLS -->|0 rows| NOPLAT[403 FORBIDDEN_NO_PLATFORM]
+    MTLS -->|>1 rows| MULTI[403 FORBIDDEN_MULTI_PLATFORM]
+    MTLS -->|1 row| AUTHZ
+    OPS -->|Mismatch| OPSDENY[403 FORBIDDEN]
+    OPS -->|Match| ALLOW
+    BG -->|Invalid or disabled| BGFAIL[401 / 503]
+    BG -->|Valid| AUTHZ
+    AUTHZ --> ROLECHECK{Required role on route<br/>matches caller's roles?}
+    ROLECHECK -->|No| ERR403[403 FORBIDDEN]
+    ROLECHECK -->|Yes| WRITE{Mutating endpoint<br/>with entityId param?}
+    WRITE -->|Yes| SCOPE{entityId in caller's<br/>roles[ADMIN] scope?}
+    SCOPE -->|No| ERR403WA[403 FORBIDDEN_WRITE_ACCESS]
+    SCOPE -->|Yes| ALLOW
+    WRITE -->|No| ALLOW
 ```
 
 ---
@@ -74,55 +85,61 @@ Two kinds of caller identity, modelled in two different ways. The legacy "single
 
 ### 3.1 Platform API
 
-| Endpoint | Method | ADMIN | PLATFORM | AUTHORITY | GATE | Unauth |
-|---|---|---|---|---|---|---|
-| `/v1/identifiers/{datasetId}` | POST | ✅ All | ✅ Own platform only | ❌ | ❌ | ❌ |
-| `/v1/identifiers/{datasetId}` | DELETE | ✅ All | ✅ Own platform only (sets `status='deleted'`) | ❌ | ❌ | ❌ |
-| `/v1/identifiers/{datasetId}` | PUT | ✅ All | ✅ Own platform only (re-extract from XML) | ❌ | ❌ | ❌ |
-| `/v1/status/{datasetId}` | GET | ✅ All | ✅ Own platform only | ❌ | ❌ | ❌ |
-| `/v1/datasets/{datasetId}` | GET | ✅ All | ✅ Own platform only (self-fetch from gate's stored XML) | ❌ | ❌ | ❌ |
-| `/v1/follow-up/{datasetId}/{requestId}` | GET | ✅ All | ✅ Own platform receives | ❌ | ❌ | ❌ |
-| `/v1/ping` | POST | ✅ | ✅ | ❌ | ❌ | ❌ |
+Authenticated by **mTLS** with the platform's eDelivery AP X.509 certificate (Member-State-issued per Impl Reg 2024/1942 Art 11). The reverse proxy terminates mTLS and forwards `X-Client-Cert-Subject` / `X-Client-Cert-Serial`; the gate looks them up against `platforms` to resolve identity. **No JWT, no user record.** TARA-authenticated callers (Authority / Admin) cannot reach Platform endpoints.
+
+| Endpoint | Method | mTLS-resolved Platform | TARA JWT (any role) | Unauth |
+|---|---|---|---|---|
+| `/v1/identifiers/{datasetId}` | POST | ✅ Bound to the resolved `platforms.id` | ❌ | ❌ |
+| `/v1/identifiers/{datasetId}` | DELETE | ✅ Bound to the resolved `platforms.id` (writes `status='deleted'`) | ❌ | ❌ |
+| `/v1/status/{datasetId}` | GET | ✅ Bound to the resolved `platforms.id` | ❌ | ❌ |
+| `/v1/datasets/{datasetId}` | GET | ✅ Bound to the resolved `platforms.id` (self-fetch) | ❌ | ❌ |
+| `/v1/follow-up/{datasetId}/{requestId}` | GET | ✅ Bound to the resolved `platforms.id` | ❌ | ❌ |
+| `/v1/ping` | POST | ✅ | ❌ | ❌ |
+
+> Re-uploads are POST against the same `dataset_id` (the gate INSERTs a new `consignments` row sharing the logical id). There is **no PUT** on Platform endpoints — append-only forbids mutate-in-place; "update" is "INSERT new row".
 
 ```mermaid
 flowchart TD
-    REQ[POST /v1/identifiers/datasetId] --> A{User authenticated?}
-    A --No--> R401[401 Unauthorized]
-    A --Yes--> B{isAdmin?}
-    B --Yes--> SET[platformId = body or first role]
-    B --No--> C{@Access PLATFORM?}
-    C --Mismatch--> R403[403 FORBIDDEN]
-    C --Yes--> D{roles PLATFORM size}
-    D --=0--> R403N[403 FORBIDDEN_NO_PLATFORM]
-    D -->|>1| R403M[403 FORBIDDEN_MULTI_PLATFORM]
-    D -->|=1| SET
-    SET --> SAVE[INSERT consignments<br/>platformId from auth token, NEVER from client]
-    SAVE --> OK[200 OK]
+    REQ[Platform-API request] --> CERT{X-Client-Cert-Subject<br/>+ X-Client-Cert-Serial<br/>present?}
+    CERT --No--> R401[401 Unauthorized]
+    CERT --Yes--> LOOK[SELECT DISTINCT ON id<br/>FROM platforms<br/>WHERE cert_subject AND cert_serial<br/>AND is_active = TRUE]
+    LOOK --> CNT{Match count?}
+    CNT --=0--> R403N[403 FORBIDDEN_NO_PLATFORM]
+    CNT -->|>1| R403M[403 FORBIDDEN_MULTI_PLATFORM<br/>config error]
+    CNT -->|=1| BIND[platform_id = resolved row's id]
+    BIND --> ROUTE{Endpoint?}
+    ROUTE -->|POST identifiers| WRITE[INSERT consignments<br/>platform_id from cert lookup, NEVER from client]
+    ROUTE -->|DELETE / GET / ping| RW[Apply per-route handler]
+    WRITE --> OK[200 OK]
+    RW --> OK
 ```
 
-**Row-level rule for PLATFORM**: the saved `consignments.platformId` is always taken from the authenticated user's token — clients cannot override it.
+**Row-level rule for Platform writes**: the saved `consignments.platform_id` is always taken from the cert-subject lookup — clients cannot override it via path or body.
 
 ### 3.2 Authority API
 
-| Endpoint | Method | ADMIN | PLATFORM | AUTHORITY | GATE | Unauth |
-|---|---|---|---|---|---|---|
-| `/v1/identifiers/{identifier}` | GET | ✅ All | ❌ | ✅ All (audit logged) | ❌ | ❌ |
-| `/v1/dataset/{gateId}/{platformId}/{datasetId}` | GET | ✅ All | ❌ | ✅ Own subsets only | ❌ | ❌ |
-| `/v1/follow-up/{gateId}/{platformId}/{datasetId}/{datasetRequestId}` | POST | ✅ | ❌ | ✅ | ❌ | ❌ |
+Authenticated by **TARA OIDC JWT** carrying `resource_access.efti-gate.roles ∋ AUTHORITY` (or `ADMIN`). The gate validates the JWT, then resolves it to a `users` row via `tara_sub = jwt.sub`; permission claims (`roles`, `subsets`, scope) are read from the resolved row.
+
+| Endpoint | Method | TARA JWT (AUTHORITY or ADMIN) | mTLS Platform | Unauth |
+|---|---|---|---|---|
+| `/v1/identifiers/{identifier}` | GET | ✅ All gates' identifiers (audit logged) | ❌ | ❌ |
+| `/v1/dataset/{gateId}/{platformId}/{datasetId}` | GET | ✅ Subsets requested ⊆ `users.subsets` | ❌ | ❌ |
+| `/v1/follow-up/{gateId}/{platformId}/{datasetId}/{datasetRequestId}` | POST | ✅ | ❌ | ❌ |
 
 ```mermaid
 flowchart TD
-    REQ[Authority API request] --> A{User authenticated?}
-    A --No--> R401[401 Unauthorized]
-    A --Yes--> B{isAdmin OR<br/>AUTHORITY role?}
-    B --No--> R403[403 FORBIDDEN]
-    B --Yes--> CL[client = roles AUTHORITY first OR email]
-    CL --> ROUTE{Endpoint?}
+    REQ[Authority API request] --> JWT[Validate TARA JWT<br/>signature/iss/aud/exp;<br/>jti not in denylist]
+    JWT --Invalid--> R401[401 TOKEN_INVALID]
+    JWT --Valid--> LOOK[SELECT DISTINCT ON tara_sub<br/>FROM users WHERE tara_sub = jwt.sub<br/>AND is_active = TRUE]
+    LOOK --0 rows--> R401N[401 TOKEN_INVALID<br/>no provisioned user]
+    LOOK --1 row--> ROLE{roles ∋ AUTHORITY<br/>or ADMIN?}
+    ROLE --No--> R403[403 FORBIDDEN]
+    ROLE --Yes--> ROUTE{Endpoint?}
     ROUTE -->|GET /identifiers/identifier| SEARCH[No ownership filter<br/>local search + broadcast<br/>identifierCountryOfOrigin = Config.countryCode]
-    ROUTE -->|GET /dataset/...| SUB{requested subsets ⊆ user.subsets?}
+    ROUTE -->|GET /dataset/...| SUB{requested subsets ⊆ users.subsets?}
     SUB --No--> R403S[403 FORBIDDEN_SUBSET]
     SUB --Yes--> FWD[Forward to platform OR remote gate]
-    ROUTE -->|POST /follow-up/...| FU[No ownership filter<br/>send to platform/gate]
+    ROUTE -->|POST /follow-up/...| FU[Send to platform/gate]
     SEARCH --> AUD[Audit log: identifier.search]
     FWD --> AUD2[Audit log: dataset.deliver]
     FU --> AUD3[Audit log: followup.send]
@@ -149,7 +166,8 @@ Admin endpoints require a valid TARA-issued JWT carrying `resource_access.efti-g
 | `/api/v1/gates/{gateId}` | PUT / DELETE | ✅ (write needs `checkWriteAccess`) | ❌ | ❌ |
 | `/api/v1/gates/own` | GET | ✅ | ❌ | ❌ |
 | `/api/v1/gates/{gateId}/ping` | POST | ✅ (Super Admin or matching scope) | ❌ | ❌ |
-| `/api/v1/users`, `/api/v1/users/{id}` | GET / POST / DELETE | ✅ (cannot delete self → 400 `BAD_REQUEST_GENERAL`) | ❌ | ❌ |
+| `/api/v1/users` | GET / POST | ✅ (POST returns 201 on create, 409 on duplicate `taraSub`) | ❌ | ❌ |
+| `/api/v1/users/{userId}` | GET / PUT / DELETE | ✅ (PUT 404 on unknown id; cannot delete self → 400 `BAD_REQUEST_GENERAL`) | ❌ | ❌ |
 | `/api/v1/users/{userId}/revoke-token` | POST | ✅ (Super Admin or matching scope) | ❌ | ❌ |
 | `/api/v1/consignments`, `/api/v1/consignments/{datasetId}` | GET / DELETE | ✅ (DELETE = soft, INSERTs row with `status='deleted'`) | ❌ | ❌ |
 | `/api/v1/audit` | GET | ✅ Super Admin only | ❌ | ❌ |
@@ -196,16 +214,24 @@ flowchart TD
 
 ---
 
-## 5. Multi-platform users
+## 5. Multi-platform certificate misconfiguration
 
-`users.roles JSONB` already supports multiple platforms (`{"PLATFORM": ["demo","plt-456"]}`), but `PlatformRoutes.before()` blocks any user with `roles[PLATFORM].size > 1` from sending identifier data — the gate cannot determine which platform owns the submission. **Mandate**: one M2M system user per platform.
+Platform identity is mTLS, not user roles. There is no "multi-platform user" — every X.509 certificate represents exactly one platform. The error to guard against is **a single certificate registered against more than one active `platforms` row**, typically because an old platform was renamed and the obsolete row was not soft-deleted.
 
 ```sql
--- Recommended: dedicated single-platform sender
-INSERT INTO users (name, isAdmin, roles, secretHash) VALUES
-  ('Demo Platform M2M', false, '{"PLATFORM":["demo"]}',     :hash1),
-  ('Plt-456 M2M',       false, '{"PLATFORM":["plt-456"]}', :hash2);
+-- WRONG (config error): both rows reference the same cert subject
+INSERT INTO platforms (id, cert_subject, is_active) VALUES
+  ('plt-old', 'CN=eDelivery-Platform, O=Acme', TRUE),
+  ('plt-new', 'CN=eDelivery-Platform, O=Acme', TRUE);
+
+-- The next inbound mTLS request from this platform → 403 FORBIDDEN_MULTI_PLATFORM.
+
+-- FIX: soft-delete the obsolete row (append-only — INSERT a new row with is_active=FALSE)
+INSERT INTO platforms (id, cert_subject, is_active, created_by, created_at)
+VALUES ('plt-old', 'CN=eDelivery-Platform, O=Acme', FALSE, $admin_uid, NOW());
 ```
+
+The cert lookup query is `WHERE is_active = TRUE`, so a soft-deleted row is excluded immediately on the next call. See `seq-13-multi-platform-user.mmd` for the full sequence.
 
 ---
 
@@ -224,7 +250,7 @@ Three mechanisms, one per surface, mirroring the EFTI4EU reference implementatio
 
 **JWT denylist (revocation).** The `sessions` table is repurposed under TARA-issued JWTs: holds `jti, revoked_at, reason` rows; `POST /api/v1/auth/logout` and `POST /api/v1/users/{userId}/revoke-token` insert into it; `AccessChecker` rejects any presented JWT whose `jti` is in the denylist. The denylist is consulted only for tokens whose `exp` is still in the future — the denylist itself is bounded by JWT lifetime.
 
-**`AccessChecker.before()`** does NOT consult the database for permission decisions on Authority and Admin requests — every permission claim is in the JWT. Only `checkWriteAccess(entityId)` (admin scoped writes) requires a `users` lookup, and only on the mutating endpoints.
+**`AccessChecker.before()`** on the JWT path consults the database twice: once to check the `sessions` denylist (`SELECT 1 FROM sessions WHERE jti = $1 AND expires_at > NOW()`), once to resolve the JWT subject (`SELECT … FROM users WHERE tara_sub = $1 AND is_active = TRUE`). Permission claims (`roles`, `subsets`, scope) come from the resolved `users` row, **not** directly from the JWT — the gate's authorisation snapshot can change after the JWT was minted, so DB-side state wins. The mTLS path does its own single lookup against `platforms`. The `opsToken` path does no DB lookup at all (literal env-var compare).
 
 **Password hashing.** Bcrypt only, used for the single break-glass local-admin row in `users.secret_hash`. Other rows have `secret_hash = NULL` because their auth path is TARA, not password.
 
@@ -232,7 +258,7 @@ Three mechanisms, one per surface, mirroring the EFTI4EU reference implementatio
 
 ## 7. Error responses (RFC 7807)
 
-All errors share the schema `{type, title, status, detail, instance, errorCode?}`. Type host is `https://api.efti.ee/errors/...`. Full catalog with payloads is in `errors.json` — only the auth/authz codes are summarised here.
+All errors share the schema `{type, code, title, status, detail, instance}` per RFC 7807 (`code` required, bound to the catalog enum). Type host is `https://api.efti.ee/errors/...`. Full catalog with payloads is in `errors.json` — only the auth/authz codes are summarised here.
 
 | HTTP | `errorCode` | `type` slug | Triggered when |
 |---|---|---|---|
@@ -253,34 +279,62 @@ This spec is the contract — the implementation lives elsewhere. Do **not** red
 
 - **Database schema** for `users`, `platforms`, `authorities`, `gates` (including `roles JSONB`, `subsets text[]`, `secretHash`, `isAdmin`, `gates.status`): `docs/specs/db/schema.sql` — every column carries `COMMENT ON …`. Append-only enforcement is by GRANT (the runtime `app` role has `SELECT, INSERT` only; no UPDATE, no DELETE on any table); state transitions are INSERTs of new rows sharing the same logical id, and the latest row by `created_at` is the current state. There are no `_history` companion tables — the operational table itself is its own change log.
 - **Endpoint definitions** with `@Access` annotations and request/response schemas: `docs/specs/openapi.yaml`.
-- **Error catalog** (full payloads, all 37 codes): `docs/specs/errors.json`.
-- **AccessChecker / Routes / repositories** runtime code: `gate/src/efti/...` — `AccessChecker.before()`, `PlatformRoutes.before()`, `AuthorityRoutes.before()`, `User.checkWriteAccess()`, `UserRepository.byCredentials()`, `UserRepository.setAppUser()`. The pseudocode below is the canonical pattern; production code may diverge in error wrapping and logging detail.
+- **Error catalog** (full payloads, all 36 codes): `docs/specs/errors.json`.
+- **AccessChecker / Routes / repositories** runtime code: `gate/src/efti/...` — `AccessChecker.before()`, `PlatformAuthChecker.resolvePlatform()`, `JwtValidator.validate()`, `User.checkWriteAccess()`, `UserRepository.byTaraSub()`, `SessionDenylistRepository.isRevoked(jti)`. The pseudocode below is the canonical pattern; production code may diverge in error wrapping and logging detail.
 
 ### 8.1 Canonical AccessChecker pattern
 
 ```kotlin
 // AccessChecker.before(exchange) — single global authorization gate.
+// Routes one of four credential types per the §1.1 flow.
 fun before(exchange: HttpExchange) {
-    if (exchange.method == OPTIONS) return                     // CORS preflight passes
-    val auth = exchange.header("Authorization")
-    val user = auth?.let { resolveUser(it) }                   // Basic→email, Bearer→UUID
-    val access = exchange.route.findAnnotation<Access>()       // e.g. @Access(PLATFORM)
-    val isPublic = access == null && exchange.route.hasAnnotation<Public>()
+    if (exchange.method == OPTIONS) return                          // CORS preflight passes
+    val route = exchange.route
+    val isPublic = route.hasAnnotation<Public>()                    // /health, OpenAPI UI
 
-    if (user == null) {
-        if (isPublic) return
-        exchange.header("WWW-Authenticate", "Basic realm=\"eFTI Gate Admin\"")
-        throw UnauthorizedException()
+    val caller = when {
+        // Platform API: mTLS — reverse proxy provides X-Client-Cert-Subject/Serial
+        route.path.startsWith("/v1/") && !route.path.startsWith("/v1/identifiers/{identifier}") &&
+        !route.path.startsWith("/v1/dataset") && !route.path.startsWith("/v1/follow-up/{gateId}/")
+            -> resolvePlatformByCert(exchange)                      // → 401/403/Platform
+
+        // CronManager admin: opsToken
+        route.path.startsWith("/api/v1/admin/")
+            -> requireOpsToken(exchange)                            // → 403/OpsCaller
+
+        // Break-glass: HTTP Basic on /api/v1/auth/local-token
+        route.path == "/api/v1/auth/local-token"
+            -> resolveBreakGlassByBasic(exchange)                   // → 401/503/BgUser
+
+        // Default: TARA OIDC JWT (Authority + Admin)
+        else
+            -> resolveJwtUser(exchange)                             // → 401/User
     }
-    if (!isPublic && !user.isAdmin && access!!.roles.none { user.roles.containsKey(it) })
-        throw ForbiddenException()                             // wrong role for endpoint
 
-    exchange.attr("user", user)
-    userRepository.setAppUser(user)                            // SET LOCAL app.user_id
+    if (caller == null && !isPublic) throw UnauthorizedException()
+    if (caller is User && !caller.matchesRoute(route))              // role / subset / scope
+        throw ForbiddenException(caller.denyCode(route))
+
+    exchange.attr("user", caller)
 }
+
+// resolveJwtUser: validate JWT against TARA JWKS (cached); reject if jti in denylist;
+// SELECT DISTINCT ON (tara_sub) … WHERE tara_sub = jwt.sub AND is_active = TRUE.
+// Permission claims (roles, subsets, scope) come from the resolved users row,
+// not from the JWT — DB-side state wins.
+
+// resolvePlatformByCert: SELECT DISTINCT ON (id) FROM platforms
+// WHERE cert_subject = $1 AND cert_serial = $2 AND is_active = TRUE.
+// 0 rows → 403 FORBIDDEN_NO_PLATFORM. >1 rows → 403 FORBIDDEN_MULTI_PLATFORM.
+
+// requireOpsToken: literal compare Authorization Bearer against ARCHIVE_OPS_TOKEN env var.
+// No DB lookup. Mismatch → 403 FORBIDDEN.
+
+// resolveBreakGlassByBasic: only when LOCAL_ADMIN_FALLBACK_ENABLED=true; verify
+// against bcrypt(secret_hash) on the single local-admin row; otherwise 503.
 ```
 
-Per-route handlers add the row-level checks: `PlatformRoutes.before()` rejects multi-platform users; `AuthorityRoutes.before()` resolves `client = roles[AUTHORITY].firstOrNull() ?: email`; dataset routes intersect `subsetId[]` against `user.subsets`; admin write routes call `user.checkWriteAccess(entityId)`. See `gate/src/efti/` for the live versions.
+Per-route handlers add the row-level checks: dataset routes intersect `subsetId[]` against the resolved user's `subsets`; admin write routes call `User.checkWriteAccess(entityId)` against `users.roles[ADMIN]`. Platform-API write routes bind `consignments.platform_id` to the cert-resolved id, never the body. See `gate/src/efti/` for the live versions.
 
 ---
 

@@ -47,27 +47,31 @@ See `flow-02-authorization-check.mmd` for the full decision tree.
 - [ ] All authorisation denials logged: user ID, endpoint, reason, IP address, timestamp
 
 **Technical constraints:**
-- [ ] Passwords hashed with bcrypt, salt = user UUID — plaintext never written to database or logs
-- [ ] `generateSecret=true` creates new JWT; token value returned **only once** at creation ("Show Once" policy)
-- [ ] Bearer token: RFC 7519 JWT signed RS256, claims: `sub`, `roles`, `subsets`, `is_admin`, `exp`, `iss`
-- [ ] API tokens expire after 1 hour (configurable via `JWT_EXPIRY_SECONDS`)
+- [ ] Primary auth is **TARA OIDC JWT** (Estonian state authentication broker). Validated as OAuth 2.0 Resource Server: RS256, JWKS from `TARA_OIDC_DISCOVERY_URL`, claims `iss`, `aud`, `exp`, `sub` (Estonian PIC); permission claims read from the resolved `users` row, not from JWT.
+- [ ] User `taraSub` (= JWT `sub` claim) is the auth identifier. Admin POST creates the row carrying `taraSub`; on first inbound JWT the gate has a row to bind to.
+- [ ] No gate-issued JWTs on the primary path; TARA owns expiry. The gate does NOT carry a `JWT_EXPIRY_SECONDS` configuration on the TARA path. Break-glass `/api/v1/auth/local-token` issues a gate-signed JWT with hardcoded 600 s TTL (`BREAK_GLASS_JWT_TTL_SECONDS`); default-disabled.
+- [ ] Bcrypt is used **only** on the single break-glass local-admin row in `users.secret_hash`. All other users have `secret_hash IS NULL`.
+- [ ] Revocation: JWT `jti` written to `sessions` denylist by `POST /api/v1/auth/logout` or `POST /api/v1/users/{userId}/revoke-token`; AccessChecker rejects any JWT whose `jti` is in the denylist AND whose `exp` is still in the future.
 
 **Technical artifacts:**
-- [ ] OpenAPI: `POST /api/v1/users`, `GET /api/v1/users`, `DELETE /api/v1/users/{userId}`
-- [ ] DB schema: `users` table with `roles JSONB` column (no separate `user_roles` / `party_ids` tables); English `COMMENT ON` coverage
+- [ ] OpenAPI: `POST /api/v1/users`, `GET /api/v1/users`, `GET /api/v1/users/{userId}`, `PUT /api/v1/users/{userId}`, `DELETE /api/v1/users/{userId}`, `POST /api/v1/users/{userId}/revoke-token`
+- [ ] DB schema: `users` table with `tara_sub TEXT`, `roles JSONB` (only `AUTHORITY` and `ADMIN` keys), `subsets TEXT[]`, `secret_hash TEXT NULL`; partial index `(tara_sub, created_at DESC) WHERE tara_sub IS NOT NULL`.
 
 ##### Access control
 
 **Happy path:**
-- [ ] Endpoints requiring `ADMIN` role accessible only to admin users → `200 OK`
-- [ ] Endpoints requiring `PLATFORM` role accessible only to platform users → `200 OK`
-- [ ] Endpoints requiring `AUTHORITY` role accessible only to authority users → `200 OK`
-- [ ] Write-access validates both Party ID presence **and** role type
+- [ ] `/api/v1/...` endpoints accessible only to JWTs whose resolved `users` row has `roles ∋ ADMIN` → `200 OK`
+- [ ] `/v1/identifiers/{identifier}`, `/v1/dataset/...`, `/v1/follow-up/...` accessible only to JWTs whose resolved `users` row has `roles ∋ AUTHORITY` → `200 OK`
+- [ ] `/v1/identifiers/{datasetId}` (and other `/v1/...` Platform endpoints) accessible only via mTLS where the cert subject DN + serial resolve to exactly one active `platforms` row → `200 OK`
+- [ ] Admin write checks both that the JWT user has `ADMIN` role AND that the target entity id is in `users.roles[ADMIN]` (`checkWriteAccess`)
 
 **Edge cases:**
-- [ ] GATE user attempts PLATFORM write → `403 Forbidden` with `"detail": "Role type GATE cannot access PLATFORM resource"`
-- [ ] Request without Bearer token → `401 Unauthorized` RFC 7807
-- [ ] Expired JWT → `401 Unauthorized` with `"detail": "Token expired"`
-- [ ] Tampered JWT signature → `401 Unauthorized` with `"detail": "Invalid token signature"` — no internal detail exposed
+- [ ] Authority-role JWT calls Admin endpoint → `403 FORBIDDEN`
+- [ ] Request without `Authorization` header on a JWT-protected route → `401 Unauthorized` RFC 7807
+- [ ] Expired JWT (TARA-side `exp` past) → `401 TOKEN_INVALID`
+- [ ] Tampered JWT signature → `401 TOKEN_INVALID` — no internal detail exposed
+- [ ] JWT `sub` does not resolve to any active `users` row → `401 TOKEN_INVALID` with `detail: "no provisioned user"`; admin must POST `/api/v1/users` first
+- [ ] Platform mTLS cert presented but `platforms.cert_subject` lookup yields 0 rows → `403 FORBIDDEN_NO_PLATFORM`
+- [ ] Platform mTLS cert resolves to >1 active `platforms` row (config error) → `403 FORBIDDEN_MULTI_PLATFORM`
 
-**Rationale:** `checkWriteAccess()` current bug — does not check role type, allowing GATE user to write to PLATFORM resource. Fix: add role-type assertion before Party ID check.
+**Rationale:** Identity comes from the cert (Platform), the TARA `sub` claim (Authority/Admin), or the static ops token (CronManager). Authorisation comes from the resolved DB row (`platforms.id` for Platform; `users.roles` / `users.subsets` for Authority/Admin); never from the JWT directly, because the gate's authorisation snapshot can change after the JWT was minted.

@@ -104,14 +104,14 @@ eFTI Gate on Euroopa Liidu eFTI (Electronic Freight Transport Information) võrg
 - [ ] Kõik autoriseerimise keeldumised logitakse: kasutaja ID, endpoint, põhjus, IP-aadress, ajatempel
 
 **Tehnilised piirangud:**
-- [ ] Paroolid räsitakse bcrypt-iga, salt = kasutaja UUID — selgetekstiline parool ei jõua andmebaasi ega logidesse
-- [ ] `generateSecret=true` loob uue JWT; tokeni väärtus tagastatakse **ainult üks kord** loomise hetkel ("Show Once" poliitika)
-- [ ] Bearer token: RFC 7519 JWT allkirjastatud RS256-ga, väited: `sub`, `roles`, `subsets`, `is_admin`, `exp`, `iss`
-- [ ] API tokenid aeguvad 1 tunni pärast (konfigureeritav `JWT_EXPIRY_SECONDS` kaudu)
+- [ ] Esmane autentimine on TARA OIDC JWT (RS256, JWKS aadressilt `TARA_OIDC_DISCOVERY_URL`); aegumispoliitika kuulub TARAle. Õigused (`roles`, `subsets`, scope) loetakse resolveeritud `users` reast, mitte JWT-st.
+- [ ] Kasutaja `taraSub` (= JWT `sub`, eesti isikukood) on autentimisidentifikaator. Admin POST loob rea; esmasel sissetuleval JWT-l on gate'l olemas vastav rida.
+- [ ] Break-glass `/api/v1/auth/local-token` väljastab gate-allkirjastatud JWT-i fikseeritud 600s TTL-iga (vaikimisi keelatud `LOCAL_ADMIN_FALLBACK_ENABLED=false`); bcrypt kasutusel ainult ühe break-glass rea jaoks.
+- [ ] Tühistamine: JWT `jti` kantakse `sessions` keelunimekirja; AccessChecker keeldub iga JWT-st mille `jti` on nimekirjas JA `exp` on tulevikus.
 
 **Tehnilised artefaktid:**
-- [ ] OpenAPI: `POST /api/v1/users`, `GET /api/v1/users`, `DELETE /api/v1/users/{userId}`
-- [ ] DB skeem: `users` tabel `roles JSONB` veeruga (eraldi `user_roles` / `party_ids` tabeleid ei ole); ingliskeelne `COMMENT ON` kate
+- [ ] OpenAPI: `POST /api/v1/users`, `GET /api/v1/users`, `GET /api/v1/users/{userId}`, `PUT /api/v1/users/{userId}`, `DELETE /api/v1/users/{userId}`, `POST /api/v1/users/{userId}/revoke-token`
+- [ ] DB skeem: `users` tabel veergudega `tara_sub TEXT`, `roles JSONB` (ainult `AUTHORITY` ja `ADMIN` võtmed), `subsets TEXT[]`, `secret_hash TEXT NULL`; partial-index `(tara_sub, created_at DESC) WHERE tara_sub IS NOT NULL`.
 
 ##### Ligipääsu kontroll
 
@@ -170,15 +170,17 @@ eFTI Gate on Euroopa Liidu eFTI (Electronic Freight Transport Information) võrg
 ##### Platform/Authority API autentimine
 
 **Happy path:**
-- [ ] Admin väljastab tokeni `POST /api/v1/users` kaudu `generateSecret=true` → `201 Created` koos `{"token": "<JWT>"}` — kuvatakse ainult üks kord
-- [ ] Platvorm kutsub API-t `Authorization: Bearer <JWT>` → gate valideerib allkirja, `exp`, `iss`, rolli → `200 OK`
+- [ ] Admin loob authority/admin kasutaja `POST /api/v1/users` kaudu — kehas `taraSub` → `201 Created`. Tokenit ei väljastata — autentimine kuulub TARAle.
+- [ ] Authority / admin kutsub API-t `Authorization: Bearer <TARA-JWT>` → gate valideerib allkirja TARA JWKS-i vastu, `iss`, `aud`, `exp`, keelunimekirja; resolveerib `users` rea `tara_sub = jwt.sub` järgi; `200 OK` kui aktiivne ja vajalik roll olemas.
+- [ ] Platvorm kutsub API-t **mTLS**-iga — pöördproksi suunab `X-Client-Cert-Subject` / `X-Client-Cert-Serial`; gate resolveerib `platforms` rea → `200 OK`.
 
 **Edge cases:**
-- [ ] Token väljastatud teise gate'i privaatvõtmega → `401 Unauthorized` teatega `"detail": "Vigane väljaandja"`
-- [ ] Platvormil on 2 PLATFORM rolli, `platformId` query parameeter puudub → `400 Bad Request` teatega `"detail": "Mitu platvormi: täpsusta platformId parameeter"`
+- [ ] JWT välja antud muu kui konfigureeritud TARA poolt (`iss` ei sobi) → `401 TOKEN_INVALID`.
+- [ ] JWT subjekt ei resolveeru ühegi aktiivse `users` reaga → `401 TOKEN_INVALID` teatega `"detail": "kasutaja pole provisioneeritud"`.
+- [ ] Platvormi mTLS-sertifikaadi subjekt + seerianumber resolveerub >1 aktiivse `platforms` reaga (konfivga) → `403 FORBIDDEN_MULTI_PLATFORM`.
 
 **Veakäsitlus:**
-- [ ] Kompromiteeritud token: `POST /api/v1/users/:userId/revoke-token` → token lisatakse musta nimekirja; edaspidised päringud selle tokeniga → `401 Unauthorized`
+- [ ] Kompromiteeritud token: `POST /api/v1/users/:userId/revoke-token` → JWT `jti` kantakse `sessions` keelunimekirja; edaspidised päringud selle JWT-ga → `401 TOKEN_INVALID`.
 
 **Tehnilised piirangud:**
 - [ ] Allkirjastamine: RS256; gate'i privaatvõti laaditakse K8s Secret'ist käivitumisel — mitte konteinerpildis
@@ -241,28 +243,50 @@ sequenceDiagram
     UI-->>Admin: Suuna admin avalehele
 ```
 
-##### Voog 2 — Platform/Authority API autentimine (JWT Bearer)
+##### Voog 2 — Authority / Admin API (TARA OIDC JWT)
 
 ```mermaid
 sequenceDiagram
-    actor Admin
-    participant Gate as Gate Backend
-    participant Platform as Platform / Authority
+    actor Officer as Authority / Admin
+    participant TARA as TARA (RIA)
+    participant Gate as eFTI Gate
+    participant DB as PostgreSQL
 
-    Admin->>Gate: POST /api/v1/users (generateSecret=true)
-    Gate-->>Admin: JWT token (allkirjastatud RS256)
+    Officer->>TARA: OIDC sisselogimine (eID / Mobiil-ID / Smart-ID)
+    TARA-->>Officer: ID Token (RS256 JWT, sub = isikukood)
 
-    Note over Platform,Gate: Hilisem API päring
+    Officer->>Gate: GET /v1/identifiers/123ABC<br/>Authorization: Bearer <TARA-JWT>
+    Gate->>Gate: Valideeri JWT TARA JWKS-i vastu (cache)
+    Gate->>DB: SELECT 1 FROM sessions WHERE jti = $1 AND expires_at > NOW()
+    Gate->>DB: SELECT … FROM users WHERE tara_sub = jwt.sub AND is_active = TRUE
+    alt JWT kehtiv + kasutaja resolveeritud + roll sobib
+        Gate-->>Officer: 200 OK
+    else Allkiri/exp/aud vale VÕI jti tühistatud VÕI users-rida puudub
+        Gate-->>Officer: 401 TOKEN_INVALID (RFC 7807)
+    else Vale roll / vale subset / vale entiteedi-skoop
+        Gate-->>Officer: 403 FORBIDDEN (RFC 7807)
+    end
+```
 
-    Platform->>Gate: POST /v1/identifiers/:id [Bearer JWT]
-    Gate->>Gate: Valideeri JWT (allkiri, exp, iss)
-    Gate->>Gate: Kontrolli rolli tüüp + Party ID (checkWriteAccess)
-    alt Token kehtiv ja ligipääs lubatud
+##### Voog 2b — Platform API (mTLS)
+
+```mermaid
+sequenceDiagram
+    participant Platform as Platvormi operaator
+    participant Proxy as Pöördproksi
+    participant Gate as eFTI Gate
+    participant DB as PostgreSQL
+
+    Platform->>Proxy: POST /v1/identifiers/:datasetId<br/>(klientsertifikaat: liikmesriigi väljastatud platvormi eDelivery AP-le)
+    Proxy->>Proxy: Valideeri sertifikaadi ahel
+    Proxy->>Gate: edastatud päring + X-Client-Cert-Subject + X-Client-Cert-Serial
+    Gate->>DB: SELECT DISTINCT ON (id) FROM platforms<br/>WHERE cert_subject = $1 AND cert_serial = $2 AND is_active = TRUE
+    alt Sert resolveerub täpselt 1 aktiivse platvormiga
         Gate-->>Platform: 200 OK
-    else Token aegunud / allkiri vale
-        Gate-->>Platform: 401 Unauthorized (RFC 7807)
-    else Ligipääs keelatud
-        Gate-->>Platform: 403 Forbidden (RFC 7807)
+    else 0 rida
+        Gate-->>Platform: 403 FORBIDDEN_NO_PLATFORM
+    else >1 rida (konfivga)
+        Gate-->>Platform: 403 FORBIDDEN_MULTI_PLATFORM
     end
 ```
 
@@ -665,9 +689,10 @@ sequenceDiagram
 #### Acceptance Criteria
 
 **Happy path:**
-- [ ] `GET /api/v1/platforms` — Super Admin näeb kõiki; Admin ainult oma platvorme (`roles[PLATFORM]` Party ID-d); pagineeritud
-- [ ] `POST /api/v1/platforms` — lisab platvormi `name`, `baseUrl`, `supportsSubsetting` lipuga, valikulise `eDeliveryCert`-iga → `201 Created`
-- [ ] `DELETE /api/v1/platforms/:platformId` → `204 No Content`
+- [ ] `GET /api/v1/platforms` — Super Admin näeb kõiki; Admin näeb ainult oma `roles[ADMIN]` gate-skoobi platvorme; pagineeritud
+- [ ] `POST /api/v1/platforms` — loob platvormi väljadega `id`, `baseUrl`, `supportsSubsetting`, `certSubject`, `certSerial`, valikuline `eDeliveryCert` → `201 Created` (409 kui `id` on juba olemas)
+- [ ] `PUT /api/v1/platforms/{platformId}` — uuendab olemasolevat platvormi (append-only INSERT) → `200 OK` (404 kui `id` puudub)
+- [ ] `DELETE /api/v1/platforms/{platformId}` — pehme kustutus (uusim rida `is_active=FALSE`) → `204 No Content`
 - [ ] `POST /api/v1/platforms/:platformId/ping` — kontrollib HTTP ühendust `baseUrl`-le → `200 OK` koos `responseTimeMs`-ga või `502`
 - [ ] Platvorm ilma `eDeliveryCert`-ita: ainult REST; sertifikaadiga: saab ka eDelivery AS4 kaudu kutsuda
 - [ ] `supportsSubsetting=false` platvorm: gate rakendab XSLT subsetter'it enne dataset'i tagastamist
@@ -726,7 +751,7 @@ sequenceDiagram
 ##### Vaatamine ja kustutamine
 
 **Happy path:**
-- [ ] `GET /api/v1/consignments` — Super Admin näeb kõiki; Admin ainult oma platvormi consignment'e; sorteeritud `updatedAt DESC`; pagineeritud
+- [ ] `GET /api/v1/consignments` — Super Admin näeb kõiki; Admin ainult oma platvormi consignment'e; viimane rida `dataset_id` kohta resolveeritakse `SELECT DISTINCT ON (dataset_id) … ORDER BY dataset_id, created_at DESC` järgi ja kuvatakse `created_at DESC` järjekorras; pagineeritud
 - [ ] `DELETE /api/v1/consignments/:datasetId` — ainult Super Admin; soft delete (staatus → `deleted`) → `204 No Content`
 
 **Edge cases:**
@@ -1117,7 +1142,7 @@ CronManageri integreerimine:
 - [ ] Veatöötlus: CronManager proovib uuesti järgmisel cron-tähtajal eksponentsiaalselt aeglustudes; vead salvestatakse CronManageri enda logisse.
 
 Arhiivi-otspunkt (gate'i poolel):
-- [ ] `POST /api/v1/admin/archive` defineeritud `openapi.yaml`-is. Auth: bearerAuth + ops-roll; teised admin-id → `403 Forbidden`.
+- [ ] `POST /api/v1/admin/archive` defineeritud `openapi.yaml`-is. Auth: `opsToken` security scheme (staatiline `ARCHIVE_OPS_TOKEN` Bearer võrreldakse otse env-muutujaga); mittevastavus → `403 FORBIDDEN`.
 - [ ] Valikuline keha `{ "tables": [...], "batch_size": 1000, "max_runtime_seconds": 600 }` (vaikimisi: kõik 11 arhiveeritavat tabelit — `audit_log` on välja jäetud ja säilib live-DB-s tähtajatult; batch_size 1000; runtime 600s).
 - [ ] Vastus: `200 OK` arhiveeritud ridade arvuga tabeli kohta + kestus + `next_archivable_count_estimate`.
 - [ ] Arhiivitöö juba käib → `409 Conflict` koodiga `ARCHIVE_IN_PROGRESS`.

@@ -30,10 +30,11 @@ See `seq-10-platform-registration.mmd` and `state-03-platform-status.mmd` for fu
 #### Acceptance Criteria
 
 **Happy path:**
-- [ ] `GET /api/v1/platforms` — Super Admin sees all; Admin sees only platforms in their `roles[PLATFORM]` Party IDs; paginated
-- [ ] `POST /api/v1/platforms` — adds platform with `name`, `baseUrl`, `supportsSubsetting` flag, optional `eDeliveryCert` → `201 Created`
-- [ ] `DELETE /api/v1/platforms/:platformId` → `204 No Content`
-- [ ] `POST /api/v1/platforms/:platformId/ping` — checks HTTP connectivity to `baseUrl` → `200 OK` with `responseTimeMs` or `502`
+- [ ] `GET /api/v1/platforms` — Super Admin sees all; Admin sees only platforms in their `roles[ADMIN]` gate scope (admin's `users.roles.ADMIN` Party IDs); paginated
+- [ ] `POST /api/v1/platforms` — creates platform with `id`, `baseUrl`, `supportsSubsetting`, `certSubject`, `certSerial`, optional `eDeliveryCert` → `201 Created` (409 if `id` already exists)
+- [ ] `PUT /api/v1/platforms/{platformId}` — updates an existing platform (append-only INSERT) → `200 OK` (404 if unknown id)
+- [ ] `DELETE /api/v1/platforms/{platformId}` — soft-delete (latest row written with `is_active=FALSE`) → `204 No Content`
+- [ ] `POST /api/v1/platforms/{platformId}/ping` — checks HTTP connectivity to `baseUrl` → `200 OK` with `responseTimeMs` or `502`
 - [ ] eFTI platform without `eDeliveryCert`: REST-only; with `eDeliveryCert`: also callable via eDelivery AS4
 - [ ] eFTI platform with `supportsSubsetting=false`: gate applies XSLT subsetter before returning dataset
 

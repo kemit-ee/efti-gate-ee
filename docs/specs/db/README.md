@@ -49,7 +49,7 @@ Indexes on every operational table follow the `(logical_id, created_at DESC)` pa
 | Identifier expiry | `UPDATE consignments SET status = 'inactive' WHERE expires_at < NOW()` | `INSERT INTO consignments (dataset_id, …, status='inactive', …) VALUES (…)` (one INSERT per affected dataset_id, copying the latest row's other columns) |
 | Password reset | `UPDATE users SET secret_hash = … WHERE id = …` | `INSERT INTO users (id, …, secret_hash = new) VALUES (…)` |
 | Admin disables a gate | `UPDATE gates SET status = 'DISABLED' WHERE id = …` | `INSERT INTO gates (id, …, status='DISABLED') VALUES (…)` |
-| Logout / token revocation | `UPDATE sessions SET revoked_at = NOW() WHERE token_hash = …` | `INSERT INTO sessions (token_hash, …, revoked_at = NOW()) VALUES (…)` |
+| Logout / token revocation | `UPDATE sessions SET revoked_at = NOW() WHERE token_hash = …` | `INSERT INTO sessions (jti, user_id, expires_at, revoked_at, reason) VALUES (…)` (denylist; AccessChecker rejects any JWT whose `jti` is here AND whose `exp` is still in the future) |
 | Async response consumed | `DELETE FROM async_responses WHERE …` | `INSERT INTO async_responses (receiver_id, request_id, …, consumed_at = NOW()) VALUES (…)` |
 | Re-upload of consignment | `UPDATE consignments` | new `consignments` row + new `identifiers` rows for the same dataset_id |
 

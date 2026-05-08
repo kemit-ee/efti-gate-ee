@@ -38,7 +38,7 @@ See `state-01-identifier-lifecycle.mmd` and `seq-08-identifier-expiration.mmd` f
 ##### Viewing and deletion
 
 **Happy path:**
-- [ ] `GET /api/v1/consignments` — Super Admin sees all; Admin sees own platform's consignments; sorted `updatedAt DESC`; paginated
+- [ ] `GET /api/v1/consignments` — Super Admin sees all; Admin sees own platform's consignments; latest row per `dataset_id` resolved by `SELECT DISTINCT ON (dataset_id) … ORDER BY dataset_id, created_at DESC` and presented in `created_at DESC` order; paginated
 - [ ] `DELETE /api/v1/consignments/:datasetId` — Super Admin only; soft delete (status → `deleted`) → `204 No Content`
 
 **Edge cases:**

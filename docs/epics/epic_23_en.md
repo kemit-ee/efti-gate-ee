@@ -52,28 +52,55 @@ sequenceDiagram
     UI-->>Admin: Redirect to admin home
 ```
 
-##### Flow 2 — Platform/Authority API authentication (JWT Bearer)
+##### Flow 2 — Authority / Admin API (TARA OIDC JWT)
 
 ```mermaid
 sequenceDiagram
-    actor Admin
-    participant Gate as Gate Backend
-    participant Platform as Platform / Authority
+    actor Officer as Authority Officer / Gate Admin
+    participant TARA as TARA (RIA)
+    participant Gate as eFTI Gate
+    participant DB as PostgreSQL
 
-    Admin->>Gate: POST /api/v1/users (generateSecret=true)
-    Gate-->>Admin: JWT token (signed RS256)
+    Officer->>TARA: OIDC login (eID / Mobile-ID / Smart-ID)
+    TARA-->>Officer: ID Token (RS256 JWT, sub = Estonian PIC, claims iss/aud/exp/jti)
 
-    Note over Platform,Gate: Later API request
+    Note over Officer,Gate: Subsequent API request
 
-    Platform->>Gate: POST /v1/identifiers/:id<br/>Authorization: Bearer <JWT>
-    Gate->>Gate: Validate JWT (signature, exp, iss)
-    Gate->>Gate: Check role type + Party ID (checkWriteAccess)
-    alt Token valid and access permitted
+    Officer->>Gate: GET /v1/identifiers/123ABC<br/>Authorization: Bearer <TARA-JWT>
+    Gate->>Gate: Validate JWT against cached TARA JWKS
+    Gate->>DB: SELECT 1 FROM sessions WHERE jti = $1 AND expires_at > NOW()
+    DB-->>Gate: 0 rows (not in denylist)
+    Gate->>DB: SELECT … FROM users WHERE tara_sub = jwt.sub AND is_active = TRUE
+    DB-->>Gate: User{roles=[AUTHORITY], subsets=[EU07], scope=[auth-mta]}
+    alt JWT valid + user resolved + role matches route
+        Gate-->>Officer: 200 OK
+    else Signature/exp/aud invalid OR jti revoked OR no users row
+        Gate-->>Officer: 401 TOKEN_INVALID (RFC 7807)
+    else Wrong role / out-of-scope subset / out-of-scope entity
+        Gate-->>Officer: 403 FORBIDDEN (RFC 7807)
+    end
+```
+
+##### Flow 2b — Platform API (mTLS)
+
+```mermaid
+sequenceDiagram
+    participant Platform as Platform Operator
+    participant Proxy as Reverse Proxy
+    participant Gate as eFTI Gate
+    participant DB as PostgreSQL
+
+    Platform->>Proxy: POST /v1/identifiers/:datasetId<br/>(client cert: Member-State-issued for the platform's eDelivery AP)
+    Proxy->>Proxy: Validate cert chain
+    Proxy->>Gate: forwarded request + X-Client-Cert-Subject + X-Client-Cert-Serial
+    Gate->>DB: SELECT DISTINCT ON (id) FROM platforms<br/>WHERE cert_subject = $1 AND cert_serial = $2 AND is_active = TRUE
+    DB-->>Gate: 1 row → platform_id resolved
+    alt cert resolves to exactly 1 active platform
         Gate-->>Platform: 200 OK
-    else Token expired / invalid signature
-        Gate-->>Platform: 401 Unauthorized (RFC 7807)
-    else Access denied
-        Gate-->>Platform: 403 Forbidden (RFC 7807)
+    else 0 rows
+        Gate-->>Platform: 403 FORBIDDEN_NO_PLATFORM
+    else >1 rows (config error)
+        Gate-->>Platform: 403 FORBIDDEN_MULTI_PLATFORM
     end
 ```
 

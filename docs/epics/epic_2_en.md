@@ -59,15 +59,17 @@ See `seq-12-user-authentication.mmd` and `seq-16-mtls-fast-protocol.mmd` for ful
 ##### Platform/Authority API authentication
 
 **Happy path:**
-- [ ] Admin issues token via `POST /api/v1/users` with `generateSecret=true` → `201 Created` with `{"token": "<JWT>"}` — shown once only
-- [ ] eFTI platform calls API with `Authorization: Bearer <JWT>` → gate validates signature, `exp`, `iss`, role → `200 OK`
+- [ ] Admin provisions an authority/admin user via `POST /api/v1/users` carrying `taraSub` → `201 Created`. No token is issued — TARA owns auth.
+- [ ] Authority / admin calls API with `Authorization: Bearer <TARA-JWT>` → gate validates signature against TARA JWKS, `iss`, `aud`, `exp`, denylist; resolves `users` row by `tara_sub = jwt.sub`; `200 OK` if active and required role present.
+- [ ] Platform calls API with **mTLS** — reverse proxy forwards `X-Client-Cert-Subject` / `X-Client-Cert-Serial`; gate resolves `platforms` row → `200 OK`.
 
 **Edge cases:**
-- [ ] Token issued by different gate's private key → `401 Unauthorized` with `"detail": "Invalid issuer"`
-- [ ] eFTI platform has 2 PLATFORM roles, omits `platformId` query parameter → `400 Bad Request` with `"detail": "Multiple platforms: specify platformId parameter"`
+- [ ] JWT issued by an issuer other than the configured TARA (`iss` mismatch) → `401 TOKEN_INVALID`.
+- [ ] JWT subject does not resolve to any active `users` row → `401 TOKEN_INVALID` with `"detail": "no provisioned user"`.
+- [ ] Platform's mTLS cert subject DN + serial resolves to >1 active `platforms` row (config error) → `403 FORBIDDEN_MULTI_PLATFORM`.
 
 **Error handling:**
-- [ ] Compromised token: `POST /api/v1/users/:userId/revoke-token` → token blacklisted; subsequent requests with that token → `401 Unauthorized`
+- [ ] Compromised token: `POST /api/v1/users/:userId/revoke-token` → JWT `jti` added to `sessions` denylist; subsequent requests with that JWT → `401 TOKEN_INVALID`.
 
 **Technical constraints:**
 - [ ] Signing: RS256; gate private key loaded from K8s Secret at startup — never in container image

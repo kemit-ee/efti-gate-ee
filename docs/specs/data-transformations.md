@@ -344,7 +344,7 @@ Subset values on the wire are always the canonical `EU01`..`EU07` codes from `us
 
 ### 3.5 Error transformations
 
-All transformation errors surface as RFC 7807 problem JSON with `type: "https://api.efti.ee/errors/<slug>"`. The complete catalog (37 codes, full payloads) is in `docs/specs/errors.json` — do not duplicate it here. The transformation-specific subset:
+All transformation errors surface as RFC 7807 problem JSON with `type: "https://api.efti.ee/errors/<slug>"` and a required `code` field bound to the catalog enum. The complete catalog (36 codes, full payloads) is in `docs/specs/errors.json` — do not duplicate it here. The transformation-specific subset:
 
 | Trigger | HTTP | `errorCode` (in `efti.error.code` log field) | Type slug |
 |---|---|---|---|
@@ -404,8 +404,8 @@ The Gate does **not** validate XML against the full XSD schema. JAXB maps known 
 
 | Rule | Where applied | Error | HTTP |
 |---|---|---|---|
-| Platform user has exactly 1 platform in `roles` | `PlatformRoutes.before()` | `FORBIDDEN_MULTI_PLATFORM` | 403 |
-| Platform user has ≥ 1 platform in `roles` | `PlatformRoutes.before()` | `FORBIDDEN_NO_PLATFORM` | 403 |
+| mTLS cert subject DN + serial resolves to >1 active `platforms` row (config error) | `PlatformAuthChecker.resolvePlatform()` | `FORBIDDEN_MULTI_PLATFORM` | 403 |
+| mTLS cert subject DN + serial resolves to 0 active `platforms` rows | `PlatformAuthChecker.resolvePlatform()` | `FORBIDDEN_NO_PLATFORM` | 403 |
 | Authority requested subsets ⊆ `users.subsets` | `AuthorityRoutes.getDataset()` | `FORBIDDEN_SUBSET` | 403 |
 | Follow-up `gateId` equals this gate's `gateId` | `EftiService.handlePostFollowUpRequest()` | `FOLLOW_UP_GATE_MISMATCH` | 400 |
 | Target gate is ONLINE | `EftiService.checkGateAvailable()` | `GATEWAY_UNAVAILABLE` | 502 |

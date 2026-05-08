@@ -1,20 +1,29 @@
 stateDiagram-v2
-    [*] --> ONLINE: Admin: POST /api/v1/gates<br/>→ INSERT gates (id, …, status='ONLINE')<br/>(auto-pinged on next cycle)
+    [*] --> ONLINE: Admin: POST /api/v1/gates<br/>→ INSERT gates (id, …, status='ONLINE', is_active=TRUE)<br/>(auto-pinged on next cycle)
 
-    ONLINE --> OFFLINE: Ping fails<br/>GatePing job → INSERT gates row with status='OFFLINE'
+    ONLINE --> OFFLINE: Ping fails<br/>CronManager → POST /api/v1/admin/ping-gates<br/>→ INSERT gates row with status='OFFLINE'
 
-    OFFLINE --> ONLINE: Ping succeeds<br/>GatePing job → INSERT gates row with status='ONLINE',<br/>last_ping_at=NOW()
+    OFFLINE --> ONLINE: Ping succeeds<br/>CronManager → POST /api/v1/admin/ping-gates<br/>→ INSERT gates row with status='ONLINE',<br/>last_ping_at=NOW()
 
-    ONLINE --> DISABLED: Admin: PUT /api/v1/gates/{id}<br/>→ INSERT gates row with status='DISABLED'<br/>(manual disable — maintenance / decommission)
+    ONLINE --> DISABLED: Admin: PUT /api/v1/gates/{id} body status='DISABLED'<br/>→ INSERT gates row with status='DISABLED'<br/>(manual disable — maintenance / decommission)
 
-    OFFLINE --> DISABLED: Admin: PUT /api/v1/gates/{id}<br/>→ INSERT gates row with status='DISABLED'
+    OFFLINE --> DISABLED: Admin: PUT /api/v1/gates/{id} body status='DISABLED'<br/>→ INSERT gates row with status='DISABLED'
 
-    DISABLED --> ONLINE: Admin: PUT /api/v1/gates/{id}<br/>→ INSERT gates row with status='ONLINE'<br/>AND next ping succeeds
+    DISABLED --> ONLINE: Admin: PUT /api/v1/gates/{id} body status='ONLINE'<br/>→ INSERT gates row with status='ONLINE'<br/>AND next ping succeeds
 
-    DISABLED --> [*]: Admin: DELETE /api/v1/gates/{id}<br/>→ INSERT gates row with status='DISABLED'<br/>(terminal — gate effectively retired)
+    note left of ONLINE
+        STATUS axis (ping-job-driven, gates.status):
+        ONLINE — recent ping success
+        OFFLINE — recent ping fail or never pinged
+        DISABLED — operator manually disabled (PUT)
+
+        IS_ACTIVE axis (operator-driven, gates.is_active):
+        TRUE  — gate participates in registry / broadcasts / ping
+        FALSE — operator soft-deleted (DELETE) — see lower note
+    end note
 
     note right of ONLINE
-        Latest gates row for this id has status='ONLINE'.
+        Latest gates row for this id has status='ONLINE' AND is_active=TRUE.
         - Included in identifier search broadcasts.
         - gateRegistry.online() returns this gate.
         - last_ping_at on the latest row is recent.
@@ -34,4 +43,14 @@ stateDiagram-v2
         - Excluded from broadcasts AND ping job.
         - Will NOT auto-recover. Requires admin PUT to flip back.
         - Old gates rows archived nightly by CronManager (Epic 26).
+    end note
+
+    note right of [*]
+        DELETE /api/v1/gates/{id} (soft-delete):
+        → INSERT gates row with is_active=FALSE.
+        Status axis is unchanged on this transition; the gate
+        leaves the operational set entirely (registry sync,
+        peer broadcast, ping sweeps all skip is_active=FALSE).
+        Distinct from status='DISABLED' (operator-paused but
+        still tracked) — DELETE is logical retirement.
     end note

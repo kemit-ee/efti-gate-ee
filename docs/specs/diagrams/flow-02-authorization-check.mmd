@@ -17,7 +17,11 @@ flowchart TD
 
     Denylist --> Revoked{In denylist?}
     Revoked -->|Yes| Ret401Rev[401 TOKEN_INVALID<br/>token revoked]
-    Revoked -->|No| ExtractClaims[Read claims:<br/>roles, subsets, scope, sub]
+    Revoked -->|No| LookupUser["SELECT DISTINCT ON (tara_sub) id, roles, subsets,<br/>is_admin, is_active FROM users<br/>WHERE tara_sub = jwt.sub<br/>ORDER BY tara_sub, created_at DESC"]
+
+    LookupUser --> UserFound{User row found<br/>AND is_active=TRUE?}
+    UserFound -->|No| Ret401NoUser[401 TOKEN_INVALID<br/>no provisioned user / inactive]
+    UserFound -->|Yes| ExtractClaims[Read users.roles, users.subsets,<br/>users.scope as the authorisation source]
 
     ExtractClaims --> RouteType{Required role on route?}
     RouteType -->|AUTHORITY| CheckAuth{roles ∋ AUTHORITY?}
@@ -50,6 +54,7 @@ flowchart TD
 
     style Ret401 fill:#f99,stroke:#900
     style Ret401Rev fill:#f99,stroke:#900
+    style Ret401NoUser fill:#f99,stroke:#900
     style Ret401Unauth fill:#f99,stroke:#900
     style Ret403 fill:#f99,stroke:#900
     style Ret403Wrong fill:#f99,stroke:#900

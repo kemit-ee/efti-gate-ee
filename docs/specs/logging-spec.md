@@ -74,7 +74,7 @@ All log entries **must** be valid JSON on a single line. Format follows [Elastic
 | `http.request.body.bytes` | int | Request body size (bytes) — never log body content at INFO+ |
 | `http.response.status_code` | int | HTTP response status |
 | `user.id` | UUID string | `users.id` of the authenticated user |
-| `user.roles` | string[] | Assigned gate roles, e.g. `["PLATFORM"]` |
+| `user.roles` | string[] | Assigned gate roles from the resolved `users` row (`["AUTHORITY"]` / `["ADMIN"]`). Platform identity is mTLS-only (no `users.roles` entry); `user.roles` is empty `[]` for Platform calls. CronManager opsToken calls log `user.roles=["OPS"]` synthetically (no DB row). |
 | `error.type` | string | Exception class name |
 | `error.message` | string | Exception message |
 | `error.stack_trace` | string | First 10 stack frames (ERROR level only) |
@@ -111,7 +111,7 @@ All log entries **must** be valid JSON on a single line. Format follows [Elastic
 | `efti.expired_count` | int | Rows deleted by `IdentifierExpirationJob` | `14` |
 | `efti.cutoff_datetime` | ISO 8601 | Expiration cutoff used by job | `"2026-04-16T02:00:00.000Z"` |
 | `efti.audit` | boolean | Marks an event as audit-meaningful (GDPR / admin trail) | `true` |
-| `efti.required_role` | string | Role expected when `user.access.denied` fires | `"PLATFORM"` |
+| `efti.required_role` | string | Role expected when `user.access.denied` fires | `"AUTHORITY"` / `"ADMIN"` / `"OPS"` (no `PLATFORM` — Platform identity is mTLS, denial is `FORBIDDEN_NO_PLATFORM` or `FORBIDDEN_MULTI_PLATFORM`) |
 | `efti.authority.country` | string (ISO-3166 α-2) | Set on `authority.create` | `"EE"` |
 | `efti.authority.subsets` | string[] | Set on `authority.create` | `["EU01","EU07"]` |
 | `efti.db.pool.available` | int | Available JDBC connections (warning event) | `1` |
@@ -160,10 +160,11 @@ Five templates cover every event shape in the gate. Per-event variations live in
     "request.body.bytes": 1842,
     "response.status_code": 200
   },
-  "user": { "id": "502d74a0-eb03-11f0-b86c-3c9c0f2eb459", "roles": ["PLATFORM"] },
+  "user": { "id": null, "roles": [] },
   "efti": {
     "dataset.id": "550e8400-e29b-41d4-a716-446655440000",
-    "platform.id": "demo",
+    "platform.id": "plt-demo-123",
+    "platform.cert_subject": "CN=eDelivery-Platform, O=Demo Logistics OÜ, C=EE",
     "gate.id": "eu-ee31",
     "identifier.value": "123ABC",
     "identifier.type": "means",
@@ -200,8 +201,8 @@ Five templates cover every event shape in the gate. Per-event variations live in
     "request.body.bytes": 542,
     "response.status_code": 400
   },
-  "user": { "id": "502d74a0-eb03-11f0-b86c-3c9c0f2eb459", "roles": ["PLATFORM"] },
-  "efti": { "dataset.id": "660f9511-f39c-42e5-b827-557766551111", "platform.id": "demo", "error.code": "INVALID_XML" },
+  "user": { "id": null, "roles": [] },
+  "efti": { "dataset.id": "660f9511-f39c-42e5-b827-557766551111", "platform.id": "plt-demo-123", "platform.cert_subject": "CN=eDelivery-Platform, O=Demo Logistics OÜ, C=EE", "error.code": "INVALID_XML" },
   "error": { "type": "BadRequestException", "message": "Error parsing identifiers: XML parse error at line 4: element 'modeCode' is not closed" },
   "service.name": "efti-gate", "service.version": "2.0.0", "host.hostname": "gate-eu-ee31-node1"
 }
@@ -209,7 +210,7 @@ Five templates cover every event shape in the gate. Per-event variations live in
 
 | Placeholder | Meaning |
 |---|---|
-| `efti.error.code` | One of the codes catalogued in `errors.json` (e.g. `INVALID_XML`, `DUPLICATE_DATASET_ID`, `PLATFORM_TIMEOUT`, `GATE_TIMEOUT`, `GATEWAY_UNAVAILABLE`, `FOLLOW_UP_GATE_MISMATCH`). |
+| `efti.error.code` | One of the codes catalogued in `errors.json` (e.g. `INVALID_XML`, `DUPLICATE_REQUEST_ID`, `PLATFORM_TIMEOUT`, `GATE_TIMEOUT`, `GATEWAY_UNAVAILABLE`, `FOLLOW_UP_GATE_MISMATCH`, `FORBIDDEN_NO_PLATFORM`, `FORBIDDEN_MULTI_PLATFORM`). |
 | `error.type` / `error.message` | Exception class and message. **Never** include full input XML. |
 | `http.response.status_code` | The 4xx returned to the client. |
 
@@ -228,7 +229,7 @@ Five templates cover every event shape in the gate. Per-event variations live in
     "response.status_code": 403
   },
   "user": { "id": "04fa30eb-eb08-11f0-b506-3c9c0f2eb459", "roles": ["AUTHORITY"] },
-  "efti": { "error.code": "FORBIDDEN", "required_role": "PLATFORM", "audit": true },
+  "efti": { "error.code": "FORBIDDEN", "required_role": "ADMIN", "audit": true },
   "error": { "type": "ForbiddenException", "message": "Access denied: endpoint requires PLATFORM role" },
   "service.name": "efti-gate", "service.version": "2.0.0", "host.hostname": "gate-eu-ee31-node1"
 }

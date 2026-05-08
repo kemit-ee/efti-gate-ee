@@ -6,9 +6,9 @@ sequenceDiagram
     Note over Platform: Platform has a consignment to register or re-register.<br/>datasetId: 550e8400-e29b-41d4-a716-446655440000
 
     Platform->>+Gate: POST /v1/identifiers/550e8400-e29b-41d4-a716-446655440000
-    Note over Platform,Gate: Content-Type: application/xml<br/>Authorization: Bearer demo-platform-key<br/>X-Request-ID: <uuid><br/>Body: full consignment XML with identifiers
+    Note over Platform,Gate: Content-Type: application/xml<br/>Client cert (mTLS) — Member-State-issued for the platform's eDelivery AP<br/>(reverse proxy forwards X-Client-Cert-Subject / X-Client-Cert-Serial)<br/>X-Request-ID: <uuid><br/>Body: full consignment XML with identifiers
 
-    Gate->>Gate: Authenticate user → platform_id="demo"
+    Gate->>Gate: Resolve platform_id by SELECT DISTINCT ON (id) FROM platforms<br/>WHERE cert_subject = $1 AND cert_serial = $2 AND is_active = TRUE<br/>→ platform_id='plt-demo-123'
     Gate->>Gate: Check X-Request-ID dedup<br/>(INSERT into request_id_cache; conflict → 409)
     Gate->>Gate: Extract datasetId from path: "550e8400-e29b-41d4-a716-446655440000"
     Gate->>Gate: dropXmlHeader, parse via EftiParser.parseIdentifiers

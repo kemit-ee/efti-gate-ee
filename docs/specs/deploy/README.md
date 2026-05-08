@@ -7,7 +7,7 @@ This directory will hold the runtime deployment artefacts (Helm chart values, Ku
 - **Deployment topology** — see [`../non-functional.md`](../non-functional.md) §3: two-node minimum, PostgreSQL primary + DR standby, Layer-7 LB, reverse proxy for TLS, AS4 access point (custom or Domibus), CronManager sibling.
 - **Multi-node component diagram** — [`../diagrams/arch-01-multi-node-deployment.mmd`](../diagrams/arch-01-multi-node-deployment.mmd).
 - **Environment-parity rule** — test/stage/prod must be identical; dev (developer's machine) is allowed minor looseness. Same software, same versions, same backend. No "Redis in prod, Postgres in dev" splits.
-- **CronManager archival job** — canonical YAML at [`cronmanager-archive.yaml`](cronmanager-archive.yaml). Strict requirement (Epic 26): CronManager is deployed as a sibling Pod/container alongside the gate; on cron schedule it calls `POST /api/v1/admin/archive` to sweep non-latest rows out of the live database to archival storage.
+- **CronManager job set** — three canonical YAMLs: [`cronmanager-archive.yaml`](cronmanager-archive.yaml) (nightly archival sweep, Epic 26), [`cronmanager-expire.yaml`](cronmanager-expire.yaml) (daily cabotage-expiry sweep — Reg 2024/1942 Art 11(4)), [`cronmanager-ping-gates.yaml`](cronmanager-ping-gates.yaml) (5-minute peer-gate health probe). Strict requirement (Epic 26): CronManager is deployed as a sibling Pod/container alongside the gate; it owns every scheduled task and calls the gate's `/api/v1/admin/*` endpoints over HTTP on its cron schedule. The gate process never schedules its own jobs.
 
 ## What's missing (intentional Phase-2 scope)
 

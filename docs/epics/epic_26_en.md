@@ -60,7 +60,7 @@ See `seq-08-identifier-expiration.mmd` for a related job pattern.
 ##### Archive endpoint (gate side)
 
 **Happy path:**
-- [ ] `POST /api/v1/admin/archive` defined in `openapi.yaml`. Auth: `bearerAuth` AND configured to accept only the ops-role token; non-ops admins → `403 Forbidden`.
+- [ ] `POST /api/v1/admin/archive` defined in `openapi.yaml`. Auth: `opsToken` security scheme — static `Authorization: Bearer <ARCHIVE_OPS_TOKEN>` compared literally against the env var. Mismatch → `403 FORBIDDEN`. No JWT, no DB user lookup.
 - [ ] Request body (optional): `{ "tables": ["consignments", "identifiers", …], "batch_size": 1000, "max_runtime_seconds": 600 }`. Defaults: all operational tables; batch 1000; runtime 10 min.
 - [ ] Response: `200 OK` with `{ "archived": { "consignments": 12345, "identifiers": 38912, … }, "started_at": …, "finished_at": …, "duration_ms": …, "next_archivable_count_estimate": … }`.
 - [ ] One run per table proceeds in batches of `batch_size` to bound memory; commits per batch.

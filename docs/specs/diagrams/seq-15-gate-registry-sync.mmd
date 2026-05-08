@@ -7,10 +7,10 @@ sequenceDiagram
 
     Note over Gate,OtherNode: Multi-node deployment: both nodes share the same<br/>PostgreSQL. GateRegistry is an in-memory cache of<br/>the latest gates row per id (loaded at startup).
 
-    Admin->>+Gate: POST /api/v1/gates
-    Note over Admin,Gate: Body: {"id":"eu-pl01","country_code":"PL",<br/>"e_delivery_url":"https://efti.gitd.gov.pl/as4",<br/>"e_delivery_cert":"-----BEGIN CERTIFICATE-----..."}
+    Admin->>+Gate: POST /api/v1/gates<br/>Authorization: Bearer <TARA-JWT, role=ADMIN>
+    Note over Admin,Gate: JSON body (camelCase per OpenAPI GateWrite):<br/>{"id":"eu-pl01","countryCode":"PL",<br/>"eDeliveryUrl":"https://efti.gitd.gov.pl/as4",<br/>"eDeliveryCert":"-----BEGIN CERTIFICATE-----..."}
 
-    Gate->>Gate: Authenticate admin
+    Gate->>Gate: Validate JWT (signature, exp, iss, aud);<br/>require resource_access.efti-gate.roles ∋ ADMIN
     Gate->>+GateReg: save(Gate{id="eu-pl01", ...})
 
     GateReg->>GateReg: in-memory cache: gates["eu-pl01"] = Gate{...}<br/>(this node only)
@@ -34,4 +34,4 @@ sequenceDiagram
     Gate->>+Gate: runCatching { ping(gate.id) }
     Note over Gate: Auto-ping new gate after registration to verify connectivity.<br/>Successful ping INSERTs another gates row with status='ONLINE'<br/>and last_ping_at=NOW().
 
-    Gate-->>-Admin: 200 OK\n{"id":"eu-pl01","country_code":"PL","status":"ONLINE",...}
+    Gate-->>-Admin: 201 Created\n{"id":"eu-pl01","countryCode":"PL","status":"ONLINE","isActive":true,...}

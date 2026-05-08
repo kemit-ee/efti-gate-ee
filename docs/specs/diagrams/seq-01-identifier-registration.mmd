@@ -1,36 +1,39 @@
 sequenceDiagram
-    participant Platform as Platform Operator
+    participant Platform as Platform Operator (mTLS client)
+    participant Proxy as Reverse Proxy
     participant Gate as eFTI Gate (eu-ee31)
-    participant Auth as Auth (API Key)
+    participant Auth as PlatformAuthChecker
     participant DB as PostgreSQL
     participant ConsReg as ConsignmentRepository
 
-    Platform->>+Gate: POST /v1/identifiers/550e8400-e29b-41d4-a716-446655440000
-    Note over Platform,Gate: Content-Type: application/xml<br/>Authorization: Bearer plt-demo-key<br/>Body: &lt;consignment xmlns="http://efti.eu/v1/consignment/identifier"&gt;...
+    Platform->>+Proxy: POST /v1/identifiers/550e8400-e29b-41d4-a716-446655440000<br/>Content-Type: application/xml<br/>X-Request-ID: req-a1b2<br/>Client cert (mTLS) — Member-State-issued for the platform's eDelivery AP
+    Proxy->>Proxy: Validate cert chain
+    Proxy->>+Gate: forwarded request +<br/>X-Client-Cert-Subject: CN=eDelivery-Platform, O=Demo Logistics<br/>X-Client-Cert-Serial: 0123456789ABCDEF
 
-    Gate->>+Auth: Validate API key
-    Auth-->>-Gate: User{platformId="demo", role=PLATFORM}
+    Gate->>+Auth: resolvePlatform(certSubject, certSerial)
+    Auth->>+DB: SELECT DISTINCT ON (id) id FROM platforms<br/>WHERE cert_subject = $1 AND cert_serial = $2<br/>AND is_active = TRUE<br/>ORDER BY id, created_at DESC
+    DB-->>-Auth: ['plt-demo-123']
+    Auth-->>-Gate: Platform{id='plt-demo-123'}
 
-    Gate->>Gate: Extract datasetId from XML attributes<br/>datasetId="550e8400-e29b-41d4-a716-446655440000"
-
+    Gate->>Gate: Extract datasetId from URL path<br/>datasetId='550e8400-e29b-41d4-a716-446655440000'
     Gate->>Gate: Parse identifier XML (EftiParser)
-    Note over Gate: Extracts: vehicle plate "123ABC", country "EE",<br/>mode "ROAD", dangerous goods flag
+    Note over Gate: Extracts denormalised search columns:<br/>vehicle_plate='123ABC', vehicle_country='EE',<br/>mode='road', dangerous_goods=true
 
     alt XML valid
         Gate->>+ConsReg: save(consignment)
-        ConsReg->>+DB: INSERT INTO consignments<br/>(datasetId, platformId, gateId, xml, mode, dangerousGoods)
-        DB-->>-ConsReg: OK
+        ConsReg->>+DB: INSERT INTO consignments<br/>(dataset_id, platform_id, gate_id, xml, mode, dangerous_goods,<br/>vehicle_plate, vehicle_country, status, created_at)<br/>VALUES ('550e8400-...', 'plt-demo-123', 'eu-ee31', '<consignment ...>',<br/>'road', TRUE, '123ABC', 'EE', 'active', NOW())
+        DB-->>-ConsReg: OK (new row; latest wins)
         ConsReg-->>-Gate: saved
 
         Gate->>+ConsReg: save(identifiers)
-        ConsReg->>+DB: INSERT INTO identifiers<br/>(id="123ABC", datasetId, type="VEHICLE", countryCode="EE")
+        ConsReg->>+DB: INSERT INTO identifiers<br/>(id, dataset_id, identifier_type, identifier_value, country_code, created_at)<br/>VALUES (uuid_generate_v4(), '550e8400-...', 'means', '123ABC', 'EE', NOW())
+        Note over DB: identifier_type ENUM: 'means' (vehicle/transport unit),<br/>'equipment' (container/trailer), 'carried' (cargo unit).
         DB-->>-ConsReg: OK
         ConsReg-->>-Gate: saved
 
         Gate-->>-Platform: 200 OK
-        Note over Gate,Platform: Identifier registered.<br/>datasetId: 550e8400-e29b-41d4-a716-446655440000
+        Note over Gate,Platform: Identifier registered. datasetId: 550e8400-...
 
-    else XML invalid or parse error
-        Gate-->>-Platform: 400 Bad Request
-        Note over Gate,Platform: {"error": "Error parsing identifiers: ..."}
+    else XML invalid (XSD parse error)
+        Gate-->>-Platform: 400 Bad Request (application/problem+json)<br/>{ "type":"https://api.efti.ee/errors/invalid-xml",<br/>  "code":"INVALID_XML",<br/>  "title":"Bad Request",<br/>  "status":400,<br/>  "detail":"XSD validation failed at line 7: missing required element <modeCode>",<br/>  "instance":"/v1/identifiers/550e8400-..." }
     end

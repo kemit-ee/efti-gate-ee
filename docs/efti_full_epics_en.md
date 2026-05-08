@@ -119,14 +119,14 @@ See `flow-02-authorization-check.mmd` for the full decision tree.
 - [ ] All authorisation denials logged: user ID, endpoint, reason, IP address, timestamp
 
 **Technical constraints:**
-- [ ] Passwords hashed with bcrypt, salt = user UUID — plaintext never written to database or logs
-- [ ] `generateSecret=true` creates new JWT; token value returned **only once** at creation ("Show Once" policy)
-- [ ] Bearer token: RFC 7519 JWT signed RS256, claims: `sub`, `roles`, `subsets`, `is_admin`, `exp`, `iss`
-- [ ] API tokens expire after 1 hour (configurable via `JWT_EXPIRY_SECONDS`)
+- [ ] Primary auth is TARA OIDC JWT (RS256, JWKS from `TARA_OIDC_DISCOVERY_URL`); TARA owns expiry policy. Permission claims (`roles`, `subsets`, scope) are read from the resolved `users` row, not from the JWT.
+- [ ] User `taraSub` (= JWT `sub` claim, Estonian PIC) is the auth identifier. Admin POST creates the row; on first inbound JWT the gate has a row to bind to.
+- [ ] Break-glass `/api/v1/auth/local-token` issues a gate-signed JWT with hardcoded 600 s TTL (default-disabled via `LOCAL_ADMIN_FALLBACK_ENABLED=false`); bcrypt is used **only** on the single break-glass row.
+- [ ] Revocation: JWT `jti` written to `sessions` denylist; `AccessChecker` rejects any JWT whose `jti` is in the denylist AND `exp` is still future.
 
 **Technical artifacts:**
-- [ ] OpenAPI: `POST /api/v1/users`, `GET /api/v1/users`, `DELETE /api/v1/users/{userId}`
-- [ ] DB schema: `users` table with `roles JSONB` column (no separate `user_roles` / `party_ids` tables); English `COMMENT ON` coverage
+- [ ] OpenAPI: `POST /api/v1/users`, `GET /api/v1/users`, `GET /api/v1/users/{userId}`, `PUT /api/v1/users/{userId}`, `DELETE /api/v1/users/{userId}`, `POST /api/v1/users/{userId}/revoke-token`
+- [ ] DB schema: `users` table with `tara_sub TEXT`, `roles JSONB` (only `AUTHORITY` and `ADMIN` keys), `subsets TEXT[]`, `secret_hash TEXT NULL`; partial index `(tara_sub, created_at DESC) WHERE tara_sub IS NOT NULL`.
 
 ##### Access control
 
@@ -203,15 +203,17 @@ See `seq-12-user-authentication.mmd` and `seq-16-mtls-fast-protocol.mmd` for ful
 ##### Platform/Authority API authentication
 
 **Happy path:**
-- [ ] Admin issues token via `POST /api/v1/users` with `generateSecret=true` → `201 Created` with `{"token": "<JWT>"}` — shown once only
-- [ ] eFTI platform calls API with `Authorization: Bearer <JWT>` → gate validates signature, `exp`, `iss`, role → `200 OK`
+- [ ] Admin provisions an authority/admin user via `POST /api/v1/users` carrying `taraSub` → `201 Created`. No token is issued — TARA owns auth.
+- [ ] Authority/admin calls API with `Authorization: Bearer <TARA-JWT>` → gate validates signature against TARA JWKS, `iss`, `aud`, `exp`, denylist; resolves `users` row by `tara_sub = jwt.sub`; `200 OK` if active and required role present.
+- [ ] Platform calls API with **mTLS** — reverse proxy forwards `X-Client-Cert-Subject` / `X-Client-Cert-Serial`; gate resolves `platforms` row → `200 OK`.
 
 **Edge cases:**
-- [ ] Token issued by different gate's private key → `401 Unauthorized` with `"detail": "Invalid issuer"`
-- [ ] eFTI platform has 2 PLATFORM roles, omits `platformId` query parameter → `400 Bad Request` with `"detail": "Multiple platforms: specify platformId parameter"`
+- [ ] JWT issued by an issuer other than the configured TARA (`iss` mismatch) → `401 TOKEN_INVALID`.
+- [ ] JWT subject does not resolve to any active `users` row → `401 TOKEN_INVALID` with `"detail": "no provisioned user"`.
+- [ ] Platform's mTLS cert subject DN + serial resolves to >1 active `platforms` row (config error) → `403 FORBIDDEN_MULTI_PLATFORM`.
 
 **Error handling:**
-- [ ] Compromised token: `POST /api/v1/users/:userId/revoke-token` → token blacklisted; subsequent requests with that token → `401 Unauthorized`
+- [ ] Compromised token: `POST /api/v1/users/:userId/revoke-token` → JWT `jti` added to `sessions` denylist; subsequent requests with that JWT → `401 TOKEN_INVALID`.
 
 **Technical constraints:**
 - [ ] Signing: RS256; gate private key loaded from K8s Secret at startup — never in container image
@@ -289,28 +291,50 @@ sequenceDiagram
     UI-->>Admin: Redirect to admin home
 ```
 
-##### Flow 2 — Platform/Authority API authentication (JWT Bearer)
+##### Flow 2 — Authority / Admin API (TARA OIDC JWT)
 
 ```mermaid
 sequenceDiagram
-    actor Admin
-    participant Gate as Gate Backend
-    participant Platform as Platform / Authority
+    actor Officer as Authority Officer / Gate Admin
+    participant TARA as TARA (RIA)
+    participant Gate as eFTI Gate
+    participant DB as PostgreSQL
 
-    Admin->>Gate: POST /api/v1/users (generateSecret=true)
-    Gate-->>Admin: JWT token (signed RS256)
+    Officer->>TARA: OIDC login (eID / Mobile-ID / Smart-ID)
+    TARA-->>Officer: ID Token (RS256 JWT, sub = Estonian PIC)
 
-    Note over Platform,Gate: Later API request
+    Officer->>Gate: GET /v1/identifiers/123ABC<br/>Authorization: Bearer <TARA-JWT>
+    Gate->>Gate: Validate JWT against cached TARA JWKS
+    Gate->>DB: SELECT 1 FROM sessions WHERE jti = $1 AND expires_at > NOW()
+    Gate->>DB: SELECT … FROM users WHERE tara_sub = jwt.sub AND is_active = TRUE
+    alt JWT valid + user resolved + role matches route
+        Gate-->>Officer: 200 OK
+    else Signature/exp/aud invalid OR jti revoked OR no users row
+        Gate-->>Officer: 401 TOKEN_INVALID (RFC 7807)
+    else Wrong role / out-of-scope subset / out-of-scope entity
+        Gate-->>Officer: 403 FORBIDDEN (RFC 7807)
+    end
+```
 
-    Platform->>Gate: POST /v1/identifiers/:id<br/>Authorization: Bearer <JWT>
-    Gate->>Gate: Validate JWT (signature, exp, iss)
-    Gate->>Gate: Check role type + Party ID (checkWriteAccess)
-    alt Token valid and access permitted
+##### Flow 2b — Platform API (mTLS)
+
+```mermaid
+sequenceDiagram
+    participant Platform as Platform Operator
+    participant Proxy as Reverse Proxy
+    participant Gate as eFTI Gate
+    participant DB as PostgreSQL
+
+    Platform->>Proxy: POST /v1/identifiers/:datasetId<br/>(client cert: Member-State-issued for the platform's eDelivery AP)
+    Proxy->>Proxy: Validate cert chain
+    Proxy->>Gate: forwarded request + X-Client-Cert-Subject + X-Client-Cert-Serial
+    Gate->>DB: SELECT DISTINCT ON (id) FROM platforms<br/>WHERE cert_subject = $1 AND cert_serial = $2 AND is_active = TRUE
+    alt cert resolves to exactly 1 active platform
         Gate-->>Platform: 200 OK
-    else Token expired / invalid signature
-        Gate-->>Platform: 401 Unauthorized (RFC 7807)
-    else Access denied
-        Gate-->>Platform: 403 Forbidden (RFC 7807)
+    else 0 rows
+        Gate-->>Platform: 403 FORBIDDEN_NO_PLATFORM
+    else >1 rows (config error)
+        Gate-->>Platform: 403 FORBIDDEN_MULTI_PLATFORM
     end
 ```
 
@@ -834,10 +858,11 @@ See `seq-10-platform-registration.mmd` and `state-03-platform-status.mmd` for fu
 #### Acceptance Criteria
 
 **Happy path:**
-- [ ] `GET /api/v1/platforms` — Super Admin sees all; Admin sees only platforms in their `roles[PLATFORM]` Party IDs; paginated
-- [ ] `POST /api/v1/platforms` — adds platform with `name`, `baseUrl`, `supportsSubsetting` flag, optional `eDeliveryCert` → `201 Created`
-- [ ] `DELETE /api/v1/platforms/:platformId` → `204 No Content`
-- [ ] `POST /api/v1/platforms/:platformId/ping` — checks HTTP connectivity to `baseUrl` → `200 OK` with `responseTimeMs` or `502`
+- [ ] `GET /api/v1/platforms` — Super Admin sees all; Admin sees only platforms in their `roles[ADMIN]` gate scope; paginated
+- [ ] `POST /api/v1/platforms` — creates platform with `id`, `baseUrl`, `supportsSubsetting`, `certSubject`, `certSerial`, optional `eDeliveryCert` → `201 Created` (409 if `id` already exists)
+- [ ] `PUT /api/v1/platforms/{platformId}` — updates an existing platform (append-only INSERT) → `200 OK` (404 if unknown id)
+- [ ] `DELETE /api/v1/platforms/{platformId}` — soft-delete (latest row written with `is_active=FALSE`) → `204 No Content`
+- [ ] `POST /api/v1/platforms/{platformId}/ping` — checks HTTP connectivity to `baseUrl` → `200 OK` with `responseTimeMs` or `502`
 - [ ] eFTI platform without `eDeliveryCert`: REST-only; with `eDeliveryCert`: also callable via eDelivery AS4
 - [ ] eFTI platform with `supportsSubsetting=false`: gate applies XSLT subsetter before returning dataset
 
@@ -933,7 +958,7 @@ See `state-01-identifier-lifecycle.mmd` and `seq-08-identifier-expiration.mmd` f
 ##### Viewing and deletion
 
 **Happy path:**
-- [ ] `GET /api/v1/consignments` — Super Admin sees all; Admin sees own platform's consignments; sorted `updatedAt DESC`; paginated
+- [ ] `GET /api/v1/consignments` — Super Admin sees all; Admin sees own platform's consignments; latest row per `dataset_id` resolved by `SELECT DISTINCT ON (dataset_id) … ORDER BY dataset_id, created_at DESC` and presented in `created_at DESC` order; paginated
 - [ ] `DELETE /api/v1/consignments/:datasetId` — Super Admin only; soft delete (status → `deleted`) → `204 No Content`
 
 **Edge cases:**
@@ -1404,7 +1429,7 @@ CronManager integration:
 - [ ] Failure path: CronManager retries on next tick with exponential backoff; failures recorded in CronManager's own log.
 
 Archive endpoint (gate side):
-- [ ] `POST /api/v1/admin/archive` defined in `openapi.yaml`. Auth: bearerAuth + ops-role only; non-ops admins → `403 Forbidden`.
+- [ ] `POST /api/v1/admin/archive` defined in `openapi.yaml`. Auth: `opsToken` security scheme (static `ARCHIVE_OPS_TOKEN` Bearer compared literally against env var); mismatch → `403 FORBIDDEN`.
 - [ ] Optional body `{ "tables": [...], "batch_size": 1000, "max_runtime_seconds": 600 }` (defaults: all 11 archivable tables — `audit_log` is excluded and preserved indefinitely on the live DB; batch_size 1000; runtime 600s).
 - [ ] Response: `200 OK` with per-table archived counts, durations, and a `next_archivable_count_estimate` for monitoring.
 - [ ] Archive job already running → `409 Conflict` with `code: ARCHIVE_IN_PROGRESS`.

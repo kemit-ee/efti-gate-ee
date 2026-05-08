@@ -1,34 +1,22 @@
 sequenceDiagram
     participant Admin as Gate Admin
     participant Gate as eFTI Gate (eu-ee31)
-    participant Auth as Auth (API Key)
     participant PlatformReg as PlatformRegistry
     participant DB as PostgreSQL
 
-    Admin->>+Gate: POST /api/v1/platforms
-    Note over Admin,Gate: Authorization: Bearer admin-key<br/>Content-Type: application/json<br/>Body: {"id":"plt-abc-001","baseUrl":"https://efti.abc-logistics.ee","supportsSubsetting":true}
+    Note over Admin: Admin has the platform operator's eDelivery AP X.509 certificate<br/>(Member-State-issued per Impl Reg 2024/1942 Art 11) — subject DN<br/>and serial number ready to register.
 
-    Gate->>+Auth: Validate API key
-    Auth-->>-Gate: User{isAdmin=true, role=ADMIN}
+    Admin->>+Gate: POST /api/v1/platforms<br/>Authorization: Bearer <TARA-JWT, role=ADMIN>
+    Note over Admin,Gate: Body (JSON, PlatformWrite):<br/>{<br/>  "id":"plt-abc-001",<br/>  "baseUrl":"https://efti.abc-logistics.ee",<br/>  "supportsSubsetting":true,<br/>  "certSubject":"CN=eDelivery-Platform, O=ABC Logistics OÜ, C=EE",<br/>  "certSerial":"0123456789ABCDEF"<br/>}
 
-    Gate->>Gate: Deserialize Platform object
+    Gate->>Gate: Validate JWT (signature, exp, iss, aud, not in denylist);<br/>require resource_access.efti-gate.roles ∋ ADMIN
 
-    Gate->>+PlatformReg: save(Platform{id="plt-abc-001", ...})
-    PlatformReg->>+DB: INSERT INTO platforms<br/>(id, base_url, supports_subsetting, is_active, created_by, created_at)<br/>VALUES ('plt-abc-001', 'https://efti.abc-logistics.ee', TRUE,<br/>TRUE, $admin_uid, NOW())<br/>(append-only — re-saves are new rows; latest wins)
+    Gate->>+PlatformReg: save(PlatformWrite)
+    PlatformReg->>+DB: INSERT INTO platforms<br/>(id, base_url, supports_subsetting, cert_subject, cert_serial,<br/>is_active, created_by, created_at)<br/>VALUES ('plt-abc-001', 'https://efti.abc-logistics.ee', TRUE,<br/>'CN=eDelivery-Platform, O=ABC Logistics OÜ, C=EE', '0123456789ABCDEF',<br/>TRUE, $admin_uid, NOW())
+    Note over DB: Append-only — new row each save; latest by created_at wins.<br/>Lookup index: (cert_subject, cert_serial) WHERE is_active = TRUE.
     DB-->>-PlatformReg: OK
     PlatformReg-->>-Gate: saved
 
-    Gate-->>-Admin: 200 OK\n{"id":"plt-abc-001","baseUrl":"https://efti.abc-logistics.ee","supportsSubsetting":true,"createdAt":"2026-04-22T10:15:30Z"}
+    Gate-->>-Admin: 201 Created<br/>{ "id":"plt-abc-001", "baseUrl":"https://efti.abc-logistics.ee",<br/>  "supportsSubsetting":true, "certSubject":"CN=…", "certSerial":"0123456789ABCDEF",<br/>  "isActive":true, "createdAt":"2026-04-22T10:15:30Z" }
 
-    Note over Admin: Platform registered. Admin must now create<br/>a platform user for the platform operator.
-
-    Admin->>+Gate: POST /api/v1/users?generateSecret=true
-    Note over Admin,Gate: Body: {"name":"ABC Logistics Operator","email":"operator@abc-logistics.ee","roles":{"PLATFORM":["plt-abc-001"]}}
-
-    Gate->>Gate: Generate random UUID password
-    Gate->>+DB: INSERT INTO users<br/>(id, email, name, roles, secret_hash, is_active, created_by, created_at)<br/>VALUES (uuid_generate_v4(), 'operator@abc-logistics.ee',<br/>'ABC Logistics Operator', '{"PLATFORM":["plt-abc-001"]}',<br/>bcrypt(...), TRUE, $admin_uid, NOW())
-    DB-->>-Gate: user.id="c1d2e3f4-..."
-
-    Gate-->>-Admin: 200 OK\nc1d2e3f4-...:generated-secret-uuid
-
-    Note over Admin: Admin sends credentials to platform operator:<br/>email: operator@abc-logistics.ee<br/>secret: generated-secret-uuid
+    Note over Admin,Gate: Platform now authenticates via mTLS — the cert is the credential.<br/>NO user record is created; NO secret is issued. Platform identity<br/>is the cert subject DN, resolved per request against platforms.<br/><br/>If the platform later renews its cert, admin sends PUT /api/v1/platforms/{platformId}<br/>with the new certSubject / certSerial — append-only INSERT, old cert<br/>stops resolving once the new row is the latest.
