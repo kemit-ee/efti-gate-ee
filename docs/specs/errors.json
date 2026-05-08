@@ -60,13 +60,13 @@
       "examples": [
         {
           "scenario": "Admin attempts to update a non-existent authority",
-          "request": "PUT /admin/authorities/aut-999",
+          "request": "PUT /api/v1/authorities/aut-999",
           "response": {
             "type": "https://api.efti.ee/errors/authority-not-found",
             "title": "Authority Not Found",
             "status": 404,
             "detail": "Authority 'aut-999' does not exist",
-            "instance": "/admin/authorities/aut-999"
+            "instance": "/api/v1/authorities/aut-999"
           }
         }
       ],
@@ -104,13 +104,13 @@
       "examples": [
         {
           "scenario": "Platform registration with an ID that already exists",
-          "request": "POST /admin/platforms with id='demo'",
+          "request": "POST /api/v1/platforms with id='demo'",
           "response": {
             "type": "https://api.efti.ee/errors/conflict",
             "title": "Conflict",
             "status": 409,
             "detail": "Resource already exists with id 'demo'",
-            "instance": "/admin/platforms"
+            "instance": "/api/v1/platforms"
           }
         }
       ],
@@ -232,79 +232,83 @@
       "code": "FORBIDDEN",
       "httpStatus": 403,
       "title": "Forbidden",
-      "description": "The authenticated user does not have the required role to access this endpoint.",
+      "description": "The authenticated caller is identified but not permitted on this surface — JWT roles do not include the role required by the route, the static opsToken does not match, or the authenticated user is calling an endpoint reserved for a different identity type.",
       "type": "https://api.efti.ee/errors/forbidden",
       "examples": [
         {
-          "scenario": "AUTHORITY role user attempts to POST identifiers (PLATFORM-only endpoint)",
-          "request": "POST /identifiers/550e8400-e29b-41d4-a716-446655440000 as authority user",
+          "scenario": "AUTHORITY-only TARA JWT calls an Admin endpoint",
+          "request": "GET /api/v1/gates with TARA JWT carrying resource_access.efti-gate.roles=['AUTHORITY']",
           "response": {
             "type": "https://api.efti.ee/errors/forbidden",
+            "code": "FORBIDDEN",
             "title": "Forbidden",
             "status": 403,
-            "detail": "Access denied: endpoint requires PLATFORM role",
-            "instance": "/identifiers/550e8400-e29b-41d4-a716-446655440000"
+            "detail": "Endpoint requires roles ∋ ADMIN; resolved users.roles = {'AUTHORITY':['auth-mta']}",
+            "instance": "/api/v1/gates"
           }
         },
         {
-          "scenario": "GATE role user attempts to access PLATFORM resource",
-          "request": "POST /identifiers/660f9511-f39c-42e5-b827-557766551111 as gate user",
+          "scenario": "CronManager admin endpoint called with a TARA JWT instead of the static opsToken",
+          "request": "POST /api/v1/admin/archive with Authorization: Bearer <TARA-JWT>",
           "response": {
             "type": "https://api.efti.ee/errors/forbidden",
+            "code": "FORBIDDEN",
             "title": "Forbidden",
             "status": 403,
-            "detail": "Access denied: GATE role cannot write PLATFORM resources",
-            "instance": "/identifiers/660f9511-f39c-42e5-b827-557766551111"
+            "detail": "/api/v1/admin/archive accepts only the static opsToken; TARA JWTs are rejected",
+            "instance": "/api/v1/admin/archive"
           }
         }
       ],
-      "errorMapping": "ForbiddenException (AccessChecker.checkAccess)",
+      "errorMapping": "ForbiddenException (AccessChecker / OpsTokenChecker)",
       "logLevel": "WARN",
       "retryable": false
     },
     "FORBIDDEN_MULTI_PLATFORM": {
       "code": "FORBIDDEN_MULTI_PLATFORM",
       "httpStatus": 403,
-      "title": "Multi-Platform User Cannot Send",
-      "description": "The user is associated with more than one platform. Such users cannot be used as senders of eFTI identifier data — a dedicated single-platform system user is required.",
+      "title": "Certificate matches multiple active platforms",
+      "description": "The presented client certificate's subject DN + serial resolve to more than one active row in the `platforms` registry. This is a configuration error — exactly one active platform row per certificate. The platform cannot authenticate until the operator soft-deletes the obsolete row(s).",
       "type": "https://api.efti.ee/errors/forbidden-multi-platform",
       "examples": [
         {
-          "scenario": "User linked to plt-123 and plt-456 tries to POST identifiers",
-          "request": "POST /identifiers/550e8400-e29b-41d4-a716-446655440000",
+          "scenario": "Cert subject 'CN=eDelivery-Platform, O=ACME' matches both 'plt-old' and 'plt-new' (renamed; old row not soft-deleted)",
+          "request": "POST /v1/identifiers/550e8400-e29b-41d4-a716-446655440000 (mTLS)",
           "response": {
             "type": "https://api.efti.ee/errors/forbidden-multi-platform",
-            "title": "Multi-Platform User Cannot Send",
+            "code": "FORBIDDEN_MULTI_PLATFORM",
+            "title": "Certificate matches multiple active platforms",
             "status": 403,
-            "detail": "User has more than one platform registered. This user cannot be used as a sender of eFTI data. Please create a new system user.",
-            "instance": "/identifiers/550e8400-e29b-41d4-a716-446655440000"
+            "detail": "The presented client certificate subject DN matches more than one active row in the platforms registry. Exactly one active platform per certificate is required. Contact the gate operator.",
+            "instance": "/v1/identifiers/550e8400-e29b-41d4-a716-446655440000"
           }
         }
       ],
-      "errorMapping": "UnauthorizedException from PlatformRoutes.before() lines 33-34",
+      "errorMapping": "ForbiddenException from PlatformAuthChecker.resolvePlatform() — multi-row match",
       "logLevel": "WARN",
       "retryable": false
     },
     "FORBIDDEN_NO_PLATFORM": {
       "code": "FORBIDDEN_NO_PLATFORM",
       "httpStatus": 403,
-      "title": "No Platform Access",
-      "description": "The authenticated user has the PLATFORM role but is not associated with any platform party ID, or the platform association is missing.",
+      "title": "No matching platform",
+      "description": "The presented client certificate's subject DN + serial resolve to zero active rows in the `platforms` registry. Either the platform is not registered, or its row is `is_active=FALSE`.",
       "type": "https://api.efti.ee/errors/forbidden-no-platform",
       "examples": [
         {
-          "scenario": "Platform user with empty roles map",
-          "request": "POST /identifiers/550e8400-e29b-41d4-a716-446655440000",
+          "scenario": "Inbound mTLS request from an unregistered platform",
+          "request": "POST /v1/identifiers/550e8400-e29b-41d4-a716-446655440000 (mTLS, cert subject not in platforms.cert_subject)",
           "response": {
             "type": "https://api.efti.ee/errors/forbidden-no-platform",
-            "title": "No Platform Access",
+            "code": "FORBIDDEN_NO_PLATFORM",
+            "title": "No matching platform",
             "status": 403,
-            "detail": "User has no platform access. Assign a PLATFORM party ID to this user.",
-            "instance": "/identifiers/550e8400-e29b-41d4-a716-446655440000"
+            "detail": "No active platform row matches the presented client certificate. Register the platform with its cert_subject + cert_serial via POST /api/v1/platforms.",
+            "instance": "/v1/identifiers/550e8400-e29b-41d4-a716-446655440000"
           }
         }
       ],
-      "errorMapping": "UnauthorizedException(\"User has no platform access\") from PlatformRoutes.before()",
+      "errorMapping": "ForbiddenException from PlatformAuthChecker.resolvePlatform() — zero-row match",
       "logLevel": "WARN",
       "retryable": false
     },
@@ -334,18 +338,19 @@
       "code": "FORBIDDEN_WRITE_ACCESS",
       "httpStatus": 403,
       "title": "Write Access Denied",
-      "description": "The authenticated user does not have write access to the specified party (platform or authority). The party ID does not belong to the user's roles.",
+      "description": "The admin caller's `users.roles[ADMIN]` scope-IDs do not include the gate that owns the target entity. Regular admins are scoped to specific gate IDs; super admins (`is_admin=TRUE` AND `roles={}`) bypass this check.",
       "type": "https://api.efti.ee/errors/forbidden-write-access",
       "examples": [
         {
-          "scenario": "Platform user tries to write to a platform they do not own",
-          "request": "Attempt to manage platform 'plt-456' while authenticated as 'plt-123'",
+          "scenario": "Admin scoped to gate 'eu-ee31' tries to update a platform owned by gate 'eu-fi01'",
+          "request": "PUT /api/v1/platforms/plt-fi-456 (TARA JWT carrying users.roles={'ADMIN':['eu-ee31']})",
           "response": {
             "type": "https://api.efti.ee/errors/forbidden-write-access",
+            "code": "FORBIDDEN_WRITE_ACCESS",
             "title": "Write Access Denied",
             "status": 403,
-            "detail": "No access to plt-456",
-            "instance": "/admin/platforms/plt-456"
+            "detail": "Admin scope ['eu-ee31'] does not include gate 'eu-fi01' which owns platform 'plt-fi-456'.",
+            "instance": "/api/v1/platforms/plt-fi-456"
           }
         }
       ],
@@ -831,13 +836,13 @@
       "examples": [
         {
           "scenario": "Admin tries to delete a user that does not exist",
-          "request": "DELETE /admin/users/175791a3-da82-ffff-b10c-3c9c0f2eb000",
+          "request": "DELETE /api/v1/users/175791a3-da82-ffff-b10c-3c9c0f2eb000",
           "response": {
             "type": "https://api.efti.ee/errors/user-not-found",
             "title": "User Not Found",
             "status": 404,
             "detail": "User '175791a3-da82-ffff-b10c-3c9c0f2eb000' does not exist",
-            "instance": "/admin/users/175791a3-da82-ffff-b10c-3c9c0f2eb000"
+            "instance": "/api/v1/users/175791a3-da82-ffff-b10c-3c9c0f2eb000"
           }
         }
       ],

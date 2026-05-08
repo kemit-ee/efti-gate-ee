@@ -32,22 +32,23 @@ See `seq-11-authority-registration.mmd` and `state-04-authority-status.mmd` for 
 #### Acceptance Criteria
 
 **Happy path:**
-- [ ] `GET /api/v1/authorities` — Super Admin sees all; Admin sees only authorities in their `roles[AUTHORITY]` Party IDs; paginated
-- [ ] `GET /api/v1/authorities/:authorityId` — returns authority details: name, `subsets[]`, contact
-- [ ] `POST /api/v1/authorities` — adds authority with permitted `subsets[]` → `201 Created`
-- [ ] `DELETE /api/v1/authorities/:authorityId` → `204 No Content`
+- [ ] `GET /api/v1/authorities` — Super Admin sees all; regular Admin sees only authorities operating under gates in their `roles[ADMIN]` scope-IDs; paginated
+- [ ] `GET /api/v1/authorities/{authorityId}` — returns the latest row for the given authority: id, countryCode, name, subsets[], isActive
+- [ ] `POST /api/v1/authorities` — creates authority with permitted `subsets[]`; 409 on existing id → `201 Created`
+- [ ] `PUT /api/v1/authorities/{authorityId}` — updates an existing authority (append-only INSERT); 404 on unknown id → `200 OK`
+- [ ] `DELETE /api/v1/authorities/{authorityId}` — soft-delete (latest row written with `is_active=FALSE`) → `204 No Content`
 
 **Edge cases:**
-- [ ] `DELETE` when authority has active users → `409 Conflict` with `"detail": "Authority has 3 active users — delete or reassign them first"`
-- [ ] `POST` with unknown subset code → `400 Bad Request` with `"detail": "Unknown subset: 'EU99'"`
-- [ ] Authority `subsets[]` updated to remove a subset → existing users lose access immediately (real-time, not on next login)
-- [ ] `GET /api/v1/authorities/:authorityId` for non-existent → `404 Not Found`
+- [ ] `DELETE` is always soft (writes `is_active=FALSE`); existing user rows referencing the authority's id stay queryable. There is no purge — append-only.
+- [ ] `POST` / `PUT` with unknown subset code → `400 Bad Request` with `code: INVALID_SUBSET`, `"detail": "Unknown subset: 'EU99'"`
+- [ ] `PUT` that removes a subset from `authorities.subsets` → existing users whose `users.subsets` is no longer ⊆ `authorities.subsets` are rejected on the next request (`403 FORBIDDEN_SUBSET`); admin must follow up with `PUT /api/v1/users/{userId}` to trim their subsets.
+- [ ] `GET /api/v1/authorities/{authorityId}` for non-existent → `404 Not Found`
 
 **Error handling:**
-- [ ] Write with non-matching Party ID → `403 Forbidden`
+- [ ] Admin writing to an authority whose owning gate is not in the admin's `roles[ADMIN]` scope-IDs → `403 FORBIDDEN_WRITE_ACCESS`
 
 **Technical constraints:**
-- [ ] Subset access change propagated via LISTEN/NOTIFY within 500 ms
+- [ ] Registry changes propagated to all nodes via app-emitted `pg_notify('registry_change', id)` in the same transaction as the INSERT — other nodes LISTEN and reload within 500 ms
 
 **Technical artifacts:**
-- [ ] OpenAPI: `GET /api/v1/authorities`, `POST /api/v1/authorities`, `DELETE /api/v1/authorities/{authorityId}`
+- [ ] OpenAPI: `GET /api/v1/authorities`, `GET /api/v1/authorities/{authorityId}`, `POST /api/v1/authorities`, `PUT /api/v1/authorities/{authorityId}`, `DELETE /api/v1/authorities/{authorityId}`

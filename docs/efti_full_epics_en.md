@@ -110,9 +110,9 @@ See `flow-02-authorization-check.mmd` for the full decision tree.
 
 **Edge cases:**
 - [ ] Admin attempts to assign Super Admin role → `403 Forbidden` with `"detail": "Super Admin role cannot be assigned by regular admin"`
-- [ ] Admin attempts to delete own account → `409 Conflict` with `"detail": "Cannot delete your own account"`
+- [ ] Admin attempts to delete own account → `400 Bad Request` with `code: BAD_REQUEST_GENERAL`, `"detail": "Cannot delete your own account"`
 - [ ] Creating authority user with `subsets` not in Authority's allowed list → `400 Bad Request` with `"detail": "Subset 'EU04' not permitted for authority 'mta@mta.ee'"`
-- [ ] `POST /api/v1/users` with duplicate email → `409 Conflict`
+- [ ] `POST /api/v1/users` with `taraSub` already used by an active row → `409 Conflict`
 
 **Error handling:**
 - [ ] `POST /api/v1/users` with missing required field (e.g. no `roles`) → `400 Bad Request` RFC 7807 with field-level detail
@@ -131,18 +131,21 @@ See `flow-02-authorization-check.mmd` for the full decision tree.
 ##### Access control
 
 **Happy path:**
-- [ ] Endpoints requiring `ADMIN` role accessible only to admin users → `200 OK`
-- [ ] Endpoints requiring `PLATFORM` role accessible only to platform users → `200 OK`
-- [ ] Endpoints requiring `AUTHORITY` role accessible only to authority users → `200 OK`
-- [ ] Write-access validates both Party ID presence **and** role type
+- [ ] `/api/v1/...` endpoints accessible only to JWTs whose resolved `users` row has `roles ∋ ADMIN` → `200 OK`
+- [ ] `/v1/identifiers/{identifier}`, `/v1/dataset/...`, `/v1/follow-up/...` accessible only to JWTs whose resolved `users` row has `roles ∋ AUTHORITY` → `200 OK`
+- [ ] `/v1/identifiers/{datasetId}` (and other `/v1/...` Platform endpoints) accessible only via mTLS where the cert subject DN + serial resolve to exactly one active `platforms` row → `200 OK`
+- [ ] Admin write checks both that the JWT user has `ADMIN` role AND that the target entity id is in `users.roles[ADMIN]` (`checkWriteAccess`)
 
 **Edge cases:**
-- [ ] GATE user attempts PLATFORM write → `403 Forbidden` with `"detail": "Role type GATE cannot access PLATFORM resource"`
-- [ ] Request without Bearer token → `401 Unauthorized` RFC 7807
-- [ ] Expired JWT → `401 Unauthorized` with `"detail": "Token expired"`
-- [ ] Tampered JWT signature → `401 Unauthorized` with `"detail": "Invalid token signature"` — no internal detail exposed
+- [ ] Authority-role JWT calls Admin endpoint → `403 FORBIDDEN`
+- [ ] Request without `Authorization` header on a JWT-protected route → `401 Unauthorized` RFC 7807
+- [ ] Expired JWT (TARA-side `exp` past) → `401 TOKEN_INVALID`
+- [ ] Tampered JWT signature → `401 TOKEN_INVALID` — no internal detail exposed
+- [ ] JWT `sub` does not resolve to any active `users` row → `401 TOKEN_INVALID` with `detail: "no provisioned user"`; admin must POST `/api/v1/users` first
+- [ ] Platform mTLS cert presented but `platforms.cert_subject` lookup yields 0 rows → `403 FORBIDDEN_NO_PLATFORM`
+- [ ] Platform mTLS cert resolves to >1 active `platforms` row (config error) → `403 FORBIDDEN_MULTI_PLATFORM`
 
-**Rationale:** `checkWriteAccess()` current bug — does not check role type, allowing GATE user to write to PLATFORM resource. Fix: add role-type assertion before Party ID check.
+**Rationale:** Identity comes from the cert (Platform), the TARA `sub` claim (Authority/Admin), or the static ops token (CronManager). Authorisation comes from the resolved DB row (`platforms.id` for Platform; `users.roles` / `users.subsets` for Authority/Admin); never from the JWT directly, because the gate's authorisation snapshot can change after the JWT was minted.
 
 ### EPIC 2 — Authentication
 
@@ -384,11 +387,11 @@ sequenceDiagram
     participant DB as PostgreSQL
     Platform->>Gate: POST /v1/identifiers/{datasetId}<br/>Authorization: Bearer <JWT><br/>Content-Type: application/xml
     Gate->>Gate: Validate XSD (consignment-identifier.xsd)<br/>Check X-Request-ID dedup (600 s TTL)
-    alt new datasetId
+    alt new datasetId (no prior row)
         Gate->>DB: INSERT consignments + identifiers<br/>(status=active)
         Gate-->>Platform: 201 Created<br/>Location: /v1/identifiers/{datasetId}
-    else existing datasetId
-        Gate->>DB: previous → inactive; new row → active
+    else existing datasetId (re-upload)
+        Gate->>DB: INSERT new consignments row sharing the same dataset_id<br/>(append-only — previous row is left in place but is no longer the latest)
         Gate-->>Platform: 200 OK
     end
 ```
@@ -423,7 +426,7 @@ See `seq-01-identifier-registration.mmd` for full detail.
 **Technical constraints:**
 - [ ] Identifiers stored in `identifiers` table: one consignment → multiple identifier rows (1:N)
 - [ ] `X-Request-ID` deduplication uses shared database table — checked across all nodes; TTL 600 seconds
-- [ ] MUST use Flyway or Liquibase for all schema migrations — no custom migration scripts
+- [ ] MUST use Liquibase for all schema migrations (per `non-functional.md` §4 — pinned migration tool); no custom scripts
 - [ ] Rationale: procurement requirement "Tarkvara tehnilise analüüsi nõuded"
 
 **Technical artifacts:**
@@ -786,7 +789,7 @@ See `state-05-gate-health.mmd` for full detail.
 ##### CRUD
 
 **Happy path:**
-- [ ] `GET /api/v1/gates` — Super Admin sees all gates; regular Admin sees only gates in their `roles[GATE]` Party IDs; paginated
+- [ ] `GET /api/v1/gates` — Super Admin sees all gates; regular Admin sees only gates in their `roles[ADMIN]` scope-IDs; paginated
 - [ ] `POST /api/v1/gates` — adds new gate with `baseUrl`, `eDeliveryUrl`, certificate info; write access requires matching Party ID → `201 Created`
 - [ ] `DELETE /api/v1/gates/:gateId` — write access verified → `204 No Content`
 - [ ] `GET /api/v1/gates/own` — returns own gate configuration
@@ -819,7 +822,7 @@ See `state-05-gate-health.mmd` for full detail.
 ##### Automated monitoring
 
 **Happy path:**
-- [ ] Automated ping runs every 5 minutes (production only, configurable via `PING_INTERVAL_MINUTES`)
+- [ ] Recurring peer-gate health probe driven by **CronManager** calling `POST /api/v1/admin/ping-gates` (every 5 min by default; YAML in `docs/specs/deploy/cronmanager-ping-gates.yaml`). No `PING_INTERVAL_MINUTES` env var on the gate.
 - [ ] `DISABLED` status gates not pinged by automated job
 - [ ] Status change logged INFO: gate ID, old status, new status, timestamp
 
@@ -981,29 +984,29 @@ See `state-01-identifier-lifecycle.mmd` and `seq-08-identifier-expiration.mmd` f
 
 **Technical constraints:**
 - [ ] DB: `status` enum (`active`, `inactive`, `deleted`); `expires_at` timestamp per record
-- [ ] MUST use Flyway or Liquibase for schema migration — no custom scripts
+- [ ] MUST use Liquibase for schema migration (per `non-functional.md` §4); no custom scripts
 
 ##### Retention rules (Regulation 2024/1942)
 
 **Happy path:**
-- [ ] All data access logs (authority queries, dataset requests) retained ≥ **2 years**
-- [ ] Road transport (`mode_code=3`): identifier deactivated (`active → inactive`) **14 days** after `delivered_at` (cabotage control, art. 11 para. 4)
-- [ ] Other transport modes: deactivated immediately after `delivered_at`
-- [ ] Expiry job purges `deleted` records past retention — database-level filter (not application memory)
-- [ ] System supports export of 5-year monitoring report data for European Commission
+- [ ] All data access logs (authority queries, dataset requests) retained **≥ 7 years** in `audit_log` (preserved indefinitely on the live DB; never archived).
+- [ ] Road transport (`mode='road'`): identifier deactivated (`active → inactive`) **14 days** after `transport_date` (cabotage control, Reg 2024/1942 Art 11(4)). Triggered by CronManager calling `POST /api/v1/admin/expire-identifiers`.
+- [ ] Other transport modes: deactivated immediately after `delivered_at` (operator may choose to mark inactive at platform-DELETE time instead).
+- [ ] **Non-latest consignments rows are archived nightly** by CronManager via `POST /api/v1/admin/archive`; copied to cold storage and DELETEd from the live DB by the `db_archiver` PostgreSQL role. The runtime `app` role never deletes anything.
+- [ ] System supports export of 5-year monitoring report data for the European Commission.
 
 **Edge cases:**
-- [ ] `delivered_at` not set (in transit) → identifier remains `active`; expiry job skips
-- [ ] Expiry job starts on 2 nodes simultaneously → leader election: only 1 node processes
+- [ ] `transport_date` not set or in future → identifier remains `active`; the expiry sweep skips.
+- [ ] Concurrent CronManager calls to `/admin/expire-identifiers` → `pg_try_advisory_lock` returns FALSE on the second; gate replies `409 Conflict`.
 
 **Technical constraints:**
-- [ ] Expiry job: daily, random window 03:45–05:45 (production only); `EXPIRY_JOB_WINDOW_START` / `EXPIRY_JOB_WINDOW_END`
-- [ ] Leader election: database advisory lock (`pg_try_advisory_lock`)
-- [ ] Expiry job logs deleted record count at INFO level
+- [ ] Expiry sweep schedule lives in CronManager YAML (`docs/specs/deploy/cronmanager-expire.yaml`), default `0 45 3 * * ?`. The gate has no `EXPIRY_JOB_WINDOW_*` env var.
+- [ ] Concurrency guard at handler entry: `pg_try_advisory_lock(<expire-lock-key>)`; if held, return `409 Conflict`.
+- [ ] Expiry sweep logs `event.action: identifier.expire` with `efti.expired_count` per run.
 
 **Technical artifacts:**
-- [ ] DB index: `CREATE INDEX idx_consignments_expiry ON consignments (mode_code, delivered_at) WHERE status = 'deleted'`
-- [ ] Unit test: expiry logic — ROAD/non-ROAD mode, `delivered_at` set/not set
+- [ ] DB index: `CREATE INDEX idx_consignments_dataset_latest ON consignments (dataset_id, created_at DESC)` — the canonical latest-row index used by reads, expiry, and archive scans.
+- [ ] Unit test: expiry logic — `mode='road'` vs other modes, `transport_date` set / not set / in future, idempotency on a second run.
 
 ---
 
@@ -1062,7 +1065,7 @@ See `seq-14-gate-to-gate-search.mmd` and `seq-16-mtls-fast-protocol.mmd` for ful
 - [ ] SOAP parsing failure → AS4 fault returned with error code and description
 
 **Technical constraints:**
-- [ ] MUST use Domibus or compatible AS4 implementation — no custom AS4 stack
+- [ ] MUST use a protocol-compatible AS4 access point — either the embedded AS4 implementation (Askend baseline) or Domibus. Operator's choice per `non-functional.md` §4.
 
 **Technical artifacts:**
 - [ ] Diagram: `seq-14-gate-to-gate-search.mmd`
@@ -1356,7 +1359,7 @@ See `arch-01-multi-node-deployment.mmd` and `seq-15-gate-registry-sync.mmd` for 
 - [ ] Migration lock released even if application crashes
 
 **Technical constraints:**
-- [ ] MUST use Flyway OR Liquibase — no custom migration scripts
+- [ ] MUST use Liquibase (per `non-functional.md` §4 — pinned migration tool); no custom scripts
 - [ ] Rationale: procurement requirement "Tarkvara tehnilise analüüsi nõuded"
 
 ##### Database design

@@ -17,8 +17,9 @@ sequenceDiagram
     Auth->>Auth: result.size > 1 → CONFIGURATION ERROR
     Auth-->>-Gate: ForbiddenException(FORBIDDEN_MULTI_PLATFORM)
 
-    Gate-->>-Platform: 403 Forbidden<br/>{ "type": "https://api.efti.ee/errors/forbidden-multi-platform",<br/>  "code": "FORBIDDEN_MULTI_PLATFORM",<br/>  "title": "Certificate matches multiple active platforms",<br/>  "status": 403,<br/>  "detail": "The presented client certificate subject DN matches more than one active row in the platforms registry. This is a configuration error — exactly one platform per certificate. Contact the gate operator." }
-    deactivate Proxy
+    Gate-->>Proxy: 403 Forbidden<br/>{ "type": "https://api.efti.ee/errors/forbidden-multi-platform",<br/>  "code": "FORBIDDEN_MULTI_PLATFORM",<br/>  "title": "Certificate matches multiple active platforms",<br/>  "status": 403,<br/>  "detail": "The presented client certificate subject DN matches more than one active row in the platforms registry. This is a configuration error — exactly one platform per certificate. Contact the gate operator." }
+    deactivate Gate
+    Proxy-->>-Platform: 403 Forbidden (forwarded)
 
     Note over Platform,Gate: Resolution: gate operator soft-deletes the<br/>obsolete row (`is_active=FALSE`) so the cert resolves<br/>to exactly one active platform on the next call.
 

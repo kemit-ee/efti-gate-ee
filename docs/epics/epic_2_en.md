@@ -27,34 +27,37 @@ See `seq-12-user-authentication.mmd` and `seq-16-mtls-fast-protocol.mmd` for ful
 
 #### Acceptance Criteria
 
-##### Admin UI authentication (OIDC)
+##### Admin UI authentication (TARA OIDC → JWT, gate is Resource Server)
+
+The gate is a **stateless OAuth 2.0 Resource Server**. The TARA OIDC code-exchange happens in the admin browser (or in a thin client-side login helper) and yields an ID Token / Access Token; the UI then attaches that JWT as `Authorization: Bearer <token>` on every subsequent request. The gate does not maintain server-side admin sessions.
 
 **Happy path:**
-- [ ] Admin opens UI → redirected to TARA OIDC authorize endpoint with `client_id`, `scope=openid`, `state` (CSRF token), `redirect_uri`
-- [ ] TARA presents ID-card / Mobile-ID / Smart-ID; admin authenticates; TARA redirects to `/auth/callback?code=...&state=...`
-- [ ] eFTI Gate exchanges `code` for `id_token` (POST `/token`); validates signature, `iss`, `aud`, `exp`, `nonce`
-- [ ] Session created in database; `session_id` cookie set (HttpOnly; Secure; SameSite=Strict)
-- [ ] Session validity configurable (`SESSION_EXPIRY_SECONDS`, default 3600)
-- [ ] Session state in database — works behind load balancer without session affinity
-- [ ] TARA callback URL registered in TARA management console
+- [ ] Admin opens UI; the UI's TARA login flow yields an ID Token (RS256 JWT, claims `iss`, `aud`, `exp`, `sub` = Estonian PIC, `jti`).
+- [ ] UI calls gate APIs with `Authorization: Bearer <TARA-JWT>`. Gate validates signature against cached TARA JWKS; checks `sessions` denylist (`SELECT 1 FROM sessions WHERE jti = $1 AND expires_at > NOW()`); resolves `users` row by `tara_sub = jwt.sub`.
+- [ ] No `session_id` cookie. No DB-side admin-session store. The gate-side `sessions` table is a **JWT denylist** (`jti, revoked_at, reason`), not a session table.
+- [ ] Multi-node deployment requires no session affinity (the JWT is the session).
 
 **Edge cases:**
-- [ ] `state` mismatch in callback → `400 Bad Request`; session not created; event logged WARN
-- [ ] `id_token` signature invalid → `401 Unauthorized`; session not created
-- [ ] Session expired → user redirected to login page (not error stack trace)
-- [ ] 5 failed login attempts within 10 minutes → account locked 15 minutes (configurable); event logged
+- [ ] JWT signature invalid → `401 TOKEN_INVALID`.
+- [ ] `iss` not the configured TARA → `401 TOKEN_INVALID`.
+- [ ] `aud` not the gate's TARA `client_id` → `401 TOKEN_INVALID`.
+- [ ] `exp` past → `401 TOKEN_INVALID`.
+- [ ] `jti` in `sessions` denylist (admin or self revocation) → `401 TOKEN_INVALID` with `detail: "token revoked"`.
+- [ ] JWT `sub` does not resolve to any active `users` row → `401 TOKEN_INVALID` with `detail: "no provisioned user"`.
 
 **Error handling:**
-- [ ] Logout → session deleted from database; OIDC `end_session_endpoint` called on TARA
-- [ ] Basic Auth endpoint returns `405 Method Not Allowed` in production profile
+- [ ] Logout: `POST /api/v1/auth/logout` writes `(jti, revoked_at, reason='logout')` to `sessions`; subsequent calls with the same JWT are rejected.
+- [ ] Admin revoke: `POST /api/v1/users/{userId}/revoke-token` writes the same denylist row but with `reason='admin_revoke'`.
+- [ ] Break-glass: `POST /api/v1/auth/local-token` issues a gate-signed JWT (RS256, hardcoded 600 s TTL) verified against the bcrypt local-admin row; default-disabled (`LOCAL_ADMIN_FALLBACK_ENABLED=false`).
 
 **Technical constraints:**
-- [ ] `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` loaded from runtime secrets — never from committed `.env` file
-- [ ] MUST use Spring Security OAuth2 Client — no custom OIDC implementation
+- [ ] `TARA_OIDC_DISCOVERY_URL`, `TARA_CLIENT_ID`, `TARA_CLIENT_SECRET` (UI-side, optional for the gate's RS role), `TARA_JWKS_CACHE_SECONDS`, `ARCHIVE_OPS_TOKEN`, `LOCAL_ADMIN_FALLBACK_ENABLED`, `BREAK_GLASS_JWT_SIGNING_KEY`, `BREAK_GLASS_JWT_TTL_SECONDS` per `non-functional.md` §4.1.
+- [ ] JWT validation library: JJWT or Nimbus JOSE+JWT (operator's choice; both protocol-compatible).
+- [ ] No mandate on Spring Security; the contract is "validate as OAuth 2.0 Resource Server with the named claims".
 
 **Technical artifacts:**
-- [ ] OpenAPI: `GET /auth/login`, `GET /auth/callback`, `POST /auth/logout`
-- [ ] Diagram: `seq-12-user-authentication.mmd`
+- [ ] OpenAPI: `POST /api/v1/auth/logout`, `POST /api/v1/auth/local-token` (default-disabled), `POST /api/v1/users/{userId}/revoke-token`.
+- [ ] Diagram: `seq-12-user-authentication.mmd`, `flow-02-authorization-check.mmd`.
 
 ##### Platform/Authority API authentication
 

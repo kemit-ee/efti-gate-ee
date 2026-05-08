@@ -54,14 +54,14 @@ graph TD
 
 Two kinds of caller identity, modelled in two different ways. The legacy "single Role enum" abstraction has been retired in favour of separate identity sources per surface.
 
-| Surface | Identity source | Where the identity lives | Authorisation claims |
+| Surface | Identity source | Where the identity lives | Authorisation source |
 |---|---|---|---|
-| **Authority API** | TARA OIDC JWT `sub` (Estonian PIC) | A `users` row with matching `tara_sub` | JWT `resource_access.efti-gate.roles` (must include `AUTHORITY`); JWT `subsets` (∈ `EU01..EU07`); JWT `efti.scope` (authority ids). |
-| **Admin API** | TARA OIDC JWT `sub` | A `users` row with matching `tara_sub` | JWT `resource_access.efti-gate.roles` (must include `ADMIN`); JWT `efti.scope` (gate ids). |
+| **Authority API** | TARA OIDC JWT `sub` (Estonian PIC) | A `users` row with matching `tara_sub` | **Resolved `users` row's** `roles` (must include `AUTHORITY`), `subsets` (∈ `EU01..EU07`), `roles.AUTHORITY` scope-IDs. JWT carries identity (`sub`) only; the gate's authorisation snapshot can change after a JWT is minted, so DB-side state wins. |
+| **Admin API** | TARA OIDC JWT `sub` | A `users` row with matching `tara_sub` | **Resolved `users` row's** `roles` (must include `ADMIN`), `roles.ADMIN` scope-IDs (gate IDs). JWT carries identity only. |
 | **Platform API** | mTLS X.509 client cert | A `platforms` row whose `cert_subject` + `cert_serial` match | None — cert subject = platform identity. |
 | **CronManager admin endpoints** | Static `Authorization: Bearer <ARCHIVE_OPS_TOKEN>` | Env var; **no DB row** | None — token comparison is the whole authorisation. |
 | **G2G (gate ↔ gate)** | mTLS at the AS4 access point (Member-State-issued cert) | A `gates` row whose `e_delivery_cert` matches | None — gate identity is the cert subject; trust is established by the cert chain rooted at the EU Trust Service. |
-| **Break-glass local admin** | HTTP Basic + bcrypt | A single `users` row with `secret_hash != NULL` | Same `roles` / `efti.scope` claim shape, populated server-side at token issue. Default-disabled (`LOCAL_ADMIN_FALLBACK_ENABLED=false`). |
+| **Break-glass local admin** | HTTP Basic + bcrypt | A single `users` row with `secret_hash != NULL` | The same resolved-`users`-row source as TARA path; the break-glass JWT issued by `/api/v1/auth/local-token` is a transport vehicle, not the source of truth. Default-disabled (`LOCAL_ADMIN_FALLBACK_ENABLED=false`). |
 
 **`users.roles`** is a JSONB map carrying *only* `AUTHORITY` and `ADMIN` entries (e.g. `{"AUTHORITY":["auth-mta"]}` or `{"ADMIN":["eu-ee31"]}`). There is **no** `PLATFORM` or `GATE` entry — those identities don't have user records.
 

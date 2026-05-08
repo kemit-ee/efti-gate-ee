@@ -351,7 +351,7 @@ All transformation errors surface as RFC 7807 problem JSON with `type: "https://
 | Malformed identifier XML / JAXB failure | 400 | `INVALID_XML` | `invalid-xml` |
 | Request body > 10 MB | 400 (or 413) | `INVALID_XML` (size variant) | `bad-request` |
 | Target gate not ONLINE | 502 | `GATEWAY_UNAVAILABLE` | `bad-gateway` |
-| Multi-platform user POSTs identifier | 403 | `FORBIDDEN_MULTI_PLATFORM` | `forbidden-multi-platform` |
+| mTLS cert subject DN + serial resolves to >1 active `platforms` row (config error) | 403 | `FORBIDDEN_MULTI_PLATFORM` | `forbidden-multi-platform` |
 | Follow-up `req.uil.gateId != Config.gateId` | 400 | `FOLLOW_UP_GATE_MISMATCH` | `follow-up-gate-mismatch` |
 | Unhandled JAXB / NPE during transform | 500 | `TRANSFORMATION_ERROR` | `internal-error` |
 

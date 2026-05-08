@@ -410,7 +410,8 @@ paths:
         - **SSE** (`Accept: text/event-stream`): Streams partial results as gates respond.
           Events: `gate` (gate responded), `consignment` (match found), `complete` (all done).
 
-        The authority's permitted subsets are read from the JWT `subsets` claim and
+        The authority's permitted subsets are read from the resolved
+        `users.subsets` (the gate looks up the row by `tara_sub = jwt.sub`) and
         enforced when the authority subsequently calls `GET /v1/dataset/...`.
       parameters:
         - name: identifier
@@ -552,7 +553,7 @@ paths:
       description: |
         Retrieves the full consignment dataset from the originating platform, filtered
         to the requested eFTI subsets. The authority must only request subsets they
-        are legally permitted to access (enforced via JWT `subsets` claim).
+        are legally permitted to access (enforced via `users.subsets` of the row resolved by `tara_sub = jwt.sub`).
 
         If the dataset resides on a remote gate, the request is forwarded via eDelivery AS4.
         The operation is synchronous from the authority's perspective (gate handles AS4 round-trip).
@@ -847,9 +848,10 @@ paths:
       description: |
         Updates an existing gate record. Append-only: the gate INSERTs a new
         `gates` row sharing the same logical `id`; the latest row by `created_at`
-        is the current state. Operator-driven status transitions
-        (`ONLINE`→`DEGRADED`, manual `DISABLED`) go through here. After successful
-        update, the gate is pinged to verify the new configuration.
+        is the current state. Operator-driven status transitions (manual
+        `DISABLED`) go through here; ping-driven `ONLINE`/`OFFLINE` flips are
+        written by `POST /api/v1/admin/ping-gates` (CronManager). After
+        successful update, the gate is pinged to verify the new configuration.
 
         404 if `gateId` is unknown. To create a new gate, use `POST /api/v1/gates`.
       parameters:
@@ -1881,7 +1883,7 @@ paths:
       description: |
         Probes every peer gate in the local registry over AS4 (`/services/msh`
         health probe) and INSERTs a new `gates` row for each peer with the latest
-        `status` (`ONLINE` / `OFFLINE` / `DEGRADED`) and `last_ping_at = NOW()`.
+        `status` (`ONLINE` / `OFFLINE`; `DISABLED` is operator-set, not ping-set) and `last_ping_at = NOW()`.
         Append-only.
 
         Called by CronManager every 5 minutes (default schedule operator-tunable).
@@ -2978,7 +2980,12 @@ components:
           example: "inspector@mta.ee"
         isAdmin:
           type: boolean
-          description: Super-admin bypass flag (`is_admin=TRUE` AND `roles={}`).
+          description: |
+            Admin bypass flag — set on every gate-admin row (super or scoped). A
+            super admin is distinguished by `is_admin=TRUE` AND `roles={}` (no
+            scope restriction); a regular gate-scoped admin has `is_admin=TRUE`
+            AND `roles={"ADMIN":["<gate-id>"]}` (writes restricted to that gate
+            via `checkWriteAccess`).
           example: false
         roles:
           type: object

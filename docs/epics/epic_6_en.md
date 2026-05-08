@@ -40,42 +40,39 @@ See `state-05-gate-health.mmd` for full detail.
 ##### CRUD
 
 **Happy path:**
-- [ ] `GET /api/v1/gates` — Super Admin sees all gates; regular Admin sees only gates in their `roles[GATE]` Party IDs; paginated
-- [ ] `POST /api/v1/gates` — adds new gate with `baseUrl`, `eDeliveryUrl`, certificate info; write access requires matching Party ID → `201 Created`
-- [ ] `DELETE /api/v1/gates/:gateId` — write access verified → `204 No Content`
+- [ ] `GET /api/v1/gates` — Super Admin sees all gates; regular Admin sees only gates in their `roles[ADMIN]` scope-IDs; paginated
+- [ ] `GET /api/v1/gates/{gateId}` — returns the latest row for a single gate (404 if unknown)
+- [ ] `POST /api/v1/gates` — creates new gate with `id`, `countryCode`, `eDeliveryUrl`, `eDeliveryCert`; 409 on existing id → `201 Created`
+- [ ] `PUT /api/v1/gates/{gateId}` — updates an existing gate (append-only INSERT); 404 on unknown id → `200 OK`
+- [ ] `DELETE /api/v1/gates/{gateId}` — soft-delete (latest row written with `is_active=FALSE`) → `204 No Content`
 - [ ] `GET /api/v1/gates/own` — returns own gate configuration
 
 **Edge cases:**
-- [ ] Admin deletes own gate → `409 Conflict` with `"detail": "Cannot delete your own gate"`
-- [ ] `POST /api/v1/gates` with `baseUrl` already registered → `409 Conflict`
-- [ ] `DELETE` on non-existent gate → `404 Not Found`
+- [ ] Admin deletes own gate → `400 Bad Request` with `code: BAD_REQUEST_GENERAL`, `"detail": "Cannot delete your own gate"`
+- [ ] `POST /api/v1/gates` with `id` already registered → `409 Conflict`
+- [ ] `PUT` / `DELETE` on non-existent gate → `404 Not Found`
 
 **Error handling:**
-- [ ] Write with non-matching Party ID → `403 Forbidden`
+- [ ] Write to a gate not in admin's `roles[ADMIN]` scope-IDs → `403 FORBIDDEN_WRITE_ACCESS`
 
 **Technical artifacts:**
-- [ ] OpenAPI: `GET /api/v1/gates`, `POST /api/v1/gates`, `DELETE /api/v1/gates/{gateId}`, `GET /api/v1/gates/own`
+- [ ] OpenAPI: `GET /api/v1/gates`, `GET /api/v1/gates/{gateId}`, `POST /api/v1/gates`, `PUT /api/v1/gates/{gateId}`, `DELETE /api/v1/gates/{gateId}`, `GET /api/v1/gates/own`
 
 ##### Ping
 
 **Happy path:**
-- [ ] `POST /api/v1/gates/:gateId/ping` → fast protocol ping (`POST {eDeliveryUrl}` with mTLS) → `200 OK` with `responseTimeMs`
-- [ ] eDelivery ping: SOAP ping request → `200 OK` or `502`
-- [ ] Ping result updates gate status in database and in-memory registry on all nodes (via NOTIFY)
+- [ ] `POST /api/v1/gates/{gateId}/ping` (admin-triggered, manual one-off) → fast protocol ping (`POST {eDeliveryUrl}` with mTLS) or eDelivery SOAP ping → `200 OK` with `responseTimeMs`
+- [ ] Recurring peer-gate health probe is driven by **CronManager** calling `POST /api/v1/admin/ping-gates` (every 5 min by default; YAML in `docs/specs/deploy/cronmanager-ping-gates.yaml`); the gate process never schedules its own jobs.
+- [ ] Ping result INSERTs a new `gates` row with the latest `status` (ONLINE / OFFLINE; DISABLED is operator-set) and `last_ping_at = NOW()`. pg_notify on `registry_change` fires after commit.
 
 **Edge cases:**
-- [ ] eFTI Gate does not respond within 10 seconds → status set `OFFLINE`; `502 Bad Gateway` with `"detail": "Gate 'eu-fi01.efti.fi' did not respond within 10 seconds"`
-- [ ] eFTI Gate was `OFFLINE`, ping succeeds → status changed to `ONLINE`; status change logged INFO
+- [ ] Peer gate does not respond within `PING_TIMEOUT_SECONDS` → status flipped to `OFFLINE`; `502 Bad Gateway` with `"detail": "Gate 'eu-fi01' did not respond within N seconds"`
+- [ ] Peer gate was `OFFLINE`, ping succeeds → next INSERT carries `status='ONLINE'`; transition logged INFO
 
 **Technical constraints:**
-- [ ] Ping timeout: 10 seconds (configurable via `PING_TIMEOUT_SECONDS`)
-
-##### Automated monitoring
-
-**Happy path:**
-- [ ] Automated ping runs every 5 minutes (production only, configurable via `PING_INTERVAL_MINUTES`)
-- [ ] `DISABLED` status gates not pinged by automated job
-- [ ] Status change logged INFO: gate ID, old status, new status, timestamp
+- [ ] Ping timeout: client-side AS4 / fast-HTTP timeout (default 10 s; configurable via `PING_TIMEOUT_SECONDS` in `non-functional.md` §4.1).
+- [ ] Ping schedule lives in CronManager YAML (`cronmanager-ping-gates.yaml`), not in the gate. There is no `PING_INTERVAL_MINUTES` env var on the gate.
+- [ ] `DISABLED` and `is_active=FALSE` gates are excluded from the sweep query.
 
 **Edge cases:**
 - [ ] Ping job attempts to start on 2 nodes → database advisory lock ensures only 1 node runs it

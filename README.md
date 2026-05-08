@@ -20,7 +20,7 @@ The implementation contracts. Build the new gate against these.
 | OpenAPI 3.0 | [`docs/specs/openapi.yaml`](docs/specs/openapi.yaml) | Platform, Authority, Admin, Health, Auth APIs (RFC 7807 errors, JWT, pagination, audit, SSE) |
 | DB schema | [`docs/specs/db/schema.sql`](docs/specs/db/schema.sql) | PostgreSQL 14+; every table and column carries `COMMENT ON …` |
 | DB design rules | [`docs/specs/db/README.md`](docs/specs/db/README.md) | Append-only everywhere (no UPDATE, no DELETE); latest-row reads (`DISTINCT ON`); denormalised columns; archival by CronManager |
-| Errors | [`docs/specs/errors.json`](docs/specs/errors.json) | RFC 7807 catalog, 37 codes with realistic payloads |
+| Errors | [`docs/specs/errors.json`](docs/specs/errors.json) | RFC 7807 catalog, 36 codes with realistic payloads |
 | Logging | [`docs/specs/logging-spec.md`](docs/specs/logging-spec.md) | ECS 8.x dotted-field taxonomy, `efti.*` namespace |
 | Permissions | [`docs/specs/permissions-matrix.md`](docs/specs/permissions-matrix.md) | Endpoint × role matrix, RLS rules, subset enforcement |
 | Transformations | [`docs/specs/data-transformations.md`](docs/specs/data-transformations.md) | XML ↔ DB ↔ JSON ↔ AS4 ↔ SSE conversions, denormalised-column mapping |

@@ -8,18 +8,22 @@
 
 **Reference:** [RA §8.1 Security Layers](../architecture/eFTI-Gate-Reference-Architecture.md#81-security-layers) — Authentication architecture for all three flows
 
-**Three authentication channels at a glance:**
+**Authentication channels at a glance:**
 
 ```mermaid
 flowchart TD
     Caller[Caller] --> Type{Channel?}
-    Type -- Admin UI --> F1[Flow 1: TARA/OIDC<br/>session cookie]
-    Type -- Platform/Authority API --> F2[Flow 2: Bearer JWT RS256<br/>signature + exp + role check]
-    Type -- Gate-to-gate --> F3[Flow 3: mTLS<br/>cert OCSP/CRL check]
-    F1 --> Allow[Resource access]
-    F2 --> Allow
+    Type -- Authority / Admin API --> F2[Flow 2: TARA OIDC JWT<br/>RS256, JWKS-validated; users.tara_sub lookup;<br/>sessions denylist check]
+    Type -- Platform API --> F2b[Flow 2b: mTLS<br/>X.509 cert; platforms.cert_subject lookup]
+    Type -- CronManager admin --> Fops[Static Bearer ARCHIVE_OPS_TOKEN<br/>literal env-var compare]
+    Type -- Gate-to-gate --> F3[Flow 3: mTLS at AS4 access point<br/>EU Trust Service cert chain]
+    F2 --> Allow[Resource access]
+    F2b --> Allow
+    Fops --> Allow
     F3 --> Allow
 ```
+
+The gate is a stateless OAuth 2.0 Resource Server. There is no Admin-UI session cookie and no DB-side admin-session store; the JWT is the session.
 
 Detailed sequences for each flow follow below.
 
@@ -29,28 +33,30 @@ Detailed sequences for each flow follow below.
 - [ ] Each flow covers: authentication, authorisation check, error cases
 - [ ] Diagrams published in GitHub documentation
 
-##### Flow 1 — Admin UI login (TARA/OIDC)
+##### Flow 1 — Admin UI login (UI-side OIDC → JWT to gate)
 
 ```mermaid
 sequenceDiagram
     actor Admin
-    participant UI as Admin UI
-    participant Gate as Gate Backend
-    participant TARA as TARA (OIDC)
-    participant DB as Database
+    participant UI as Admin UI (browser)
+    participant TARA as TARA (RIA)
+    participant Gate as Gate Backend (Resource Server)
 
     Admin->>UI: Open admin UI
-    UI->>Gate: GET /auth/login
-    Gate->>TARA: Redirect OIDC authorize (client_id, scope, state)
-    TARA->>Admin: Display authentication page (ID-card / Mobile-ID / Smart-ID)
+    UI->>TARA: OIDC authorize (client_id, scope=openid, state, nonce)
+    TARA->>Admin: Display ID-card / Mobile-ID / Smart-ID
     Admin->>TARA: Authenticate
-    TARA->>Gate: GET /auth/callback?code=...&state=...
-    Gate->>TARA: POST /token (code, client_secret)
-    TARA-->>Gate: id_token (JWT), access_token
-    Gate->>DB: Store session (session_id, user_id, exp)
-    Gate-->>UI: Set-Cookie session_id (HttpOnly, Secure)
-    UI-->>Admin: Redirect to admin home
+    TARA-->>UI: id_token (RS256 JWT, sub=PIC, claims iss/aud/exp/jti)
+
+    Note over UI: UI persists the JWT in browser storage (sessionStorage)<br/>and attaches it as Authorization: Bearer to every gate call.<br/>No cookie. No server-side session.
+
+    UI->>Gate: GET /api/v1/user<br/>Authorization: Bearer <TARA-JWT>
+    Note over Gate: Gate validates JWT against cached TARA JWKS,<br/>checks sessions denylist, resolves users by tara_sub.
+    Gate-->>UI: 200 OK (current user profile)
+    UI-->>Admin: Render admin home
 ```
+
+Logout is `POST /api/v1/auth/logout` carrying the same Bearer; the gate writes the JWT's `jti` to the `sessions` denylist with `reason='logout'`. Subsequent calls with the same JWT return `401 TOKEN_INVALID`.
 
 ##### Flow 2 — Authority / Admin API (TARA OIDC JWT)
 

@@ -95,9 +95,9 @@ eFTI Gate on Euroopa Liidu eFTI (Electronic Freight Transport Information) võrg
 
 **Edge cases:**
 - [ ] Admin üritab määrata Super Admin rolli → `403 Forbidden` teatega `"detail": "Super Admin rolli ei saa tavaadmin määrata"`
-- [ ] Admin üritab kustutada oma kontot → `409 Conflict` teatega `"detail": "Ei saa kustutada oma kontot"`
+- [ ] Admin üritab kustutada oma kontot → `400 Bad Request` koodiga `BAD_REQUEST_GENERAL`, teatega `"detail": "Ei saa kustutada oma kontot"`
 - [ ] Authority kasutaja loomisel `subsets` ei ole Authority lubatud nimekirjas → `400 Bad Request` teatega `"detail": "Subset 'EU04' ei ole lubatud asutusele 'mta@mta.ee'"`
-- [ ] `POST /api/v1/users` korduvalt sama e-postiga → `409 Conflict`
+- [ ] `POST /api/v1/users` `taraSub`-iga, mida juba kasutab aktiivne rida → `409 Conflict`
 
 **Veakäsitlus:**
 - [ ] `POST /api/v1/users` puuduva kohustusliku väljaga (nt `roles` puudub) → `400 Bad Request` RFC 7807 koos väljapõhise kirjeldusega
@@ -116,18 +116,21 @@ eFTI Gate on Euroopa Liidu eFTI (Electronic Freight Transport Information) võrg
 ##### Ligipääsu kontroll
 
 **Happy path:**
-- [ ] `ADMIN` rolli nõudvad endpointid on kättesaadavad ainult admin kasutajatele → `200 OK`
-- [ ] `PLATFORM` rolli nõudvad endpointid ainult platvormi kasutajatele → `200 OK`
-- [ ] `AUTHORITY` rolli nõudvad endpointid ainult asutuse kasutajatele → `200 OK`
-- [ ] Kirjutusõiguse kontroll kontrollib nii Party ID olemasolu **kui ka rolli tüüpi**
+- [ ] `/api/v1/...` endpointid on kättesaadavad ainult JWT-dele, mille resolveeritud `users` real on `roles ∋ ADMIN` → `200 OK`
+- [ ] `/v1/identifiers/{identifier}`, `/v1/dataset/...`, `/v1/follow-up/...` on kättesaadavad ainult JWT-dele, mille resolveeritud `users` real on `roles ∋ AUTHORITY` → `200 OK`
+- [ ] `/v1/identifiers/{datasetId}` (ja teised `/v1/...` Platform endpointid) on kättesaadavad ainult mTLS-iga, kus sertifikaadi subjekt + seerianumber resolveeruvad täpselt ühe aktiivse `platforms` reaga → `200 OK`
+- [ ] Admin kirjutamine kontrollib, et JWT-kasutajal on `ADMIN` roll JA et sihtentiteedi id on `users.roles[ADMIN]` skoobis (`checkWriteAccess`)
 
 **Edge cases:**
-- [ ] GATE kasutaja üritab kirjutada PLATFORM ressursile → `403 Forbidden` teatega `"detail": "Rolli tüüp GATE ei pääse PLATFORM ressursile"`
-- [ ] Päring ilma Bearer tokenita → `401 Unauthorized` RFC 7807
-- [ ] Aegunud JWT → `401 Unauthorized` teatega `"detail": "Token on aegunud"`
-- [ ] Muudetud JWT allkiri → `401 Unauthorized` teatega `"detail": "Vigane tokeni allkiri"` — sisemist infot ei avaldata
+- [ ] AUTHORITY-rolliga JWT kutsub Admin endpointi → `403 FORBIDDEN`
+- [ ] Päring ilma `Authorization` päiseta JWT-kaitstud route'il → `401 Unauthorized` RFC 7807
+- [ ] Aegunud JWT (TARA `exp` minevikus) → `401 TOKEN_INVALID`
+- [ ] Muudetud JWT allkiri → `401 TOKEN_INVALID` — sisemist infot ei avaldata
+- [ ] JWT `sub` ei resolveeru ühegi aktiivse `users` reaga → `401 TOKEN_INVALID` teatega `detail: "kasutaja pole provisioneeritud"`; admin peab esmalt POST-ima `/api/v1/users`
+- [ ] Platvormi mTLS sertifikaat esitatud, kuid `platforms.cert_subject` otsing tagastab 0 rida → `403 FORBIDDEN_NO_PLATFORM`
+- [ ] Platvormi mTLS sertifikaat resolveerub >1 aktiivse `platforms` reaga (konfivga) → `403 FORBIDDEN_MULTI_PLATFORM`
 
-**Põhjendus:** `checkWriteAccess()` praegune viga — ei kontrolli rolli tüüpi, mis lubab GATE kasutajal kirjutada PLATFORM ressursile. Parandus: lisada rolli tüübi kontroll enne Party ID kontrolli.
+**Põhjendus:** Identiteet tuleb sertifikaadist (Platform), TARA `sub` väitest (Authority/Admin) või staatilisest ops-tokenist (CronManager). Õigused tulevad resolveeritud DB-reast (`platforms.id` Platformile; `users.roles` / `users.subsets` Authoritile/Adminile); mitte kunagi otse JWT-st, sest gate'i õiguste-snapshot võib pärast JWT väljastamist muutuda.
 
 ### EPIC 2 — Autentimine
 
@@ -333,7 +336,7 @@ sequenceDiagram
 
 **Happy path:**
 - [ ] `POST /v1/identifiers/:datasetId` võtab vastu XML keha `Content-Type: application/xml`; kehtiv `consignment-identifier.xsd` vastu; kasutajal täpselt 1 PLATFORM roll → `201 Created` koos `Location: /v1/identifiers/:datasetId`
-- [ ] Sama `datasetId` saatmine uuendatud andmetega → upsert; eelmine versioon saab staatuse `inactive`; uus versioon `active` → `200 OK`
+- [ ] Sama `datasetId` saatmine uuendatud andmetega → INSERT uus `consignments` rida sama `dataset_id`-ga (append-only; eelmine rida jääb tabelisse, kuid pole enam viimane). Authority `SELECT DISTINCT ON (dataset_id)` loeb uue rea → `200 OK`
 - [ ] Salvestatavad otsitavad väljad: `vehicle_plate`, `transport_date`, `origin_country`, `destination_country`, `mode_code`, `dangerous_goods_indicator`
 - [ ] Toetatud identifikaatori tüübid: `means` (sõiduk/veovahend), `equipment` (konteiner/haagis), `carried` (koormus)
 - [ ] Transpordirežiimid: `1`=merendus, `2`=raudtee, `3`=maantee, `4`=õhk — ilma režiimi-spetsiifilise marsruutimisloogiketa
@@ -634,7 +637,7 @@ sequenceDiagram
 ##### CRUD
 
 **Happy path:**
-- [ ] `GET /api/v1/gates` — Super Admin näeb kõiki gate'e; tavaline Admin ainult oma gate'e (`roles[GATE]` Party ID-d); pagineeritud
+- [ ] `GET /api/v1/gates` — Super Admin näeb kõiki gate'e; tavaline Admin ainult oma `roles[ADMIN]` skoobi gate'e; pagineeritud
 - [ ] `POST /api/v1/gates` — lisab uue gate'i `baseUrl`, `eDeliveryUrl`, sertifikaadi infoga; kirjutusrõigus nõuab ühtivat Party ID-d → `201 Created`
 - [ ] `DELETE /api/v1/gates/:gateId` — kirjutusrõigus kontrollitud → `204 No Content`
 - [ ] `GET /api/v1/gates/own` — tagastab oma gate'i konfiguratsiooni
@@ -667,7 +670,7 @@ sequenceDiagram
 ##### Automaatne seire
 
 **Happy path:**
-- [ ] Automaatne ping käivitub iga 5 minuti järel (ainult tootmiskeskkonnas; konfigureeritav `PING_INTERVAL_MINUTES` kaudu)
+- [ ] Korduv peer-gate health-probe käivitatakse **CronManageri** poolt: `POST /api/v1/admin/ping-gates` (vaikimisi iga 5 min; YAML asub `docs/specs/deploy/cronmanager-ping-gates.yaml`). Gate-il `PING_INTERVAL_MINUTES` env-muutujat ei ole.
 - [ ] `DISABLED` staatusega gate'e automaatne töö ei pingita
 - [ ] Staatuse muutus logitakse INFO-ga: gate ID, vana staatus, uus staatus, ajatempel
 
@@ -765,7 +768,7 @@ sequenceDiagram
 
 **Happy path:**
 - [ ] Staatuste elutsükkel: `active` (otsitav) → `inactive` (ainult ajaloolised päringud) → `deleted` (tagastab "not found")
-- [ ] Platvorm saadab uuendatud andmed sama `datasetId`-ga → eelmine versioon → `inactive`; uus versioon → `active`
+- [ ] Platvorm saadab uuendatud andmed sama `datasetId`-ga → INSERT uus consignments-rida (append-only; eelmine rida jääb, kuid pole enam viimane). Olek "uuenduse" jaoks pole eraldi staatus — viimane rida võidab.
 - [ ] Platvorm saadab DELETE päringu → staatus → `deleted` (soft delete; füüsiliselt kohe ei kustutata)
 - [ ] `deleted` kirjed kustutatakse füüsiliselt pärast säilitusaja möödumist
 
@@ -774,29 +777,29 @@ sequenceDiagram
 
 **Tehnilised piirangud:**
 - [ ] DB: `status` enum (`active`, `inactive`, `deleted`); `expires_at` ajatempel iga kirje kohta
-- [ ] Skeemi migratsioonideks PEAB kasutama Flyway-d või Liquibase'i — kohandatud skripte ei kasutata
+- [ ] Skeemi migratsioonideks PEAB kasutama Liquibase'i (`non-functional.md` §4 — kinnitatud migratsioonitööriist); kohandatud skripte ei kasutata.
 
 ##### Säilitusreeglid (Regulatsioon 2024/1942)
 
 **Happy path:**
-- [ ] Kõik andmetele ligipääsu logid (authority päringud, dataset päringud) säilitatakse vähemalt **2 aastat**
-- [ ] Maanteetransport (`mode_code=3`): identifikaator deaktiveeritakse (`active → inactive`) **14 päeva** pärast `delivered_at` (kabotaaži kontroll, art. 11 lg 4)
-- [ ] Muud transpordirežiimid: deaktiveeritakse kohe pärast `delivered_at`
-- [ ] Aegumistöö kustutab `deleted` kirjed pärast säilitusaja lõppu — andmebaasi tasemel filter (mitte rakenduse mälus)
-- [ ] Süsteem toetab 5-aastase seiraruandluse andmete eksporti Euroopa Komisjonile
+- [ ] Kõik andmetele ligipääsu logid (authority päringud, dataset päringud) säilitatakse **vähemalt 7 aastat** `audit_log`-is (säilib live-DB-s tähtajatult; ei arhiveerita).
+- [ ] Maanteetransport (`mode='road'`): identifikaator deaktiveeritakse (`active → inactive`) **14 päeva** pärast `transport_date` (kabotaaži kontroll, Reg 2024/1942 Art 11(4)). Käivitatakse CronManageri poolt: `POST /api/v1/admin/expire-identifiers`.
+- [ ] Muud transpordirežiimid: deaktiveeritakse kohe pärast `delivered_at`.
+- [ ] **Mitte-viimased consignments-read arhiveeritakse igal öösel** CronManageri poolt `POST /api/v1/admin/archive` kaudu; `db_archiver` PostgreSQL roll DELETE-b need pärast külmsalvestusse kopeerimist. Töökeskkonna `app` roll ei kustuta kunagi midagi.
+- [ ] Süsteem toetab 5-aastase seiraruandluse andmete eksporti Euroopa Komisjonile.
 
 **Edge cases:**
-- [ ] `delivered_at` ei ole seatud (transport käigus) → identifikaator jääb `active`-ks; aegumistöö jätab vahele
-- [ ] Aegumistöö käivitub 2 node'il korraga → liidri valimine: ainult 1 node töötleb
+- [ ] `transport_date` ei ole seatud või on tulevikus → identifikaator jääb `active`-ks; aegumistöö jätab vahele.
+- [ ] Samaaegsed CronManageri kutsed `/admin/expire-identifiers`-le → `pg_try_advisory_lock` tagastab FALSE teisele; gate vastab `409 Conflict`.
 
 **Tehnilised piirangud:**
-- [ ] Aegumistöö: igapäevane, juhuslik ajavahemik 03:45–05:45 (ainult tootmiskeskkonnas); `EXPIRY_JOB_WINDOW_START` / `EXPIRY_JOB_WINDOW_END`
-- [ ] Liidri valimine: andmebaasi nõuandelukk (`pg_try_advisory_lock`)
-- [ ] Aegumistöö logib kustutatud kirjete arvu INFO tasemel
+- [ ] Aegumistöö ajakava elab CronManageri YAML-is (`docs/specs/deploy/cronmanager-expire.yaml`), vaikimisi `0 45 3 * * ?`. Gate-il `EXPIRY_JOB_WINDOW_*` env-muutujat ei ole.
+- [ ] Konkurentsikaitse handler-sissepääsul: `pg_try_advisory_lock(<expire-lock-key>)`; kui võetud, tagastab `409 Conflict`.
+- [ ] Aegumistöö logib `event.action: identifier.expire` koos `efti.expired_count`-iga ühe käivituse kohta.
 
 **Tehnilised artefaktid:**
-- [ ] DB indeks: `CREATE INDEX idx_consignments_expiry ON consignments (mode_code, delivered_at) WHERE status = 'deleted'`
-- [ ] Ühiktest: aegumisloogika — ROAD/mitte-ROAD režiim, `delivered_at` seatud/seadmata
+- [ ] DB indeks: `CREATE INDEX idx_consignments_dataset_latest ON consignments (dataset_id, created_at DESC)` — kanooniline viimase-rea indeks, mida kasutavad lugemised, aegumis- ja arhiveerimissweepid.
+- [ ] Ühiktest: aegumisloogika — `mode='road'` vs muud režiimid, `transport_date` seatud / seadmata / tulevikus, idempotentsus teisel käivitusel.
 
 ---
 
@@ -836,7 +839,7 @@ sequenceDiagram
 - [ ] SOAP parsimise tõrge → AS4 viga tagastatakse koos veakoodiga ja kirjeldusega
 
 **Tehnilised piirangud:**
-- [ ] PEAB kasutama Domibust või ühilduvat AS4 implementatsiooni — kohandatud AS4 stekki ei kasutata
+- [ ] PEAB kasutama protokolliga ühilduvat AS4 access pointi — kas sisseehitatud AS4-rakendust (Askendi alusversioon) või Domibust. Operaatori valik (`non-functional.md` §4).
 
 **Tehnilised artefaktid:**
 - [ ] Diagramm: `seq-14-gate-to-gate-search.mmd`

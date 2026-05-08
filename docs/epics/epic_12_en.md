@@ -58,40 +58,42 @@ See `arch-01-multi-node-deployment.mmd` and `seq-15-gate-registry-sync.mmd` for 
 ##### Admin auth state
 
 **Happy path:**
-- [ ] Admin session stored in database — not node-local memory; works correctly behind load balancer
+- [ ] Admin auth is **stateless** — every request carries a TARA-issued JWT; the gate validates it as an OAuth 2.0 Resource Server. No DB-stored admin session, no `session_id` cookie, no sticky-session requirement.
+- [ ] Revocation is multi-node-consistent because `sessions` (the JWT denylist: `jti, revoked_at, reason`) is a shared DB table. Every node sees the same denylist on the next request without coordination.
 
 **Edge cases:**
-- [ ] Session expires → `401 Unauthorized` on next request; admin redirected to login page
+- [ ] JWT `exp` past → `401 TOKEN_INVALID` on next request; the UI re-runs the TARA OIDC login flow.
+- [ ] JWT `jti` added to denylist via `POST /api/v1/auth/logout` or `POST /api/v1/users/{userId}/revoke-token` → all nodes reject the same JWT on the next request.
 
-##### Leader election
+##### CronManager-driven scheduled jobs
 
 **Happy path:**
-- [ ] Ping job runs on exactly 1 node (database advisory lock)
-- [ ] Expiry job runs on exactly 1 node
+- [ ] Archive (`/api/v1/admin/archive`), expire (`/api/v1/admin/expire-identifiers`), and ping-gates (`/api/v1/admin/ping-gates`) are all driven by external CronManager (Epic 26). The gate process never schedules its own jobs.
+- [ ] Multi-node concurrency guard: each handler takes a distinct `pg_try_advisory_lock(<job-key>)` at entry. If the lock is held, return `409 Conflict`. Lock survives node crashes (per-connection in PostgreSQL).
 
 **Edge cases:**
-- [ ] Leader node fails mid-job → lock released; another node takes over within next scheduling interval
+- [ ] Two CronManager instances racing the same admin endpoint → second call gets 409 immediately; CronManager's retry policy backs off.
 
 **Technical constraints:**
-- [ ] Leader election: `pg_try_advisory_lock` database advisory lock
+- [ ] Concurrency: `pg_try_advisory_lock` with one distinct numeric key per job (archive / expire / ping-gates).
 
 ##### Database migrations
 
 **Happy path:**
-- [ ] Migrations use Flyway locking — no conflicts when multiple nodes start simultaneously
-- [ ] Migration lock released even if application crashes
+- [ ] `schema.sql` is the v0 baseline applied once against an empty database; subsequent changes go through Liquibase changesets at `gate/db/changelog/`.
+- [ ] Migration lock released even if the application crashes (Liquibase's built-in lock semantics).
 
 **Technical constraints:**
-- [ ] MUST use Flyway OR Liquibase — no custom migration scripts
-- [ ] Rationale: procurement requirement "Tarkvara tehnilise analüüsi nõuded"
+- [ ] MUST use **Liquibase** (per `non-functional.md` §4 — pinned migration tool).
 
 ##### Database design
 
 **Happy path:**
-- [ ] All tables and fields have English comments — schema understandable to all developers
-- [ ] All foreign key fields are indexed
-- [ ] `audit_log` table (action-level audit trail): row_id, user_id, action, resource, resource_id, recorded_at
+- [ ] All tables and fields have English `COMMENT ON …` (schema.sql).
+- [ ] Append-only: every operational table is INSERT-only at the GRANT layer. No `_history` companion tables; the operational table itself is its own change log.
+- [ ] Every logical foreign-key column (`created_by`, `dataset_id`, `gate_id`, `platform_id`, `user_id`) carries a btree index on `(logical_id, created_at DESC)` for the canonical `SELECT DISTINCT ON` lookup pattern. There are no DB-level FK CONSTRAINTs between operational tables (the schema is FK-light by design — see `db/README.md` §Foreign keys).
+- [ ] `audit_log` table (action-level audit trail): row_id, user_id, action, resource, resource_id, ip_address, details JSONB, recorded_at; preserved indefinitely on the live DB (≥ 7 years; never archived).
 
 **Technical artifacts:**
-- [ ] DB schema ERD in documentation
-- [ ] Technical constraints: PostgreSQL 14+, `pg_trgm` extension for fuzzy plate search
+- [ ] DB schema canonical: `docs/specs/db/schema.sql` with full `COMMENT ON` coverage.
+- [ ] Technical constraints: PostgreSQL 14+, extensions `uuid-ossp`, `citext`, `pg_trgm`, `btree_gin`.

@@ -14,14 +14,15 @@
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Active: POST /api/v1/platforms<br/>(name, baseUrl, supportsSubsetting, eDeliveryCert?)
-    Active --> Active: POST /platforms/{id}/ping<br/>(updates responseTimeMs)
-    Active --> ConflictDelete: DELETE with active identifiers<br/>409 Conflict
-    ConflictDelete --> Active: retry after force=true<br/>or remove identifiers
-    Active --> [*]: DELETE /api/v1/platforms/{id}<br/>204 No Content
+    [*] --> Active: POST /api/v1/platforms<br/>(id, baseUrl, supportsSubsetting,<br/>certSubject, certSerial, eDeliveryCert?)
+    Active --> Active: PUT /api/v1/platforms/{id}<br/>(append-only INSERT; cert renewal etc.)
+    Active --> Active: POST /api/v1/platforms/{id}/ping<br/>(updates responseTimeMs)
+    Active --> SoftDeleted: DELETE /api/v1/platforms/{id}<br/>(latest row is_active=FALSE)
+    SoftDeleted --> Active: PUT with new row is_active=TRUE
     note right of Active
-        Registry change → LISTEN/NOTIFY
-        propagated to all nodes ≤ 500 ms
+        Registry change → app emits pg_notify('registry_change', id)
+        in same transaction; other nodes LISTEN and reload
+        from gates/platforms within ≤ 500 ms.
     end note
 ```
 
@@ -39,15 +40,15 @@ See `seq-10-platform-registration.mmd` and `state-03-platform-status.mmd` for fu
 - [ ] eFTI platform with `supportsSubsetting=false`: gate applies XSLT subsetter before returning dataset
 
 **Edge cases:**
-- [ ] `POST /api/v1/platforms` with `baseUrl` already registered → `409 Conflict`
-- [ ] `DELETE` while platform has active identifiers → `409 Conflict` with `"detail": "Platform has 42 active identifiers — delete them first or use force=true"`
-- [ ] Ping — platform unreachable after 10 seconds → `502 Bad Gateway` with `"detail": "Platform 'mta-platform-1' did not respond within 10 seconds"`
+- [ ] `POST /api/v1/platforms` with `id` already registered → `409 Conflict`
+- [ ] `DELETE` is **always** soft (writes `is_active=FALSE`); existing identifiers from the platform stay queryable. There is no force-delete and no purge — append-only.
+- [ ] Manual ping — platform unreachable after 10 seconds → `502 Bad Gateway` with `"detail": "Platform 'mta-platform-1' did not respond within 10 seconds"`
 
 **Error handling:**
-- [ ] Write with non-matching Party ID → `403 Forbidden`
+- [ ] Admin writing to a platform whose owning gate is not in the admin's `roles[ADMIN]` scope-IDs → `403 FORBIDDEN_WRITE_ACCESS`
 
 **Technical constraints:**
-- [ ] Registry changes propagated to all nodes via LISTEN/NOTIFY within 500 ms
+- [ ] Registry changes propagated to all nodes via app-emitted `pg_notify('registry_change', id)` in the same transaction as the INSERT — other nodes LISTEN and reload within 500 ms
 
 **Technical artifacts:**
-- [ ] OpenAPI: `GET /api/v1/platforms`, `POST /api/v1/platforms`, `DELETE /api/v1/platforms/{platformId}`, `POST /api/v1/platforms/{platformId}/ping`
+- [ ] OpenAPI: `GET /api/v1/platforms`, `GET /api/v1/platforms/{platformId}`, `POST /api/v1/platforms`, `PUT /api/v1/platforms/{platformId}`, `DELETE /api/v1/platforms/{platformId}`, `POST /api/v1/platforms/{platformId}/ping`

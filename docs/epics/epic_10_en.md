@@ -54,7 +54,7 @@ See `seq-14-gate-to-gate-search.mmd` and `seq-16-mtls-fast-protocol.mmd` for ful
 - [ ] SOAP parsing failure → AS4 fault returned with error code and description
 
 **Technical constraints:**
-- [ ] MUST use Domibus or compatible AS4 implementation — no custom AS4 stack
+- [ ] MUST use a protocol-compatible AS4 access point — either the embedded AS4 implementation (Askend baseline) or [Domibus](https://ec.europa.eu/digital-building-blocks/sites/display/DIGITAL/Domibus). Operator's choice per `non-functional.md` §4. No bespoke / non-conformant AS4 stack.
 
 **Technical artifacts:**
 - [ ] Diagram: `seq-14-gate-to-gate-search.mmd`
