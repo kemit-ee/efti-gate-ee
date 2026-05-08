@@ -10,7 +10,7 @@ sequenceDiagram
 
     Gate->>Gate: Authenticate & authorize (role=AUTHORITY)
 
-    Gate->>+DB: SELECT dataset_id, platform_id FROM consignments<br/>WHERE vehicle_plate = '999ZZZ' AND status = 'active'
+    Gate->>+DB: Local identifier search:<br/>resolve latest consignments rows matching vehicle_plate='999ZZZ',<br/>keep only those whose latest status = 'active'.
     DB-->>-Gate: 0 results
 
     Note over Gate: local = 0 → broadcast to all online gates

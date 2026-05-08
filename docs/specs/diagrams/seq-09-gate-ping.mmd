@@ -7,14 +7,14 @@ sequenceDiagram
     participant GateDE as Remote Gate (eu-de01)
     participant DB as PostgreSQL
 
-    Note over CM: Quartz cron every 5 minutes (operator-tunable).<br/>YAML in docs/specs/deploy/cronmanager-ping-gates.yaml.<br/>HTTP POST job — target = the gate's admin ping-gates endpoint.
+    Note over CM: Cron every 5 minutes (operator-tunable).<br/>YAML in docs/specs/deploy/cronmanager-ping-gates.yaml.<br/>HTTP POST job — target = the gate's admin ping-gates endpoint.
 
     CM->>+Gate: POST /api/v1/admin/ping-gates<br/>Authorization: Bearer ${BEARER_OPS_TOKEN}
     Gate->>Gate: Auth: literal compare with ARCHIVE_OPS_TOKEN env var
-    Gate->>Gate: pg_try_advisory_lock(<ping-gates-lock-key>) — returns TRUE
+    Gate->>Gate: Acquire concurrency guard (advisory lock); 409 if already running
 
     Gate->>+GateReg: enabledGates()
-    GateReg->>+DB: SELECT DISTINCT ON (id) * FROM gates<br/>ORDER BY id, created_at DESC<br/>WHERE status != 'DISABLED' AND is_active = TRUE
+    GateReg->>+DB: Resolve the latest row per gate id; keep only those with<br/>status ≠ 'DISABLED' and is_active=TRUE.
     DB-->>-GateReg: [eu-fi01{ONLINE}, eu-de01{ONLINE}, eu-lt01{OFFLINE}]
     GateReg-->>-Gate: [eu-fi01, eu-de01, eu-lt01]
 
@@ -28,8 +28,8 @@ sequenceDiagram
             GateFI-->>GateClient: AS4 SOAP pong
         end
         GateClient->>+GateReg: save(gate.copy(status=ONLINE, last_ping_at=NOW()))
-        GateReg->>+DB: INSERT INTO gates<br/>(id, country_code, e_delivery_url, e_delivery_cert, tls_cert,<br/>status, last_ping_at, is_active, created_by, created_at)<br/>VALUES ('eu-fi01', 'FI', …, 'ONLINE', NOW(), TRUE, NULL, NOW())
-        DB-->>-GateReg: OK (new row inserted; latest row for eu-fi01 wins)
+        GateReg->>+DB: Append a new gates row for eu-fi01 with status='ONLINE',<br/>last_ping_at=NOW(), is_active=TRUE.
+        DB-->>-GateReg: written (new row; latest row for eu-fi01 wins on next read)
         GateReg-->>-GateClient: saved
         GateClient-->>-Gate: OK (eu-fi01 ONLINE)
 
@@ -37,13 +37,13 @@ sequenceDiagram
         GateClient->>+GateDE: POST /services/fast (X-API-Key: eu-ee31)
         GateDE-->>-GateClient: 503 Service Unavailable
         GateClient->>+GateReg: save(gate.copy(status=OFFLINE))
-        GateReg->>+DB: INSERT INTO gates<br/>(id, country_code, …, status, last_ping_at, is_active, created_by, created_at)<br/>VALUES ('eu-de01', 'DE', …, 'OFFLINE', NULL, TRUE, NULL, NOW())
-        DB-->>-GateReg: OK
+        GateReg->>+DB: Append a new gates row for eu-de01 with status='OFFLINE',<br/>last_ping_at unchanged.
+        DB-->>-GateReg: written
         GateReg-->>-GateClient: saved
         GateClient-->>-Gate: ERROR (eu-de01 OFFLINE)
     end
 
-    Gate->>Gate: pg_advisory_unlock(<ping-gates-lock-key>)
+    Gate->>Gate: Release concurrency guard
     Gate-->>-CM: 200 OK { gates_pinged: 3, online_count: 1, offline_count: 2, duration_ms: 18430 }
 
     Note over CM: Latest gates row per id determines current state.<br/>Next ping in 5 minutes (CronManager-driven).<br/>Old (non-latest) rows archived nightly by a sibling CronManager job (Epic 26).

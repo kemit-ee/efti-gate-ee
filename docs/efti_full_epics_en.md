@@ -155,53 +155,58 @@ See `flow-02-authorization-check.mmd` for the full decision tree.
 
 **Reference:** [Permissions Matrix](specs/permissions-matrix.md) — Authentication flow and authorization checks
 
-**Three authentication channels at a glance:**
+**Authentication channels at a glance:**
 
 ```mermaid
 flowchart TD
     Caller[Caller] --> Channel{Channel type?}
-    Channel -- Admin UI --> TARA[TARA OIDC<br/>ID-card / Mobile-ID / Smart-ID]
-    TARA --> Session[Session cookie<br/>HttpOnly Secure SameSite=Strict]
-    Channel -- Platform/Authority API --> JWT[Bearer JWT RS256<br/>iss, exp, role check]
-    JWT --> Resource[Resource access]
-    Channel -- Gate-to-gate --> MTLS[mTLS client cert<br/>OCSP/CRL check]
-    MTLS --> Fast[POST /services/fast]
-    Session --> Resource
-    Fast --> Resource
+    Channel -- Authority / Admin API --> TARA[TARA OIDC ID Token<br/>RS256 JWT, validated as<br/>OAuth 2.0 Resource Server]
+    Channel -- Platform API --> MTLSp[mTLS X.509 client cert<br/>resolved against active platforms<br/>by cert subject + serial]
+    Channel -- CronManager admin endpoints --> Ops[Static Bearer ARCHIVE_OPS_TOKEN<br/>literal env-var compare]
+    Channel -- Gate-to-gate (G2G) --> MTLSg[mTLS at AS4 access point<br/>EU Trust Service cert chain]
+    Channel -- Break-glass (default-disabled) --> BG[HTTP Basic + bcrypt;<br/>gate issues a short-lived JWT<br/>that follows the TARA path]
+    TARA --> Resource[Resource access]
+    MTLSp --> Resource
+    Ops --> Resource
+    MTLSg --> Resource
+    BG --> Resource
 ```
 
 See `seq-12-user-authentication.mmd` and `seq-16-mtls-fast-protocol.mmd` for full detail.
 
 #### Acceptance Criteria
 
-##### Admin UI authentication (OIDC)
+##### Admin UI authentication (TARA OIDC → JWT, gate is Resource Server)
+
+The gate is a **stateless OAuth 2.0 Resource Server**. The TARA OIDC code-exchange happens in the admin browser (or in a thin client-side login helper) and yields an ID Token / Access Token; the UI then attaches that JWT as `Authorization: Bearer <token>` on every subsequent request. The gate does not maintain server-side admin sessions.
 
 **Happy path:**
-- [ ] Admin opens UI → redirected to TARA OIDC authorize endpoint with `client_id`, `scope=openid`, `state` (CSRF token), `redirect_uri`
-- [ ] TARA presents ID-card / Mobile-ID / Smart-ID; admin authenticates; TARA redirects to `/auth/callback?code=...&state=...`
-- [ ] eFTI Gate exchanges `code` for `id_token` (POST `/token`); validates signature, `iss`, `aud`, `exp`, `nonce`
-- [ ] Session created in database; `session_id` cookie set (HttpOnly; Secure; SameSite=Strict)
-- [ ] Session validity configurable (`SESSION_EXPIRY_SECONDS`, default 3600)
-- [ ] Session state in database — works behind load balancer without session affinity
-- [ ] TARA callback URL registered in TARA management console
+- [ ] Admin opens UI; the UI's TARA login flow yields an ID Token (RS256 JWT, claims `iss`, `aud`, `exp`, `iat`, `sub` = Estonian PIC, `jti`).
+- [ ] UI calls gate APIs with `Authorization: Bearer <TARA-JWT>`. Gate validates signature against cached TARA JWKS; checks `sessions` denylist for the `jti`; resolves `users` row by `tara_sub = jwt.sub`; rejects if `jwt.iat < users.token_revoked_at`.
+- [ ] No `session_id` cookie. No DB-side admin-session store. The gate-side `sessions` table is a **JWT denylist** (`jti, revoked_at, reason`); `users.token_revoked_at` is the per-user broadcast revocation marker.
+- [ ] Multi-node deployment requires no session affinity (the JWT is the session).
 
 **Edge cases:**
-- [ ] `state` mismatch in callback → `400 Bad Request`; session not created; event logged WARN
-- [ ] `id_token` signature invalid → `401 Unauthorized`; session not created
-- [ ] Session expired → user redirected to login page (not error stack trace)
-- [ ] 5 failed login attempts within 10 minutes → account locked 15 minutes (configurable); event logged
+- [ ] JWT signature invalid → `401 TOKEN_INVALID`.
+- [ ] `iss` not the configured TARA → `401 TOKEN_INVALID`.
+- [ ] `aud` not the gate's TARA `client_id` → `401 TOKEN_INVALID`.
+- [ ] `exp` past → `401 TOKEN_INVALID`.
+- [ ] `jti` in `sessions` denylist (admin or self revocation) → `401 TOKEN_INVALID` with `detail: "token revoked"`.
+- [ ] `jwt.iat < users.token_revoked_at` (broadcast revocation) → `401 TOKEN_INVALID` with `detail: "token revoked"`.
+- [ ] JWT `sub` does not resolve to any active `users` row → `401 TOKEN_INVALID` with `detail: "no provisioned user"`.
 
 **Error handling:**
-- [ ] Logout → session deleted from database; OIDC `end_session_endpoint` called on TARA
-- [ ] Basic Auth endpoint returns `405 Method Not Allowed` in production profile
+- [ ] Logout: `POST /api/v1/auth/logout` writes `(jti, revoked_at, reason='logout')` to `sessions`; subsequent calls with the same JWT are rejected.
+- [ ] Admin per-user revoke: `POST /api/v1/users/{userId}/revoke-token` appends a `users` row with `token_revoked_at = NOW()`; every JWT with `iat` predating that timestamp is rejected on next use.
+- [ ] Break-glass: `POST /api/v1/auth/local-token` issues a gate-signed JWT (RS256, hardcoded 600 s TTL) verified against the bcrypt local-admin row; default-disabled (`LOCAL_ADMIN_FALLBACK_ENABLED=false`).
 
 **Technical constraints:**
-- [ ] `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` loaded from runtime secrets — never from committed `.env` file
-- [ ] MUST use Spring Security OAuth2 Client — no custom OIDC implementation
+- [ ] `TARA_OIDC_DISCOVERY_URL`, `TARA_CLIENT_ID`, `TARA_CLIENT_SECRET` (UI-side, optional for the gate's RS role), `TARA_JWKS_CACHE_SECONDS`, `ARCHIVE_OPS_TOKEN`, `LOCAL_ADMIN_FALLBACK_ENABLED`, `BREAK_GLASS_JWT_SIGNING_KEY`, `BREAK_GLASS_JWT_TTL_SECONDS` per `non-functional.md` §4.1.
+- [ ] No mandate on a specific OAuth library; the contract is "validate as OAuth 2.0 Resource Server with the named claims".
 
 **Technical artifacts:**
-- [ ] OpenAPI: `GET /auth/login`, `GET /auth/callback`, `POST /auth/logout`
-- [ ] Diagram: `seq-12-user-authentication.mmd`
+- [ ] OpenAPI: `POST /api/v1/auth/logout`, `POST /api/v1/auth/local-token` (default-disabled), `POST /api/v1/users/{userId}/revoke-token`.
+- [ ] Diagram: `seq-12-user-authentication.mmd`, `flow-02-authorization-check.mmd`.
 
 ##### Platform/Authority API authentication
 
@@ -250,49 +255,55 @@ See `seq-12-user-authentication.mmd` and `seq-16-mtls-fast-protocol.mmd` for ful
 **I WANT** documented authentication and access flows with sequence diagrams  
 **SO THAT** integration partners and developers understand exactly how authentication works in each channel type
 
-**Three authentication channels at a glance:**
+**Authentication channels at a glance:**
 
 ```mermaid
 flowchart TD
     Caller[Caller] --> Type{Channel?}
-    Type -- Admin UI --> F1[Flow 1: TARA/OIDC<br/>session cookie]
-    Type -- Platform/Authority API --> F2[Flow 2: Bearer JWT RS256<br/>signature + exp + role check]
-    Type -- Gate-to-gate --> F3[Flow 3: mTLS<br/>cert OCSP/CRL check]
-    F1 --> Allow[Resource access]
-    F2 --> Allow
+    Type -- Authority / Admin API --> F2[Flow 2: TARA OIDC JWT<br/>RS256, JWKS-validated; users.tara_sub lookup;<br/>sessions denylist + token_revoked_at check]
+    Type -- Platform API --> F2b[Flow 2b: mTLS<br/>X.509 cert; platforms.cert_subject lookup]
+    Type -- CronManager admin --> Fops[Static Bearer ARCHIVE_OPS_TOKEN<br/>literal env-var compare]
+    Type -- Gate-to-gate --> F3[Flow 3: mTLS at AS4 access point<br/>EU Trust Service cert chain]
+    F2 --> Allow[Resource access]
+    F2b --> Allow
+    Fops --> Allow
     F3 --> Allow
 ```
+
+The gate is a stateless OAuth 2.0 Resource Server. There is no Admin-UI session cookie and no DB-side admin-session store; the JWT is the session.
 
 Detailed sequences for each flow follow below.
 
 #### Acceptance Criteria
 
-- [ ] All three authentication patterns documented as sequence diagrams (see below)
+- [ ] All authentication patterns documented as sequence diagrams (see below)
 - [ ] Each flow covers: authentication, authorisation check, error cases
 - [ ] Diagrams published in GitHub documentation
 
-##### Flow 1 — Admin UI login (TARA/OIDC)
+##### Flow 1 — Admin UI login (UI-side OIDC → JWT to gate)
 
 ```mermaid
 sequenceDiagram
     actor Admin
-    participant UI as Admin UI
-    participant Gate as Gate Backend
-    participant TARA as TARA (OIDC)
-    participant DB as Database
+    participant UI as Admin UI (browser)
+    participant TARA as TARA (RIA)
+    participant Gate as Gate Backend (Resource Server)
 
     Admin->>UI: Open admin UI
-    UI->>Gate: GET /auth/login
-    Gate->>TARA: Redirect OIDC authorize (client_id, scope, state)
-    TARA->>Admin: Display authentication page (ID-card / Mobile-ID / Smart-ID)
+    UI->>TARA: OIDC authorize (client_id, scope=openid, state, nonce)
+    TARA->>Admin: Display ID-card / Mobile-ID / Smart-ID
     Admin->>TARA: Authenticate
-    TARA->>Gate: GET /auth/callback?code=...&state=...
-    Gate->>TARA: POST /token (code, client_secret)
-    TARA-->>Gate: id_token (JWT), access_token
-    Gate->>DB: Store session (session_id, user_id, exp)
-    Gate-->>UI: Set-Cookie session_id (HttpOnly, Secure)
-    UI-->>Admin: Redirect to admin home
+    TARA-->>UI: id_token (RS256 JWT, sub=PIC, claims iss/aud/exp/iat/jti)
+
+    Note over UI: UI persists the JWT in browser storage and attaches it<br/>as Authorization: Bearer to every gate call. No cookie. No server-side session.
+
+    UI->>Gate: GET /api/v1/user<br/>Authorization: Bearer <TARA-JWT>
+    Note over Gate: Gate validates JWT against cached TARA JWKS,<br/>checks sessions denylist for jti, resolves users by tara_sub,<br/>verifies jwt.iat ≥ users.token_revoked_at.
+    Gate-->>UI: 200 OK (current user profile)
+    UI-->>Admin: Render admin home
 ```
+
+Logout is `POST /api/v1/auth/logout` carrying the same Bearer; the gate writes the JWT's `jti` to the `sessions` denylist with `reason='logout'`. Subsequent calls with the same JWT return `401 TOKEN_INVALID`.
 
 ##### Flow 2 — Authority / Admin API (TARA OIDC JWT)
 
@@ -331,7 +342,7 @@ sequenceDiagram
     Platform->>Proxy: POST /v1/identifiers/:datasetId<br/>(client cert: Member-State-issued for the platform's eDelivery AP)
     Proxy->>Proxy: Validate cert chain
     Proxy->>Gate: forwarded request + X-Client-Cert-Subject + X-Client-Cert-Serial
-    Gate->>DB: SELECT DISTINCT ON (id) FROM platforms<br/>WHERE cert_subject = $1 AND cert_serial = $2 AND is_active = TRUE
+    Gate->>DB: Resolve active platforms row by (cert_subject, cert_serial)
     alt cert resolves to exactly 1 active platform
         Gate-->>Platform: 200 OK
     else 0 rows
@@ -830,7 +841,7 @@ See `state-05-gate-health.mmd` for full detail.
 - [ ] Ping job attempts to start on 2 nodes → database advisory lock ensures only 1 node runs it
 
 **Technical constraints:**
-- [ ] Leader election: database advisory lock (`pg_try_advisory_lock`)
+- [ ] Leader election: the CronManager admin endpoint enforces a multi-node-safe mutex (one in-flight call wins; others get 409). Implementation may use database advisory locks or any equivalent mechanism.
 
 **Technical artifacts:**
 - [ ] OpenAPI: `POST /api/v1/gates/{gateId}/ping`
@@ -961,7 +972,7 @@ See `state-01-identifier-lifecycle.mmd` and `seq-08-identifier-expiration.mmd` f
 ##### Viewing and deletion
 
 **Happy path:**
-- [ ] `GET /api/v1/consignments` — Super Admin sees all; Admin sees own platform's consignments; latest row per `dataset_id` resolved by `SELECT DISTINCT ON (dataset_id) … ORDER BY dataset_id, created_at DESC` and presented in `created_at DESC` order; paginated
+- [ ] `GET /api/v1/consignments` — Super Admin sees all; Admin sees own gate-scope consignments; the listing returns the latest row per `dataset_id` (canonical read pattern in `db/README.md`) ordered by `created_at DESC`; paginated
 - [ ] `DELETE /api/v1/consignments/:datasetId` — Super Admin only; soft delete (status → `deleted`) → `204 No Content`
 
 **Edge cases:**
@@ -997,11 +1008,11 @@ See `state-01-identifier-lifecycle.mmd` and `seq-08-identifier-expiration.mmd` f
 
 **Edge cases:**
 - [ ] `transport_date` not set or in future → identifier remains `active`; the expiry sweep skips.
-- [ ] Concurrent CronManager calls to `/admin/expire-identifiers` → `pg_try_advisory_lock` returns FALSE on the second; gate replies `409 Conflict`.
+- [ ] Concurrent CronManager calls to `/admin/expire-identifiers` → the multi-node-safe mutex on the second call fails; gate replies `409 Conflict`.
 
 **Technical constraints:**
 - [ ] Expiry sweep schedule lives in CronManager YAML (`docs/specs/deploy/cronmanager-expire.yaml`), default `0 45 3 * * ?`. The gate has no `EXPIRY_JOB_WINDOW_*` env var.
-- [ ] Concurrency guard at handler entry: `pg_try_advisory_lock(<expire-lock-key>)`; if held, return `409 Conflict`.
+- [ ] Concurrency guard at handler entry: a multi-node-safe mutex with one distinct identity for the expire job; if held, return `409 Conflict`.
 - [ ] Expiry sweep logs `event.action: identifier.expire` with `efti.expired_count` per run.
 
 **Technical artifacts:**
@@ -1298,7 +1309,7 @@ graph TD
     N1 -.LISTEN/NOTIFY.- DB[(PostgreSQL 14+<br/>request_id_cache,<br/>sessions, registries,<br/>audit_log)]
     N2 -.LISTEN/NOTIFY.- DB
     N3 -.LISTEN/NOTIFY.- DB
-    DB --> Lock[pg_try_advisory_lock<br/>ping job, expiry job<br/>1 leader at a time]
+    DB --> Lock[Multi-node-safe mutex<br/>per CronManager admin endpoint<br/>409 Conflict if already running]
 ```
 
 See `arch-01-multi-node-deployment.mmd` and `seq-15-gate-registry-sync.mmd` for full detail.
@@ -1335,32 +1346,30 @@ See `arch-01-multi-node-deployment.mmd` and `seq-15-gate-registry-sync.mmd` for 
 ##### Admin auth state
 
 **Happy path:**
-- [ ] Admin session stored in database — not node-local memory; works correctly behind load balancer
+- [ ] Admin auth is **stateless** — every request carries a TARA-issued JWT; the gate validates it as an OAuth 2.0 Resource Server. No DB-stored admin session, no `session_id` cookie, no sticky-session requirement.
+- [ ] Revocation is multi-node-consistent because `sessions` (the JWT denylist: `jti, revoked_at, reason`) and `users.token_revoked_at` are shared DB state. Every node sees the same revocation status on the next request.
 
 **Edge cases:**
-- [ ] Session expires → `401 Unauthorized` on next request; admin redirected to login page
+- [ ] JWT `exp` past → `401 TOKEN_INVALID`; UI re-runs the TARA OIDC login flow.
+- [ ] JWT `jti` added to denylist via `POST /api/v1/auth/logout`, OR `jwt.iat < users.token_revoked_at` after `POST /api/v1/users/{userId}/revoke-token` → all nodes reject the same JWT on the next request.
 
-##### Leader election
+##### CronManager-driven scheduled jobs
 
 **Happy path:**
-- [ ] Ping job runs on exactly 1 node (database advisory lock)
-- [ ] Expiry job runs on exactly 1 node
+- [ ] Archive (`/api/v1/admin/archive`), expire (`/api/v1/admin/expire-identifiers`), and ping-gates (`/api/v1/admin/ping-gates`) are all driven by external CronManager (Epic 26). The gate process never schedules its own jobs.
+- [ ] Multi-node concurrency guard: each handler acquires a distinct advisory lock at entry. If the lock is held, return `409 Conflict`. The lock is released automatically if the connection drops (per-connection in PostgreSQL).
 
 **Edge cases:**
-- [ ] Leader node fails mid-job → lock released; another node takes over within next scheduling interval
-
-**Technical constraints:**
-- [ ] Leader election: `pg_try_advisory_lock` database advisory lock
+- [ ] Two CronManager instances racing the same admin endpoint → second call gets 409 immediately; CronManager's retry policy backs off.
 
 ##### Database migrations
 
 **Happy path:**
-- [ ] Migrations use Flyway locking — no conflicts when multiple nodes start simultaneously
-- [ ] Migration lock released even if application crashes
+- [ ] `schema.sql` is the v0 baseline applied once against an empty database; subsequent changes go through Liquibase changesets at `gate/db/changelog/`.
+- [ ] Migration lock released even if the application crashes (Liquibase's built-in lock semantics).
 
 **Technical constraints:**
-- [ ] MUST use Liquibase (per `non-functional.md` §4 — pinned migration tool); no custom scripts
-- [ ] Rationale: procurement requirement "Tarkvara tehnilise analüüsi nõuded"
+- [ ] MUST use **Liquibase** (per `non-functional.md` §4 — pinned migration tool).
 
 ##### Database design
 
@@ -1441,7 +1450,7 @@ Archive endpoint (gate side):
 - [ ] Idempotent: a second run immediately after produces zero counts.
 
 Technical constraints:
-- [ ] Archival selection uses the canonical `NOT IN (SELECT DISTINCT ON (logical_id) row_id …)` (or `ROW_NUMBER() OVER (…)` equivalent); no JOINs.
+- [ ] The archival selection scans only the rows that are NOT the latest per logical id (the read pattern is documented in `db/README.md`); how the implementation expresses that against an append-only schema is its choice. No JOINs across operational tables.
 - [ ] DELETE on the live DB is performed by a separate database role `db_archiver`, NOT the runtime `app` role. The `app` role retains its `SELECT, INSERT` only privilege — Epic 26 does NOT weaken Rule 1.
 - [ ] Archive destination operator-configurable: S3-compatible object store, secondary Postgres on a different cluster, or append-only file storage. Storage shape: JSON-Lines, partitioned by `(table, year, month)`.
 - [ ] Retention in archive: 7 years minimum (compliance floor); indefinite acceptable.

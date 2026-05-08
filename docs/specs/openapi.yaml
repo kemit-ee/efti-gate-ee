@@ -824,7 +824,7 @@ paths:
       tags: [Admin - Gates]
       summary: Get gate
       operationId: getGate
-      description: Returns the latest row for the given gate id (resolved by `SELECT DISTINCT ON (id) … ORDER BY id, created_at DESC`).
+      description: Returns the current state for the given gate id — the latest row by `created_at`. Soft-deleted gates (latest row `is_active=FALSE`) are returned with `isActive=false`.
       parameters:
         - $ref: '#/components/parameters/GateIdPath'
       responses:
@@ -1409,8 +1409,8 @@ paths:
       description: |
         Updates an existing user. Append-only: INSERTs a new `users` row sharing the
         same logical `id`; the latest row by `created_at` is the current state.
-        404 if `userId` is unknown. The body's `taraSub` may be NULL only on the
-        single break-glass row; for all other users it is required.
+        404 if `userId` is unknown. `taraSub` is required (PIC for TARA users;
+        literal `local-admin` for the break-glass row).
       parameters:
         - name: userId
           in: path
@@ -1473,12 +1473,24 @@ paths:
   /api/v1/users/{userId}/revoke-token:
     post:
       tags: [Admin - Users]
-      summary: Revoke a user's outstanding tokens
+      summary: Revoke all of a user's outstanding tokens (broadcast revocation)
       operationId: revokeUserToken
       description: |
-        Adds the user's currently-issued bearer tokens to the blacklist for their remaining TTL,
-        forcing re-authentication. Used when a token is compromised or a user is offboarded
-        without being deleted. Idempotent.
+        Broadcast revocation of every JWT currently issued for `userId`. The gate
+        writes a new `users` row with `token_revoked_at = NOW()` (append-only); on
+        subsequent JWT validation the gate rejects any JWT whose `iat` predates the
+        resolved user's latest `token_revoked_at`. The user's next request triggers
+        re-authentication via TARA.
+
+        Distinct from `POST /api/v1/auth/logout`, which revokes a single specific
+        JWT by adding its `jti` to the `sessions` denylist. Use revoke-token when
+        the entire user is suspect (compromised credential, offboarding) and you
+        want to invalidate every JWT they hold; use logout when the user is just
+        ending a session.
+
+        Idempotent — calling twice in succession produces the same effective state
+        (the latest `users` row's `token_revoked_at` advances; older JWTs stay
+        rejected).
       parameters:
         - name: userId
           in: path
@@ -1702,12 +1714,10 @@ paths:
         gate compares the token literal against the env var; no DB lookup, no JWT
         verification. Mismatch → 403 FORBIDDEN.
 
-        **Concurrency guard.** Mutex via `pg_try_advisory_lock(<archive-lock-key>)`
-        taken at handler entry. If the lock is already held by an in-flight run,
-        return 409 `ARCHIVE_IN_PROGRESS` immediately. Lock released in a `finally`
-        block. The advisory lock survives node restarts (it is per-connection in
-        PostgreSQL, so the broken connection releases automatically). Multi-node
-        safe.
+        **Concurrency guard.** A multi-node-safe mutex is acquired at handler
+        entry; if a previous archival run is still in flight, return
+        `409 ARCHIVE_IN_PROGRESS` immediately. The mutex is released when the
+        handler returns or the connection drops.
 
         Behaviour:
         - Per-table batches of `batch_size` rows; commits each batch transactionally.
@@ -1804,9 +1814,9 @@ paths:
         and INSERTs a new row with `status='inactive'` for each match (Reg 2024/1942
         Art 11(4) cabotage retention).
 
-        Append-only — the previous row is unchanged; the new row's `created_at`
-        becomes the latest by which downstream reads (`SELECT DISTINCT ON (dataset_id)`)
-        resolve the entity to `inactive`.
+        Append-only — the previous row is unchanged; the new row becomes the
+        latest by `created_at`, so downstream latest-row reads resolve the
+        entity to `inactive`.
 
         Called by CronManager once daily; default schedule chosen by the operator
         (typically 03:45–05:45, slightly after the archival sweep). See
@@ -1814,8 +1824,8 @@ paths:
 
         **Auth**: `opsToken` (same token as `/api/v1/admin/archive`). Mismatch → 403.
 
-        **Concurrency**: same `pg_try_advisory_lock` pattern as archive — distinct
-        lock key.
+        **Concurrency**: same multi-node-safe mutex pattern as archive (distinct
+        lock identity); concurrent invocations get `409 Conflict`.
       requestBody:
         required: false
         description: Optional run-time parameters.
@@ -1892,7 +1902,7 @@ paths:
 
         **Auth**: `opsToken`. Mismatch → 403.
 
-        **Concurrency**: `pg_try_advisory_lock` (distinct key); 409 if already running.
+        **Concurrency**: same multi-node-safe mutex pattern as the other CronManager admin endpoints (distinct lock identity); 409 if already running.
 
         **Failure mode**: a single peer-gate timeout records `OFFLINE` for that
         peer; does not fail the overall sweep. Network failure to *all* peers logs
@@ -2010,27 +2020,33 @@ components:
         - `iss` — must equal `https://tara.ria.ee` (or operator's TARA test issuer).
         - `aud` — must include the gate's TARA client_id.
         - `exp` — must be in the future. (TARA owns expiry policy; the gate does not extend.)
-        - `sub` — Estonian PIC (personal identification code) of the authenticated person.
+        - `sub` — the auth identifier the gate matches against `users.tara_sub`. For
+          TARA-issued JWTs this is the Estonian PIC. For break-glass JWTs issued by
+          the gate it is the reserved literal `local-admin`.
+        - `iat` — required because the per-user broadcast revocation marker
+          (`users.token_revoked_at`) is compared against it.
 
-        **Authorisation claims** (used by `AccessChecker` for permission decisions):
-        - `resource_access.efti-gate.roles` — array of role strings. Maps to the
-          gate's role enum: `ADMIN`, `OPS`, `AUTHORITY`. (No `GATE` or `PLATFORM`
-          role here — see `platformMtls` and `opsToken` below.)
-        - `subsets` — array of subset codes (`EU01..EU07`); used by Authority API
-          to gate access to subset-restricted datasets.
-        - `efti.scope` — array of scope ids (gate ids for ADMIN role; authority
-          ids for AUTHORITY role); used by `checkWriteAccess`.
+        **Authorisation claims** (informational; the gate reads the canonical
+        permission set from the resolved `users` row):
+        - `resource_access.efti-gate.roles` — `ADMIN` and/or `AUTHORITY`.
+        - `subsets` — array of subset codes (`EU01..EU07`).
+        - `efti.scope` — gate ids for ADMIN role; authority ids for AUTHORITY role.
 
-        **Revocation:** the `sessions` table acts as a JWT denylist (jti, revoked_at).
-        Operators / admins can call `POST /api/v1/auth/logout` (self) or
-        `POST /api/v1/users/{userId}/revoke-token` (admin) to add a `jti` to the
-        denylist before TARA-side `exp`.
+        **Revocation** has two surfaces:
+        - **Per-token** (`POST /api/v1/auth/logout`): the JWT's `jti` is added to the
+          `sessions` denylist; subsequent presentations of the same JWT return 401.
+        - **Per-user broadcast** (`POST /api/v1/users/{userId}/revoke-token`): the
+          gate writes a new `users` row with `token_revoked_at = NOW()`; on JWT
+          validation, any JWT whose `iat` predates the resolved user's latest
+          `token_revoked_at` returns 401.
 
         **Break-glass local admin.** When TARA is unreachable (incident response,
-        initial bootstrap), a single bcrypt-hashed local-root credential in `users`
+        initial bootstrap), a single bcrypt-hashed local-admin credential in `users`
         can be exchanged for a short-lived gate-issued JWT via Basic Auth on
         `POST /api/v1/auth/local-token`. This path is **disabled by default** and
-        must be explicitly enabled via `LOCAL_ADMIN_FALLBACK_ENABLED=true`.
+        must be explicitly enabled via `LOCAL_ADMIN_FALLBACK_ENABLED=true`. The
+        break-glass JWT carries `sub='local-admin'`; the gate resolves it via the
+        same `users.tara_sub` lookup used for TARA-issued JWTs.
 
     platformMtls:
       type: mutualTLS
@@ -2963,12 +2979,12 @@ components:
           example: "04fa30eb-eb08-11f0-b506-3c9c0f2eb459"
         taraSub:
           type: string
-          nullable: true
           description: |
-            TARA OIDC `sub` claim — Estonian PIC. Used to resolve an inbound
-            JWT to this user record. NULL only on the break-glass local-admin
-            row (which uses bcrypt secret_hash) and seed accounts predating
-            TARA wiring.
+            The `sub` value the gate matches on every JWT validation. For
+            TARA-issued JWTs this is the Estonian PIC. For the single break-glass
+            local-admin row this is the reserved literal `local-admin` (lower-case;
+            never collides with a PIC). Always non-null — the resolution path is
+            uniform across TARA and break-glass JWTs.
           example: "EE39003101122"
         name:
           type: string
@@ -2978,6 +2994,16 @@ components:
           format: email
           description: Display / contact email (NOT the auth identifier — `taraSub` is).
           example: "inspector@mta.ee"
+        tokenRevokedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Timestamp of the latest broadcast revocation
+            (`POST /api/v1/users/{userId}/revoke-token`). On JWT validation the
+            gate rejects any JWT whose `iat` predates this value. NULL means no
+            broadcast revocation has occurred for this user.
+          example: null
         isAdmin:
           type: boolean
           description: |
@@ -3019,15 +3045,16 @@ components:
     UserWrite:
       type: object
       description: |
-        User create/update payload. `taraSub` is required for typical TARA-authenticated
-        users; the only admissible exception is the single break-glass local-admin row,
-        which carries `taraSub: null` and is provisioned out-of-band.
-      required: [name, roles]
+        User create/update payload. `taraSub` is required: for TARA-authenticated
+        users it is the Estonian PIC; the single break-glass local-admin row uses
+        the reserved literal `local-admin` (lower-case).
+      required: [taraSub, name, roles]
       properties:
         taraSub:
           type: string
-          nullable: true
-          description: TARA `sub` claim (Estonian PIC); NULL only for break-glass.
+          description: |
+            The `sub` value the gate matches against on JWT validation. PIC for
+            TARA users; literal `local-admin` for the break-glass row.
           example: "EE39003101122"
         name:
           type: string

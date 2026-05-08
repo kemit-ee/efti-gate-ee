@@ -142,33 +142,37 @@ eFTI Gate on Euroopa Liidu eFTI (Electronic Freight Transport Information) võrg
 
 #### Acceptance Criteria
 
-##### Admin UI autentimine (OIDC)
+##### Admin UI autentimine (TARA OIDC → JWT, gate on Resource Server)
+
+Gate on **stateless OAuth 2.0 Resource Server**. TARA OIDC code-vahetus toimub admini brauseris (või õhukeses kliendi-poolses login-abilises) ning annab ID Token / Access Token; UI lisab seejärel selle JWT iga järgneva päringu juurde `Authorization: Bearer <token>`-ina. Gate ei säilita serveripoolseid admin-sessioone.
 
 **Happy path:**
-- [ ] Admin avab UI → suunatakse TARA OIDC authorize endpointile `client_id`, `scope=openid`, `state` (CSRF token), `redirect_uri`-ga
-- [ ] TARA kuvab ID-kaart / Mobiil-ID / Smart-ID; admin autendib; TARA suunab `/auth/callback?code=...&state=...`
-- [ ] eFTI Gate vahetab `code` `id_token`-i vastu (POST `/token`); valideerib allkirja, `iss`, `aud`, `exp`, `nonce`
-- [ ] Sessioon luuakse andmebaasi; `session_id` küpsis seadistatakse (HttpOnly; Secure; SameSite=Strict)
-- [ ] Sessiooni kehtivus konfigureeritav (`SESSION_EXPIRY_SECONDS`, vaikimisi 3600)
-- [ ] Sessiooni olek on andmebaasis — töötab load balanceri taga ilma sessiooni afiinsuseta
-- [ ] TARA callback URL registreeritakse TARA haldusteenuses
+- [ ] Admin avab UI; UI TARA login-voog tagastab ID Token-i (RS256 JWT, väited `iss`, `aud`, `exp`, `iat`, `sub` = isikukood, `jti`).
+- [ ] UI kutsub gate API-t `Authorization: Bearer <TARA-JWT>`-ga. Gate valideerib allkirja vastu cache-tud TARA JWKS-i; kontrollib `sessions` keelunimekirja `jti` järgi; resolveerib `users` rea `tara_sub = jwt.sub` järgi; lükkab tagasi kui `jwt.iat < users.token_revoked_at`.
+- [ ] Mitte `session_id` küpsist. Mitte DB-poolset admin-sessioonihoidlat. Gate-poolne `sessions` tabel on **JWT keelunimekiri** (`jti, revoked_at, reason`); `users.token_revoked_at` on per-kasutaja broadcast-tühistamise marker.
+- [ ] Mitmenoodiline juurutus ei vaja sessiooniafiinsust (JWT ON sessioon).
 
 **Edge cases:**
-- [ ] `state` ei klapi callback'is → `400 Bad Request`; sessiooni ei looda; sündmus logitakse WARN-iga
-- [ ] `id_token` allkiri on vigane → `401 Unauthorized`; sessiooni ei looda
-- [ ] Sessioon aegunud → kasutaja suunatakse sisselogimislehele (mitte veastack)
-- [ ] 5 ebaõnnestunud sisselogimist 10 minuti jooksul → konto lukustatud 15 minutiks (konfigureeritav); sündmus logitakse
+- [ ] JWT allkiri vigane → `401 TOKEN_INVALID`.
+- [ ] `iss` ei ole konfigureeritud TARA → `401 TOKEN_INVALID`.
+- [ ] `aud` ei ole gate'i TARA `client_id` → `401 TOKEN_INVALID`.
+- [ ] `exp` minevikus → `401 TOKEN_INVALID`.
+- [ ] `jti` `sessions` keelunimekirjas (admin- või enese-tühistamine) → `401 TOKEN_INVALID` teatega `detail: "token revoked"`.
+- [ ] `jwt.iat < users.token_revoked_at` (broadcast-tühistamine) → `401 TOKEN_INVALID` teatega `detail: "token revoked"`.
+- [ ] JWT `sub` ei resolveeru ühegi aktiivse `users` reaga → `401 TOKEN_INVALID` teatega `detail: "no provisioned user"`.
 
 **Veakäsitlus:**
-- [ ] Väljalogimine → sessioon kustutatakse andmebaasist; TARA `end_session_endpoint` kutsutakse
-- [ ] Basic Auth endpoint tagastab `405 Method Not Allowed` tootmisprofiilis
+- [ ] Väljalogimine: `POST /api/v1/auth/logout` kirjutab `(jti, revoked_at, reason='logout')` `sessions`-tabelisse; edaspidised päringud sama JWT-ga lükatakse tagasi.
+- [ ] Per-kasutaja revoke: `POST /api/v1/users/{userId}/revoke-token` lisab `users` rea `token_revoked_at = NOW()`-iga; iga `iat`-ga seda eelnenud JWT lükatakse järgmisel kasutamisel tagasi.
+- [ ] Break-glass: `POST /api/v1/auth/local-token` väljastab gate-allkirjastatud JWT-i (RS256, fikseeritud 600s TTL) verifitseerituna bcrypt local-admin rea vastu; vaikimisi keelatud (`LOCAL_ADMIN_FALLBACK_ENABLED=false`).
 
 **Tehnilised piirangud:**
-- [ ] `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` laaditakse runtime saladuste salvestist — mitte `.env` failist
+- [ ] `TARA_OIDC_DISCOVERY_URL`, `TARA_CLIENT_ID`, `TARA_CLIENT_SECRET` (UI-poolt, valikuline gate'i RS-rolli jaoks), `TARA_JWKS_CACHE_SECONDS`, `ARCHIVE_OPS_TOKEN`, `LOCAL_ADMIN_FALLBACK_ENABLED`, `BREAK_GLASS_JWT_SIGNING_KEY`, `BREAK_GLASS_JWT_TTL_SECONDS` per `non-functional.md` §4.1.
+- [ ] Konkreetset OAuth-teeki ei nõuta; leping on "valideerige OAuth 2.0 Resource Serverina nimetatud väitega".
 
 **Tehnilised artefaktid:**
-- [ ] OpenAPI: `GET /auth/login`, `GET /auth/callback`, `POST /auth/logout`
-- [ ] Diagramm: `seq-12-user-authentication.mmd`
+- [ ] OpenAPI: `POST /api/v1/auth/logout`, `POST /api/v1/auth/local-token` (vaikimisi keelatud), `POST /api/v1/users/{userId}/revoke-token`.
+- [ ] Diagramm: `seq-12-user-authentication.mmd`, `flow-02-authorization-check.mmd`.
 
 ##### Platform/Authority API autentimine
 
@@ -223,28 +227,30 @@ eFTI Gate on Euroopa Liidu eFTI (Electronic Freight Transport Information) võrg
 - [ ] Iga voog katab: autentimise, autoriseerimise kontrolli, veajuhtumid
 - [ ] Diagrammid on lisatud GitHub dokumentatsiooni
 
-##### Voog 1 — Admin UI sisselogimine (TARA/OIDC)
+##### Voog 1 — Admin UI sisselogimine (UI-poolne OIDC → JWT gate'ile)
 
 ```mermaid
 sequenceDiagram
     actor Admin
-    participant UI as Admin UI
-    participant Gate as Gate Backend
-    participant TARA as TARA (OIDC)
-    participant DB as Andmebaas
+    participant UI as Admin UI (brauser)
+    participant TARA as TARA (RIA)
+    participant Gate as Gate Backend (Resource Server)
 
     Admin->>UI: Ava admin UI
-    UI->>Gate: GET /auth/login
-    Gate->>TARA: Redirect OIDC authorize (client_id, scope, state)
-    TARA->>Admin: Kuva autentimisleht (ID-kaart / Mobiil-ID / Smart-ID)
+    UI->>TARA: OIDC authorize (client_id, scope=openid, state, nonce)
+    TARA->>Admin: Kuva ID-kaart / Mobiil-ID / Smart-ID
     Admin->>TARA: Autendi
-    TARA->>Gate: GET /auth/callback?code=...&state=...
-    Gate->>TARA: POST /token (code, client_secret)
-    TARA-->>Gate: id_token (JWT), access_token
-    Gate->>DB: Salvesta sessioon (session_id, user_id, exp)
-    Gate-->>UI: Set-Cookie: session_id (HttpOnly, Secure)
-    UI-->>Admin: Suuna admin avalehele
+    TARA-->>UI: id_token (RS256 JWT, sub=isikukood, väited iss/aud/exp/iat/jti)
+
+    Note over UI: UI hoiab JWT-i brauseri säilituses ja lisab selle<br/>Authorization: Bearer-ina iga gate-päringu juurde.<br/>Mitte küpsist. Mitte serveripoolset sessiooni.
+
+    UI->>Gate: GET /api/v1/user<br/>Authorization: Bearer <TARA-JWT>
+    Note over Gate: Gate valideerib JWT vastu cache-tud TARA JWKS-i,<br/>kontrollib sessions-keelunimekirja jti järgi, resolveerib<br/>users tara_sub järgi, kontrollib jwt.iat ≥ users.token_revoked_at.
+    Gate-->>UI: 200 OK (kasutaja profiil)
+    UI-->>Admin: Kuva admin avaleht
 ```
+
+Väljalogimine on `POST /api/v1/auth/logout` sama Bearer-iga; gate kirjutab JWT `jti` `sessions` keelunimekirja `reason='logout'`-iga. Edaspidised päringud sama JWT-ga tagastavad `401 TOKEN_INVALID`.
 
 ##### Voog 2 — Authority / Admin API (TARA OIDC JWT)
 
@@ -283,7 +289,7 @@ sequenceDiagram
     Platform->>Proxy: POST /v1/identifiers/:datasetId<br/>(klientsertifikaat: liikmesriigi väljastatud platvormi eDelivery AP-le)
     Proxy->>Proxy: Valideeri sertifikaadi ahel
     Proxy->>Gate: edastatud päring + X-Client-Cert-Subject + X-Client-Cert-Serial
-    Gate->>DB: SELECT DISTINCT ON (id) FROM platforms<br/>WHERE cert_subject = $1 AND cert_serial = $2 AND is_active = TRUE
+    Gate->>DB: Resolve active platforms row by (cert_subject, cert_serial)
     alt Sert resolveerub täpselt 1 aktiivse platvormiga
         Gate-->>Platform: 200 OK
     else 0 rida
@@ -336,7 +342,7 @@ sequenceDiagram
 
 **Happy path:**
 - [ ] `POST /v1/identifiers/:datasetId` võtab vastu XML keha `Content-Type: application/xml`; kehtiv `consignment-identifier.xsd` vastu; kasutajal täpselt 1 PLATFORM roll → `201 Created` koos `Location: /v1/identifiers/:datasetId`
-- [ ] Sama `datasetId` saatmine uuendatud andmetega → INSERT uus `consignments` rida sama `dataset_id`-ga (append-only; eelmine rida jääb tabelisse, kuid pole enam viimane). Authority `SELECT DISTINCT ON (dataset_id)` loeb uue rea → `200 OK`
+- [ ] Sama `datasetId` saatmine uuendatud andmetega → INSERT uus `consignments` rida sama `dataset_id`-ga (append-only; eelmine rida jääb tabelisse, kuid pole enam viimane). Authority viimase-rea lugemine tagastab uue rea → `200 OK`
 - [ ] Salvestatavad otsitavad väljad: `vehicle_plate`, `transport_date`, `origin_country`, `destination_country`, `mode_code`, `dangerous_goods_indicator`
 - [ ] Toetatud identifikaatori tüübid: `means` (sõiduk/veovahend), `equipment` (konteiner/haagis), `carried` (koormus)
 - [ ] Transpordirežiimid: `1`=merendus, `2`=raudtee, `3`=maantee, `4`=õhk — ilma režiimi-spetsiifilise marsruutimisloogiketa
@@ -358,7 +364,7 @@ sequenceDiagram
 **Tehnilised piirangud:**
 - [ ] Identifikaatorid salvestatakse `identifiers` tabelisse: üks consignment → mitu identifikaatori rida (1:N)
 - [ ] `X-Request-ID` duplikaadi kontroll kasutab ühist andmebaasi tabelit — kontrollitakse üle kõigi sõlmede; TTL 600 sekundit
-- [ ] Skeemi migratsioonideks PEAB kasutama Flyway-d või Liquibase'i — kohandatud migratsiooniskripte ei kasutata
+- [ ] Skeemi migratsioonideks PEAB kasutama Liquibase'i (`non-functional.md` §4 — kinnitatud migratsioonitööriist); kohandatud skripte ei kasutata.
 
 **Tehnilised artefaktid:**
 - [ ] OpenAPI: `POST /v1/identifiers/{datasetId}` — päringu keha, kõik veavastused
@@ -678,7 +684,7 @@ sequenceDiagram
 - [ ] Ping töö üritab käivituda 2 node'il → andmebaasi nõuandelukk tagab, et ainult 1 node töötab
 
 **Tehnilised piirangud:**
-- [ ] Liidri valimine: andmebaasi nõuandelukk (`pg_try_advisory_lock`)
+- [ ] Liidri valimine: CronManageri admin-otspunkt jõustab mitmenoodilise mutexi (üks töös olev kõne võidab; teised saavad 409). Realiseerimine võib kasutada andmebaasi nõuandelukke või muud samaväärset mehhanismi.
 
 **Tehnilised artefaktid:**
 - [ ] OpenAPI: `POST /api/v1/gates/{gateId}/ping`
@@ -754,7 +760,7 @@ sequenceDiagram
 ##### Vaatamine ja kustutamine
 
 **Happy path:**
-- [ ] `GET /api/v1/consignments` — Super Admin näeb kõiki; Admin ainult oma platvormi consignment'e; viimane rida `dataset_id` kohta resolveeritakse `SELECT DISTINCT ON (dataset_id) … ORDER BY dataset_id, created_at DESC` järgi ja kuvatakse `created_at DESC` järjekorras; pagineeritud
+- [ ] `GET /api/v1/consignments` — Super Admin näeb kõiki; Admin ainult oma gate-skoobi consignment'e; loend tagastab viimase rea `dataset_id` kohta (kanooniline read-pattern `db/README.md`-s) järjestatuna `created_at DESC` järgi; pagineeritud
 - [ ] `DELETE /api/v1/consignments/:datasetId` — ainult Super Admin; soft delete (staatus → `deleted`) → `204 No Content`
 
 **Edge cases:**
@@ -790,11 +796,11 @@ sequenceDiagram
 
 **Edge cases:**
 - [ ] `transport_date` ei ole seatud või on tulevikus → identifikaator jääb `active`-ks; aegumistöö jätab vahele.
-- [ ] Samaaegsed CronManageri kutsed `/admin/expire-identifiers`-le → `pg_try_advisory_lock` tagastab FALSE teisele; gate vastab `409 Conflict`.
+- [ ] Samaaegsed CronManageri kutsed `/admin/expire-identifiers`-le → mitmenoodiline mutex teisel kõnel ebaõnnestub; gate vastab `409 Conflict`.
 
 **Tehnilised piirangud:**
 - [ ] Aegumistöö ajakava elab CronManageri YAML-is (`docs/specs/deploy/cronmanager-expire.yaml`), vaikimisi `0 45 3 * * ?`. Gate-il `EXPIRY_JOB_WINDOW_*` env-muutujat ei ole.
-- [ ] Konkurentsikaitse handler-sissepääsul: `pg_try_advisory_lock(<expire-lock-key>)`; kui võetud, tagastab `409 Conflict`.
+- [ ] Konkurentsikaitse handler-sissepääsul: mitmenoodiline mutex eraldi identiteediga aegumistöö jaoks; kui võetud, tagastab `409 Conflict`.
 - [ ] Aegumistöö logib `event.action: identifier.expire` koos `efti.expired_count`-iga ühe käivituse kohta.
 
 **Tehnilised artefaktid:**
@@ -1061,32 +1067,30 @@ sequenceDiagram
 ##### Admin auth state
 
 **Happy path:**
-- [ ] Admin sessioon salvestatakse andmebaasi — mitte node'i-lokaalsesse mällu; töötab korrektselt load balanceri taga
+- [ ] Admin autentimine on **stateless** — iga päring kannab TARA-väljastatud JWT; gate valideerib selle OAuth 2.0 Resource Serverina. Mitte DB-salvestatud admin-sessiooni, mitte `session_id` küpsist, mitte sticky-session nõuet.
+- [ ] Tühistamine on mitmenoodiliselt järjepidev, sest `sessions` (JWT keelunimekiri: `jti, revoked_at, reason`) ja `users.token_revoked_at` on jagatud DB-olek. Iga node näeb järgmisel päringul sama tühistamisseisu.
 
 **Edge cases:**
-- [ ] Sessioon aegub → `401 Unauthorized` järgmisel päringul; admin suunatakse sisselogimislehele
+- [ ] JWT `exp` minevikus → `401 TOKEN_INVALID`; UI käivitab uuesti TARA OIDC sisselogimisvoo.
+- [ ] JWT `jti` lisatud keelunimekirja `POST /api/v1/auth/logout` kaudu, VÕI `jwt.iat < users.token_revoked_at` pärast `POST /api/v1/users/{userId}/revoke-token` → kõik node'id lükkavad sama JWT järgmisel päringul tagasi.
 
-##### Leader election
+##### CronManageri-juhitavad ajakava-tööd
 
 **Happy path:**
-- [ ] Ping töö käivitub täpselt 1 node'il (andmebaasi nõuandelukk)
-- [ ] Aegumistöö käivitub täpselt 1 node'il
+- [ ] Arhiveerimine (`/api/v1/admin/archive`), aegumine (`/api/v1/admin/expire-identifiers`) ja peer-gate ping (`/api/v1/admin/ping-gates`) on kõik juhitud välimise CronManageri poolt (Epic 26). Gate-protsess ei käivita ise ühtegi ajastatud tööd.
+- [ ] Mitmenoodiline konkurentsikaitse: iga handler võtab sissepääsul eraldi advisory-luku. Kui lukk on hõivatud, tagastab `409 Conflict`. Lukk vabaneb automaatselt, kui ühendus katkeb (PostgreSQL'is per-connection).
 
 **Edge cases:**
-- [ ] Liidri node ebaõnnestub töö keskel → lukk vabastatakse; teine node võtab üle järgmisel ajakavas
-
-**Tehnilised piirangud:**
-- [ ] Liidri valimine: `pg_try_advisory_lock` andmebaasi nõuandelukk
+- [ ] Kaks CronManageri instantsi jooksevad samale admin-otspunktile → teine kõne saab kohe 409; CronManageri retry-poliitika perekontrollib.
 
 ##### Andmebaasi migratsioonid
 
 **Happy path:**
-- [ ] Migratsioonid kasutavad Flyway lukustust — konflikte ei teki mitme node'i samaaegsel käivitumisel
-- [ ] Migratsiooni lukk vabastatakse isegi kui rakendus jookseb kokku
+- [ ] `schema.sql` on v0 alusversioon, mis rakendatakse korra tühja andmebaasi vastu; järgnevad muudatused käivad läbi Liquibase'i changeset'ide aadressil `gate/db/changelog/`.
+- [ ] Migratsioonilukk vabastatakse isegi kui rakendus jookseb kokku (Liquibase'i sisseehitatud lukusemantika).
 
 **Tehnilised piirangud:**
-- [ ] PEAB kasutama Flyway-d VÕI Liquibase'i — kohandatud migratsiooniskripte ei kasutata
-- [ ] Põhjendus: hankimise nõue "Tarkvara tehnilise analüüsi nõuded"
+- [ ] PEAB kasutama **Liquibase'i** (`non-functional.md` §4 — kinnitatud migratsioonitööriist).
 
 ##### Andmebaasi kujundus
 
@@ -1154,7 +1158,7 @@ Arhiivi-otspunkt (gate'i poolel):
 - [ ] Idempotentne: koheselt järgnev käivitamine annab nullkogused.
 
 Tehnilised piirangud:
-- [ ] Arhiivi valikupäring kasutab kanoonilist `NOT IN (SELECT DISTINCT ON (logical_id) row_id …)` (või `ROW_NUMBER() OVER (…)` analoogi); JOIN-e ei kasutata.
+- [ ] Arhiivi valik skanneerib ainult need read, mis EI ole viimased oma loogilise id kohta (read-pattern dokumenteeritud `db/README.md`-s); kuidas realisatsioon seda väljendab append-only skeemi vastu, on tema valik. JOIN-e operatsioonitabelite vahel ei kasutata.
 - [ ] DELETE live-DB-s teostab eraldi DB-roll `db_archiver`, MITTE töökeskkonna `app` roll. `app` rollil säilib oma `SELECT, INSERT` ainsus — Epic 26 ei nõrgesta Reeglit 1.
 - [ ] Arhiivisihtkoht operaatori poolt valitav: S3-ühilduv objektihoidla, sekundaarne Postgres teises klastris või append-only failihoidla. Andmevorming: JSON-Lines, partitsioneeritud `(table, year, month)` järgi.
 - [ ] Arhiivi säilitamine: vähemalt 7 aastat (vastavusnõue); piiramatu vastuvõetav.

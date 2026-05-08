@@ -8,20 +8,24 @@
 
 **Reference:** [Permissions Matrix](../specs/permissions-matrix.md) — Authentication flow and authorization checks
 
-**Three authentication channels at a glance:**
+**Authentication channels at a glance:**
 
 ```mermaid
 flowchart TD
     Caller[Caller] --> Channel{Channel type?}
-    Channel -- Admin UI --> TARA[TARA OIDC<br/>ID-card / Mobile-ID / Smart-ID]
-    TARA --> Session[Session cookie<br/>HttpOnly Secure SameSite=Strict]
-    Channel -- Platform/Authority API --> JWT[Bearer JWT RS256<br/>iss, exp, role check]
-    JWT --> Resource[Resource access]
-    Channel -- Gate-to-gate --> MTLS[mTLS client cert<br/>OCSP/CRL check]
-    MTLS --> Fast[POST /services/fast]
-    Session --> Resource
-    Fast --> Resource
+    Channel -- Authority / Admin API --> TARA[TARA OIDC ID Token<br/>RS256 JWT, validated as<br/>OAuth 2.0 Resource Server]
+    Channel -- Platform API --> MTLSp[mTLS X.509 client cert<br/>resolved against active platforms<br/>by cert subject + serial]
+    Channel -- CronManager admin endpoints --> Ops[Static Bearer ARCHIVE_OPS_TOKEN<br/>literal env-var compare]
+    Channel -- Gate-to-gate (G2G) --> MTLSg[mTLS at AS4 access point<br/>EU Trust Service cert chain]
+    Channel -- Break-glass (default-disabled) --> BG[HTTP Basic + bcrypt;<br/>gate issues a short-lived JWT<br/>that follows the TARA path]
+    TARA --> Resource[Resource access]
+    MTLSp --> Resource
+    Ops --> Resource
+    MTLSg --> Resource
+    BG --> Resource
 ```
+
+The gate is a **stateless OAuth 2.0 Resource Server** for Authority and Admin traffic — there is no server-side admin session and no `session_id` cookie; the JWT is the session. The `sessions` table is repurposed as a JWT denylist (per-token revocation) and `users.token_revoked_at` carries the per-user broadcast revocation marker.
 
 See `seq-12-user-authentication.mmd` and `seq-16-mtls-fast-protocol.mmd` for full detail.
 

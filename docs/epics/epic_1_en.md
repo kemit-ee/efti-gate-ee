@@ -12,15 +12,22 @@
 
 ```mermaid
 flowchart TD
-    Req[Request + Bearer JWT] --> Auth{JWT valid?}
-    Auth -- no --> R401[401 Unauthorized]
-    Auth -- yes --> Role{Role type matches resource?<br/>ADMIN / PLATFORM / AUTHORITY / GATE}
-    Role -- no --> R403["403 Forbidden<br/>Role type X cannot access Y resource"]
-    Role -- yes --> Party{Party ID in user.roles?}
-    Party -- no --> R403
-    Party -- yes --> Subset{Subset in user.subsets?<br/>authority writes only}
-    Subset -- no --> R403
-    Subset -- yes --> Allow[200 OK / 201 Created]
+    Req[Incoming request] --> Cred{Credential type?}
+    Cred -- "Bearer JWT (Authority/Admin)" --> JWT[Validate JWT;<br/>resolve users row by tara_sub;<br/>check denylist + token_revoked_at]
+    Cred -- "mTLS (Platform)" --> MTLS[Resolve active platforms<br/>by cert subject + serial]
+    Cred -- "Static opsToken (CronManager)" --> OPS[Literal compare against env var]
+    JWT -- invalid --> R401[401 TOKEN_INVALID]
+    MTLS -- 0 / >1 --> R403P[403 FORBIDDEN_NO_PLATFORM<br/>or FORBIDDEN_MULTI_PLATFORM]
+    OPS -- mismatch --> R403O[403 FORBIDDEN]
+    JWT -- valid --> RoleCheck{Resolved users.roles<br/>contains required role?}
+    RoleCheck -- no --> R403[403 FORBIDDEN]
+    RoleCheck -- yes --> Subset{Authority subset request<br/>⊆ users.subsets?}
+    Subset -- no --> R403S[403 FORBIDDEN_SUBSET]
+    Subset -- yes --> Scope{Admin write target<br/>∈ users.roles[ADMIN]?}
+    Scope -- no --> R403WA[403 FORBIDDEN_WRITE_ACCESS]
+    Scope -- yes --> Allow[200 OK / 201 Created]
+    MTLS -- 1 active --> Allow
+    OPS -- match --> Allow
 ```
 
 See `flow-02-authorization-check.mmd` for the full decision tree.
@@ -71,7 +78,14 @@ See `flow-02-authorization-check.mmd` for the full decision tree.
 - [ ] Expired JWT (TARA-side `exp` past) → `401 TOKEN_INVALID`
 - [ ] Tampered JWT signature → `401 TOKEN_INVALID` — no internal detail exposed
 - [ ] JWT `sub` does not resolve to any active `users` row → `401 TOKEN_INVALID` with `detail: "no provisioned user"`; admin must POST `/api/v1/users` first
-- [ ] Platform mTLS cert presented but `platforms.cert_subject` lookup yields 0 rows → `403 FORBIDDEN_NO_PLATFORM`
-- [ ] Platform mTLS cert resolves to >1 active `platforms` row (config error) → `403 FORBIDDEN_MULTI_PLATFORM`
+- [ ] JWT `jti` is in the `sessions` denylist → `401 TOKEN_INVALID` with `detail: "token has been revoked"` (per-token revocation, e.g. via `POST /api/v1/auth/logout`)
+- [ ] `jwt.iat` predates the resolved user's `users.token_revoked_at` → `401 TOKEN_INVALID` with `detail: "token has been revoked"` (per-user broadcast revocation, e.g. via `POST /api/v1/users/{userId}/revoke-token`)
+- [ ] Platform mTLS cert presented but cert subject + serial resolve to 0 active `platforms` rows → `403 FORBIDDEN_NO_PLATFORM`
+- [ ] Platform mTLS cert subject + serial resolve to >1 active `platforms` row (config error) → `403 FORBIDDEN_MULTI_PLATFORM`
 
-**Rationale:** Identity comes from the cert (Platform), the TARA `sub` claim (Authority/Admin), or the static ops token (CronManager). Authorisation comes from the resolved DB row (`platforms.id` for Platform; `users.roles` / `users.subsets` for Authority/Admin); never from the JWT directly, because the gate's authorisation snapshot can change after the JWT was minted.
+**Break-glass and revocation contract:**
+- [ ] The break-glass local-admin row in `users` carries the reserved literal `tara_sub='local-admin'` (lower-case; never collides with a PIC). The break-glass JWT issued by `POST /api/v1/auth/local-token` carries `sub='local-admin'` so the gate's `tara_sub` lookup is uniform across TARA and break-glass paths.
+- [ ] `POST /api/v1/auth/logout` revokes one specific JWT by appending its `jti` to the `sessions` denylist; idempotent.
+- [ ] `POST /api/v1/users/{userId}/revoke-token` revokes every currently-issued JWT for that user by appending a new `users` row carrying `token_revoked_at = NOW()`. Append-only: the previous row is unchanged. The next request from that user requires re-authentication via TARA (or break-glass).
+
+**Rationale:** Identity comes from the cert (Platform), the TARA `sub` claim resolved against `users.tara_sub` (Authority / Admin / break-glass), or the static ops token (CronManager). Authorisation comes from the resolved DB row (`platforms.id` for Platform; `users.roles` / `users.subsets` for Authority / Admin); never from the JWT directly, because the gate's authorisation snapshot can change after the JWT was minted.

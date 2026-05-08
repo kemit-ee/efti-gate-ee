@@ -11,14 +11,14 @@ sequenceDiagram
     GateB->>CA: Verify client cert chain<br/>against trusted-cas.pem (configured per gate)
     alt cert valid + CN matches a registered gate
         CA-->>GateB: Trust chain OK
-        GateB->>GateB: Resolve gate by cert CN<br/>SELECT id FROM gates WHERE eDeliveryCert = <cert PEM>
-        GateB->>GateB: Authorize: gate is ONLINE<br/>Apply rate limit per gate
+        GateB->>GateB: Resolve peer gate by matching cert PEM against gates.e_delivery_cert (active rows only)
+        GateB->>GateB: Authorize: peer's latest status is ONLINE; apply per-gate rate limit
         GateB-->>GateA: 200 OK<br/>application/json — search results / dataset / follow-up
-        GateB->>GateB: INSERT INTO audit_log (action='g2g_request', resource='gate', resource_id=<cert CN>, recorded_at=NOW())
+        GateB->>GateB: Append an audit_log row (action='g2g_request', resource='gate', resource_id=cert CN)
     else cert invalid or CN not registered
         CA-->>GateB: Untrusted / chain incomplete
         GateB-->>GateA: 401 Unauthorized<br/>application/problem+json<br/>code: UNAUTHORIZED
-        GateB->>GateB: INSERT INTO audit_log (action='g2g_request_denied', resource='gate', details={reason})
+        GateB->>GateB: Append an audit_log row (action='g2g_request_denied', resource='gate', details={reason})
     end
 
     Note over GateA,GateB: X-API-Key header is NEVER accepted on /services/fast.<br/>Plain bearer auth is rejected — only mTLS satisfies this endpoint.

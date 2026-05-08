@@ -11,12 +11,12 @@ sequenceDiagram
 
     Gate->>Gate: Validate JWT (signature, exp, iss, aud,<br/>not in `sessions` denylist);<br/>require resource_access.efti-gate.roles ∋ AUTHORITY
 
-    Gate->>+DB: SELECT dataset_id, platform_id, mode, vehicle_plate FROM consignments<br/>WHERE vehicle_plate = '456XYZ' AND vehicle_country = 'FI' AND status = 'active'
+    Gate->>+DB: Local identifier search:<br/>resolve latest consignments rows matching vehicle_plate='456XYZ' AND vehicle_country='FI',<br/>keep only those whose latest status = 'active'.
     DB-->>-Gate: 0 results
 
-    Note over Gate: Broadcast decision:<br/>local results = 0, forceBroadcast = false<br/>→ Broadcast to all ONLINE gates
+    Note over Gate: Broadcast decision:<br/>local results = 0, forceBroadcast = false<br/>→ Broadcast to all ONLINE peer gates.
 
-    Gate->>+DB: SELECT * FROM gates WHERE status = 'ONLINE'<br/>AND id != 'eu-ee31'
+    Gate->>+DB: Resolve all peer gates whose latest row has status='ONLINE' and is_active=TRUE<br/>(excluding self).
     DB-->>-Gate: [eu-fi01, eu-de01, eu-se01, eu-lt01, eu-lv01, eu-pl01]
 
     Note over Gate: Open SSE stream to authority

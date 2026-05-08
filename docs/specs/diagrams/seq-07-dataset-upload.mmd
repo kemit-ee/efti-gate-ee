@@ -8,22 +8,18 @@ sequenceDiagram
     Platform->>+Gate: POST /v1/identifiers/550e8400-e29b-41d4-a716-446655440000
     Note over Platform,Gate: Content-Type: application/xml<br/>Client cert (mTLS) — Member-State-issued for the platform's eDelivery AP<br/>(reverse proxy forwards X-Client-Cert-Subject / X-Client-Cert-Serial)<br/>X-Request-ID: <uuid><br/>Body: full consignment XML with identifiers
 
-    Gate->>Gate: Resolve platform_id by SELECT DISTINCT ON (id) FROM platforms<br/>WHERE cert_subject = $1 AND cert_serial = $2 AND is_active = TRUE<br/>→ platform_id='plt-demo-123'
-    Gate->>Gate: Check X-Request-ID dedup<br/>(INSERT into request_id_cache; conflict → 409)
-    Gate->>Gate: Extract datasetId from path: "550e8400-e29b-41d4-a716-446655440000"
-    Gate->>Gate: dropXmlHeader, parse via EftiParser.parseIdentifiers
+    Gate->>Gate: Resolve platform_id from active platforms by (cert_subject, cert_serial)<br/>→ platform_id='plt-demo-123'
+    Gate->>Gate: X-Request-ID deduplication against request_id_cache<br/>(10-minute window; conflict → 409 DUPLICATE_REQUEST_ID)
+    Gate->>Gate: Extract datasetId from path; parse XML per consignment-identifier.xsd
 
     alt Parse successful
-        Gate->>+DB: INSERT INTO consignments<br/>(dataset_id, platform_id, gate_id, xml, status, mode,<br/>vehicle_plate, vehicle_country, dangerous_goods,<br/>origin_country, destination_country, transport_date,<br/>expires_at, created_by, created_at)<br/>VALUES ('550e8400-…', 'demo', 'eu-ee31', $xml, 'active', …)
-        DB-->>-Gate: new consignments row (always INSERT — append-only).<br/>If a prior row exists for this dataset_id, the new row<br/>becomes the latest.
-
-        Gate->>+DB: INSERT INTO identifiers<br/>(consignment_row, dataset_id, identifier_type,<br/>identifier_value, country_code)<br/>VALUES (newConsignmentRowId, '550e8400-…', 'means', '123ABC', 'EE'),<br/>       (…additional identifiers extracted from XML…)
-        DB-->>-Gate: N rows (one per identifier extracted)
-        Note over DB: Old identifiers rows for this dataset_id<br/>remain in the table — archived nightly by CronManager.
+        Gate->>+DB: Append a new consignments row for dataset_id='550e8400-…'<br/>(status='active', denormalised search columns: vehicle_plate,<br/>vehicle_country, mode, dangerous_goods, origin_country,<br/>destination_country, transport_date, expires_at)<br/>plus the identifiers rows extracted from the XML.
+        DB-->>-Gate: written
+        Note over DB: Append-only — if a prior row exists for this dataset_id, the new row<br/>becomes the latest by created_at; the previous row is preserved<br/>and archived later by CronManager (Epic 26).
 
         Gate-->>-Platform: 200 OK
-        Note over Gate,Platform: Authority searches will see the new row<br/>(SELECT DISTINCT ON dataset_id ORDER BY created_at DESC).
+        Note over Gate,Platform: Authority searches resolve the latest row per dataset_id —<br/>the newly written state is visible immediately.
 
     else Parse error (malformed XML)
-        Gate-->>-Platform: 400 Bad Request<br/>{ "type":"https://api.efti.ee/errors/invalid-xml",<br/>"code":"INVALID_XML", "title":"Invalid XML",<br/>"status":400, "detail":"SAXParseException: …" }
+        Gate-->>-Platform: 400 Bad Request<br/>{ "type":"https://api.efti.ee/errors/invalid-xml",<br/>"code":"INVALID_XML", "title":"Invalid XML",<br/>"status":400, "detail":"XSD validation failed: …" }
     end

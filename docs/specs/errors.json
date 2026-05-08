@@ -316,7 +316,7 @@
       "code": "FORBIDDEN_SUBSET",
       "httpStatus": 403,
       "title": "Subset Access Denied",
-      "description": "The authority user requested a dataset subset that exceeds their permitted subsets as configured in the authorities table.",
+      "description": "The authority user requested a dataset subset not in their resolved `users.subsets` (which itself must be a subset of the parent authority's `authorities.subsets`).",
       "type": "https://api.efti.ee/errors/forbidden-subset",
       "examples": [
         {
@@ -343,7 +343,7 @@
       "examples": [
         {
           "scenario": "Admin scoped to gate 'eu-ee31' tries to update a platform owned by gate 'eu-fi01'",
-          "request": "PUT /api/v1/platforms/plt-fi-456 (TARA JWT carrying users.roles={'ADMIN':['eu-ee31']})",
+          "request": "PUT /api/v1/platforms/plt-fi-456 (TARA JWT for an admin whose resolved users.roles[ADMIN] is ['eu-ee31'])",
           "response": {
             "type": "https://api.efti.ee/errors/forbidden-write-access",
             "code": "FORBIDDEN_WRITE_ACCESS",

@@ -14,8 +14,8 @@ sequenceDiagram
     Gate->>Gate: Build IdentifiersQuery<br/>(id="123ABC", countryCode="EE", forceBroadcast=false)
 
     Gate->>Gate: getLocalIdentifiers(query)
-    Gate->>+DB: SELECT dataset_id, platform_id, mode, vehicle_plate<br/>FROM (<br/>  SELECT DISTINCT ON (dataset_id) dataset_id, platform_id, mode,<br/>         vehicle_plate, vehicle_country, status<br/>  FROM consignments<br/>  WHERE vehicle_plate = '123ABC' AND vehicle_country = 'EE'<br/>  ORDER BY dataset_id, created_at DESC<br/>) latest<br/>WHERE status = 'active';
-    Note over DB: DISTINCT ON gives the latest row per dataset_id;<br/>the outer WHERE filters to currently active.<br/>Avoids returning historical rows whose latest is now inactive.
+    Gate->>+DB: Local identifier search:<br/>resolve the latest consignments row per dataset_id matching<br/>vehicle_plate='123ABC' AND vehicle_country='EE',<br/>then keep only those whose latest status = 'active'.
+    Note over DB: Latest-row resolution prevents historical rows whose<br/>current state has flipped to 'inactive' or 'deleted' from leaking into search results.<br/>See db/README.md for the canonical read pattern.
     DB-->>-Gate: 1 result (datasetId=550e8400-..., platformId="demo")
 
     Gate->>Gate: local.size=1 → forceBroadcast=false<br/>→ NO broadcast (local results found)

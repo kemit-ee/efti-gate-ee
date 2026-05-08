@@ -21,7 +21,7 @@ graph TD
     N1 -.LISTEN/NOTIFY.- DB[(PostgreSQL 14+<br/>request_id_cache,<br/>sessions, registries,<br/>audit_log)]
     N2 -.LISTEN/NOTIFY.- DB
     N3 -.LISTEN/NOTIFY.- DB
-    DB --> Lock[pg_try_advisory_lock<br/>ping job, expiry job<br/>1 leader at a time]
+    DB --> Lock[Multi-node-safe mutex<br/>per CronManager admin endpoint<br/>409 Conflict if already running]
 ```
 
 See `arch-01-multi-node-deployment.mmd` and `seq-15-gate-registry-sync.mmd` for full detail.
@@ -69,13 +69,13 @@ See `arch-01-multi-node-deployment.mmd` and `seq-15-gate-registry-sync.mmd` for 
 
 **Happy path:**
 - [ ] Archive (`/api/v1/admin/archive`), expire (`/api/v1/admin/expire-identifiers`), and ping-gates (`/api/v1/admin/ping-gates`) are all driven by external CronManager (Epic 26). The gate process never schedules its own jobs.
-- [ ] Multi-node concurrency guard: each handler takes a distinct `pg_try_advisory_lock(<job-key>)` at entry. If the lock is held, return `409 Conflict`. Lock survives node crashes (per-connection in PostgreSQL).
+- [ ] Multi-node concurrency guard: each handler acquires a distinct mutex at entry. If the mutex is held by an in-flight invocation, return `409 Conflict`. The mutex survives node crashes (released automatically when the handler's connection drops).
 
 **Edge cases:**
 - [ ] Two CronManager instances racing the same admin endpoint → second call gets 409 immediately; CronManager's retry policy backs off.
 
 **Technical constraints:**
-- [ ] Concurrency: `pg_try_advisory_lock` with one distinct numeric key per job (archive / expire / ping-gates).
+- [ ] Concurrency: a multi-node-safe mutex with one distinct identity per job (archive / expire / ping-gates). Implementation choice; PostgreSQL advisory locks are one suitable mechanism.
 
 ##### Database migrations
 
@@ -91,7 +91,7 @@ See `arch-01-multi-node-deployment.mmd` and `seq-15-gate-registry-sync.mmd` for 
 **Happy path:**
 - [ ] All tables and fields have English `COMMENT ON …` (schema.sql).
 - [ ] Append-only: every operational table is INSERT-only at the GRANT layer. No `_history` companion tables; the operational table itself is its own change log.
-- [ ] Every logical foreign-key column (`created_by`, `dataset_id`, `gate_id`, `platform_id`, `user_id`) carries a btree index on `(logical_id, created_at DESC)` for the canonical `SELECT DISTINCT ON` lookup pattern. There are no DB-level FK CONSTRAINTs between operational tables (the schema is FK-light by design — see `db/README.md` §Foreign keys).
+- [ ] Every logical foreign-key column (`created_by`, `dataset_id`, `gate_id`, `platform_id`, `user_id`) carries a btree index on `(logical_id, created_at DESC)` to support the canonical latest-row read pattern. There are no DB-level FK CONSTRAINTs between operational tables (the schema is FK-light by design — see `db/README.md` §Foreign keys).
 - [ ] `audit_log` table (action-level audit trail): row_id, user_id, action, resource, resource_id, ip_address, details JSONB, recorded_at; preserved indefinitely on the live DB (≥ 7 years; never archived).
 
 **Technical artifacts:**

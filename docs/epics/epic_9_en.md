@@ -44,7 +44,7 @@ See `state-01-identifier-lifecycle.mmd` and `seq-08-identifier-expiration.mmd` f
 ##### Viewing and deletion
 
 **Happy path:**
-- [ ] `GET /api/v1/consignments` — Super Admin sees all; Admin sees own gate-scope consignments; latest row per `dataset_id` resolved by `SELECT DISTINCT ON (dataset_id) … ORDER BY dataset_id, created_at DESC` and presented in `created_at DESC` order; paginated
+- [ ] `GET /api/v1/consignments` — Super Admin sees all; Admin sees own gate-scope consignments; the listing returns the latest row per `dataset_id` (canonical read pattern in `db/README.md`) ordered by `created_at DESC`; paginated
 - [ ] `DELETE /api/v1/consignments/{datasetId}` — Super Admin only; INSERTs a new `consignments` row with `status='deleted'` (append-only) → `204 No Content`
 
 **Edge cases:**
@@ -79,11 +79,11 @@ See `state-01-identifier-lifecycle.mmd` and `seq-08-identifier-expiration.mmd` f
 
 **Edge cases:**
 - [ ] `transport_date` not set or in future → identifier remains `active`; the expiry sweep skips.
-- [ ] Concurrent CronManager calls to `/admin/expire-identifiers` → `pg_try_advisory_lock` returns FALSE on the second; gate replies `409 Conflict`. Same pattern for `/admin/archive` and `/admin/ping-gates`.
+- [ ] Concurrent CronManager calls to `/admin/expire-identifiers` → the multi-node-safe mutex on the second call fails; gate replies `409 Conflict`. Same pattern for `/admin/archive` and `/admin/ping-gates`.
 
 **Technical constraints:**
 - [ ] Expiry sweep schedule lives in CronManager YAML (`docs/specs/deploy/cronmanager-expire.yaml`), default `0 45 3 * * ?` (03:45 daily). The gate carries no `EXPIRY_JOB_WINDOW_*` env var.
-- [ ] Concurrency guard at handler entry: `pg_try_advisory_lock(<expire-lock-key>)`; if held, return `409 Conflict`.
+- [ ] Concurrency guard at handler entry: a multi-node-safe mutex with one distinct identity for the expire job; if held, return `409 Conflict`.
 - [ ] Expiry sweep logs `event.action: identifier.expire` with `efti.expired_count` per run (per `logging-spec.md` §5).
 
 **Technical artifacts:**

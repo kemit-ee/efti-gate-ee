@@ -99,7 +99,7 @@ sequenceDiagram
     Platform->>Proxy: POST /v1/identifiers/:datasetId<br/>(client cert: Member-State-issued for the platform's eDelivery AP)
     Proxy->>Proxy: Validate cert chain
     Proxy->>Gate: forwarded request + X-Client-Cert-Subject + X-Client-Cert-Serial
-    Gate->>DB: SELECT DISTINCT ON (id) FROM platforms<br/>WHERE cert_subject = $1 AND cert_serial = $2 AND is_active = TRUE
+    Gate->>DB: Resolve active platforms row by (cert_subject, cert_serial)
     DB-->>Gate: 1 row → platform_id resolved
     alt cert resolves to exactly 1 active platform
         Gate-->>Platform: 200 OK

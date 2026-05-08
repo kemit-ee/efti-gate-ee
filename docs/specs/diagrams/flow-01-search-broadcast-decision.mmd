@@ -5,7 +5,7 @@ flowchart TD
     RoleCheck -->|No| Deny403[Return 403 Forbidden]
     RoleCheck -->|Yes| BuildQuery[Build IdentifiersQuery\nid, countryCode, mode,\ndangerousGoodsIndicator, forceBroadcast]
 
-    BuildQuery --> LocalQuery[Query local PostgreSQL\nSELECT FROM consignments\nWHERE vehicle_plate = identifier\nAND vehicle_country = ... AND status = active]
+    BuildQuery --> LocalQuery[Resolve the latest consignments rows\nmatching vehicle_plate AND vehicle_country;\nkeep only those whose latest status = 'active']
 
     LocalQuery --> LocalCount{local results count?}
 

@@ -12,9 +12,9 @@ sequenceDiagram
     Proxy->>+Gate: POST /v1/identifiers/550e8400-...<br/>X-Client-Cert-Subject: CN=eDelivery-Platform, O=ACME Logistics<br/>X-Client-Cert-Serial: 0123456789ABCDEF
 
     Gate->>+Auth: resolvePlatform(certSubject, certSerial)
-    Auth->>+DB: SELECT DISTINCT ON (id) id FROM platforms<br/>WHERE cert_subject = $1 AND cert_serial = $2<br/>AND is_active = TRUE<br/>ORDER BY id, created_at DESC
-    DB-->>-Auth: ["plt-abc-001", "plt-xyz-002"]
-    Auth->>Auth: result.size > 1 → CONFIGURATION ERROR
+    Auth->>+DB: Resolve active platforms rows by (cert_subject, cert_serial)
+    DB-->>-Auth: 2 active platforms match: 'plt-abc-001', 'plt-xyz-002'
+    Auth->>Auth: matches > 1 → CONFIGURATION ERROR
     Auth-->>-Gate: ForbiddenException(FORBIDDEN_MULTI_PLATFORM)
 
     Gate-->>Proxy: 403 Forbidden<br/>{ "type": "https://api.efti.ee/errors/forbidden-multi-platform",<br/>  "code": "FORBIDDEN_MULTI_PLATFORM",<br/>  "title": "Certificate matches multiple active platforms",<br/>  "status": 403,<br/>  "detail": "The presented client certificate subject DN matches more than one active row in the platforms registry. This is a configuration error — exactly one platform per certificate. Contact the gate operator." }
@@ -26,8 +26,8 @@ sequenceDiagram
     Note over Platform: After fix:
     Platform->>+Gate: POST /v1/identifiers/550e8400-...<br/>X-Client-Cert-Subject: CN=eDelivery-Platform, O=ACME Logistics
     Gate->>+Auth: resolvePlatform(certSubject, certSerial)
-    Auth->>+DB: same SELECT
-    DB-->>-Auth: ["plt-abc-001"]
-    Auth->>Auth: result.size == 1 → OK
+    Auth->>+DB: Resolve active platforms rows by (cert_subject, cert_serial)
+    DB-->>-Auth: 1 active platform matches: 'plt-abc-001'
+    Auth->>Auth: matches == 1 → OK
     Auth-->>-Gate: Platform{id="plt-abc-001"}
     Gate-->>-Platform: 200 OK

@@ -78,7 +78,7 @@ See `state-05-gate-health.mmd` for full detail.
 - [ ] Ping job attempts to start on 2 nodes → database advisory lock ensures only 1 node runs it
 
 **Technical constraints:**
-- [ ] Leader election: database advisory lock (`pg_try_advisory_lock`)
+- [ ] Leader election: the CronManager admin endpoint enforces a multi-node-safe mutex (one in-flight call wins; others get 409). Implementation may use database advisory locks or any equivalent mechanism.
 
 **Technical artifacts:**
 - [ ] OpenAPI: `POST /api/v1/gates/{gateId}/ping`

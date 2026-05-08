@@ -20,12 +20,12 @@ sequenceDiagram
     Gate->>+Auth: authenticate(request)
     Auth->>Auth: Validate JWT signature against cached JWKS<br/>(fetched from TARA_OIDC_DISCOVERY_URL)
     Auth->>Auth: Validate iss == TARA, aud == TARA_CLIENT_ID, exp > NOW()
-    Auth->>+DB: SELECT 1 FROM sessions WHERE jti = $1 AND expires_at > NOW()
-    DB-->>-Auth: 0 rows (not in denylist)
-    Auth->>+DB: SELECT DISTINCT ON (tara_sub) id, roles, subsets, is_admin, is_active<br/>FROM users WHERE tara_sub = $jwt_sub<br/>ORDER BY tara_sub, created_at DESC
-    DB-->>-Auth: User{id='d2e3f4a5-…', is_active=TRUE, roles={'AUTHORITY':['aut-politsei-001']}, subsets=['EU07']}
+    Auth->>+DB: Check sessions denylist for the JWT's jti
+    DB-->>-Auth: not revoked
+    Auth->>+DB: Resolve the latest active users row by tara_sub = jwt.sub;<br/>verify jwt.iat ≥ users.token_revoked_at
+    DB-->>-Auth: User{id='d2e3f4a5-…', is_active=TRUE, roles={'AUTHORITY':['aut-politsei-001']}, subsets=['EU07'], token_revoked_at=NULL}
 
-    Note over Auth: Permission claims are read from the resolved users row,<br/>NOT directly from the JWT — TARA's `resource_access` may<br/>differ from the gate's `users.roles` if admin has updated<br/>scope since the JWT was issued. JWT carries the identity<br/>(`sub`); the gate carries the authorisation.<br/><br/>Missing-row policy: if no users row matches the JWT `sub`,<br/>respond 401 TOKEN_INVALID with detail "no provisioned user".<br/>Admin must POST /api/v1/users first.
+    Note over Auth: Permission claims are read from the resolved users row,<br/>NOT directly from the JWT — TARA's `resource_access` may<br/>differ from the gate's `users.roles` if admin has updated<br/>scope since the JWT was issued. JWT carries identity<br/>(`sub`) and freshness (`iat`, `jti`); the gate carries the authorisation.<br/><br/>Missing-row policy: if no active users row matches the JWT `sub`,<br/>respond 401 TOKEN_INVALID with detail "no provisioned user".<br/>Admin must POST /api/v1/users first.<br/><br/>Per-user broadcast revocation: if jwt.iat < users.token_revoked_at,<br/>respond 401 TOKEN_INVALID with detail "token revoked".
 
     Auth-->>-Gate: AuthenticatedUser{<br/>userId="d2e3f4a5-…", roles=["AUTHORITY"],<br/>scope=["aut-politsei-001"], subsets=["EU07"], jti="abc..." }
 
@@ -33,7 +33,7 @@ sequenceDiagram
     Note over Route: @Access(AUTHORITY) — user.roles contains AUTHORITY → OK
     Route->>Route: authorityId = user.scope.first() = "aut-politsei-001"
     Route->>Route: subsetCheck: requested ⊆ user.subsets → OK
-    Route->>Route: Execute identifier search (SELECT DISTINCT ON …)
+    Route->>Route: Execute identifier search (latest-row resolution per dataset_id)
     Route-->>-Gate: result
     Gate-->>-UI: 200 OK (SSE stream)
     UI-->>-Officer: Search results
@@ -45,11 +45,20 @@ sequenceDiagram
         Gate-->>Officer: 401 Unauthorized<br/>{"code":"TOKEN_INVALID"}
     end
 
-    alt JWT in denylist (revoked via /api/v1/auth/logout)
+    alt JWT in denylist (per-token revocation via /api/v1/auth/logout)
         Officer->>Gate: GET /v1/identifiers/123ABC<br/>Authorization: Bearer <revoked-jwt>
         Gate->>Auth: authenticate
-        Auth->>DB: SELECT 1 FROM sessions WHERE jti = $1 AND expires_at > NOW()
-        DB-->>Auth: 1 row (revoked)
+        Auth->>DB: Check sessions denylist for the JWT's jti
+        DB-->>Auth: present (revoked)
+        Auth-->>Gate: null
+        Gate-->>Officer: 401 Unauthorized<br/>{"code":"TOKEN_INVALID","detail":"Token has been revoked"}
+    end
+
+    alt User-level revocation (per-user broadcast via /api/v1/users/{id}/revoke-token)
+        Officer->>Gate: GET /v1/identifiers/123ABC<br/>Authorization: Bearer <jwt issued before revoke-token>
+        Gate->>Auth: authenticate
+        Auth->>DB: Resolve users row; jwt.iat < users.token_revoked_at
+        DB-->>Auth: User{token_revoked_at=2026-04-23T10:00:00Z}
         Auth-->>Gate: null
         Gate-->>Officer: 401 Unauthorized<br/>{"code":"TOKEN_INVALID","detail":"Token has been revoked"}
     end

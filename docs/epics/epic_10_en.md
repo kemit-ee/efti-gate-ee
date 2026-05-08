@@ -95,4 +95,4 @@ See `seq-14-gate-to-gate-search.mmd` and `seq-16-mtls-fast-protocol.mmd` for ful
 - [ ] Async response arrives after SSE stream closed → discarded; logged DEBUG
 
 **Technical artifacts:**
-- [ ] DB schema: `async_responses (request_id, gate_id, payload, received_at)`
+- [ ] DB schema: `async_responses` table (full column list in `schema.sql`); inbound peer-gate responses are appended here and routed back to the owning node via the `async_responses` LISTEN/NOTIFY channel.

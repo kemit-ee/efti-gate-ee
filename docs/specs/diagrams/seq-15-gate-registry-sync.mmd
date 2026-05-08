@@ -15,15 +15,15 @@ sequenceDiagram
 
     GateReg->>GateReg: in-memory cache: gates["eu-pl01"] = Gate{...}<br/>(this node only)
 
-    GateReg->>+DB: BEGIN;<br/>INSERT INTO gates<br/>(id, country_code, e_delivery_url, e_delivery_cert,<br/>status, created_by, created_at)<br/>VALUES ('eu-pl01', 'PL', 'https://efti.gitd.gov.pl/as4', '...',<br/>'ONLINE', $admin_uid, NOW());<br/>SELECT pg_notify('registry_change', 'eu-pl01');<br/>COMMIT;
-    DB-->>-GateReg: OK (new row; latest row for id wins on next read)
+    GateReg->>+DB: In a single transaction: append a new gates row for 'eu-pl01'<br/>and emit a registry_change notification carrying the gate id.
+    DB-->>-GateReg: written (new row; latest row for id wins on next read)
 
-    Note over DB,OtherNode: pg_notify is emitted by the application in the<br/>same transaction as the INSERT — NO DB-side trigger.<br/>NOTIFY is delivered to LISTENers on transaction commit.
+    Note over DB,OtherNode: The notification is emitted by the application inside<br/>the same transaction as the INSERT — there is no DB-side trigger.<br/>The notification is delivered to LISTENers on transaction commit.
 
     DB->>OtherNode: NOTIFY registry_change (channel: registry_change, payload: eu-pl01)
 
     OtherNode->>OtherNode: Listen thread receives notification
-    OtherNode->>+DB: SELECT DISTINCT ON (id) *<br/>FROM gates WHERE id = 'eu-pl01'<br/>ORDER BY id, created_at DESC
+    OtherNode->>+DB: Resolve the latest gates row for id='eu-pl01'
     DB-->>-OtherNode: latest Gate{id="eu-pl01", …}
     OtherNode->>OtherNode: gateRegistry.gates["eu-pl01"] = Gate{...}
     Note over OtherNode: In-memory registry updated on Node 2<br/>without restart.
@@ -32,6 +32,6 @@ sequenceDiagram
     GateReg-->>-Gate: done
 
     Gate->>+Gate: runCatching { ping(gate.id) }
-    Note over Gate: Auto-ping new gate after registration to verify connectivity.<br/>Successful ping INSERTs another gates row with status='ONLINE'<br/>and last_ping_at=NOW().
+    Note over Gate: Auto-ping new gate after registration to verify connectivity.<br/>A successful ping appends another gates row carrying status='ONLINE'<br/>and last_ping_at=NOW().
 
     Gate-->>-Admin: 201 Created\n{"id":"eu-pl01","countryCode":"PL","status":"ONLINE","isActive":true,...}

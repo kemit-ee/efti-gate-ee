@@ -219,7 +219,7 @@ populates them on every INSERT (the table is append-only — every state
 change is a new row); state transitions like `IdentifierExpirationJob`
 flipping `status` to `inactive` also INSERT a new row, copying the prior
 row's other columns. Authority search is a single-table read using
-`SELECT DISTINCT ON (dataset_id) …` — no JOIN.
+latest-row resolution per `dataset_id` (canonical read pattern in `db/README.md`); no JOINs.
 
 | `consignments` column | XPath in the identifier XML | Notes |
 |-----------------------|------------------------------|-------|

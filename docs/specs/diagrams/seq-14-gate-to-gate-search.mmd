@@ -15,7 +15,7 @@ sequenceDiagram
 
     Handler->>+EftiSvc: handleIdentifierQuery(payload)
     EftiSvc->>EftiSvc: Parse IdentifiersQuery from XML
-    EftiSvc->>+DB: SELECT dataset_id, platform_id, mode, vehicle_plate FROM consignments<br/>WHERE vehicle_plate = '456XYZ' AND vehicle_country = 'FI' AND status = 'active'
+    EftiSvc->>+DB: Local identifier search:<br/>resolve latest consignments rows matching vehicle_plate='456XYZ' AND vehicle_country='FI',<br/>keep only those whose latest status = 'active'.
     DB-->>-EftiSvc: 1 consignment (datasetId=a1b2c3d4-...)
 
     EftiSvc->>EftiSvc: Wrap result in identifierResponse XML

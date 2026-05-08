@@ -23,7 +23,7 @@ sequenceDiagram
     participant Gate as eFTI Gate
     participant DB as PostgreSQL
     Platform->>Gate: POST /v1/identifiers/{datasetId}<br/>Client cert (mTLS, eDelivery AP)<br/>Content-Type: application/xml<br/>X-Request-ID: <uuid>
-    Gate->>Gate: Resolve platform_id by SELECT DISTINCT ON (id) FROM platforms<br/>WHERE cert_subject = $1 AND cert_serial = $2 AND is_active = TRUE<br/>Validate XSD (consignment-identifier.xsd)<br/>Check X-Request-ID dedup (10-min TTL)
+    Gate->>Gate: Resolve platform_id from active platforms by (cert_subject, cert_serial)<br/>Validate XSD (consignment-identifier.xsd)<br/>Check X-Request-ID dedup (10-min TTL)
     alt cert resolved + XSD valid
         Gate->>DB: INSERT consignments + identifiers<br/>(append-only: previous row stays in place but is no longer latest)
         Gate-->>Platform: 200 OK
@@ -42,7 +42,7 @@ See `seq-01-identifier-registration.mmd` for full detail.
 
 **Happy path:**
 - [ ] `POST /v1/identifiers/{datasetId}` accepts XML body `Content-Type: application/xml`; valid per `consignment-identifier.xsd`; mTLS-authenticated by the platform's eDelivery AP cert (resolves to exactly one active `platforms` row) → `200 OK`
-- [ ] Re-sending same `datasetId` with new data → INSERT a new `consignments` row sharing the same `dataset_id` (status='active'); the previous row remains in the table but is no longer the latest. Authority `SELECT DISTINCT ON (dataset_id)` reads return the new row → `200 OK`
+- [ ] Re-sending same `datasetId` with new data → INSERT a new `consignments` row sharing the same `dataset_id` (status='active'); the previous row remains in the table but is no longer the latest. Authority latest-row reads return the new row → `200 OK`
 - [ ] Stored searchable fields on `consignments`: `vehicle_plate`, `vehicle_country`, `transport_date`, `origin_country`, `destination_country`, `mode`, `dangerous_goods` (snake_case per `schema.sql`)
 - [ ] Identifier types supported (`identifiers.identifier_type` enum): `means` (vehicle / transport unit), `equipment` (container / trailer), `carried` (cargo unit)
 - [ ] Transport modes (`consignments.mode` enum, EU Reg 2024/2024 Annex I): `maritime` (XML modeCode=1), `rail` (=2), `road` (=3), `air` (=4), `multimodal` (=5) — see `data-transformations.md` §2.4 for the mapping

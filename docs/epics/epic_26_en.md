@@ -26,13 +26,13 @@ sequenceDiagram
     Note over CM: YAML schedule (e.g. "0 0 3 * * ?" — 03:00 daily)<br/>HTTP job, target = the gate's admin archive endpoint
     CM->>+Gate: POST /api/v1/admin/archive<br/>Authorization: Bearer <ops-token>
     Gate->>Gate: Auth: caller is configured CronManager source
-    Gate->>+DB: SELECT … FROM consignments WHERE row_id NOT IN<br/>(SELECT DISTINCT ON (dataset_id) row_id FROM consignments<br/> ORDER BY dataset_id, created_at DESC)<br/>LIMIT batch_size
+    Gate->>+DB: Select up to batch_size non-latest rows per logical id<br/>from this archivable table (the rows whose latest sibling has won;<br/>see db/README.md for the canonical read pattern).
     DB-->>-Gate: candidate rows
     Gate->>+Archive: PUT batch (S3 / cold Postgres / NFS)
     Archive-->>-Gate: ack
-    Gate->>+DB: DELETE FROM consignments WHERE row_id IN (…) — runs as elevated db_archiver role, NOT app
+    Gate->>+DB: Delete the just-archived rows from the live DB.<br/>The DELETE runs under the db_archiver role, NOT the runtime app role<br/>(app has SELECT, INSERT only).
     DB-->>-Gate: rows archived
-    Gate->>+DB: INSERT INTO jobs_execution_log<br/>(job_name='archive', started_at, finished_at, status, details)
+    Gate->>+DB: Append a jobs_execution_log row<br/>(job_name='archive', started_at, finished_at, status, details).
     DB-->>-Gate: ok
     Gate-->>-CM: 200 OK { archived_count: …, duration_ms: … }
 ```
@@ -76,7 +76,7 @@ See `seq-08-identifier-expiration.mmd` for a related job pattern.
 - [ ] Archive storage failure mid-batch → batch transaction rolls back; row remains in live DB; failure logged ERROR; next run retries.
 
 **Technical constraints:**
-- [ ] Archival query uses the canonical `NOT IN (SELECT DISTINCT ON (logical_id) row_id …)` pattern documented in `db/README.md`; or its `ROW_NUMBER() OVER (…)` equivalent — whichever the implementation chooses, but no JOINs.
+- [ ] The archival selection scans only the rows that are NOT the latest per logical id (the read pattern is documented in `db/README.md`); how the implementation expresses that against an append-only schema is its choice. No JOINs across operational tables.
 - [ ] `DELETE` on the live DB is performed by a separate database role (`db_archiver`), NOT the runtime `app` role. The `app` role still has SELECT, INSERT only on every table — Epic 26 does not weaken Rule 1.
 - [ ] Archival destination is operator-configurable (S3-compatible object store, secondary Postgres on a different cluster, append-only file storage). The destination shape is JSON-Lines with one row per line, partitioned by `(table, year, month)`.
 - [ ] Retention in archive: 7-year minimum for archived rows of every operational table; indefinite is acceptable (compliance floor is 7 y per `non-functional.md` §5). `audit_log` does not appear in the archive at all — it stays on the live DB for the full retention period.

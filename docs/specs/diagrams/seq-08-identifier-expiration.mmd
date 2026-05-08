@@ -8,21 +8,22 @@ sequenceDiagram
 
     CM->>+Gate: POST /api/v1/admin/expire-identifiers<br/>Authorization: Bearer ${BEARER_OPS_TOKEN}
     Gate->>Gate: Auth: literal compare with ARCHIVE_OPS_TOKEN env var
-    Gate->>Gate: pg_try_advisory_lock(<expire-lock-key>) — returns TRUE
-    Gate->>+DB: SELECT DISTINCT ON (dataset_id) *<br/>FROM consignments<br/>ORDER BY dataset_id, created_at DESC<br/>(filter: status='active' AND mode='road'<br/> AND transport_date + INTERVAL '14 days' < NOW())
-    Note over DB: Uses idx_consignments_dataset_latest +<br/>idx_consignments_status_active partial index.<br/>Cabotage retention per Reg 2024/1942 Art 11(4).
-    DB-->>-Gate: [550e8400-…, a1b2c3d4-…, c3d4e5f6-…] (latest rows)
+    Gate->>Gate: Acquire concurrency guard (advisory lock); if held, return 409 ARCHIVE_IN_PROGRESS
+
+    Gate->>+DB: Resolve the latest row per dataset_id where mode='road',<br/>status='active', and transport_date + 14 days has passed.
+    Note over DB: Cabotage retention per Reg 2024/1942 Art 11(4).<br/>Latest-row resolution per db/README.md.
+    DB-->>-Gate: candidate dataset_ids (e.g. 550e8400-…, a1b2c3d4-…, c3d4e5f6-…)
 
     loop For each expired road consignment
-        Gate->>+DB: INSERT INTO consignments<br/>(dataset_id, platform_id, gate_id, xml,<br/>status, mode, vehicle_plate, …,<br/>transport_date, expires_at, created_at)<br/>VALUES (… same as latest row, but status='inactive')
-        DB-->>-Gate: new row inserted
-        Note over DB: No UPDATE — append-only. The newly-inserted<br/>row becomes the latest for this dataset_id;<br/>reads picking DISTINCT ON now see status='inactive'.
-        Gate->>Log: { event.action: "identifier.expire",<br/>efti.dataset.id: "550e8400-…", efti.expiry.reason: "cabotage_14d" }
+        Gate->>+DB: Append a new consignments row sharing the same dataset_id<br/>with status='inactive' (denormalised columns copied from the prior latest row).
+        DB-->>-Gate: written
+        Note over DB: Append-only — no UPDATE. The newly inserted row becomes the latest;<br/>downstream reads (DISTINCT ON dataset_id) now resolve to status='inactive'.
+        Gate->>Log: { event.action: "identifier.expire",<br/>efti.dataset.id: "550e8400-…",<br/>efti.expiry.reason: "cabotage_14d" }
     end
 
-    Gate->>+DB: INSERT INTO jobs_execution_log<br/>(job_name, started_at, finished_at, status, details)<br/>VALUES ('expire-identifiers', $start, NOW(), 'completed',<br/>jsonb_build_object('expired_count', 3))
+    Gate->>+DB: Append a jobs_execution_log row (job_name='expire-identifiers',<br/>status='completed', details: { expired_count: 3 })
     DB-->>-Gate: ok
-    Gate->>Gate: pg_advisory_unlock(<expire-lock-key>)
+    Gate->>Gate: Release concurrency guard
     Gate-->>-CM: 200 OK { expired_count: 3, duration_ms: 14210, dry_run: false }
 
-    Note over CM: Non-road modes (maritime/rail/air/multimodal)<br/>are NOT expired — Reg 2024/1942 Art 11(4)<br/>cabotage retention applies to road only.<br/>Old (non-latest) consignments rows are archived<br/>nightly by a sibling CronManager job (Epic 26).
+    Note over CM: Non-road modes (maritime / rail / air / multimodal)<br/>are NOT expired — Reg 2024/1942 Art 11(4) cabotage retention<br/>applies to road only. Old (non-latest) consignments rows are archived<br/>nightly by a sibling CronManager job (Epic 26).

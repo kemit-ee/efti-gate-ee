@@ -74,7 +74,7 @@ All log entries **must** be valid JSON on a single line. Format follows [Elastic
 | `http.request.body.bytes` | int | Request body size (bytes) — never log body content at INFO+ |
 | `http.response.status_code` | int | HTTP response status |
 | `user.id` | UUID string | `users.id` of the authenticated user |
-| `user.roles` | string[] | Assigned gate roles from the resolved `users` row (`["AUTHORITY"]` / `["ADMIN"]`). Platform identity is mTLS-only (no `users.roles` entry); `user.roles` is empty `[]` for Platform calls. CronManager opsToken calls log `user.roles=["OPS"]` synthetically (no DB row). |
+| `user.roles` | string[] | Assigned gate roles from the resolved `users` row (`["AUTHORITY"]` / `["ADMIN"]`). Platform identity is mTLS-only (no `users.roles` entry); `user.roles` is empty `[]` for Platform calls. CronManager opsToken calls log `user.id=null` and `user.roles=[]` (no resolved user; the `event.action` is `archive.run` / `identifier.expire` / `gate.ping` and identifies the caller). |
 | `error.type` | string | Exception class name |
 | `error.message` | string | Exception message |
 | `error.stack_trace` | string | First 10 stack frames (ERROR level only) |
@@ -111,7 +111,7 @@ All log entries **must** be valid JSON on a single line. Format follows [Elastic
 | `efti.expired_count` | int | Rows deleted by `IdentifierExpirationJob` | `14` |
 | `efti.cutoff_datetime` | ISO 8601 | Expiration cutoff used by job | `"2026-04-16T02:00:00.000Z"` |
 | `efti.audit` | boolean | Marks an event as audit-meaningful (GDPR / admin trail) | `true` |
-| `efti.required_role` | string | Role expected when `user.access.denied` fires | `"AUTHORITY"` / `"ADMIN"` / `"OPS"` (no `PLATFORM` — Platform identity is mTLS, denial is `FORBIDDEN_NO_PLATFORM` or `FORBIDDEN_MULTI_PLATFORM`) |
+| `efti.required_role` | string | Role expected when `user.access.denied` fires | `"AUTHORITY"` / `"ADMIN"` (no `PLATFORM` — Platform identity is mTLS, denial is `FORBIDDEN_NO_PLATFORM` or `FORBIDDEN_MULTI_PLATFORM`; CronManager admin/* denial is plain `FORBIDDEN` without an `efti.required_role`) |
 | `efti.authority.country` | string (ISO-3166 α-2) | Set on `authority.create` | `"EE"` |
 | `efti.authority.subsets` | string[] | Set on `authority.create` | `["EU01","EU07"]` |
 | `efti.db.pool.available` | int | Available JDBC connections (warning event) | `1` |
