@@ -47,7 +47,7 @@ See `arch-01-multi-node-deployment.mmd` and `seq-15-gate-registry-sync.mmd` for 
 **Happy path:**
 - [ ] `X-Request-ID` uniqueness checked in shared database table — checked across all nodes
 - [ ] Duplicate detection window: 600 seconds
-- [ ] Duplicate from any node → `400 Bad Request` with `"detail": "Duplicate X-Request-ID within 600 seconds"`
+- [ ] Duplicate from any node → `409 Conflict` with `code: DUPLICATE_REQUEST_ID` and `"detail": "Duplicate X-Request-ID within 600 seconds"` (per `errors.json` + OpenAPI; 10-min window matches `request_id_cache.expires_at` default)
 
 **Edge cases:**
 - [ ] Same ID arrives at 2 nodes within 1 ms → database unique constraint prevents both succeeding; one gets `400`

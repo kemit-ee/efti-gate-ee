@@ -246,7 +246,9 @@ Three mechanisms, one per surface, mirroring the EFTI4EU reference implementatio
 
 **`AccessChecker` on the JWT path** validates the JWT signature against the cached TARA JWKS, then resolves the caller against the database: it locates the active `users` row whose `tara_sub` matches the JWT `sub`; rejects the request if the JWT's `jti` is in the `sessions` denylist or the JWT's `iat` predates the resolved user's `token_revoked_at`; reads `roles`, `subsets`, and scope-IDs from the resolved row. Permission claims come from the database, not the JWT — the gate's authorisation snapshot can change after the JWT was minted, so DB-side state wins. The mTLS path resolves the platform against `platforms` by cert subject + serial (active rows only). The `opsToken` path does no DB lookup at all (literal env-var compare).
 
-**Password hashing.** Bcrypt only, used for the single break-glass local-admin row in `users.secret_hash`. Every other row has `secret_hash = NULL`.
+**Password hashing.** Bcrypt only, used for the single break-glass local-admin row in `users.secret_hash`. Every other row has `secret_hash = NULL`. Cost factor pinned at 12 (`$2a$12$…`) per `non-functional.md` §4.
+
+**Break-glass JWT signing-key rotation.** A single asymmetric key pair is held by the gate (`BREAK_GLASS_JWT_SIGNING_KEY` env var; PEM-encoded RSA private key). Issued JWTs do not carry a `kid` header — the gate is the only verifier and uses the single in-memory key. Rotation procedure: (1) generate a new key pair offline; (2) restart the gate process with the new private key; (3) every break-glass JWT signed with the old key becomes invalid immediately because the new key cannot verify it. The 600 s TTL means worst-case-stranded sessions are 10 minutes. There is no support for overlapping signing keys — operator accepts the brief gap on rotation.
 
 ---
 

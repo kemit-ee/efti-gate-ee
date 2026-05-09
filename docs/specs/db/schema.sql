@@ -327,7 +327,15 @@ CREATE TABLE consignments (
   CONSTRAINT consignments_vehicle_country_fmt   CHECK (vehicle_country IS NULL     OR vehicle_country ~ '^[A-Z]{2}$'),
   CONSTRAINT consignments_origin_country_fmt    CHECK (origin_country IS NULL      OR origin_country ~ '^[A-Z]{2}$'),
   CONSTRAINT consignments_destination_fmt       CHECK (destination_country IS NULL OR destination_country ~ '^[A-Z]{2}$'),
-  CONSTRAINT consignments_expires_after_deliver CHECK (expires_at IS NULL OR delivered_at IS NULL OR expires_at > delivered_at)
+  CONSTRAINT consignments_expires_after_deliver CHECK (expires_at IS NULL OR delivered_at IS NULL OR expires_at > delivered_at),
+  -- Cabotage retention (Reg 2024/1942 Art 11(4)): expires_at is set on road
+  -- consignments only. Non-road must have expires_at NULL; road consignments
+  -- must have expires_at populated whenever transport_date is known.
+  CONSTRAINT consignments_expires_only_road CHECK (
+    (mode = 'road' AND (expires_at IS NULL OR transport_date IS NOT NULL))
+    OR (mode <> 'road' AND expires_at IS NULL)
+    OR mode IS NULL
+  )
 );
 
 COMMENT ON TABLE  consignments IS 'Stored consignment identifier metadata. Append-only: re-uploads, status flips (active → inactive → deleted) all INSERT new rows with the same dataset_id. Authority queries SELECT DISTINCT ON (dataset_id) via denormalised search columns — no JOIN required.';
@@ -343,8 +351,8 @@ COMMENT ON COLUMN consignments.vehicle_country     IS 'Vehicle registration coun
 COMMENT ON COLUMN consignments.dangerous_goods     IS 'TRUE if any leg has dangerousGoodsIndicator=true';
 COMMENT ON COLUMN consignments.origin_country      IS 'Place-of-departure country code (denormalised for cross-border filters)';
 COMMENT ON COLUMN consignments.destination_country IS 'Place-of-delivery country code';
-COMMENT ON COLUMN consignments.transport_date      IS 'Transport / delivery date extracted from deliveryEvent/actualOccurrenceDateTime; used by cabotage filter';
-COMMENT ON COLUMN consignments.delivered_at        IS 'Actual delivery timestamp (UTC) parsed from XML; NULL if not yet delivered';
+COMMENT ON COLUMN consignments.transport_date      IS 'Carrier-acceptance date extracted from carrierAcceptanceDateTime; anchors the cabotage 14-day clock per Reg 2024/1942 Art 11(4)';
+COMMENT ON COLUMN consignments.delivered_at        IS 'Actual delivery timestamp (UTC) parsed from deliveryEvent/actualOccurrenceDateTime; NULL while in transit. Independent of the cabotage clock.';
 COMMENT ON COLUMN consignments.expires_at          IS 'For mode=road: transport_date + 14 days (Reg 2024/1942 Art 11(4)). NULL for non-road. IdentifierExpirationJob INSERTs a new row with status=''inactive'' when NOW() > expires_at.';
 COMMENT ON COLUMN consignments.created_by          IS 'users.row_id of the actor that wrote this row';
 COMMENT ON COLUMN consignments.created_at          IS 'When this row was inserted';
@@ -437,10 +445,10 @@ CREATE TABLE sessions (
   created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-COMMENT ON TABLE  sessions IS 'JWT denylist. INSERT-only. Holds (jti, revoked_at) entries for tokens explicitly revoked before TARA-side exp. AccessChecker rejects any JWT whose jti is here AND whose exp is in the future. Rows past expires_at are archived by CronManager.';
+COMMENT ON TABLE  sessions IS 'JWT denylist. INSERT-only. Holds (jti, revoked_at) entries for tokens explicitly revoked before TARA-side exp. AccessChecker rejects any JWT whose jti is here AND whose exp is in the future. Rows past expires_at are archived by CronManager. Duplicates on jti are tolerated (idempotency: a second logout on the same JWT is a no-op INSERT, not a 409 — the read pattern is EXISTS WHERE jti=$1 AND expires_at > NOW()).';
 COMMENT ON COLUMN sessions.row_id      IS 'Synthetic primary key';
 COMMENT ON COLUMN sessions.user_id     IS 'Logical users.id of the JWT subject at revocation time. Denormalised, no FK.';
-COMMENT ON COLUMN sessions.jti         IS 'JWT ID claim (RFC 7519 §4.1.7) — the logical identifier of the revoked token.';
+COMMENT ON COLUMN sessions.jti         IS 'JWT ID claim (RFC 7519 §4.1.7) — the logical identifier of the revoked token. Not unique: duplicates from multiple revoke calls on the same token are tolerated.';
 COMMENT ON COLUMN sessions.expires_at  IS 'Copied from the JWT exp claim. Once exp < NOW() the row stops being load-bearing and becomes archival candidate.';
 COMMENT ON COLUMN sessions.revoked_at  IS 'When the revocation event was recorded.';
 COMMENT ON COLUMN sessions.reason      IS 'Revocation reason: ''logout'' (user-initiated), ''admin_revoke'' (POST /api/v1/users/{id}/revoke-token), ''incident'' (operator forced), …';
@@ -553,9 +561,13 @@ CREATE INDEX idx_audit_log_recorded      ON audit_log (recorded_at DESC);
 -- ----------------------------------------------------------------------------
 -- Multi-node deployments: a remote gate's async AS4 response may arrive on a
 -- different node than the one that sent the request. The receiving node
--- INSERTs the response here; the originating node polls for it. Append-only:
--- consumption is marked by INSERTing a new row with the same
--- (receiver_id, request_id) and consumed_at populated.
+-- INSERTs the response here (consumed_at NULL); the originating node polls
+-- for it. The "claim" — making sure exactly one node consumes each response
+-- — is the partial UNIQUE index below: the first node to INSERT a row with
+-- consumed_at=NOW() wins; subsequent INSERTs for the same (receiver_id,
+-- request_id) hit the unique violation and the would-be claimer falls
+-- through to the next pending response. Append-only on the storage side;
+-- the unique index applies only to consumption rows.
 
 CREATE TABLE async_responses (
   row_id       UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -563,19 +575,26 @@ CREATE TABLE async_responses (
   request_id   TEXT         NOT NULL,
   body         TEXT         NOT NULL,
   consumed_at  TIMESTAMPTZ,                            -- NULL = stored event; non-NULL = consumed event
+  consumed_by  UUID,                                   -- gate node identity that claimed the response
   created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-COMMENT ON TABLE  async_responses IS 'Multi-node coordination for incoming eDelivery AS4 async responses. Append-only: storage event has consumed_at=NULL; consumption is a NEW row with the same (receiver_id, request_id) and consumed_at populated. The originating node polls for the latest row per (receiver_id, request_id) where consumed_at IS NULL.';
+COMMENT ON TABLE  async_responses IS 'Multi-node coordination for incoming eDelivery AS4 async responses. Append-only on storage (consumed_at=NULL rows). Consumption is a NEW row with the same (receiver_id, request_id), consumed_at populated, and consumed_by set to the claiming node id. The unique partial index `idx_async_responses_claim` ensures exactly one consumption row per (receiver_id, request_id); racing INSERTs from multiple nodes serialise on this index.';
 COMMENT ON COLUMN async_responses.row_id      IS 'Synthetic primary key';
 COMMENT ON COLUMN async_responses.receiver_id IS 'Gate or platform that should receive this response';
 COMMENT ON COLUMN async_responses.request_id  IS 'Correlation ID matching the original outgoing request';
 COMMENT ON COLUMN async_responses.body        IS 'Raw response payload (XML)';
 COMMENT ON COLUMN async_responses.consumed_at IS 'When the response was consumed by its handler. NULL = pending pickup.';
+COMMENT ON COLUMN async_responses.consumed_by IS 'Gate node identity (e.g. pod name UUID) that claimed this response. NULL on storage rows; set on consumption rows.';
 COMMENT ON COLUMN async_responses.created_at  IS 'When this row was inserted';
 
 CREATE INDEX idx_async_responses_pending  ON async_responses (receiver_id, request_id, created_at DESC) WHERE consumed_at IS NULL;
 CREATE INDEX idx_async_responses_created  ON async_responses (created_at);
+-- The claim primitive: at most one consumption row per (receiver_id, request_id).
+-- Two nodes racing to claim the same pending response: the second INSERT hits
+-- this unique violation, the application catches it and moves on to the next
+-- pending response.
+CREATE UNIQUE INDEX idx_async_responses_claim ON async_responses (receiver_id, request_id) WHERE consumed_at IS NOT NULL;
 
 -- ============================================================================
 -- 5. DATABASE ROLES + GRANTS

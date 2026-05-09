@@ -41,6 +41,22 @@ The reads are still **single-table** — the no-`JOIN` rule holds. Search column
 
 Indexes on every operational table follow the `(logical_id, created_at DESC)` pattern for fast latest-row lookup.
 
+**Tiebreaker on equal `created_at`.** Two writers committing in the same millisecond can produce rows whose `created_at` values are identical (PostgreSQL's `NOW()` returns transaction-start time at microsecond resolution; `clock_timestamp()` is finer-grained but still not unique). When the `(logical_id, created_at DESC)` ordering would tie, the canonical secondary key is `row_id ASC` (UUID lexical order). The full read order is `ORDER BY <logical_id>, created_at DESC, row_id ASC`. This makes "latest row wins" deterministic across nodes, even under concurrent admin edits.
+
+**Soft-delete-correct lookups.** When a query needs to exclude soft-deleted entities, filter `is_active = TRUE` **after** the latest-row resolution — never inside the inner `DISTINCT ON` filter. Filtering inside would let an older `is_active=TRUE` row win when the latest row is `is_active=FALSE`, defeating the soft-delete contract:
+
+```sql
+-- Correct: latest-row resolution first, then is_active filter
+SELECT * FROM (
+  SELECT DISTINCT ON (id) *
+  FROM platforms
+  ORDER BY id, created_at DESC, row_id ASC
+) latest
+WHERE latest.is_active = TRUE;
+```
+
+This is a **rule**, not a literal query — implementations may express it via subquery, CTE, `ROW_NUMBER() OVER (…)` window, or any equivalent that picks the latest row first.
+
 ## State transitions are INSERTs
 
 | Event | What used to be an UPDATE | What it is now |

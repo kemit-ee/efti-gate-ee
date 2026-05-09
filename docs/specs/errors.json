@@ -224,7 +224,6 @@
           }
         }
       ],
-      "errorMapping": "error(\"Follow up gateId does not match this gate Ids\") from EftiService.handlePostFollowUpRequest()",
       "logLevel": "WARN",
       "retryable": false
     },
@@ -232,7 +231,7 @@
       "code": "FORBIDDEN",
       "httpStatus": 403,
       "title": "Forbidden",
-      "description": "The authenticated caller is identified but not permitted on this surface — JWT roles do not include the role required by the route, the static opsToken does not match, or the authenticated user is calling an endpoint reserved for a different identity type.",
+      "description": "The authenticated caller is identified but not permitted on this surface \u2014 JWT roles do not include the role required by the route, the static opsToken does not match, or the authenticated user is calling an endpoint reserved for a different identity type.",
       "type": "https://api.efti.ee/errors/forbidden",
       "examples": [
         {
@@ -243,7 +242,7 @@
             "code": "FORBIDDEN",
             "title": "Forbidden",
             "status": 403,
-            "detail": "Endpoint requires roles ∋ ADMIN; resolved users.roles = {'AUTHORITY':['auth-mta']}",
+            "detail": "Endpoint requires roles \u220b ADMIN; resolved users.roles = {'AUTHORITY':['auth-mta']}",
             "instance": "/api/v1/gates"
           }
         },
@@ -260,7 +259,6 @@
           }
         }
       ],
-      "errorMapping": "ForbiddenException (AccessChecker / OpsTokenChecker)",
       "logLevel": "WARN",
       "retryable": false
     },
@@ -268,7 +266,7 @@
       "code": "FORBIDDEN_MULTI_PLATFORM",
       "httpStatus": 403,
       "title": "Certificate matches multiple active platforms",
-      "description": "The presented client certificate's subject DN + serial resolve to more than one active row in the `platforms` registry. This is a configuration error — exactly one active platform row per certificate. The platform cannot authenticate until the operator soft-deletes the obsolete row(s).",
+      "description": "The presented client certificate's subject DN + serial resolve to more than one active row in the `platforms` registry. This is a configuration error \u2014 exactly one active platform row per certificate. The platform cannot authenticate until the operator soft-deletes the obsolete row(s).",
       "type": "https://api.efti.ee/errors/forbidden-multi-platform",
       "examples": [
         {
@@ -284,7 +282,6 @@
           }
         }
       ],
-      "errorMapping": "ForbiddenException from PlatformAuthChecker.resolvePlatform() — multi-row match",
       "logLevel": "WARN",
       "retryable": false
     },
@@ -308,7 +305,6 @@
           }
         }
       ],
-      "errorMapping": "ForbiddenException from PlatformAuthChecker.resolvePlatform() — zero-row match",
       "logLevel": "WARN",
       "retryable": false
     },
@@ -354,7 +350,6 @@
           }
         }
       ],
-      "errorMapping": "ForbiddenException from User.checkWriteAccess()",
       "logLevel": "WARN",
       "retryable": false
     },
@@ -377,7 +372,6 @@
           }
         }
       ],
-      "errorMapping": "StatusCodeException(BadGateway, ...) from EftiService.checkGateAvailable()",
       "logLevel": "WARN",
       "retryable": true
     },
@@ -544,7 +538,6 @@
           }
         }
       ],
-      "errorMapping": "BadRequestException wrapping SAXParseException from EftiParser.parseIdentifiers()",
       "logLevel": "WARN",
       "retryable": false
     },
@@ -778,7 +771,6 @@
           }
         }
       ],
-      "errorMapping": "ForbiddenException(\"Invalid authorization...\") → 401 via WWW-Authenticate challenge",
       "logLevel": "WARN",
       "retryable": false
     },
@@ -823,7 +815,6 @@
           }
         }
       ],
-      "errorMapping": "UnauthorizedException",
       "logLevel": "WARN",
       "retryable": false
     },
@@ -850,7 +841,7 @@
       "retryable": false
     }
   },
-  "rfcReference": "RFC 7807 Problem Details for HTTP APIs — https://www.rfc-editor.org/rfc/rfc7807",
+  "rfcReference": "RFC 7807 Problem Details for HTTP APIs \u2014 https://www.rfc-editor.org/rfc/rfc7807",
   "notes": [
     "All error responses include Content-Type: application/problem+json",
     "The 'instance' field always reflects the exact request path that produced the error",

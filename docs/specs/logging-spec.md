@@ -343,6 +343,38 @@ Every entry below uses the §4 templates — pick the matching shape, fill in `e
 
 **HTTP path note**: Platform + Authority APIs (called by external systems) use `/v1/...`; Admin API (called by gate operators) uses `/api/v1/...`. There is no separate `/admin` namespace. Health probes are at `/health/...` (unauthenticated).
 
+### 5.1 audit_log.details JSONB shape per `event.action`
+
+The `audit_log` row's `details` column is JSONB; the keys per `event.action` are pinned below so that downstream search (`details ->> 'subset_id'`, etc.) is portable across implementations. Unlisted keys are accepted but not contractual.
+
+| `event.action` | Required keys in `details` | Notes |
+|---|---|---|
+| `identifier.register` | `vehicle_plate`, `vehicle_country`, `mode`, `dangerous_goods`, `xml_bytes` | Platform POST. `xml_bytes` is the body size; the XML itself is never copied into the audit row. |
+| `identifier.expire` | `expired_count`, `expiry_reason` (`cabotage_14d`) | Cabotage-expiry job (per-run, not per-row). |
+| `identifier.search` | `identifier_value`, `identifier_country`, `subsets_requested`, `forceBroadcast`, `local_hits`, `broadcast_hits` | One row per search request. |
+| `identifier.search.broadcast` | `target_gate_id`, `responseTimeMs`, `outcome` (`success` / `timeout` / `error`) | One row per per-gate fan-out branch. |
+| `dataset.deliver` | `dataset_id`, `target_platform_id`, `target_gate_id`, `subsets_requested`, `mode` (`local` / `proxy`) | |
+| `dataset.proxy` | `dataset_id`, `target_gate_id`, `target_platform_id`, `as4_message_id` | |
+| `followup.send` | `dataset_id`, `target_platform_id`, `target_gate_id`, `dataset_request_id`, `body_bytes` | |
+| `user.login` | `outcome` (`success` / `failure`), `failure_reason` (when failure) | TARA-issued JWT validation result. |
+| `user.access.denied` | `required_role`, `actual_roles`, `target_resource` | |
+| `platform.create` / `platform.update` / `platform.delete` | `platform_id`, `before` (full row, NULL on create), `after` (full row, NULL on delete) | The denormalised before/after lets the audit reader reconstruct the change without re-querying the live DB. |
+| `authority.create` / `authority.update` / `authority.delete` | `authority_id`, `before`, `after` | |
+| `gate.create` / `gate.update` / `gate.delete` | `gate_id`, `before`, `after` | |
+| `user.create` / `user.delete` | `user_id`, `before`, `after` (excluding `secret_hash`) | `secret_hash` is never copied into the audit row, even on the break-glass path. |
+| `consignment.delete` | `dataset_id`, `triggered_by` (`platform` / `admin`) | |
+| `archive.run` | `archived` (per-table count map), `duration_ms`, `partial`, `next_archivable_count_estimate` | Per-run summary. |
+| `g2g.identifier.search.incoming` / `g2g.dataset.request.incoming` / `edelivery.message.receive` | `source_gate_id`, `source_cert_subject`, `as4_message_id`, `outcome` | |
+| `gate.ping` | `target_gate_id`, `outcome`, `responseTimeMs`, `previous_status`, `new_status` | Per-peer ping result. |
+
+### 5.2 Audit-write transactionality
+
+The audit `INSERT` is **best-effort and post-commit**. The triggering operation (e.g. consignment INSERT, admin write) commits its own transaction first; the audit-row INSERT happens in a separate transaction afterwards. If the audit INSERT fails, the gate logs an `ERROR` event (`event.action: audit.write.failure`) but does **not** roll back the triggering operation. This is a deliberate trade-off:
+
+- Per **GDPR Art 30** retention obligation, the audit is operational not transactional — losing one audit row to a transient DB outage does not invalidate the triggering write.
+- Per **defence-in-depth**, a failure to write audit must be observable: the ERROR log entry plus an alert on `audit.write.failure` event count is the contract.
+- In a partition-tolerant deployment (gate node up, audit DB momentarily unreachable), the triggering operation still completes for the user; the operator's monitoring catches the audit gap.
+
 ---
 
 ## 6. Sensitive data handling (redaction policy)

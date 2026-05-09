@@ -15,7 +15,7 @@ flowchart TD
     Probe{Probe type} --> Live[GET /health/live]
     Probe --> Ready[GET /health/ready]
     Live --> LiveResp[200 OK if process alive<br/>503 only if crashed]
-    Ready --> Checks{DB reachable?<br/>Flyway done?<br/>Registries loaded?<br/>Not in shutdown?}
+    Ready --> Checks{DB reachable?<br/>Liquibase migrations complete?<br/>Registries loaded?<br/>Not in shutdown?}
     Checks -- all yes --> Ready200[200 OK<br/>LB routes traffic]
     Checks -- any no --> Ready503[503<br/>LB removes from rotation]
     SIGTERM[SIGTERM] --> Drain[Stop accepting new conns<br/>readiness → 503<br/>wait ≤ 30 s for in-flight]
@@ -25,7 +25,7 @@ flowchart TD
 
 **Happy path:**
 - [ ] `GET /health/live` — `200 OK` when running; `503` if crashed
-- [ ] `GET /health/ready` — `200 OK` only when: database connection OK, Flyway migrations complete, registries loaded; `503` otherwise
+- [ ] `GET /health/ready` — `200 OK` only when: database connection OK, **Liquibase migrations complete** (per `non-functional.md` §4 — pinned migration tool), in-memory registries (`gates`, `platforms`, `authorities`) loaded from latest rows, application not in shutdown; `503` otherwise
 - [ ] Liveness and readiness are **separate** endpoints — not the same `/health`
 - [ ] `SIGTERM` received → stop accepting new connections; wait for in-flight requests (max 30 seconds); then shut down
 - [ ] During graceful shutdown, readiness returns `503` — load balancer removes node from traffic

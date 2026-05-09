@@ -225,12 +225,13 @@ latest-row resolution per `dataset_id` (canonical read pattern in `db/README.md`
 |-----------------------|------------------------------|-------|
 | `mode` | `mainCarriageTransportMovement[1]/modeCode` mapped via 2.4 table | First mode wins on multi-leg consignments; later legs reside in `xml` only. |
 | `dangerous_goods` | `mainCarriageTransportMovement[*]/dangerousGoodsIndicator = "true"` (any leg) | Boolean OR across all legs. |
-| `vehicle_plate` | `mainCarriageTransportMovement[1]/usedTransportMeans/id` (where `schemeAgencyId="6"`) | First leg's vehicle plate. NULL if the leg uses container/equipment instead of `means`. |
+| `vehicle_plate` | `mainCarriageTransportMovement[1]/usedTransportMeans/id` (any `schemeAgencyId`) | First leg's vehicle plate. NULL if the leg uses container/equipment instead of `means`. The `schemeAgencyId` attribute identifies the issuing authority (per UN/CEFACT codes); the gate stores the plate value as-is and does not filter by issuing authority. |
 | `vehicle_country` | `mainCarriageTransportMovement[1]/usedTransportMeans/registrationCountry/code` | ISO 3166-1 alpha-2. |
 | `origin_country` | `placeOfDeparture/locationCountrySubDivisionCode` (first 2 chars) OR `placeOfDeparture/locationCountryCode` | Normalised to ISO 3166-1 alpha-2 uppercase. |
 | `destination_country` | `placeOfDelivery/locationCountrySubDivisionCode` (first 2 chars) OR `placeOfDelivery/locationCountryCode` | Same normalisation. |
-| `transport_date` | `deliveryEvent/actualOccurrenceDateTime` parsed via formatId table above; truncated to date | Used by the `dateFrom`/`dateTo` filters on `GET /v1/identifiers/{identifier}`. |
-| `expires_at` | NULL except for `mode = 'road'` — set to `transport_date + 14 days` per Reg 2024/1942 cabotage retention | Drives `IdentifierExpirationJob` to flip `status` from `active` to `inactive`. |
+| `transport_date` | `carrierAcceptanceDateTime` parsed via formatId table above; truncated to date | The carrier-acceptance date anchors the cabotage clock per Reg 2024/1942 Art 11(4) (the 14-day road-cabotage retention window starts at carrier acceptance, not at delivery). Used by the `dateFrom`/`dateTo` filters on `GET /v1/identifiers/{identifier}` and by the cabotage-expiry sweep. |
+| `delivered_at` | `deliveryEvent/actualOccurrenceDateTime` parsed via formatId table above | The delivery completion timestamp. Independent of the cabotage clock; carried for audit and reporting only. NULL while the consignment is in transit. |
+| `expires_at` | NULL except for `mode = 'road'` — set to `transport_date + 14 days` per Reg 2024/1942 Art 11(4) cabotage retention | Drives the CronManager-driven expiry sweep (`POST /api/v1/admin/expire-identifiers`) to flip `status` from `active` to `inactive`. |
 
 These columns are partial-indexed (`WHERE NOT NULL`) and the plate column
 additionally has a `pg_trgm` GIN index for fuzzy lookups. Authority queries
@@ -340,6 +341,24 @@ The Gate **does not** parse, validate, or transform dataset XML — it is byte-f
 
 Subset values on the wire are always the canonical `EU01`..`EU07` codes from `users.subsets` / `authorities.subsets`.
 
+### 3.5 Subset XSLT mapping (gate-side filtering for `supportsSubsetting=false` platforms)
+
+When the responding platform's `supportsSubsetting=false` flag is set, the gate must run an XSLT subsetter against the platform's full dataset XML and return only the elements visible under the requested subset(s). The mapping from `EU01..EU07` to the consignment XSD's element groups is canonical (per Reg 2024/2024 Annex):
+
+| Subset | Element groups retained | Practical content |
+|---|---|---|
+| `EU01` | Identification, parties, transport contract | Consignor / consignee / freight forwarder; contract reference; transport-document type. |
+| `EU02` | Goods description, packaging, weight, volume | Item-level commodity descriptions; UN dangerous-goods numbers (when present); marks and numbers. |
+| `EU03` | Itinerary, places, dates | Place of departure / delivery / loading / unloading; scheduled and actual movement timestamps. |
+| `EU04` | Vehicle / vessel / aircraft identifiers | Plate numbers, container IDs, IMO / ICAO identifiers, registration country codes. |
+| `EU05` | Dangerous goods detail | UN number, technical name, packing group, ADR/RID/IMDG class, quantities — beyond the EU02 indicator-only level. |
+| `EU06` | Operator / carrier company identifiers | Company VAT IDs, tax IDs, legal name and address of the carrier and any subcarrier. |
+| `EU07` | Customs and cross-border clearance | Customs procedure codes, border-crossing timestamps, cabotage indicators, transit declarations. |
+
+The gate ships a single canonical XSLT stylesheet (`subsetter.xsl`) that takes a `subsetId[]` parameter and selects the union of the listed element groups from the input dataset. The stylesheet's identity-template default is "drop"; only nodes matching the requested subsets pass through. When the platform itself has `supportsSubsetting=true`, the gate forwards the `subsetId` query parameter to the platform's `/v1/datasets/{datasetId}` endpoint and the platform performs the filtering — the gate's XSLT does not run.
+
+**Per-MS subset codes inside the consignment-identifier XML.** The eFTI XSD permits member-state-specific subset codes (`AT01..AT16`, `BE01..BE10`, `EE01..EE08`, etc.) in the `<dataSubset>` elements of the identifier registration. The gate stores these byte-for-byte in `consignments.xml` and **does not interpret them**. Authority subset filtering uses only the canonical `EU01..EU07` vocabulary at the gate's API surface; per-MS codes are visible to platforms but never used for the gate's authorisation or routing decisions.
+
 ---
 
 ### 3.5 Error transformations
@@ -361,7 +380,7 @@ All transformation errors surface as RFC 7807 problem JSON with `type: "https://
 
 ### 3.6 Special cases
 
-**Namespace declarations.** JAXB resolves namespaces transparently. The default namespace is `http://efti.eu/v1/consignment/identifier`; any `xsi:*` attributes are ignored on unmarshal. The raw XML string (with all namespace declarations) is stored as-is in `consignments.xml`.
+**Namespace declarations.** JAXB resolves namespaces transparently. The default namespace is `http://efti.eu/v1/consignment/identifier`; any `xsi:*` attributes are ignored on unmarshal. The XML payload is stored in `consignments.xml` with all namespace declarations preserved on the root element; the only transformation applied before storage is `dropXmlHeader()` (the optional `<?xml?>` processing instruction on the first line is stripped — see below).
 
 **`dropXmlHeader()`.** Strip `<?xml?>` declaration before JAXB parsing and before DB storage. Reference impl: `if (startsWith("<?xml")) substringAfter("\n") else this`. Inputs without a header pass through unchanged; only the **first** line is stripped if multiple `<?xml` lines somehow appear.
 
@@ -398,7 +417,7 @@ The Gate-side helpers live in the `edelivery` module (`gate/src/efti/edelivery/`
 | Root element namespace matches expected | JAXB type binding | `INVALID_XML` | 400 |
 | `datasetId` path param is valid UUID v4 | Route binding | `INVALID_DATASET_ID` | 400 |
 
-The Gate does **not** validate XML against the full XSD schema. JAXB maps known fields and ignores unknown elements.
+**XSD validation is strict.** The gate validates every inbound consignment-identifier XML against [`consignment-identifier.xsd`](../efti-analysis/xsd/consignment-identifier.xsd) before binding to its data model. A schema-invalid document returns `400 INVALID_XML` with the XSD validation error path and line number in the problem-detail body. Unknown elements / attributes are tolerated only where the XSD itself permits them via `xs:any` / `xs:anyAttribute` (these are the documented extension points for member-state-specific additions); anywhere else, presence of an unknown element fails XSD validation.
 
 ### 5.2 Business
 

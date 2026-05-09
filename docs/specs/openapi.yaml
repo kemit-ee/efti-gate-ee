@@ -3,27 +3,32 @@ info:
   title: eFTI Gate API
   version: 2.0.0
   description: |
-    European Freight Transport Information Gate — Complete API Specification v2.0
+    European Freight Transport Information Gate — Complete REST API Specification v2.0
 
-    This API implements:
-    - **Platform API**: For freight platforms to register consignment identifiers
-    - **Authority API**: For competent authorities to search and query datasets
-    - **Admin API**: For gate administrators to manage gates, platforms, authorities, users
-    - **Health API**: Kubernetes liveness/readiness probes (no auth)
+    ## Scope of this document
+
+    This OpenAPI document specifies the gate's **REST surfaces** only:
+    - **Platform API** (`/v1/identifiers/...`, `/v1/datasets/...`, `/v1/follow-up/...`, `/v1/ping`, `/v1/status/...`) — called by certified eFTI platforms
+    - **Authority API** (`/v1/identifiers/{identifier}`, `/v1/dataset/...`, `/v1/follow-up/...`) — called by competent-authority officers
+    - **Admin API** (`/api/v1/...`) — called by gate operators
+    - **Health API** (`/health/...`) — Kubernetes liveness/readiness probes
+
+    The gate's **AS4 surfaces** (`/services/msh` for inbound AS4 SOAP, `/services/fast` for the optional fast-protocol mTLS HTTPS alternative) are **out of scope** for this OpenAPI document. They are wire-protocol-defined by the EU eDelivery AS4 1.15 conformance profile (per `non-functional.md` §3) — not by REST OpenAPI. See `seq-14-gate-to-gate-search.mmd` and `seq-16-mtls-fast-protocol.mmd` for the message-flow contract; see Epic 10 (`docs/epics/epic_10_en.md`) and Epic 25 (`docs/epics/epic_25_en.md`) for the AS4 message catalogue.
 
     ## Authentication
-    All endpoints require a JWT Bearer token (obtained via Basic Auth or TARA SSO) except `/health/*` endpoints.
+
+    See `permissions-matrix.md` §6. Per-route security: TARA OIDC JWT (Authority + Admin), mTLS X.509 (Platform), static `ARCHIVE_OPS_TOKEN` Bearer (CronManager admin endpoints), HTTP Basic + bcrypt (break-glass `/api/v1/auth/local-token`, default-disabled). `/health/*` is public.
 
     ## EU Regulation Compliance
-    Data subsets EU01–EU07 are defined in EU Delegated Regulation 2024/2024.
 
-    ## Change log vs Current Gate (v1)
-    - **Improved**: Added missing `X-Request-ID` duplicate-detection header to all mutating endpoints
-    - **Improved**: All errors now use RFC 7807 `application/problem+json` format
-    - **Improved**: Consistent snake_case JSON field naming (gate camelCase preserved where it matches DB)
-    - **Added**: `GET /api/v1/consignments` now supports pagination and filter params
-    - **Added**: Audit log endpoints
-    - **Added**: `GET /health/ready` readiness probe
+    - eFTI subset codes `EU01..EU07` per Reg 2024/2024 Annex.
+    - Cabotage 14-day retention per Reg 2024/1942 Art 11(4) anchored on `transport_date` (carrier acceptance).
+    - Cross-border interoperability per Reg 2020/1056.
+    - Audit retention 7 years per GDPR Art 30 + Reg 2024/1942 Art 6.
+
+    ## Error envelope
+
+    All errors return RFC 7807 `application/problem+json`. The required fields are `type`, `code`, `title`, `status`, `detail`, `instance` — `code` is bound to the catalog at `errors.json` (currently 36 codes). The `retryable` field in `errors.json` is a documentation hint for clients; it is never written to the wire.
   contact:
     name: KeMIT / MKM
     email: efti@mkm.ee
@@ -1986,7 +1991,12 @@ paths:
       tags: [Health]
       summary: Readiness probe
       operationId: readiness
-      description: Returns 200 OK only when the application is ready to serve traffic (DB connected, config loaded).
+      description: |
+        Returns 200 OK only when the application is ready to serve traffic:
+        the database connection is healthy, Liquibase migrations are complete,
+        the in-memory registries (`gates`, `platforms`, `authorities`) are
+        loaded from their latest rows, and the application is not in shutdown.
+        Otherwise 503 — the load balancer should remove the node from rotation.
       security: []
       responses:
         '200':
@@ -2276,10 +2286,10 @@ components:
             instance: "/v1/identifiers/550e8400-e29b-41d4-a716-446655440001"
 
     TooManyRequests:
-      description: Too Many Requests — rate limit exceeded
+      description: Too Many Requests — rate limit exceeded (per `non-functional.md` §4.2; enforced at the reverse-proxy layer per source-IP / cert-subject / source-gate-id depending on the surface).
       headers:
         Retry-After:
-          description: Seconds until the rate limit window resets
+          description: Seconds until the rate limit window resets. **Integer (delta-seconds) form only**; the HTTP-date alternative permitted by RFC 7231 §7.1.3 is non-conformant for this gate.
           schema:
             type: integer
             example: 30
@@ -2756,6 +2766,8 @@ components:
         eDeliveryUrl:
           type: string
           format: uri
+          pattern: '^https://'
+          description: AS4 access-point URL for inbound G2G messages. **HTTPS only** — plain `http://` is rejected at registration.
           example: "https://eu-ee31.eftisandbox.eu/services/msh"
         eDeliveryCert:
           type: string
@@ -2796,6 +2808,8 @@ components:
         eDeliveryUrl:
           type: string
           format: uri
+          pattern: '^https://'
+          description: AS4 access-point URL. HTTPS only.
           example: "https://efti.bast.de/services/msh"
         eDeliveryCert:
           type: string
