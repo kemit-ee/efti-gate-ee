@@ -80,6 +80,6 @@ Contact: `help@kemit.ee`
 
 ## Licence
 
-This work is licensed under [Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)](https://creativecommons.org/licenses/by-nc/4.0/). Free to share and adapt for non-commercial use, with attribution to KeMIT, Estonia.
+This work is licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0). Free to use, modify, and distribute — including commercially — with attribution to KeMIT, Estonia. See [`LICENSE`](LICENSE) for the full terms.
 
-**Commercial use requires a separate licence.** Contact `help@kemit.ee` with the intended use case, the licensee entity, and the geographic scope. See [`LICENSE`](LICENSE) for the full terms.
+`SPDX-License-Identifier: Apache-2.0`
