@@ -303,7 +303,7 @@ The eFTI Gate should be built on six core architectural pillars, aligned with Re
 The following diagram illustrates the interaction between the Estonian eFTI Gate, competent authorities, and the external eFTI ecosystem.
 
 ```mermaid
-graph TD
+flowchart TD
     %% Top Level
     subgraph Authorities ["Estonian Competent Authorities (Non-comprehensive List)"]
         direction TB
@@ -838,7 +838,7 @@ The eFTI Gate should implement comprehensive monitoring and observability to sup
 The logical architecture of the Estonian eFTI Gate is designed for modularity and high performance, separating concerns between the interface, business logic, and data persistence layers. The **eFTI Gate Core** acts as the central orchestrator, managing authentication through the **Access Checker**, metadata via the **Registry Services**, and data transformation through the **Subsetter Engine**. The custom **eDelivery Module** provides a high-performance implementation of the AS4 protocol, enabling seamless cross-border communication with other EU Member State FTI Gates and eFTI platforms.
 
 ```mermaid
-graph TB
+flowchart TB
     subgraph "Estonian eFTI Gate (Logical Model)"
         direction TB
         
@@ -895,7 +895,7 @@ graph TB
 The physical deployment of the eFTI Gate leverages containerization and orchestration to ensure scalability, high availability, and secure communication. The system is deployed within a **Kubernetes** cluster, where the **eFTI Gate Core** is horizontally scalable to handle high volumes of concurrent requests. An **Ingress Controller** manages incoming traffic, providing SSL termination and routing. Sensitive cryptographic keys for eDelivery and mTLS are managed by a dedicated certificate storage, while the PostgreSQL database ensures persistent storage of identifiers and metadata with high availability through replication and persistent volume claims.
 
 ```mermaid
-graph TB
+flowchart TB
     subgraph "Kubernetes Infrastructure (Production Cluster)"
         direction TB
         Ingress["Ingress Controller - Nginx/Caddy"]
@@ -979,7 +979,7 @@ The solution consists of 4 possible workflows for both local and international w
 
 ### 12.2 Architecture
 ```mermaid
-graph LR
+flowchart LR
     subgraph Economic Operators
         EO[Transporters / Receivers \n Use KeA web portal directly]
     end
