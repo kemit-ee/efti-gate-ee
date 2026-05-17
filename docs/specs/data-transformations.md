@@ -21,15 +21,15 @@ The four directions (XML→DB ingest, DB→JSON search results, DB→AS4 G2G wra
 
 ```mermaid
 graph LR
-    PL[Platform] -->|"XML identifier schema<br/>(POST /v1/identifiers/{id})"| ING[XML→DB ingest<br/>EftiParser.parseIdentifiers]
+    PL[Platform] -->|"XML identifier schema<br/>(POST /v1/identifiers/{id})"| ING["XML→DB ingest<br/>identifier-parse"]
     ING -->|INSERT consignments + identifiers<br/>denormalised search columns| DB[(PostgreSQL)]
-    AUTH[Authority] -->|GET /v1/identifiers/{id}| Q[DB→JSON search<br/>ConsignmentRepository.find]
+    AUTH[Authority] -->|GET /v1/identifiers/{id}| Q["DB→JSON search<br/>consignment search"]
     Q --> DB
     DB -->|XML marshal +<br/>SSE / JSON| AUTH
-    Q -.broadcast.-> G2G[DB→AS4 wrap<br/>EftiService.handleIdentifierQuery]
+    Q -.broadcast.-> G2G["DB→AS4 wrap<br/>AS4-query handler"]
     G2G -->|"&lt;identifierResponse&gt;<br/>(eDelivery schema)"| RG[Remote gate]
     RG -.AS4 in.-> Q
-    AUTH2[Authority] -->|GET /v1/dataset/...| PT[Platform passthrough<br/>EftiService.getDataset]
+    AUTH2[Authority] -->|GET /v1/dataset/...| PT["Platform passthrough<br/>dataset-proxy path"]
     PT -->|HTTP / AS4| PL2[Platform / Remote gate]
     PL2 -->|XML byte-for-byte| PT
     PT --> AUTH2
@@ -94,7 +94,7 @@ Per EU Reg 2024/2024 Annex I; matches the `transport_mode` enum in `schema.sql`.
 
 ### 2.5 Delivery datetime — `formatId` patterns
 
-`actualOccurrenceDateTime` may use any of three format IDs (parsed in `ActualOccurrenceDateTime.instant`):
+`actualOccurrenceDateTime` may use any of three format IDs (parsed in `ActualOccurrenceDateTime` value):
 
 | `formatId` | Pattern | Example input | Stored as |
 |---|---|---|---|
@@ -108,19 +108,19 @@ Per EU Reg 2024/2024 Annex I; matches the `transport_mode` enum in `schema.sql`.
 
 ### 3.1 XML → Database (identifier extraction)
 
-This is the **primary transformation** in the Gate. Performed in `EftiParser.parseIdentifiers()` using XML unmarshalling into `ConsignmentXml`.
+This is the **primary transformation** in the Gate. Performed in the identifier-parse path using XML unmarshalling into the consignment model.
 
 **Pipeline (canonical for every ingest):**
 
-1. `xml.dropXmlHeader()` — strip optional `<?xml?>` declaration before storage and parsing.
-2. `ConsignmentXml.parse(xml)` — XML unmarshal.
+1. Apply the `dropXmlHeader` operation — strip the optional `<?xml?>` declaration before storage and parsing.
+2. XML unmarshal into a consignment model — XML unmarshal.
 3. Take `mainCarriageTransportMovement.firstOrNull()` as the primary movement.
 4. Build `Consignment` (UIL + primary movement fields + denormalised search columns per §3.1.4).
 5. Iterate **all** `mainCarriageTransportMovement` entries → extract `usedTransportMeans` → `Identifier(type=means)`.
 6. Iterate `usedTransportEquipment` → `Identifier(type=equipment)`; nested `carriedTransportEquipment` → `Identifier(type=carried)`.
 7. INSERT one row into `consignments`, N rows into `identifiers`.
 
-If the XML parser throws, the save path wraps the error as `BadRequestException` and returns `INVALID_XML` — **no database write occurs**.
+If the XML parser throws, the save path wraps the error as a 400 response and returns `INVALID_XML` — **no database write occurs**.
 
 #### 3.1.1 End-to-end example A — Single vehicle, road transport
 
@@ -206,7 +206,7 @@ Every scenario uses the same canonical pipeline; only the rule listed below diff
 | XML missing optional fields (only `usedTransportMeans/id`) | All optional columns become `NULL` (`mode`, `dangerous_goods`, `country_code`, `delivered_at`); INSERT still succeeds. |
 | `registrationCountry` missing on a `usedTransportMeans` | `identifiers.country_code = NULL` for that row. |
 | `deliveryEvent` missing | `consignments.delivered_at = NULL`. |
-| Malformed XML (e.g. unclosed `<modeCode>`) | the XML parser throws → `BadRequestException` → 400 RFC 7807 with `efti.error.code = INVALID_XML`. **No DB write.** |
+| Malformed XML (e.g. unclosed `<modeCode>`) | the XML parser throws → a 400 response → 400 RFC 7807 with `efti.error.code = INVALID_XML`. **No DB write.** |
 | XML with `<?xml version="1.0"?>` declaration | `dropXmlHeader()` strips the first line before parsing **and before storage** in `consignments.xml`. |
 | `actualOccurrenceDateTime formatId="102"` / `"203"` / `"205"` | Parsed via the §2.5 format table; `consignments.delivered_at` stored in UTC. |
 | Multi-leg (sea → road) transport | First-leg attributes go to denormalised columns (see §3.1.4); subsequent legs live only in the stored `xml`. |
@@ -242,7 +242,7 @@ which holds only the original XML fragment for round-trip retrieval.
 
 ### 3.2 Database → JSON (search results)
 
-**Pipeline:** `EftiService.getLocalIdentifiers()` → `ConsignmentRepository.find(q)` → `ConsignmentXml.parse(c.xml)` (XML unmarshal stored XML) → set `uil = UIL(c.platformId, c.datasetId)` for local results (no `gateId`); set `identifierCountryOfOrigin = Config.countryCode` → XML marshal as `GateIdentifiersResponse` → JSON serialise.
+**Pipeline:** the local-identifier search → the consignment search → unmarshal the stored XML → set `uil = UIL(c.platformId, c.datasetId)` for local results (no `gateId`); set `identifierCountryOfOrigin` from the configured `countryCode` → XML marshal as the gate-identifiers response → JSON serialise.
 
 For `Accept: text/event-stream`, the result is streamed as SSE events instead of a JSON array (see §3.2.2).
 
@@ -276,8 +276,8 @@ When the search broadcasts to peer gates, each gate response and each consignmen
 
 | SSE field | Content |
 |---|---|
-| `event: gate` / `data: {…GateIdentifiersResponse…}` | One per gate. `consignments` set to `null` (consignments are streamed separately). Includes `gateId`, `responseTimeMs`, `failure` (string or null). |
-| `id: {platformId}/{datasetId}` / `data: {…ConsignmentXml…}` | One per result row. Includes the `uil` (with `gateId` for remote results) and `identifierCountryOfOrigin`. |
+| `event: gate` / `data: {…gate-identifiers response…}` | One per gate. `consignments` set to `null` (consignments are streamed separately). Includes `gateId`, `responseTimeMs`, `failure` (string or null). |
+| `id: {platformId}/{datasetId}` / `data: {…consignment XML…}` | One per result row. Includes the `uil` (with `gateId` for remote results) and `identifierCountryOfOrigin`. |
 | `event: complete` / `data:` (empty) | Terminates the stream. |
 
 When `Accept: application/json` is used and there are zero results, the response is an empty array `[]`. When `Accept: text/event-stream` is used and there are zero results, the SSE stream still emits one `event: gate` per queried gate followed by `event: complete`.
@@ -286,13 +286,13 @@ When `Accept: application/json` is used and there are zero results, the response
 
 ### 3.3 XML → AS4 (gate-to-gate eDelivery wrap)
 
-eDelivery namespace `http://efti.eu/v1/edelivery`. The Gate parses incoming AS4 messages (`IdentifiersQuery`, `UILQuery`, `FollowUpRequest`) and builds outgoing AS4 messages by string-concatenating the eDelivery wrapper around stored consignment XML.
+eDelivery namespace `http://efti.eu/v1/edelivery`. The Gate parses incoming AS4 messages (the `<identifierQuery>`, `<uilQuery>`, `<followUpRequest>` XML element families) and builds outgoing AS4 messages by string-concatenating the eDelivery wrapper around stored consignment XML.
 
 **Helpers:** `dropXmlHeader()` (strip `<?xml?>` from any string before storage / wrapping); `dropXmlRoot()` (strip outer root element so the inner content can be re-embedded under a new wrapper).
 
 #### 3.3.1 Canonical example — Identifier query response (Gate → Remote Gate)
 
-`EftiService.handleIdentifierQuery()` builds, per matched consignment: drop the stored XML's outer `<consignment>` via `dropXmlRoot()`, embed inside a fresh `<ed:consignment>` wrapper with UIL metadata, collect into `<identifierResponse>`:
+the AS4-query handler builds, per matched consignment: drop the stored XML's outer `<consignment>` via `dropXmlRoot()`, embed inside a fresh `<ed:consignment>` wrapper with UIL metadata, collect into `<identifierResponse>`:
 
 ```xml
 <identifierResponse status="200" requestId="550e8400-e29b-41d4-a716-446655440000"
@@ -322,11 +322,11 @@ All variations use the same wrap/unwrap idiom; the table records each one's defi
 
 | Message | Direction | Rule |
 |---|---|---|
-| `<identifierQuery>` | Gate ← Remote gate | `IdentifiersQuery.parse()` (XML unmarshal) → extract `requestId`, `identifier value`, `type`, optional filters → `ConsignmentRepository.find()` → build response per §3.3.1. |
-| `<uilQuery>` | Gate ← Remote gate | `UILQuery.parse()` → extract UIL + `subsetId[]` (values are `EU01`..`EU07`) + `requestId` → forward to platform via `EftiService.getDataset()` → wrap response per `<uilResponse>` rule below. |
+| `<identifierQuery>` | Gate ← Remote gate | parse the inbound XML → extract `requestId`, `identifier value`, `type`, optional filters → the consignment search → build response per §3.3.1. |
+| `<uilQuery>` | Gate ← Remote gate | parse the inbound XML → extract UIL + `subsetId[]` (values are `EU01`..`EU07`) + `requestId` → forward to platform via the dataset-proxy path → wrap response per `<uilResponse>` rule below. |
 | `<uilResponse>` (success) | Gate → Remote gate | Platform body's `<?xml?>` declaration removed via `dropXmlHeader()`; entire body embedded under `<uilResponse status="200" requestId="…" xmlns="…/edelivery">…</uilResponse>`. |
 | `<uilResponse>` (error) | Gate → Remote gate | If platform status ≠ 200 **and** the body does not start with `<`, wrap the body in `<description>…</description>` inside `<uilResponse status="404"…>`. |
-| `<followUpRequest>` | Gate ← Remote gate | `FollowUpRequest.parse()` → guard `req.uil.gateId == Config.gateId` (else `FOLLOW_UP_GATE_MISMATCH` 400) → `sendFollowUp()` forwards `message` to platform via `PlatformClient.postFollowUp()`. |
+| `<followUpRequest>` | Gate ← Remote gate | parse the inbound XML → guard that `req.uil.gateId` equals the configured `gateId` (else `FOLLOW_UP_GATE_MISMATCH` 400) → the follow-up forwarder forwards `message` to platform via the platform-API follow-up POST. |
 
 ---
 
@@ -371,7 +371,7 @@ All transformation errors surface as RFC 7807 problem JSON with `type: "https://
 | Request body > 10 MB | 400 (or 413) | `INVALID_XML` (size variant) | `bad-request` |
 | Target gate not ONLINE | 502 | `GATEWAY_UNAVAILABLE` | `bad-gateway` |
 | mTLS cert subject DN + serial resolves to >1 active `platforms` row (config error) | 403 | `FORBIDDEN_MULTI_PLATFORM` | `forbidden-multi-platform` |
-| Follow-up `req.uil.gateId != Config.gateId` | 400 | `FOLLOW_UP_GATE_MISMATCH` | `follow-up-gate-mismatch` |
+| Follow-up `req.uil.gateId` ≠ the configured `gateId` | 400 | `FOLLOW_UP_GATE_MISMATCH` | `follow-up-gate-mismatch` |
 | Unhandled XML-parser error / NPE during transform | 500 | `TRANSFORMATION_ERROR` | `internal-error` |
 
 **Never** echo the input XML in an error response — it may carry PII or sensitive cargo data. Log at most the first 200 characters at DEBUG level, plus `http.request.body.bytes`.
@@ -400,10 +400,10 @@ The names below are the spec-level contract for the gate's eDelivery helpers; fu
 
 | Function | Source | Purpose | Where called |
 |---|---|---|---|
-| `String.dropXmlHeader()` | `edelivery` module, `String` extension | Remove `<?xml?>` declaration before parsing / storage. | `EftiService.saveIdentifiers()`; AS4 response wrapping. |
-| `String.dropXmlRoot()` | `edelivery` module, `String` extension | Strip outer root element so inner XML can be re-embedded. | `EftiService.handleSaveIdentifiersRequest()`, `handleIdentifierQuery()`. |
-| Per-type XML parse/render contract | `edelivery` module | Each XML message type exposes `parse(xml)` (unmarshal) and `render(o)` (marshal as XML fragment, no `<?xml?>` declaration). One reusable parser context cached per type at startup. | `ConsignmentXml`, `IdentifiersQuery`, `UILQuery`, `GateIdentifiersResponse`, `FollowUpRequest`. |
-| `ActualOccurrenceDateTime.instant` | `edelivery` module | Parse `formatId`-tagged datetimes per §2.5 into `Instant` (UTC). | `EftiParser.parseIdentifiers()`. |
+| `dropXmlHeader` | string helper | Remove the optional `<?xml?>` declaration before parsing / storage. | identifier-save path; AS4 response wrapping. |
+| `dropXmlRoot` | string helper | Strip outer root element so inner XML can be re-embedded. | save handler; AS4-query handler. |
+| Per-type XML parse/render contract | XML-binding layer | Each XML message type exposes a parse step (unmarshal from XML) and a render step (marshal as XML fragment, no `<?xml?>` declaration). One reusable parser context cached per type at startup. | consignment, identifier-query, UIL-query, gate-identifiers-response, follow-up-request. |
+| `ActualOccurrenceDateTime` value | XML-binding layer | Parse `formatId`-tagged datetimes per §2.5 into a UTC instant. | identifier-parse path. |
 
 ---
 
@@ -423,11 +423,11 @@ The names below are the spec-level contract for the gate's eDelivery helpers; fu
 
 | Rule | Where applied | Error | HTTP |
 |---|---|---|---|
-| mTLS cert subject DN + serial resolves to >1 active `platforms` row (config error) | `PlatformAuthChecker.resolvePlatform()` | `FORBIDDEN_MULTI_PLATFORM` | 403 |
-| mTLS cert subject DN + serial resolves to 0 active `platforms` rows | `PlatformAuthChecker.resolvePlatform()` | `FORBIDDEN_NO_PLATFORM` | 403 |
+| mTLS cert subject DN + serial resolves to >1 active `platforms` row (config error) | Platform-resolution step on mTLS | `FORBIDDEN_MULTI_PLATFORM` | 403 |
+| mTLS cert subject DN + serial resolves to 0 active `platforms` rows | Platform-resolution step on mTLS | `FORBIDDEN_NO_PLATFORM` | 403 |
 | Authority requested subsets ⊆ `users.subsets` | `AuthorityRoutes.getDataset()` | `FORBIDDEN_SUBSET` | 403 |
-| Follow-up `gateId` equals this gate's `gateId` | `EftiService.handlePostFollowUpRequest()` | `FOLLOW_UP_GATE_MISMATCH` | 400 |
-| Target gate is ONLINE | `EftiService.checkGateAvailable()` | `GATEWAY_UNAVAILABLE` | 502 |
+| Follow-up `gateId` equals this gate's `gateId` | the follow-up handler | `FOLLOW_UP_GATE_MISMATCH` | 400 |
+| Target gate is ONLINE | the gate-availability check | `GATEWAY_UNAVAILABLE` | 502 |
 
 ### 5.3 Database constraints
 

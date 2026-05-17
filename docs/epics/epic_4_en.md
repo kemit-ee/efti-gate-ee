@@ -72,7 +72,7 @@ See `flow-01-search-broadcast-decision.mmd` and `seq-03-identifier-search-broadc
 
 **Happy path:**
 - [ ] Broadcast triggered **only** when local search returns 0 results — prevents unnecessary load and privacy exposure
-- [ ] Rationale: broadcast-only-when-empty pattern from Current Gate `EftiService.kt:91`
+- [ ] Rationale: broadcast-only-when-empty pattern (carried forward from the PoC search behaviour)
 - [ ] Broadcast sends parallel requests to all gates with status `ONLINE` (per `gate_status` enum); `OFFLINE` and `DISABLED` gates skipped
 - [ ] Per-gate response metadata: `gateId`, `responseTimeMs`, `success`, `failure`
 - [ ] Each gate interaction logged: gate ID, response time ms, success/failure
