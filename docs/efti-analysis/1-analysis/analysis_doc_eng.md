@@ -75,9 +75,6 @@ The Estonian eFTI Gate aims to provide a seamless, digital-first infrastructure 
 | **UIL** | Unique Identifying Link (URI). |
 | **X-Road** | Estonian data exchange layer (X-Tee). |
 
-```{=openxml}
-<w:p><w:r><w:br w:type="page"/></w:r></w:p>
-```
 
 ## 2. Estonian eFTI Gate Description
 ### 2.1 Strategic Objectives
@@ -245,9 +242,6 @@ The following tables outline the specific searchable identifiers and regulatory 
 - **EU05 (Dangerous Goods)**: Information requirements for the transport of dangerous goods (ADR/RID/ADN).
 - **EU06 (Cabotage)**: Information requirements for the verification of cabotage compliance.
 
-```{=openxml}
-<w:p><w:r><w:br w:type="page"/></w:r></w:p>
-```
 
 ### 2.3 Stakeholder Requirements
 This section details specific functional and technical requirements from Estonian competent authorities (CA), categorized by their primary systems and query workflows.
@@ -275,9 +269,6 @@ For details on the suggested integration with the waste management systems, see 
 
 For details on the suggested integration with the Estonian Tax and Customs Board (MTA) systems, see section 13 of this document
 
-```{=openxml}
-<w:p><w:r><w:br w:type="page"/></w:r></w:p>
-```
 
 ## 3. System Description and Architecture Overview
 ### 3.1 Design Principles
@@ -365,9 +356,6 @@ Estonian eFTI Gate leverages a modern, efficient stack designed for the JVM:
 - **Security**: Custom implementation of XMLDSig and mTLS for eDelivery; Bearer tokens and X-Road for API security. Authorization (RBAC) and authentication are handled by the system's security module.
 - **Deployment**: [Docker](https://www.docker.com/) and [Kubernetes](https://kubernetes.io/) (via Helm charts) for scalable, containerized operations.
 
-```{=openxml}
-<w:p><w:r><w:br w:type="page"/></w:r></w:p>
-```
 
 ## 4. Functional Requirements
 ### 4.1 Core eFTI Gate Functions and Use Cases
@@ -389,9 +377,6 @@ The system supports several primary domains:
 - **Waste Shipment Compliance**: Supports cross-border waste transport verification per Regulation (EC) No 1013/2006, leveraging eFTI subsets for waste-specific regulatory data elements.
 *Note: subject of further analysis, described in section 12 of this document* 
 
-```{=openxml}
-<w:p><w:r><w:br w:type="page"/></w:r></w:p>
-```
 
 ### 4.2 Message Catalog
 All system interactions follow the FTI message standard. Every transaction is identified by a `MessageId` and associated with a `ConversationId`. 
@@ -431,9 +416,6 @@ All system interactions follow the FTI message standard. Every transaction is id
 | **FTI030** | Upload Response (RoI) | External RoI confirms record creation/update status to the eFTI Gate. | N/A |
 | **FTI031** | Follow-up Ack (Remote) | Remote eFTI Gate confirms receipt of follow-up communication via AS4. | N/A |
 
-```{=openxml}
-<w:p><w:r><w:br w:type="page"/></w:r></w:p>
-```
 
 ### 4.3 Registry of Identifiers (RoI)
 In accordance with Article 1(12) and Article 11 of Commission Implementing Regulation (EU) 2024/1942, the registry of identifiers is the component of the eFTI gate that stores and provides access to unique identifiers of eFTI datasets and corresponding Unique Identifier Links (UILs).
@@ -499,9 +481,6 @@ In accordance with Article 6(4) of Implementing Regulation (EU) 2024/1942, the f
 Follow-up communication is operationally linked to the "Verify eFTI CMDS" and "Record Inspection Result" operations. A follow-up is typically initiated after a verification operation has identified a discrepancy, and the inspection result may be updated upon receipt of the economic operator's response.
 
 
-```{=openxml}
-<w:p><w:r><w:br w:type="page"/></w:r></w:p>
-```
 
 ## 5. Messages and Data Flow Description
 This section details the primary system-to-system interactions within the eFTI ecosystem, mapping functional requirements to technical implementations.
@@ -607,9 +586,6 @@ sequenceDiagram
     G-->>AAP: 200 OK
 ```
 
-```{=openxml}
-<w:p><w:r><w:br w:type="page"/></w:r></w:p>
-```
 
 ## 6. User Roles and Privileges
 ### 6.1 Role Definitions
@@ -660,9 +636,6 @@ Non-repudiation is ensured through the combination of the following technical me
 - **Immutable audit trail**: Every authenticated operation (registration, query, follow-up, deactivation) is recorded in an append-only audit log containing: principal identity, role, entity identifier, operation type, target UIL or resource, request/response hash, and timestamp. Audit records are retained for a minimum of two years in accordance with Article 9(1)(c) of Regulation (EU) 2020/1056 and Article 6 of Implementing Regulation (EU) 2024/1942.
 - **Bilateral logging (X-Road)**: X-Road's built-in message log ensures that both the requesting and responding parties retain independent, tamper-evident records of every transaction, providing mutual non-repudiation without reliance on a single party's logs.
 
-```{=openxml}
-<w:p><w:r><w:br w:type="page"/></w:r></w:p>
-```
 
 ## 7. Security and Certification Management
 ### 7.1 Description of eFTI Gate Security
@@ -693,9 +666,6 @@ The eFTI Gate maintains a comprehensive and immutable audit trail for all reques
 
 These logs should be stored using standard PostgreSQL; implementing tamper-evident mechanisms (e.g., hash chaining or WORM storage) to guarantee non-repudiation is a **Production Requirement**. Access to these logs is restricted to authorized administrative personnel and competent authorities during formal ex-post audits.
 
-```{=openxml}
-<w:p><w:r><w:br w:type="page"/></w:r></w:p>
-```
 
 ### 7.2 Description of Suggested Deployment Security
 To ensure the robustness of the eFTI infrastructure in a production environment, the following deployment security measures are recommended:
@@ -742,9 +712,6 @@ The eFTI Gate utilizes industry-standard cryptographic algorithms and protocols 
     - **Hashing**: SHA-256 for message digests and password hashing.
     - **Symmetric**: AES-128/256 for payload encryption in AS4.
 
-```{=openxml}
-<w:p><w:r><w:br w:type="page"/></w:r></w:p>
-```
 
 ### 7.5 Trust Framework and Compliance Management
 The eFTI exchange environment relies on a structured trust framework to ensure the authenticity, integrity, and non-repudiation of electronic freight transport information between competent authorities, eFTI gates, and eFTI platforms.
@@ -771,9 +738,6 @@ The eFTI exchange environment relies on a structured trust framework to ensure t
 - **Certification Maintenance**:
     - The active conformance status of eFTI platforms must be monitored. If a Conformity Assessment Body (CAB) withdraws a conformance certificate, the CAB or administrator must ensure that the platform's ability to provide regulatory information is revoked. (Ref: Article 12, Regulation (EU) 2020/1056).
 
-```{=openxml}
-<w:p><w:r><w:br w:type="page"/></w:r></w:p>
-```
 
 ## 8. Non-Functional Requirements (NFR)
 ### 8.1 Estonian Digital Government & KEMIT Standards
@@ -829,9 +793,6 @@ The eFTI Gate should implement comprehensive monitoring and observability to sup
 - **Dashboard**: A centralized operational dashboard provides real-time visibility into eFTI Gate status, traffic patterns, error rates, and resource utilization. The dashboard is accessible to eFTI Gate Administrators as defined in Section 6.3.2.
 - **Integration with National Infrastructure**: For X-Road-based communication, monitoring data is supplemented by the X-Road operational monitoring provided by RIA, enabling correlation of eFTI Gate-side metrics with national infrastructure health.
 
-```{=openxml}
-<w:p><w:r><w:br w:type="page"/></w:r></w:p>
-```
 
 ## 9. Logical and Physical Architecture
 ### 9.1 Logical Architecture
@@ -887,9 +848,6 @@ flowchart TB
     end
 ```
 
-```{=openxml}
-<w:p><w:r><w:br w:type="page"/></w:r></w:p>
-```
 
 ### 9.2 Physical Architecture
 The physical deployment of the eFTI Gate leverages containerization and orchestration to ensure scalability, high availability, and secure communication. The system is deployed within a **Kubernetes** cluster, where the **eFTI Gate Core** is horizontally scalable to handle high volumes of concurrent requests. An **Ingress Controller** manages incoming traffic, providing SSL termination and routing. Sensitive cryptographic keys for eDelivery and mTLS are managed by a dedicated certificate storage, while the PostgreSQL database ensures persistent storage of identifiers and metadata with high availability through replication and persistent volume claims.
@@ -921,9 +879,6 @@ flowchart TB
     end
 ```
 
-```{=openxml}
-<w:p><w:r><w:br w:type="page"/></w:r></w:p>
-```
 
 ## 10. Compliance with eFTI Regulation
 The Estonian eFTI Gate is designed and operated in full compliance with the European regulatory framework for electronic freight transport information. This section summarises the applicable legislation, standards, and compliance obligations.
@@ -960,9 +915,6 @@ The following table summarizes the key internal and external systems that must b
 | **LOIS2** | TRAM  | REST API (via X-Road) | Aviation information system for controlling platforms and flight-based queries. |
 | **eFTI Platforms** | Commercial | Synchronous REST | Certified ICT systems providing regulatory freight transport data to the eFTI Gate. |
 
-```{=openxml}
-<w:p><w:r><w:br w:type="page"/></w:r></w:p>
-```
 
 ## 12. Suggested Waste Management Integration (Annex 1)
 **Note:** This suggested integration and technical implementation is not currently agreed with involved parties and is subject to additional analysis.
@@ -1029,9 +981,6 @@ Legend:
 Orange line - Estonian domestic Waste transport
 Green line - International waste transport
 
-```{=openxml}
-<w:p><w:r><w:br w:type="page"/></w:r></w:p>
-```
 
 ## 13. Suggested MTA Integration (Annex 2)
 **Note:** This suggested integration and technical implementation is not currently agreed with the MTA and is subject to further analysis and additional agreements between KEMIT and the eFTI Gate development team.
