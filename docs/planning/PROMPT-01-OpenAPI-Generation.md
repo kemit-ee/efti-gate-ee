@@ -34,7 +34,7 @@ You are tasked with creating a **complete, production-ready OpenAPI 3.0 specific
 - [ ] **Technical Analysis Documents**:
   - [ ] `efti-gate-deep-dive-analysis.md` - Deep dive code analysis
     - **What to extract**: Security patterns, performance considerations, known issues to avoid
-  - [ ] `comparison-analysis.md` - Analysis comparison (Claude vs Askend)
+  - [ ] `comparison-analysis.md` - Analysis comparison
     - **What to extract**: Consensus on critical patterns, areas of disagreement
   - [ ] `gap-analysis-askend-vs-my-analysis.md` - Production readiness gaps
     - **What to extract**: What's missing, what needs to be added

@@ -11,7 +11,7 @@
 
 ## Purpose
 
-This directory contains **LLM-optimized prompts** for Askend to use with their AI assistants (Claude, GPT-4, etc.) to generate the complete technical specification for eFTI Gate v2.0.
+This directory contains **LLM-optimized prompts** for Askend to use with their preferred LLM to generate the complete technical specification for eFTI Gate v2.0.
 
 Each prompt is a **complete, standalone instruction** that can be copy-pasted into an LLM chat to generate a specific deliverable.
 
@@ -24,12 +24,6 @@ Each prompt is a **complete, standalone instruction** that can be copy-pasted in
 1. **Read the human feedback first**: [`ASKEND-FEEDBACK-EXECUTIVE-SUMMARY.md`](./ASKEND-FEEDBACK-EXECUTIVE-SUMMARY.md)
 2. **Use prompts in order** (below) with your LLM of choice
 3. **Validate each output** using success criteria in each prompt
-
-### Recommended LLMs:
-
-- **Claude 3.5 Sonnet** (best for code generation, long context)
-- **GPT-4 Turbo** (good for structured data like JSON/YAML)
-- **Claude Code** (best for database schema, has file access)
 
 ### Workflow:
 
