@@ -3,7 +3,7 @@
 Visual map of the 9 themes and 26 epics that make up the v2 spec. For artifacts and design rules, see [`README.md`](README.md).
 
 ```mermaid
-graph TB
+flowchart TB
     subgraph T1["THEME 1 — Identity & Access"]
         direction TB
         E1[EPIC 1<br/>User Management & RBAC]
@@ -13,8 +13,8 @@ graph TB
 
     subgraph T2["THEME 2 — Core Functionality"]
         direction TB
-        E3[EPIC 3<br/>Identifier Management<br/><i>Platform API</i>]
-        E4[EPIC 4<br/>Identifier Search<br/><i>Authority API</i>]
+        E3["EPIC 3<br/>Identifier Management<br/>Platform API"]
+        E4["EPIC 4<br/>Identifier Search<br/>Authority API"]
         E5[EPIC 5<br/>Dataset Retrieval<br/>& Follow-up]
         E24[EPIC 24<br/>Search & Retrieval Flows]
     end
@@ -30,7 +30,7 @@ graph TB
     subgraph T4["THEME 4 — Integrations"]
         direction TB
         E10[EPIC 10<br/>eDelivery AS4]
-        E11[EPIC 11<br/>X-Road<br/><i>EE extension</i>]
+        E11["EPIC 11<br/>X-Road<br/>EE extension"]
         E25[EPIC 25<br/>AS4 Message Flow]
     end
 
@@ -38,7 +38,7 @@ graph TB
         direction TB
         E12[EPIC 12<br/>Scalability<br/>& Statelessness]
         E13[EPIC 13<br/>Health Checks<br/>& Graceful Shutdown]
-        E26[EPIC 26<br/>Append-Only Archival<br/><i>via CronManager</i>]
+        E26["EPIC 26<br/>Append-Only Archival<br/>via CronManager"]
     end
 
     subgraph T6["THEME 6 — Security & Compliance"]
@@ -62,12 +62,12 @@ graph TB
 
     subgraph T9["THEME 9 — User Interfaces"]
         direction TB
-        E21[EPIC 21<br/>Authority UI<br/><i>AAP — H2M</i>]
+        E21["EPIC 21<br/>Authority UI<br/>AAP — H2M"]
         E22[EPIC 22<br/>Admin UI]
     end
 
     classDef theme fill:#e8f4f8,stroke:#2b6cb0,stroke-width:2px
-    classDef epic  fill:#fff,stroke:#4a5568,stroke-width:1px,cursor:pointer
+    classDef epic  fill:#fff,stroke:#4a5568,stroke-width:1px
     class T1,T2,T3,T4,T5,T6,T7,T8,T9 theme
     class E1,E2,E3,E4,E5,E6,E7,E8,E9,E10,E11,E12,E13,E14,E15,E16,E17,E18,E19,E20,E21,E22,E23,E24,E25,E26 epic
 

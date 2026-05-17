@@ -302,7 +302,7 @@ The eFTI Gate should be built on six core architectural pillars, aligned with Re
 ### 3.3 System Architecture
 The following diagram illustrates the interaction between the Estonian eFTI Gate, competent authorities, and the external eFTI ecosystem.
 
-```{mermaid}
+```mermaid
 graph TD
     %% Top Level
     subgraph Authorities ["Estonian Competent Authorities (Non-comprehensive List)"]
@@ -511,7 +511,7 @@ This section details the primary system-to-system interactions within the eFTI e
 - **Messages**: `FTI003` (Upload Data), `FTI006` (UIL Generation).
 - **Trigger**: New freight transport assignment or update in EO's internal system.
 
-```{mermaid}
+```mermaid
 sequenceDiagram
     participant EO as Economic Operator
     participant P as eFTI Platform
@@ -527,7 +527,7 @@ sequenceDiagram
 - **Messages**: `FTI004` (Upload Identifiers), `FTI029` (Upload Response).
 - **Storage**: Data is persisted in the Registry of Identifiers (RoI).
 
-```{mermaid}
+```mermaid
 sequenceDiagram
     participant P as eFTI Platform
     participant G as National eFTI Gate
@@ -543,7 +543,7 @@ sequenceDiagram
 - **Messages**: `FTI014` (Search Request - AAP to Gate), `FTI019` (Cross-Gate Search), `FTI021` (Cross-Gate Response).
 - **Feature**: Real-time result streaming using **Server-Sent Events (SSE)**.
 
-```{mermaid}
+```mermaid
 sequenceDiagram
     participant AAP as Authority Access Point (AAP)
     participant G as National eFTI Gate
@@ -567,7 +567,7 @@ sequenceDiagram
 - **Messages**: `FTI008` (Dataset Request - AAP to Gate), `FTI009` (Forward to Platform), `FTI020` (Forward to Remote eFTI Gate).
 - **Processing**: Gate applies **Subset Filtering** before delivery.
 
-```{mermaid}
+```mermaid
 sequenceDiagram
     participant AAP as Authority Access Point (AAP)
     participant G as National eFTI Gate
@@ -590,7 +590,7 @@ sequenceDiagram
 - **Messages**: `FTI024` (Follow-up Request - AAP to Gate), `FTI025` (Forward to Platform), `FTI026` (Forward to Remote eFTI Gate).
 - **Trigger**: New freight transport assignment or update in EO's internal system.
 
-```{mermaid}
+```mermaid
 sequenceDiagram
     participant AAP as Authority Access Point (AAP)
     participant G as National eFTI Gate
@@ -837,7 +837,7 @@ The eFTI Gate should implement comprehensive monitoring and observability to sup
 ### 9.1 Logical Architecture
 The logical architecture of the Estonian eFTI Gate is designed for modularity and high performance, separating concerns between the interface, business logic, and data persistence layers. The **eFTI Gate Core** acts as the central orchestrator, managing authentication through the **Access Checker**, metadata via the **Registry Services**, and data transformation through the **Subsetter Engine**. The custom **eDelivery Module** provides a high-performance implementation of the AS4 protocol, enabling seamless cross-border communication with other EU Member State FTI Gates and eFTI platforms.
 
-```{mermaid}
+```mermaid
 graph TB
     subgraph "Estonian eFTI Gate (Logical Model)"
         direction TB
@@ -894,7 +894,7 @@ graph TB
 ### 9.2 Physical Architecture
 The physical deployment of the eFTI Gate leverages containerization and orchestration to ensure scalability, high availability, and secure communication. The system is deployed within a **Kubernetes** cluster, where the **eFTI Gate Core** is horizontally scalable to handle high volumes of concurrent requests. An **Ingress Controller** manages incoming traffic, providing SSL termination and routing. Sensitive cryptographic keys for eDelivery and mTLS are managed by a dedicated certificate storage, while the PostgreSQL database ensures persistent storage of identifiers and metadata with high availability through replication and persistent volume claims.
 
-```{mermaid}
+```mermaid
 graph TB
     subgraph "Kubernetes Infrastructure (Production Cluster)"
         direction TB
@@ -978,7 +978,7 @@ The solution consists of 4 possible workflows for both local and international w
 - Workflow 4. Economic operator uses eFTI platform to manage international waste transport. eFTI Platform is integrated with Kotkas and environmental manifests are created from eFTI platform. Freight transport documents are also created in eFTI platform according eFTI requirements.
 
 ### 12.2 Architecture
-```{mermaid}
+```mermaid
 graph LR
     subgraph Economic Operators
         EO[Transporters / Receivers \n Use KeA web portal directly]
@@ -1049,7 +1049,7 @@ In the ANTS use case, the system assists officials by providing vehicle identifi
 
 *Note: Architecture is a subject to further analysis*
 
-```{mermaid}
+```mermaid
 flowchart TB
     classDef gateway fill:#0e62a1,color:#fff,stroke:#09436e,stroke-width:2px;
     classDef system fill:#e1f0fa,color:#333,stroke:#0e62a1,stroke-width:1.5px;
