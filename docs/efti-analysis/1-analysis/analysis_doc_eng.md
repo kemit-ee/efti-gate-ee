@@ -1,13 +1,11 @@
----
-title: "Estonian eFTI Gate Analysis"
-format:
-  docx:
-    reference-doc: ref.docx
-    toc: false
-    number-sections: false
----
+# Estonian eFTI Gate Analysis
 
-> **Scope note.** This document is Askend Estonia OÜ's procurement-phase analysis of the **existing eFTI Gate PoC** built by **Digilogistika Keskus**. Where it describes implementation details — technical stack, class names, deployment topology — it describes that PoC, not the v2 gate. **The v2 gate's stack is left open by design**; see [`../../specs/non-functional.md`](../../specs/non-functional.md) §4 ("Pinned protocols and version floors") for the v2 contract surface.
+> [!IMPORTANT]
+> **Scope note — this is not a v2 spec.**
+>
+> This document is Askend Estonia OÜ's procurement-phase analysis of the **existing eFTI Gate PoC** built by **Digilogistika Keskus**. Where it describes implementation details — technical stack, class names, deployment topology — it describes that PoC, not the v2 gate.
+>
+> **The v2 gate's stack is left open by design.** See [`../../specs/non-functional.md`](../../specs/non-functional.md) §4 ("Pinned protocols and version floors") for the v2 contract surface.
 
 ## 1. Introduction
 ### 1.1 Goal
