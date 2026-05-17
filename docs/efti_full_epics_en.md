@@ -122,7 +122,7 @@ See `flow-02-authorization-check.mmd` for the full decision tree.
 - [ ] Primary auth is TARA OIDC JWT (RS256, JWKS from `TARA_OIDC_DISCOVERY_URL`); TARA owns expiry policy. Permission claims (`roles`, `subsets`, scope) are read from the resolved `users` row, not from the JWT.
 - [ ] User `taraSub` (= JWT `sub` claim, Estonian PIC) is the auth identifier. Admin POST creates the row; on first inbound JWT the gate has a row to bind to.
 - [ ] Break-glass `/api/v1/auth/local-token` issues a gate-signed JWT with hardcoded 600 s TTL (default-disabled via `LOCAL_ADMIN_FALLBACK_ENABLED=false`); bcrypt is used **only** on the single break-glass row.
-- [ ] Revocation: JWT `jti` written to `sessions` denylist; `AccessChecker` rejects any JWT whose `jti` is in the denylist AND `exp` is still future.
+- [ ] Revocation: JWT `jti` written to `sessions` denylist; the access-check layer rejects any JWT whose `jti` is in the denylist AND `exp` is still future.
 
 **Technical artifacts:**
 - [ ] OpenAPI: `POST /api/v1/users`, `GET /api/v1/users`, `GET /api/v1/users/{userId}`, `PUT /api/v1/users/{userId}`, `DELETE /api/v1/users/{userId}`, `POST /api/v1/users/{userId}/revoke-token`
@@ -508,7 +508,7 @@ See `flow-01-search-broadcast-decision.mmd` and `seq-03-identifier-search-broadc
 
 **Happy path:**
 - [ ] Broadcast triggered **only** when local search returns 0 results — prevents unnecessary load and privacy exposure
-- [ ] Rationale: broadcast-only-when-empty pattern from Current Gate `EftiService.kt:91`
+- [ ] Rationale: broadcast-only-when-empty pattern (carried forward from the PoC search behaviour)
 - [ ] Broadcast sends parallel requests to all gates with status `ACTIVE`; `DISABLED` and `OFFLINE` gates skipped
 - [ ] Per-gate response metadata: `gateId`, `responseTimeMs`, `success`, `failure`
 - [ ] Each gate interaction logged: gate ID, response time ms, success/failure

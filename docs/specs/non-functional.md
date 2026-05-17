@@ -92,7 +92,7 @@ The numbers below adopt the **EU-wide-passthrough scenario** because (a) it dime
 | `BREAK_GLASS_JWT_SIGNING_KEY` | PEM-encoded RSA private key the gate uses to sign break-glass JWTs (only consulted when `LOCAL_ADMIN_FALLBACK_ENABLED=true`). | optional |
 | `BREAK_GLASS_JWT_TTL_SECONDS` | Hardcoded ceiling 600. Operator may shorten further. | 600 |
 | `MTLS_HEADER_SUBJECT` / `MTLS_HEADER_SERIAL` | Which trusted-proxy headers carry the platform cert subject DN and serial. | `X-Client-Cert-Subject` / `X-Client-Cert-Serial` |
-| `GATE_ID` / `COUNTRY_CODE` | Identity of this gate (`iss` for break-glass JWTs and `Config.gateId` for follow-up validation). | required, no default |
+| `GATE_ID` / `COUNTRY_CODE` | Identity of this gate (`iss` for break-glass JWTs and the configured `gateId` for follow-up validation). | required, no default |
 | `EU_PLATFORM_REGISTRY_URL` / `EU_PLATFORM_REGISTRY_REFRESH_MINUTES` | EU central registry of certified platforms (Reg 2020/1056 Art 7+12). | required, no default / 60 |
 | `EU_TRUST_LIST_URL` / `EU_TRUST_LIST_REFRESH_HOURS` | EU Trust Service trust-list bundle URL the reverse proxy validates inbound mTLS against. Refresh on the listed cadence; on fetch failure, keep the last-known-good list (do not fail closed on the trust list itself — only on individual cert revocation lookups). | required, no default / 24 |
 | `OCSP_TIMEOUT_MS` / `CRL_REFRESH_HOURS` | Cert-revocation lookup timeout and CRL refresh interval at the reverse proxy. **Fail closed**: a soft-fail timeout treats the cert as invalid. | 5000 / 6 |

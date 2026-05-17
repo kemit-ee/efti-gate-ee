@@ -130,9 +130,9 @@ All log entries **must** be valid JSON on a single line. Format follows [Elastic
 | Level | Criteria | Examples | Operator action |
 |---|---|---|---|
 | **ERROR** | Unhandled exceptions, DB failures, critical faults requiring immediate attention. | DB driver exception during identifier save, XML parser misconfiguration, OOM. | Alert on-call within 5 min. |
-| **WARN** | Client errors (4xx), recoverable failures, gate/platform unreachable, circuit-breaker state changes, auth failures. | `INVALID_XML`, gate marked OFFLINE, rate-limit exceeded, `ForbiddenException`. | Review during business hours. |
+| **WARN** | Client errors (4xx), recoverable failures, gate/platform unreachable, circuit-breaker state changes, auth failures. | `INVALID_XML`, gate marked OFFLINE, rate-limit exceeded, `FORBIDDEN`. | Review during business hours. |
 | **INFO** | Normal business events. | Identifier saved, broadcast completed, dataset delivered, admin action, login, job completion. | Retained for audit/analytics. |
-| **DEBUG** | Detailed flow — bind parameters, XML transform steps, SOAP envelope details. | SQL INSERT statement, parsed `ConsignmentXml` fields. | **Disabled in production** (`LOG_LEVEL=INFO`). |
+| **DEBUG** | Detailed flow — bind parameters, XML transform steps, SOAP envelope details. | SQL INSERT statement, parsed consignment fields. | **Disabled in production** (`LOG_LEVEL=INFO`). |
 | **TRACE** | Full request/response bodies, raw XML payloads. | Full consignment XML, complete AS4 response body. | **Never enabled in production**. |
 
 **Configuration**: `LOG_LEVEL` env var (default `INFO`).
@@ -203,7 +203,7 @@ Five templates cover every event shape in the gate. Per-event variations live in
   },
   "user": { "id": null, "roles": [] },
   "efti": { "dataset.id": "660f9511-f39c-42e5-b827-557766551111", "platform.id": "plt-demo-123", "platform.cert_subject": "CN=eDelivery-Platform, O=Demo Logistics OÜ, C=EE", "error.code": "INVALID_XML" },
-  "error": { "type": "BadRequestException", "message": "Error parsing identifiers: XML parse error at line 4: element 'modeCode' is not closed" },
+  "error": { "type": "BadRequest", "message": "Error parsing identifiers: XML parse error at line 4: element 'modeCode' is not closed" },
   "service.name": "efti-gate", "service.version": "2.0.0", "host.hostname": "gate-eu-ee31-node1"
 }
 ```
@@ -211,7 +211,7 @@ Five templates cover every event shape in the gate. Per-event variations live in
 | Placeholder | Meaning |
 |---|---|
 | `efti.error.code` | One of the codes catalogued in `errors.json` (e.g. `INVALID_XML`, `DUPLICATE_REQUEST_ID`, `PLATFORM_TIMEOUT`, `GATE_TIMEOUT`, `GATEWAY_UNAVAILABLE`, `FOLLOW_UP_GATE_MISMATCH`, `FORBIDDEN_NO_PLATFORM`, `FORBIDDEN_MULTI_PLATFORM`). |
-| `error.type` / `error.message` | Exception class and message. **Never** include full input XML. |
+| `error.type` / `error.message` | Error category and message (e.g. `BadRequest`, `Forbidden`, `DatabaseError`). **Never** include full input XML. |
 | `http.response.status_code` | The 4xx returned to the client. |
 
 ### 4.3 Authorization denied (WARN, audit-meaningful)
@@ -230,7 +230,7 @@ Five templates cover every event shape in the gate. Per-event variations live in
   },
   "user": { "id": "04fa30eb-eb08-11f0-b506-3c9c0f2eb459", "roles": ["AUTHORITY"] },
   "efti": { "error.code": "FORBIDDEN", "required_role": "ADMIN", "audit": true },
-  "error": { "type": "ForbiddenException", "message": "Access denied: endpoint requires PLATFORM role" },
+  "error": { "type": "Forbidden", "message": "Access denied: endpoint requires PLATFORM role" },
   "service.name": "efti-gate", "service.version": "2.0.0", "host.hostname": "gate-eu-ee31-node1"
 }
 ```
@@ -258,9 +258,9 @@ Five templates cover every event shape in the gate. Per-event variations live in
   },
   "efti": { "dataset.id": "550e8400-e29b-41d4-a716-446655440000", "error.code": "DATABASE_ERROR" },
   "error": {
-    "type": "PSQLException",
+    "type": "DatabaseError",
     "message": "connection refused",
-    "stack_trace": "efti.EftiService.getDataset(...)\n  efti.PlatformClient.getDataset(...)\n  ..."
+    "stack_trace": "(stack frames from the gate's dataset-delivery path; format is runtime-specific)"
   },
   "service.name": "efti-gate", "service.version": "2.0.0", "host.hostname": "gate-eu-ee31-node1"
 }
@@ -319,7 +319,7 @@ Every entry below uses the §4 templates — pick the matching shape, fill in `e
 | Authority | `dataset.deliver` | Same — platform timeout → 504 | WARN | **Y** |
 | Authority | `dataset.proxy` | Same — UIL targets remote gate, served via G2G | INFO | **Y** |
 | Authority | `followup.send` | POST `/v1/follow-up/{gateId}/{platformId}/{datasetId}/{datasetRequestId}` | INFO | **Y** |
-| Admin | `user.login` | `AccessChecker.before()` resolves credentials | INFO | **Y** |
+| Admin | `user.login` | Access-check resolves credentials | INFO | **Y** |
 | Admin | `user.login` | Same — invalid credentials → 401 | WARN | **Y** |
 | Admin | `user.access.denied` | Authenticated but role mismatch → 403 | WARN | **Y** |
 | Admin | `platform.create` / `platform.update` / `platform.delete` | `/api/v1/platforms`, `/api/v1/platforms/{id}` | INFO | **Y** |
@@ -335,7 +335,7 @@ Every entry below uses the §4 templates — pick the matching shape, fill in `e
 | eDelivery | `edelivery.message.receive` | AS4 payload arrived | INFO; WARN on parse error | N |
 | eDelivery | `edelivery.response.store` | Async response stored in `async_responses` | INFO | N |
 | System | `application.start` | Gate fully initialised | INFO | N |
-| System | `registry.sync` | `RegistrySyncJob` reload | INFO | N |
+| System | `registry.sync` | Registry sync reload | INFO | N |
 | System | `db.pool.warning` | < 2 connections free in the DB pool | WARN | N |
 | System | `db.query.slow` | Any SQL > 500 ms | WARN | N (30d) |
 | System | `runtime.memory.warning` | Heap > 80 % of configured ceiling | WARN | N (30d) |

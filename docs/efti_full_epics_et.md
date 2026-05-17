@@ -107,7 +107,7 @@ eFTI Gate on Euroopa Liidu eFTI (Electronic Freight Transport Information) võrg
 - [ ] Esmane autentimine on TARA OIDC JWT (RS256, JWKS aadressilt `TARA_OIDC_DISCOVERY_URL`); aegumispoliitika kuulub TARAle. Õigused (`roles`, `subsets`, scope) loetakse resolveeritud `users` reast, mitte JWT-st.
 - [ ] Kasutaja `taraSub` (= JWT `sub`, eesti isikukood) on autentimisidentifikaator. Admin POST loob rea; esmasel sissetuleval JWT-l on gate'l olemas vastav rida.
 - [ ] Break-glass `/api/v1/auth/local-token` väljastab gate-allkirjastatud JWT-i fikseeritud 600s TTL-iga (vaikimisi keelatud `LOCAL_ADMIN_FALLBACK_ENABLED=false`); bcrypt kasutusel ainult ühe break-glass rea jaoks.
-- [ ] Tühistamine: JWT `jti` kantakse `sessions` keelunimekirja; AccessChecker keeldub iga JWT-st mille `jti` on nimekirjas JA `exp` on tulevikus.
+- [ ] Tühistamine: JWT `jti` kantakse `sessions` keelunimekirja; juurdepääsukontrolli kiht keeldub iga JWT-st mille `jti` on nimekirjas JA `exp` on tulevikus.
 
 **Tehnilised artefaktid:**
 - [ ] OpenAPI: `POST /api/v1/users`, `GET /api/v1/users`, `GET /api/v1/users/{userId}`, `PUT /api/v1/users/{userId}`, `DELETE /api/v1/users/{userId}`, `POST /api/v1/users/{userId}/revoke-token`

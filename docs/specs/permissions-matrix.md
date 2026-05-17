@@ -19,7 +19,7 @@ The authorization model for eFTI Gate v2.0 — who can call which endpoint, what
 
 ```mermaid
 graph TD
-    REQ[HTTP Request] --> AC[AccessChecker]
+    REQ[HTTP Request] --> AC[Access check]
     AC --> CRED{Credential type?}
     CRED -->|None| PUB{Public route?<br/>/health, OpenAPI UI}
     PUB -->|Yes| ALLOW[Allow]
@@ -139,7 +139,7 @@ flowchart TD
     LOOK --1 row--> ROLE{roles ∋ AUTHORITY<br/>or ADMIN?}
     ROLE --No--> R403[403 FORBIDDEN]
     ROLE --Yes--> ROUTE{Endpoint?}
-    ROUTE -->|GET /identifiers/identifier| SEARCH[No ownership filter<br/>local search + broadcast<br/>identifierCountryOfOrigin = Config.countryCode]
+    ROUTE -->|GET /identifiers/identifier| SEARCH["No ownership filter<br/>local search + broadcast<br/>identifierCountryOfOrigin = configured countryCode"]
     ROUTE -->|GET /dataset/...| SUB{requested subsets ⊆ users.subsets?}
     SUB --No--> R403S[403 FORBIDDEN_SUBSET]
     SUB --Yes--> FWD[Forward to platform OR remote gate]
@@ -150,7 +150,7 @@ flowchart TD
 ```
 
 **Authority subset rule**: `subsetId[]` query params must each be a member of the authenticated user's `users.subsets` array. Subset values are `EU01`..`EU07`.
-**`identifierCountryOfOrigin`** in search results is set to this gate's `Config.countryCode` so authorities can see which gate returned each row.
+**`identifierCountryOfOrigin`** in search results is set to this gate's configured `countryCode` so authorities can see which gate returned each row.
 
 ### 3.3 Admin API
 
@@ -244,7 +244,7 @@ Three mechanisms, one per surface, mirroring the EFTI4EU reference implementatio
 - **Per-token (`sessions` denylist).** `POST /api/v1/auth/logout` writes a `sessions` row with the JWT's `jti`, the original `exp`, and a reason; on JWT validation the gate rejects any presented JWT whose `jti` is in the denylist. Bounded by JWT lifetime — entries past `exp` are archived.
 - **Per-user broadcast (`users.token_revoked_at`).** `POST /api/v1/users/{userId}/revoke-token` writes a new `users` row with `token_revoked_at = NOW()` (append-only); on JWT validation the gate rejects any presented JWT whose `iat` predates the resolved user's latest `token_revoked_at`. Use when the user is suspect (compromised credential, offboarding) and every JWT they hold should fail.
 
-**`AccessChecker` on the JWT path** validates the JWT signature against the cached TARA JWKS, then resolves the caller against the database: it locates the active `users` row whose `tara_sub` matches the JWT `sub`; rejects the request if the JWT's `jti` is in the `sessions` denylist or the JWT's `iat` predates the resolved user's `token_revoked_at`; reads `roles`, `subsets`, and scope-IDs from the resolved row. Permission claims come from the database, not the JWT — the gate's authorisation snapshot can change after the JWT was minted, so DB-side state wins. The mTLS path resolves the platform against `platforms` by cert subject + serial (active rows only). The `opsToken` path does no DB lookup at all (literal env-var compare).
+**The access-check layer on the JWT path** validates the JWT signature against the cached TARA JWKS, then resolves the caller against the database: it locates the active `users` row whose `tara_sub` matches the JWT `sub`; rejects the request if the JWT's `jti` is in the `sessions` denylist or the JWT's `iat` predates the resolved user's `token_revoked_at`; reads `roles`, `subsets`, and scope-IDs from the resolved row. Permission claims come from the database, not the JWT — the gate's authorisation snapshot can change after the JWT was minted, so DB-side state wins. The mTLS path resolves the platform against `platforms` by cert subject + serial (active rows only). The `opsToken` path does no DB lookup at all (literal env-var compare).
 
 **Password hashing.** Bcrypt only, used for the single break-glass local-admin row in `users.secret_hash`. Every other row has `secret_hash = NULL`. Cost factor pinned at 12 (`$2a$12$…`) per `non-functional.md` §4.
 
@@ -276,9 +276,9 @@ This spec is the contract — the implementation lives elsewhere. Do **not** red
 - **Database schema** for `users`, `platforms`, `authorities`, `gates` (including `roles JSONB`, `subsets text[]`, `secretHash`, `isAdmin`, `gates.status`): `docs/specs/db/schema.sql` — every column carries `COMMENT ON …`. Append-only enforcement is by GRANT (the runtime `app` role has `SELECT, INSERT` only; no UPDATE, no DELETE on any table); state transitions are INSERTs of new rows sharing the same logical id, and the latest row by `created_at` is the current state. There are no `_history` companion tables — the operational table itself is its own change log.
 - **Endpoint definitions** with `@Access` annotations and request/response schemas: `docs/specs/openapi.yaml`.
 - **Error catalog** (full payloads, all 36 codes): `docs/specs/errors.json`.
-- **AccessChecker / Routes / repositories** runtime code: `gate/src/efti/...` — `AccessChecker.before()`, `PlatformAuthChecker.resolvePlatform()`, `JwtValidator.validate()`, `User.checkWriteAccess()`, `UserRepository.byTaraSub()`, `SessionDenylistRepository.isRevoked(jti)`. The pseudocode below is the canonical pattern; production code may diverge in error wrapping and logging detail.
+- **Access-check, route, and repository code** lives in the implementation, not this document. The pseudocode below in §8.1 names the *behavioural* steps — request-time access-check entry point, platform resolution from mTLS, JWT validation, write-access scope check, user lookup by `tara_sub`, session-denylist check — and the spec captures the **what / when / fail-mode** of each. Module layout, class names, and error-wrapping idioms are the implementer's call.
 
-### 8.1 Canonical AccessChecker pattern
+### 8.1 Canonical access-check pattern
 
 The authorization gate routes a request to exactly one of the four credential types from §1.1, then applies the role / scope / subset rules of §3. The credential-routing rules:
 
@@ -287,7 +287,7 @@ The authorization gate routes a request to exactly one of the four credential ty
 - **No DB lookup** on the opsToken path — the env-var compare is the entire authorisation. **Two DB lookups** on the JWT path — the `sessions` denylist plus the `users.tara_sub` resolution. **One DB lookup** on the mTLS path — the active `platforms` row whose cert subject + serial match. **One DB lookup** on the break-glass path — the local-admin `users` row.
 - **Append-only** semantics throughout: every "active row" check considers only the latest row per logical id, ignoring soft-deleted (`is_active=FALSE` on the latest row) entries.
 
-Per-route handlers add row-level checks once authentication has resolved the caller: Authority dataset routes intersect requested subsets against the resolved user's `subsets`; Admin write routes verify the target entity is in the resolved user's `roles[ADMIN]` scope-IDs (`checkWriteAccess`); Platform-API write routes bind `consignments.platform_id` to the cert-resolved id and reject any client-supplied override. The mechanics of the JWT validator, the JWKS cache, and the cert-subject lookup are implementation choices for the build phase (the spec only commits to the outcomes above and the schema columns referenced in §2).
+Per-route handlers add row-level checks once authentication has resolved the caller: Authority dataset routes intersect requested subsets against the resolved user's `subsets`; Admin write routes verify the target entity is in the resolved user's `roles[ADMIN]` scope-IDs; Platform-API write routes bind `consignments.platform_id` to the cert-resolved id and reject any client-supplied override. The mechanics of the JWT validator, the JWKS cache, and the cert-subject lookup are implementation choices for the build phase (the spec only commits to the outcomes above and the schema columns referenced in §2).
 
 ---
 
