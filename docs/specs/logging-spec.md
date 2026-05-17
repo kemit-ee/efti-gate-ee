@@ -20,10 +20,10 @@ The eFTI Gate produces structured logs to support:
 ### 1.1 Pipeline
 
 ```
-Application (Kotlin/JVM)
-  └── Logback AsyncAppender (queueSize=512, discardingThreshold=0)
-        └── RollingFileAppender → /var/log/efti-gate/application.log
-              └── Filebeat / Fluentd
+Application (gate process)
+  └── Async log queue (size: LOG_ASYNC_QUEUE_SIZE, non-dropping)
+        └── Rolling JSON file → /var/log/efti-gate/application.log
+              └── Filebeat / Fluentd (operator-supplied)
                     └── Elasticsearch / OpenSearch
                           └── Kibana dashboards + alerts
 ```
@@ -114,12 +114,12 @@ All log entries **must** be valid JSON on a single line. Format follows [Elastic
 | `efti.required_role` | string | Role expected when `user.access.denied` fires | `"AUTHORITY"` / `"ADMIN"` (no `PLATFORM` — Platform identity is mTLS, denial is `FORBIDDEN_NO_PLATFORM` or `FORBIDDEN_MULTI_PLATFORM`; CronManager admin/* denial is plain `FORBIDDEN` without an `efti.required_role`) |
 | `efti.authority.country` | string (ISO-3166 α-2) | Set on `authority.create` | `"EE"` |
 | `efti.authority.subsets` | string[] | Set on `authority.create` | `["EU01","EU07"]` |
-| `efti.db.pool.available` | int | Available JDBC connections (warning event) | `1` |
+| `efti.db.pool.available` | int | Available DB connections (warning event) | `1` |
 | `efti.db.pool.max` | int | Configured max pool size | `10` |
 | `efti.db.pool.pending` | int | Pending connection requests | `8` |
-| `efti.jvm.heap.used_mb` | int | Heap usage MB (warning event) | `830` |
-| `efti.jvm.heap.max_mb` | int | `-Xmx` value MB | `1000` |
-| `efti.jvm.heap.percent` | int | Heap % | `83` |
+| `efti.runtime.heap.used_mb` | int | Heap usage MB (warning event) | `830` |
+| `efti.runtime.heap.max_mb` | int | Heap ceiling MB | `1000` |
+| `efti.runtime.heap.percent` | int | Heap % | `83` |
 | `efti.log_level` | string | Active log level — startup event | `"INFO"` |
 | `efti.platform_count` / `efti.authority_count` / `efti.gate_count` | int | Registry sizes — startup / `registry.sync` events | `2` |
 
@@ -129,7 +129,7 @@ All log entries **must** be valid JSON on a single line. Format follows [Elastic
 
 | Level | Criteria | Examples | Operator action |
 |---|---|---|---|
-| **ERROR** | Unhandled exceptions, DB failures, critical faults requiring immediate attention. | `PSQLException` during identifier save, JAXB misconfiguration, OOM. | Alert on-call within 5 min. |
+| **ERROR** | Unhandled exceptions, DB failures, critical faults requiring immediate attention. | DB driver exception during identifier save, XML parser misconfiguration, OOM. | Alert on-call within 5 min. |
 | **WARN** | Client errors (4xx), recoverable failures, gate/platform unreachable, circuit-breaker state changes, auth failures. | `INVALID_XML`, gate marked OFFLINE, rate-limit exceeded, `ForbiddenException`. | Review during business hours. |
 | **INFO** | Normal business events. | Identifier saved, broadcast completed, dataset delivered, admin action, login, job completion. | Retained for audit/analytics. |
 | **DEBUG** | Detailed flow — bind parameters, XML transform steps, SOAP envelope details. | SQL INSERT statement, parsed `ConsignmentXml` fields. | **Disabled in production** (`LOG_LEVEL=INFO`). |
@@ -336,9 +336,9 @@ Every entry below uses the §4 templates — pick the matching shape, fill in `e
 | eDelivery | `edelivery.response.store` | Async response stored in `async_responses` | INFO | N |
 | System | `application.start` | Gate fully initialised | INFO | N |
 | System | `registry.sync` | `RegistrySyncJob` reload | INFO | N |
-| System | `db.pool.warning` | < 2 connections free in JDBC pool | WARN | N |
+| System | `db.pool.warning` | < 2 connections free in the DB pool | WARN | N |
 | System | `db.query.slow` | Any SQL > 500 ms | WARN | N (30d) |
-| System | `jvm.memory.warning` | Heap > 80 % of `-Xmx` | WARN | N (30d) |
+| System | `runtime.memory.warning` | Heap > 80 % of configured ceiling | WARN | N (30d) |
 | SSE | `sse.stream.open` / `sse.stream.close` | Authority `Accept: text/event-stream` lifecycle | INFO | N |
 
 **HTTP path note**: Platform + Authority APIs (called by external systems) use `/v1/...`; Admin API (called by gate operators) uses `/api/v1/...`. There is no separate `/admin` namespace. Health probes are at `/health/...` (unauthenticated).
@@ -414,7 +414,7 @@ Logs cross trust boundaries — apply the redaction rules below at every log sit
 | Admin audit | **7 years** | GDPR Art. 30 | `platform.*`, `authority.*`, `gate.*`, `user.create`, `user.delete`, `consignment.delete`, `identifier.expire` |
 | Security | **7 years** | Security policy | `user.login` (success/failure), `user.access.denied` |
 | Business | **90 days** | Operational | `identifier.register`, `gate.ping`, `edelivery.*`, `g2g.*` (non-audit) |
-| Performance | **30 days** | Operational | `db.query.slow`, `jvm.memory.warning`, `db.pool.warning` |
+| Performance | **30 days** | Operational | `db.query.slow`, `runtime.memory.warning`, `db.pool.warning` |
 | Error | **90 days** | Operational | All ERROR/WARN entries not already covered above |
 | Debug | **7 days** | Development | DEBUG level |
 | Trace | **1 day** | Development | TRACE level — disabled in production |
@@ -431,7 +431,7 @@ Logs cross trust boundaries — apply the redaction rules below at every log sit
 ## 9. Performance requirements
 
 - **JSON serialisation overhead**: ≤ 2 ms per entry (use async appender).
-- **Async buffer**: Logback `AsyncAppender` with `queueSize=512`, `discardingThreshold=0` (never discard ERROR/WARN).
+- **Async buffer**: non-dropping async log queue, default size 512 (`LOG_ASYNC_QUEUE_SIZE`); never discard ERROR/WARN entries.
 - **Throughput**: ≥ 1000 entries/second per gate node without blocking request threads.
 - **Sampling**: high-volume DEBUG events (e.g. `g2g.identifier.search.outgoing`) may be sampled at 10 % via `LOG_SAMPLING_RATE=0.1` in production.
 - **JSON validity**: every entry is single-line valid JSON; required-fields check on `@timestamp`, `log.level`, `message`, `service.name`, `service.version`, `host.hostname`.
@@ -447,7 +447,7 @@ Logs cross trust boundaries — apply the redaction rules below at every log sit
 | `LOG_FILE_PATH` | `/var/log/efti-gate/application.log` | Log file path |
 | `LOG_DATASET_CONTENT` | `false` | If `true`, log full XML dataset at TRACE — never use in production |
 | `LOG_SAMPLING_RATE` | `1.0` | Sampling rate for high-volume events (0.0–1.0) |
-| `LOG_ASYNC_QUEUE_SIZE` | `512` | Logback AsyncAppender queue size |
+| `LOG_ASYNC_QUEUE_SIZE` | `512` | Async log queue size (non-dropping) |
 
 ---
 
@@ -463,48 +463,7 @@ Logs cross trust boundaries — apply the redaction rules below at every log sit
 
 ---
 
-## Appendix A — Logback configuration
-
-```xml
-<configuration>
-  <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-    <file>${LOG_FILE_PATH:-/var/log/efti-gate/application.log}</file>
-    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-      <fileNamePattern>/var/log/efti-gate/application.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
-      <maxHistory>90</maxHistory>
-      <totalSizeCap>10GB</totalSizeCap>
-    </rollingPolicy>
-    <encoder class="net.logstash.logback.encoder.LogstashEncoder">
-      <customFields>{"service.name":"efti-gate","service.version":"${SERVICE_VERSION:-2.0.0}"}</customFields>
-      <fieldNames>
-        <timestamp>@timestamp</timestamp>
-        <version>[ignore]</version>
-      </fieldNames>
-    </encoder>
-  </appender>
-
-  <appender name="ASYNC" class="ch.qos.logback.classic.AsyncAppender">
-    <queueSize>${LOG_ASYNC_QUEUE_SIZE:-512}</queueSize>
-    <discardingThreshold>0</discardingThreshold>
-    <includeCallerData>false</includeCallerData>
-    <appender-ref ref="JSON_FILE"/>
-  </appender>
-
-  <root level="${LOG_LEVEL:-INFO}">
-    <appender-ref ref="ASYNC"/>
-  </root>
-</configuration>
-```
-
-Required dependency (`build.gradle.kts`):
-
-```kotlin
-implementation("net.logstash.logback:logstash-logback-encoder:7.4")
-```
-
----
-
-## Appendix B — Example Kibana / OpenSearch queries
+## Appendix A — Example Kibana / OpenSearch queries
 
 | Goal | Query |
 |---|---|

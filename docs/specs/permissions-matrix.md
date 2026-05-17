@@ -271,7 +271,7 @@ All errors share the schema `{type, code, title, status, detail, instance}` per 
 
 ## 8. Implementation pointers
 
-This spec is the contract — the implementation lives elsewhere. Do **not** redefine the schema or copy SQL/Kotlin into this document.
+This spec is the contract — the implementation lives elsewhere. Do **not** redefine the schema or copy SQL / implementation code into this document.
 
 - **Database schema** for `users`, `platforms`, `authorities`, `gates` (including `roles JSONB`, `subsets text[]`, `secretHash`, `isAdmin`, `gates.status`): `docs/specs/db/schema.sql` — every column carries `COMMENT ON …`. Append-only enforcement is by GRANT (the runtime `app` role has `SELECT, INSERT` only; no UPDATE, no DELETE on any table); state transitions are INSERTs of new rows sharing the same logical id, and the latest row by `created_at` is the current state. There are no `_history` companion tables — the operational table itself is its own change log.
 - **Endpoint definitions** with `@Access` annotations and request/response schemas: `docs/specs/openapi.yaml`.

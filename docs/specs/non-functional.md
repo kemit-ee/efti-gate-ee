@@ -48,8 +48,8 @@ The numbers below adopt the **EU-wide-passthrough scenario** because (a) it dime
 | DB row growth (`audit_log`) | ~30 K / day | — | One row per Authority action + admin mutation; **not archived** (retained on the live DB for ≥ 7 years per §5; operator may extend indefinitely). |
 | Live DB size after 3 y | ~80 GB | — | Live DB stays **bounded** because CronManager (Epic 26) sweeps non-latest rows of every operational table nightly into archival storage. The figure assumes the sweep keeps up with steady-state growth; if archival is paused, the live DB grows at ~150 GB/year. |
 | Cold archive size after 3 y | ~500 GB | — | Monotonically growing JSON-Lines on the archival destination (S3-compatible store, secondary Postgres, or append-only file system). 7-year minimum retention for auditable tables. |
-| JVM heap | 1 GB | — | `-Xmx1g`; alarm at 80 % per logging-spec.md §2.3. |
-| Connection pool | 10 | — | HikariCP default; alarm when < 2 available. |
+| Process heap | 1 GB | — | Alarm at 80 % per logging-spec.md §2.3. Configure via the runtime's idiomatic heap-ceiling setting. |
+| DB connection pool | 10 | — | Alarm when < 2 available. Pool implementation is the implementer's choice. |
 
 ## 3. Deployment topology assumptions
 
@@ -64,26 +64,20 @@ The numbers below adopt the **EU-wide-passthrough scenario** because (a) it dime
 - **[CronManager](https://github.com/Buerostack/CronManager)** is a strict requirement, not optional. Deployed as a sibling container/Pod alongside the gate, with its own Postgres for Quartz state. CronManager owns every scheduled task — including the **append-only archival sweep** (Epic 26) that moves non-latest rows of every operational table to archival storage on a configurable cron schedule. The gate's runtime never schedules its own jobs; it only exposes the admin endpoints that CronManager calls. See `docs/specs/deploy/cronmanager-archive.yaml` for the canonical job definition.
 - **Archival destination** (separate from live PostgreSQL) is operator-configurable but must satisfy environment parity: same software in dev / test / stage / prod. Acceptable: an S3-compatible object store (real S3 in prod; MinIO/LocalStack in dev as long as the wire protocol is the same), a secondary PostgreSQL on a different cluster, or an append-only file storage. **Per-row JSON shape**: each archived line is one JSON object whose keys are the live-DB column names (snake_case) and values are the JSONB-natural mapping of the column type (TIMESTAMPTZ → ISO 8601 string, BYTEA → base64, JSONB → embedded object, all others → JSON primitive). The archive file naming pattern is `{table}/{year}/{month}/{batch_id}.jsonl`. **Retention floor**: 7 years; operator may extend.
 
-## 4. Pinned dependency versions
+## 4. Pinned protocols and version floors
 
-The reference implementation will pin these exactly; alternative implementations should match the *behaviour* even if the libraries differ.
+**The v2 spec leaves the implementation stack open.** Language, build tool, HTTP framework, ORM / JDBC layer, JWT library, logging library, UI framework — all the implementer's call. What is pinned is the behavioural contract below: protocols the gate must speak on the wire, version floors of the external dependencies it must talk to, algorithms and cost factors that calibrate the security / SLO trade-offs.
 
-| Component | Version | Notes |
+| Concern | Pinned contract | Notes |
 |---|---|---|
-| JVM | Eclipse Temurin 21 LTS | Virtual threads (Project Loom) used by the Klite HTTP server. |
-| Build | Gradle 8.x with Kotlin DSL | |
-| Kotlin | 2.0+ | |
-| HTTP framework | Klite ≥ 1.6 | Lightweight; uses JVM built-in HTTP server. No Tomcat/Netty/Ktor. |
-| PostgreSQL | 14+ (tested 14.10 / 15.5 / 16.1) | Required extensions: `uuid-ossp`, `citext`, `pg_trgm`, `btree_gin`. |
-| JDBC pool | HikariCP via `klite-jdbc` | |
-| XML | JAXB (`jakarta.xml.bind` 4.x) | Used for both eFTI consignment XML and AS4 SOAP envelopes. |
-| Cryptography | JCA (AES-GCM, RSA-OAEP) | For eDelivery message encryption. |
-| **JWT validation** | JJWT (`io.jsonwebtoken:jjwt-jackson` ≥ 0.12) **or** Nimbus JOSE+JWT | RS256 only. JWKS fetched from `taraJwt` discovery and cached per `TARA_JWKS_CACHE_SECONDS`; on `kid` not in cache the validator force-refreshes JWKS once before failing. **Clock-skew tolerance: ±60 s** for `exp`, `iat`, `nbf`. |
-| **Bcrypt** | `at.favre.lib:bcrypt` (or equivalent) | Break-glass local-admin password only. **Cost factor 12** (`$2a$12$…`); ~240 ms per verify on the reference hardware — sized to keep break-glass login under the 5 min recovery SLO while still costing brute-force attackers. |
-| Logging | Logback + `net.logstash.logback:logstash-logback-encoder:7.4` | Per logging-spec.md Appendix B. |
-| Schema migrations | Liquibase | Per `schema.sql` migration-policy header note. |
-| AS4 implementation | Custom (Askend baseline) **or** Domibus | Operator's choice; both protocol-compatible. |
-| UI (optional) | Svelte 4 (no runes) | Admin/authority H2M UIs; out of scope for the core gate. |
+| **PostgreSQL** | 14+ (tested 14.10 / 15.5 / 16.1) | Required extensions: `uuid-ossp`, `citext`, `pg_trgm`, `btree_gin`. Append-only role grants per `db/README.md`. |
+| **XML processing** | Must validate every inbound eFTI payload against the XSDs in `docs/efti-analysis/xsd/`; must emit AS4 SOAP envelopes per the eDelivery 1.15 conformance profile. Streaming preferred (10 MB body limit, §6). | Library is the implementer's choice. |
+| **Cryptography (eDelivery)** | AES-128-GCM for symmetric encryption; RSA-OAEP for key transport; XML Signature SHA-256. | Per the EU eDelivery AS4 1.15 conformance profile. |
+| **JWT validation** | RS256 only. JWKS fetched from `taraJwt` discovery and cached per `TARA_JWKS_CACHE_SECONDS`; on `kid` cache-miss the validator force-refreshes JWKS once before failing. **Clock-skew tolerance: ±60 s** for `exp`, `iat`, `nbf`. | Any RS256-capable JWT library satisfies the contract. |
+| **Bcrypt** | Break-glass local-admin password only. **Cost factor 12** (`$2a$12$…`); ~240 ms per verify on the reference hardware — sized to keep break-glass login under the 5 min recovery SLO while still costing brute-force attackers. | |
+| **Logging output** | JSON, single-line, ECS 8.x dotted-field taxonomy, `efti.*` namespace for custom fields. | Full field-by-field spec in `logging-spec.md`. |
+| **Schema migrations** | Declarative, versioned; idempotent on re-apply; `schema.sql` is the snapshot generated from migration history, not the source of truth. | Per `db/README.md` migration-policy header. Migration tool is the implementer's choice. |
+| **AS4 implementation** | EU eDelivery AS4 1.15 conformance profile. Custom AP **or** Domibus — operator's choice; both must satisfy the conformance profile. | |
 
 ### 4.1 Required environment variables
 
