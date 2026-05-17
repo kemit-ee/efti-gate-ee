@@ -28,7 +28,7 @@ The implementation contracts. Build the new gate against these.
 | Epics (canonical) | [`docs/efti_full_epics_en.md`](docs/efti_full_epics_en.md) | 26 epics across 9 themes; acceptance criteria |
 | Epics (per-epic split) | [`docs/epics/`](docs/epics/) | Per-epic / per-theme files; each opens with a Mermaid mini-diagram |
 | Reference architecture | [`docs/architecture/eFTI-Gate-Reference-Architecture.md`](docs/architecture/eFTI-Gate-Reference-Architecture.md) | Target architecture per EU 2020/1056, 2024/1942, 2024/2024, 2025/2243 |
-| Non-functional contracts | [`docs/specs/non-functional.md`](docs/specs/non-functional.md) | SLOs / SLIs per surface, capacity model, deployment topology, pinned dependency versions, compliance retention |
+| Non-functional contracts | [`docs/specs/non-functional.md`](docs/specs/non-functional.md) | SLOs / SLIs per surface, capacity model, deployment topology, pinned protocols and version floors, compliance retention |
 | Deployment | [`docs/specs/deploy/`](docs/specs/deploy/) | Topology constraints; concrete Helm/k8s/compose artefacts deferred to implementation phase |
 | XSDs | [`docs/efti-analysis/xsd/`](docs/efti-analysis/xsd/) | eFTI consignment + eDelivery XML schemas (used by epics 3, 10, 25) |
 
@@ -58,7 +58,7 @@ Honest list of what's known to be incomplete or deferred. None of these blocks a
 - **On-call runbook.** Alert thresholds (`db.pool < 2`, `heap > 80%` from `logging-spec.md` §2.3) are documented; the playbook for what an on-call engineer does when each fires is not.
 - **Load-test plan.** `docs/specs/non-functional.md` §1 sets SLOs; the k6/JMeter scenarios that validate them against the topology in §3 are an implementation deliverable.
 - **Capacity-plan re-validation.** §2 numbers are recalculated for the append-only growth model (every state transition is a new row); they remain first-pass estimates and should be re-derived against Test Fest 4+ data.
-- **Archival worker implementation.** Epic 26 specifies the `POST /api/v1/admin/archive` contract, the `db_archiver` PostgreSQL role with `SELECT, DELETE` grants on operational tables (and `SELECT`-only on `audit_log`), and the canonical CronManager job YAML. The Kotlin/SQL implementation of the per-table archival sweep itself is an implementation deliverable.
+- **Archival worker implementation.** Epic 26 specifies the `POST /api/v1/admin/archive` contract, the `db_archiver` PostgreSQL role with `SELECT, DELETE` grants on operational tables (and `SELECT`-only on `audit_log`), and the canonical CronManager job YAML. The per-table archival sweep itself is an implementation deliverable.
 
 **Coverage gaps in the spec itself:**
 

@@ -25,7 +25,7 @@ graph LR
     ING -->|INSERT consignments + identifiers<br/>denormalised search columns| DB[(PostgreSQL)]
     AUTH[Authority] -->|GET /v1/identifiers/{id}| Q[DB→JSON search<br/>ConsignmentRepository.find]
     Q --> DB
-    DB -->|JAXB marshal +<br/>SSE / JSON| AUTH
+    DB -->|XML marshal +<br/>SSE / JSON| AUTH
     Q -.broadcast.-> G2G[DB→AS4 wrap<br/>EftiService.handleIdentifierQuery]
     G2G -->|"&lt;identifierResponse&gt;<br/>(eDelivery schema)"| RG[Remote gate]
     RG -.AS4 in.-> Q
@@ -108,19 +108,19 @@ Per EU Reg 2024/2024 Annex I; matches the `transport_mode` enum in `schema.sql`.
 
 ### 3.1 XML → Database (identifier extraction)
 
-This is the **primary transformation** in the Gate. Performed in `EftiParser.parseIdentifiers()` using JAXB unmarshalling into `ConsignmentXml`.
+This is the **primary transformation** in the Gate. Performed in `EftiParser.parseIdentifiers()` using XML unmarshalling into `ConsignmentXml`.
 
 **Pipeline (canonical for every ingest):**
 
 1. `xml.dropXmlHeader()` — strip optional `<?xml?>` declaration before storage and parsing.
-2. `ConsignmentXml.parse(xml)` — JAXB unmarshal.
+2. `ConsignmentXml.parse(xml)` — XML unmarshal.
 3. Take `mainCarriageTransportMovement.firstOrNull()` as the primary movement.
 4. Build `Consignment` (UIL + primary movement fields + denormalised search columns per §3.1.4).
 5. Iterate **all** `mainCarriageTransportMovement` entries → extract `usedTransportMeans` → `Identifier(type=means)`.
 6. Iterate `usedTransportEquipment` → `Identifier(type=equipment)`; nested `carriedTransportEquipment` → `Identifier(type=carried)`.
 7. INSERT one row into `consignments`, N rows into `identifiers`.
 
-If JAXB throws (`JAXBException` / `SAXParseException`), `EftiService.saveIdentifiers()` wraps it as `BadRequestException` and returns `INVALID_XML` — **no database write occurs**.
+If the XML parser throws, the save path wraps the error as `BadRequestException` and returns `INVALID_XML` — **no database write occurs**.
 
 #### 3.1.1 End-to-end example A — Single vehicle, road transport
 
@@ -206,7 +206,7 @@ Every scenario uses the same canonical pipeline; only the rule listed below diff
 | XML missing optional fields (only `usedTransportMeans/id`) | All optional columns become `NULL` (`mode`, `dangerous_goods`, `country_code`, `delivered_at`); INSERT still succeeds. |
 | `registrationCountry` missing on a `usedTransportMeans` | `identifiers.country_code = NULL` for that row. |
 | `deliveryEvent` missing | `consignments.delivered_at = NULL`. |
-| Malformed XML (e.g. unclosed `<modeCode>`) | JAXB throws → `BadRequestException` → 400 RFC 7807 with `efti.error.code = INVALID_XML`. **No DB write.** |
+| Malformed XML (e.g. unclosed `<modeCode>`) | the XML parser throws → `BadRequestException` → 400 RFC 7807 with `efti.error.code = INVALID_XML`. **No DB write.** |
 | XML with `<?xml version="1.0"?>` declaration | `dropXmlHeader()` strips the first line before parsing **and before storage** in `consignments.xml`. |
 | `actualOccurrenceDateTime formatId="102"` / `"203"` / `"205"` | Parsed via the §2.5 format table; `consignments.delivered_at` stored in UTC. |
 | Multi-leg (sea → road) transport | First-leg attributes go to denormalised columns (see §3.1.4); subsequent legs live only in the stored `xml`. |
@@ -242,7 +242,7 @@ which holds only the original XML fragment for round-trip retrieval.
 
 ### 3.2 Database → JSON (search results)
 
-**Pipeline:** `EftiService.getLocalIdentifiers()` → `ConsignmentRepository.find(q)` → `ConsignmentXml.parse(c.xml)` (JAXB unmarshal stored XML) → set `uil = UIL(c.platformId, c.datasetId)` for local results (no `gateId`); set `identifierCountryOfOrigin = Config.countryCode` → JAXB marshal as `GateIdentifiersResponse` → JSON serialise.
+**Pipeline:** `EftiService.getLocalIdentifiers()` → `ConsignmentRepository.find(q)` → `ConsignmentXml.parse(c.xml)` (XML unmarshal stored XML) → set `uil = UIL(c.platformId, c.datasetId)` for local results (no `gateId`); set `identifierCountryOfOrigin = Config.countryCode` → XML marshal as `GateIdentifiersResponse` → JSON serialise.
 
 For `Accept: text/event-stream`, the result is streamed as SSE events instead of a JSON array (see §3.2.2).
 
@@ -286,7 +286,7 @@ When `Accept: application/json` is used and there are zero results, the response
 
 ### 3.3 XML → AS4 (gate-to-gate eDelivery wrap)
 
-eDelivery namespace `http://efti.eu/v1/edelivery`. The Gate parses incoming AS4 messages with JAXB (`IdentifiersQuery`, `UILQuery`, `FollowUpRequest`) and builds outgoing AS4 messages by string-concatenating the eDelivery wrapper around stored consignment XML.
+eDelivery namespace `http://efti.eu/v1/edelivery`. The Gate parses incoming AS4 messages (`IdentifiersQuery`, `UILQuery`, `FollowUpRequest`) and builds outgoing AS4 messages by string-concatenating the eDelivery wrapper around stored consignment XML.
 
 **Helpers:** `dropXmlHeader()` (strip `<?xml?>` from any string before storage / wrapping); `dropXmlRoot()` (strip outer root element so the inner content can be re-embedded under a new wrapper).
 
@@ -322,7 +322,7 @@ All variations use the same wrap/unwrap idiom; the table records each one's defi
 
 | Message | Direction | Rule |
 |---|---|---|
-| `<identifierQuery>` | Gate ← Remote gate | `IdentifiersQuery.parse()` (JAXB) → extract `requestId`, `identifier value`, `type`, optional filters → `ConsignmentRepository.find()` → build response per §3.3.1. |
+| `<identifierQuery>` | Gate ← Remote gate | `IdentifiersQuery.parse()` (XML unmarshal) → extract `requestId`, `identifier value`, `type`, optional filters → `ConsignmentRepository.find()` → build response per §3.3.1. |
 | `<uilQuery>` | Gate ← Remote gate | `UILQuery.parse()` → extract UIL + `subsetId[]` (values are `EU01`..`EU07`) + `requestId` → forward to platform via `EftiService.getDataset()` → wrap response per `<uilResponse>` rule below. |
 | `<uilResponse>` (success) | Gate → Remote gate | Platform body's `<?xml?>` declaration removed via `dropXmlHeader()`; entire body embedded under `<uilResponse status="200" requestId="…" xmlns="…/edelivery">…</uilResponse>`. |
 | `<uilResponse>` (error) | Gate → Remote gate | If platform status ≠ 200 **and** the body does not start with `<`, wrap the body in `<description>…</description>` inside `<uilResponse status="404"…>`. |
@@ -367,12 +367,12 @@ All transformation errors surface as RFC 7807 problem JSON with `type: "https://
 
 | Trigger | HTTP | `errorCode` (in `efti.error.code` log field) | Type slug |
 |---|---|---|---|
-| Malformed identifier XML / JAXB failure | 400 | `INVALID_XML` | `invalid-xml` |
+| Malformed identifier XML / parser failure | 400 | `INVALID_XML` | `invalid-xml` |
 | Request body > 10 MB | 400 (or 413) | `INVALID_XML` (size variant) | `bad-request` |
 | Target gate not ONLINE | 502 | `GATEWAY_UNAVAILABLE` | `bad-gateway` |
 | mTLS cert subject DN + serial resolves to >1 active `platforms` row (config error) | 403 | `FORBIDDEN_MULTI_PLATFORM` | `forbidden-multi-platform` |
 | Follow-up `req.uil.gateId != Config.gateId` | 400 | `FOLLOW_UP_GATE_MISMATCH` | `follow-up-gate-mismatch` |
-| Unhandled JAXB / NPE during transform | 500 | `TRANSFORMATION_ERROR` | `internal-error` |
+| Unhandled XML-parser error / NPE during transform | 500 | `TRANSFORMATION_ERROR` | `internal-error` |
 
 **Never** echo the input XML in an error response — it may carry PII or sensitive cargo data. Log at most the first 200 characters at DEBUG level, plus `http.request.body.bytes`.
 
@@ -380,29 +380,29 @@ All transformation errors surface as RFC 7807 problem JSON with `type: "https://
 
 ### 3.6 Special cases
 
-**Namespace declarations.** JAXB resolves namespaces transparently. The default namespace is `http://efti.eu/v1/consignment/identifier`; any `xsi:*` attributes are ignored on unmarshal. The XML payload is stored in `consignments.xml` with all namespace declarations preserved on the root element; the only transformation applied before storage is `dropXmlHeader()` (the optional `<?xml?>` processing instruction on the first line is stripped — see below).
+**Namespace declarations.** The XML parser must resolve namespaces transparently. The default namespace is `http://efti.eu/v1/consignment/identifier`; any `xsi:*` attributes are ignored on unmarshal. The XML payload is stored in `consignments.xml` with all namespace declarations preserved on the root element; the only transformation applied before storage is `dropXmlHeader()` (the optional `<?xml?>` processing instruction on the first line is stripped — see below).
 
-**`dropXmlHeader()`.** Strip `<?xml?>` declaration before JAXB parsing and before DB storage. Reference impl: `if (startsWith("<?xml")) substringAfter("\n") else this`. Inputs without a header pass through unchanged; only the **first** line is stripped if multiple `<?xml` lines somehow appear.
+**`dropXmlHeader()`.** Strip `<?xml?>` declaration before XML parsing and before DB storage. Reference impl: `if (startsWith("<?xml")) substringAfter("\n") else this`. Inputs without a header pass through unchanged; only the **first** line is stripped if multiple `<?xml` lines somehow appear.
 
 **`dropXmlRoot()`.** Strip outer root element, returning inner content. Reference impl: `substringAfter(">").substringBeforeLast("<")`. Two callers: re-wrapping consignment XML under `<ed:consignment>` for AS4 responses; extracting inner `<consignment>` when the platform wraps submission under `<identifiers datasetId="…">`. Naïve string manipulation — assumes single-root, no leading whitespace before the root element.
 
-**CDATA sections.** Not expected in eFTI identifier XML. If present, JAXB parses content as plain text and the raw CDATA is preserved in `consignments.xml`.
+**CDATA sections.** Not expected in eFTI identifier XML. If present, the XML parser treats the content as plain text and the raw CDATA is preserved in `consignments.xml`.
 
-**Large payloads.** ≤ 1 MB: in-memory JAXB DOM (default for identifier XML). 1–10 MB: still JAXB, monitor heap. > 10 MB: reject with 400 / 413 via HTTP server config. Dataset XML stored on platforms is **never parsed by the Gate** — only the metadata identifier XML is parsed.
+**Large payloads.** ≤ 1 MB: in-memory XML model (default for identifier XML). 1–10 MB: still in-memory, monitor heap. > 10 MB: reject with 400 / 413 via HTTP server config. Dataset XML stored on platforms is **never parsed by the Gate** — only the metadata identifier XML is parsed.
 
-**Concurrency.** `JAXBContext` is thread-safe and created once per class via `companion object: JaxbParseable<T>()`. Each `parse()` / `render()` call constructs a new `Unmarshaller` / `Marshaller`; these are not shared across threads.
+**Concurrency.** Reuse the XML parser context across threads where the chosen library permits (cache one per message type at startup). Per-call marshallers / unmarshallers are short-lived and must not be shared across threads.
 
 ---
 
 ## 4. Helper functions
 
-The Gate-side helpers live in the `edelivery` module (`gate/src/efti/edelivery/`). The names below are the spec-level contract; full Kotlin source belongs to the implementation, not this document.
+The names below are the spec-level contract for the gate's eDelivery helpers; full source belongs to the implementation, not this document.
 
 | Function | Source | Purpose | Where called |
 |---|---|---|---|
 | `String.dropXmlHeader()` | `edelivery` module, `String` extension | Remove `<?xml?>` declaration before parsing / storage. | `EftiService.saveIdentifiers()`; AS4 response wrapping. |
 | `String.dropXmlRoot()` | `edelivery` module, `String` extension | Strip outer root element so inner XML can be re-embedded. | `EftiService.handleSaveIdentifiersRequest()`, `handleIdentifierQuery()`. |
-| `JaxbParseable<T>` | `edelivery` module, abstract companion base | Holds a single `JAXBContext` per class; provides `parse(xml)` and `render(o)` (`JAXB_FRAGMENT=true` → output without XML declaration). | `ConsignmentXml`, `IdentifiersQuery`, `UILQuery`, `GateIdentifiersResponse`, `FollowUpRequest`. |
+| Per-type XML parse/render contract | `edelivery` module | Each XML message type exposes `parse(xml)` (unmarshal) and `render(o)` (marshal as XML fragment, no `<?xml?>` declaration). One reusable parser context cached per type at startup. | `ConsignmentXml`, `IdentifiersQuery`, `UILQuery`, `GateIdentifiersResponse`, `FollowUpRequest`. |
 | `ActualOccurrenceDateTime.instant` | `edelivery` module | Parse `formatId`-tagged datetimes per §2.5 into `Instant` (UTC). | `EftiParser.parseIdentifiers()`. |
 
 ---
@@ -413,8 +413,8 @@ The Gate-side helpers live in the `edelivery` module (`gate/src/efti/edelivery/`
 
 | Rule | When | Error code (`efti.error.code`) | HTTP |
 |---|---|---|---|
-| Well-formed XML | Before JAXB parse | `INVALID_XML` | 400 |
-| Root element namespace matches expected | JAXB type binding | `INVALID_XML` | 400 |
+| Well-formed XML | Before XML parse | `INVALID_XML` | 400 |
+| Root element namespace matches expected | XML type binding | `INVALID_XML` | 400 |
 | `datasetId` path param is valid UUID v4 | Route binding | `INVALID_DATASET_ID` | 400 |
 
 **XSD validation is strict.** The gate validates every inbound consignment-identifier XML against [`consignment-identifier.xsd`](../efti-analysis/xsd/consignment-identifier.xsd) before binding to its data model. A schema-invalid document returns `400 INVALID_XML` with the XSD validation error path and line number in the problem-detail body. Unknown elements / attributes are tolerated only where the XSD itself permits them via `xs:any` / `xs:anyAttribute` (these are the documented extension points for member-state-specific additions); anywhere else, presence of an unknown element fails XSD validation.
@@ -443,24 +443,24 @@ The append-only schema uses synthetic `row_id UUID` primary keys; the previous "
 
 ## 6. Performance requirements
 
-- Identifier XML parse + DB write (< 50 KB): ≤ 50 ms; in-memory JAXB DOM.
-- Identifier XML parse + DB write (50 KB – 1 MB): ≤ 200 ms; JAXB DOM, monitor GC.
+- Identifier XML parse + DB write (< 50 KB): ≤ 50 ms; in-memory XML model.
+- Identifier XML parse + DB write (50 KB – 1 MB): ≤ 200 ms; in-memory XML model, monitor GC.
 - Identifier XML > 1 MB: reject (400 / 413).
 - G2G identifier query response build: ≤ 20 ms (string concatenation; no marshalling).
 - Dataset passthrough (no parse): platform latency + ≤ 10 ms gate overhead; HTTP body streamed.
-- `JAXBContext` initialisation: < 500 ms one-off at startup, via companion-object singleton.
-- Memory: JAXB DOM uses ~2–3× XML size in heap (50 KB XML → ~150 KB heap per request); size the connection pool and coroutine dispatcher accordingly.
+- XML parser-context initialisation: < 500 ms one-off at startup, cached per message type.
+- Memory: in-memory XML model uses ~2–3× XML size in heap (50 KB XML → ~150 KB heap per request); size the connection pool and coroutine dispatcher accordingly.
 
 ---
 
 ## 7. Security
 
-**XXE prevention.** Disable external entities on the SAXParserFactory used by JAXB:
-`disallow-doctype-decl=true`, `external-general-entities=false`, `external-parameter-entities=false`, `setXIncludeAware(false)`, `setExpandEntityReferences(false)`. Modern Jakarta JAXB defaults to safe; verify and configure explicitly for production.
+**XXE prevention.** Disable external entities and DTDs in the XML parser configuration:
+`disallow-doctype-decl=true`, `external-general-entities=false`, `external-parameter-entities=false`, `setXIncludeAware(false)`, `setExpandEntityReferences(false)`. Modern XML parsers default to safe; verify and configure explicitly for production.
 
 **XML bomb (Billion Laughs).** Enforce: max body size 10 MB (HTTP server); max XML nesting depth 20; max XML parsing time 5 s.
 
-**SQL injection.** All extracted XML values are inserted via parameterised statements (`klite-jdbc` / `consignmentRepository.save(consignment)`). Never string-concatenate user input into SQL.
+**SQL injection.** All extracted XML values must be inserted via parameterised statements. Never string-concatenate user input into SQL.
 
 **Input size limits.** Platform identifier XML: 10 MB. eDelivery AS4 message body: 10 MB. Platform dataset response: unlimited (streamed, not parsed).
 
