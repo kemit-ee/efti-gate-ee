@@ -4,6 +4,7 @@
 >
 > - **PROMPT-02 (Database schema)** demands a `change_history` audit table and `AFTER UPDATE` triggers; the current schema is **append-only everywhere** — no `change_history` table, no UPDATE triggers, the runtime `app` role has `SELECT, INSERT` only. See [`../specs/db/README.md`](../specs/db/README.md) and Epic 26.
 > - The error-catalog count quoted in some prompts (35) is now **37** (Epic 26 added `ARCHIVE_IN_PROGRESS` and `ARCHIVE_STORAGE_UNAVAILABLE`).
+> - **Stack references throughout** these prompts (Kotlin / Klite / JAXB / Logback / Gradle, and file paths like `gate/src/efti/.../PlatformRoutes.kt`) describe the **existing Digilogistika Keskus PoC** that was used as *input* for behaviour extraction. The v2 gate's stack is **open** — see [`../specs/non-functional.md`](../specs/non-functional.md) §4 for the v2 contract surface.
 >
 > When the prompt and the spec disagree, the spec wins. Read these prompts for the *direction of travel*, not for the final answer.
 

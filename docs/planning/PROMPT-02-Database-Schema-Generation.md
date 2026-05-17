@@ -1,5 +1,7 @@
 # LLM Prompt: Generate Complete PostgreSQL Database Schema for eFTI Gate v2.0
 
+> **Background prompt — not authoritative.** See [`PROMPT-00-INDEX.md`](PROMPT-00-INDEX.md) for historical context, including how stack references here (Kotlin / Klite / Digilogistika Keskus PoC paths) relate to the v2 spec's stack-open position.
+
 > **Superseded on the audit-table design.** This prompt instructed the schema generator to create a `change_history` table populated by `AFTER UPDATE` triggers. The decision was reversed: the current canonical schema is **append-only everywhere** — every operational table is INSERT-only, the runtime `app` role has no UPDATE/DELETE grants, and the operational tables themselves are their own change log (latest row by `created_at` per logical id wins). Archival of non-latest rows is done by external [CronManager](https://github.com/Buerostack/CronManager); see [Epic 26](../epics/epic_26_en.md) and [`../specs/db/README.md`](../specs/db/README.md). Section 10 below ("change_history") and the trigger pseudocode that follows are **no longer the contract** — they are kept for historical reference only.
 
 ## Context

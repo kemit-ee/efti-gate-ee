@@ -7,6 +7,8 @@ format:
     number-sections: false
 ---
 
+> **Scope note.** This document is Askend Estonia OÜ's procurement-phase analysis of the **existing eFTI Gate PoC** built by **Digilogistika Keskus**. Where it describes implementation details — technical stack, class names, deployment topology — it describes that PoC, not the v2 gate. **The v2 gate's stack is left open by design**; see [`../../specs/non-functional.md`](../../specs/non-functional.md) §4 ("Pinned protocols and version floors") for the v2 contract surface.
+
 ## 1. Introduction
 ### 1.1 Goal
 The primary objective of this project is to implement the Estonian national eFTI (Electronic Freight Transport Information) Gate, transitioning from a Proof of Concept (POC) to a live, production-ready infrastructure. The Estonian eFTI Gate is designed to serve as a central sovereign hub for the exchange of regulatory freight transport information between eFTI platforms used by economic operators, Estonian competent authorities and other EU Member State competent authorities through the eFTI exchange environment. The objective is to provide a high-performance, cost-efficient solution that ensures full compliance with EU Regulation 2020/1056 and helps reduce administrative burden through digitalization for Estonian competent authorities, logistics and transport sector.

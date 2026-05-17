@@ -1,5 +1,7 @@
 # LLM Prompt: Generate Error Catalog for eFTI Gate v2.0
 
+> **Background prompt — not authoritative.** See [`PROMPT-00-INDEX.md`](PROMPT-00-INDEX.md) for historical context, including how stack references here (Kotlin / Klite / Digilogistika Keskus PoC paths) relate to the v2 spec's stack-open position.
+
 ## Task
 Create `errors.json` (300-500 lines) - Structured error catalog with 30+ error scenarios
 
