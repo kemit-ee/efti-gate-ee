@@ -1,5 +1,8 @@
 # LLM Prompt: Generate Complete OpenAPI 3.0 Specification for eFTI Gate v2.0
 
+> [!IMPORTANT]
+> **Background prompt — not authoritative.** See [`PROMPT-00-INDEX.md`](PROMPT-00-INDEX.md) for historical context, including how stack references here (Kotlin / Klite / Digilogistika Keskus PoC paths) relate to the v2 spec's stack-open position.
+
 ## Context
 
 You are tasked with creating a **complete, production-ready OpenAPI 3.0 specification** for the European Freight Transport Information (eFTI) Gate system. This specification will be used to:
@@ -31,7 +34,7 @@ You are tasked with creating a **complete, production-ready OpenAPI 3.0 specific
 - [ ] **Technical Analysis Documents**:
   - [ ] `efti-gate-deep-dive-analysis.md` - Deep dive code analysis
     - **What to extract**: Security patterns, performance considerations, known issues to avoid
-  - [ ] `comparison-analysis.md` - Analysis comparison (Claude vs Askend)
+  - [ ] `comparison-analysis.md` - Analysis comparison
     - **What to extract**: Consensus on critical patterns, areas of disagreement
   - [ ] `gap-analysis-askend-vs-my-analysis.md` - Production readiness gaps
     - **What to extract**: What's missing, what needs to be added
