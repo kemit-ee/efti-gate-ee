@@ -64,6 +64,27 @@ The numbers below adopt the **EU-wide-passthrough scenario** because (a) it dime
 - **[CronManager](https://github.com/Buerostack/CronManager)** is a strict requirement, not optional. Deployed as a sibling container/Pod alongside the gate, with its own Postgres for Quartz state. CronManager owns every scheduled task — including the **append-only archival sweep** (Epic 26) that moves non-latest rows of every operational table to archival storage on a configurable cron schedule. The gate's runtime never schedules its own jobs; it only exposes the admin endpoints that CronManager calls. See `docs/specs/deploy/cronmanager-archive.yaml` for the canonical job definition.
 - **Archival destination** (separate from live PostgreSQL) is operator-configurable but must satisfy environment parity: same software in dev / test / stage / prod. Acceptable: an S3-compatible object store (real S3 in prod; MinIO/LocalStack in dev as long as the wire protocol is the same), a secondary PostgreSQL on a different cluster, or an append-only file storage. **Per-row JSON shape**: each archived line is one JSON object whose keys are the live-DB column names (snake_case) and values are the JSONB-natural mapping of the column type (TIMESTAMPTZ → ISO 8601 string, BYTEA → base64, JSONB → embedded object, all others → JSON primitive). The archive file naming pattern is `{table}/{year}/{month}/{batch_id}.jsonl`. **Retention floor**: 7 years; operator may extend.
 
+### 3.1 Horizontal scaling (HPA)
+
+The gate runtime is **stateless** — no in-memory request state, no sticky sessions, no node-local files, no in-process job scheduling. Horizontal Pod Autoscaler is **mandatory** and must be configured to scale instantly under load:
+
+| Concern | Pinned contract | Default |
+|---|---|---|
+| Replica floor | `minReplicas` | **2** (matches §3 topology floor; satisfies the SLO error budget under rolling upgrade or single-host failure). |
+| Replica ceiling | `maxReplicas` | operator-configurable per cluster capacity; **10** is the v2 default — covers §2 peak load (~12 req/sec across surfaces) with headroom for traffic spikes and rolling deploys. |
+| Primary scale trigger | CPU utilisation | target **70 %** of `requests.cpu`. |
+| Secondary scale trigger | Memory utilisation | target **75 %** of `requests.memory`. |
+| Scale-up behaviour | aggressive — "instant" | `behavior.scaleUp.stabilizationWindowSeconds: 0`; `policies` allow **doubling** the replica count every **15 s** until the ceiling. The gate must keep up with demand spikes (e.g. EU-wide enforcement campaigns, post-incident peer-gate replay storms) without manual intervention. |
+| Scale-down behaviour | gradual | `behavior.scaleDown.stabilizationWindowSeconds: 300`; remove **at most 1 replica per minute**. Prevents flapping under bursty load. |
+| Readiness probe | shared with the L7 load balancer | `GET /health/ready`, 5 s interval, 2 consecutive failures → unready; HPA's "ready replica" count drives the scaling decision (so a draining pod stops counting toward capacity automatically). |
+| Custom-metric scaling | optional — request rate | not required by the spec; operator may add a request-rate trigger (e.g. via KEDA or a custom-metrics adapter) if CPU lags real load on I/O-heavy paths such as SSE search streaming. |
+
+**Resource requests / limits.** `requests.cpu` and `requests.memory` must be set on every pod (HPA targets the request, not the limit, when computing utilisation %). Suggested starting point: `requests.cpu: 500m`, `requests.memory: 1Gi`; tune from real load. Limits should be set to avoid noisy-neighbour effects but should not be tight enough to cause throttling under the §1 SLO targets.
+
+**Capacity-plan tie-in.** The §2 capacity model assumes the gate scales horizontally — the per-pod numbers in §2 are *per-replica* steady-state targets, and the cluster as a whole serves §2 peak × N replicas. If the §1 SLO is breached and CPU is the bottleneck, raise `maxReplicas` before raising per-pod `requests.cpu`.
+
+**Out of scope for this row but worth noting:** PostgreSQL is **not** auto-scaled — primary + standby is a fixed pair per §3. If DB-side capacity becomes the bottleneck, scaling that is a separate operations decision (vertical resize / connection-pool tuning / read-replica routing for the SELECT-heavy authority paths), not an HPA concern.
+
 ## 4. Pinned protocols and version floors
 
 **The v2 spec leaves the implementation stack open.** Language, build tool, HTTP framework, ORM / JDBC layer, JWT library, logging library, UI framework — all the implementer's call. What is pinned is the behavioural contract below: protocols the gate must speak on the wire, version floors of the external dependencies it must talk to, algorithms and cost factors that calibrate the security / SLO trade-offs.
