@@ -24,9 +24,9 @@ sequenceDiagram
     participant Archive as Archival Store
 
     Note over CM: YAML schedule (e.g. "0 0 3 * * ?" — 03:00 daily)<br/>HTTP job, target = the gate's admin archive endpoint
-    CM->>+Gate: POST /api/v1/admin/archive<br/>Authorization: Bearer <ops-token>
+    CM->>+Gate: POST /api/v1/admin/archive<br/>Authorization: Bearer OPS_TOKEN
     Gate->>Gate: Auth: caller is configured CronManager source
-    Gate->>+DB: Select up to batch_size non-latest rows per logical id<br/>from this archivable table (the rows whose latest sibling has won;<br/>see db/README.md for the canonical read pattern).
+    Gate->>+DB: Select up to batch_size non-latest rows per logical id<br/>from this archivable table — rows whose latest sibling has won.<br/>See db/README.md for the canonical read pattern.
     DB-->>-Gate: candidate rows
     Gate->>+Archive: PUT batch (S3 / cold Postgres / NFS)
     Archive-->>-Gate: ack
