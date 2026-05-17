@@ -63,7 +63,7 @@ See `state-05-gate-health.mmd` for full detail.
 **Happy path:**
 - [ ] `POST /api/v1/gates/{gateId}/ping` (admin-triggered, manual one-off) → fast protocol ping (`POST {eDeliveryUrl}` with mTLS) or eDelivery SOAP ping → `200 OK` with `responseTimeMs`
 - [ ] Recurring peer-gate health probe is driven by **CronManager** calling `POST /api/v1/admin/ping-gates` (every 5 min by default; YAML in `docs/specs/deploy/cronmanager-ping-gates.yaml`); the gate process never schedules its own jobs.
-- [ ] Ping result INSERTs a new `gates` row with the latest `status` (ONLINE / OFFLINE; DISABLED is operator-set) and `last_ping_at = NOW()`. pg_notify on `registry_change` fires after commit.
+- [ ] Ping result INSERTs a new `gates` row with the latest `status` (ONLINE / OFFLINE; DISABLED is operator-set) and `last_ping_at = NOW()`. A `NOTIFY` on the `registry_change` channel fires after commit.
 
 **Edge cases:**
 - [ ] Peer gate does not respond within `PING_TIMEOUT_SECONDS` → status flipped to `OFFLINE`; `502 Bad Gateway` with `"detail": "Gate 'eu-fi01' did not respond within N seconds"`

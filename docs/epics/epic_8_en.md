@@ -48,7 +48,7 @@ See `seq-11-authority-registration.mmd` and `state-04-authority-status.mmd` for 
 - [ ] Admin writing to an authority whose owning gate is not in the admin's `roles[ADMIN]` scope-IDs → `403 FORBIDDEN_WRITE_ACCESS`
 
 **Technical constraints:**
-- [ ] Registry changes propagated to all nodes via app-emitted `pg_notify('registry_change', id)` in the same transaction as the INSERT — other nodes LISTEN and reload within 500 ms
+- [ ] Registry changes propagated to all nodes via an app-emitted `NOTIFY registry_change, '<id>'` in the same transaction as the INSERT — other nodes LISTEN and reload within 500 ms
 
 **Technical artifacts:**
 - [ ] OpenAPI: `GET /api/v1/authorities`, `GET /api/v1/authorities/{authorityId}`, `POST /api/v1/authorities`, `PUT /api/v1/authorities/{authorityId}`, `DELETE /api/v1/authorities/{authorityId}`

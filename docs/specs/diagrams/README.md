@@ -26,7 +26,7 @@
 | 12 | [seq-12-user-authentication.mmd](seq-12-user-authentication.mmd) | TARA OIDC authentication flow — JWT validation against TARA JWKS, denylist check, role/subset enforcement | [Epic 2](../../epics/epic_2_en.md), [Epic 23](../../epics/epic_23_en.md) |
 | 13 | [seq-13-multi-platform-user.mmd](seq-13-multi-platform-user.mmd) | Multi-platform user restriction for identifier submission | [Epic 1](../../epics/epic_1_en.md) |
 | 14 | [seq-14-gate-to-gate-search.mmd](seq-14-gate-to-gate-search.mmd) | Gate receives identifier query from remote gate and responds | [Epic 4](../../epics/epic_4_en.md), [Epic 10](../../epics/epic_10_en.md) |
-| 15 | [seq-15-gate-registry-sync.mmd](seq-15-gate-registry-sync.mmd) | Admin adds gate, in-memory registry syncs across nodes via pg_notify | [Epic 6](../../epics/epic_6_en.md) |
+| 15 | [seq-15-gate-registry-sync.mmd](seq-15-gate-registry-sync.mmd) | Admin adds gate, in-memory registry syncs across nodes via LISTEN/NOTIFY | [Epic 6](../../epics/epic_6_en.md) |
 | 16 | [seq-16-mtls-fast-protocol.mmd](seq-16-mtls-fast-protocol.mmd) | Gate-to-gate fast protocol over mTLS (alternative to AS4 envelope) | [Epic 2](../../epics/epic_2_en.md), [Epic 10](../../epics/epic_10_en.md) |
 
 ## State Diagrams (5)
@@ -51,7 +51,7 @@
 
 | # | File | Description | Components | Epic |
 |---|------|-------------|------------|------|
-| 25 | [arch-01-multi-node-deployment.mmd](arch-01-multi-node-deployment.mmd) | Multi-node cluster deployment | Load Balancer, Gate Nodes, PostgreSQL, pg_notify, Background Jobs | [Epic 12](../../epics/epic_12_en.md) |
+| 25 | [arch-01-multi-node-deployment.mmd](arch-01-multi-node-deployment.mmd) | Multi-node cluster deployment | Load Balancer, Gate Nodes, PostgreSQL, LISTEN/NOTIFY, Background Jobs | [Epic 12](../../epics/epic_12_en.md) |
 | 26 | [arch-02-gate-network.mmd](arch-02-gate-network.mmd) | EU-wide eFTI Gate network | National gates + eDelivery AS4 connections + local platforms/authorities | [Epic 6](../../epics/epic_6_en.md), [Epic 10](../../epics/epic_10_en.md) |
 
 ---
