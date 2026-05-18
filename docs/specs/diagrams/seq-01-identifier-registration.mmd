@@ -17,17 +17,17 @@ sequenceDiagram
 
     Gate->>Gate: Extract datasetId from URL path<br/>datasetId='550e8400-e29b-41d4-a716-446655440000'
     Gate->>Gate: Parse identifier XML (per consignment-identifier.xsd)
-    Note over Gate: Extracts denormalised search columns:<br/>vehicle_plate='123ABC', vehicle_country='EE',<br/>mode='road', dangerous_goods=true
+    Note over Gate: Denormalised columns:<br/>vehicle_plate, country,<br/>mode, dangerous_goods.
 
     alt XML valid
         Gate->>+ConsReg: save(consignment, identifiers)
         ConsReg->>+DB: Append a new consignments row (dataset_id='550e8400-…', platform_id='plt-xxx-001', status='active', denormalised search columns) and the corresponding identifiers rows
-        Note over DB: Append-only — previous rows for this dataset_id remain in place — the new row becomes the latest by created_at.<br/>identifier_type ENUM: 'means' (vehicle / transport unit), 'equipment' (container / trailer), 'carried' (cargo unit).
+        Note over DB: Append-only.<br/>Latest row wins by<br/>created_at. ENUM:<br/>means / equipment /<br/>carried.
         DB-->>-ConsReg: written
         ConsReg-->>-Gate: saved
 
         Gate-->>Platform: 200 OK
-        Note over Gate,Platform: Identifier registered. datasetId: 550e8400-…
+        Note over Gate,Platform: Identifier registered.<br/>datasetId returned.
 
     else XML invalid (XSD parse error)
         Gate-->>Platform: 400 Bad Request (application/problem+json)<br/>{ "type":"https://api.efti.ee/errors/invalid-xml",<br/>  "code":"INVALID_XML",<br/>  "title":"Bad Request",<br/>  "status":400,<br/>  "detail":"XSD validation failed at line 7: missing required element modeCode",<br/>  "instance":"/v1/identifiers/550e8400-…" }

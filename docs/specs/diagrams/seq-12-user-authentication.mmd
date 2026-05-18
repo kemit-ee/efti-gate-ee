@@ -7,12 +7,12 @@ sequenceDiagram
     participant DB as PostgreSQL
     participant Route as Business Route
 
-    Note over Officer,TARA: Step 1 — TARA OIDC login (out-of-band of the gate's REST API).<br/>Officer authenticates with Estonian eID / Mobile-ID / Smart-ID,<br/>TARA returns an ID Token (RS256-signed JWT, claims: iss, aud,<br/>sub=Estonian PIC, resource_access.efti-gate.roles, subsets,<br/>efti.scope, exp, jti).
+    Note over Officer,TARA: Step 1 — TARA OIDC login<br/>(out-of-band of the gate).<br/>Officer auths via eID /<br/>Mobile-ID / Smart-ID.<br/>TARA returns ID Token<br/>(RS256 JWT) with iss,<br/>aud, sub=PIC, roles,<br/>subsets, exp, jti.
 
     Officer->>+TARA: OIDC authorize / authenticate
     TARA-->>-Officer: ID Token (JWT)
 
-    Note over Officer,UI: Step 2 — UI bearer-attaches the JWT to subsequent gate calls.
+    Note over Officer,UI: Step 2 — UI attaches<br/>JWT as Bearer to all<br/>subsequent gate calls.
 
     Officer->>+UI: Search "123ABC"
     UI->>+Gate: GET /v1/identifiers/123ABC<br/>Authorization: Bearer TARA-JWT
@@ -25,12 +25,12 @@ sequenceDiagram
     Auth->>+DB: Resolve the latest active users row by tara_sub = jwt.sub,<br/>verify jwt.iat ≥ users.token_revoked_at
     DB-->>-Auth: User{id='d2e3f4a5-…', is_active=TRUE, roles={'AUTHORITY':['aut-xxx-001']}, subsets=['EU07'], token_revoked_at=NULL}
 
-    Note over Auth: Permission claims are read from the resolved users row,<br/>NOT directly from the JWT — TARA's `resource_access` may<br/>differ from the gate's `users.roles` if admin has updated<br/>scope since the JWT was issued. JWT carries identity<br/>(`sub`) and freshness (`iat`, `jti`) — the gate carries the authorisation.<br/><br/>Missing-row policy: if no active users row matches the JWT `sub`,<br/>respond 401 TOKEN_INVALID with detail "no provisioned user".<br/>Admin must POST /api/v1/users first.<br/><br/>Per-user broadcast revocation: if jwt.iat < users.token_revoked_at,<br/>respond 401 TOKEN_INVALID with detail "token revoked".
+    Note over Auth: Permission claims come<br/>from the resolved users<br/>row — NOT from the JWT.<br/>JWT carries identity<br/>(sub) + freshness (iat,<br/>jti); the gate owns the<br/>authorisation state.<br/>--<br/>No matching active row<br/>→ 401 TOKEN_INVALID<br/>("no provisioned user").<br/>--<br/>jwt.iat < token_revoked_at<br/>→ 401 ("token revoked").
 
     Auth-->>-Gate: AuthenticatedUser{<br/>userId="d2e3f4a5-…", roles=["AUTHORITY"],<br/>scope=["aut-xxx-001"], subsets=["EU07"], jti="abc..." }
 
     Gate->>+Route: handle(exchange, user)
-    Note over Route: @Access(AUTHORITY) — user.roles contains AUTHORITY → OK
+    Note over Route: @Access(AUTHORITY) —<br/>user.roles ∋ AUTHORITY<br/>→ OK
     Route->>Route: authorityId = user.scope.first() = "aut-xxx-001"
     Route->>Route: subsetCheck: requested ⊆ user.subsets → OK
     Route->>Route: Execute identifier search (latest-row resolution per dataset_id)
