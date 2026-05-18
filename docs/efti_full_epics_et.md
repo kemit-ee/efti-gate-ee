@@ -39,7 +39,7 @@ eFTI Gate on Euroopa Liidu eFTI (Electronic Freight Transport Information) võrg
 ### Põhiterminid
 
 - **identifier:** Otsitav väärtus, mida kasutatakse consignment'i leidmiseks (sõiduki numbrimärk, konteineri number, haagise ID). UIL on identifikaatori täielik URL-vorm.
-- **UIL (Unique Identifier Locator):** `<gateURL>/<platformURL>/<datasetId>` — globaalselt unikaalne viide konkreetsele kaubaveo andmestikule. Näide: `https://<gateId>.eftisandbox.eu/https://demo-platform.<gateId>.eftisandbox.eu/v1/550e8400-e29b-41d4-a716-446655440000`
+- **UIL (Unique Identifier Locator):** `<gateURL>/<platformURL>/<datasetId>` — globaalselt unikaalne viide konkreetsele kaubaveo andmestikule. Näide: `<gateBaseUrl>/<platformBaseUrl>/v1/550e8400-e29b-41d4-a716-446655440000`
 - **AAP (Authority Access Point):** Gate'i asutustele suunatud REST API liides (nii H2M kui M2M kasutuseks)
 - **CMDS (eFTI Common Data Set):** Täielik transpordidokumentatsioon — asub eFTI platvormil, mitte eFTI gate'il
 - **H2M:** Human-to-Machine (brauser/rakendus)

@@ -69,8 +69,8 @@ graph TB
 UIL Structure: <gateURL>/<platformURL>/<datasetId>
 
 Official Format (per Regulation 2024/1942):
-- Gate URL: https://<gateId>.eftisandbox.eu
-- Platform URL: https://demo-platform.<gateId>.eftisandbox.eu/v1
+- Gate URL: `<gateBaseUrl>` (operator-configured; e.g. `https://efti.<orgDomain>`)
+- Platform URL: `<platformBaseUrl>/v1` (operator-configured per platform)
 - Dataset ID: UUID v4
 
 Simplified Example: <gateId>/platform-demo/550e8400-e29b-41d4-a716-446655440000

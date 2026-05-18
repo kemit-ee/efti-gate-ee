@@ -36,7 +36,7 @@ The eFTI Gate is a node in the EU eFTI (Electronic Freight Transport Information
 
 ### Key Terms
 
-- **UIL (Unique Identifier Locator):** `<gateURL>/<platformURL>/<datasetId>` — globally unique reference to a specific freight transport dataset. Example: `https://<gateId>.eftisandbox.eu/https://demo-platform.<gateId>.eftisandbox.eu/v1/550e8400-e29b-41d4-a716-446655440000`
+- **UIL (Unique Identifier Locator):** `<gateURL>/<platformURL>/<datasetId>` — globally unique reference to a specific freight transport dataset. Example: `<gateBaseUrl>/<platformBaseUrl>/v1/550e8400-e29b-41d4-a716-446655440000`
 - **identifier:** The searchable value used to locate a consignment (vehicle registration plate, container number, trailer ID). UIL is the full compound URL form of the identifier.
 - **AAP (Authority Access Point):** Gate's REST API interface for authorities (both H2M and M2M use)
 - **dataset:** The complete freight transport documentation stored on the eFTI platform — never stored on the eFTI Gate
