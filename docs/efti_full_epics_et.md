@@ -242,10 +242,10 @@ sequenceDiagram
     Admin->>TARA: Autendi
     TARA-->>UI: id_token (RS256 JWT, sub=isikukood, väited iss/aud/exp/iat/jti)
 
-    Note over UI: UI hoiab JWT-i brauseri säilituses ja lisab selle<br/>Authorization: Bearer-ina iga gate-päringu juurde.<br/>Mitte küpsist. Mitte serveripoolset sessiooni.
+    Note over UI: UI hoiab JWT-i brauseri<br/>säilituses ja lisab selle<br/>Authorization: Bearer-ina<br/>iga gate-päringu juurde.<br/>Ei küpsist, ei sessiooni.
 
     UI->>Gate: GET /api/v1/user<br/>Authorization: Bearer <TARA-JWT>
-    Note over Gate: Gate valideerib JWT vastu cache-tud TARA JWKS-i,<br/>kontrollib sessions-keelunimekirja jti järgi, resolveerib<br/>users tara_sub järgi, kontrollib jwt.iat ≥ users.token_revoked_at.
+    Note over Gate: Valideerib JWT vastu<br/>cache-tud TARA JWKS-i,<br/>kontrollib sessions-<br/>keelunimekirja jti järgi,<br/>resolveerib users tara_sub<br/>järgi, kontrollib jwt.iat<br/>≥ users.token_revoked_at.
     Gate-->>UI: 200 OK (kasutaja profiil)
     UI-->>Admin: Kuva admin avaleht
 ```

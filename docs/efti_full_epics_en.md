@@ -295,10 +295,10 @@ sequenceDiagram
     Admin->>TARA: Authenticate
     TARA-->>UI: id_token (RS256 JWT, sub=PIC, claims iss/aud/exp/iat/jti)
 
-    Note over UI: UI persists the JWT in browser storage and attaches it<br/>as Authorization: Bearer to every gate call. No cookie. No server-side session.
+    Note over UI: UI persists the JWT in<br/>browser storage and sends<br/>it as Authorization:<br/>Bearer on every call.<br/>No cookie, no session.
 
     UI->>Gate: GET /api/v1/user<br/>Authorization: Bearer <TARA-JWT>
-    Note over Gate: Gate validates JWT against cached TARA JWKS,<br/>checks sessions denylist for jti, resolves users by tara_sub,<br/>verifies jwt.iat ≥ users.token_revoked_at.
+    Note over Gate: Validate JWT against<br/>cached TARA JWKS, check<br/>sessions denylist by jti,<br/>resolve users by tara_sub,<br/>verify jwt.iat ≥<br/>users.token_revoked_at.
     Gate-->>UI: 200 OK (current user profile)
     UI-->>Admin: Render admin home
 ```
