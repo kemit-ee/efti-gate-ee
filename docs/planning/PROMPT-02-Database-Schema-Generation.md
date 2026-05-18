@@ -29,7 +29,7 @@ You are tasked with creating a **complete, executable PostgreSQL database schema
   - **How to use**: Understand what data is stored, what queries are critical, what relationships exist
   - **Do NOT**: Copy missing indexes, weak constraints, poor table design
 
-- [ ] **Epic Documentation**: `efti_full_epics_en.md`
+- [ ] **Epic Documentation**: `docs/epics/` (per-epic files)
   - **Purpose**: Business requirements defining data entities
   - **Must include**: EPIC 2 (data model), EPIC 13 (database requirements)
   - **What to extract**: Entity relationships, business rules, data retention policies
@@ -569,7 +569,7 @@ Your database schema is complete when:
 ## Reference Files to Read
 
 1. `{CURRENT_GATE_SOURCE}/gate/db/*.sql` (current schema)
-2. `efti_full_epics_en.md` EPIC 2 (data model)
-3. `efti_full_epics_en.md` EPIC 13 (database requirements)
+2. `docs/epics/epic_2_en.md` (data model)
+3. `docs/epics/epic_13_en.md` (database requirements)
 
 Generate the complete database schema now.

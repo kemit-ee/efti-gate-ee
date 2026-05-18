@@ -38,7 +38,7 @@ Before starting, you must have access to:
    - User role enums or tables
    - Foreign key relationships (which platform owns which identifier)
 
-3. **Epic Documentation**: `docs/Askend/efti_full_epics_en.md`
+3. **Epic Documentation**: `docs/epics/` (per-epic files)
    - Epic 2.x: Platform management (admin permissions)
    - Epic 3.x: Authority management (admin permissions)
    - Epic 4.x: User management (admin assigns roles)

@@ -39,7 +39,7 @@ Before starting, you must have access to:
    - Indexes created in V3__create_indexes.sql
    - Seed data in V2__seed_data.sql
 
-3. **Epic Documentation**: `docs/Askend/efti_full_epics_en.md`
+3. **Epic Documentation**: `docs/epics/` (per-epic files)
    - Business context for tables (why each table exists)
    - Data retention requirements (Epic 1.4: identifier expiration)
 

@@ -41,7 +41,7 @@ Before starting, you must have access to:
      - AS4 message structure
      - How dataset XML is wrapped in SOAP envelope
 
-2. **Epic Documentation**: `docs/Askend/efti_full_epics_en.md`
+2. **Epic Documentation**: `docs/epics/` (per-epic files)
    - Epic 1.1: Identifier search (how consignment XML is searched/filtered)
    - Epic 1.2: Dataset provision (how XML is returned to authorities)
    - Epic 1.5: Dataset management (how platforms upload/update XML)

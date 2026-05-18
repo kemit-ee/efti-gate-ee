@@ -1,6 +1,6 @@
 # eFTI Gate — Epics Index
 
-> Auto-split from `../efti_full_epics_en.md`. See also [full file](../efti_full_epics_en.md).
+> Canonical specification surface. Each epic file carries its own Spec anchors, acceptance criteria, and mini-diagram.
 
 
 ## [THEME 1 — Identity and Access](theme_1_en.md)
