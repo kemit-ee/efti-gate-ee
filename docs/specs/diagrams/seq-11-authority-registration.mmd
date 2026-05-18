@@ -1,30 +1,30 @@
 sequenceDiagram
     participant Admin as Gate Admin
-    participant Gate as eFTI Gate (eu-ee31)
+    participant Gate as eFTI Gate (<gateId>)
     participant DB as PostgreSQL
 
     Admin->>+Gate: POST /api/v1/authorities
-    Note over Admin,Gate: Authorization: Bearer {TARA-JWT, role=ADMIN}<br/>Body: {"id":"aut-politsei-001","name":"Police and Border Guard Board","countryCode":"EE","subsets":["EU07","EU01"]}
+    Note over Admin,Gate: Authorization: Bearer {TARA-JWT, role=ADMIN}<br/>Body: {"id":"<authorityA>","name":"<authorityName>","countryCode":"EE","subsets":["EU07","EU01"]}
 
     Gate->>Gate: Validate JWT (signature, exp, iss, aud);<br/>require resource_access.efti-gate.roles ∋ ADMIN
 
-    Gate->>+DB: Append a new authorities row (id='aut-politsei-001', name, country_code='EE',<br/>subsets={EU07,EU01}, is_active=TRUE, created_by=admin's user-row-id).
+    Gate->>+DB: Append a new authorities row (id='<authorityA>', name, country_code='EE',<br/>subsets={EU07,EU01}, is_active=TRUE, created_by=admin's user-row-id).
     DB-->>-Gate: written (new row; latest row for this id wins on next read)
 
-    Gate-->>Admin: 201 Created\n{"id":"aut-politsei-001","name":"Police and Border Guard Board","countryCode":"EE","subsets":["EU07","EU01"]}
+    Gate-->>Admin: 201 Created\n{"id":"<authorityA>","name":"<authorityName>","countryCode":"EE","subsets":["EU07","EU01"]}
 
     Note over Admin: Authority registered with allowed subsets.<br/>Now create authority users.
 
     Admin->>+Gate: POST /api/v1/users
-    Note over Admin,Gate: Body (UserWrite):<br/>{<br/>  "taraSub":"EE39003101122",<br/>  "name":"Officer Jaan Tamm",<br/>  "email":"jaan.tamm@politsei.ee",<br/>  "roles":{"AUTHORITY":["aut-politsei-001"]},<br/>  "subsets":["EU07"]<br/>}<br/>(no secret — primary auth is TARA-issued JWT)
+    Note over Admin,Gate: Body (UserWrite):<br/>{<br/>  "taraSub":"<taraSubAuthority>",<br/>  "name":"<userName>",<br/>  "email":"<userEmail>",<br/>  "roles":{"AUTHORITY":["<authorityA>"]},<br/>  "subsets":["EU07"]<br/>}<br/>(no secret — primary auth is TARA-issued JWT)
 
     Gate->>Gate: Validate user.subsets ⊆ authority.subsets:<br/>["EU07"] ⊆ ["EU07","EU01"] → OK
     Gate->>Gate: Validate taraSub uniqueness against active users<br/>(409 if already in use)
 
-    Gate->>+DB: Append a new users row (id=fresh UUID, tara_sub='EE39003101122',<br/>roles={"AUTHORITY":["aut-politsei-001"]}, subsets={EU07},<br/>secret_hash=NULL, is_active=TRUE).
+    Gate->>+DB: Append a new users row (id=fresh UUID, tara_sub='<taraSubAuthority>',<br/>roles={"AUTHORITY":["<authorityA>"]}, subsets={EU07},<br/>secret_hash=NULL, is_active=TRUE).
     DB-->>-Gate: written; user.id="d2e3f4a5-..."
 
-    Gate-->>-Admin: 201 Created<br/>{"id":"d2e3f4a5-...","taraSub":"EE39003101122","name":"Officer Jaan Tamm",<br/>"email":"jaan.tamm@politsei.ee","roles":{"AUTHORITY":["aut-politsei-001"]},<br/>"subsets":["EU07"],"isActive":true}
+    Gate-->>-Admin: 201 Created<br/>{"id":"d2e3f4a5-...","taraSub":"<taraSubAuthority>","name":"<userName>",<br/>"email":"<userEmail>","roles":{"AUTHORITY":["<authorityA>"]},<br/>"subsets":["EU07"],"isActive":true}
 
     Note over Admin: User authenticates via TARA OIDC. The gate resolves the JWT's<br/>`sub` claim to the latest active users row by tara_sub on every request.
 

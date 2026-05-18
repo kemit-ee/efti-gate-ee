@@ -46,7 +46,7 @@ See `flow-02-authorization-check.mmd` for the full decision tree.
 **Edge cases:**
 - [ ] Admin attempts to assign Super Admin role → `403 Forbidden` with `"detail": "Super Admin role cannot be assigned by regular admin"`
 - [ ] Admin attempts to delete own account → `400 Bad Request` with `code: BAD_REQUEST_GENERAL`, `"detail": "Cannot delete your own account"`
-- [ ] Creating authority user with `subsets` not in Authority's allowed list → `400 Bad Request` with `"detail": "Subset 'EU04' not permitted for authority 'mta@mta.ee'"`
+- [ ] Creating authority user with `subsets` not in Authority's allowed list → `400 Bad Request` with `"detail": "Subset 'EU04' not permitted for authority '<authorityEmail>'"`
 - [ ] `POST /api/v1/users` with `taraSub` already used by an active row → `409 Conflict`
 
 **Error handling:**

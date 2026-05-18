@@ -1,14 +1,14 @@
 sequenceDiagram
-    participant GateEE as Remote Gate (eu-ee31)
-    participant GateFI as eFTI Gate (eu-fi01, receiving)
+    participant GateEE as Remote Gate (<peerGateA>)
+    participant GateFI as eFTI Gate (<gateId>, receiving)
     participant Handler as GateMessageHandler
     participant EftiSvc as EftiService
     participant DB as PostgreSQL
 
-    Note over GateEE: Remote gate eu-ee31 has received a<br/>search request and is broadcasting to all gates.
+    Note over GateEE: Remote gate <peerGateA> has received a<br/>search request and is broadcasting to all gates.
 
     GateEE->>+GateFI: eDelivery AS4 / Fast HTTP: IdentifierQueryRequest
-    Note over GateEE,GateFI: X-API-Key: eu-ee31<br/>Body: &lt;identifierQuery requestId="req-b2c3d4e5"&gt;<br/>  &lt;identifier&gt;456XYZ&lt;/identifier&gt;<br/>  &lt;registrationCountryCode&gt;FI&lt;/registrationCountryCode&gt;<br/>&lt;/identifierQuery&gt;
+    Note over GateEE,GateFI: X-API-Key: <peerGateA><br/>Body: &lt;identifierQuery requestId="req-b2c3d4e5"&gt;<br/>  &lt;identifier&gt;456XYZ&lt;/identifier&gt;<br/>  &lt;registrationCountryCode&gt;FI&lt;/registrationCountryCode&gt;<br/>&lt;/identifierQuery&gt;
 
     GateFI->>+Handler: handleMessage(payload)
     Handler->>Handler: Parse message type → IdentifierQuery
@@ -27,11 +27,11 @@ sequenceDiagram
 
     GateEE->>GateEE: Parse GateIdentifiersResponse<br/>Extract ConsignmentXml objects<br/>Set identifierCountryOfOrigin = "FI"
 
-    GateEE->>GateEE: send(GateIdentifiersResponse(gateId="eu-fi01", consignments=[...]))<br/>→ SSE stream to original authority user
+    GateEE->>GateEE: send(GateIdentifiersResponse(gateId="<gateId>", consignments=[...]))<br/>→ SSE stream to original authority user
 
     alt Gate unreachable / timeout
         GateEE->>GateFI: IdentifierQueryRequest
         GateFI--xGateEE: Connection timeout / error
-        GateEE->>GateEE: catch(e: Exception)<br/>log.warn("eu-fi01 failed with $e")
-        GateEE->>GateEE: send(GateIdentifiersResponse(gateId="eu-fi01", consignments=null, failure=e.message))<br/>→ SSE: event:gate data:{"gateId":"eu-fi01","failure":"Connect timeout"}
+        GateEE->>GateEE: catch(e: Exception)<br/>log.warn("<gateId> failed with $e")
+        GateEE->>GateEE: send(GateIdentifiersResponse(gateId="<gateId>", consignments=null, failure=e.message))<br/>→ SSE: event:gate data:{"gateId":"<gateId>","failure":"Connect timeout"}
     end

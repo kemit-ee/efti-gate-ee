@@ -66,7 +66,7 @@ See `state-05-gate-health.mmd` for full detail.
 - [ ] Ping result INSERTs a new `gates` row with the latest `status` (ONLINE / OFFLINE; DISABLED is operator-set) and `last_ping_at = NOW()`. A `NOTIFY` on the `registry_change_gates` channel fires after commit.
 
 **Edge cases:**
-- [ ] Peer gate does not respond within `PING_TIMEOUT_SECONDS` → status flipped to `OFFLINE`; `502 Bad Gateway` with `"detail": "Gate 'eu-fi01' did not respond within N seconds"`
+- [ ] Peer gate does not respond within `PING_TIMEOUT_SECONDS` → status flipped to `OFFLINE`; `502 Bad Gateway` with `"detail": "Gate '<peerGateA>' did not respond within N seconds"`
 - [ ] Peer gate was `OFFLINE`, ping succeeds → next INSERT carries `status='ONLINE'`; transition logged INFO
 
 **Technical constraints:**

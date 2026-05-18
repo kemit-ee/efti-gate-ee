@@ -36,7 +36,7 @@ The eFTI Gate is a node in the EU eFTI (Electronic Freight Transport Information
 
 ### Key Terms
 
-- **UIL (Unique Identifier Locator):** `<gateURL>/<platformURL>/<datasetId>` — globally unique reference to a specific freight transport dataset. Example: `https://eu-ee31.eftisandbox.eu/https://demo-platform.eu-ee31.eftisandbox.eu/v1/550e8400-e29b-41d4-a716-446655440000`
+- **UIL (Unique Identifier Locator):** `<gateURL>/<platformURL>/<datasetId>` — globally unique reference to a specific freight transport dataset. Example: `<gateBaseUrl>/<platformBaseUrl>/v1/550e8400-e29b-41d4-a716-446655440000`
 - **identifier:** The searchable value used to locate a consignment (vehicle registration plate, container number, trailer ID). UIL is the full compound URL form of the identifier.
 - **AAP (Authority Access Point):** Gate's REST API interface for authorities (both H2M and M2M use)
 - **dataset:** The complete freight transport documentation stored on the eFTI platform — never stored on the eFTI Gate
@@ -111,7 +111,7 @@ See `flow-02-authorization-check.mmd` for the full decision tree.
 **Edge cases:**
 - [ ] Admin attempts to assign Super Admin role → `403 Forbidden` with `"detail": "Super Admin role cannot be assigned by regular admin"`
 - [ ] Admin attempts to delete own account → `400 Bad Request` with `code: BAD_REQUEST_GENERAL`, `"detail": "Cannot delete your own account"`
-- [ ] Creating authority user with `subsets` not in Authority's allowed list → `400 Bad Request` with `"detail": "Subset 'EU04' not permitted for authority 'mta@mta.ee'"`
+- [ ] Creating authority user with `subsets` not in Authority's allowed list → `400 Bad Request` with `"detail": "Subset 'EU04' not permitted for authority '<authorityEmail>'"`
 - [ ] `POST /api/v1/users` with `taraSub` already used by an active row → `409 Conflict`
 
 **Error handling:**
@@ -584,7 +584,7 @@ See `seq-05-dataset-request.mmd` and `seq-06-dataset-request-denied.mmd` for ful
 
 **Edge cases:**
 - [ ] No `subsetId` parameter → `400 Bad Request` with `"detail": "At least one subsetId is required"`
-- [ ] UIL points to remote gate with status `OFFLINE` → `502 Bad Gateway` with `"detail": "Gate 'eu-fi01.efti.fi' is offline — dataset unavailable"` — checked before sending request
+- [ ] UIL points to remote gate with status `OFFLINE` → `502 Bad Gateway` with `"detail": "Gate '<peerGateA>.efti.fi' is offline — dataset unavailable"` — checked before sending request
 
 **Error handling:**
 - [ ] User `subsets` does not include requested `subsetId` → `403 Forbidden` with `"detail": "Subset 'EU04' not in your permitted subsets"`
@@ -622,7 +622,7 @@ See `seq-05-dataset-request.mmd` and `seq-06-dataset-request-denied.mmd` for ful
 - [ ] `datasetRequestId` references no prior request → still forwarded; logged DEBUG
 
 **Error handling:**
-- [ ] Remote gate offline → `502 Bad Gateway` with `"detail": "Gate 'eu-de01.efti.de' is offline"`
+- [ ] Remote gate offline → `502 Bad Gateway` with `"detail": "Gate '<peerGateB>.efti.de' is offline"`
 - [ ] eFTI platform client error → `502 Bad Gateway`; failure logged ERROR with full trace
 
 **Technical constraints:**
@@ -824,7 +824,7 @@ See `state-05-gate-health.mmd` for full detail.
 - [ ] Ping result updates gate status in database and in-memory registry on all nodes (via NOTIFY)
 
 **Edge cases:**
-- [ ] eFTI Gate does not respond within 10 seconds → status set `OFFLINE`; `502 Bad Gateway` with `"detail": "Gate 'eu-fi01.efti.fi' did not respond within 10 seconds"`
+- [ ] eFTI Gate does not respond within 10 seconds → status set `OFFLINE`; `502 Bad Gateway` with `"detail": "Gate '<peerGateA>.efti.fi' did not respond within 10 seconds"`
 - [ ] eFTI Gate was `OFFLINE`, ping succeeds → status changed to `ONLINE`; status change logged INFO
 
 **Technical constraints:**

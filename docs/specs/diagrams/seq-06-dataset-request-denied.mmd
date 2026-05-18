@@ -1,14 +1,14 @@
 sequenceDiagram
     participant Authority as Authority User
-    participant GateEE as eFTI Gate (eu-ee31)
-    participant GateFI as Remote Gate (eu-fi01)
-    participant Platform as Platform (plt-fi-001)
+    participant GateEE as eFTI Gate (<gateId>)
+    participant GateFI as Remote Gate (<peerGateA>)
+    participant Platform as Platform (<platformId>)
 
-    Authority->>+GateEE: GET /v1/dataset/eu-fi01/plt-fi-001/a1b2c3d4-e5f6-7890-abcd-ef1234567890?subsetId=EU07
+    Authority->>+GateEE: GET /v1/dataset/<peerGateA>/<platformId>/a1b2c3d4-e5f6-7890-abcd-ef1234567890?subsetId=EU07
     Note over Authority,GateEE: Authorization: Bearer <TARA-JWT, role=AUTHORITY><br/>X-Request-ID: req-e5f6a7b8
 
     GateEE->>GateEE: Validate JWT + authorize (role=AUTHORITY)
-    GateEE->>GateEE: Forward to remote gate eu-fi01
+    GateEE->>GateEE: Forward to remote gate <peerGateA>
 
     GateEE->>+GateFI: eDelivery AS4: UILQueryRequest<br/>(subsetId=EU07, requestId=req-e5f6a7b8)
 
@@ -17,17 +17,17 @@ sequenceDiagram
     alt Platform denies access (403)
         Platform-->>GateFI: 403 Forbidden (RFC 7807)
         GateFI-->>GateEE: UILQueryResponse{status=403, code=FORBIDDEN_SUBSET}
-        GateEE-->>Authority: 403 Forbidden (application/problem+json)<br/>{ "type":"https://api.efti.ee/errors/forbidden-subset",<br/>  "code":"FORBIDDEN_SUBSET",<br/>  "title":"Forbidden",<br/>  "status":403,<br/>  "detail":"Authority is not permitted to access subset EU07 on this dataset",<br/>  "instance":"/v1/dataset/eu-fi01/plt-fi-001/a1b2c3d4-..." }
+        GateEE-->>Authority: 403 Forbidden (application/problem+json)<br/>{ "type":"https://api.efti.ee/errors/forbidden-subset",<br/>  "code":"FORBIDDEN_SUBSET",<br/>  "title":"Forbidden",<br/>  "status":403,<br/>  "detail":"Authority is not permitted to access subset EU07 on this dataset",<br/>  "instance":"/v1/dataset/<peerGateA>/<platformId>/a1b2c3d4-..." }
 
     else Platform dataset not found (404)
         Platform-->>GateFI: 404 Not Found (RFC 7807)
         GateFI-->>GateEE: UILQueryResponse{status=404, code=CONSIGNMENT_NOT_FOUND}
-        GateEE-->>Authority: 404 Not Found (application/problem+json)<br/>{ "type":"https://api.efti.ee/errors/consignment-not-found",<br/>  "code":"CONSIGNMENT_NOT_FOUND",<br/>  "title":"Not Found",<br/>  "status":404,<br/>  "detail":"Dataset not found or expired",<br/>  "instance":"/v1/dataset/eu-fi01/plt-fi-001/a1b2c3d4-..." }
+        GateEE-->>Authority: 404 Not Found (application/problem+json)<br/>{ "type":"https://api.efti.ee/errors/consignment-not-found",<br/>  "code":"CONSIGNMENT_NOT_FOUND",<br/>  "title":"Not Found",<br/>  "status":404,<br/>  "detail":"Dataset not found or expired",<br/>  "instance":"/v1/dataset/<peerGateA>/<platformId>/a1b2c3d4-..." }
 
     else Platform unreachable (502)
         Platform-->>-GateFI: Connection timeout / 5xx
         GateFI-->>-GateEE: UILQueryResponse{status=502, code=GATEWAY_UNAVAILABLE}
-        GateEE-->>Authority: 502 Bad Gateway (application/problem+json)<br/>{ "type":"https://api.efti.ee/errors/gateway-unavailable",<br/>  "code":"GATEWAY_UNAVAILABLE",<br/>  "title":"Bad Gateway",<br/>  "status":502,<br/>  "detail":"Platform plt-fi-001 unreachable via eu-fi01",<br/>  "instance":"/v1/dataset/eu-fi01/plt-fi-001/a1b2c3d4-..." }
+        GateEE-->>Authority: 502 Bad Gateway (application/problem+json)<br/>{ "type":"https://api.efti.ee/errors/gateway-unavailable",<br/>  "code":"GATEWAY_UNAVAILABLE",<br/>  "title":"Bad Gateway",<br/>  "status":502,<br/>  "detail":"Platform <platformId> unreachable via <peerGateA>",<br/>  "instance":"/v1/dataset/<peerGateA>/<platformId>/a1b2c3d4-..." }
     end
 
     GateEE-->>-Authority: Error response

@@ -59,7 +59,7 @@ All log entries **must** be valid JSON on a single line. Format follows [Elastic
 | `message` | string | Human-readable summary | `"Identifier registered successfully"` |
 | `service.name` | string | Always `"efti-gate"` | `"efti-gate"` |
 | `service.version` | string | Gate software version | `"2.0.0"` |
-| `host.hostname` | string | Node hostname | `"gate-eu-ee31-node1"` |
+| `host.hostname` | string | Node hostname | `"gate-<gateId>-node1"` |
 
 ### 2.2 Context fields (when applicable)
 
@@ -93,7 +93,7 @@ All log entries **must** be valid JSON on a single line. Format follows [Elastic
 |---|---|---|---|
 | `efti.dataset.id` | UUID | Dataset UUID | `"550e8400-e29b-41d4-a716-446655440000"` |
 | `efti.platform.id` | string | Platform party ID | `"demo"` |
-| `efti.gate.id` | string | Gate party ID | `"eu-ee31"` |
+| `efti.gate.id` | string | Gate party ID | `"<gateId>"` |
 | `efti.authority.id` | string | Authority party ID | `"demo"` |
 | `efti.identifier.value` | string | Identifier searched | `"123ABC"` |
 | `efti.identifier.type` | string | `means` / `equipment` / `carried` | `"means"` |
@@ -103,8 +103,8 @@ All log entries **must** be valid JSON on a single line. Format follows [Elastic
 | `efti.error.code` | string | Error catalog code from `errors.json` | `"INVALID_XML"` |
 | `efti.search.local_results` | int | Local-search row count | `2` |
 | `efti.search.broadcast` | boolean | Broadcast invoked? | `false` |
-| `efti.search.gates_queried` | string[] | Gates targeted in broadcast | `["eu-fi01","eu-de01"]` |
-| `efti.search.failed_gates` | string[] | Gates that timed out / errored | `["eu-de01"]` |
+| `efti.search.gates_queried` | string[] | Gates targeted in broadcast | `["<peerGateA>","<peerGateB>"]` |
+| `efti.search.failed_gates` | string[] | Gates that timed out / errored | `["<peerGateB>"]` |
 | `efti.search.total_results` | int | Aggregate result count | `3` |
 | `efti.search.events_sent` | int | SSE events emitted on stream close | `6` |
 | `efti.dataset.size_bytes` | int | Bytes streamed back to authority | `15234` |
@@ -163,16 +163,16 @@ Five templates cover every event shape in the gate. Per-event variations live in
   "user": { "id": null, "roles": [] },
   "efti": {
     "dataset.id": "550e8400-e29b-41d4-a716-446655440000",
-    "platform.id": "plt-demo-123",
-    "platform.cert_subject": "CN=eDelivery-Platform, O=Demo Logistics OÜ, C=EE",
-    "gate.id": "eu-ee31",
+    "platform.id": "<platformId>",
+    "platform.cert_subject": "CN=eDelivery-Platform, O=<orgName>, C=EE",
+    "gate.id": "<gateId>",
     "identifier.value": "123ABC",
     "identifier.type": "means",
     "mode": "1",
     "dangerous_goods": false
   },
   "db": { "table": "consignments", "operation": "INSERT", "duration_ms": 8 },
-  "service.name": "efti-gate", "service.version": "2.0.0", "host.hostname": "gate-eu-ee31-node1"
+  "service.name": "efti-gate", "service.version": "2.0.0", "host.hostname": "gate-<gateId>-node1"
 }
 ```
 
@@ -202,9 +202,9 @@ Five templates cover every event shape in the gate. Per-event variations live in
     "response.status_code": 400
   },
   "user": { "id": null, "roles": [] },
-  "efti": { "dataset.id": "660f9511-f39c-42e5-b827-557766551111", "platform.id": "plt-demo-123", "platform.cert_subject": "CN=eDelivery-Platform, O=Demo Logistics OÜ, C=EE", "error.code": "INVALID_XML" },
+  "efti": { "dataset.id": "660f9511-f39c-42e5-b827-557766551111", "platform.id": "<platformId>", "platform.cert_subject": "CN=eDelivery-Platform, O=<orgName>, C=EE", "error.code": "INVALID_XML" },
   "error": { "type": "BadRequest", "message": "Error parsing identifiers: XML parse error at line 4: element 'modeCode' is not closed" },
-  "service.name": "efti-gate", "service.version": "2.0.0", "host.hostname": "gate-eu-ee31-node1"
+  "service.name": "efti-gate", "service.version": "2.0.0", "host.hostname": "gate-<gateId>-node1"
 }
 ```
 
@@ -231,7 +231,7 @@ Five templates cover every event shape in the gate. Per-event variations live in
   "user": { "id": "04fa30eb-eb08-11f0-b506-3c9c0f2eb459", "roles": ["AUTHORITY"] },
   "efti": { "error.code": "FORBIDDEN", "required_role": "ADMIN", "audit": true },
   "error": { "type": "Forbidden", "message": "Access denied: endpoint requires PLATFORM role" },
-  "service.name": "efti-gate", "service.version": "2.0.0", "host.hostname": "gate-eu-ee31-node1"
+  "service.name": "efti-gate", "service.version": "2.0.0", "host.hostname": "gate-<gateId>-node1"
 }
 ```
 
@@ -253,7 +253,7 @@ Five templates cover every event shape in the gate. Per-event variations live in
   "http": {
     "request.id": "2a90e81e-17d3-48d9-b7a7-64c26e2df44b",
     "request.method": "GET",
-    "request.path": "/v1/dataset/eu-ee31/demo/550e8400-e29b-41d4-a716-446655440000",
+    "request.path": "/v1/dataset/<gateId>/demo/550e8400-e29b-41d4-a716-446655440000",
     "response.status_code": 500
   },
   "efti": { "dataset.id": "550e8400-e29b-41d4-a716-446655440000", "error.code": "DATABASE_ERROR" },
@@ -262,7 +262,7 @@ Five templates cover every event shape in the gate. Per-event variations live in
     "message": "connection refused",
     "stack_trace": "(stack frames from the gate's dataset-delivery path; format is runtime-specific)"
   },
-  "service.name": "efti-gate", "service.version": "2.0.0", "host.hostname": "gate-eu-ee31-node1"
+  "service.name": "efti-gate", "service.version": "2.0.0", "host.hostname": "gate-<gateId>-node1"
 }
 ```
 
@@ -287,9 +287,9 @@ Five templates cover every event shape in the gate. Per-event variations live in
     "response.status_code": 200
   },
   "user": { "id": "175791a3-da82-11f0-b10c-3c9c0f2eb459", "roles": ["ADMIN"] },
-  "efti": { "platform.id": "plt-new-001", "audit": true },
+  "efti": { "platform.id": "<platformId>", "audit": true },
   "db": { "table": "platforms", "operation": "INSERT", "duration_ms": 11 },
-  "service.name": "efti-gate", "service.version": "2.0.0", "host.hostname": "gate-eu-ee31-node1"
+  "service.name": "efti-gate", "service.version": "2.0.0", "host.hostname": "gate-<gateId>-node1"
 }
 ```
 

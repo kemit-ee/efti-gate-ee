@@ -65,7 +65,7 @@ Two kinds of caller identity, modelled in two different ways. The legacy "single
 | **G2G (gate ↔ gate)** | mTLS at the AS4 access point (Member-State-issued cert) | A `gates` row whose `e_delivery_cert` matches | None — gate identity is the cert subject; trust is established by the cert chain rooted at the EU Trust Service. |
 | **Break-glass local admin** | HTTP Basic + bcrypt | A single `users` row with `secret_hash != NULL` | The same resolved-`users`-row source as TARA path; the break-glass JWT issued by `/api/v1/auth/local-token` is a transport vehicle, not the source of truth. Default-disabled (`LOCAL_ADMIN_FALLBACK_ENABLED=false`). |
 
-**`users.roles`** is a JSONB map carrying *only* `AUTHORITY` and `ADMIN` entries (e.g. `{"AUTHORITY":["auth-mta"]}` or `{"ADMIN":["eu-ee31"]}`). There is **no** `PLATFORM` or `GATE` entry — those identities don't have user records.
+**`users.roles`** is a JSONB map carrying *only* `AUTHORITY` and `ADMIN` entries (e.g. `{"AUTHORITY":["auth-mta"]}` or `{"ADMIN":["<gateId>"]}`). There is **no** `PLATFORM` or `GATE` entry — those identities don't have user records.
 
 **Super Admin** = `is_admin=TRUE` AND `roles={}` — unrestricted.
 **Regular Admin** = `is_admin=TRUE` AND `roles={"ADMIN":["<gate-id>"]}` — scoped to that gate's resources by `checkWriteAccess(entityId)`.
