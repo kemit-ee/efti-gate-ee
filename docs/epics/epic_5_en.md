@@ -53,7 +53,7 @@ See `seq-05-dataset-request.mmd` and `seq-06-dataset-request-denied.mmd` for ful
 
 **Edge cases:**
 - [ ] No `subsetId` parameter → `400 Bad Request` with `"detail": "At least one subsetId is required"`
-- [ ] UIL points to remote gate with status `OFFLINE` → `502 Bad Gateway` with `"detail": "Gate 'eu-fi01.efti.fi' is offline — dataset unavailable"` — checked before sending request
+- [ ] UIL points to remote gate with status `OFFLINE` → `502 Bad Gateway` with `"detail": "Gate '<peerGateA>.efti.fi' is offline — dataset unavailable"` — checked before sending request
 
 **Error handling:**
 - [ ] User `subsets` does not include requested `subsetId` → `403 Forbidden` with `"detail": "Subset 'EU04' not in your permitted subsets"`
@@ -91,7 +91,7 @@ See `seq-05-dataset-request.mmd` and `seq-06-dataset-request-denied.mmd` for ful
 - [ ] `datasetRequestId` references no prior request → still forwarded; logged DEBUG
 
 **Error handling:**
-- [ ] Remote gate offline → `502 Bad Gateway` with `"detail": "Gate 'eu-de01.efti.de' is offline"`
+- [ ] Remote gate offline → `502 Bad Gateway` with `"detail": "Gate '<peerGateB>.efti.de' is offline"`
 - [ ] eFTI platform client error → `502 Bad Gateway`; failure logged ERROR with full trace
 
 **Technical constraints:**

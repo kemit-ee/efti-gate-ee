@@ -1,31 +1,31 @@
 sequenceDiagram
     participant Admin as Gate Admin
-    participant Gate as eFTI Gate (eu-ee31)
+    participant Gate as eFTI Gate (<gateId>)
     participant GateReg as GateRegistry (in-memory)
     participant DB as PostgreSQL
-    participant OtherNode as Gate Node 2 (eu-ee31)
+    participant OtherNode as Gate Node 2 (<gateId>)
 
     Note over Gate,OtherNode: Multi-node deployment: both nodes share the same<br/>PostgreSQL. GateRegistry is an in-memory cache of<br/>the latest gates row per id (loaded at startup).
 
     Admin->>+Gate: POST /api/v1/gates<br/>Authorization: Bearer <TARA-JWT, role=ADMIN>
-    Note over Admin,Gate: JSON body (camelCase per OpenAPI GateWrite):<br/>{"id":"eu-pl01","countryCode":"PL",<br/>"eDeliveryUrl":"https://efti.gitd.gov.pl/as4",<br/>"eDeliveryCert":"-----BEGIN CERTIFICATE-----..."}
+    Note over Admin,Gate: JSON body (camelCase per OpenAPI GateWrite):<br/>{"id":"<newGateId>","countryCode":"PL",<br/>"eDeliveryUrl":"https://efti.gitd.gov.pl/as4",<br/>"eDeliveryCert":"-----BEGIN CERTIFICATE-----..."}
 
     Gate->>Gate: Validate JWT (signature, exp, iss, aud);<br/>require resource_access.efti-gate.roles ∋ ADMIN
-    Gate->>+GateReg: save(Gate{id="eu-pl01", ...})
+    Gate->>+GateReg: save(Gate{id="<newGateId>", ...})
 
-    GateReg->>GateReg: in-memory cache: gates["eu-pl01"] = Gate{...}<br/>(this node only)
+    GateReg->>GateReg: in-memory cache: gates["<newGateId>"] = Gate{...}<br/>(this node only)
 
-    GateReg->>+DB: In a single transaction: append a new gates row for 'eu-pl01'<br/>and emit a registry_change_gates notification carrying the gate id.
+    GateReg->>+DB: In a single transaction: append a new gates row for '<newGateId>'<br/>and emit a registry_change_gates notification carrying the gate id.
     DB-->>-GateReg: written (new row; latest row for id wins on next read)
 
     Note over DB,OtherNode: The notification is emitted by the application inside<br/>the same transaction as the INSERT — there is no DB-side trigger.<br/>The notification is delivered to LISTENers on transaction commit.
 
-    DB->>OtherNode: NOTIFY registry_change_gates (channel: registry_change_gates, payload: eu-pl01)
+    DB->>OtherNode: NOTIFY registry_change_gates (channel: registry_change_gates, payload: <newGateId>)
 
     OtherNode->>OtherNode: Listen thread receives notification
-    OtherNode->>+DB: Resolve the latest gates row for id='eu-pl01'
-    DB-->>-OtherNode: latest Gate{id="eu-pl01", …}
-    OtherNode->>OtherNode: gateRegistry.gates["eu-pl01"] = Gate{...}
+    OtherNode->>+DB: Resolve the latest gates row for id='<newGateId>'
+    DB-->>-OtherNode: latest Gate{id="<newGateId>", …}
+    OtherNode->>OtherNode: gateRegistry.gates["<newGateId>"] = Gate{...}
     Note over OtherNode: In-memory registry updated on Node 2<br/>without restart.
 
     GateReg->>GateReg: notifyChanged(gate) → internal listeners
@@ -34,4 +34,4 @@ sequenceDiagram
     Gate->>+Gate: runCatching { ping(gate.id) }
     Note over Gate: Auto-ping new gate after registration to verify connectivity.<br/>A successful ping appends another gates row carrying status='ONLINE'<br/>and last_ping_at=NOW().
 
-    Gate-->>-Admin: 201 Created\n{"id":"eu-pl01","countryCode":"PL","status":"ONLINE","isActive":true,...}
+    Gate-->>-Admin: 201 Created\n{"id":"<newGateId>","countryCode":"PL","status":"ONLINE","isActive":true,...}

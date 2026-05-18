@@ -39,7 +39,7 @@ eFTI Gate on Euroopa Liidu eFTI (Electronic Freight Transport Information) võrg
 ### Põhiterminid
 
 - **identifier:** Otsitav väärtus, mida kasutatakse consignment'i leidmiseks (sõiduki numbrimärk, konteineri number, haagise ID). UIL on identifikaatori täielik URL-vorm.
-- **UIL (Unique Identifier Locator):** `<gateURL>/<platformURL>/<datasetId>` — globaalselt unikaalne viide konkreetsele kaubaveo andmestikule. Näide: `https://eu-ee31.eftisandbox.eu/https://demo-platform.eu-ee31.eftisandbox.eu/v1/550e8400-e29b-41d4-a716-446655440000`
+- **UIL (Unique Identifier Locator):** `<gateURL>/<platformURL>/<datasetId>` — globaalselt unikaalne viide konkreetsele kaubaveo andmestikule. Näide: `https://<gateId>.eftisandbox.eu/https://demo-platform.<gateId>.eftisandbox.eu/v1/550e8400-e29b-41d4-a716-446655440000`
 - **AAP (Authority Access Point):** Gate'i asutustele suunatud REST API liides (nii H2M kui M2M kasutuseks)
 - **CMDS (eFTI Common Data Set):** Täielik transpordidokumentatsioon — asub eFTI platvormil, mitte eFTI gate'il
 - **H2M:** Human-to-Machine (brauser/rakendus)
@@ -96,7 +96,7 @@ eFTI Gate on Euroopa Liidu eFTI (Electronic Freight Transport Information) võrg
 **Edge cases:**
 - [ ] Admin üritab määrata Super Admin rolli → `403 Forbidden` teatega `"detail": "Super Admin rolli ei saa tavaadmin määrata"`
 - [ ] Admin üritab kustutada oma kontot → `400 Bad Request` koodiga `BAD_REQUEST_GENERAL`, teatega `"detail": "Ei saa kustutada oma kontot"`
-- [ ] Authority kasutaja loomisel `subsets` ei ole Authority lubatud nimekirjas → `400 Bad Request` teatega `"detail": "Subset 'EU04' ei ole lubatud asutusele 'mta@mta.ee'"`
+- [ ] Authority kasutaja loomisel `subsets` ei ole Authority lubatud nimekirjas → `400 Bad Request` teatega `"detail": "Subset 'EU04' ei ole lubatud asutusele '<authorityEmail>'"`
 - [ ] `POST /api/v1/users` `taraSub`-iga, mida juba kasutab aktiivne rida → `409 Conflict`
 
 **Veakäsitlus:**
@@ -469,7 +469,7 @@ sequenceDiagram
 
 **Edge cases:**
 - [ ] `subsetId` parameeter puudub → `400 Bad Request` teatega `"detail": "Vähemalt üks subsetId on nõutav"`
-- [ ] UIL viitab kauggate'ile staatusega `OFFLINE` → `502 Bad Gateway` teatega `"detail": "Gate 'eu-fi01.efti.fi' on offline — andmestik pole kättesaadav"` — kontrollitakse enne päringu saatmist
+- [ ] UIL viitab kauggate'ile staatusega `OFFLINE` → `502 Bad Gateway` teatega `"detail": "Gate '<peerGateA>.efti.fi' on offline — andmestik pole kättesaadav"` — kontrollitakse enne päringu saatmist
 
 **Veakäsitlus:**
 - [ ] Kasutaja `subsets` ei sisalda soovitud `subsetId`-d → `403 Forbidden` teatega `"detail": "Subset 'EU04' ei ole sinu lubatud subset'ide hulgas"`
@@ -507,7 +507,7 @@ sequenceDiagram
 - [ ] `datasetRequestId` ei viita ühelegi varasemale päringule → edastatakse ikkagi; logitakse DEBUG-iga
 
 **Veakäsitlus:**
-- [ ] Kauggate offline → `502 Bad Gateway` teatega `"detail": "Gate 'eu-de01.efti.de' on offline"`
+- [ ] Kauggate offline → `502 Bad Gateway` teatega `"detail": "Gate '<peerGateB>.efti.de' on offline"`
 - [ ] Platvormi kliendi viga → `502 Bad Gateway`; ebaõnnestumine logitakse ERROR-iga koos täieliku jäljega
 
 **Tehnilised piirangud:**
@@ -667,7 +667,7 @@ sequenceDiagram
 - [ ] Ping tulemus uuendab gate'i staatust andmebaasis ja in-memory registris kõigil node'idel (NOTIFY kaudu)
 
 **Edge cases:**
-- [ ] Gate ei vasta 10 sekundi jooksul → staatus seatakse `OFFLINE`; `502 Bad Gateway` teatega `"detail": "Gate 'eu-fi01.efti.fi' ei vastanud 10 sekundi jooksul"`
+- [ ] Gate ei vasta 10 sekundi jooksul → staatus seatakse `OFFLINE`; `502 Bad Gateway` teatega `"detail": "Gate '<peerGateA>.efti.fi' ei vastanud 10 sekundi jooksul"`
 - [ ] Gate oli `OFFLINE`, ping õnnestub → staatus muutub `ONLINE`-ks; staatuse muutus logitakse INFO-ga
 
 **Tehnilised piirangud:**

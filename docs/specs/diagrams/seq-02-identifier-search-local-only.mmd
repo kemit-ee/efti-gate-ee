@@ -1,6 +1,6 @@
 sequenceDiagram
     participant Authority as Authority User
-    participant Gate as eFTI Gate (eu-ee31)
+    participant Gate as eFTI Gate (<gateId>)
     participant Auth as AccessChecker (TARA JWT)
     participant DB as PostgreSQL
     participant SSE as SSE Stream
@@ -23,7 +23,7 @@ sequenceDiagram
     Note over Gate: Open SSE stream to authority
 
     Gate-->>+SSE: HTTP 200 OK (text/event-stream)
-    Gate-->>SSE: event: gate\ndata: {"gateId":"eu-ee31","consignments":null,"responseTimeMs":4}
+    Gate-->>SSE: event: gate\ndata: {"gateId":"<gateId>","consignments":null,"responseTimeMs":4}
     Gate-->>SSE: event: consignment (id=550e8400-e29b-41d4-a716-446655440000)\ndata: {"vehicle":{"plate":"123ABC","country":"EE"},"mode":"3","uil":{"platformId":"demo","datasetId":"550e8400-..."}}
     Gate-->>SSE: event: complete\ndata: {}
     Gate-->>-Authority: SSE stream closed

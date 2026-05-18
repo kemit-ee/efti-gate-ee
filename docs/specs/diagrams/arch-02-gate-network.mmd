@@ -1,31 +1,31 @@
 graph TB
     subgraph EU["EU eFTI Gate Network (eDelivery AS4)"]
-        subgraph EE["Estonia (eu-ee31)"]
-            GateEE[eFTI Gate\neu-ee31\nhttps://efti.mnt.ee/as4]
+        subgraph EE["Estonia (<gateId>)"]
+            GateEE[eFTI Gate\n<gateId>\n<as4Url>]
         end
 
-        subgraph FI["Finland (eu-fi01)"]
-            GateFI[eFTI Gate\neu-fi01\nhttps://efti.traficom.fi/as4]
+        subgraph FI["Finland (<peerGateA>)"]
+            GateFI[eFTI Gate\n<peerGateA>\n<as4Url>]
         end
 
-        subgraph DE["Germany (eu-de01)"]
-            GateDE[eFTI Gate\neu-de01\nhttps://efti.bast.de/as4]
+        subgraph DE["Germany (<peerGateB>)"]
+            GateDE[eFTI Gate\n<peerGateB>\n<as4Url>]
         end
 
-        subgraph SE["Sweden (eu-se01)"]
-            GateSE[eFTI Gate\neu-se01\nhttps://efti.trafikverket.se/as4]
+        subgraph SE["Sweden (<peerGateC>)"]
+            GateSE[eFTI Gate\n<peerGateC>\n<as4Url>]
         end
 
-        subgraph LT["Lithuania (eu-lt01)"]
-            GateLT[eFTI Gate\neu-lt01\nhttps://efti.transp.lt/as4]
+        subgraph LT["Lithuania (<peerGateD>)"]
+            GateLT[eFTI Gate\n<peerGateD>\n<as4Url>]
         end
 
-        subgraph LV["Latvia (eu-lv01)"]
-            GateLV[eFTI Gate\neu-lv01\nhttps://efti.sam.gov.lv/as4]
+        subgraph LV["Latvia (<peerGateE>)"]
+            GateLV[eFTI Gate\n<peerGateE>\n<as4Url>]
         end
 
-        subgraph PL["Poland (eu-pl01)"]
-            GatePL[eFTI Gate\neu-pl01\nhttps://efti.gitd.gov.pl/as4]
+        subgraph PL["Poland (<peerGateF>)"]
+            GatePL[eFTI Gate\n<peerGateF>\n<as4Url>]
         end
     end
 
@@ -41,17 +41,17 @@ graph TB
     GateFI <-.->|eDelivery AS4| GateLT
 
     subgraph EEPlatforms["Estonian Platforms"]
-        PltEE1[plt-abc-001\nABC Logistics OÜ]
-        PltEE2[plt-xyz-002\nXYZ Transport AS]
+        PltEE1[<platformId>\n<orgName>]
+        PltEE2[<platformB>\n<orgName>]
     end
 
     subgraph EEAuthorities["Estonian Authorities"]
-        AutPolitsei[aut-politsei-001\nPolice and Border Guard Board]
-        AutMaksu[aut-maksu-001\nEstonian Tax and Customs Board]
+        AutPolitsei[<authorityA>\n<authorityName>]
+        AutMaksu[<authorityB>\n<authorityName>]
     end
 
     subgraph FIPlatforms["Finnish Platforms"]
-        PltFI1[plt-fi-001\nFinLog Oy]
+        PltFI1[<platformId>\n<orgName>]
     end
 
     GateEE <-->|HTTPS REST API| PltEE1

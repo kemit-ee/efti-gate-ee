@@ -33,7 +33,7 @@ stateDiagram-v2
     note right of OFFLINE
         Latest gates row has status='OFFLINE'.
         - Excluded from broadcasts.
-        - Direct GET /v1/dataset/{eu-fi01}/… → 502 GATEWAY_UNAVAILABLE.
+        - Direct GET /v1/dataset/{<peerGateA>}/… → 502 GATEWAY_UNAVAILABLE.
         - Ping job continues trying every 5 min;
           if reachable, INSERTs a new ONLINE row.
     end note

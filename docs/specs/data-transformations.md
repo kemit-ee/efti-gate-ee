@@ -146,7 +146,7 @@ If the XML parser throws, the save path wraps the error as a 400 response and re
 
 ```sql
 INSERT INTO consignments (dataset_id, platform_id, gate_id, xml, mode, dangerous_goods, delivered_at, created_at)
-VALUES ('550e8400-e29b-41d4-a716-446655440000', 'demo', 'eu-ee31',
+VALUES ('550e8400-e29b-41d4-a716-446655440000', 'demo', '<gateId>',
         '<consignment xmlns="http://efti.eu/v1/consignment/identifier">...</consignment>',
         'road', false, '2026-04-23T07:15:00Z', now());
 -- No `updated_at` column under the append-only schema. State changes write
@@ -186,7 +186,7 @@ VALUES ('550e8400-e29b-41d4-a716-446655440000', 'means', '123ABC', 'EE');
 
 ```sql
 INSERT INTO consignments (dataset_id, platform_id, gate_id, xml, mode, dangerous_goods)
-VALUES ('770fa622-a49d-53f6-c938-668877662222', 'demo', 'eu-ee31', '...xml...', 'road', true);
+VALUES ('770fa622-a49d-53f6-c938-668877662222', 'demo', '<gateId>', '...xml...', 'road', true);
 
 INSERT INTO identifiers (dataset_id, identifier_type, identifier_value, country_code) VALUES
   ('770fa622-a49d-53f6-c938-668877662222', 'means',     '123ABC',      'EE'),
@@ -308,7 +308,7 @@ the AS4-query handler builds, per matched consignment: drop the stored XML's out
       </usedTransportMeans>
     </mainCarriageTransportMovement>
     <ed:uil>
-      <ed:gateId>eu-ee31</ed:gateId>
+      <ed:gateId><gateId></ed:gateId>
       <ed:platformId>demo</ed:platformId>
       <ed:datasetId>550e8400-e29b-41d4-a716-446655440000</ed:datasetId>
     </ed:uil>

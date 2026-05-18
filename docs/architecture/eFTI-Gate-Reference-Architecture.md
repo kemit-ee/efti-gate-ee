@@ -69,11 +69,11 @@ graph TB
 UIL Structure: <gateURL>/<platformURL>/<datasetId>
 
 Official Format (per Regulation 2024/1942):
-- Gate URL: https://eu-ee31.eftisandbox.eu
-- Platform URL: https://demo-platform.eu-ee31.eftisandbox.eu/v1
+- Gate URL: https://<gateId>.eftisandbox.eu
+- Platform URL: https://demo-platform.<gateId>.eftisandbox.eu/v1
 - Dataset ID: UUID v4
 
-Simplified Example: eu-ee31/platform-demo/550e8400-e29b-41d4-a716-446655440000
+Simplified Example: <gateId>/platform-demo/550e8400-e29b-41d4-a716-446655440000
                     ↓        ↓             ↓
                     Gate     Platform      Dataset UUID
 ```
@@ -383,14 +383,14 @@ sequenceDiagram
     participant G2 as Gate DE
     participant P as Platform DE<br/>(Carrier System)
 
-    Note over A: Officer wants details<br/>UIL: eu-de01/plat2/uuid2
+    Note over A: Officer wants details<br/>UIL: <peerGateB>/plat2/uuid2
 
-    A->>G1: GET /dataset/eu-de01/plat2/uuid2<br/>?subset=weight_and_dimensions,dangerous_goods
+    A->>G1: GET /dataset/<peerGateB>/plat2/uuid2<br/>?subset=weight_and_dimensions,dangerous_goods
     activate G1
 
-    Note over G1: Parse UIL:<br/>gateId=eu-de01<br/>platformId=plat2<br/>datasetId=uuid2
+    Note over G1: Parse UIL:<br/>gateId=<peerGateB><br/>platformId=plat2<br/>datasetId=uuid2
 
-    G1->>G2: uilQuery (AS4)<br/>to eu-de01
+    G1->>G2: uilQuery (AS4)<br/>to <peerGateB>
     activate G2
 
     G2->>P: uilQuery (AS4 or REST)<br/>to plat2
@@ -429,7 +429,7 @@ sequenceDiagram
 
     Note over A: Officer finds issue<br/>with dataset
 
-    A->>G1: POST /follow-up/eu-fr01/plat5/uuid7<br/>Body: "Weight exceeds declared..."
+    A->>G1: POST /follow-up/<gateId>/plat5/uuid7<br/>Body: "Weight exceeds declared..."
 
     G1->>G2: postFollowUpRequest (AS4)
     G2->>P: postFollowUpRequest (AS4)

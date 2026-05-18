@@ -2,7 +2,7 @@ sequenceDiagram
     participant Officer as Authority Officer (browser)
     participant TARA as TARA (RIA OIDC OP)
     participant UI as Gate Authority UI
-    participant Gate as eFTI Gate (eu-ee31)
+    participant Gate as eFTI Gate (<gateId>)
     participant Auth as AccessChecker
     participant DB as PostgreSQL
     participant Route as Business Route
@@ -23,15 +23,15 @@ sequenceDiagram
     Auth->>+DB: Check sessions denylist for the JWT's jti
     DB-->>-Auth: not revoked
     Auth->>+DB: Resolve the latest active users row by tara_sub = jwt.sub;<br/>verify jwt.iat ≥ users.token_revoked_at
-    DB-->>-Auth: User{id='d2e3f4a5-…', is_active=TRUE, roles={'AUTHORITY':['aut-politsei-001']}, subsets=['EU07'], token_revoked_at=NULL}
+    DB-->>-Auth: User{id='d2e3f4a5-…', is_active=TRUE, roles={'AUTHORITY':['<authorityA>']}, subsets=['EU07'], token_revoked_at=NULL}
 
     Note over Auth: Permission claims are read from the resolved users row,<br/>NOT directly from the JWT — TARA's `resource_access` may<br/>differ from the gate's `users.roles` if admin has updated<br/>scope since the JWT was issued. JWT carries identity<br/>(`sub`) and freshness (`iat`, `jti`); the gate carries the authorisation.<br/><br/>Missing-row policy: if no active users row matches the JWT `sub`,<br/>respond 401 TOKEN_INVALID with detail "no provisioned user".<br/>Admin must POST /api/v1/users first.<br/><br/>Per-user broadcast revocation: if jwt.iat < users.token_revoked_at,<br/>respond 401 TOKEN_INVALID with detail "token revoked".
 
-    Auth-->>-Gate: AuthenticatedUser{<br/>userId="d2e3f4a5-…", roles=["AUTHORITY"],<br/>scope=["aut-politsei-001"], subsets=["EU07"], jti="abc..." }
+    Auth-->>-Gate: AuthenticatedUser{<br/>userId="d2e3f4a5-…", roles=["AUTHORITY"],<br/>scope=["<authorityA>"], subsets=["EU07"], jti="abc..." }
 
     Gate->>+Route: handle(exchange, user)
     Note over Route: @Access(AUTHORITY) — user.roles contains AUTHORITY → OK
-    Route->>Route: authorityId = user.scope.first() = "aut-politsei-001"
+    Route->>Route: authorityId = user.scope.first() = "<authorityA>"
     Route->>Route: subsetCheck: requested ⊆ user.subsets → OK
     Route->>Route: Execute identifier search (latest-row resolution per dataset_id)
     Route-->>-Gate: result
