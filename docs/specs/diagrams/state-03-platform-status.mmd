@@ -1,27 +1,29 @@
 stateDiagram-v2
-    [*] --> Active: Admin — POST /api/v1/platforms<br/>→ INSERT platforms (id, …, is_active=TRUE)
-
-    Active --> Active: Admin — PUT /api/v1/platforms/{id}<br/>→ INSERT new platforms row sharing the same id<br/>(updated base_url / headers / certs)
-
-    Active --> Inactive: Admin — DELETE /api/v1/platforms/{id}<br/>→ INSERT new platforms row with is_active=FALSE
-
-    Inactive --> Active: Admin — POST again<br/>→ INSERT new row with is_active=TRUE
+    [*] --> Active: POST /api/v1/platforms<br/>(is_active=TRUE)
+    Active --> Active: PUT — INSERT new row<br/>same id, updated fields
+    Active --> Inactive: DELETE — INSERT new row<br/>is_active=FALSE
+    Inactive --> Active: POST again — INSERT<br/>new row, is_active=TRUE
 
     note right of Active
-        Latest platforms row for this id has is_active=TRUE.
-        - Platform can register identifiers via POST /v1/identifiers
-        - Latest-row lookup returns this platform
-        - Platform users authenticate
-        - Dataset requests routed to platform.base_url
-        - supports_subsetting controls full-XML vs subset API
+        Latest row: is_active=TRUE
+        --
+        Can register identifiers
+        (POST /v1/identifiers).
+        Lookup returns this row.
+        Users auth via mTLS.
+        Dataset GETs route here
+        (platform.base_url).
+        supports_subsetting flag
+        drives XML vs subset API.
     end note
 
     note right of Inactive
-        Latest platforms row has is_active=FALSE.
-        - Latest-row lookup excludes this platform
-          (filter is_active=TRUE)
-        - Platform users get 401 (lookup fails)
-        - Existing consignments rows remain in their own table;
-          CronManager archives non-latest rows nightly.
-        - The Inactive row stays for audit until archival sweep.
+        Latest row: is_active=FALSE
+        --
+        Lookup excludes this row
+        (filter is_active=TRUE).
+        Platform mTLS auth fails.
+        Consignments rows stay;
+        non-latest rows archived
+        nightly by CronManager.
     end note

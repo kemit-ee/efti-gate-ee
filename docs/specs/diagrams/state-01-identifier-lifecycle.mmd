@@ -1,7 +1,7 @@
 stateDiagram-v2
     [*] --> active: Platform — POST /v1/identifiers/{datasetId}<br/>(XSD valid → INSERT consignments + identifiers, status='active')
 
-    [*] --> rejected: XSD invalid<br/>(JAXB throws → 400 INVALID_XML, no DB write)
+    [*] --> rejected: XSD invalid<br/>(parser throws → 400 INVALID_XML, no DB write)
     rejected --> [*]
 
     active --> active: Platform — POST /v1/identifiers/{datasetId}<br/>(re-upload — INSERT new consignments row sharing dataset_id;<br/>previous row remains, latest wins)
@@ -15,25 +15,39 @@ stateDiagram-v2
     inactive --> deleted: Platform / Admin — DELETE<br/>→ INSERT new consignments row with status='deleted'
 
     note right of active
-        consignments.status='active' (latest row).
-        - Authority search returns this consignment.
-        - Dataset XML retrievable via GET /v1/dataset/...
-        - Indexed via consignments denormalised columns
-          (vehicle_plate, vehicle_country, mode, …).
+        Latest row: status='active'
+        --
+        Authority search returns
+        this consignment.
+        Dataset XML via
+        GET /v1/dataset/...
+        Indexed by denormalised
+        search columns
+        (vehicle_plate, mode, …).
     end note
 
     note right of inactive
-        consignments.status='inactive' (latest row).
-        - Default authority search excludes (status=active).
-        - Returned only with explicit status=inactive|all
-          (cabotage queries: dateFrom/dateTo + status=inactive).
-        - Dataset XML still retrievable via direct UIL.
+        Latest row: status='inactive'
+        --
+        Default search excludes
+        (status=active filter).
+        Returned only with
+        status=inactive or =all
+        (cabotage queries use
+        dateFrom + dateTo).
+        Dataset still fetchable
+        via direct UIL.
     end note
 
     note right of deleted
-        consignments.status='deleted' (latest row).
-        - Logical delete: no row physically removed.
-        - DELETE not granted to the runtime app role.
-        - Excluded from all default queries (status=active filter).
-        - Old (non-latest) rows archived nightly by CronManager (Epic 26).
+        Latest row: status='deleted'
+        --
+        Logical delete only —
+        no row physically removed.
+        DELETE not granted to
+        the runtime app role.
+        Excluded from all default
+        queries (status=active).
+        Old rows archived nightly
+        by CronManager (Epic 26).
     end note

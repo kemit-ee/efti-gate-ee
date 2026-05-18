@@ -3,7 +3,7 @@ sequenceDiagram
     participant GateB as eFTI Gate B (eu-yy01)
     participant CA as Trusted CA Bundle
 
-    Note over GateA,GateB: Gate-to-gate fast protocol — mTLS<br/>Replaces eDelivery AS4 envelope for low-latency intra-network calls.<br/>Both endpoints present X.509 client certificates.
+    Note over GateA,GateB: Gate-to-gate fast — mTLS.<br/>Replaces eDelivery AS4<br/>for low-latency calls.<br/>Both endpoints present<br/>X.509 client certificates.
 
     GateA->>GateA: Load client cert + private key<br/>from K8s Secret (mounted at runtime)
     GateA->>GateB: POST /services/fast<br/>Client cert: CN=gate-eu-xx01.efti.ee<br/>X-Request-ID: 7c9e6679-...
@@ -21,4 +21,4 @@ sequenceDiagram
         GateB->>GateB: Append an audit_log row (action='g2g_request_denied', resource='gate', details={reason})
     end
 
-    Note over GateA,GateB: X-API-Key header is NEVER accepted on /services/fast.<br/>Plain bearer auth is rejected — only mTLS satisfies this endpoint.
+    Note over GateA,GateB: X-API-Key is NEVER accepted<br/>on /services/fast.<br/>Plain bearer is rejected —<br/>only mTLS satisfies this<br/>endpoint.

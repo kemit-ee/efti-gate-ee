@@ -12,45 +12,62 @@ stateDiagram-v2
     DISABLED --> ONLINE: Admin — PUT /api/v1/gates/{id} body status='ONLINE'<br/>→ INSERT gates row with status='ONLINE'<br/>AND next ping succeeds
 
     note left of ONLINE
-        STATUS axis (ping-job-driven, gates.status):
-        ONLINE — recent ping success
-        OFFLINE — recent ping fail or never pinged
-        DISABLED — operator manually disabled (PUT)
-
-        IS_ACTIVE axis (operator-driven, gates.is_active):
-        TRUE  — gate participates in registry / broadcasts / ping
-        FALSE — operator soft-deleted (DELETE) — see lower note
+        Two axes (kept separate):
+        --
+        status (ping/admin):
+          ONLINE — ping success
+          OFFLINE — ping failed
+          DISABLED — admin-set
+        is_active (operator):
+          TRUE — in registry
+          FALSE — soft-deleted
     end note
 
     note right of ONLINE
-        Latest gates row for this id has status='ONLINE' AND is_active=TRUE.
-        - Included in identifier search broadcasts.
-        - gateRegistry.online() returns this gate.
-        - last_ping_at on the latest row is recent.
-        - eDelivery or Fast HTTP calls routed here.
+        Latest: ONLINE + active
+        --
+        Included in broadcasts.
+        gateRegistry.online()
+        returns this gate.
+        last_ping_at is recent.
+        eDelivery / Fast HTTP
+        calls route here.
     end note
 
     note right of OFFLINE
-        Latest gates row has status='OFFLINE'.
-        - Excluded from broadcasts.
-        - Direct GET /v1/dataset/{eu-yy01}/… → 502 GATEWAY_UNAVAILABLE.
-        - Ping job continues trying every 5 min;
-          if reachable, INSERTs a new ONLINE row.
+        Latest: status=OFFLINE
+        --
+        Excluded from broadcasts.
+        Direct GET /v1/dataset/
+        /{gateId}/… → 502
+        GATEWAY_UNAVAILABLE.
+        Ping retries every 5 min;
+        on success, new ONLINE
+        row INSERTed.
     end note
 
     note right of DISABLED
-        Latest gates row has status='DISABLED'.
-        - Excluded from broadcasts AND ping job.
-        - Will NOT auto-recover. Requires admin PUT to flip back.
-        - Old gates rows archived nightly by CronManager (Epic 26).
+        Latest: status=DISABLED
+        --
+        Excluded from broadcasts
+        AND ping sweep.
+        Does NOT auto-recover.
+        Admin PUT required to
+        flip back to ONLINE.
+        Old rows archived nightly
+        by CronManager (Epic 26).
     end note
 
     note right of [*]
-        DELETE /api/v1/gates/{id} (soft-delete):
-        → INSERT gates row with is_active=FALSE.
-        Status axis is unchanged on this transition — the gate
-        leaves the operational set entirely (registry sync,
-        peer broadcast, ping sweeps all skip is_active=FALSE).
-        Distinct from status='DISABLED' (operator-paused but
-        still tracked) — DELETE is logical retirement.
+        DELETE — soft delete:
+        --
+        INSERT new row with
+        is_active=FALSE.
+        Status axis unchanged.
+        Gate leaves operational
+        set entirely (registry
+        sync, broadcasts, ping
+        all skip is_active=FALSE).
+        Distinct from DISABLED:
+        DELETE is logical retire.
     end note

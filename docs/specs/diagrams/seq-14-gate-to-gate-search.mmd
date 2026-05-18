@@ -5,10 +5,10 @@ sequenceDiagram
     participant EftiSvc as EftiService
     participant DB as PostgreSQL
 
-    Note over GateEE: Remote gate eu-yy01 has received a<br/>search request and is broadcasting to all gates.
+    Note over GateEE: Remote gate eu-yy01<br/>received a search and<br/>is broadcasting to all<br/>gates.
 
     GateEE->>+GateFI: eDelivery AS4 / Fast HTTP: IdentifierQueryRequest
-    Note over GateEE,GateFI: X-API-Key: eu-yy01<br/>Body: identifierQuery with requestId=req-b2c3d4e5,<br/>identifier=456XYZ, registrationCountryCode=FI<br/>(escaped XML body — see seq-14 source for the literal envelope)
+    Note over GateEE,GateFI: X-API-Key: eu-yy01<br/>Body: identifierQuery<br/>(requestId, identifier,<br/>registrationCountryCode).<br/>Full envelope: openapi.yaml.
 
     GateFI->>+Handler: handleMessage(payload)
     Handler->>Handler: Parse message type → IdentifierQuery

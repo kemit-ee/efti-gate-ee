@@ -29,6 +29,7 @@
 | | [RA §5.3 Follow-Up](../architecture/eFTI-Gate-Reference-Architecture.md#53-follow-up-message) |
 | **Diagrams** | [`seq-05-dataset-request.mmd`](../specs/diagrams/seq-05-dataset-request.mmd) |
 | | [`seq-06-dataset-request-denied.mmd`](../specs/diagrams/seq-06-dataset-request-denied.mmd) |
+| | [`state-02-dataset-request.mmd`](../specs/diagrams/state-02-dataset-request.mmd) |
 
 ## Dataset retrieval at a glance
 

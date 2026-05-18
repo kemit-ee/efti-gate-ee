@@ -5,7 +5,7 @@ sequenceDiagram
     participant Platform as Platform (plt-xxx-001)
 
     Authority->>+GateEE: GET /v1/dataset/eu-yy01/plt-xxx-001/a1b2c3d4-e5f6-7890-abcd-ef1234567890?subsetId=EU07
-    Note over Authority,GateEE: Authorization: Bearer TARA-JWT (role=AUTHORITY)<br/>X-Request-ID: req-e5f6a7b8
+    Note over Authority,GateEE: Authorization: Bearer JWT<br/>(role=AUTHORITY)<br/>X-Request-ID echoed.
 
     GateEE->>GateEE: Validate JWT + authorize (role=AUTHORITY)
     GateEE->>GateEE: Forward to remote gate eu-yy01
@@ -31,4 +31,4 @@ sequenceDiagram
     end
 
     GateEE-->>-Authority: Error response
-    Note over Authority: Dataset access denied or unavailable.<br/>Authority may send follow-up via POST /v1/follow-up/{gateId}/{platformId}/{datasetId}/{datasetRequestId}.
+    Note over Authority: Dataset access denied<br/>or unavailable.<br/>Authority may send a<br/>follow-up — see Epic 5.

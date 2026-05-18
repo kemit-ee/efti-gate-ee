@@ -7,7 +7,7 @@ sequenceDiagram
     participant GateDE as Remote Gate (eu-yy02)
     participant DB as PostgreSQL
 
-    Note over CM: Cron every 5 minutes (operator-tunable).<br/>YAML in docs/specs/deploy/cronmanager-ping-gates.yaml.<br/>HTTP POST job — target = the gate's admin ping-gates endpoint.
+    Note over CM: Cron every 5 minutes<br/>(operator-tunable).<br/>YAML in cronmanager-<br/>ping-gates.yaml.<br/>HTTP POST job → admin<br/>ping-gates endpoint.
 
     CM->>+Gate: POST /api/v1/admin/ping-gates<br/>Authorization: Bearer ${BEARER_OPS_TOKEN}
     Gate->>Gate: Auth: literal compare with ARCHIVE_OPS_TOKEN env var
@@ -46,4 +46,4 @@ sequenceDiagram
     Gate->>Gate: Release concurrency guard
     Gate-->>-CM: 200 OK { gates_pinged: 3, online_count: 1, offline_count: 2, duration_ms: 18430 }
 
-    Note over CM: Latest gates row per id determines current state.<br/>Next ping in 5 minutes (CronManager-driven).<br/>Old (non-latest) rows archived nightly by a sibling CronManager job (Epic 26).
+    Note over CM: Latest gates row per id<br/>determines current state.<br/>Next ping in 5 minutes.<br/>Old rows archived nightly<br/>by CronManager (Epic 26).

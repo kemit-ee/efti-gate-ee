@@ -5,7 +5,7 @@ sequenceDiagram
     participant Auth as PlatformAuthChecker
     participant DB as PostgreSQL
 
-    Note over Platform: Platform's eDelivery AP cert subject DN<br/>has been registered against TWO active rows in `platforms`<br/>(typically operator misconfiguration: one platform was<br/>renamed and the old row was not soft-deleted).
+    Note over Platform: Cert subject DN matches<br/>TWO active rows in<br/>`platforms`. Typical<br/>cause: rename without<br/>soft-deleting the old<br/>row.
 
     Platform->>+Proxy: POST /v1/identifiers/550e8400-...<br/>Client cert: CN=eDelivery-Platform, O=Example Logistics
     Proxy->>Proxy: Validate cert chain against MS-issued CA
@@ -21,9 +21,9 @@ sequenceDiagram
     deactivate Gate
     Proxy-->>-Platform: 403 Forbidden (forwarded)
 
-    Note over Platform,Gate: Resolution: gate operator soft-deletes the<br/>obsolete row (`is_active=FALSE`) so the cert resolves<br/>to exactly one active platform on the next call.
+    Note over Platform,Gate: Resolution: operator<br/>soft-deletes the obsolete<br/>row (is_active=FALSE) —<br/>cert then resolves to<br/>exactly one platform.
 
-    Note over Platform: After fix:
+    Note over Platform: After fix:<br/>(retry the same call)
     Platform->>+Gate: POST /v1/identifiers/550e8400-...<br/>X-Client-Cert-Subject: CN=eDelivery-Platform, O=Example Logistics
     Gate->>+Auth: resolvePlatform(certSubject, certSerial)
     Auth->>+DB: Resolve active platforms rows by (cert_subject, cert_serial)
