@@ -44,7 +44,7 @@ You are tasked with creating a **complete, executable PostgreSQL database schema
   - [ ] `comparison-existing-vs-v2.0-spec.md` - Strategic direction
     - **What to extract**: Database technology decisions, migration strategy
 
-- [ ] **Technical Requirements**: Procurement specification "Tarkvara tehnilise analüüsi nõuded"
+- [ ] **Technical Requirements**: Procurement specification "Tarkvara tehnilise analüüsi nõuded" (Estonian: Software Technical Analysis Requirements)
   - **Purpose**: Mandatory technical constraints for database
   - **What to extract**: Required tools (Flyway/Liquibase), PostgreSQL version (14+), required extensions
 

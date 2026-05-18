@@ -45,7 +45,7 @@ Before starting, you must have access to:
 
 ### 1. Migration Tool: Flyway
 
-**Choice**: Flyway (required by technical specification "Tarkvara tehnilise analüüsi nõuded")
+**Choice**: Flyway (required by technical specification "Tarkvara tehnilise analüüsi nõuded" — Estonian: Software Technical Analysis Requirements)
 
 **Alternative**: Liquibase (acceptable, but Flyway preferred)
 

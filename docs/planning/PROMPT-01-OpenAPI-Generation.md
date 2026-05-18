@@ -41,7 +41,7 @@ You are tasked with creating a **complete, production-ready OpenAPI 3.0 specific
   - [ ] `comparison-existing-vs-v2.0-spec.md` - Strategic direction
     - **What to extract**: v2.0 goals, technology decisions
 
-- [ ] **Technical Requirements**: Procurement specification "Tarkvara tehnilise analüüsi nõuded"
+- [ ] **Technical Requirements**: Procurement specification "Tarkvara tehnilise analüüsi nõuded" (Estonian: Software Technical Analysis Requirements)
   - **Purpose**: Mandatory technical constraints
   - **What to extract**: Error format (RFC 7807), authentication (JWT), required headers
 
