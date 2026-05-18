@@ -35,6 +35,6 @@ Contact: `help@kemit.ee`
 
 ## Licence
 
-This work is licensed under [Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)](https://creativecommons.org/licenses/by-nc/4.0/). Free to share and adapt for non-commercial use, with attribution to KeMIT, Estonia.
+This work is licensed under the [PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0). Free to use, modify, and distribute for any noncommercial purpose, including use by government institutions, educational institutions, public research organisations, and charities. Attribution to KeMIT, Estonia is required.
 
 **Commercial use requires a separate licence.** Contact `help@kemit.ee` with the intended use case, the licensee entity, and the geographic scope. See [`LICENSE`](LICENSE) for the full terms.
