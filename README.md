@@ -78,7 +78,7 @@ This is **v1.0** — the first public release. The internal "v2" naming visible 
 
 ## Maintainer
 
-KeMIT — Riigi Infosüsteemi Amet (Estonia)
+KeMIT — Keskkonnaministeeriumi Infotehnoloogiakeskus (Estonia)
 
 - **Primary contact:** [@turnerrainer](https://github.com/turnerrainer) on GitHub.
 - **Fallback:** `help@kemit.ee`.

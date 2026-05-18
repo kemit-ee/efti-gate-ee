@@ -49,4 +49,4 @@ By opening a PR you agree your contribution is released under the repository's c
 - **Primary:** [@turnerrainer](https://github.com/turnerrainer) on GitHub.
 - **Fallback:** `help@kemit.ee`.
 
-KeMIT — Riigi Infosüsteemi Amet (Estonia) — reviews and merges.
+KeMIT — Keskkonnaministeeriumi Infotehnoloogiakeskus (Estonia) — reviews and merges.
