@@ -3,16 +3,16 @@
 
 **Objective:** Ensure that all parties interacting with the gate (admins, platforms, authorities, other gates) are authenticated securely and can only access resources they are permitted to access.
 
-**Requirements to address:**
+**Requirements:**
 
-| Area | Current state | Requirement |
-|------|--------------|-------------|
-| Admin authentication | HTTP Basic Auth | TARA (ID-card, Mobile-ID, Smart-ID) |
-| Password-based login | Enabled | Disabled in production |
-| X-Road | Missing | Required for government authority access |
-| Platform API auth | `base64(id:password)` | RFC 7519 JWT |
-| Secrets management | Plain text in `.env` files | Runtime loading (K8s Secret / vault) |
-| Write-access control | `checkWriteAccess()` does not check role type | Role-type check enforced |
+| Area | Requirement |
+|------|-------------|
+| Admin authentication | TARA (ID-card, Mobile-ID, Smart-ID) |
+| Password-based login | Disabled in production |
+| X-Road | Required for government authority access |
+| Platform API auth | RFC 7519 JWT |
+| Secrets management | Runtime loading (K8s Secret / vault) |
+| Write-access control | Role-type check enforced |
 
 **Business value:**
 - TARA authentication eliminates password management overhead and meets e-government standards (required for production)

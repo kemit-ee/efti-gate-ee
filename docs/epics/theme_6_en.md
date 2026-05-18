@@ -7,16 +7,16 @@
 - [ ] EPIC 14 (Security): secrets in K8s Secrets, mTLS enforced, rate limiting active, RFC 7807 errors
 - [ ] EPIC 15 (Audit/GDPR): audit log immutable, authority queries logged with 7-year retention
 
-**Requirements to address:**
+**Requirements:**
 
-| Area | Current state | Requirement |
-|------|--------------|-------------|
-| Secrets management | Plain text in `.env` files | Runtime loading (K8s Secret / vault) |
-| TLS certificates | Baked into container images | Runtime loading, rotation without redeployment |
-| Gate-to-gate auth | `X-API-Key` | Mutual TLS (mTLS) |
-| Audit log | Missing | Authority queries logged — GDPR Art. 30 |
-| Rate limiting | Missing | Limits at reverse proxy level |
-| Write-access control | Role type not checked | Role-type check enforced |
+| Area | Requirement |
+|------|-------------|
+| Secrets management | Runtime loading (K8s Secret / vault) |
+| TLS certificates | Runtime loading, rotation without redeployment |
+| Gate-to-gate auth | Mutual TLS (mTLS) |
+| Audit log | Authority queries logged — GDPR Art. 30 |
+| Rate limiting | Limits at reverse proxy level |
+| Write-access control | Role-type check enforced |
 
 **Business value:**
 - Certificate rotation is possible without restarting the application
