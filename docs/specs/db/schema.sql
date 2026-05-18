@@ -146,7 +146,7 @@ COMMENT ON FUNCTION get_app_user() IS 'Returns the current session''s logical ac
 
 CREATE TABLE gates (
   row_id          UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
-  id              CITEXT       NOT NULL,        -- logical identifier (e.g. eu-ee31); NOT unique
+  id              CITEXT       NOT NULL,        -- logical identifier (e.g. eu-xx01); NOT unique
   country_code    CHAR(2)      NOT NULL,
   e_delivery_url  TEXT,
   e_delivery_cert TEXT,
@@ -163,7 +163,7 @@ CREATE TABLE gates (
 
 COMMENT ON TABLE  gates IS 'Registry of eFTI gates (own + remote peers). Append-only: each registry change (status flip, ping, URL/cert update) is a new row with the same id. The latest row by created_at is the gate''s current state. Cron-archived by CronManager — see Epic 26.';
 COMMENT ON COLUMN gates.row_id          IS 'Synthetic primary key, unique per row (one entity has many rows over time)';
-COMMENT ON COLUMN gates.id              IS 'Logical gate identifier in eu-{cc}{nn} format (e.g. eu-ee31). Many rows can share this id over time; latest wins.';
+COMMENT ON COLUMN gates.id              IS 'Logical gate identifier in eu-{cc}{nn} format (e.g. eu-xx01). Many rows can share this id over time; latest wins.';
 COMMENT ON COLUMN gates.country_code    IS 'ISO 3166-1 alpha-2 country code';
 COMMENT ON COLUMN gates.e_delivery_url  IS 'AS4 access-point URL for inbound G2G messages';
 COMMENT ON COLUMN gates.e_delivery_cert IS 'Public certificate (PEM) used to verify AS4 messages from this gate';
@@ -200,7 +200,7 @@ CREATE TABLE platforms (
 
 COMMENT ON TABLE  platforms IS 'Registry of eFTI platforms registered with this gate. Append-only: each edit is a new row sharing the same id; latest wins. is_active=FALSE represents logical deletion.';
 COMMENT ON COLUMN platforms.row_id              IS 'Synthetic primary key, unique per row';
-COMMENT ON COLUMN platforms.id                  IS 'Logical platform identifier (e.g. plt-demo-123). Many rows can share this id over time.';
+COMMENT ON COLUMN platforms.id                  IS 'Logical platform identifier (e.g. plt-xxx-001). Many rows can share this id over time.';
 COMMENT ON COLUMN platforms.base_url            IS 'Platform''s REST API base URL';
 COMMENT ON COLUMN platforms.headers             IS 'Custom headers (e.g. API key) the gate sends with platform requests';
 COMMENT ON COLUMN platforms.e_delivery_cert     IS 'Public certificate (PEM) for AS4 communication with this platform';
@@ -264,7 +264,7 @@ CREATE TABLE users (
   email             CITEXT       NOT NULL,
   name              TEXT         NOT NULL,
   is_admin          BOOLEAN      NOT NULL DEFAULT FALSE,
-  roles             JSONB        NOT NULL DEFAULT '{}'::jsonb,  -- {"AUTHORITY":["auth-mta"]} or {"ADMIN":["eu-ee31"]}; Platform identity is NOT modelled here (mTLS via platforms.cert_subject).
+  roles             JSONB        NOT NULL DEFAULT '{}'::jsonb,  -- {"AUTHORITY":["auth-mta"]} or {"ADMIN":["eu-xx01"]}; Platform identity is NOT modelled here (mTLS via platforms.cert_subject).
   subsets           TEXT[]       NOT NULL DEFAULT ARRAY[]::TEXT[],
   secret_hash       TEXT,                                  -- bcrypt of break-glass local-admin password. NULL for the typical user (TARA OIDC JWT).
   token_revoked_at  TIMESTAMPTZ,                           -- per-user broadcast revocation marker; see COMMENT for semantics
@@ -282,7 +282,7 @@ COMMENT ON COLUMN users.tara_sub          IS 'The `sub` value the gate matches a
 COMMENT ON COLUMN users.email         IS 'Display / contact email. CITEXT for case-insensitive match. Used for the human-facing UI and audit-trail readability — NOT the auth identifier; tara_sub is.';
 COMMENT ON COLUMN users.name          IS 'Display name';
 COMMENT ON COLUMN users.is_admin      IS 'Bypass flag: TRUE skips role-level @Access checks (super admin).';
-COMMENT ON COLUMN users.roles         IS 'Role → scope-IDs mapping. Only AUTHORITY and ADMIN entries: {"AUTHORITY":["auth-mta"]} for an authority officer, {"ADMIN":["eu-ee31"]} for a gate-scoped admin, or {} for a super admin. PLATFORM and GATE roles do not exist here — Platform is mTLS via platforms.cert_subject, G2G is mTLS at the AS4 access point.';
+COMMENT ON COLUMN users.roles         IS 'Role → scope-IDs mapping. Only AUTHORITY and ADMIN entries: {"AUTHORITY":["auth-mta"]} for an authority officer, {"ADMIN":["eu-xx01"]} for a gate-scoped admin, or {} for a super admin. PLATFORM and GATE roles do not exist here — Platform is mTLS via platforms.cert_subject, G2G is mTLS at the AS4 access point.';
 COMMENT ON COLUMN users.subsets       IS 'eFTI subsets this user (typically AUTHORITY role) is permitted to request. Must be a subset of the authority''s subsets.';
 COMMENT ON COLUMN users.secret_hash       IS 'bcrypt hash of the break-glass local-admin password. NULL for the typical user — primary auth is TARA-issued OIDC JWT (Authority + Admin) or the platform''s eDelivery AP X.509 cert (Platform). Populated only on the single local-root row used during TARA outages and initial bootstrap; the break-glass path is exposed via POST /api/v1/auth/local-token, default-disabled (LOCAL_ADMIN_FALLBACK_ENABLED=false).';
 COMMENT ON COLUMN users.token_revoked_at  IS 'Per-user broadcast revocation marker. POST /api/v1/users/{userId}/revoke-token INSERTs a new users row with this column set to NOW(); on JWT validation the gate rejects any presented JWT whose `iat` claim predates the resolved user''s latest token_revoked_at. Distinct from the per-jti `sessions` denylist (which targets a specific JWT, e.g. on POST /api/v1/auth/logout); this column targets all currently-issued JWTs for the user. NULL means no broadcast revocation has occurred.';
@@ -668,8 +668,17 @@ GRANT SELECT, DELETE ON
 GRANT SELECT ON audit_log TO db_archiver;
 
 -- ============================================================================
--- 6. SEED DATA
--- (Realistic development/testing data — DO NOT load in production)
+-- 6. SEED DATA — OPERATOR MUST REPLACE BEFORE DEPLOYMENT
+-- ----------------------------------------------------------------------------
+-- The values below are illustrative examples that show the row shape and
+-- the relationships between tables. They are NOT prescriptive: every gate
+-- id, platform id, authority id, email, PIC, hostname, and agency name in
+-- this section is intended to be replaced by the operator with their real
+-- deployment values before this seed runs in any non-throwaway environment.
+-- ----------------------------------------------------------------------------
+-- DO NOT load this seed block in production. Use it as a template for a
+-- per-environment seed file (e.g. docs/specs/db/seed/{dev,test,stage}.sql)
+-- whose actual values are owned and reviewed by the operator.
 -- ============================================================================
 
 BEGIN;
@@ -679,22 +688,22 @@ BEGIN;
 -- the JWT validation lookup path is uniform across TARA-issued and gate-issued JWTs.
 -- TARA-side users carry their Estonian PIC (literal placeholders below).
 INSERT INTO users (id, tara_sub, email, name, is_admin, roles, secret_hash) VALUES
-  ('a0000000-0000-4000-8000-000000000001', 'local-admin',    'admin@efti-ee31.ee', 'Break-glass Local Admin', TRUE,  '{}',                                '$2a$12$REPLACE_WITH_REAL_BCRYPT_HASH_DURING_BOOTSTRAP'),
-  ('a0000000-0000-4000-8000-000000000002', 'EE38001011234',  'admin@efti.ee',      'Multi-Gate Super Admin',  TRUE,  '{}',                                NULL),
-  ('a0000000-0000-4000-8000-000000000003', 'EE39003101122',  'inspector@mta.ee',   'MTA Inspector',           FALSE, '{"AUTHORITY":["auth-mta"]}'::jsonb, NULL),
-  ('a0000000-0000-4000-8000-000000000004', 'EE49102200033',  'border@ppa.ee',      'PPA Border Officer',      FALSE, '{"AUTHORITY":["auth-ppa"]}'::jsonb, NULL);
+  ('a0000000-0000-4000-8000-000000000001', 'local-admin',    'admin@example.com', 'Break-glass Local Admin', TRUE,  '{}',                                '$2a$12$REPLACE_WITH_REAL_BCRYPT_HASH_DURING_BOOTSTRAP'),
+  ('a0000000-0000-4000-8000-000000000002', 'EE00000000001',  'superadmin@example.com',      'Multi-Gate Super Admin',  TRUE,  '{}',                                NULL),
+  ('a0000000-0000-4000-8000-000000000003', 'EE00000000002',  'inspector@example.com',   'MTA Inspector',           FALSE, '{"AUTHORITY":["auth-mta"]}'::jsonb, NULL),
+  ('a0000000-0000-4000-8000-000000000004', 'EE00000000003',  'border@example.com',      'PPA Border Officer',      FALSE, '{"AUTHORITY":["auth-ppa"]}'::jsonb, NULL);
 
 -- Seed gates
 INSERT INTO gates (id, country_code, e_delivery_url, status, last_ping_at) VALUES
-  ('eu-ee31', 'EE', 'https://eu-ee31.eftisandbox.eu/services/msh',   'ONLINE', NOW()),
-  ('eu-fi01', 'FI', 'https://efti.traficom.fi/services/msh',         'ONLINE', NOW()),
-  ('eu-de01', 'DE', 'https://efti.bast.de/services/msh',             'ONLINE', NOW()),
-  ('eu-lv01', 'LV', 'https://efti.csdd.lv/services/msh',             'OFFLINE', NULL);
+  ('eu-xx01', 'EE', 'https://efti.example.com/services/msh',   'ONLINE', NOW()),
+  ('eu-zz01', 'FI', 'https://efti-peer.example.com/services/msh',         'ONLINE', NOW()),
+  ('eu-yy01', 'DE', 'https://efti-peer.example.com/services/msh',             'ONLINE', NOW()),
+  ('eu-yy02', 'LV', 'https://efti-peer2.example.com/services/msh',             'OFFLINE', NULL);
 
 -- Seed platforms
 INSERT INTO platforms (id, base_url, supports_subsetting) VALUES
-  ('plt-demo-123', 'https://demo-platform.eu-ee31.eftisandbox.eu/v1', TRUE),
-  ('plt-cargo',    'https://cargo-platform.eu-de01.eftisandbox.eu/v1', FALSE);
+  ('plt-xxx-001', 'https://platform-demo.example.com/v1', TRUE),
+  ('plt-yyy-001',    'https://platform-cargo.example.com/v1', FALSE);
 
 -- Seed authorities
 INSERT INTO authorities (id, name, country_code, description, subsets) VALUES
@@ -706,9 +715,9 @@ INSERT INTO authorities (id, name, country_code, description, subsets) VALUES
 
 -- Seed sample consignments (a representative spread; full seed lives in seed-data/ outside this baseline)
 INSERT INTO consignments (dataset_id, platform_id, gate_id, xml, status, mode, vehicle_plate, vehicle_country, dangerous_goods, origin_country, destination_country, transport_date) VALUES
-  ('550e8400-e29b-41d4-a716-446655440001', 'plt-demo-123', 'eu-ee31', '<consignment xmlns="http://efti.eu/v1/consignment/identifier"/>', 'active', 'road',     '123ABC', 'EE', TRUE,  'EE', 'FI', '2026-04-22'),
-  ('550e8400-e29b-41d4-a716-446655440002', 'plt-demo-123', 'eu-ee31', '<consignment xmlns="http://efti.eu/v1/consignment/identifier"/>', 'active', 'maritime', NULL,     NULL, FALSE, 'EE', 'NL', '2026-04-23'),
-  ('550e8400-e29b-41d4-a716-446655440003', 'plt-demo-123', 'eu-ee31', '<consignment xmlns="http://efti.eu/v1/consignment/identifier"/>', 'active', 'road',     '456XYZ', 'EE', FALSE, 'EE', 'LV', '2026-04-24');
+  ('550e8400-e29b-41d4-a716-446655440001', 'plt-xxx-001', 'eu-xx01', '<consignment xmlns="http://efti.eu/v1/consignment/identifier"/>', 'active', 'road',     '123ABC', 'EE', TRUE,  'EE', 'FI', '2026-04-22'),
+  ('550e8400-e29b-41d4-a716-446655440002', 'plt-xxx-001', 'eu-xx01', '<consignment xmlns="http://efti.eu/v1/consignment/identifier"/>', 'active', 'maritime', NULL,     NULL, FALSE, 'EE', 'NL', '2026-04-23'),
+  ('550e8400-e29b-41d4-a716-446655440003', 'plt-xxx-001', 'eu-xx01', '<consignment xmlns="http://efti.eu/v1/consignment/identifier"/>', 'active', 'road',     '456XYZ', 'EE', FALSE, 'EE', 'LV', '2026-04-24');
 
 -- Identifiers extracted from those consignments (in production these are derived from the XML by EftiParser)
 INSERT INTO identifiers (consignment_row, dataset_id, identifier_type, identifier_value, country_code)

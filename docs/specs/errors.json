@@ -126,13 +126,13 @@
       "examples": [
         {
           "scenario": "Authority requests dataset for unknown datasetId",
-          "request": "GET /dataset/eu-ee31/demo/aaaabbbb-cccc-dddd-eeee-ffffffffffff?subsetId=full",
+          "request": "GET /dataset/eu-xx01/demo/aaaabbbb-cccc-dddd-eeee-ffffffffffff?subsetId=full",
           "response": {
             "type": "https://api.efti.ee/errors/consignment-not-found",
             "title": "Consignment Not Found",
             "status": 404,
             "detail": "No consignment found with datasetId 'aaaabbbb-cccc-dddd-eeee-ffffffffffff' on platform 'demo'",
-            "instance": "/dataset/eu-ee31/demo/aaaabbbb-cccc-dddd-eeee-ffffffffffff"
+            "instance": "/dataset/eu-xx01/demo/aaaabbbb-cccc-dddd-eeee-ffffffffffff"
           }
         }
       ],
@@ -191,13 +191,13 @@
       "type": "https://api.efti.ee/errors/edelivery-error",
       "examples": [
         {
-          "scenario": "AS4 SOAP fault received when sending identifier query to gate eu-fi01",
+          "scenario": "AS4 SOAP fault received when sending identifier query to gate eu-zz01",
           "request": "Internal G2G identifier broadcast",
           "response": {
             "type": "https://api.efti.ee/errors/edelivery-error",
             "title": "eDelivery Network Error",
             "status": 502,
-            "detail": "eDelivery communication failed for gate 'eu-fi01': SOAP Fault - eb:Severity=Failure, eb:ErrorCode=EBMS:0004",
+            "detail": "eDelivery communication failed for gate 'eu-zz01': SOAP Fault - eb:Severity=Failure, eb:ErrorCode=EBMS:0004",
             "instance": "/identifiers/123ABC"
           }
         }
@@ -213,14 +213,14 @@
       "type": "https://api.efti.ee/errors/follow-up-gate-mismatch",
       "examples": [
         {
-          "scenario": "Authority sends follow-up to eu-ee31 but UIL references gate eu-fi01",
-          "request": "POST /follow-up/eu-fi01/plt-456/550e8400-e29b-41d4-a716-446655440000/req-abc",
+          "scenario": "Authority sends follow-up to eu-xx01 but UIL references gate eu-zz01",
+          "request": "POST /follow-up/eu-zz01/plt-xxx-003/550e8400-e29b-41d4-a716-446655440000/req-abc",
           "response": {
             "type": "https://api.efti.ee/errors/follow-up-gate-mismatch",
             "title": "Follow-Up Gate Mismatch",
             "status": 400,
-            "detail": "Follow up gateId 'eu-fi01' does not match this gate's ID 'eu-ee31'",
-            "instance": "/follow-up/eu-fi01/plt-456/550e8400-e29b-41d4-a716-446655440000/req-abc"
+            "detail": "Follow up gateId 'eu-zz01' does not match this gate's ID 'eu-xx01'",
+            "instance": "/follow-up/eu-zz01/plt-xxx-003/550e8400-e29b-41d4-a716-446655440000/req-abc"
           }
         }
       ],
@@ -270,7 +270,7 @@
       "type": "https://api.efti.ee/errors/forbidden-multi-platform",
       "examples": [
         {
-          "scenario": "Cert subject 'CN=eDelivery-Platform, O=ACME' matches both 'plt-old' and 'plt-new' (renamed; old row not soft-deleted)",
+          "scenario": "Cert subject 'CN=eDelivery-Platform, O=Example' matches both 'plt-xxx-003' and 'plt-xxx-004' (renamed; old row not soft-deleted)",
           "request": "POST /v1/identifiers/550e8400-e29b-41d4-a716-446655440000 (mTLS)",
           "response": {
             "type": "https://api.efti.ee/errors/forbidden-multi-platform",
@@ -317,13 +317,13 @@
       "examples": [
         {
           "scenario": "Authority permitted only ['EU07'] subset requests 'EU01'",
-          "request": "GET /dataset/eu-ee31/demo/550e8400-e29b-41d4-a716-446655440000?subsetId=EU01",
+          "request": "GET /dataset/eu-xx01/demo/550e8400-e29b-41d4-a716-446655440000?subsetId=EU01",
           "response": {
             "type": "https://api.efti.ee/errors/forbidden-subset",
             "title": "Subset Access Denied",
             "status": 403,
             "detail": "Authority 'aut-001' is not permitted to access subset 'EU01'. Permitted subsets: EU07",
-            "instance": "/dataset/eu-ee31/demo/550e8400-e29b-41d4-a716-446655440000"
+            "instance": "/dataset/eu-xx01/demo/550e8400-e29b-41d4-a716-446655440000"
           }
         }
       ],
@@ -338,15 +338,15 @@
       "type": "https://api.efti.ee/errors/forbidden-write-access",
       "examples": [
         {
-          "scenario": "Admin scoped to gate 'eu-ee31' tries to update a platform owned by gate 'eu-fi01'",
-          "request": "PUT /api/v1/platforms/plt-fi-456 (TARA JWT for an admin whose resolved users.roles[ADMIN] is ['eu-ee31'])",
+          "scenario": "Admin scoped to gate 'eu-xx01' tries to update a platform owned by gate 'eu-zz01'",
+          "request": "PUT /api/v1/platforms/plt-zzz-002 (TARA JWT for an admin whose resolved users.roles[ADMIN] is ['eu-xx01'])",
           "response": {
             "type": "https://api.efti.ee/errors/forbidden-write-access",
             "code": "FORBIDDEN_WRITE_ACCESS",
             "title": "Write Access Denied",
             "status": 403,
-            "detail": "Admin scope ['eu-ee31'] does not include gate 'eu-fi01' which owns platform 'plt-fi-456'.",
-            "instance": "/api/v1/platforms/plt-fi-456"
+            "detail": "Admin scope ['eu-xx01'] does not include gate 'eu-zz01' which owns platform 'plt-zzz-002'.",
+            "instance": "/api/v1/platforms/plt-zzz-002"
           }
         }
       ],
@@ -361,14 +361,14 @@
       "type": "https://api.efti.ee/errors/bad-gateway",
       "examples": [
         {
-          "scenario": "Remote gate eu-fi01 returns HTTP 500 to a dataset request",
-          "request": "GET /dataset/eu-fi01/plt-456/550e8400-e29b-41d4-a716-446655440000?subsetId=full",
+          "scenario": "Remote gate eu-zz01 returns HTTP 500 to a dataset request",
+          "request": "GET /dataset/eu-zz01/plt-xxx-003/550e8400-e29b-41d4-a716-446655440000?subsetId=full",
           "response": {
             "type": "https://api.efti.ee/errors/bad-gateway",
             "title": "Bad Gateway",
             "status": 502,
-            "detail": "Cannot reach Gate eu-fi01: OFFLINE",
-            "instance": "/dataset/eu-fi01/plt-456/550e8400-e29b-41d4-a716-446655440000"
+            "detail": "Cannot reach Gate eu-zz01: OFFLINE",
+            "instance": "/dataset/eu-zz01/plt-xxx-003/550e8400-e29b-41d4-a716-446655440000"
           }
         }
       ],
@@ -405,15 +405,15 @@
       "type": "https://api.efti.ee/errors/gate-timeout",
       "examples": [
         {
-          "scenario": "Gate eu-de01 does not respond to broadcast identifier search within 8 seconds",
+          "scenario": "Gate eu-yy01 does not respond to broadcast identifier search within 8 seconds",
           "request": "GET /identifiers/123ABC (triggers broadcast to all online gates)",
           "response": {
             "type": "https://api.efti.ee/errors/gate-timeout",
             "title": "Gate Timeout",
             "status": 504,
-            "detail": "Gate 'eu-de01' did not respond within 8 seconds. Partial results may be returned.",
+            "detail": "Gate 'eu-yy01' did not respond within 8 seconds. Partial results may be returned.",
             "instance": "/identifiers/123ABC",
-            "gateId": "eu-de01"
+            "gateId": "eu-yy01"
           }
         }
       ],
@@ -495,13 +495,13 @@
       "examples": [
         {
           "scenario": "Unknown subset ID in dataset query",
-          "request": "GET /dataset/eu-ee31/demo/550e8400-e29b-41d4-a716-446655440000?subsetId=EU99",
+          "request": "GET /dataset/eu-xx01/demo/550e8400-e29b-41d4-a716-446655440000?subsetId=EU99",
           "response": {
             "type": "https://api.efti.ee/errors/invalid-subset",
             "title": "Invalid Subset",
             "status": 400,
             "detail": "Unknown subset ID 'EU99'. Valid values: EU01, EU02, EU03, EU04, EU05, EU06, EU07",
-            "instance": "/dataset/eu-ee31/demo/550e8400-e29b-41d4-a716-446655440000"
+            "instance": "/dataset/eu-xx01/demo/550e8400-e29b-41d4-a716-446655440000"
           }
         }
       ],
@@ -572,13 +572,13 @@
       "examples": [
         {
           "scenario": "Dataset request without subsetId",
-          "request": "GET /dataset/eu-ee31/demo/550e8400-e29b-41d4-a716-446655440000 (no ?subsetId=)",
+          "request": "GET /dataset/eu-xx01/demo/550e8400-e29b-41d4-a716-446655440000 (no ?subsetId=)",
           "response": {
             "type": "https://api.efti.ee/errors/missing-subset",
             "title": "Missing Subset Parameter",
             "status": 400,
             "detail": "Query parameter 'subsetId' is required. At least one subset must be specified.",
-            "instance": "/dataset/eu-ee31/demo/550e8400-e29b-41d4-a716-446655440000"
+            "instance": "/dataset/eu-xx01/demo/550e8400-e29b-41d4-a716-446655440000"
           }
         }
       ],
@@ -616,13 +616,13 @@
       "examples": [
         {
           "scenario": "Dataset request with unknown platformId",
-          "request": "GET /dataset/eu-ee31/unknown-platform/550e8400-e29b-41d4-a716-446655440000?subsetId=full",
+          "request": "GET /dataset/eu-xx01/unknown-platform/550e8400-e29b-41d4-a716-446655440000?subsetId=full",
           "response": {
             "type": "https://api.efti.ee/errors/platform-not-found",
             "title": "Platform Not Found",
             "status": 404,
             "detail": "Platform 'unknown-platform' is not registered in this gate",
-            "instance": "/dataset/eu-ee31/unknown-platform/550e8400-e29b-41d4-a716-446655440000"
+            "instance": "/dataset/eu-xx01/unknown-platform/550e8400-e29b-41d4-a716-446655440000"
           }
         }
       ],
@@ -638,13 +638,13 @@
       "examples": [
         {
           "scenario": "Platform 'demo' takes more than 30 seconds to return dataset",
-          "request": "GET /dataset/eu-ee31/demo/550e8400-e29b-41d4-a716-446655440000?subsetId=full",
+          "request": "GET /dataset/eu-xx01/demo/550e8400-e29b-41d4-a716-446655440000?subsetId=full",
           "response": {
             "type": "https://api.efti.ee/errors/platform-timeout",
             "title": "Platform Timeout",
             "status": 504,
             "detail": "Platform 'demo' did not respond within 30 seconds. The platform may be overloaded.",
-            "instance": "/dataset/eu-ee31/demo/550e8400-e29b-41d4-a716-446655440000"
+            "instance": "/dataset/eu-xx01/demo/550e8400-e29b-41d4-a716-446655440000"
           }
         }
       ],
@@ -660,13 +660,13 @@
       "examples": [
         {
           "scenario": "Platform 'demo' returns connection refused during dataset fetch",
-          "request": "GET /dataset/eu-ee31/demo/550e8400-e29b-41d4-a716-446655440000?subsetId=full",
+          "request": "GET /dataset/eu-xx01/demo/550e8400-e29b-41d4-a716-446655440000?subsetId=full",
           "response": {
             "type": "https://api.efti.ee/errors/platform-unavailable",
             "title": "Platform Unavailable",
             "status": 502,
             "detail": "Platform 'demo' did not respond: Connection refused to http://demo-platform:8070",
-            "instance": "/dataset/eu-ee31/demo/550e8400-e29b-41d4-a716-446655440000"
+            "instance": "/dataset/eu-xx01/demo/550e8400-e29b-41d4-a716-446655440000"
           }
         }
       ],
@@ -681,13 +681,13 @@
       "type": "https://api.efti.ee/errors/rate-limit-exceeded",
       "examples": [
         {
-          "scenario": "Gate eu-fi01 exceeds 100 requests/minute to this gate",
-          "request": "G2G identifier search from eu-fi01 (101st request in 60 seconds)",
+          "scenario": "Gate eu-zz01 exceeds 100 requests/minute to this gate",
+          "request": "G2G identifier search from eu-zz01 (101st request in 60 seconds)",
           "response": {
             "type": "https://api.efti.ee/errors/rate-limit-exceeded",
             "title": "Rate Limit Exceeded",
             "status": 429,
-            "detail": "Rate limit of 100 requests per 60 seconds exceeded for gate 'eu-fi01'. Retry after 38 seconds.",
+            "detail": "Rate limit of 100 requests per 60 seconds exceeded for gate 'eu-zz01'. Retry after 38 seconds.",
             "instance": "/identifiers/789DEF",
             "retryAfterSeconds": 38
           }
