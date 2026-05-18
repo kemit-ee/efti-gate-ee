@@ -26,7 +26,7 @@ You are tasked with creating a **complete, production-ready OpenAPI 3.0 specific
   - **How to use**: Extract parameter names, understand query patterns, learn error scenarios
   - **Do NOT**: Copy incomplete validation, poor error messages, inconsistent naming
 
-- [ ] **Epic Documentation**: `efti_full_epics_en.md`
+- [ ] **Epic Documentation**: `docs/epics/` (per-epic files)
   - **Purpose**: Business requirements for all endpoints
   - **Must include**: All 22 epics with acceptance criteria
   - **What to extract**: Endpoint requirements, business rules, user roles
@@ -41,7 +41,7 @@ You are tasked with creating a **complete, production-ready OpenAPI 3.0 specific
   - [ ] `comparison-existing-vs-v2.0-spec.md` - Strategic direction
     - **What to extract**: v2.0 goals, technology decisions
 
-- [ ] **Technical Requirements**: Procurement specification "Tarkvara tehnilise analüüsi nõuded"
+- [ ] **Technical Requirements**: Procurement specification "Tarkvara tehnilise analüüsi nõuded" (Estonian: Software Technical Analysis Requirements)
   - **Purpose**: Mandatory technical constraints
   - **What to extract**: Error format (RFC 7807), authentication (JWT), required headers
 
@@ -496,6 +496,6 @@ Your OpenAPI specification is complete when:
 1. `{CURRENT_GATE_SOURCE}/gate/src/efti/platforms/PlatformRoutes.kt`
 2. `{CURRENT_GATE_SOURCE}/gate/src/efti/authorities/AuthorityRoutes.kt`
 3. `{CURRENT_GATE_SOURCE}/gate/src/admin/*.kt`
-4. `efti_full_epics_en.md` (business requirements)
+4. `docs/epics/` (business requirements)
 
 Generate the complete OpenAPI specification now.

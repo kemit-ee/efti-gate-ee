@@ -30,7 +30,7 @@ Before starting, you must have access to:
    - Performance logging: `gate/src/efti/performance/`
    - Audit logging: Look for patterns in Route handlers
 
-2. **Epic Documentation**: `docs/Askend/efti_full_epics_en.md`
+2. **Epic Documentation**: `docs/epics/` (per-epic files)
    - Epic 1.1: Identifier search (requires performance logging)
    - Epic 1.4: Identifier expiration (requires audit logging)
    - Epic 2.x: Platform management (requires admin audit trail)

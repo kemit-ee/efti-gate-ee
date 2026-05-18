@@ -27,6 +27,7 @@
 | | [RA §5.1 Identifier Query](../architecture/eFTI-Gate-Reference-Architecture.md#51-identifier-query-cross-border-search) |
 | **Diagrams** | [`seq-14-gate-to-gate-search.mmd`](../specs/diagrams/seq-14-gate-to-gate-search.mmd) |
 | | [`seq-16-mtls-fast-protocol.mmd`](../specs/diagrams/seq-16-mtls-fast-protocol.mmd) |
+| | [`arch-02-gate-network.mmd`](../specs/diagrams/arch-02-gate-network.mmd) |
 
 ## AS4 message exchange at a glance
 

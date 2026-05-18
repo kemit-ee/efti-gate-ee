@@ -31,4 +31,4 @@ Map of the 9 themes and 26 epics that make up the v2 spec. For artifacts and des
 | T9 | User Interfaces | [E21 Authority UI — AAP / H2M](docs/epics/epic_21_en.md) |
 | | | [E22 Admin UI](docs/epics/epic_22_en.md) |
 
-**Totals:** 9 themes, 26 epics. Per-epic acceptance criteria live in [`docs/epics/`](docs/epics/) (split files) and [`docs/efti_full_epics_en.md`](docs/efti_full_epics_en.md) (canonical).
+**Totals:** 9 themes, 26 epics. Canonical per-epic acceptance criteria live in [`docs/epics/`](docs/epics/).

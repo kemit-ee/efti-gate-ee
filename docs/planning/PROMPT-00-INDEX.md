@@ -125,7 +125,7 @@ Use this to track your progress:
    - Database: `gate/db/*.sql`
    - XML handling: `edelivery/src/edelivery/Xml.kt`
 
-2. **Epic Documentation**: `efti_full_epics_en.md` (22 epics)
+2. **Epic Documentation**: `docs/epics/` (26 epics)
 
 3. **Business Analysis**: Askend's own business analysis documents (functional requirements, user stories) - **NOT provided by KeMIT**
 

@@ -31,7 +31,7 @@ Before starting, you must have access to:
    - Complete schema (tables, constraints, triggers, functions)
    - This is the source of truth for initial schema
 
-2. **Epic Documentation**: `docs/Askend/efti_full_epics_en.md`
+2. **Epic Documentation**: `docs/epics/` (per-epic files)
    - Seed data requirements (e.g., initial gates, admin users)
 
 3. **Current Gate Source Code**: `{CURRENT_GATE_SOURCE}/`
@@ -45,7 +45,7 @@ Before starting, you must have access to:
 
 ### 1. Migration Tool: Flyway
 
-**Choice**: Flyway (required by technical specification "Tarkvara tehnilise analüüsi nõuded")
+**Choice**: Flyway (required by technical specification "Tarkvara tehnilise analüüsi nõuded" — Estonian: Software Technical Analysis Requirements)
 
 **Alternative**: Liquibase (acceptable, but Flyway preferred)
 

@@ -25,7 +25,7 @@ sequenceDiagram
     Auth->>+DB: Resolve the latest active users row by tara_sub = jwt.sub,<br/>verify jwt.iat ≥ users.token_revoked_at
     DB-->>-Auth: User{id='d2e3f4a5-…', is_active=TRUE, roles={'AUTHORITY':['aut-xxx-001']}, subsets=['EU07'], token_revoked_at=NULL}
 
-    Note over Auth: Permission claims come<br/>from the resolved users<br/>row — NOT from the JWT.<br/>JWT carries identity<br/>(sub) + freshness (iat,<br/>jti); the gate owns the<br/>authorisation state.<br/>--<br/>No matching active row<br/>→ 401 TOKEN_INVALID<br/>("no provisioned user").<br/>--<br/>jwt.iat < token_revoked_at<br/>→ 401 ("token revoked").
+    Note over Auth: Permission claims come<br/>from the resolved users<br/>row — NOT from the JWT.<br/>JWT carries identity<br/>(sub) + freshness (iat,<br/>jti). Gate owns the<br/>authorisation state.<br/>--<br/>No matching active row<br/>→ 401 TOKEN_INVALID<br/>("no provisioned user").<br/>--<br/>jwt.iat < token_revoked_at<br/>→ 401 ("token revoked").
 
     Auth-->>-Gate: AuthenticatedUser{<br/>userId="d2e3f4a5-…", roles=["AUTHORITY"],<br/>scope=["aut-xxx-001"], subsets=["EU07"], jti="abc..." }
 

@@ -30,6 +30,7 @@
 | **Diagrams** | [`state-05-gate-health.mmd`](../specs/diagrams/state-05-gate-health.mmd) |
 | | [`seq-09-gate-ping.mmd`](../specs/diagrams/seq-09-gate-ping.mmd) |
 | | [`seq-15-gate-registry-sync.mmd`](../specs/diagrams/seq-15-gate-registry-sync.mmd) |
+| | [`arch-02-gate-network.mmd`](../specs/diagrams/arch-02-gate-network.mmd) |
 
 ## Gate lifecycle at a glance
 

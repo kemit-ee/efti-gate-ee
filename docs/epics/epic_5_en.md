@@ -30,6 +30,7 @@
 | **Diagrams** | [`seq-05-dataset-request.mmd`](../specs/diagrams/seq-05-dataset-request.mmd) |
 | | [`seq-06-dataset-request-denied.mmd`](../specs/diagrams/seq-06-dataset-request-denied.mmd) |
 | | [`state-02-dataset-request.mmd`](../specs/diagrams/state-02-dataset-request.mmd) |
+| | [`flow-03-dataset-access-control.mmd`](../specs/diagrams/flow-03-dataset-access-control.mmd) |
 
 ## Dataset retrieval at a glance
 

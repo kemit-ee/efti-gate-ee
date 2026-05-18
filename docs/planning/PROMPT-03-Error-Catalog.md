@@ -22,7 +22,7 @@ Create `errors.json` (300-500 lines) - Structured error catalog with 30+ error s
   - **What to check**: Error handling in `gate/src/*/Routes.kt`, exception types
   - **What to extract**: Exception-to-error-code mappings, error messages
 
-- [ ] **Epic Documentation**: `efti_full_epics_en.md`
+- [ ] **Epic Documentation**: `docs/epics/` (per-epic files)
   - **Purpose**: Business error scenarios
   - **What to extract**: Error conditions from acceptance criteria
 

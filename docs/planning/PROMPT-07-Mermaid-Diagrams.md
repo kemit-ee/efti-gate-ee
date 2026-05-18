@@ -27,7 +27,7 @@ Generate **25+ Mermaid diagram files** (`specs/diagrams/*.mmd`) covering:
 
 Before starting, you must have access to:
 
-1. **Epic Documentation**: `docs/Askend/efti_full_epics_en.md`
+1. **Epic Documentation**: `docs/epics/` (per-epic files)
    - All 22 epics describe business flows requiring visualization
    - Epic 1.1: Identifier search (complex: local vs. broadcast decision)
    - Epic 1.2: Dataset provision (authority → gate → platform → authority)

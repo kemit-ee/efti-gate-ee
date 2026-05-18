@@ -35,7 +35,7 @@ sequenceDiagram
     participant DB as PostgreSQL (live)
     participant Archive as Archival Store
 
-    Note over CM: YAML schedule (e.g. "0 0 3 * * ?" — 03:00 daily)<br/>HTTP job, target = the gate's admin archive endpoint
+    Note over CM: YAML schedule, e.g.<br/>"0 0 3 * * ?" (03:00 daily).<br/>HTTP job → admin archive<br/>endpoint.
     CM->>+Gate: POST /api/v1/admin/archive<br/>Authorization: Bearer OPS_TOKEN
     Gate->>Gate: Auth: caller is configured CronManager source
     Gate->>+DB: Select up to batch_size non-latest rows per logical id<br/>from this archivable table — rows whose latest sibling has won.<br/>See db/README.md for the canonical read pattern.
