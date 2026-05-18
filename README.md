@@ -68,14 +68,20 @@ Honest list of what's known to be incomplete or deferred. None of these blocks a
 
 ## Status
 
-This repository contains the **specification corpus** for the v2 eFTI Gate. Implementation work follows once the spec is signed off.
+This repository contains the **specification corpus** for the eFTI Gate. Implementation work follows once the spec is signed off.
 
-The `feature/planning` branch carries the active consolidation work; `main` is the integration branch.
+`main` is the integration branch; tagged releases come from `main`. New work uses short-lived feature branches merged back to `main`. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full workflow.
+
+### Versioning
+
+This is **v1.0** — the first public release. The internal "v2" naming visible in earlier branches and commits refers to KeMIT's second internal spec-generation pass and is independent of the public versioning. The Askend Estonia OÜ procurement deliverable that informed the consolidation, and KeMIT's earlier internal v1 pass, were never published. See [`CHANGELOG.md`](CHANGELOG.md) for the lineage.
 
 ## Maintainer
 
 KeMIT — Riigi Infosüsteemi Amet (Estonia)
-Contact: `help@kemit.ee`
+
+- **Primary contact:** [@turnerrainer](https://github.com/turnerrainer) on GitHub.
+- **Fallback:** `help@kemit.ee`.
 
 ## Licence
 
