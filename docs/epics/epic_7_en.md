@@ -6,11 +6,26 @@
 **I WANT** to manage the eFTI platform registry  
 **SO THAT** platforms can register identifiers and authorities can retrieve datasets
 
-**References:**
-- [DB Schema](../specs/db/README.md) — Platform registry schema
-- [RA §1 System Actors](../architecture/eFTI-Gate-Reference-Architecture.md#1-system-actors--components) — Platform actor roles and registry context
+## Spec anchors
 
-**Platform lifecycle at a glance:**
+| Contract surface | Reference |
+|---|---|
+| **API operations** | `GET/POST/PUT/DELETE /api/v1/platforms[/{platformId}]` |
+| | `POST /api/v1/platforms/{platformId}/ping` |
+| | Full request / response / error shapes: [`openapi.yaml`](../specs/openapi.yaml) |
+| **Schema** | `platforms` (append-only; logical id = `platforms.id`; latest row by `created_at` wins; `is_active=FALSE` on latest = soft-delete; columns: `base_url`, `supports_subsetting`, `cert_subject`, `cert_serial`, `e_delivery_cert`) |
+| | Full schema: [`db/schema.sql`](../specs/db/schema.sql) |
+| **Access-check rules** | Admin write scope-ID check on the platform's owning gate: [`permissions-matrix.md`](../specs/permissions-matrix.md) §8.1 |
+| **Error codes** | `BAD_REQUEST_GENERAL` |
+| | `FORBIDDEN_WRITE_ACCESS` |
+| | `GATEWAY_UNAVAILABLE` |
+| | Full catalog: [`errors.json`](../specs/errors.json) |
+| **Cluster sync** | `LISTEN/NOTIFY` on channel `registry_change_platforms` — see [`non-functional.md`](../specs/non-functional.md) §3 |
+| **Architecture** | [RA §1 System Actors](../architecture/eFTI-Gate-Reference-Architecture.md#1-system-actors--components) |
+| **Diagrams** | [`seq-10-platform-registration.mmd`](../specs/diagrams/seq-10-platform-registration.mmd) |
+| | [`state-03-platform-status.mmd`](../specs/diagrams/state-03-platform-status.mmd) |
+
+## Platform lifecycle at a glance
 
 ```mermaid
 stateDiagram-v2
@@ -26,29 +41,26 @@ stateDiagram-v2
     end note
 ```
 
-See `seq-10-platform-registration.mmd` and `state-03-platform-status.mmd` for full detail.
+## Acceptance Criteria
 
-#### Acceptance Criteria
+**Business rules:**
+- [ ] Listing: Super Admin sees all platforms; a regular Admin sees only platforms whose owning gate is in their `users.roles[ADMIN]` scope-IDs.
+- [ ] All writes (create / update / delete) are INSERTs of a new `platforms` row sharing the same logical `id`. Latest row wins.
+- [ ] Delete is **always** soft (`is_active=FALSE` on the latest row). There is no force-delete and no purge. Identifiers previously registered by the platform remain queryable.
+- [ ] A platform with `eDeliveryCert` set is callable via both REST and eDelivery AS4. Without it, REST only.
+- [ ] A platform with `supportsSubsetting=false` triggers gate-side subset filtering on dataset retrieval (Epic 5).
+- [ ] Manual ping (`POST /api/v1/platforms/{platformId}/ping`) checks HTTP reachability to `baseUrl`; response carries `responseTimeMs`.
 
-**Happy path:**
-- [ ] `GET /api/v1/platforms` — Super Admin sees all; Admin sees only platforms in their `roles[ADMIN]` gate scope (admin's `users.roles.ADMIN` Party IDs); paginated
-- [ ] `POST /api/v1/platforms` — creates platform with `id`, `baseUrl`, `supportsSubsetting`, `certSubject`, `certSerial`, optional `eDeliveryCert` → `201 Created` (409 if `id` already exists)
-- [ ] `PUT /api/v1/platforms/{platformId}` — updates an existing platform (append-only INSERT) → `200 OK` (404 if unknown id)
-- [ ] `DELETE /api/v1/platforms/{platformId}` — soft-delete (latest row written with `is_active=FALSE`) → `204 No Content`
-- [ ] `POST /api/v1/platforms/{platformId}/ping` — checks HTTP connectivity to `baseUrl` → `200 OK` with `responseTimeMs` or `502`
-- [ ] eFTI platform without `eDeliveryCert`: REST-only; with `eDeliveryCert`: also callable via eDelivery AS4
-- [ ] eFTI platform with `supportsSubsetting=false`: gate applies XSLT subsetter before returning dataset
+**Denial scenarios:**
+- [ ] `POST` with an `id` whose latest row is active → conflict.
+- [ ] `PUT` / `DELETE` on a logical id that doesn't exist → not found.
+- [ ] Manual ping: platform unreachable within timeout → `502`-class.
+- [ ] Admin writes to a platform whose owning gate is **not** in the caller's `users.roles[ADMIN]` scope-IDs → `FORBIDDEN_WRITE_ACCESS`.
 
-**Edge cases:**
-- [ ] `POST /api/v1/platforms` with `id` already registered → `409 Conflict`
-- [ ] `DELETE` is **always** soft (writes `is_active=FALSE`); existing identifiers from the platform stay queryable. There is no force-delete and no purge — append-only.
-- [ ] Manual ping — platform unreachable after 10 seconds → `502 Bad Gateway` with `"detail": "Platform 'mta-platform-1' did not respond within 10 seconds"`
+## Cluster-sync contract
 
-**Error handling:**
-- [ ] Admin writing to a platform whose owning gate is not in the admin's `roles[ADMIN]` scope-IDs → `403 FORBIDDEN_WRITE_ACCESS`
+- [ ] On every commit of a `platforms` INSERT, the application emits `NOTIFY registry_change_platforms, '<id>'` from the same transaction (no DB-side trigger). All gate nodes hold an open `LISTEN` on this channel and reload the latest row for the affected id within ≤ 500 ms.
 
-**Technical constraints:**
-- [ ] Registry changes propagated to all nodes via an app-emitted `NOTIFY registry_change_platforms, '<id>'` in the same transaction as the INSERT — other nodes LISTEN and reload within 500 ms
+## Rationale
 
-**Technical artifacts:**
-- [ ] OpenAPI: `GET /api/v1/platforms`, `GET /api/v1/platforms/{platformId}`, `POST /api/v1/platforms`, `PUT /api/v1/platforms/{platformId}`, `DELETE /api/v1/platforms/{platformId}`, `POST /api/v1/platforms/{platformId}/ping`
+Platform metadata (cert subject/serial, base URL, capability flags) drives Platform-API auth and the subsetting decision in Epic 5. Append-only INSERTs preserve every cert rotation and capability change as an auditable history. `LISTEN/NOTIFY` keeps every gate node's in-memory platform cache fresh without polling.
