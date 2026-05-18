@@ -6,9 +6,19 @@
 **I WANT** documented authentication and access flows with sequence diagrams  
 **SO THAT** integration partners and developers understand exactly how authentication works in each channel type
 
-**Reference:** [RA §8.1 Security Layers](../architecture/eFTI-Gate-Reference-Architecture.md#81-security-layers) — Authentication architecture for all three flows
+## Spec anchors
 
-**Authentication channels at a glance:**
+| Contract surface | Reference |
+|---|---|
+| **Auth contract** | Epic 1 (RBAC) and Epic 2 (Authentication) — the AC source of truth. This epic provides the **visual** companion. |
+| **Access-check rules** | Path-prefix → credential-type routing: [`permissions-matrix.md`](../specs/permissions-matrix.md) §1.1, §8.1 |
+| **Error codes** | `TOKEN_INVALID`, `FORBIDDEN`, `FORBIDDEN_SUBSET`, `FORBIDDEN_NO_PLATFORM`, `FORBIDDEN_MULTI_PLATFORM`, `FORBIDDEN_WRITE_ACCESS` — see [`errors.json`](../specs/errors.json) |
+| **Companion diagrams** | [`seq-12-user-authentication.mmd`](../specs/diagrams/seq-12-user-authentication.mmd) |
+| | [`flow-02-authorization-check.mmd`](../specs/diagrams/flow-02-authorization-check.mmd) |
+| | [`seq-16-mtls-fast-protocol.mmd`](../specs/diagrams/seq-16-mtls-fast-protocol.mmd) |
+| **Architecture** | [RA §8.1 Security Layers](../architecture/eFTI-Gate-Reference-Architecture.md#81-security-layers) |
+
+## Authentication channels at a glance
 
 ```mermaid
 flowchart TD
@@ -25,15 +35,15 @@ flowchart TD
 
 The gate is a stateless OAuth 2.0 Resource Server. There is no Admin-UI session cookie and no DB-side admin-session store; the JWT is the session.
 
-Detailed sequences for each flow follow below.
+## Acceptance Criteria
 
-#### Acceptance Criteria
+**Business rules:**
+- [ ] Every authentication channel is documented with a sequence diagram that covers: credential presentation, validation steps, DB lookups (if any), allow / deny branches, and error codes.
+- [ ] The diagrams stay in sync with Epic 1 / Epic 2 ACs — any change to the auth contract there must be reflected here in the same PR.
 
-- [ ] All three authentication patterns documented as sequence diagrams (see below)
-- [ ] Each flow covers: authentication, authorisation check, error cases
-- [ ] Diagrams published in GitHub documentation
+The four canonical flows follow.
 
-##### Flow 1 — Admin UI login (UI-side OIDC → JWT to gate)
+### Flow 1 — Admin UI login (UI-side OIDC → JWT to gate)
 
 ```mermaid
 sequenceDiagram
@@ -58,7 +68,7 @@ sequenceDiagram
 
 Logout is `POST /api/v1/auth/logout` carrying the same Bearer; the gate writes the JWT's `jti` to the `sessions` denylist with `reason='logout'`. Subsequent calls with the same JWT return `401 TOKEN_INVALID`.
 
-##### Flow 2 — Authority / Admin API (TARA OIDC JWT)
+### Flow 2 — Authority / Admin API (TARA OIDC JWT)
 
 ```mermaid
 sequenceDiagram
@@ -87,7 +97,7 @@ sequenceDiagram
     end
 ```
 
-##### Flow 2b — Platform API (mTLS)
+### Flow 2b — Platform API (mTLS)
 
 ```mermaid
 sequenceDiagram
@@ -110,7 +120,7 @@ sequenceDiagram
     end
 ```
 
-##### Flow 3 — Gate-to-gate fast protocol (mTLS)
+### Flow 3 — Gate-to-gate fast protocol (mTLS)
 
 ```mermaid
 sequenceDiagram
@@ -128,4 +138,6 @@ sequenceDiagram
     GateB-->>GateA: 200 OK (XML response)
 ```
 
----
+## Rationale
+
+The four flows are the entire access surface of the gate. Keeping them as diagrams (rather than prose) lets a reader trace allowed / denied paths visually. The flows are intentionally minimal — they show **what** happens, not **how** to implement it; implementation details live in Epic 1 / Epic 2 / `permissions-matrix.md`.
