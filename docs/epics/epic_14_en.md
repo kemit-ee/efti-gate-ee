@@ -6,17 +6,23 @@
 **I WANT** the gate to meet production security requirements  
 **SO THAT** the system passes a security audit and complies with e-government standards
 
-**References:**
-- [Permissions Matrix](../specs/permissions-matrix.md) — Role-based access and write-access control
-- [Error formats](../specs/errors.json) — RFC 7807 error catalogue
-- [RA §8.1 Security Layers](../architecture/eFTI-Gate-Reference-Architecture.md#81-security-layers) — Full security layer stack: secrets, mTLS, rate limiting, error formats
+## Spec anchors
 
-**Security layer stack at a glance:**
+| Contract surface | Reference |
+|---|---|
+| **Pinned protocols / algorithms** | TLS, AES-128-GCM, RSA-OAEP, XML Signature SHA-256, RS256: [`non-functional.md`](../specs/non-functional.md) §4 |
+| **Access-check rules** | Role + Party ID + subset enforcement: [`permissions-matrix.md`](../specs/permissions-matrix.md) |
+| **Error format** | RFC 7807 Problem Details, `requestId` correlation: [`openapi.yaml`](../specs/openapi.yaml), [`errors.json`](../specs/errors.json) |
+| **Environment** | `EU_TRUST_LIST_URL`, `OCSP_TIMEOUT_MS`, `CRL_REFRESH_HOURS`, `EU_PLATFORM_REGISTRY_URL`, `EU_PLATFORM_REGISTRY_REFRESH_MINUTES`, `RATE_LIMIT_PER_MINUTE`: [`non-functional.md`](../specs/non-functional.md) §4.1 |
+| **Reverse-proxy contract** | TLS / mTLS termination, OCSP/CRL fail-closed, EU Trust Service trust list, `X-Client-Cert-Subject` / `X-Client-Cert-Serial` forwarding: [`non-functional.md`](../specs/non-functional.md) §3 |
+| **Architecture** | [RA §8.1 Security Layers](../architecture/eFTI-Gate-Reference-Architecture.md#81-security-layers) |
+
+## Security layer stack at a glance
 
 ```mermaid
 flowchart TD
     In[Inbound request] --> RL[Rate limit<br/>100 req/min/IP → 429]
-    RL --> TLS[TLS / mTLS termination<br/>K8s Secret-loaded certs<br/>OCSP/CRL check]
+    RL --> TLS[TLS / mTLS termination<br/>Runtime-loaded certs<br/>OCSP/CRL check]
     TLS --> AuthN[AuthN: TARA OIDC / JWT RS256 / mTLS]
     AuthN --> AuthZ[AuthZ: role + Party ID + subset]
     AuthZ --> EUReg[EU platform registry check<br/>Art 7+12 Reg 2020/1056]
@@ -24,74 +30,50 @@ flowchart TD
     Audit --> Handler[Resource handler]
 ```
 
-#### Acceptance Criteria
+## Acceptance Criteria
 
-##### Secrets management
+### Secrets management
 
-**Happy path:**
-- [ ] No secret (password, API key, private key) stored in configuration file or build artefact
-- [ ] Secrets loaded at runtime from external secrets store (K8s Secret / vault); environment variable injection supported
-- [ ] Secrets manager supports multiple backends (development vs production) without code changes
-- [ ] TLS certificates loaded from mounted volume or secrets store — not embedded in build artefact
-- [ ] Certificate rotation possible without application restart
-- [ ] Demo/test certificates absent from production-runnable code; repository provides only certificate generation instructions
-- [ ] System-generated passwords and API tokens shown to user **only once** at creation ("Show Once") — thereafter only hash stored
-- [ ] API Bearer tokens revocable without deleting user; new token issued as replacement
+**Business rules:**
+- [ ] **No** secret (password, API key, private key, TLS cert) is stored in a configuration file, repository, or build artefact.
+- [ ] All secrets are loaded **at runtime** from an external store (K8s Secret / vault / equivalent). Environment-variable injection is the standard delivery.
+- [ ] Multiple backends supported (development vs production) without code changes.
+- [ ] Certificate **rotation** is possible without restarting the application.
+- [ ] Demo / test certificates (`*.p12`, `*.pem`, `*.crt`) **must not** exist in any production-runnable build artefact; only generation instructions ship.
+- [ ] System-generated secrets (admin passwords, API tokens) are shown to the user **only once** at creation ("Show Once"). Thereafter only the hash / minimal reference is stored.
+- [ ] API Bearer tokens are revocable without deleting the user (see Epic 1).
 
-**Edge cases:**
-- [ ] Secrets store unavailable on startup → application refuses to start; logs ERROR with missing secret name (not value)
+**Denial scenarios:**
+- [ ] Secrets store unavailable at startup → application refuses to start; logs ERROR carrying the missing secret **name** (never the value).
 
-**Technical constraints:**
-- [ ] Demo certificates (`*.p12`, `*.pem`, `*.crt` test files) MUST NOT exist in production build path
-- [ ] Rationale: Askend security audit finding
+### Certificate validity (Art 5(4) Reg 2024/1942)
 
-##### Certificate validity checks (Art 5(4) 2024/1942)
+**Business rules:**
+- [ ] Outgoing eDelivery / fast-protocol connections verify the destination certificate's revocation status (OCSP or CRL) **before** sending. Trust chain is checked against the EU Trust Service trust list.
+- [ ] OCSP / CRL checks **fail closed** — if the revocation lookup fails or times out (`OCSP_TIMEOUT_MS`), the cert is treated as invalid.
+- [ ] Inbound AS4 messages with revoked signing certs are rejected; logged WARN with the sender Party ID.
 
-**Happy path:**
-- [ ] Outgoing eDelivery connections verify destination certificate status (OCSP or CRL) before sending
-- [ ] Revoked/expired/non-compliant certificate → connection aborted; event logged with peer identity
+### EU platform registry (Art 7, Art 12 Reg 2020/1056)
 
-**Edge cases:**
-- [ ] OCSP responder unreachable → fail closed (connection refused), not fail open; event logged WARN
-- [ ] Incoming AS4 message with revoked signing certificate → rejected; event logged WARN with sender Party ID
+**Business rules:**
+- [ ] The gate verifies that any communicating eFTI platform is listed as active in the EU central platform registry (refreshed per `EU_PLATFORM_REGISTRY_REFRESH_MINUTES`).
+- [ ] If a platform is **removed** from the EU registry: requests from it are logged and answered with a warning; the gate does **not** immediately hard-block (Reg 2020/1056 requires graceful handling of de-registration).
 
-**Rationale:** Art 5(4) Reg 2024/1942 requires certificate validity verification for all inter-gate communication.
+### Rate limiting
 
-##### Platform compliance check (Art 7 + Art 12 Reg 2020/1056)
+**Business rules:**
+- [ ] Rate limiting applies at the reverse-proxy layer (the gate process is not the rate-limit enforcer).
+- [ ] `/v1/...` endpoints: 100 req/min per source IP by default (`RATE_LIMIT_PER_MINUTE`).
+- [ ] Limit exceeded → RFC 7807 `429 Too Many Requests`.
 
-**Happy path:**
-- [ ] eFTI Gate verifies communicating platform is listed as active in EU central registry of eFTI platforms
-- [ ] Configuration includes EU registry query URL and refresh schedule
+### Error format and response hygiene
 
-**Edge cases:**
-- [ ] eFTI platform removed from EU registry → requests logged and answered with warning; not immediately blocked
+**Business rules:**
+- [ ] Every REST error response follows RFC 7807: `{type, title, status, detail, instance, requestId}` — JSON for REST, XML for `/services/*`.
+- [ ] Error responses **never** leak internal stack traces, framework internals, or filesystem paths to the caller. Full traces are server-side only.
+- [ ] An unhandled exception → `500 Internal Server Error` with a **generic** detail; the server-side log carries the trace; the response carries `requestId` for incident correlation.
+- [ ] `robots.txt` ships at the root and disallows indexing of all endpoints.
 
-**Technical constraints:**
-- [ ] EU registry URL configurable via `EU_PLATFORM_REGISTRY_URL`; refresh interval via `EU_PLATFORM_REGISTRY_REFRESH_MINUTES`
+## Rationale
 
-##### Fast protocol (fast adapter)
-
-**Happy path:**
-- [ ] `/services/fast` endpoint uses mTLS — `X-API-Key` removed
-- [ ] eFTI Gate identity verified by TLS certificate
-
-##### Rate limiting
-
-**Happy path:**
-- [ ] Rate limiting configured at reverse proxy level
-- [ ] `/v1/` endpoints: max 100 req/min per IP (configurable via `RATE_LIMIT_PER_MINUTE`)
-- [ ] Rate limit exceeded → `429 Too Many Requests` RFC 7807 format
-
-**Edge cases:**
-- [ ] Burst of 101 requests in 1 minute from same IP → 101st returns `429`; first 100 processed normally
-
-##### Error formats
-
-**Happy path:**
-- [ ] All REST API errors in RFC 7807 JSON: `{type, title, status, detail, instance, requestId}`
-- [ ] Error messages do not expose internal stack traces or system information
-- [ ] XML API errors (`/services/`) returned in XML format
-- [ ] `robots.txt` present and disallows search engine access to all endpoints
-
-**Edge cases:**
-- [ ] Unhandled exception → `500 Internal Server Error` with generic message; full stack trace logged server-side only; `requestId` present in response for incident correlation
+Security here is layered: rate-limit / TLS / authN / authZ / EU-registry / audit / handler. Each layer either accepts or rejects; rejections produce RFC 7807 responses without leaking internals. Runtime-loaded secrets + fail-closed OCSP are the two non-negotiables that lift the bar from "demo gate" to "regulator-auditable production gate".

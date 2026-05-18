@@ -6,63 +6,60 @@
 **I WANT** structured JSON logs, request tracing, and operational visibility  
 **SO THAT** I can troubleshoot issues, monitor performance, and ensure GDPR compliance
 
-**Reference:** [Logging Specification](../specs/logging-spec.md) — Complete logging format, ECS schema, and audit trail specification
+## Spec anchors
 
-**Log pipeline at a glance:**
+| Contract surface | Reference |
+|---|---|
+| **Output format** | JSON, single-line, ECS 8.x dotted-field taxonomy, `efti.*` namespace for custom fields: [`non-functional.md`](../specs/non-functional.md) §4 |
+| **Field taxonomy** | Mandatory fields (`@timestamp`, `log.level`, `message`, `service.name`, `service.version`, `host.hostname`, `http.request.id`); ECS event lifecycle; event.action / event.outcome / event.duration; full `efti.*` field reference: [`logging-spec.md`](../specs/logging-spec.md) §2 |
+| **Pipeline** | Application → async log queue (non-dropping, default size 512) → rolling JSON file → operator-supplied log aggregator: [`logging-spec.md`](../specs/logging-spec.md) §1.1 |
+| **Levels and retention** | ERROR / WARN / INFO / DEBUG / TRACE policy, per-class retention: [`logging-spec.md`](../specs/logging-spec.md) §3, §8 |
+| **Environment** | `LOG_LEVEL`, `LOG_FORMAT=JSON|TEXT`, `LOG_FILE_PATH`, `LOG_DATASET_CONTENT`, `LOG_SAMPLING_RATE`, `LOG_ASYNC_QUEUE_SIZE`: [`logging-spec.md`](../specs/logging-spec.md) §10 |
+
+## Log pipeline at a glance
 
 ```mermaid
 flowchart LR
-    Req[Inbound request<br/>X-Request-ID] --> MDC["MDC put trace.id<br/>generated UUID if missing"]
-    MDC --> Logback[Logback / Log4j2<br/>ECS encoder]
-    Logback --> Stdout[stdout JSON<br/>@timestamp, log.level, trace.id,<br/>user.id, http.response.status_code,<br/>event.duration]
-    Stdout --> Aggregator[Log aggregator<br/>Loki / ELK]
-    Aggregator --> Search[Searchable by trace.id<br/>across all nodes]
+    Req[Inbound request<br/>X-Request-ID] --> MDC["Put http.request.id<br/>generated UUID if missing"]
+    MDC --> Encoder[ECS JSON encoder]
+    Encoder --> Stdout[Rolling JSON file<br/>or stdout]
+    Stdout --> Aggregator[Log aggregator<br/>Filebeat/Fluentd → ES/OpenSearch]
+    Aggregator --> Search[Searchable by http.request.id<br/>across all nodes]
     MDC -.cleared on response.- Req
 ```
 
-#### Acceptance Criteria
+## Acceptance Criteria
 
-##### Structured logging
+### Structured logging
 
-**Happy path:**
-- [ ] All log lines in JSON conforming to Elastic Common Schema (ECS)
-- [ ] Mandatory fields: `@timestamp`, `log.level`, `trace.id` (requestId), `service.name`, `user.id`, `url.path`, `client.ip`, `http.response.status_code`, `event.duration`
-- [ ] JSON/text format switchable via `LOG_FORMAT=json|text`
+**Business rules:**
+- [ ] Every log line is single-line JSON conforming to ECS 8.x.
+- [ ] Required fields on **every** entry: `@timestamp`, `log.level`, `message`, `service.name`, `service.version`, `host.hostname`. Request-scope entries also carry `http.request.id`.
+- [ ] Custom fields use the `efti.*` namespace; never put custom fields at the ECS root.
+- [ ] Format switchable via `LOG_FORMAT=JSON|TEXT` (JSON in production; TEXT for local development only).
+- [ ] `user.id` unset on unauthenticated requests → field present with value `"anonymous"` (never omitted).
+- [ ] `event.duration` not calculable (connection dropped before response) → field present with value `-1` (never omitted).
 
-**Edge cases:**
-- [ ] `user.id` not available (unauthenticated request) → field set to `"anonymous"`; not omitted
-- [ ] `event.duration` not calculable (connection dropped) → field set to `-1`; not omitted
+### Request-id propagation
 
-**Technical constraints:**
-- [ ] MUST use Logback or Log4j2 with ECS encoder — no custom JSON formatting
+**Business rules:**
+- [ ] `X-Request-ID` is captured into the logging context at the start of every request and emitted as `http.request.id` on every entry generated during request processing.
+- [ ] Inbound request without `X-Request-ID` → the gate generates a UUID v4 and uses it; flagged via an additional field (e.g. `efti.request_id.generated: true`).
+- [ ] Logging context is cleared on response, so requests do not leak `http.request.id` into each other under thread / coroutine reuse.
 
-##### Request ID propagation
+### Outbound and business-event logging
 
-**Happy path:**
-- [ ] `X-Request-ID` header added to MDC at start of each request
-- [ ] All log lines for same request contain same `trace.id` value
-- [ ] Log context cleared at end of request (thread safety)
+**Business rules (one log entry per outbound call):**
+- [ ] Gate-to-gate client: `event.action: "g2g.*"` carrying target `efti.gate.id`, chosen protocol (`fast` / `eDelivery`), URL, duration, HTTP / SOAP status, error (if any).
+- [ ] eDelivery client: recipient Party ID, `requestId`, duration, response status.
+- [ ] Platform client (REST and AS4): `efti.platform.id`, URL, duration, HTTP status.
+- [ ] Outbound timeout → entry at WARN carrying the target id and the configured timeout value.
 
-**Edge cases:**
-- [ ] Inbound request without `X-Request-ID` → gate generates UUID and uses it; logs it as `generated=true`
+**Business-event entries (mandatory):**
+- [ ] Identifier search: `event.action: "identifier.search"` with `efti.search.local_count`, `efti.search.broadcast_triggered`, `efti.search.gates_queried`, `efti.search.failed_gates`.
+- [ ] Dataset request: `event.action: "dataset.deliver"` with the UIL components, routing decision (local vs remote), duration.
+- [ ] Authorisation denials: `event.action: "user.access.denied"` with caller `user.id`, endpoint, denial reason.
 
-##### Outbound request logging
+## Rationale
 
-**Happy path:**
-- [ ] Gate-to-gate client logs each gate called: gate ID, protocol, URL, duration ms, HTTP status, error (if any)
-- [ ] eDelivery client logs: recipient Party ID, requestId, duration ms, response status
-- [ ] eFTI platform client logs REST and eDelivery: platform ID, URL, duration ms, HTTP status
-
-**Edge cases:**
-- [ ] Outbound request times out → logged at WARN with gate ID and configured timeout value
-
-##### Business logic logging
-
-**Happy path:**
-- [ ] Identifier search logs: local result count, broadcast gate count, result per gate, `broadcastTriggered: true/false`
-- [ ] Dataset request logs: UIL, routing decision (local vs remote), duration ms
-- [ ] Authorisation denials: user ID, endpoint, reason for denial
-
-**Technical artifacts:**
-- [ ] Logging configuration: `logback-spring.xml` with ECS encoder
-- [ ] Environment variable: `LOG_FORMAT=json|text`
+ECS-shaped JSON gives the operator one consistent schema to index, search, and alert against (regardless of which log-aggregator stack they run). The `efti.*` namespace keeps custom fields from colliding with ECS evolution. Mandatory `http.request.id` plus per-call outbound logging lets an on-call engineer reconstruct an end-to-end trace across the local gate, eDelivery hop, and peer-gate without distributed tracing infrastructure.

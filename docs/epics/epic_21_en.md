@@ -6,11 +6,17 @@
 **I WANT** a web interface for searching identifiers and viewing datasets  
 **SO THAT** I can conduct roadside inspections without a separate IT system
 
-**References:**
-- [Permissions Matrix](../specs/permissions-matrix.md) — Authority subset access permissions
-- [RA §9.2 Authority API (AAP)](../architecture/eFTI-Gate-Reference-Architecture.md#92-authority-api-aap) — AAP endpoint reference — H2M and M2M interface
+## Spec anchors
 
-**Officer journey at a glance:**
+| Contract surface | Reference |
+|---|---|
+| **API operations consumed** | `GET /v1/identifiers/{identifier}` (JSON + SSE), `GET /v1/dataset/{...}`, `POST /v1/follow-up/{...}`, `POST /api/v1/auth/logout` |
+| | Full request / response shapes: [`openapi.yaml`](../specs/openapi.yaml) |
+| **Access-check rules** | Authority role + subset enforcement: [`permissions-matrix.md`](../specs/permissions-matrix.md) |
+| **Auth flow** | TARA OIDC (Authority/Admin path) — Epic 2 |
+| **Architecture** | [RA §9.2 Authority API (AAP)](../architecture/eFTI-Gate-Reference-Architecture.md#92-authority-api-aap) |
+
+## Officer journey at a glance
 
 ```mermaid
 flowchart LR
@@ -22,46 +28,45 @@ flowchart LR
     Dataset --> FollowUp[Send follow-up message<br/>POST /v1/follow-up/...]
 ```
 
-UI uses TEDI (Tehik) design system; WCAG 2.2 AA verified in CI.
+UI uses the TEDI (Tehik) design system. WCAG 2.2 AA compliance verified in CI.
 
-#### Acceptance Criteria
+## Acceptance Criteria
 
-##### Authentication
+### Authentication
 
-**Happy path:**
-- [ ] Authority UI uses OIDC via TARA; supported: ID card, Mobile-ID, Smart-ID
-- [ ] TARA personal identification code mapped to authority user account (e.g. PPA officer → PPA Authority role)
-- [ ] M2M access uses Bearer token (JWT RFC 7519) — OIDC does not apply to API clients
-- [ ] Session expires after configurable period of inactivity
-- [ ] Logout invalidates session and notifies TARA
+**Business rules:**
+- [ ] Browser auth: TARA OIDC (ID-card, Mobile-ID, Smart-ID). The UI runs the OIDC code-exchange and attaches the resulting JWT to gate API calls.
+- [ ] The TARA personal identification code (`sub`) is resolved against `users.tara_sub` to obtain the authority-user account and its permitted subsets.
+- [ ] M2M access uses Bearer JWT (TARA-issued) — same backend route, no OIDC handshake.
+- [ ] Logout invalidates the JWT via `POST /api/v1/auth/logout` (adds `jti` to `sessions` denylist) and triggers the TARA-side logout endpoint.
+- [ ] Idle-timeout policy is configurable.
 
-**Edge cases:**
-- [ ] Authority officer's TARA identity not mapped to any authority account → `403 Forbidden` with `"detail": "Your identity is not registered as an authority user. Contact your administrator."` — not an error stack trace
+**Denial scenarios:**
+- [ ] TARA identity not mapped to any active `users` row → friendly UI message ("Your identity is not registered as an authority user. Contact your administrator."), not a stack trace.
 
-##### Design and language
+### Functionality
 
-**Happy path:**
-- [ ] UI uses TEDI (Tehik) design system components (https://tedi.tehik.ee/)
-- [ ] i18n translation files; default language Estonian; language selector available
-- [ ] WCAG 2.2 AA compliance verified by automated accessibility scan in CI
-- [ ] Mobile device support: touch-friendly controls, minimum touch target 44×44 px
+**Business rules:**
+- [ ] Search view supports identifier entry by typed plate, scanned QR, or NFC read; filters include `modeCode`, `registrationCountryCode`, `dangerousGoodsIndicator`, optional `dateFrom`/`dateTo`.
+- [ ] Results stream over SSE — partial results appear as peer gates respond.
+- [ ] Multiple UILs displayed when present; the officer selects the relevant one.
+- [ ] Dataset retrieval requires `subsetId` selection from the user's permitted subsets only (UI gates the picker by `users.subsets`).
+- [ ] Dataset rendering: XML is presented as a structured table (human-readable). On malformed XML from the platform: show the raw XML + warning, do **not** crash the UI.
+- [ ] Follow-up messages can be composed and sent against a returned UIL.
+- [ ] Search results are paginated per the OpenAPI pagination contract.
 
-##### Functionality
+**Performance:**
+- [ ] Local-hit SSE first event arrives in ≤ `non-functional.md` §1's authority-search p95 SLO; broadcast results trickle in subject to the per-peer 8 s timeout.
+- [ ] SSE stream open > 30 s shows a progress indicator; partial results are visible as they arrive.
 
-**Happy path:**
-- [ ] Search view: enter identifier (e.g. registration plate), select filters (mode, country, DGI), view results in real time (SSE)
-- [ ] Identifier can be entered manually, by QR code scan, or NFC reading
-- [ ] Clicking result allows requesting dataset — subset selection per user's permitted subsets
-- [ ] Dataset displayed in human-readable form (XML rendered as structured table)
-- [ ] Follow-up message can be sent directly to a UIL
-- [ ] AAP provides both H2M (web interface) and M2M (REST API) — same backend endpoint
-- [ ] When multiple UILs returned, all displayed — officer selects most relevant
-- [ ] Search results paginated
+### Design and accessibility
 
-**Edge cases:**
-- [ ] SSE stream takes > 30 seconds → UI shows progress indicator; partial results displayed as they arrive
-- [ ] Dataset XML rendering fails (malformed XML from platform) → UI shows raw XML with warning; does not crash
+**Business rules:**
+- [ ] UI uses the **TEDI (Tehik) design system** (https://tedi.tehik.ee/) components.
+- [ ] Default language Estonian; full i18n with a language selector.
+- [ ] WCAG 2.2 AA compliance verified by an automated accessibility scan (e.g. axe-core) in CI.
+- [ ] Mobile-friendly: minimum touch target 44 × 44 px; layout adapts to roadside-inspection device sizes.
 
-**Technical artifacts:**
-- [ ] UI component: plate search with real-time SSE result display
-- [ ] Accessibility: automated scan (axe-core) in CI
+## Rationale
+
+The AAP is the regulator-facing surface at roadside inspections. Streaming-first SSE matches the reality of cross-EU broadcast (partial results are useful before all peers respond). TARA OIDC + DB-backed subset enforcement makes the auth path identical to M2M (Epic 2) — there is no second permission model for "the browser". TEDI alignment and WCAG 2.2 AA are Estonian e-government baselines.

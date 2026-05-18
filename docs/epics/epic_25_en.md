@@ -6,16 +6,23 @@
 **I WANT** documented eDelivery AS4 message flows with sequence diagrams  
 **SO THAT** developers understand exactly how inter-gate messages travel through the AS4 protocol
 
-**References:**
-- [Data Transformations](../specs/data-transformations.md) — XML→AS4 envelope wrapping; XSD validation; SOAP fault mapping
-- [Diagrams](../specs/diagrams/seq-14-gate-to-gate-search.mmd) — Gate-to-gate AS4 search sequence; [seq-16](../specs/diagrams/seq-16-mtls-fast-protocol.mmd) — mTLS fast-protocol alternative
-- [eDelivery XSD](../efti-analysis/xsd/edelivery/gate.xsd) — eDelivery message schema
-- [RA §4 Protocol Architecture](../architecture/eFTI-Gate-Reference-Architecture.md#4-protocol-architecture-generic-envelope--variable-payload) — AS4 envelope and protocol model
-- [RA §5.1 Identifier Query](../architecture/eFTI-Gate-Reference-Architecture.md#51-identifier-query-cross-border-search) — Cross-border search flow
+## Spec anchors
 
-**AS4 message types at a glance:**
+| Contract surface | Reference |
+|---|---|
+| **Underlying epic** | Epic 10 (eDelivery AS4 Integration) — the AC source of truth. This epic provides the **visual** companion. |
+| **API operations shown** | `POST /services/msh` (AS4 inbound), `POST /services/backend` (AS4 outbound), `GET /datasets/{datasetId}` (platform-side). Full shapes: [`openapi.yaml`](../specs/openapi.yaml) |
+| **XML schemas** | [`gate.xsd`](../efti-analysis/xsd/edelivery/gate.xsd) |
+| **Wire transformations** | XML → AS4 envelope, WS-Security sign + encrypt, SOAP fault → RFC 7807: [`data-transformations.md`](../specs/data-transformations.md) |
+| **Protocol pinning** | EU eDelivery AS4 1.15 conformance profile: [`non-functional.md`](../specs/non-functional.md) §3, §4 |
+| **Companion mermaid files** | [`seq-14-gate-to-gate-search.mmd`](../specs/diagrams/seq-14-gate-to-gate-search.mmd) |
+| | [`seq-16-mtls-fast-protocol.mmd`](../specs/diagrams/seq-16-mtls-fast-protocol.mmd) |
+| **Architecture** | [RA §4 Protocol Architecture](../architecture/eFTI-Gate-Reference-Architecture.md#4-protocol-architecture-generic-envelope--variable-payload) |
+| | [RA §5.1 Identifier Query](../architecture/eFTI-Gate-Reference-Architecture.md#51-identifier-query-cross-border-search) |
 
-> **Implementation choice (not mandated by EU regs).** The diagrams below show "AS4 access point" generically. Operators may use the gate's embedded AS4 implementation (Askend baseline) or [Domibus](https://ec.europa.eu/digital-building-blocks/sites/display/DIGITAL/Domibus) — both are protocol-compatible per Reg 2024/1942 Art 11. Wherever the diagrams say "eDelivery AS4 AP" the deployed implementation could be either.
+> **Implementation choice (not mandated by EU regs).** The diagrams show "eDelivery AS4 AP" generically. Operators may use the gate's embedded AS4 implementation (Askend baseline) or [Domibus](https://ec.europa.eu/digital-building-blocks/sites/display/DIGITAL/Domibus) — both are protocol-compatible per Reg 2024/1942 Art 11.
+
+## AS4 message types at a glance
 
 ```mermaid
 flowchart LR
@@ -26,15 +33,14 @@ flowchart LR
     GB -. SOAP fault on parse error<br/>or unknown Action .-> AP
 ```
 
-Detailed sequence diagrams for outgoing and incoming flows follow below.
+## Acceptance Criteria
 
-#### Acceptance Criteria
+**Business rules:**
+- [ ] Both AS4 flows (outgoing identifier search, incoming UIL request) are documented as sequence diagrams below.
+- [ ] Each diagram covers: SOAP envelope construction, WS-Security signing + encryption, parse + signature verification on the receiver, and failure handling (SOAP fault on parse error or unknown Action).
+- [ ] The diagrams stay in sync with Epic 10 ACs — any change to the AS4 contract there must be reflected here in the same PR.
 
-- [ ] Both AS4 flows documented (outgoing identifierQuery and incoming uilResponse)
-- [ ] Diagrams cover: SOAP envelope construction, signing, encryption, failure handling
-- [ ] Diagrams published in GitHub documentation
-
-##### Flow 1 — Outgoing identifier search (Gate → eDelivery → Remote Gate)
+### Flow 1 — Outgoing identifier search (Gate → eDelivery → Remote Gate)
 
 ```mermaid
 sequenceDiagram
@@ -56,7 +62,7 @@ sequenceDiagram
     Gate->>Gate: Parse response, forward via SSE to authority officer
 ```
 
-##### Flow 2 — Incoming UIL request (Remote Gate → Gate → Platform)
+### Flow 2 — Incoming UIL request (Remote Gate → Gate → Platform)
 
 ```mermaid
 sequenceDiagram
@@ -76,5 +82,6 @@ sequenceDiagram
     EDelivery-->>RemoteGate: AS4 response
 ```
 
+## Rationale
 
----
+eDelivery AS4 is the EU's standard cross-border message bus; documenting the on-wire shape (SOAP envelope, WS-Security, async callback via `async_responses` + `LISTEN/NOTIFY`) is what lets a partner trace any failure mode without reading the gate source. The "embedded or Domibus" framing makes the AS4 implementation a deployment-time decision rather than a hard spec mandate.

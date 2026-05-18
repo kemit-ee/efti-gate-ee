@@ -6,11 +6,18 @@
 **I WANT** a web-based management interface for users, registries and configuration  
 **SO THAT** I can administer the system without direct database access
 
-**References:**
-- [Permissions Matrix](../specs/permissions-matrix.md) — Admin role capabilities and access control
-- [RA §7.1 Logical Component Layers](../architecture/eFTI-Gate-Reference-Architecture.md#71-logical-component-layers) — Admin UI layer in component architecture
+## Spec anchors
 
-**Admin journey at a glance:**
+| Contract surface | Reference |
+|---|---|
+| **API operations consumed** | All Admin routes under `/api/v1/...`: `users`, `gates`, `platforms`, `authorities`, `consignments`, `audit`, plus `POST /api/v1/auth/logout` and `POST /api/js-error` |
+| | Full request / response shapes: [`openapi.yaml`](../specs/openapi.yaml) |
+| **Access-check rules** | Admin role + Party-ID scope-IDs enforcement: [`permissions-matrix.md`](../specs/permissions-matrix.md) |
+| **Auth flow** | TARA OIDC (Authority/Admin path) — Epic 2 |
+| **Environment** | `DRAFT_SAVE_INTERVAL_SECONDS` (default 30): [`non-functional.md`](../specs/non-functional.md) §4.1 |
+| **Architecture** | [RA §7.1 Logical Component Layers](../architecture/eFTI-Gate-Reference-Architecture.md#71-logical-component-layers) |
+
+## Admin journey at a glance
 
 ```mermaid
 flowchart LR
@@ -27,57 +34,51 @@ flowchart LR
     Manage --> Audit[Audit log<br/>/api/v1/audit]
 ```
 
-UI uses TEDI (Tehik); WCAG 2.2 AA; draft auto-save every 30 s.
+UI uses TEDI (Tehik) design system; WCAG 2.2 AA verified in CI; draft auto-save every 30 s.
 
-#### Acceptance Criteria
+## Acceptance Criteria
 
-##### Authentication
+### Authentication
 
-**Happy path:**
-- [ ] Admin UI uses OIDC via TARA; supported: ID card, Mobile-ID, Smart-ID
-- [ ] Basic Auth (email:password) disabled in production environments
-- [ ] Session expires after configurable period; repeated failures trigger temporary lockout
-- [ ] Logout invalidates session and notifies TARA
+**Business rules:**
+- [ ] Browser auth: TARA OIDC (ID-card, Mobile-ID, Smart-ID). HTTP-Basic email/password is **disabled** in production (allowed in dev only via Epic 1 break-glass).
+- [ ] Logout calls `POST /api/v1/auth/logout` (denylist the JWT) and triggers the TARA-side logout endpoint.
+- [ ] Repeated login failures trigger a temporary lockout — the UI presents a friendly message ("Account temporarily locked. Try again in 15 minutes."), never an error code.
+- [ ] Idle-timeout policy is configurable.
 
-**Edge cases:**
-- [ ] Admin account locked (5 failed attempts) → UI shows `"Account temporarily locked. Try again in 15 minutes."` — not error code
+### Role selection and navigation
 
-##### Design and language
+**Business rules:**
+- [ ] A user resolving to multiple roles is shown a role-selection screen after login.
+- [ ] The active role is visible in the chrome throughout the session.
+- [ ] Role can be switched without re-authenticating.
+- [ ] A user with exactly one role skips the selection screen and lands on the main view.
 
-**Happy path:**
-- [ ] UI uses TEDI (Tehik) design system (https://tedi.tehik.ee/)
-- [ ] i18n translation files; default language Estonian
-- [ ] WCAG 2.2 AA: icon-only buttons have `aria-label`, modals have `aria-labelledby`, skip navigation link, colour contrast minimum 4.5:1
+### Forms and drafts
 
-##### Role selection and navigation
+**Business rules:**
+- [ ] Forms validate inline before submission (no full-page round-trip for trivially-bad input).
+- [ ] Long forms auto-save drafts every `DRAFT_SAVE_INTERVAL_SECONDS` (default 30 s). Draft is restored on return.
+- [ ] Draft-save failure surfaces a non-blocking warning ("Draft save failed — your data is not lost, but will not be restored on refresh"). It never blocks the user.
 
-**Happy path:**
-- [ ] User with multiple roles shown role selection screen after login
-- [ ] Active role clearly visible in UI throughout session
-- [ ] Role can be switched without re-authenticating
+### Design and accessibility
 
-**Edge cases:**
-- [ ] User has only 1 role → role selection screen skipped; directly to main view
+**Business rules:**
+- [ ] UI uses the **TEDI (Tehik) design system** (https://tedi.tehik.ee/).
+- [ ] Default language Estonian; full i18n with a language selector.
+- [ ] WCAG 2.2 AA: icon-only buttons carry `aria-label`; modals use `aria-labelledby`; skip-navigation link present; minimum 4.5 : 1 contrast.
+- [ ] Accessibility scan (e.g. axe-core) runs in CI on every PR.
 
-##### Forms
+### Error handling
 
-**Happy path:**
-- [ ] Real-time validation before form submission
-- [ ] Long forms: periodic automatic draft saving (interval configurable via `DRAFT_SAVE_INTERVAL_SECONDS`, default 30)
-- [ ] Draft restored when user returns to unfinished form
+**Business rules:**
+- [ ] Front-end JS errors are reported to the server via `POST /api/js-error` so they are visible in central logging.
+- [ ] Errors shown to the user are friendly messages — never raw stack traces.
+- [ ] Error pages include the `requestId` for support correlation.
 
-**Edge cases:**
-- [ ] Draft save fails (network error) → UI shows non-blocking warning `"Draft save failed — your data is not lost, but will not be restored on refresh"`
+## Rationale
 
-##### Error handling
-
-**Happy path:**
-- [ ] JS errors logged to server via `POST /api/js-error`
-- [ ] Users see clear, understandable error message — not a technical stack trace
-- [ ] Error page includes `requestId` for support correlation
-
-**Technical artifacts:**
-- [ ] OpenAPI: `POST /api/js-error`
+The Admin UI is the operational control surface — every registry mutation, user creation, and audit-log review goes through it. TARA OIDC reuses the same identity primitive as the Authority UI (Epic 21). Disabling Basic Auth in production removes the only non-federated entry point. TEDI + WCAG 2.2 AA are Estonian e-government baselines; the spec inherits them rather than re-litigating.
 
 ---
 

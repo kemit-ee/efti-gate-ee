@@ -6,11 +6,32 @@
 **I WANT** to manage the list of EU eFTI gates and monitor their status  
 **SO THAT** broadcast requests only reach operational gates
 
-**References:**
-- [DB Schema](../specs/db/README.md) — Gate registry schema
-- [RA §1 System Actors](../architecture/eFTI-Gate-Reference-Architecture.md#1-system-actors--components) — Gate actor roles and registry context
+## Spec anchors
 
-**Gate lifecycle at a glance:**
+| Contract surface | Reference |
+|---|---|
+| **API operations** | `GET/POST/PUT/DELETE /api/v1/gates[/{gateId}]` |
+| | `GET /api/v1/gates/own` |
+| | `POST /api/v1/gates/{gateId}/ping` (admin-triggered manual probe) |
+| | `POST /api/v1/admin/ping-gates` (CronManager-triggered recurring sweep) |
+| | Full request / response / error shapes: [`openapi.yaml`](../specs/openapi.yaml) |
+| **Schema** | `gates` (append-only; logical id = `gates.id` CITEXT; latest row by `created_at` wins; `is_active=FALSE` on latest = logical delete; columns: `country_code`, `e_delivery_url`, `e_delivery_cert`, `tls_cert`, `status`, `last_ping_at`) |
+| | `gate_status` enum: `ONLINE`, `OFFLINE`, `DISABLED` |
+| | Full schema: [`db/schema.sql`](../specs/db/schema.sql) |
+| **Access-check rules** | Admin write scope-ID check (target gate must be in `users.roles[ADMIN]`): [`permissions-matrix.md`](../specs/permissions-matrix.md) §8.1 |
+| **Error codes** | `BAD_REQUEST_GENERAL` |
+| | `FORBIDDEN_WRITE_ACCESS` |
+| | `GATEWAY_UNAVAILABLE` |
+| | `GATE_TIMEOUT` |
+| | Full catalog: [`errors.json`](../specs/errors.json) |
+| **Environment** | `PING_TIMEOUT_SECONDS` — see [`non-functional.md`](../specs/non-functional.md) §4.1 |
+| **CronManager YAML** | [`cronmanager-ping-gates.yaml`](../specs/deploy/cronmanager-ping-gates.yaml) |
+| **Architecture** | [RA §1 System Actors](../architecture/eFTI-Gate-Reference-Architecture.md#1-system-actors--components) |
+| **Diagrams** | [`state-05-gate-health.mmd`](../specs/diagrams/state-05-gate-health.mmd) |
+| | [`seq-09-gate-ping.mmd`](../specs/diagrams/seq-09-gate-ping.mmd) |
+| | [`seq-15-gate-registry-sync.mmd`](../specs/diagrams/seq-15-gate-registry-sync.mmd) |
+
+## Gate lifecycle at a glance
 
 ```mermaid
 stateDiagram-v2
@@ -33,52 +54,36 @@ stateDiagram-v2
     end note
 ```
 
-See `state-05-gate-health.mmd` for full detail.
+## Acceptance Criteria
 
-#### Acceptance Criteria
+### CRUD
 
-##### CRUD
+**Business rules:**
+- [ ] Listing: Super Admin sees all gates; a regular Admin sees only gates whose id is in their `users.roles[ADMIN]` scope-IDs.
+- [ ] All writes (create / update / delete) are INSERTs of a new `gates` row sharing the same logical `id`. Latest row wins.
+- [ ] Delete is **soft**: the latest row carries `is_active=FALSE`. The previous row remains in place (append-only).
+- [ ] An admin cannot delete their own gate.
 
-**Happy path:**
-- [ ] `GET /api/v1/gates` — Super Admin sees all gates; regular Admin sees only gates in their `roles[ADMIN]` scope-IDs; paginated
-- [ ] `GET /api/v1/gates/{gateId}` — returns the latest row for a single gate (404 if unknown)
-- [ ] `POST /api/v1/gates` — creates new gate with `id`, `countryCode`, `eDeliveryUrl`, `eDeliveryCert`; 409 on existing id → `201 Created`
-- [ ] `PUT /api/v1/gates/{gateId}` — updates an existing gate (append-only INSERT); 404 on unknown id → `200 OK`
-- [ ] `DELETE /api/v1/gates/{gateId}` — soft-delete (latest row written with `is_active=FALSE`) → `204 No Content`
-- [ ] `GET /api/v1/gates/own` — returns own gate configuration
+**Denial scenarios:**
+- [ ] `POST` with an `id` whose latest row is active → conflict.
+- [ ] `PUT` / `DELETE` on a logical id that doesn't exist (or whose latest row is already `is_active=FALSE`) → not found.
+- [ ] Write targets a gate not in the caller's `users.roles[ADMIN]` scope-IDs → `FORBIDDEN_WRITE_ACCESS`.
 
-**Edge cases:**
-- [ ] Admin deletes own gate → `400 Bad Request` with `code: BAD_REQUEST_GENERAL`, `"detail": "Cannot delete your own gate"`
-- [ ] `POST /api/v1/gates` with `id` already registered → `409 Conflict`
-- [ ] `PUT` / `DELETE` on non-existent gate → `404 Not Found`
+### Ping
 
-**Error handling:**
-- [ ] Write to a gate not in admin's `roles[ADMIN]` scope-IDs → `403 FORBIDDEN_WRITE_ACCESS`
+**Business rules:**
+- [ ] Admins may trigger a one-off ping via `POST /api/v1/gates/{gateId}/ping` — response carries `responseTimeMs`.
+- [ ] Recurring health probe is **CronManager-driven**: CronManager calls `POST /api/v1/admin/ping-gates` on its configured schedule (default every 5 min; canonical YAML in `cronmanager-ping-gates.yaml`). The gate process **never schedules its own jobs**.
+- [ ] Each ping result INSERTs a new `gates` row carrying `status` (ONLINE / OFFLINE — `DISABLED` is operator-set only) and `last_ping_at = NOW()`. A `NOTIFY` on the `registry_change_gates` channel fires after commit.
+- [ ] `DISABLED` gates AND latest-`is_active=FALSE` gates are excluded from the sweep query — `DISABLED` does not auto-recover.
 
-**Technical artifacts:**
-- [ ] OpenAPI: `GET /api/v1/gates`, `GET /api/v1/gates/{gateId}`, `POST /api/v1/gates`, `PUT /api/v1/gates/{gateId}`, `DELETE /api/v1/gates/{gateId}`, `GET /api/v1/gates/own`
+**Denial scenarios:**
+- [ ] Peer gate does not respond within `PING_TIMEOUT_SECONDS` → status flipped to `OFFLINE` on this gate's INSERT; response to the caller is `502`-class.
 
-##### Ping
+### Concurrency on the recurring sweep
 
-**Happy path:**
-- [ ] `POST /api/v1/gates/{gateId}/ping` (admin-triggered, manual one-off) → fast protocol ping (`POST {eDeliveryUrl}` with mTLS) or eDelivery SOAP ping → `200 OK` with `responseTimeMs`
-- [ ] Recurring peer-gate health probe is driven by **CronManager** calling `POST /api/v1/admin/ping-gates` (every 5 min by default; YAML in `docs/specs/deploy/cronmanager-ping-gates.yaml`); the gate process never schedules its own jobs.
-- [ ] Ping result INSERTs a new `gates` row with the latest `status` (ONLINE / OFFLINE; DISABLED is operator-set) and `last_ping_at = NOW()`. A `NOTIFY` on the `registry_change_gates` channel fires after commit.
+- [ ] Multiple gate nodes may receive the same CronManager call. The handler must enforce a cluster-wide mutex (one in-flight call wins; others return `409 Conflict`). PostgreSQL advisory locks are the pinned implementation per [`non-functional.md`](../specs/non-functional.md) §3.
 
-**Edge cases:**
-- [ ] Peer gate does not respond within `PING_TIMEOUT_SECONDS` → status flipped to `OFFLINE`; `502 Bad Gateway` with `"detail": "Gate '<peerGateA>' did not respond within N seconds"`
-- [ ] Peer gate was `OFFLINE`, ping succeeds → next INSERT carries `status='ONLINE'`; transition logged INFO
+## Rationale
 
-**Technical constraints:**
-- [ ] Ping timeout: client-side AS4 / fast-HTTP timeout (default 10 s; configurable via `PING_TIMEOUT_SECONDS` in `non-functional.md` §4.1).
-- [ ] Ping schedule lives in CronManager YAML (`cronmanager-ping-gates.yaml`), not in the gate. There is no `PING_INTERVAL_MINUTES` env var on the gate.
-- [ ] `DISABLED` and `is_active=FALSE` gates are excluded from the sweep query.
-
-**Edge cases:**
-- [ ] Ping job attempts to start on 2 nodes → database advisory lock ensures only 1 node runs it
-
-**Technical constraints:**
-- [ ] Leader election: the CronManager admin endpoint enforces a multi-node-safe mutex (one in-flight call wins; others get 409). Implementation may use database advisory locks or any equivalent mechanism.
-
-**Technical artifacts:**
-- [ ] OpenAPI: `POST /api/v1/gates/{gateId}/ping`
+The gate registry is **shared state across the cluster**: every node caches the latest row per gate and refreshes on `NOTIFY`. Pings are append-only state transitions, so the history is auditable without an UPDATE-trigger pattern. Recurring jobs live in CronManager (not the gate) so a scheduled job runs exactly once regardless of how many gate replicas are deployed — combined with the advisory-lock mutex, multi-node deployments are safe.

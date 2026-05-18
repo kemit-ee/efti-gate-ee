@@ -6,9 +6,29 @@
 **I WANT** secure authentication mechanisms (TARA, JWT, mTLS)  
 **SO THAT** only authorized parties can access the gate
 
-**Reference:** [Permissions Matrix](../specs/permissions-matrix.md) — Authentication flow and authorization checks
+## Spec anchors
 
-**Authentication channels at a glance:**
+| Contract surface | Reference |
+|---|---|
+| **API operations** | `POST /api/v1/auth/logout` |
+| | `POST /api/v1/auth/local-token` (default-disabled break-glass) |
+| | `POST /api/v1/users/{userId}/revoke-token` |
+| | `POST /services/fast` (gate-to-gate fast protocol, mTLS) |
+| | Full request / response / error shapes: [`openapi.yaml`](../specs/openapi.yaml) |
+| **Schema** | `users` (`tara_sub`, `secret_hash` for break-glass only, `token_revoked_at`) |
+| | `sessions` (JWT denylist: `jti`, `revoked_at`, `reason`) |
+| | Full schema: [`db/schema.sql`](../specs/db/schema.sql) |
+| **Error codes** | `TOKEN_INVALID` |
+| | `FORBIDDEN_NO_PLATFORM` |
+| | `FORBIDDEN_MULTI_PLATFORM` |
+| | Full catalog: [`errors.json`](../specs/errors.json) |
+| **Access-check rules** | Credential routing + JWT validation pipeline: [`permissions-matrix.md`](../specs/permissions-matrix.md) §1.1, §8.1 |
+| **Environment** | `TARA_OIDC_DISCOVERY_URL`, `TARA_CLIENT_ID`, `TARA_CLIENT_SECRET`, `TARA_JWKS_CACHE_SECONDS`, `ARCHIVE_OPS_TOKEN`, `LOCAL_ADMIN_FALLBACK_ENABLED`, `BREAK_GLASS_JWT_SIGNING_KEY`, `BREAK_GLASS_JWT_TTL_SECONDS` — see [`non-functional.md`](../specs/non-functional.md) §4.1 |
+| **Diagrams** | [`seq-12-user-authentication.mmd`](../specs/diagrams/seq-12-user-authentication.mmd) |
+| | [`seq-16-mtls-fast-protocol.mmd`](../specs/diagrams/seq-16-mtls-fast-protocol.mmd) |
+| | [`flow-02-authorization-check.mmd`](../specs/diagrams/flow-02-authorization-check.mmd) |
+
+## Authentication channels at a glance
 
 ```mermaid
 flowchart TD
@@ -25,81 +45,60 @@ flowchart TD
     BG --> Resource
 ```
 
-The gate is a **stateless OAuth 2.0 Resource Server** for Authority and Admin traffic — there is no server-side admin session and no `session_id` cookie; the JWT is the session. The `sessions` table is repurposed as a JWT denylist (per-token revocation) and `users.token_revoked_at` carries the per-user broadcast revocation marker.
+The gate is a **stateless OAuth 2.0 Resource Server** for Authority and Admin traffic — there is no server-side admin session and no `session_id` cookie; the JWT *is* the session. The `sessions` table is a JWT denylist (per-token revocation), and `users.token_revoked_at` carries the per-user broadcast revocation marker.
 
-See `seq-12-user-authentication.mmd` and `seq-16-mtls-fast-protocol.mmd` for full detail.
+## Acceptance Criteria
 
-#### Acceptance Criteria
+### Admin UI authentication (TARA OIDC → JWT, gate is Resource Server)
 
-##### Admin UI authentication (TARA OIDC → JWT, gate is Resource Server)
+**Business rules:**
+- [ ] The TARA OIDC code-exchange happens in the admin browser (or a thin client-side login helper), not in the gate. The gate validates JWTs but never exchanges codes itself.
+- [ ] No server-side admin session, no `session_id` cookie. The JWT is the session.
+- [ ] The `sessions` table is a JWT denylist (`jti`, `revoked_at`, `reason`) — **not** a session store.
+- [ ] Multi-node deployment requires no session affinity: any node can validate any TARA JWT against the cached JWKS + the denylist.
 
-The gate is a **stateless OAuth 2.0 Resource Server**. The TARA OIDC code-exchange happens in the admin browser (or in a thin client-side login helper) and yields an ID Token / Access Token; the UI then attaches that JWT as `Authorization: Bearer <token>` on every subsequent request. The gate does not maintain server-side admin sessions.
+**Denial scenarios:**
+- [ ] JWT signature invalid.
+- [ ] `iss` claim does not match the configured TARA issuer.
+- [ ] `aud` claim does not match the gate's TARA `client_id`.
+- [ ] `exp` is in the past.
+- [ ] `jti` is in the `sessions` denylist.
+- [ ] `sub` does not resolve to any active `users` row.
 
-**Happy path:**
-- [ ] Admin opens UI; the UI's TARA login flow yields an ID Token (RS256 JWT, claims `iss`, `aud`, `exp`, `sub` = Estonian PIC, `jti`).
-- [ ] UI calls gate APIs with `Authorization: Bearer <TARA-JWT>`. Gate validates signature against cached TARA JWKS; checks `sessions` denylist (`SELECT 1 FROM sessions WHERE jti = $1 AND expires_at > NOW()`); resolves `users` row by `tara_sub = jwt.sub`.
-- [ ] No `session_id` cookie. No DB-side admin-session store. The gate-side `sessions` table is a **JWT denylist** (`jti, revoked_at, reason`), not a session table.
-- [ ] Multi-node deployment requires no session affinity (the JWT is the session).
+### Authority and Platform API authentication
 
-**Edge cases:**
-- [ ] JWT signature invalid → `401 TOKEN_INVALID`.
-- [ ] `iss` not the configured TARA → `401 TOKEN_INVALID`.
-- [ ] `aud` not the gate's TARA `client_id` → `401 TOKEN_INVALID`.
-- [ ] `exp` past → `401 TOKEN_INVALID`.
-- [ ] `jti` in `sessions` denylist (admin or self revocation) → `401 TOKEN_INVALID` with `detail: "token revoked"`.
-- [ ] JWT `sub` does not resolve to any active `users` row → `401 TOKEN_INVALID` with `detail: "no provisioned user"`.
+**Business rules:**
+- [ ] An authority/admin user must be provisioned via `POST /api/v1/users` (carrying their `taraSub`) before they can authenticate. The gate does not auto-provision on first inbound JWT — it rejects.
+- [ ] Authority/Admin → TARA JWT (validated as above).
+- [ ] Platform → mTLS only; the cert subject DN + serial must resolve to exactly one active `platforms` row.
 
-**Error handling:**
-- [ ] Logout: `POST /api/v1/auth/logout` writes `(jti, revoked_at, reason='logout')` to `sessions`; subsequent calls with the same JWT are rejected.
-- [ ] Admin revoke: `POST /api/v1/users/{userId}/revoke-token` writes the same denylist row but with `reason='admin_revoke'`.
-- [ ] Break-glass: `POST /api/v1/auth/local-token` issues a gate-signed JWT (RS256, hardcoded 600 s TTL) verified against the bcrypt local-admin row; default-disabled (`LOCAL_ADMIN_FALLBACK_ENABLED=false`).
+**Denial scenarios** (in addition to the JWT-validation ones above):
+- [ ] Platform mTLS cert subject + serial resolves to >1 active `platforms` row (operator misconfiguration).
 
-**Technical constraints:**
-- [ ] `TARA_OIDC_DISCOVERY_URL`, `TARA_CLIENT_ID`, `TARA_CLIENT_SECRET` (UI-side, optional for the gate's RS role), `TARA_JWKS_CACHE_SECONDS`, `ARCHIVE_OPS_TOKEN`, `LOCAL_ADMIN_FALLBACK_ENABLED`, `BREAK_GLASS_JWT_SIGNING_KEY`, `BREAK_GLASS_JWT_TTL_SECONDS` per `non-functional.md` §4.1.
-- [ ] JWT validation library: JJWT or Nimbus JOSE+JWT (operator's choice; both protocol-compatible).
-- [ ] No mandate on Spring Security; the contract is "validate as OAuth 2.0 Resource Server with the named claims".
+### Gate-to-gate fast protocol
 
-**Technical artifacts:**
-- [ ] OpenAPI: `POST /api/v1/auth/logout`, `POST /api/v1/auth/local-token` (default-disabled), `POST /api/v1/users/{userId}/revoke-token`.
-- [ ] Diagram: `seq-12-user-authentication.mmd`, `flow-02-authorization-check.mmd`.
+**Business rules:**
+- [ ] `POST /services/fast` is **mTLS-only**. There is no `X-API-Key` fallback.
+- [ ] The presenting gate's certificate must chain to a trusted CA (EU Trust Service trust list); OCSP / CRL revocation checks **fail closed**.
 
-##### Platform/Authority API authentication
+**Denial scenarios:**
+- [ ] Certificate from an unknown CA → TLS handshake fails; logged at WARN with caller IP.
+- [ ] Revoked certificate (OCSP / CRL) → connection refused; logged.
+- [ ] `X-API-Key` header presented in lieu of mTLS → unauthenticated; the header is never honoured.
 
-**Happy path:**
-- [ ] Admin provisions an authority/admin user via `POST /api/v1/users` carrying `taraSub` → `201 Created`. No token is issued — TARA owns auth.
-- [ ] Authority / admin calls API with `Authorization: Bearer <TARA-JWT>` → gate validates signature against TARA JWKS, `iss`, `aud`, `exp`, denylist; resolves `users` row by `tara_sub = jwt.sub`; `200 OK` if active and required role present.
-- [ ] Platform calls API with **mTLS** — reverse proxy forwards `X-Client-Cert-Subject` / `X-Client-Cert-Serial`; gate resolves `platforms` row → `200 OK`.
+## Authentication contract
 
-**Edge cases:**
-- [ ] JWT issued by an issuer other than the configured TARA (`iss` mismatch) → `401 TOKEN_INVALID`.
-- [ ] JWT subject does not resolve to any active `users` row → `401 TOKEN_INVALID` with `"detail": "no provisioned user"`.
-- [ ] Platform's mTLS cert subject DN + serial resolves to >1 active `platforms` row (config error) → `403 FORBIDDEN_MULTI_PLATFORM`.
+- [ ] JWT signing: **RS256**. The break-glass JWT signing key is loaded from a runtime secret (K8s Secret / vault) — never baked into the container image.
+- [ ] JWT validation: any RS256-capable JWT library satisfies the contract (the spec doesn't mandate a specific implementation). Validate as an OAuth 2.0 Resource Server with the named claims; clock-skew tolerance ±60 s per [`non-functional.md`](../specs/non-functional.md) §4.
+- [ ] Denylist TTL: a `sessions` row remains effective until the underlying token's `exp`; expired entries can be archived per the standard append-only retention.
+- [ ] mTLS certificates (Platform-API and AS4 access point) loaded from runtime secret at startup — never in the container image.
 
-**Error handling:**
-- [ ] Compromised token: `POST /api/v1/users/:userId/revoke-token` → JWT `jti` added to `sessions` denylist; subsequent requests with that JWT → `401 TOKEN_INVALID`.
+## Revocation contract
 
-**Technical constraints:**
-- [ ] Signing: RS256; gate private key loaded from K8s Secret at startup — never in container image
-- [ ] Token blacklist TTL = token `exp`; cleaned up automatically
+- [ ] **Logout** (`POST /api/v1/auth/logout`): inserts `(jti, revoked_at, reason='logout')` into `sessions`. Subsequent calls with the same JWT → unauthenticated.
+- [ ] **Admin revoke** (`POST /api/v1/users/{userId}/revoke-token`): inserts a new `users` row with `token_revoked_at = NOW()`. Append-only: the previous row is unchanged. Every previously issued JWT for that user becomes invalid on the next request (compared against `jwt.iat`).
+- [ ] **Break-glass** (`POST /api/v1/auth/local-token`): default-disabled (`LOCAL_ADMIN_FALLBACK_ENABLED=false`). When enabled, validates against the single bcrypt local-admin row in `users.secret_hash` and issues a gate-signed JWT with hard-coded 600 s TTL (`BREAK_GLASS_JWT_TTL_SECONDS`). The issued JWT then follows the same validation pipeline as a TARA JWT (`tara_sub='local-admin'` resolves the local-admin row).
 
-**Technical artifacts:**
-- [ ] Diagram: `seq-12-user-authentication.mmd`
+## Rationale
 
-##### Gate-to-gate fast protocol
-
-**Happy path:**
-- [ ] eFTI Gate A calls `POST /services/fast` on eFTI Gate B with mTLS client certificate; eFTI Gate B verifies against trusted CA → `200 OK`
-
-**Edge cases:**
-- [ ] eFTI Gate A presents certificate from unknown CA → TLS handshake fails; event logged WARN with eFTI Gate A IP
-- [ ] eFTI Gate A presents revoked certificate (OCSP check fails) → connection refused; event logged
-
-**Error handling:**
-- [ ] `X-API-Key` header only (no mTLS) → `401 Unauthorized`; `X-API-Key` not accepted as authentication
-
-**Technical constraints:**
-- [ ] mTLS certificates loaded from K8s Secret at runtime — no certificates in container image
-- [ ] `X-API-Key` removed from `/services/fast` endpoint entirely
-
-**Technical artifacts:**
-- [ ] Diagram: [`../specs/diagrams/seq-16-mtls-fast-protocol.mmd`](../specs/diagrams/seq-16-mtls-fast-protocol.mmd)
+Authentication is federated for Authority/Admin (TARA owns identity + expiry), cert-based for Platform (mTLS), and pinned-by-token for CronManager (`ARCHIVE_OPS_TOKEN`). The gate maintains no admin session state; it validates each request's bearer token against TARA's JWKS + the `sessions` denylist + the `users` row's `token_revoked_at`. Break-glass exists for total TARA outage and is default-disabled.
