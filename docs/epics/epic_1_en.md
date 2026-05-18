@@ -6,9 +6,17 @@
 **I WANT** role-based access control with resource-level filtering  
 **SO THAT** each user can only see and manage the resources they are permitted to access
 
-**Reference:** [Permissions Matrix](../specs/permissions-matrix.md) — Complete authorization model and role-based access control specification
+## Spec anchors
 
-**Authorisation at a glance:**
+| Contract surface | Reference |
+|---|---|
+| **API operations** | `POST/GET/PUT/DELETE /api/v1/users[/{userId}]`, `POST /api/v1/users/{userId}/revoke-token`, `POST /api/v1/auth/logout`, `POST /api/v1/auth/local-token` — full request / response / error shapes in [`openapi.yaml`](../specs/openapi.yaml). |
+| **Schema** | `users` (`tara_sub`, `roles JSONB` restricted to `AUTHORITY` / `ADMIN`, `subsets TEXT[]`, `secret_hash TEXT NULL`, `token_revoked_at TIMESTAMPTZ`), `sessions` (JWT denylist) — see [`db/schema.sql`](../specs/db/schema.sql). Partial index `(tara_sub, created_at DESC) WHERE tara_sub IS NOT NULL`. |
+| **Error codes** | `TOKEN_INVALID`, `FORBIDDEN`, `FORBIDDEN_SUBSET`, `FORBIDDEN_WRITE_ACCESS`, `FORBIDDEN_NO_PLATFORM`, `FORBIDDEN_MULTI_PLATFORM`, `BAD_REQUEST_GENERAL` — see [`errors.json`](../specs/errors.json). |
+| **Access-check rules** | Full path × role × subset matrix in [`permissions-matrix.md`](../specs/permissions-matrix.md). |
+| **Auth flow** | [`flow-02-authorization-check.mmd`](../specs/diagrams/flow-02-authorization-check.mmd) (full decision tree). |
+
+## Authorisation at a glance
 
 ```mermaid
 flowchart TD
@@ -30,62 +38,56 @@ flowchart TD
     OPS -- match --> Allow
 ```
 
-See `flow-02-authorization-check.mmd` for the full decision tree.
+## Acceptance Criteria
 
-#### Acceptance Criteria
+### Role management
 
-##### Role management
+**Business rules:**
+- [ ] A new user inherits **only** the creator's roles. Exception: the Super Admin role can be granted only by an existing Super Admin.
+- [ ] Listing users: Super Admin sees all; regular admin sees only users whose roles intersect their own.
+- [ ] Deleting a user requires the target to be visible to the admin (same scope as listing).
+- [ ] A user may be assigned multiple roles, and multiple Party IDs (`scope-IDs`) under a single role.
+- [ ] An authority user's `subsets` must be a subset of the parent authority's `subsets`.
+- [ ] An admin cannot delete their own account.
+- [ ] `taraSub` is unique across **active** rows: creating a user with an already-active `taraSub` is rejected.
 
-**Happy path:**
-- [ ] `POST /api/v1/users` — admin creates user; new user receives only creator's roles (except Super Admin); response `201 Created` with user ID
-- [ ] `GET /api/v1/users` — Super Admin sees all users; regular admin sees only users within their own roles; response paginated (`limit`, `offset`, `X-Total-Count`)
-- [ ] `DELETE /api/v1/users/:userId` — admin deletes another user visible to them; response `204 No Content`
-- [ ] A user can be assigned multiple roles and multiple Party IDs under a single role
-- [ ] Creating authority user with `subsets` that are subset of Authority's `subsets` → `201 Created`
+**Audit:**
+- [ ] Every authorisation denial is logged with: caller user id, endpoint, denial reason, source IP, timestamp.
 
-**Edge cases:**
-- [ ] Admin attempts to assign Super Admin role → `403 Forbidden` with `"detail": "Super Admin role cannot be assigned by regular admin"`
-- [ ] Admin attempts to delete own account → `400 Bad Request` with `code: BAD_REQUEST_GENERAL`, `"detail": "Cannot delete your own account"`
-- [ ] Creating authority user with `subsets` not in Authority's allowed list → `400 Bad Request` with `"detail": "Subset 'EU04' not permitted for authority '<authorityEmail>'"`
-- [ ] `POST /api/v1/users` with `taraSub` already used by an active row → `409 Conflict`
+### Access control
 
-**Error handling:**
-- [ ] `POST /api/v1/users` with missing required field (e.g. no `roles`) → `400 Bad Request` RFC 7807 with field-level detail
-- [ ] All authorisation denials logged: user ID, endpoint, reason, IP address, timestamp
+**Path → role mapping** (canonical table in [`permissions-matrix.md`](../specs/permissions-matrix.md) §1; summary here):
 
-**Technical constraints:**
-- [ ] Primary auth is **TARA OIDC JWT** (Estonian state authentication broker). Validated as OAuth 2.0 Resource Server: RS256, JWKS from `TARA_OIDC_DISCOVERY_URL`, claims `iss`, `aud`, `exp`, `sub` (Estonian PIC); permission claims read from the resolved `users` row, not from JWT.
-- [ ] User `taraSub` (= JWT `sub` claim) is the auth identifier. Admin POST creates the row carrying `taraSub`; on first inbound JWT the gate has a row to bind to.
-- [ ] No gate-issued JWTs on the primary path; TARA owns expiry. The gate does NOT carry a `JWT_EXPIRY_SECONDS` configuration on the TARA path. Break-glass `/api/v1/auth/local-token` issues a gate-signed JWT with hardcoded 600 s TTL (`BREAK_GLASS_JWT_TTL_SECONDS`); default-disabled.
-- [ ] Bcrypt is used **only** on the single break-glass local-admin row in `users.secret_hash`. All other users have `secret_hash IS NULL`.
-- [ ] Revocation: JWT `jti` written to `sessions` denylist by `POST /api/v1/auth/logout` or `POST /api/v1/users/{userId}/revoke-token`; the access-check layer rejects any JWT whose `jti` is in the denylist AND whose `exp` is still in the future.
+- [ ] `/api/v1/...` (Admin API) — caller's resolved `users.roles` must contain `ADMIN`.
+- [ ] `/v1/identifiers/{identifier}`, `/v1/dataset/...`, `/v1/follow-up/{gateId}/...` (Authority API) — caller's resolved `users.roles` must contain `AUTHORITY`.
+- [ ] `/v1/identifiers/{datasetId}` and the other Platform-API routes — mTLS-only; the cert subject DN + serial must resolve to exactly one active `platforms` row.
+- [ ] Admin write operations check **both** that the caller has `ADMIN` AND that the target entity id is in the caller's `users.roles[ADMIN]` scope-IDs.
 
-**Technical artifacts:**
-- [ ] OpenAPI: `POST /api/v1/users`, `GET /api/v1/users`, `GET /api/v1/users/{userId}`, `PUT /api/v1/users/{userId}`, `DELETE /api/v1/users/{userId}`, `POST /api/v1/users/{userId}/revoke-token`
-- [ ] DB schema: `users` table with `tara_sub TEXT`, `roles JSONB` (only `AUTHORITY` and `ADMIN` keys), `subsets TEXT[]`, `secret_hash TEXT NULL`; partial index `(tara_sub, created_at DESC) WHERE tara_sub IS NOT NULL`.
+**Denial scenarios** (status codes and `efti.error.code` values in [`errors.json`](../specs/errors.json)):
 
-##### Access control
+- [ ] Authority-role JWT calling an Admin endpoint.
+- [ ] Missing `Authorization` header on a JWT-protected route.
+- [ ] Expired JWT (TARA-side `exp` past).
+- [ ] Tampered JWT signature — no internal detail leaked to the caller.
+- [ ] JWT `sub` does not resolve to any active `users` row — caller must be provisioned by an admin first.
+- [ ] JWT `jti` is in the `sessions` denylist (per-token revocation).
+- [ ] `jwt.iat` predates the resolved user's `users.token_revoked_at` (per-user broadcast revocation).
+- [ ] Platform mTLS cert subject + serial resolve to 0 active rows.
+- [ ] Platform mTLS cert subject + serial resolve to >1 active row (operator misconfiguration).
 
-**Happy path:**
-- [ ] `/api/v1/...` endpoints accessible only to JWTs whose resolved `users` row has `roles ∋ ADMIN` → `200 OK`
-- [ ] `/v1/identifiers/{identifier}`, `/v1/dataset/...`, `/v1/follow-up/...` accessible only to JWTs whose resolved `users` row has `roles ∋ AUTHORITY` → `200 OK`
-- [ ] `/v1/identifiers/{datasetId}` (and other `/v1/...` Platform endpoints) accessible only via mTLS where the cert subject DN + serial resolve to exactly one active `platforms` row → `200 OK`
-- [ ] Admin write checks both that the JWT user has `ADMIN` role AND that the target entity id is in `users.roles[ADMIN]` (`checkWriteAccess`)
+## Authentication contract
 
-**Edge cases:**
-- [ ] Authority-role JWT calls Admin endpoint → `403 FORBIDDEN`
-- [ ] Request without `Authorization` header on a JWT-protected route → `401 Unauthorized` RFC 7807
-- [ ] Expired JWT (TARA-side `exp` past) → `401 TOKEN_INVALID`
-- [ ] Tampered JWT signature → `401 TOKEN_INVALID` — no internal detail exposed
-- [ ] JWT `sub` does not resolve to any active `users` row → `401 TOKEN_INVALID` with `detail: "no provisioned user"`; admin must POST `/api/v1/users` first
-- [ ] JWT `jti` is in the `sessions` denylist → `401 TOKEN_INVALID` with `detail: "token has been revoked"` (per-token revocation, e.g. via `POST /api/v1/auth/logout`)
-- [ ] `jwt.iat` predates the resolved user's `users.token_revoked_at` → `401 TOKEN_INVALID` with `detail: "token has been revoked"` (per-user broadcast revocation, e.g. via `POST /api/v1/users/{userId}/revoke-token`)
-- [ ] Platform mTLS cert presented but cert subject + serial resolve to 0 active `platforms` rows → `403 FORBIDDEN_NO_PLATFORM`
-- [ ] Platform mTLS cert subject + serial resolve to >1 active `platforms` row (config error) → `403 FORBIDDEN_MULTI_PLATFORM`
+- [ ] Primary authentication is **TARA OIDC JWT** (Estonian state authentication broker), validated as an OAuth 2.0 Resource Server: RS256, JWKS fetched from `TARA_OIDC_DISCOVERY_URL`, claims checked: `iss`, `aud`, `exp`, `sub` (Estonian PIC). **Permission claims come from the resolved `users` row, not from the JWT** — the gate's authorisation snapshot can change after the token was minted.
+- [ ] `users.tara_sub` (= JWT `sub`) is the auth identifier. An admin `POST` creates the row first; the gate has a row to bind to on the user's first inbound JWT.
+- [ ] No gate-issued JWTs on the primary (TARA) path; TARA owns expiry. The gate carries no `JWT_EXPIRY_SECONDS` setting on the TARA path. The break-glass endpoint `POST /api/v1/auth/local-token` issues a gate-signed JWT with a hard-coded 600 s TTL (`BREAK_GLASS_JWT_TTL_SECONDS`); default-disabled.
+- [ ] Bcrypt is used **only** on the single break-glass local-admin row's `users.secret_hash`. All other users have `secret_hash IS NULL`.
 
-**Break-glass and revocation contract:**
-- [ ] The break-glass local-admin row in `users` carries the reserved literal `tara_sub='local-admin'` (lower-case; never collides with a PIC). The break-glass JWT issued by `POST /api/v1/auth/local-token` carries `sub='local-admin'` so the gate's `tara_sub` lookup is uniform across TARA and break-glass paths.
+## Break-glass and revocation contract
+
+- [ ] The break-glass local-admin row in `users` carries the reserved literal `tara_sub='local-admin'` (lower-case; never collides with a PIC). The break-glass JWT issued by `POST /api/v1/auth/local-token` carries `sub='local-admin'`, so the gate's `tara_sub` lookup is uniform across TARA and break-glass paths.
 - [ ] `POST /api/v1/auth/logout` revokes one specific JWT by appending its `jti` to the `sessions` denylist; idempotent.
-- [ ] `POST /api/v1/users/{userId}/revoke-token` revokes every currently-issued JWT for that user by appending a new `users` row carrying `token_revoked_at = NOW()`. Append-only: the previous row is unchanged. The next request from that user requires re-authentication via TARA (or break-glass).
+- [ ] `POST /api/v1/users/{userId}/revoke-token` revokes every currently-issued JWT for that user by appending a new `users` row carrying `token_revoked_at = NOW()`. Append-only: the previous row is unchanged. The user's next request requires re-authentication via TARA (or break-glass).
 
-**Rationale:** Identity comes from the cert (Platform), the TARA `sub` claim resolved against `users.tara_sub` (Authority / Admin / break-glass), or the static ops token (CronManager). Authorisation comes from the resolved DB row (`platforms.id` for Platform; `users.roles` / `users.subsets` for Authority / Admin); never from the JWT directly, because the gate's authorisation snapshot can change after the JWT was minted.
+## Rationale
+
+Identity comes from the cert (Platform), the TARA `sub` claim resolved against `users.tara_sub` (Authority / Admin / break-glass), or the static ops token (CronManager). Authorisation comes from the resolved DB row (`platforms.id` for Platform; `users.roles` / `users.subsets` for Authority / Admin) — never from the JWT directly, because the gate's authorisation snapshot can change after the JWT was minted.
