@@ -31,7 +31,7 @@ info:
     All errors return RFC 7807 `application/problem+json`. The required fields are `type`, `code`, `title`, `status`, `detail`, `instance` — `code` is bound to the catalog at `errors.json` (currently 36 codes). The `retryable` field in `errors.json` is a documentation hint for clients; it is never written to the wire.
   contact:
     name: KeMIT / MKM
-    email: efti@mkm.ee
+    email: efti@example.com
     url: https://github.com/kemit-ee/efti-gate
   license:
     name: Apache-2.0
@@ -506,8 +506,8 @@ paths:
                   $ref: '#/components/schemas/ConsignmentIdentifier'
               example:
                 - uil:
-                    gateId: "eu-ee31"
-                    platformId: "plt-demo-123"
+                    gateId: "eu-xx01"
+                    platformId: "plt-xxx-001"
                     datasetId: "550e8400-e29b-41d4-a716-446655440001"
                   mainCarriageTransportMovement:
                     - modeCode: "3"
@@ -524,17 +524,17 @@ paths:
                   summary: Broadcast search result across 3 gates (1 timeout)
                   value: |
                     event: gate
-                    data: {"gateId":"eu-ee31","responseTimeMs":5}
+                    data: {"gateId":"eu-xx01","responseTimeMs":5}
 
                     event: consignment
-                    id: https://eu-ee31.efti.ee/https://plt-demo-123.ee/550e8400-e29b-41d4-a716-446655440001
-                    data: {"gateId":"eu-ee31","platformId":"plt-demo-123","datasetId":"550e8400-e29b-41d4-a716-446655440001","vehicle":{"plate":"123ABC","country":"EE"},"mode":"3","dangerousGoods":true}
+                    id: https://eu-xx01.efti.ee/https://plt-xxx-001.ee/550e8400-e29b-41d4-a716-446655440001
+                    data: {"gateId":"eu-xx01","platformId":"plt-xxx-001","datasetId":"550e8400-e29b-41d4-a716-446655440001","vehicle":{"plate":"123ABC","country":"EE"},"mode":"3","dangerousGoods":true}
 
                     event: gate
-                    data: {"gateId":"eu-fi01","responseTimeMs":42}
+                    data: {"gateId":"eu-zz01","responseTimeMs":42}
 
                     event: gate
-                    data: {"gateId":"eu-de01","failure":"Connection timeout after 30s"}
+                    data: {"gateId":"eu-yy01","failure":"Connection timeout after 30s"}
 
                     event: complete
         '400':
@@ -574,14 +574,14 @@ paths:
           schema:
             type: string
             pattern: '^eu-[a-z]{2}[0-9]{2}$'
-            example: "eu-ee31"
+            example: "eu-xx01"
         - name: platformId
           in: path
           required: true
           description: Platform identifier
           schema:
             type: string
-            example: "plt-demo-123"
+            example: "plt-xxx-001"
         - name: datasetId
           in: path
           required: true
@@ -620,8 +620,8 @@ paths:
                 <consignment xmlns="http://efti.eu/v1/consignment/identifier"
                              xmlns:edelivery="http://efti.eu/v1/edelivery">
                   <edelivery:UIL>
-                    <edelivery:gateId>eu-ee31</edelivery:gateId>
-                    <edelivery:platformId>plt-demo-123</edelivery:platformId>
+                    <edelivery:gateId>eu-xx01</edelivery:gateId>
+                    <edelivery:platformId>plt-xxx-001</edelivery:platformId>
                     <edelivery:datasetId>550e8400-e29b-41d4-a716-446655440001</edelivery:datasetId>
                   </edelivery:UIL>
                   <mainCarriageTransportMovement>
@@ -671,13 +671,13 @@ paths:
           schema:
             type: string
             pattern: '^eu-[a-z]{2}[0-9]{2}$'
-            example: "eu-ee31"
+            example: "eu-xx01"
         - name: platformId
           in: path
           required: true
           schema:
             type: string
-            example: "plt-demo-123"
+            example: "plt-xxx-001"
         - name: datasetId
           in: path
           required: true
@@ -750,14 +750,14 @@ paths:
                 items:
                   $ref: '#/components/schemas/Gate'
               example:
-                - id: "eu-ee31"
+                - id: "eu-xx01"
                   countryCode: "EE"
-                  eDeliveryUrl: "https://eu-ee31.eftisandbox.eu/services/msh"
+                  eDeliveryUrl: "https://efti.example.com/services/msh"
                   status: "ONLINE"
                   createdAt: "2025-01-15T09:00:00Z"
-                - id: "eu-fi01"
+                - id: "eu-zz01"
                   countryCode: "FI"
-                  eDeliveryUrl: "https://efti.traficom.fi/services/msh"
+                  eDeliveryUrl: "https://efti-peer.example.com/services/msh"
                   status: "ONLINE"
                   createdAt: "2025-02-01T10:00:00Z"
         '401':
@@ -783,9 +783,9 @@ paths:
             schema:
               $ref: '#/components/schemas/GateWrite'
             example:
-              id: "eu-de01"
+              id: "eu-yy01"
               countryCode: "DE"
-              eDeliveryUrl: "https://efti.bast.de/services/msh"
+              eDeliveryUrl: "https://efti-peer.example.com/services/msh"
               eDeliveryCert: "-----BEGIN CERTIFICATE-----\nMIIC...-----END CERTIFICATE-----"
               status: "ONLINE"
       responses:
@@ -961,8 +961,8 @@ paths:
                 items:
                   $ref: '#/components/schemas/Platform'
               example:
-                - id: "plt-demo-123"
-                  baseUrl: "https://demo-platform.eu-ee31.eftisandbox.eu/v1"
+                - id: "plt-xxx-001"
+                  baseUrl: "https://platform.example.com/v1"
                   supportsSubsetting: true
                   createdAt: "2025-01-15T09:00:00Z"
         '401':
@@ -985,7 +985,7 @@ paths:
             schema:
               $ref: '#/components/schemas/PlatformWrite'
             example:
-              id: "plt-cargo-ee"
+              id: "plt-yyy-001-ee"
               baseUrl: "https://api.cargo-ee.com/efti/v1"
               supportsSubsetting: true
               headers:
@@ -1286,13 +1286,13 @@ paths:
           required: false
           schema:
             type: string
-            example: "eu-ee31"
+            example: "eu-xx01"
         - name: platformId
           in: query
           required: false
           schema:
             type: string
-            example: "plt-demo-123"
+            example: "plt-xxx-001"
         - name: authorityId
           in: query
           required: false
@@ -1346,21 +1346,21 @@ paths:
               authorityUser:
                 summary: Authority user with subset restrictions
                 value:
-                  taraSub: "EE39003101122"
+                  taraSub: "EE00000000000"
                   name: "MTA Inspector"
-                  email: "inspector@mta.ee"
+                  email: "inspector@example.com"
                   roles:
                     AUTHORITY: ["auth-mta"]
                   subsets: ["EU01", "EU02"]
               gateAdminUser:
                 summary: Gate-scoped admin
                 value:
-                  taraSub: "EE38001011234"
+                  taraSub: "EE00000000000"
                   name: "Gate Admin (Estonia)"
-                  email: "admin@kemit.ee"
+                  email: "admin@example.com"
                   isAdmin: true
                   roles:
-                    ADMIN: ["eu-ee31"]
+                    ADMIN: ["eu-xx01"]
       responses:
         '201':
           description: User created
@@ -1557,7 +1557,7 @@ paths:
           required: false
           schema:
             type: string
-            example: "plt-demo-123"
+            example: "plt-xxx-001"
         - name: mode
           in: query
           required: false
@@ -1646,7 +1646,7 @@ paths:
           description: Specific resource identifier (matches `audit_log.resource_id`)
           schema:
             type: string
-            example: "eu-ee31"
+            example: "eu-xx01"
         - name: userId
           in: query
           required: false
@@ -1693,7 +1693,7 @@ paths:
                   resourceId: "platform-acme-001"
                   ipAddress: "203.0.113.45"
                   details:
-                    name: "Acme Logistics"
+                    name: "Example Logistics"
                     subsets: ["EU01", "EU02"]
                   recordedAt: "2026-04-22T10:20:35Z"
         '401':
@@ -2118,7 +2118,7 @@ components:
       schema:
         type: string
         pattern: '^eu-[a-z]{2}[0-9]{2}$'
-        example: "eu-ee31"
+        example: "eu-xx01"
 
     PlatformIdPath:
       name: platformId
@@ -2127,7 +2127,7 @@ components:
       description: Platform identifier
       schema:
         type: string
-        example: "plt-demo-123"
+        example: "plt-xxx-001"
 
     AuthorityIdPath:
       name: authorityId
@@ -2226,7 +2226,7 @@ components:
             title: "Bad Request"
             status: 400
             detail: "Query parameter 'subsetId' is required and must have at least 1 value"
-            instance: "/v1/dataset/eu-ee31/plt-demo-123/550e8400-e29b-41d4-a716-446655440001"
+            instance: "/v1/dataset/eu-xx01/plt-xxx-001/550e8400-e29b-41d4-a716-446655440001"
             requestId: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
 
     Unauthorized:
@@ -2255,7 +2255,7 @@ components:
             title: "Forbidden"
             status: 403
             detail: "Authority 'auth-mta' is not permitted to access subset 'EU06'"
-            instance: "/v1/dataset/eu-ee31/plt-demo-123/550e8400-e29b-41d4-a716-446655440001"
+            instance: "/v1/dataset/eu-xx01/plt-xxx-001/550e8400-e29b-41d4-a716-446655440001"
 
     NotFound:
       description: Not Found — resource does not exist
@@ -2331,8 +2331,8 @@ components:
             code: GATEWAY_UNAVAILABLE
             title: "Bad Gateway"
             status: 502
-            detail: "Gate 'eu-de01' is not reachable via eDelivery AS4"
-            instance: "/v1/dataset/eu-de01/plt-cargo/550e8400-e29b-41d4-a716-446655440001"
+            detail: "Gate 'eu-yy01' is not reachable via eDelivery AS4"
+            instance: "/v1/dataset/eu-yy01/plt-yyy-001/550e8400-e29b-41d4-a716-446655440001"
 
     GatewayTimeout:
       description: Gateway Timeout — upstream gate or platform did not respond in time
@@ -2345,8 +2345,8 @@ components:
             code: PLATFORM_TIMEOUT
             title: "Gateway Timeout"
             status: 504
-            detail: "Platform 'plt-demo-123' did not respond within 30 seconds"
-            instance: "/v1/dataset/eu-ee31/plt-demo-123/550e8400-e29b-41d4-a716-446655440001"
+            detail: "Platform 'plt-xxx-001' did not respond within 30 seconds"
+            instance: "/v1/dataset/eu-xx01/plt-xxx-001/550e8400-e29b-41d4-a716-446655440001"
 
     ServiceUnavailable:
       description: Service Unavailable — application is starting up or undergoing maintenance
@@ -2606,8 +2606,8 @@ components:
               example: "102"
       example:
         uil:
-          gateId: "eu-ee31"
-          platformId: "plt-demo-123"
+          gateId: "eu-xx01"
+          platformId: "plt-xxx-001"
           datasetId: "550e8400-e29b-41d4-a716-446655440001"
         mainCarriageTransportMovement:
           - modeCode: "3"
@@ -2668,11 +2668,11 @@ components:
           type: string
           pattern: '^eu-[a-z]{2}[0-9]{2}$'
           description: Gate that holds the consignment data
-          example: "eu-ee31"
+          example: "eu-xx01"
         platformId:
           type: string
           description: Platform that owns the dataset
-          example: "plt-demo-123"
+          example: "plt-xxx-001"
         datasetId:
           type: string
           format: uuid
@@ -2722,10 +2722,10 @@ components:
           example: "550e8400-e29b-41d4-a716-446655440001"
         platformId:
           type: string
-          example: "plt-demo-123"
+          example: "plt-xxx-001"
         gateId:
           type: string
-          example: "eu-ee31"
+          example: "eu-xx01"
         mode:
           $ref: '#/components/schemas/TransportMode'
         dangerousGoods:
@@ -2758,7 +2758,7 @@ components:
         id:
           type: string
           pattern: '^eu-[a-z]{2}[0-9]{2}$'
-          example: "eu-ee31"
+          example: "eu-xx01"
         countryCode:
           type: string
           pattern: '^[A-Z]{2}$'
@@ -2768,7 +2768,7 @@ components:
           format: uri
           pattern: '^https://'
           description: AS4 access-point URL for inbound G2G messages. **HTTPS only** — plain `http://` is rejected at registration.
-          example: "https://eu-ee31.eftisandbox.eu/services/msh"
+          example: "https://efti.example.com/services/msh"
         eDeliveryCert:
           type: string
           description: X.509 certificate PEM (eDelivery AS4 signature verification)
@@ -2800,7 +2800,7 @@ components:
         id:
           type: string
           pattern: '^eu-[a-z]{2}[0-9]{2}$'
-          example: "eu-de01"
+          example: "eu-yy01"
         countryCode:
           type: string
           pattern: '^[A-Z]{2}$'
@@ -2810,7 +2810,7 @@ components:
           format: uri
           pattern: '^https://'
           description: AS4 access-point URL. HTTPS only.
-          example: "https://efti.bast.de/services/msh"
+          example: "https://efti-peer.example.com/services/msh"
         eDeliveryCert:
           type: string
           example: "-----BEGIN CERTIFICATE-----\nMIIC...-----END CERTIFICATE-----"
@@ -2834,12 +2834,12 @@ components:
       properties:
         id:
           type: string
-          example: "plt-demo-123"
+          example: "plt-xxx-001"
         baseUrl:
           type: string
           format: uri
           description: REST API base URL for dataset queries
-          example: "https://demo-platform.eu-ee31.eftisandbox.eu/v1"
+          example: "https://platform.example.com/v1"
         supportsSubsetting:
           type: boolean
           description: If false, gate applies XSLT subsetting on behalf of the platform
@@ -2855,7 +2855,7 @@ components:
           type: string
           nullable: true
           description: Subject DN of the platform's eDelivery AP cert (used by inbound mTLS lookup).
-          example: "CN=eDelivery-Platform, O=Acme Logistics OÜ, C=EE"
+          example: "CN=eDelivery-Platform, O=Example Logistics OÜ, C=EE"
         certSerial:
           type: string
           nullable: true
@@ -2882,7 +2882,7 @@ components:
       properties:
         id:
           type: string
-          example: "plt-cargo-ee"
+          example: "plt-yyy-001-ee"
         baseUrl:
           type: string
           format: uri
@@ -2912,7 +2912,7 @@ components:
             `(certSubject, certSerial)` to resolve the platform identity. Required
             in production — without this, no Platform-API request from this
             platform can authenticate.
-          example: "CN=eDelivery-Platform, O=Cargo Logistics OÜ, C=EE"
+          example: "CN=eDelivery-Platform, O=Example Logistics OÜ, C=EE"
         certSerial:
           type: string
           nullable: true
@@ -2999,7 +2999,7 @@ components:
             local-admin row this is the reserved literal `local-admin` (lower-case;
             never collides with a PIC). Always non-null — the resolution path is
             uniform across TARA and break-glass JWTs.
-          example: "EE39003101122"
+          example: "EE00000000000"
         name:
           type: string
           example: "MTA Inspector"
@@ -3007,7 +3007,7 @@ components:
           type: string
           format: email
           description: Display / contact email (NOT the auth identifier — `taraSub` is).
-          example: "inspector@mta.ee"
+          example: "inspector@example.com"
         tokenRevokedAt:
           type: string
           format: date-time
@@ -3069,14 +3069,14 @@ components:
           description: |
             The `sub` value the gate matches against on JWT validation. PIC for
             TARA users; literal `local-admin` for the break-glass row.
-          example: "EE39003101122"
+          example: "EE00000000000"
         name:
           type: string
           example: "MTA Inspector"
         email:
           type: string
           format: email
-          example: "inspector@mta.ee"
+          example: "inspector@example.com"
         isAdmin:
           type: boolean
           default: false
