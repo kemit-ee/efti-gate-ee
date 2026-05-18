@@ -6,17 +6,31 @@
 **I WANT** to retrieve the full dataset for a specific consignment and send a follow-up message to the platform  
 **SO THAT** I can fulfil my legal obligation in freight transport inspection
 
-**References:**
-- [DB Schema](../specs/db/README.md) — Database schema for dataset retrieval
-- [Permissions Matrix](../specs/permissions-matrix.md) — Subset access permissions
-- [Data Transformations](../specs/data-transformations.md) — XML→JSON marshalling, eDelivery AS4 wrapping, SSE streaming
-- [OpenAPI](../specs/openapi.yaml) — `GET /v1/dataset/{gateId}/{platformId}/{datasetId}` and `POST /v1/follow-up/...` contracts
-- [Errors](../specs/errors.json) — `CONSIGNMENT_NOT_FOUND`, `FORBIDDEN_SUBSET`, `GATEWAY_UNAVAILABLE`, `FOLLOW_UP_GATE_MISMATCH`
-- [RA §2.3 Data Subsets](../architecture/eFTI-Gate-Reference-Architecture.md#23-data-subsets) — Subset filtering — gate vs platform responsibility
-- [RA §5.2 Dataset Query](../architecture/eFTI-Gate-Reference-Architecture.md#52-dataset-query-request-full-data) — UIL-based dataset retrieval flow
-- [RA §5.3 Follow-Up](../architecture/eFTI-Gate-Reference-Architecture.md#53-follow-up-message) — Follow-up message flow
+## Spec anchors
 
-**Dataset retrieval at a glance:**
+| Contract surface | Reference |
+|---|---|
+| **API operations** | `GET /v1/dataset/{gateId}/{platformId}/{datasetId}` |
+| | `POST /v1/follow-up/{gateId}/{platformId}/{datasetId}/{datasetRequestId}` |
+| | Full request / response / error shapes: [`openapi.yaml`](../specs/openapi.yaml) |
+| **Schema** | `follow_up_log` (Art 6(2)(c) Reg 2024/1942 mandatory fields: follow-up id, AAP/requesting gate id, receipt timestamp) |
+| | Full schema: [`db/schema.sql`](../specs/db/schema.sql) |
+| **Data transformations** | XML→JSON marshalling, eDelivery AS4 wrapping, subset filtering, SSE streaming: [`data-transformations.md`](../specs/data-transformations.md) |
+| **Access-check rules** | Subset access + per-route role check: [`permissions-matrix.md`](../specs/permissions-matrix.md) |
+| **Error codes** | `CONSIGNMENT_NOT_FOUND` |
+| | `FORBIDDEN_SUBSET` |
+| | `GATEWAY_UNAVAILABLE` |
+| | `GATE_TIMEOUT` |
+| | `FOLLOW_UP_GATE_MISMATCH` |
+| | `BAD_REQUEST_GENERAL` |
+| | Full catalog: [`errors.json`](../specs/errors.json) |
+| **Architecture** | [RA §2.3 Data Subsets](../architecture/eFTI-Gate-Reference-Architecture.md#23-data-subsets) |
+| | [RA §5.2 Dataset Query](../architecture/eFTI-Gate-Reference-Architecture.md#52-dataset-query-request-full-data) |
+| | [RA §5.3 Follow-Up](../architecture/eFTI-Gate-Reference-Architecture.md#53-follow-up-message) |
+| **Diagrams** | [`seq-05-dataset-request.mmd`](../specs/diagrams/seq-05-dataset-request.mmd) |
+| | [`seq-06-dataset-request-denied.mmd`](../specs/diagrams/seq-06-dataset-request-denied.mmd) |
+
+## Dataset retrieval at a glance
 
 ```mermaid
 sequenceDiagram
@@ -39,64 +53,43 @@ sequenceDiagram
     Gate-->>Officer: 200 OK
 ```
 
-See `seq-05-dataset-request.mmd` and `seq-06-dataset-request-denied.mmd` for full detail.
+## Acceptance Criteria
 
-#### Acceptance Criteria
+### Dataset request
 
-##### Dataset request
+**Business rules:**
+- [ ] The request **must** carry at least one `subsetId` query parameter — without it the request is rejected.
+- [ ] Local routing: if the UIL's `gateId` matches this gate, forward to the platform client (REST).
+- [ ] Remote routing: if the UIL's `gateId` is a peer, forward via eDelivery AS4 `uilQuery` (or `/services/fast` for the mTLS fast variant).
+- [ ] The gate is **content-agnostic**: dataset XML is forwarded unchanged regardless of payload content. The gate never caches, parses business semantics from, or modifies the dataset body (subset filtering is the only exception — see below).
+- [ ] `X-Request-ID` from the caller is echoed back in the response.
+- [ ] Local dataset retrieval SLO: p95 < 5 s.
 
-**Happy path:**
-- [ ] `GET /v1/dataset/:gateId/:platformId/:datasetId` with ≥1 `subsetId` → JWT validated, subset permissions checked
-- [ ] Local request (own gate's platform): routes to platform client; returns `Content-Type: application/xml` unchanged
-- [ ] `X-Request-ID` echoed in response header
-- [ ] Local dataset retrieval response time < 5 seconds at p95
+**Denial scenarios:**
+- [ ] No `subsetId` parameter.
+- [ ] Caller's `users.subsets` does not include the requested `subsetId`.
+- [ ] Routed gate is `OFFLINE` (checked **before** the outbound request) — short-circuit `502`-class failure.
+- [ ] Platform-client returns non-2xx — `502`-class; the gate does not retry beyond the SLO budget.
 
-**Edge cases:**
-- [ ] No `subsetId` parameter → `400 Bad Request` with `"detail": "At least one subsetId is required"`
-- [ ] UIL points to remote gate with status `OFFLINE` → `502 Bad Gateway` with `"detail": "Gate '<peerGateA>.efti.fi' is offline — dataset unavailable"` — checked before sending request
+### Subsetter
 
-**Error handling:**
-- [ ] User `subsets` does not include requested `subsetId` → `403 Forbidden` with `"detail": "Subset 'EU04' not in your permitted subsets"`
-- [ ] eFTI platform client returns non-200 → `502 Bad Gateway`; gate does not cache or modify dataset
-- [ ] eFTI Gate is content-agnostic: dataset XML forwarded unchanged regardless of content
+**Business rules:**
+- [ ] If the platform advertises `supportsSubsetting=false`, the gate applies the XSLT subset filter **before** responding to the authority — the authority never sees data beyond their permitted subsets.
+- [ ] XSLT-empty output is a `200 OK` with empty XML body, **not** a `404`.
+- [ ] XML processing must be **streaming** (SAX-style) — the dataset must not be fully loaded into application heap. Required because freight datasets routinely exceed 10 MB.
 
-**Technical artifacts:**
-- [ ] OpenAPI: `GET /v1/dataset/{gateId}/{platformId}/{datasetId}`
-- [ ] Diagram: `seq-05-dataset-request.mmd`, `seq-06-dataset-request-denied.mmd`
+### Follow-up
 
-##### Subsetter module
+**Business rules:**
+- [ ] Same routing logic as dataset request: `gateId == own gate` → platform client; otherwise → gate-to-gate client.
+- [ ] If the resolved platform has `eDeliveryCert` configured, the follow-up is also sent via eDelivery AS4 (parallel to the REST forward).
+- [ ] A `datasetRequestId` that does not reference a prior request is **still forwarded** — the gate is content-agnostic about correlation between requests and follow-ups. Logged at DEBUG.
+- [ ] Each follow-up is logged with the Art 6(2)(c) Reg 2024/1942 mandatory fields: follow-up id, AAP/requesting gate id, receipt timestamp, destination, requesting user id.
 
-**Happy path:**
-- [ ] eFTI platform with `supportsSubsetting=false`: gate applies XSLT-based filter; only permitted subsets returned to authority
-- [ ] Filter applied before response sent — authority never receives data beyond permitted subsets
+**Denial scenarios:**
+- [ ] Routed gate is `OFFLINE` — `502`-class.
+- [ ] Platform client returns non-2xx — `502`-class; the failure is logged at ERROR with full trace.
 
-**Edge cases:**
-- [ ] XSLT produces empty output → `200 OK` with empty XML body; not `404`
-- [ ] Dataset > 10 MB → SAX-based streaming parser used; dataset not fully loaded into JVM heap
+## Rationale
 
-**Technical constraints:**
-- [ ] Subsetter MUST use SAX streaming — no DOM in-memory parsing for large payloads
-- [ ] Rationale: prevents OOM errors for large freight documents
-
-##### Follow-up
-
-**Happy path:**
-- [ ] `POST /v1/follow-up/:gateId/:platformId/:datasetId/:datasetRequestId` → JWT validated; routes by `gateId`
-- [ ] `gateId == own gate` → forwarded to platform client (REST) → `200 OK`
-- [ ] `gateId != own gate` → forwarded to gate-to-gate client → `200 OK`
-- [ ] Follow-up logged: follow-up ID, requesting user ID, `datasetRequestId`, timestamp, destination
-
-**Edge cases:**
-- [ ] eFTI platform has `eDeliveryCert` → follow-up also sent via eDelivery AS4
-- [ ] `datasetRequestId` references no prior request → still forwarded; logged DEBUG
-
-**Error handling:**
-- [ ] Remote gate offline → `502 Bad Gateway` with `"detail": "Gate '<peerGateB>.efti.de' is offline"`
-- [ ] eFTI platform client error → `502 Bad Gateway`; failure logged ERROR with full trace
-
-**Technical constraints:**
-- [ ] Follow-up log record (Art 6(2)(c) Reg 2024/1942): follow-up ID, AAP/requesting gate ID, date and time of receipt — mandatory fields
-
-**Technical artifacts:**
-- [ ] OpenAPI: `POST /v1/follow-up/{gateId}/{platformId}/{datasetId}/{datasetRequestId}`
-- [ ] DB schema: `follow_up_log` table with Art 6(2)(c) mandatory fields
+The gate routes by UIL (`gateId`/`platformId`/`datasetId`) and enforces the subset-permission contract; the dataset body itself is the platform's responsibility. The gate-vs-platform subsetting split (platform may advertise `supportsSubsetting`) keeps the gate stateless about dataset content while still guaranteeing the authority cannot exceed their permitted subsets. Streaming XML processing is non-negotiable: a DOM parser would OOM on a real freight dataset.
