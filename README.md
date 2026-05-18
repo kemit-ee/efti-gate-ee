@@ -1,6 +1,6 @@
-# eFTI Gate — Estonia (KeMIT)
+# eFTI Gate (EE) — KeMIT
 
-Estonian implementation of the **eFTI Gate**: a national node in the EU electronic freight transport information network defined by [EU Regulation 2020/1056](https://eur-lex.europa.eu/eli/reg/2020/1056/oj). The Gate registers freight identifiers, mediates dataset retrieval between certified eFTI Platforms and competent authorities, and bridges to peer national gates over eDelivery AS4. Full regulatory effect: **9 July 2027**.
+This is the **eFTI Gate (EE)**: the **Estonian** national node of the EU electronic freight transport information network defined by [EU Regulation 2020/1056](https://eur-lex.europa.eu/eli/reg/2020/1056/oj). There is one eFTI Gate per Member State; this repository is the specification corpus for the Estonian one, maintained by KeMIT. The Gate registers freight identifiers, mediates dataset retrieval between certified eFTI Platforms and competent authorities, and bridges to peer national gates over eDelivery AS4. Full regulatory effect: **9 July 2027**.
 
 ## Where to start
 
@@ -44,7 +44,7 @@ The implementation contracts. Build the new gate against these.
 - **`docs/epics/`** — 26 epics across 9 themes; the canonical specification surface.
 - **`docs/architecture/`** — target reference architecture per EU Reg 2020/1056, 2024/1942, 2024/2024, 2025/2243.
 - **`docs/planning/`** — KeMIT's LLM prompts (`PROMPT-00..09`) that drove the v2 specification generation, plus the executive summary explaining v1 gaps. Background only; not authoritative input.
-- **`docs/efti-analysis/`** — surviving background material from Askend Estonia OÜ's procurement deliverable: broad project analysis (`1-analysis/`), ER diagram (`3-model/`), and the eFTI XML schemas (`xsd/`). Sections superseded by `docs/specs/` have been removed; original full analysis preserved on the `kemit-ee/efti-gate` repo's `feature/v2` branch (`askend-baseline` tag).
+- **`docs/efti-analysis/`** — surviving background material from Askend Estonia OÜ's procurement deliverable: broad project analysis (`1-analysis/`), ER diagram (`3-model/`), and the eFTI XML schemas (`xsd/`). Sections superseded by `docs/specs/` have been removed; the original full deliverable is preserved on the `kemit-ee/efti-gate` repository under the `askend-baseline` tag.
 
 ## Open issues
 
@@ -68,14 +68,20 @@ Honest list of what's known to be incomplete or deferred. None of these blocks a
 
 ## Status
 
-This repository contains the **specification corpus** for the v2 eFTI Gate. Implementation work follows once the spec is signed off.
+This repository contains the **specification corpus** for the eFTI Gate (EE). Implementation work follows once the spec is signed off.
 
-The `feature/planning` branch carries the active consolidation work; `main` is the integration branch.
+`main` is the integration branch; tagged releases come from `main`. New work uses short-lived feature branches merged back to `main`. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full workflow.
+
+### Versioning
+
+This is **v1.0** — the first public release. The internal "v2" naming visible in earlier branches and commits refers to KeMIT's second internal spec-generation pass and is independent of the public versioning. The Askend Estonia OÜ procurement deliverable that informed the consolidation, and KeMIT's earlier internal v1 pass, were never published. See [`CHANGELOG.md`](CHANGELOG.md) for the lineage.
 
 ## Maintainer
 
 KeMIT — Riigi Infosüsteemi Amet (Estonia)
-Contact: `help@kemit.ee`
+
+- **Primary contact:** [@turnerrainer](https://github.com/turnerrainer) on GitHub.
+- **Fallback:** `help@kemit.ee`.
 
 ## Licence
 

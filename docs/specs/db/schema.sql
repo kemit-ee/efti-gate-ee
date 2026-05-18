@@ -1,5 +1,5 @@
 -- ============================================================================
--- eFTI Gate v2.0 — Complete PostgreSQL Database Schema
+-- eFTI Gate (EE) — Complete PostgreSQL Database Schema
 -- PostgreSQL 14+
 -- Author: KeMIT (Estonia) / Askend Estonia OÜ baseline
 -- Last revised: 2026-05-07

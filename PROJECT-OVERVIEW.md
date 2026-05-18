@@ -1,4 +1,4 @@
-# eFTI Gate v2 — Project Overview
+# eFTI Gate (EE) — Project Overview
 
 Map of the 9 themes and 26 epics that make up the v2 spec. For artifacts and design rules, see [`README.md`](README.md).
 
