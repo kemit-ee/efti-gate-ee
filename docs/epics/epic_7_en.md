@@ -34,26 +34,12 @@ stateDiagram-v2
     Active --> Active: POST /api/v1/platforms/{id}/ping<br/>(updates responseTimeMs)
     Active --> SoftDeleted: DELETE /api/v1/platforms/{id}<br/>(latest row is_active=FALSE)
     SoftDeleted --> Active: PUT with new row is_active=TRUE
+    note right of Active
+        Registry change → app emits NOTIFY registry_change_platforms, id
+        in same transaction; other nodes LISTEN and reload
+        from gates/platforms within ≤ 500 ms.
+    end note
 ```
-
-See the "Cluster-sync contract" section below for the registry-change propagation rule (this used to be a note inside the diagram but was clipped on GitHub).
-
-### Lifecycle states
-
-The state-transition diagram and [`state-03-platform-status.mmd`](../specs/diagrams/state-03-platform-status.mmd) together describe two states; the per-state semantics are:
-
-**`Active`** — latest `platforms` row has `is_active=TRUE`.
-- Platform may register identifiers via `POST /v1/identifiers/{datasetId}`.
-- Latest-row lookup (by `cert_subject` + `cert_serial`) returns this platform.
-- Platform users authenticate over mTLS (Epic 2).
-- Dataset requests routed to `platform.base_url`.
-- `supports_subsetting` flag controls full-XML vs subset-filtered response (Epic 5).
-
-**`Inactive` / `SoftDeleted`** — latest `platforms` row has `is_active=FALSE`.
-- Latest-row lookup excludes the platform (filter `is_active=TRUE`).
-- Platform-side mTLS auth fails — `FORBIDDEN_NO_PLATFORM`.
-- Existing `consignments` rows registered earlier by the platform remain in the table; non-latest rows are archived nightly by CronManager (Epic 26).
-- The inactive `platforms` row itself stays for audit until the archival sweep moves it.
 
 ## Acceptance Criteria
 

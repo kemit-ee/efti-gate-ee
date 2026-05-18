@@ -84,34 +84,6 @@ stateDiagram-v2
 
 - [ ] Multiple gate nodes may receive the same CronManager call. The handler must enforce a cluster-wide mutex (one in-flight call wins; others return `409 Conflict`). PostgreSQL advisory locks are the pinned implementation per [`non-functional.md`](../specs/non-functional.md) §3.
 
-## Lifecycle states
-
-`gates` rows carry **two axes** that the spec deliberately keeps separate:
-
-- **`status`** (`ONLINE` / `OFFLINE` / `DISABLED`) — ping-job-driven AND admin-driven for `DISABLED`. Reflects whether the peer gate is operationally reachable.
-- **`is_active`** (`TRUE` / `FALSE`) — operator-driven via `DELETE` / `POST`. Reflects whether the gate participates in the registry at all.
-
-The state machine in [`state-05-gate-health.mmd`](../specs/diagrams/state-05-gate-health.mmd) shows the `status` transitions:
-
-**`ONLINE`** — latest `gates` row has `status='ONLINE'` AND `is_active=TRUE`.
-- Included in identifier-search broadcasts.
-- `gateRegistry.online()` returns this gate.
-- `last_ping_at` on the latest row is recent (within ping-interval × tolerance).
-- eDelivery and fast-HTTP outbound calls route here.
-
-**`OFFLINE`** — latest `gates` row has `status='OFFLINE'`.
-- Excluded from search broadcasts.
-- Direct `GET /v1/dataset/{gateId}/...` to this gate → `502 GATEWAY_UNAVAILABLE`.
-- The ping job keeps trying on its configured cadence; if reachable, the next ping INSERTs a new `ONLINE` row and the gate re-enters the operational set.
-
-**`DISABLED`** — latest row has `status='DISABLED'` (operator-set via `PUT`).
-- Excluded from broadcasts **and** from the ping sweep.
-- Does **not** auto-recover. Requires an admin `PUT` flipping `status='ONLINE'` to re-enter the operational set.
-
-**Soft-delete (`is_active=FALSE`)** is a separate transition from the `status` axis. `DELETE /api/v1/gates/{id}` INSERTs a row with `is_active=FALSE` regardless of current `status`. The gate then leaves the operational set entirely — registry sync, peer broadcast, and ping sweeps all filter by `is_active=TRUE`. Distinct from `status='DISABLED'` (operator-paused but still tracked); `DELETE` is logical retirement.
-
-Old, non-latest `gates` rows are archived nightly by CronManager (Epic 26).
-
 ## Rationale
 
 The gate registry is **shared state across the cluster**: every node caches the latest row per gate and refreshes on `NOTIFY`. Pings are append-only state transitions, so the history is auditable without an UPDATE-trigger pattern. Recurring jobs live in CronManager (not the gate) so a scheduled job runs exactly once regardless of how many gate replicas are deployed — combined with the advisory-lock mutex, multi-node deployments are safe.

@@ -14,5 +14,40 @@ stateDiagram-v2
     active --> deleted: Admin — DELETE /api/v1/consignments/{datasetId}<br/>(operator-initiated)<br/>→ INSERT new consignments row with status='deleted'<br/>(logical delete — nothing physically removed)
     inactive --> deleted: Platform / Admin — DELETE<br/>→ INSERT new consignments row with status='deleted'
 
-%% Per-state semantics are documented in `docs/epics/epic_9_en.md` §"Lifecycle states"
-%% (kept out of the diagram because GitHub's mermaid clips long note text).
+    note right of active
+        Latest row: status='active'
+        --
+        Authority search returns
+        this consignment.
+        Dataset XML via
+        GET /v1/dataset/...
+        Indexed by denormalised
+        search columns
+        (vehicle_plate, mode, …).
+    end note
+
+    note right of inactive
+        Latest row: status='inactive'
+        --
+        Default search excludes
+        (status=active filter).
+        Returned only with
+        status=inactive or =all
+        (cabotage queries use
+        dateFrom + dateTo).
+        Dataset still fetchable
+        via direct UIL.
+    end note
+
+    note right of deleted
+        Latest row: status='deleted'
+        --
+        Logical delete only —
+        no row physically removed.
+        DELETE not granted to
+        the runtime app role.
+        Excluded from all default
+        queries (status=active).
+        Old rows archived nightly
+        by CronManager (Epic 26).
+    end note

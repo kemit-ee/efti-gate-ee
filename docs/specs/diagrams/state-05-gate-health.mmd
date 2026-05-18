@@ -11,6 +11,63 @@ stateDiagram-v2
 
     DISABLED --> ONLINE: Admin — PUT /api/v1/gates/{id} body status='ONLINE'<br/>→ INSERT gates row with status='ONLINE'<br/>AND next ping succeeds
 
-%% Per-state semantics + status-vs-is_active axes are documented in
-%% `docs/epics/epic_6_en.md` §"Lifecycle states"
-%% (kept out of the diagram because GitHub's mermaid clips long note text).
+    note left of ONLINE
+        Two axes (kept separate):
+        --
+        status (ping/admin):
+          ONLINE — ping success
+          OFFLINE — ping failed
+          DISABLED — admin-set
+        is_active (operator):
+          TRUE — in registry
+          FALSE — soft-deleted
+    end note
+
+    note right of ONLINE
+        Latest: ONLINE + active
+        --
+        Included in broadcasts.
+        gateRegistry.online()
+        returns this gate.
+        last_ping_at is recent.
+        eDelivery / Fast HTTP
+        calls route here.
+    end note
+
+    note right of OFFLINE
+        Latest: status=OFFLINE
+        --
+        Excluded from broadcasts.
+        Direct GET /v1/dataset/
+        /{gateId}/… → 502
+        GATEWAY_UNAVAILABLE.
+        Ping retries every 5 min;
+        on success, new ONLINE
+        row INSERTed.
+    end note
+
+    note right of DISABLED
+        Latest: status=DISABLED
+        --
+        Excluded from broadcasts
+        AND ping sweep.
+        Does NOT auto-recover.
+        Admin PUT required to
+        flip back to ONLINE.
+        Old rows archived nightly
+        by CronManager (Epic 26).
+    end note
+
+    note right of [*]
+        DELETE — soft delete:
+        --
+        INSERT new row with
+        is_active=FALSE.
+        Status axis unchanged.
+        Gate leaves operational
+        set entirely (registry
+        sync, broadcasts, ping
+        all skip is_active=FALSE).
+        Distinct from DISABLED:
+        DELETE is logical retire.
+    end note

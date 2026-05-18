@@ -60,22 +60,6 @@ stateDiagram-v2
 
 - [ ] On every commit of an `authorities` INSERT, the application emits `NOTIFY registry_change_authorities, '<id>'` from the same transaction (no DB-side trigger). All gate nodes hold an open `LISTEN` on this channel and reload the latest row for the affected id within ≤ 500 ms — subset removals therefore take effect in real time, not on next login.
 
-## Lifecycle states
-
-The state machine in [`state-04-authority-status.mmd`](../specs/diagrams/state-04-authority-status.mmd) describes the two states an `authorities` row can be in:
-
-**`Active`** — latest `authorities` row has `is_active=TRUE`.
-- Authority users may search via `GET /v1/identifiers/{identifier}` and pull datasets via `GET /v1/dataset/...`.
-- `subsets[]` controls which eFTI subsets users under this authority may request.
-- Each authority user's `users.subsets` must be ⊆ `authorities.subsets` at all times (enforced at user-create / user-update time AND re-enforced on each request because `users.subsets` is resolved live).
-- Authority users may send follow-up messages via `POST /v1/follow-up/...`.
-
-**`Inactive`** — latest `authorities` row has `is_active=FALSE`.
-- Latest-row lookup excludes the authority (filter `is_active=TRUE`).
-- All authority users under it are denied on their next request (the resolved `users` row's owning authority is no longer active).
-- Historical access logs remain in `audit_log` (preserved indefinitely per GDPR Art. 30).
-- Old `authorities` rows are archived nightly by CronManager (Epic 26).
-
 ## Rationale
 
 Authorities are the **subset-permission roots**: a user's permitted subsets must always be a subset of their authority's. Real-time propagation matters — when an admin removes a subset from an authority (e.g. legal change), every user under it must lose that access immediately, not on their next session. The append-only + `LISTEN/NOTIFY` pattern delivers that without server-side session state.

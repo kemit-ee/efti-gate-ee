@@ -7,5 +7,30 @@ stateDiagram-v2
 
     Inactive --> Active: Admin — POST again<br/>→ INSERT new row with is_active=TRUE
 
-%% Per-state semantics are documented in `docs/epics/epic_8_en.md` §"Lifecycle states"
-%% (kept out of the diagram because GitHub's mermaid clips long note text).
+    note right of Active
+        Latest row: is_active=TRUE
+        --
+        Users may search via
+        GET /v1/identifiers/{id}.
+        Users may pull datasets
+        via GET /v1/dataset/...
+        subsets[] controls which
+        eFTI subsets are allowed.
+        Each user's subsets must
+        be ⊆ authorities.subsets.
+        Users may send follow-ups
+        via POST /v1/follow-up/...
+    end note
+
+    note right of Inactive
+        Latest row: is_active=FALSE
+        --
+        Lookup excludes this row
+        (filter is_active=TRUE).
+        All authority users get
+        401 on next request.
+        Audit log retained for
+        GDPR Art 30 (7 years).
+        Old rows archived nightly
+        by CronManager (Epic 26).
+    end note

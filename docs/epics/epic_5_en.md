@@ -91,29 +91,6 @@ sequenceDiagram
 - [ ] Routed gate is `OFFLINE` — `502`-class.
 - [ ] Platform client returns non-2xx — `502`-class; the failure is logged at ERROR with full trace.
 
-## Dataset-request states
-
-The state machine in [`state-02-dataset-request.mmd`](../specs/diagrams/state-02-dataset-request.mmd) follows a single dataset request through routing → platform call → outcome. Per-state semantics:
-
-**`Initiated`** — caller has issued `GET /v1/dataset/{gateId}/{platformId}/{datasetId}`; the gate has validated JWT + subset permission and parsed the UIL. Branches on whether `uil.gateId` equals this gate.
-
-**`LocalFetch`** — `uil.gateId == this gate`. The gate calls the local platform at `platform.base_url` over HTTP.
-
-**`RemoteForward`** — `uil.gateId != this gate`. The gate forwards a UILQuery via eDelivery AS4 (or the mTLS fast protocol) to the peer gate. Routing decision is based purely on the UIL.
-
-**`GateUnavailable`** — entered from `RemoteForward` when the peer gate's `gate.status != ONLINE`. The gate short-circuits with `502 GATEWAY_UNAVAILABLE` — checked **before** the outbound request leaves.
-
-**`GateForward`** → **`PlatformRequest`** — the remote gate fetches from its own local platform, then returns the response back through eDelivery.
-
-**`PlatformRequest`** — the actual HTTP call to a platform's `base_url`. Branches by response status:
-
-- **`Approved`** (platform 200) → `Returned` with 200 OK. The authority receives the dataset XML, subset-filtered (gate-side via XSLT if `supportsSubsetting=false`; platform-side otherwise). `X-Request-ID` is echoed back.
-- **`Denied`** (platform 403) → `Returned` with 403. The platform refused the subset for this caller.
-- **`NotFound`** (platform 404) → `Returned` with 404. Dataset expired or deleted.
-- **`Error`** (platform 5xx or timeout) → `Returned` with 502. The gate doesn't retry beyond the §1 SLO budget.
-
-**`Returned`** → `[*]`. The gate's response is on the wire. No persistent state is kept about the request beyond the audit-log entry.
-
 ## Rationale
 
 The gate routes by UIL (`gateId`/`platformId`/`datasetId`) and enforces the subset-permission contract; the dataset body itself is the platform's responsibility. The gate-vs-platform subsetting split (platform may advertise `supportsSubsetting`) keeps the gate stateless about dataset content while still guaranteeing the authority cannot exceed their permitted subsets. Streaming XML processing is non-negotiable: a DOM parser would OOM on a real freight dataset.

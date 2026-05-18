@@ -89,27 +89,6 @@ stateDiagram-v2
 - [ ] The expire-identifiers endpoint, like every CronManager-triggered admin endpoint, holds a cluster-wide mutex at handler entry; a concurrent invocation returns `409 ARCHIVE_IN_PROGRESS`.
 - [ ] Each expiry sweep emits `event.action: "identifier.expire"` with `efti.expired_count` (per [`logging-spec.md`](../specs/logging-spec.md) §5).
 
-## Lifecycle states
-
-The state machine in [`state-01-identifier-lifecycle.mmd`](../specs/diagrams/state-01-identifier-lifecycle.mmd) describes the three values of `consignments.status` (per the enum in `db/schema.sql`):
-
-**`active`** — latest `consignments` row has `status='active'`.
-- Authority search returns this consignment by default.
-- Dataset XML retrievable via `GET /v1/dataset/{gateId}/{platformId}/{datasetId}`.
-- Indexed via the denormalised search columns (`vehicle_plate`, `vehicle_country`, `mode`, `dangerous_goods`, `origin_country`, `destination_country`, `transport_date`) for the no-JOIN hot path (Epic 4).
-
-**`inactive`** — latest `consignments` row has `status='inactive'`.
-- Default authority search excludes (`status=active` filter).
-- Returned only when the caller explicitly requests `status=inactive` or `status=all` — cabotage queries combine `dateFrom`/`dateTo` with `status=inactive` per Reg 2024/1942 Art 11(4).
-- Dataset XML is still retrievable via direct UIL (the row stays queryable until archived).
-
-**`deleted`** — latest `consignments` row has `status='deleted'`.
-- **Logical** delete: no row is physically removed (the runtime `app` role has `SELECT, INSERT` only on operational tables — no `DELETE` grant). The new `status='deleted'` row IS the deletion marker.
-- Excluded from all default queries (`status=active` filter).
-- Old non-latest rows are archived nightly by CronManager (Epic 26).
-
-**`rejected`** — terminal-on-arrival pseudo-state. XSD-invalid POSTs never reach the `consignments` table; the request returns `400 INVALID_XML` and there is no DB write.
-
 ## Rationale
 
 The gate's data model is **append-only everywhere**: state transitions (active → inactive, inactive → deleted, re-registration) are all INSERTs of new rows sharing the logical `dataset_id`. This preserves a complete audit trail without UPDATEs or change-tracking tables, satisfying Reg 2024/1942 Art 30's processing-record requirement without extra machinery. CronManager handles all scheduled state transitions (expiry, archival) so the gate process itself stays stateless.
