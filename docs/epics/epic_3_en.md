@@ -29,6 +29,7 @@
 | | [RA §2.2 Identifiers vs Datasets](../architecture/eFTI-Gate-Reference-Architecture.md#22-identifiers-vs-datasets) |
 | | [RA §3 Data Lifecycle](../architecture/eFTI-Gate-Reference-Architecture.md#3-data-lifecycle--ownership) |
 | **Diagrams** | [`seq-01-identifier-registration.mmd`](../specs/diagrams/seq-01-identifier-registration.mmd) |
+| | [`seq-07-dataset-upload.mmd`](../specs/diagrams/seq-07-dataset-upload.mmd) |
 | | [`seq-13-multi-platform-user.mmd`](../specs/diagrams/seq-13-multi-platform-user.mmd) |
 
 ## Registration flow at a glance
