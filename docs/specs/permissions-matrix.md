@@ -42,7 +42,7 @@ graph TD
     AUTHZ --> ROLECHECK{Required role on route<br/>matches caller's roles?}
     ROLECHECK -->|No| ERR403[403 FORBIDDEN]
     ROLECHECK -->|Yes| WRITE{Mutating endpoint<br/>with entityId param?}
-    WRITE -->|Yes| SCOPE{entityId in caller's<br/>roles[ADMIN] scope?}
+    WRITE -->|Yes| SCOPE{"entityId in caller's<br/>roles[ADMIN] scope?"}
     SCOPE -->|No| ERR403WA[403 FORBIDDEN_WRITE_ACCESS]
     SCOPE -->|Yes| ALLOW
     WRITE -->|No| ALLOW
@@ -185,7 +185,7 @@ flowchart TD
     A --No--> R401[401 Unauthorized]
     A --Yes--> SA{isAdmin?}
     SA --No--> R403[403 FORBIDDEN]
-    SA --Yes--> SUPER{Super Admin?<br/>roles == {}}
+    SA --Yes--> SUPER{"Super Admin?<br/>roles == empty"}
     SUPER --Yes--> ALL[All records visible/writable]
     SUPER --No--> SCOPE[Regular Admin:<br/>scoped to roles ADMIN gateIds]
     SCOPE --> OP{Operation?}

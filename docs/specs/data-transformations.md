@@ -23,7 +23,7 @@ The four directions (XML→DB ingest, DB→JSON search results, DB→AS4 G2G wra
 graph LR
     PL[Platform] -->|"XML identifier schema<br/>(POST /v1/identifiers/{id})"| ING["XML→DB ingest<br/>identifier-parse"]
     ING -->|INSERT consignments + identifiers<br/>denormalised search columns| DB[(PostgreSQL)]
-    AUTH[Authority] -->|GET /v1/identifiers/{id}| Q["DB→JSON search<br/>consignment search"]
+    AUTH[Authority] -->|"GET /v1/identifiers/{id}"| Q["DB→JSON search<br/>consignment search"]
     Q --> DB
     DB -->|XML marshal +<br/>SSE / JSON| AUTH
     Q -.broadcast.-> G2G["DB→AS4 wrap<br/>AS4-query handler"]
