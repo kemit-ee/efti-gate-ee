@@ -6,12 +6,26 @@
 **I WANT** to manage the registry of Competent Authorities  
 **SO THAT** authority users have controlled access to eFTI data
 
-**References:**
-- [DB Schema](../specs/db/README.md) — Authority registry schema
-- [Permissions Matrix](../specs/permissions-matrix.md) — Authority subset permissions
-- [RA §2.3 Data Subsets](../architecture/eFTI-Gate-Reference-Architecture.md#23-data-subsets) — Authority subset assignment model
+## Spec anchors
 
-**Authority lifecycle at a glance:**
+| Contract surface | Reference |
+|---|---|
+| **API operations** | `GET/POST/PUT/DELETE /api/v1/authorities[/{authorityId}]` |
+| | Full request / response / error shapes: [`openapi.yaml`](../specs/openapi.yaml) |
+| **Schema** | `authorities` (append-only; logical id = `authorities.id`; latest row by `created_at` wins; `is_active=FALSE` on latest = soft-delete; columns: `country_code`, `name`, `subsets TEXT[]`) |
+| | Full schema: [`db/schema.sql`](../specs/db/schema.sql) |
+| **Access-check rules** | Admin write scope-ID check on the authority's owning gate; subset filtering rules for authority users: [`permissions-matrix.md`](../specs/permissions-matrix.md) |
+| **Error codes** | `BAD_REQUEST_GENERAL` |
+| | `INVALID_SUBSET` |
+| | `FORBIDDEN_SUBSET` |
+| | `FORBIDDEN_WRITE_ACCESS` |
+| | Full catalog: [`errors.json`](../specs/errors.json) |
+| **Cluster sync** | `LISTEN/NOTIFY` on channel `registry_change_authorities` — see [`non-functional.md`](../specs/non-functional.md) §3 |
+| **Architecture** | [RA §2.3 Data Subsets](../architecture/eFTI-Gate-Reference-Architecture.md#23-data-subsets) |
+| **Diagrams** | [`seq-11-authority-registration.mmd`](../specs/diagrams/seq-11-authority-registration.mmd) |
+| | [`state-04-authority-status.mmd`](../specs/diagrams/state-04-authority-status.mmd) |
+
+## Authority lifecycle at a glance
 
 ```mermaid
 stateDiagram-v2
@@ -27,28 +41,25 @@ stateDiagram-v2
     end note
 ```
 
-See `seq-11-authority-registration.mmd` and `state-04-authority-status.mmd` for full detail.
+## Acceptance Criteria
 
-#### Acceptance Criteria
+**Business rules:**
+- [ ] Listing: Super Admin sees all authorities; a regular Admin sees only authorities whose owning gate is in their `users.roles[ADMIN]` scope-IDs.
+- [ ] All writes (create / update / delete) are INSERTs of a new `authorities` row sharing the same logical `id`. Latest row wins.
+- [ ] Delete is **always** soft (`is_active=FALSE` on the latest row). User rows referencing the authority remain queryable. There is no purge.
+- [ ] Subset assignment: every value in `authorities.subsets[]` must be a valid subset code (`EU01`–`EU07`).
+- [ ] If a `PUT` removes a subset from `authorities.subsets`, every existing authority user whose `users.subsets` is no longer a subset of the parent's becomes immediately denied on their next request (per the `FORBIDDEN_SUBSET` rule). The admin must follow up with `PUT /api/v1/users/{userId}` to trim those users' subsets.
 
-**Happy path:**
-- [ ] `GET /api/v1/authorities` — Super Admin sees all; regular Admin sees only authorities operating under gates in their `roles[ADMIN]` scope-IDs; paginated
-- [ ] `GET /api/v1/authorities/{authorityId}` — returns the latest row for the given authority: id, countryCode, name, subsets[], isActive
-- [ ] `POST /api/v1/authorities` — creates authority with permitted `subsets[]`; 409 on existing id → `201 Created`
-- [ ] `PUT /api/v1/authorities/{authorityId}` — updates an existing authority (append-only INSERT); 404 on unknown id → `200 OK`
-- [ ] `DELETE /api/v1/authorities/{authorityId}` — soft-delete (latest row written with `is_active=FALSE`) → `204 No Content`
+**Denial scenarios:**
+- [ ] `POST` with an `id` whose latest row is active → conflict.
+- [ ] `PUT` / `DELETE` on a logical id that doesn't exist → not found.
+- [ ] `POST` / `PUT` carries a subset value outside the canonical set → `INVALID_SUBSET`.
+- [ ] Admin writes to an authority whose owning gate is **not** in the caller's `users.roles[ADMIN]` scope-IDs → `FORBIDDEN_WRITE_ACCESS`.
 
-**Edge cases:**
-- [ ] `DELETE` is always soft (writes `is_active=FALSE`); existing user rows referencing the authority's id stay queryable. There is no purge — append-only.
-- [ ] `POST` / `PUT` with unknown subset code → `400 Bad Request` with `code: INVALID_SUBSET`, `"detail": "Unknown subset: 'EU99'"`
-- [ ] `PUT` that removes a subset from `authorities.subsets` → existing users whose `users.subsets` is no longer ⊆ `authorities.subsets` are rejected on the next request (`403 FORBIDDEN_SUBSET`); admin must follow up with `PUT /api/v1/users/{userId}` to trim their subsets.
-- [ ] `GET /api/v1/authorities/{authorityId}` for non-existent → `404 Not Found`
+## Cluster-sync contract
 
-**Error handling:**
-- [ ] Admin writing to an authority whose owning gate is not in the admin's `roles[ADMIN]` scope-IDs → `403 FORBIDDEN_WRITE_ACCESS`
+- [ ] On every commit of an `authorities` INSERT, the application emits `NOTIFY registry_change_authorities, '<id>'` from the same transaction (no DB-side trigger). All gate nodes hold an open `LISTEN` on this channel and reload the latest row for the affected id within ≤ 500 ms — subset removals therefore take effect in real time, not on next login.
 
-**Technical constraints:**
-- [ ] Registry changes propagated to all nodes via an app-emitted `NOTIFY registry_change_authorities, '<id>'` in the same transaction as the INSERT — other nodes LISTEN and reload within 500 ms
+## Rationale
 
-**Technical artifacts:**
-- [ ] OpenAPI: `GET /api/v1/authorities`, `GET /api/v1/authorities/{authorityId}`, `POST /api/v1/authorities`, `PUT /api/v1/authorities/{authorityId}`, `DELETE /api/v1/authorities/{authorityId}`
+Authorities are the **subset-permission roots**: a user's permitted subsets must always be a subset of their authority's. Real-time propagation matters — when an admin removes a subset from an authority (e.g. legal change), every user under it must lose that access immediately, not on their next session. The append-only + `LISTEN/NOTIFY` pattern delivers that without server-side session state.
