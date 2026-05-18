@@ -6,11 +6,24 @@
 **I WANT** documented data flows with sequence diagrams  
 **SO THAT** developers and integration partners understand exactly how identifier search, broadcast, and dataset retrieval works
 
-**References:**
-- [RA §5.1 Identifier Query](../architecture/eFTI-Gate-Reference-Architecture.md#51-identifier-query-cross-border-search) — Identifier search flow diagrams
-- [RA §5.2 Dataset Query](../architecture/eFTI-Gate-Reference-Architecture.md#52-dataset-query-request-full-data) — Dataset retrieval flow diagrams
+## Spec anchors
 
-**Four data flows at a glance:**
+| Contract surface | Reference |
+|---|---|
+| **Underlying epics** | Epic 3 (Identifier registration), Epic 4 (Identifier search), Epic 5 (Dataset retrieval & follow-up). This epic provides the **visual** companion. |
+| **API operations** | All routes shown in the diagrams: [`openapi.yaml`](../specs/openapi.yaml) |
+| **Schema** | `consignments`, `identifiers` — see [`db/schema.sql`](../specs/db/schema.sql) |
+| **Companion mermaid files** | [`seq-01-identifier-registration.mmd`](../specs/diagrams/seq-01-identifier-registration.mmd) |
+| | [`seq-02-identifier-search-local-only.mmd`](../specs/diagrams/seq-02-identifier-search-local-only.mmd) |
+| | [`seq-03-identifier-search-broadcast.mmd`](../specs/diagrams/seq-03-identifier-search-broadcast.mmd) |
+| | [`seq-04-identifier-search-no-results.mmd`](../specs/diagrams/seq-04-identifier-search-no-results.mmd) |
+| | [`seq-05-dataset-request.mmd`](../specs/diagrams/seq-05-dataset-request.mmd) |
+| | [`seq-06-dataset-request-denied.mmd`](../specs/diagrams/seq-06-dataset-request-denied.mmd) |
+| | [`flow-01-search-broadcast-decision.mmd`](../specs/diagrams/flow-01-search-broadcast-decision.mmd) |
+| **Architecture** | [RA §5.1 Identifier Query](../architecture/eFTI-Gate-Reference-Architecture.md#51-identifier-query-cross-border-search) |
+| | [RA §5.2 Dataset Query](../architecture/eFTI-Gate-Reference-Architecture.md#52-dataset-query-request-full-data) |
+
+## Four data flows at a glance
 
 ```mermaid
 flowchart LR
@@ -25,15 +38,14 @@ flowchart LR
     G4 -- F4: route by gateId --> RG
 ```
 
-Detailed sequence diagrams for each flow follow below.
+## Acceptance Criteria
 
-#### Acceptance Criteria
+**Business rules:**
+- [ ] Each of the four core data flows is documented as a sequence diagram below.
+- [ ] Each flow covers at least: the happy path, and one denial / failure path (gate offline, empty result, unauthorised access, missing subset, etc.).
+- [ ] The diagrams stay in sync with Epic 3 / 4 / 5 ACs — any change there must be reflected here in the same PR.
 
-- [ ] All four core flows documented as sequence diagrams (see below)
-- [ ] Each flow covers error cases (gate offline, empty result, unauthorised access)
-- [ ] Diagrams published in GitHub documentation
-
-##### Flow 1 — Identifier registration (Platform → Gate)
+### Flow 1 — Identifier registration (Platform → Gate)
 
 ```mermaid
 sequenceDiagram
@@ -48,7 +60,7 @@ sequenceDiagram
     Gate-->>Platform: 201 Created / 200 OK
 ```
 
-##### Flow 2 — Identifier search (Authority → Gate → Broadcast)
+### Flow 2 — Identifier search (Authority → Gate → Broadcast)
 
 ```mermaid
 sequenceDiagram
@@ -73,7 +85,7 @@ sequenceDiagram
     Gate-->>Officer: SSE event: name=complete
 ```
 
-##### Flow 3 — Dataset retrieval by UIL
+### Flow 3 — Dataset retrieval by UIL
 
 ```mermaid
 sequenceDiagram
@@ -99,7 +111,7 @@ sequenceDiagram
     end
 ```
 
-##### Flow 4 — Follow-up message forwarding
+### Flow 4 — Follow-up message forwarding
 
 ```mermaid
 sequenceDiagram
@@ -121,5 +133,6 @@ sequenceDiagram
     Gate-->>Officer: 200 OK
 ```
 
+## Rationale
 
----
+These four flows are the data-plane surface the gate cares about (auth flows live in Epic 23). The broadcast-only-when-empty behaviour in Flow 2 is the spec's single biggest deviation from a naive "always broadcast" design — it lives here as the visual reference. Flow 3's local-vs-remote branching covers the same routing logic as Flow 4; collapsing them would obscure the asymmetry (Flow 3 has a subset filter, Flow 4 does not).
