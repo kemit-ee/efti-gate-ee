@@ -17,7 +17,7 @@ sequenceDiagram
     loop For each expired road consignment
         Gate->>+DB: Append a new consignments row sharing the same dataset_id<br/>with status='inactive' (denormalised columns copied from the prior latest row).
         DB-->>-Gate: written
-        Note over DB: Append-only — no UPDATE.<br/>New row is the latest;<br/>DISTINCT ON dataset_id<br/>now reads 'inactive'.
+        Note over DB: Append-only — no UPDATE.<br/>New row is the latest.<br/>DISTINCT ON dataset_id<br/>now reads 'inactive'.
         Gate->>Log: { event.action: "identifier.expire",<br/>efti.dataset.id: "550e8400-…",<br/>efti.expiry.reason: "cabotage_14d" }
     end
 
