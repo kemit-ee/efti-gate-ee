@@ -1,35 +1,8 @@
----
-config:
-  state:
-    useMaxWidth: false
----
 stateDiagram-v2
     [*] --> Active: POST /api/v1/platforms<br/>(is_active=TRUE)
-
     Active --> Active: PUT — INSERT new row<br/>same id, updated fields
-
     Active --> Inactive: DELETE — INSERT new row<br/>is_active=FALSE
-
     Inactive --> Active: POST again — INSERT<br/>new row, is_active=TRUE
 
-    note right of Active
-        Latest row: is_active=TRUE.
-        --
-        Platform can register identifiers.
-        Latest-row lookup returns it.
-        Platform users authenticate (mTLS).
-        Dataset requests → platform.base_url.
-        supports_subsetting flag controls
-          full-XML vs subset API.
-    end note
-
-    note right of Inactive
-        Latest row: is_active=FALSE.
-        --
-        Lookup excludes the platform
-          (filter is_active=TRUE).
-        Platform-side mTLS auth fails.
-        Existing consignment rows stay.
-        Non-latest rows archived nightly
-          by CronManager.
-    end note
+%% Per-state semantics are documented in `docs/epics/epic_7_en.md` §"Lifecycle states"
+%% (kept out of the diagram because GitHub's mermaid clips long note text).

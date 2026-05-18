@@ -33,15 +33,5 @@ stateDiagram-v2
 
     GateUnavailable --> Returned: 502 Bad Gateway — Cannot reach Gate eu-yy01 — OFFLINE
 
-    note right of RemoteForward
-        Routing decision based on UIL.gateId:
-        - Same gate → direct platform call
-        - Different gate → forward via eDelivery
-        Gate status checked before forwarding.
-    end note
-
-    note right of Approved
-        Authority receives full dataset XML
-        filtered to requested subset (EU01, EU07, etc.)
-        X-Request-ID header echoed in response.
-    end note
+%% Routing and outcome semantics are documented in `docs/epics/epic_5_en.md` §"Dataset-request states"
+%% (kept out of the diagram because GitHub's mermaid clips long note text).
