@@ -398,7 +398,7 @@ sequenceDiagram
 
     P->>P: Load dataset uuid2<br/>Filter by subsets
 
-    Note over P: Return only requested subsets<br/>(NOT full dataset)
+    Note over P: Return requested<br/>subsets only —<br/>NOT full dataset.
 
     P-->>G2: uilResponse (AS4)<br/>Filtered XML
     deactivate P
