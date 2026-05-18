@@ -32,7 +32,7 @@ info:
   contact:
     name: KeMIT / MKM
     email: efti@example.com
-    url: https://github.com/kemit-ee/efti-gate
+    url: https://github.com/kemit-ee/efti-gate-ee
   license:
     name: Apache-2.0
     url: https://www.apache.org/licenses/LICENSE-2.0

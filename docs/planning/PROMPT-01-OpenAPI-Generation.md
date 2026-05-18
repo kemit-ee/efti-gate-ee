@@ -100,7 +100,7 @@ info:
   contact:
     name: KeMIT/MKM
     email: efti@mkm.ee
-    url: https://github.com/kemit-ee/efti-gate
+    url: https://github.com/kemit-ee/efti-gate-ee
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT

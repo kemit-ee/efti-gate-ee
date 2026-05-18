@@ -23,4 +23,4 @@ V2 spetsifikatsiooni poolt täielikult asendatud osad on uuest hoidlast eemaldat
 - `7-diagrams/` → asendatud kaustaga [`../specs/diagrams/`](../specs/diagrams/) (26 Mermaid diagrammi).
 - `8-codereview/` — vana eFTI Gate PoC koodi-ülevaade (Klite/Kotlin/Svelte virnale); ei kohaldu uuele gate-i ehitusele.
 
-Algne täielik detailanalüüs on säilitatud repos [kemit-ee/efti-gate](https://github.com/kemit-ee/efti-gate) `v0.2-askend-final` sildi all.
+Algne täielik detailanalüüs on säilitatud repos [kemit-ee/efti-gate-poc](https://github.com/kemit-ee/efti-gate-poc) `v0.2-askend-final` sildi all.
