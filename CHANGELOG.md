@@ -1,12 +1,12 @@
 # Changelog
 
-All notable changes to the eFTI Gate specification corpus are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project applies [Semantic Versioning](https://semver.org/spec/v2.0.0.html) to the **specification surface** (OpenAPI operations, DB schema, error codes, permissions matrix, ECS log fields, AS4 envelopes).
+All notable changes to the **eFTI Gate (EE)** specification corpus are documented here. *(There is one eFTI Gate per EU Member State; this corpus is the Estonian one, maintained by KeMIT.)* The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project applies [Semantic Versioning](https://semver.org/spec/v2.0.0.html) to the **specification surface** (OpenAPI operations, DB schema, error codes, permissions matrix, ECS log fields, AS4 envelopes).
 
 ## [Unreleased]
 
 ## [1.0.0] — 2026-05-18
 
-First public release of the eFTI Gate specification corpus by KeMIT.
+First public release of the eFTI Gate (EE) specification corpus by KeMIT.
 
 ### Released artifacts
 
@@ -25,8 +25,8 @@ First public release of the eFTI Gate specification corpus by KeMIT.
 
 This release builds on internal work generations that were never published independently:
 
-- **Askend Estonia OÜ procurement deliverable** *(predecessor; not published).* Askend was contracted under public procurement to deliver a full project analysis with initial epics and a data model for the eFTI Gate. Askend fulfilled that contract; their deliverable became the working baseline for KeMIT's subsequent consolidation. The surviving background material (broad project analysis, ER model, eFTI XML schemas) is preserved under [`docs/efti-analysis/`](docs/efti-analysis/); the original full deliverable is preserved on the `kemit-ee/efti-gate` repo's `feature/v2` branch under the `askend-baseline` tag.
-- **KeMIT internal v1 consolidation** *(predecessor; not published).* First KeMIT pass over the Askend baseline — restructured the epic set, surfaced cross-references, drafted an initial OpenAPI.
+- **Askend Estonia OÜ procurement deliverable** *(predecessor; not published).* Askend was contracted under public procurement to deliver a full project analysis with initial epics and a data model for the eFTI Gate. Askend fulfilled that contract; their deliverable became the working baseline for KeMIT's subsequent consolidation. The surviving background material (broad project analysis, ER model, eFTI XML schemas) is preserved under [`docs/efti-analysis/`](docs/efti-analysis/); the original full deliverable is preserved on the `kemit-ee/efti-gate` repository under the `askend-baseline` tag.
+- **KeMIT internal v1 consolidation** *(predecessor; not published).* First KeMIT pass over the Askend baseline — restructured the epic set and surfaced cross-references between epics and contract artifacts.
 - **KeMIT internal v2 rewrite** *(this release's basis).* Rewrote the data model to **append-only everywhere** (operational tables INSERT-only, state transitions as new rows, archival by CronManager); generalised hardcoded identifiers; tightened acceptance criteria into the business-rule format used here; built the artifact-by-artifact cross-reference graph (Epic ↔ OpenAPI ↔ schema ↔ errors ↔ logging ↔ permissions); added the diagrams.
 
-The v1.0 release is the **first** public-facing eFTI Gate specification corpus published by KeMIT. The internal "v2" naming refers to KeMIT's spec-generation lineage and is independent of this public versioning.
+The v1.0 release is the **first** public-facing eFTI Gate (EE) specification corpus published by KeMIT. The internal "v2" naming refers to KeMIT's spec-generation lineage and is independent of this public versioning.

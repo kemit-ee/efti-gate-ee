@@ -1,6 +1,6 @@
 # Security Policy
 
-This repository contains the **specification corpus** for the eFTI Gate — it is not a running deployment. Bugs and vulnerabilities in live gate deployments must be reported to the operator running that deployment (typically a Member-State authority).
+This repository contains the **specification corpus** for the **eFTI Gate (EE)** — the Estonian national node in the EU eFTI network. It is not a running deployment. Bugs and vulnerabilities in any live gate deployment must be reported to the operator running that deployment (in Estonia: the operator of the gate built against this spec; in other Member States: their respective national gate operator).
 
 ## Reporting a weakness in the specification
 

@@ -1,9 +1,9 @@
 openapi: 3.0.3
 info:
-  title: eFTI Gate API
+  title: eFTI Gate (EE) API
   version: 2.0.0
   description: |
-    European Freight Transport Information Gate — Complete REST API Specification v2.0
+    European Freight Transport Information Gate — Estonian node (KeMIT). Complete REST API Specification.
 
     ## Scope of this document
 

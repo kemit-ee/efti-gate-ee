@@ -1,6 +1,6 @@
 # Contributing
 
-This repository carries the specification corpus for the **eFTI Gate**. Contributions are welcome — typo fixes, clarifications, gap reports, substantive AC changes. Implementation work lives in the runtime repositories, not here.
+This repository carries the specification corpus for the **eFTI Gate (EE)** — the Estonian national node in the EU eFTI network. Contributions are welcome — typo fixes, clarifications, gap reports, substantive AC changes. Implementation work lives in the runtime repositories, not here.
 
 ## Scope
 
@@ -27,6 +27,7 @@ Branch names: `area/short-slug` — e.g. `docs/fix-mermaid-rendering`, `spec/ope
 ## Conventions
 
 - **English only** in active docs. Estonian proper nouns (e.g. contracting-document titles) are kept verbatim with an inline English gloss.
+- **Naming convention** — top-level titles and identifying mentions use **"eFTI Gate (EE)"** to disambiguate from other Member-State gates. Inside technical content describing gate behavior that applies to any eFTI Gate, "the gate" (lowercase) is fine.
 - **Append-only DB philosophy** is non-negotiable. Every operational table is INSERT-only; state transitions are new rows. See [`docs/specs/db/README.md`](docs/specs/db/README.md).
 - **Content-agnostic gate.** The gate routes by UIL and enforces access; it does not parse or transform dataset payloads (the XSLT subset filter is the only exception). Spec changes must not introduce business-content awareness on the gate.
 - **Mermaid notes** — keep each `<br/>`-separated line ≤ 25 characters. GitHub's mermaid v10 strict-mode renderer does not auto-wrap; longer lines clip in state notes or balloon sequence-diagram width.
