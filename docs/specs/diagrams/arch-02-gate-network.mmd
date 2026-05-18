@@ -1,31 +1,31 @@
 graph TB
     subgraph EU["EU eFTI Gate Network (eDelivery AS4)"]
-        subgraph EE["Estonia (<gateId>)"]
-            GateEE[eFTI Gate\n<gateId>\n<as4Url>]
+        subgraph EE["Estonia (eu-xx01)"]
+            GateEE[eFTI Gate\neu-xx01\nhttps://efti.example.com/services/msh]
         end
 
-        subgraph FI["Finland (<peerGateA>)"]
-            GateFI[eFTI Gate\n<peerGateA>\n<as4Url>]
+        subgraph FI["Finland (eu-yy01)"]
+            GateFI[eFTI Gate\neu-yy01\nhttps://efti.example.com/services/msh]
         end
 
-        subgraph DE["Germany (<peerGateB>)"]
-            GateDE[eFTI Gate\n<peerGateB>\n<as4Url>]
+        subgraph DE["Germany (eu-yy02)"]
+            GateDE[eFTI Gate\neu-yy02\nhttps://efti.example.com/services/msh]
         end
 
-        subgraph SE["Sweden (<peerGateC>)"]
-            GateSE[eFTI Gate\n<peerGateC>\n<as4Url>]
+        subgraph SE["Sweden (eu-yy03)"]
+            GateSE[eFTI Gate\neu-yy03\nhttps://efti.example.com/services/msh]
         end
 
-        subgraph LT["Lithuania (<peerGateD>)"]
-            GateLT[eFTI Gate\n<peerGateD>\n<as4Url>]
+        subgraph LT["Lithuania (eu-yy04)"]
+            GateLT[eFTI Gate\neu-yy04\nhttps://efti.example.com/services/msh]
         end
 
-        subgraph LV["Latvia (<peerGateE>)"]
-            GateLV[eFTI Gate\n<peerGateE>\n<as4Url>]
+        subgraph LV["Latvia (eu-yy05)"]
+            GateLV[eFTI Gate\neu-yy05\nhttps://efti.example.com/services/msh]
         end
 
-        subgraph PL["Poland (<peerGateF>)"]
-            GatePL[eFTI Gate\n<peerGateF>\n<as4Url>]
+        subgraph PL["Poland (eu-yy06)"]
+            GatePL[eFTI Gate\neu-yy06\nhttps://efti.example.com/services/msh]
         end
     end
 
@@ -41,17 +41,17 @@ graph TB
     GateFI <-.->|eDelivery AS4| GateLT
 
     subgraph EEPlatforms["Estonian Platforms"]
-        PltEE1[<platformId>\n<orgName>]
-        PltEE2[<platformB>\n<orgName>]
+        PltEE1[plt-xxx-001\nExample Logistics]
+        PltEE2[plt-xxx-003\nExample Logistics]
     end
 
     subgraph EEAuthorities["Estonian Authorities"]
-        AutPolitsei[<authorityA>\n<authorityName>]
-        AutMaksu[<authorityB>\n<authorityName>]
+        AutPolitsei[aut-xxx-001\nExample Authority]
+        AutMaksu[aut-xxx-002\nExample Authority]
     end
 
     subgraph FIPlatforms["Finnish Platforms"]
-        PltFI1[<platformId>\n<orgName>]
+        PltFI1[plt-xxx-001\nExample Logistics]
     end
 
     GateEE <-->|HTTPS REST API| PltEE1

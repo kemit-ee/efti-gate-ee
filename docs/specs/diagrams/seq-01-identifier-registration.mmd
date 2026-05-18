@@ -1,19 +1,19 @@
 sequenceDiagram
     participant Platform as Platform Operator (mTLS client)
     participant Proxy as Reverse Proxy
-    participant Gate as eFTI Gate (<gateId>)
+    participant Gate as eFTI Gate (eu-xx01)
     participant Auth as PlatformAuthChecker
     participant DB as PostgreSQL
     participant ConsReg as ConsignmentRepository
 
     Platform->>+Proxy: POST /v1/identifiers/550e8400-e29b-41d4-a716-446655440000<br/>Content-Type: application/xml<br/>X-Request-ID: req-a1b2<br/>Client cert (mTLS) — Member-State-issued for the platform's eDelivery AP
     Proxy->>Proxy: Validate cert chain
-    Proxy->>+Gate: forwarded request +<br/>X-Client-Cert-Subject: CN=eDelivery-Platform, O=<orgName><br/>X-Client-Cert-Serial: 0123456789ABCDEF
+    Proxy->>+Gate: forwarded request +<br/>X-Client-Cert-Subject: CN=eDelivery-Platform, O=Example Logistics<br/>X-Client-Cert-Serial: 0123456789ABCDEF
 
     Gate->>+Auth: resolvePlatform(certSubject, certSerial)
     Auth->>+DB: Resolve active platforms row by (cert_subject, cert_serial)
-    DB-->>-Auth: Platform '<platformId>' (single match)
-    Auth-->>-Gate: Platform{id='<platformId>'}
+    DB-->>-Auth: Platform 'plt-xxx-001' (single match)
+    Auth-->>-Gate: Platform{id='plt-xxx-001'}
 
     Gate->>Gate: Extract datasetId from URL path<br/>datasetId='550e8400-e29b-41d4-a716-446655440000'
     Gate->>Gate: Parse identifier XML (per consignment-identifier.xsd)
@@ -21,14 +21,14 @@ sequenceDiagram
 
     alt XML valid
         Gate->>+ConsReg: save(consignment, identifiers)
-        ConsReg->>+DB: Append a new consignments row (dataset_id='550e8400-…', platform_id='<platformId>', status='active', denormalised search columns) and the corresponding identifiers rows
-        Note over DB: Append-only — previous rows for this dataset_id remain in place; the new row becomes the latest by created_at.<br/>identifier_type ENUM: 'means' (vehicle / transport unit), 'equipment' (container / trailer), 'carried' (cargo unit).
+        ConsReg->>+DB: Append a new consignments row (dataset_id='550e8400-…', platform_id='plt-xxx-001', status='active', denormalised search columns) and the corresponding identifiers rows
+        Note over DB: Append-only — previous rows for this dataset_id remain in place — the new row becomes the latest by created_at.<br/>identifier_type ENUM: 'means' (vehicle / transport unit), 'equipment' (container / trailer), 'carried' (cargo unit).
         DB-->>-ConsReg: written
         ConsReg-->>-Gate: saved
 
-        Gate-->>-Platform: 200 OK
+        Gate-->>Platform: 200 OK
         Note over Gate,Platform: Identifier registered. datasetId: 550e8400-…
 
     else XML invalid (XSD parse error)
-        Gate-->>-Platform: 400 Bad Request (application/problem+json)<br/>{ "type":"https://api.efti.ee/errors/invalid-xml",<br/>  "code":"INVALID_XML",<br/>  "title":"Bad Request",<br/>  "status":400,<br/>  "detail":"XSD validation failed at line 7: missing required element <modeCode>",<br/>  "instance":"/v1/identifiers/550e8400-…" }
+        Gate-->>Platform: 400 Bad Request (application/problem+json)<br/>{ "type":"https://api.efti.ee/errors/invalid-xml",<br/>  "code":"INVALID_XML",<br/>  "title":"Bad Request",<br/>  "status":400,<br/>  "detail":"XSD validation failed at line 7: missing required element modeCode",<br/>  "instance":"/v1/identifiers/550e8400-…" }
     end

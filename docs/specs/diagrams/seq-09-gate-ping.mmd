@@ -3,44 +3,44 @@ sequenceDiagram
     participant Gate as eFTI Gate (admin endpoint)
     participant GateReg as GateRegistry
     participant GateClient as GateClient
-    participant GateFI as Remote Gate (<peerGateA>)
-    participant GateDE as Remote Gate (<peerGateB>)
+    participant GateFI as Remote Gate (eu-yy01)
+    participant GateDE as Remote Gate (eu-yy02)
     participant DB as PostgreSQL
 
     Note over CM: Cron every 5 minutes (operator-tunable).<br/>YAML in docs/specs/deploy/cronmanager-ping-gates.yaml.<br/>HTTP POST job — target = the gate's admin ping-gates endpoint.
 
     CM->>+Gate: POST /api/v1/admin/ping-gates<br/>Authorization: Bearer ${BEARER_OPS_TOKEN}
     Gate->>Gate: Auth: literal compare with ARCHIVE_OPS_TOKEN env var
-    Gate->>Gate: Acquire concurrency guard (advisory lock); 409 if already running
+    Gate->>Gate: Acquire concurrency guard via advisory lock — 409 if already running
 
     Gate->>+GateReg: enabledGates()
-    GateReg->>+DB: Resolve the latest row per gate id; keep only those with<br/>status ≠ 'DISABLED' and is_active=TRUE.
-    DB-->>-GateReg: [<peerGateA>{ONLINE}, <peerGateB>{ONLINE}, <peerGateC>{OFFLINE}]
-    GateReg-->>-Gate: [<peerGateA>, <peerGateB>, <peerGateC>]
+    GateReg->>+DB: Resolve the latest row per gate id — keep only those with<br/>status ≠ 'DISABLED' and is_active=TRUE.
+    DB-->>-GateReg: [eu-yy01{ONLINE}, eu-yy02{ONLINE}, eu-yy03{OFFLINE}]
+    GateReg-->>-Gate: [eu-yy01, eu-yy02, eu-yy03]
 
     par Ping all enabled gates (parallel)
-        Gate->>+GateClient: ping(<peerGateA>)
+        Gate->>+GateClient: ping(eu-yy01)
         alt gate.isFast (HTTP endpoint)
-            GateClient->>+GateFI: POST /services/fast (X-API-Key: <gateId>)
+            GateClient->>+GateFI: POST /services/fast (X-API-Key: eu-xx01)
             GateFI-->>-GateClient: 200 OK
         else eDelivery (AS4 SOAP)
             GateClient->>GateFI: AS4 SOAP ping
             GateFI-->>GateClient: AS4 SOAP pong
         end
         GateClient->>+GateReg: save(gate.copy(status=ONLINE, last_ping_at=NOW()))
-        GateReg->>+DB: Append a new gates row for <peerGateA> with status='ONLINE',<br/>last_ping_at=NOW(), is_active=TRUE.
-        DB-->>-GateReg: written (new row; latest row for <peerGateA> wins on next read)
+        GateReg->>+DB: Append a new gates row for eu-yy01 with status='ONLINE',<br/>last_ping_at=NOW(), is_active=TRUE.
+        DB-->>-GateReg: written (new row — latest row for eu-yy01 wins on next read)
         GateReg-->>-GateClient: saved
-        GateClient-->>-Gate: OK (<peerGateA> ONLINE)
+        GateClient-->>-Gate: OK (eu-yy01 ONLINE)
 
-        Gate->>+GateClient: ping(<peerGateB>)
-        GateClient->>+GateDE: POST /services/fast (X-API-Key: <gateId>)
+        Gate->>+GateClient: ping(eu-yy02)
+        GateClient->>+GateDE: POST /services/fast (X-API-Key: eu-xx01)
         GateDE-->>-GateClient: 503 Service Unavailable
         GateClient->>+GateReg: save(gate.copy(status=OFFLINE))
-        GateReg->>+DB: Append a new gates row for <peerGateB> with status='OFFLINE',<br/>last_ping_at unchanged.
+        GateReg->>+DB: Append a new gates row for eu-yy02 with status='OFFLINE',<br/>last_ping_at unchanged.
         DB-->>-GateReg: written
         GateReg-->>-GateClient: saved
-        GateClient-->>-Gate: ERROR (<peerGateB> OFFLINE)
+        GateClient-->>-Gate: ERROR (eu-yy02 OFFLINE)
     end
 
     Gate->>Gate: Release concurrency guard

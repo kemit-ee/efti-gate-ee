@@ -1,25 +1,25 @@
 sequenceDiagram
     participant Platform as Platform (demo)
-    participant Gate as eFTI Gate (<gateId>)
+    participant Gate as eFTI Gate (eu-xx01)
     participant DB as PostgreSQL
 
     Note over Platform: Platform has a consignment to register or re-register.<br/>datasetId: 550e8400-e29b-41d4-a716-446655440000
 
-    Platform->>+Gate: POST /v1/identifiers/550e8400-e29b-41d4-a716-446655440000
-    Note over Platform,Gate: Content-Type: application/xml<br/>Client cert (mTLS) — Member-State-issued for the platform's eDelivery AP<br/>(reverse proxy forwards X-Client-Cert-Subject / X-Client-Cert-Serial)<br/>X-Request-ID: <uuid><br/>Body: full consignment XML with identifiers
+    Platform->>Gate: POST /v1/identifiers/550e8400-e29b-41d4-a716-446655440000
+    Note over Platform,Gate: Content-Type: application/xml<br/>Client cert (mTLS) — Member-State-issued for the platform's eDelivery AP<br/>(reverse proxy forwards X-Client-Cert-Subject / X-Client-Cert-Serial)<br/>X-Request-ID: uuid<br/>Body: full consignment XML with identifiers
 
-    Gate->>Gate: Resolve platform_id from active platforms by (cert_subject, cert_serial)<br/>→ platform_id='<platformId>'
-    Gate->>Gate: X-Request-ID deduplication against request_id_cache<br/>(10-minute window; conflict → 409 DUPLICATE_REQUEST_ID)
-    Gate->>Gate: Extract datasetId from path; parse XML per consignment-identifier.xsd
+    Gate->>Gate: Resolve platform_id from active platforms by (cert_subject, cert_serial)<br/>→ platform_id='plt-xxx-001'
+    Gate->>Gate: X-Request-ID deduplication against request_id_cache<br/>(10-minute window — conflict → 409 DUPLICATE_REQUEST_ID)
+    Gate->>Gate: Extract datasetId from path — parse XML per consignment-identifier.xsd
 
     alt Parse successful
         Gate->>+DB: Append a new consignments row for dataset_id='550e8400-…'<br/>(status='active', denormalised search columns: vehicle_plate,<br/>vehicle_country, mode, dangerous_goods, origin_country,<br/>destination_country, transport_date, expires_at)<br/>plus the identifiers rows extracted from the XML.
         DB-->>-Gate: written
-        Note over DB: Append-only — if a prior row exists for this dataset_id, the new row<br/>becomes the latest by created_at; the previous row is preserved<br/>and archived later by CronManager (Epic 26).
+        Note over DB: Append-only — if a prior row exists for this dataset_id, the new row<br/>becomes the latest by created_at — the previous row is preserved<br/>and archived later by CronManager (Epic 26).
 
-        Gate-->>-Platform: 200 OK
+        Gate-->>Platform: 200 OK
         Note over Gate,Platform: Authority searches resolve the latest row per dataset_id —<br/>the newly written state is visible immediately.
 
     else Parse error (malformed XML)
-        Gate-->>-Platform: 400 Bad Request<br/>{ "type":"https://api.efti.ee/errors/invalid-xml",<br/>"code":"INVALID_XML", "title":"Invalid XML",<br/>"status":400, "detail":"XSD validation failed: …" }
+        Gate-->>Platform: 400 Bad Request (RFC 7807 invalid-xml problem detail)
     end

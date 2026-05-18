@@ -5,15 +5,15 @@ flowchart TD
 
     ParseUIL --> GateCheck{uil.gateId ==\nthis gate id?}
 
-    GateCheck -->|Yes, local gate <gateId>| LookupLocalPlatform[platformRegistry.get platformId\nLookup platform config in memory]
-    GateCheck -->|No, remote gate <peerGateA>| LookupRemoteGate[gateRegistry.get gateId]
+    GateCheck -->|Yes, local gate eu-xx01| LookupLocalPlatform[platformRegistry.get platformId\nLookup platform config in memory]
+    GateCheck -->|No, remote gate eu-yy01| LookupRemoteGate[gateRegistry.get gateId]
 
     LookupLocalPlatform --> LocalPlatformFound{Platform found?}
     LocalPlatformFound -->|No| Return404P[Return 404\nPlatform not registered]
     LocalPlatformFound -->|Yes| CallLocalPlatform[HTTP GET platform.baseUrl\n/v1/datasets/datasetId?subsetId=EU07]
 
     LookupRemoteGate --> GateOnline{gate.status == ONLINE?}
-    GateOnline -->|No: OFFLINE or DISABLED| Return502[Return 502 Bad Gateway\n"Cannot reach Gate <peerGateA>: OFFLINE"]
+    GateOnline -->|No, OFFLINE or DISABLED| Return502["Return 502 Bad Gateway<br/>Cannot reach Gate eu-yy01 — OFFLINE"]
     GateOnline -->|Yes| ForwardToRemote[Forward UILQuery to remote gate\neDelivery AS4 or Fast HTTP]
 
     ForwardToRemote --> RemoteGateResponse[Remote gate fetches from\nits local platform, returns response]

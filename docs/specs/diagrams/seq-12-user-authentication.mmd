@@ -2,12 +2,12 @@ sequenceDiagram
     participant Officer as Authority Officer (browser)
     participant TARA as TARA (RIA OIDC OP)
     participant UI as Gate Authority UI
-    participant Gate as eFTI Gate (<gateId>)
+    participant Gate as eFTI Gate (eu-xx01)
     participant Auth as AccessChecker
     participant DB as PostgreSQL
     participant Route as Business Route
 
-    Note over Officer,TARA: Step 1 — TARA OIDC login (out-of-band of the gate's REST API).<br/>Officer authenticates with Estonian eID / Mobile-ID / Smart-ID;<br/>TARA returns an ID Token (RS256-signed JWT, claims: iss, aud,<br/>sub=Estonian PIC, resource_access.efti-gate.roles, subsets,<br/>efti.scope, exp, jti).
+    Note over Officer,TARA: Step 1 — TARA OIDC login (out-of-band of the gate's REST API).<br/>Officer authenticates with Estonian eID / Mobile-ID / Smart-ID,<br/>TARA returns an ID Token (RS256-signed JWT, claims: iss, aud,<br/>sub=Estonian PIC, resource_access.efti-gate.roles, subsets,<br/>efti.scope, exp, jti).
 
     Officer->>+TARA: OIDC authorize / authenticate
     TARA-->>-Officer: ID Token (JWT)
@@ -15,23 +15,23 @@ sequenceDiagram
     Note over Officer,UI: Step 2 — UI bearer-attaches the JWT to subsequent gate calls.
 
     Officer->>+UI: Search "123ABC"
-    UI->>+Gate: GET /v1/identifiers/123ABC<br/>Authorization: Bearer <TARA-JWT>
+    UI->>+Gate: GET /v1/identifiers/123ABC<br/>Authorization: Bearer TARA-JWT
 
     Gate->>+Auth: authenticate(request)
     Auth->>Auth: Validate JWT signature against cached JWKS<br/>(fetched from TARA_OIDC_DISCOVERY_URL)
     Auth->>Auth: Validate iss == TARA, aud == TARA_CLIENT_ID, exp > NOW()
     Auth->>+DB: Check sessions denylist for the JWT's jti
     DB-->>-Auth: not revoked
-    Auth->>+DB: Resolve the latest active users row by tara_sub = jwt.sub;<br/>verify jwt.iat ≥ users.token_revoked_at
-    DB-->>-Auth: User{id='d2e3f4a5-…', is_active=TRUE, roles={'AUTHORITY':['<authorityA>']}, subsets=['EU07'], token_revoked_at=NULL}
+    Auth->>+DB: Resolve the latest active users row by tara_sub = jwt.sub,<br/>verify jwt.iat ≥ users.token_revoked_at
+    DB-->>-Auth: User{id='d2e3f4a5-…', is_active=TRUE, roles={'AUTHORITY':['aut-xxx-001']}, subsets=['EU07'], token_revoked_at=NULL}
 
-    Note over Auth: Permission claims are read from the resolved users row,<br/>NOT directly from the JWT — TARA's `resource_access` may<br/>differ from the gate's `users.roles` if admin has updated<br/>scope since the JWT was issued. JWT carries identity<br/>(`sub`) and freshness (`iat`, `jti`); the gate carries the authorisation.<br/><br/>Missing-row policy: if no active users row matches the JWT `sub`,<br/>respond 401 TOKEN_INVALID with detail "no provisioned user".<br/>Admin must POST /api/v1/users first.<br/><br/>Per-user broadcast revocation: if jwt.iat < users.token_revoked_at,<br/>respond 401 TOKEN_INVALID with detail "token revoked".
+    Note over Auth: Permission claims are read from the resolved users row,<br/>NOT directly from the JWT — TARA's `resource_access` may<br/>differ from the gate's `users.roles` if admin has updated<br/>scope since the JWT was issued. JWT carries identity<br/>(`sub`) and freshness (`iat`, `jti`) — the gate carries the authorisation.<br/><br/>Missing-row policy: if no active users row matches the JWT `sub`,<br/>respond 401 TOKEN_INVALID with detail "no provisioned user".<br/>Admin must POST /api/v1/users first.<br/><br/>Per-user broadcast revocation: if jwt.iat < users.token_revoked_at,<br/>respond 401 TOKEN_INVALID with detail "token revoked".
 
-    Auth-->>-Gate: AuthenticatedUser{<br/>userId="d2e3f4a5-…", roles=["AUTHORITY"],<br/>scope=["<authorityA>"], subsets=["EU07"], jti="abc..." }
+    Auth-->>-Gate: AuthenticatedUser{<br/>userId="d2e3f4a5-…", roles=["AUTHORITY"],<br/>scope=["aut-xxx-001"], subsets=["EU07"], jti="abc..." }
 
     Gate->>+Route: handle(exchange, user)
     Note over Route: @Access(AUTHORITY) — user.roles contains AUTHORITY → OK
-    Route->>Route: authorityId = user.scope.first() = "<authorityA>"
+    Route->>Route: authorityId = user.scope.first() = "aut-xxx-001"
     Route->>Route: subsetCheck: requested ⊆ user.subsets → OK
     Route->>Route: Execute identifier search (latest-row resolution per dataset_id)
     Route-->>-Gate: result
@@ -39,14 +39,14 @@ sequenceDiagram
     UI-->>-Officer: Search results
 
     alt Invalid JWT signature / expired / aud mismatch
-        Officer->>Gate: GET /v1/identifiers/123ABC<br/>Authorization: Bearer <bad-jwt>
+        Officer->>Gate: GET /v1/identifiers/123ABC<br/>Authorization: Bearer bad-jwt
         Gate->>Auth: authenticate
         Auth-->>Gate: null (signature/exp/aud invalid)
         Gate-->>Officer: 401 Unauthorized<br/>{"code":"TOKEN_INVALID"}
     end
 
     alt JWT in denylist (per-token revocation via /api/v1/auth/logout)
-        Officer->>Gate: GET /v1/identifiers/123ABC<br/>Authorization: Bearer <revoked-jwt>
+        Officer->>Gate: GET /v1/identifiers/123ABC<br/>Authorization: Bearer revoked-jwt
         Gate->>Auth: authenticate
         Auth->>DB: Check sessions denylist for the JWT's jti
         DB-->>Auth: present (revoked)
@@ -55,16 +55,16 @@ sequenceDiagram
     end
 
     alt User-level revocation (per-user broadcast via /api/v1/users/{id}/revoke-token)
-        Officer->>Gate: GET /v1/identifiers/123ABC<br/>Authorization: Bearer <jwt issued before revoke-token>
+        Officer->>Gate: GET /v1/identifiers/123ABC<br/>Authorization: Bearer jwt-issued-before-revoke
         Gate->>Auth: authenticate
-        Auth->>DB: Resolve users row; jwt.iat < users.token_revoked_at
+        Auth->>DB: Resolve users row — jwt.iat < users.token_revoked_at
         DB-->>Auth: User{token_revoked_at=2026-04-23T10:00:00Z}
         Auth-->>Gate: null
         Gate-->>Officer: 401 Unauthorized<br/>{"code":"TOKEN_INVALID","detail":"Token has been revoked"}
     end
 
     alt Valid JWT but wrong role
-        Officer->>Gate: GET /api/v1/gates (admin endpoint)<br/>Authorization: Bearer <authority-only-jwt>
+        Officer->>Gate: GET /api/v1/gates (admin endpoint)<br/>Authorization: Bearer authority-only-jwt
         Gate->>Auth: authenticate → AuthenticatedUser{roles=["AUTHORITY"]}
         Gate->>Route: @Access(ADMIN) — user.roles ∌ ADMIN → fails
         Gate-->>Officer: 403 Forbidden<br/>{"code":"FORBIDDEN"}

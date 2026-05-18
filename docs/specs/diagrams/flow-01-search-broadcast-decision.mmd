@@ -22,7 +22,7 @@ flowchart TD
 
     FetchOnlineGates --> OpenSSE[Open SSE stream to authority\nHTTP 200 text/event-stream]
 
-    OpenSSE --> SendLocalGateEvent[event: gate\ngateId=<gateId>, responseTimeMs=N]
+    OpenSSE --> SendLocalGateEvent[event: gate\ngateId=eu-xx01, responseTimeMs=N]
 
     SendLocalGateEvent --> HasLocalForStream{local results > 0?}
 
@@ -33,7 +33,7 @@ flowchart TD
 
     WaitRemote --> RemoteResponse[Receive remote gate response\nor error/timeout]
 
-    RemoteResponse --> SendGateEvent[event: gate\ngateId=<peerGateA>, responseTimeMs=N]
+    RemoteResponse --> SendGateEvent[event: gate\ngateId=eu-yy01, responseTimeMs=N]
 
     SendGateEvent --> HasRemoteResults{remote consignments present?}
 

@@ -1,9 +1,9 @@
 stateDiagram-v2
-    [*] --> Initiated: Authority: GET /v1/dataset/{gateId}/{platformId}/{datasetId}?subsetId=EU07
+    [*] --> Initiated: Authority — GET /v1/dataset/{gateId}/{platformId}/{datasetId}?subsetId=EU07
 
-    Initiated --> LocalFetch: uil.gateId == this gate\n(<gateId> == <gateId>)
+    Initiated --> LocalFetch: uil.gateId == this gate\n(eu-xx01 == eu-xx01)
 
-    Initiated --> RemoteForward: uil.gateId != this gate\n(<gateId> != <peerGateA>)
+    Initiated --> RemoteForward: uil.gateId != this gate\n(eu-xx01 != eu-yy01)
 
     LocalFetch --> PlatformRequest: Gate sends HTTP GET\nto local platform baseUrl
 
@@ -31,7 +31,7 @@ stateDiagram-v2
 
     RemoteForward --> GateUnavailable: checkGateAvailable() fails\n(gate.status != ONLINE)
 
-    GateUnavailable --> Returned: 502 Bad Gateway\n"Cannot reach Gate <peerGateA>: OFFLINE"
+    GateUnavailable --> Returned: 502 Bad Gateway — Cannot reach Gate eu-yy01 — OFFLINE
 
     note right of RemoteForward
         Routing decision based on UIL.gateId:
