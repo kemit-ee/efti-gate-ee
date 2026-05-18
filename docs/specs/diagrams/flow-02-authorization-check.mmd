@@ -34,7 +34,7 @@ flowchart TD
 
     CheckAdmin -->|No| Ret403
     CheckAdmin -->|Yes| AdminWrite{Mutating endpoint<br/>with entityId param?}
-    AdminWrite -->|Yes| CheckScope{entityId ∈ users.roles[ADMIN]?}
+    AdminWrite -->|Yes| CheckScope{"entityId ∈ users.roles[ADMIN]?"}
     AdminWrite -->|No| AdminAccess[Proceed to admin route]
     CheckScope -->|No| Ret403WA[403 FORBIDDEN_WRITE_ACCESS]
     CheckScope -->|Yes| AdminAccess

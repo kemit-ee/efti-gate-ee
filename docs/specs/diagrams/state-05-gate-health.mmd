@@ -1,15 +1,15 @@
 stateDiagram-v2
-    [*] --> ONLINE: Admin: POST /api/v1/gates<br/>→ INSERT gates (id, …, status='ONLINE', is_active=TRUE)<br/>(auto-pinged on next cycle)
+    [*] --> ONLINE: Admin — POST /api/v1/gates<br/>→ INSERT gates (id, …, status='ONLINE', is_active=TRUE)<br/>(auto-pinged on next cycle)
 
     ONLINE --> OFFLINE: Ping fails<br/>CronManager → POST /api/v1/admin/ping-gates<br/>→ INSERT gates row with status='OFFLINE'
 
     OFFLINE --> ONLINE: Ping succeeds<br/>CronManager → POST /api/v1/admin/ping-gates<br/>→ INSERT gates row with status='ONLINE',<br/>last_ping_at=NOW()
 
-    ONLINE --> DISABLED: Admin: PUT /api/v1/gates/{id} body status='DISABLED'<br/>→ INSERT gates row with status='DISABLED'<br/>(manual disable — maintenance / decommission)
+    ONLINE --> DISABLED: Admin — PUT /api/v1/gates/{id} body status='DISABLED'<br/>→ INSERT gates row with status='DISABLED'<br/>(manual disable — maintenance / decommission)
 
-    OFFLINE --> DISABLED: Admin: PUT /api/v1/gates/{id} body status='DISABLED'<br/>→ INSERT gates row with status='DISABLED'
+    OFFLINE --> DISABLED: Admin — PUT /api/v1/gates/{id} body status='DISABLED'<br/>→ INSERT gates row with status='DISABLED'
 
-    DISABLED --> ONLINE: Admin: PUT /api/v1/gates/{id} body status='ONLINE'<br/>→ INSERT gates row with status='ONLINE'<br/>AND next ping succeeds
+    DISABLED --> ONLINE: Admin — PUT /api/v1/gates/{id} body status='ONLINE'<br/>→ INSERT gates row with status='ONLINE'<br/>AND next ping succeeds
 
     note left of ONLINE
         STATUS axis (ping-job-driven, gates.status):
@@ -33,7 +33,7 @@ stateDiagram-v2
     note right of OFFLINE
         Latest gates row has status='OFFLINE'.
         - Excluded from broadcasts.
-        - Direct GET /v1/dataset/{<peerGateA>}/… → 502 GATEWAY_UNAVAILABLE.
+        - Direct GET /v1/dataset/{eu-yy01}/… → 502 GATEWAY_UNAVAILABLE.
         - Ping job continues trying every 5 min;
           if reachable, INSERTs a new ONLINE row.
     end note

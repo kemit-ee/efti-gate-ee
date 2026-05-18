@@ -1,11 +1,11 @@
 graph TB
     subgraph External["External Clients"]
-        Platform[Platform Operator\nmTLS / EU-Trust-Service cert\n<platformId>]
-        Authority[Authority User\nTARA OIDC JWT\n<authorityA>]
-        Admin[Gate Admin\nTARA OIDC JWT\n<adminEmail>]
+        Platform[Platform Operator\nmTLS / EU-Trust-Service cert\nplt-xxx-001]
+        Authority[Authority User\nTARA OIDC JWT\naut-xxx-001]
+        Admin[Gate Admin\nTARA OIDC JWT\nadmin@example.com]
     end
 
-    subgraph GateCluster["eFTI Gate Cluster (<gateId>)"]
+    subgraph GateCluster["eFTI Gate Cluster (eu-xx01)"]
         LB[Reverse Proxy + LB\nnginx / Caddy / Traefik\nterminates TLS + mTLS]
         Node1[Gate Node 1\nJVM / Klite HTTP]
         Node2[Gate Node 2\nJVM / Klite HTTP]
@@ -28,10 +28,10 @@ graph TB
     end
 
     subgraph EUGates["EU eFTI Gate Network"]
-        GateFI[<peerGateA>\nFinland Gate]
-        GateDE[<peerGateB>\nGermany Gate]
-        GateSE[<peerGateC>\nSweden Gate]
-        GateLT[<peerGateC>\nLithuania Gate]
+        GateFI[eu-yy01\nFinland Gate]
+        GateDE[eu-yy02\nGermany Gate]
+        GateSE[eu-yy03\nSweden Gate]
+        GateLT[eu-yy03\nLithuania Gate]
     end
 
     Platform -->|"HTTPS POST /v1/identifiers/{datasetId}\nmTLS — platforms.cert_subject lookup"| LB

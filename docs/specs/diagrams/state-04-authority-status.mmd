@@ -1,11 +1,11 @@
 stateDiagram-v2
-    [*] --> Active: Admin: POST /api/v1/authorities<br/>→ INSERT authorities (id, name, country_code, subsets, is_active=TRUE)
+    [*] --> Active: Admin — POST /api/v1/authorities<br/>→ INSERT authorities (id, name, country_code, subsets, is_active=TRUE)
 
-    Active --> Active: Admin: PUT /api/v1/authorities/{id}<br/>→ INSERT new authorities row sharing the same id<br/>(updated name, subsets, description)
+    Active --> Active: Admin — PUT /api/v1/authorities/{id}<br/>→ INSERT new authorities row sharing the same id<br/>(updated name, subsets, description)
 
-    Active --> Inactive: Admin: DELETE /api/v1/authorities/{id}<br/>→ INSERT new authorities row with is_active=FALSE
+    Active --> Inactive: Admin — DELETE /api/v1/authorities/{id}<br/>→ INSERT new authorities row with is_active=FALSE
 
-    Inactive --> Active: Admin: POST again<br/>→ INSERT new row with is_active=TRUE
+    Inactive --> Active: Admin — POST again<br/>→ INSERT new row with is_active=TRUE
 
     note right of Active
         Latest authorities row has is_active=TRUE.

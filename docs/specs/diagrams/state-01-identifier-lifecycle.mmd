@@ -1,18 +1,18 @@
 stateDiagram-v2
-    [*] --> active: Platform: POST /v1/identifiers/{datasetId}<br/>(XSD valid → INSERT consignments + identifiers, status='active')
+    [*] --> active: Platform — POST /v1/identifiers/{datasetId}<br/>(XSD valid → INSERT consignments + identifiers, status='active')
 
     [*] --> rejected: XSD invalid<br/>(JAXB throws → 400 INVALID_XML, no DB write)
     rejected --> [*]
 
-    active --> active: Platform: POST /v1/identifiers/{datasetId}<br/>(re-upload — INSERT new consignments row sharing dataset_id;<br/>previous row remains, latest wins)
+    active --> active: Platform — POST /v1/identifiers/{datasetId}<br/>(re-upload — INSERT new consignments row sharing dataset_id;<br/>previous row remains, latest wins)
 
     active --> inactive: CronManager → POST /api/v1/admin/expire-identifiers<br/>mode='road' AND transport_date + 14 days < NOW()<br/>→ INSERT new consignments row with status='inactive'<br/>per Reg 2024/1942 Art 11(4) cabotage retention
 
     inactive --> active: rare — re-registration of same dataset_id<br/>(INSERT new row with status='active')
 
-    active --> deleted: Platform: DELETE /v1/identifiers/{datasetId}<br/>(platform-initiated; mTLS-authenticated)<br/>→ INSERT new consignments row with status='deleted'
-    active --> deleted: Admin: DELETE /api/v1/consignments/{datasetId}<br/>(operator-initiated)<br/>→ INSERT new consignments row with status='deleted'<br/>(logical delete; nothing physically removed)
-    inactive --> deleted: Platform / Admin: DELETE<br/>→ INSERT new consignments row with status='deleted'
+    active --> deleted: Platform — DELETE /v1/identifiers/{datasetId}<br/>(platform-initiated; mTLS-authenticated)<br/>→ INSERT new consignments row with status='deleted'
+    active --> deleted: Admin — DELETE /api/v1/consignments/{datasetId}<br/>(operator-initiated)<br/>→ INSERT new consignments row with status='deleted'<br/>(logical delete; nothing physically removed)
+    inactive --> deleted: Platform / Admin — DELETE<br/>→ INSERT new consignments row with status='deleted'
 
     note right of active
         consignments.status='active' (latest row).

@@ -1,15 +1,15 @@
 sequenceDiagram
     participant Admin as Gate Admin
-    participant Gate as eFTI Gate (<gateId>)
+    participant Gate as eFTI Gate (eu-xx01)
     participant PlatformReg as PlatformRegistry
     participant DB as PostgreSQL
 
     Note over Admin: Admin has the platform operator's eDelivery AP X.509 certificate<br/>(Member-State-issued per Impl Reg 2024/1942 Art 11) — subject DN<br/>and serial number ready to register.
 
-    Admin->>+Gate: POST /api/v1/platforms<br/>Authorization: Bearer <TARA-JWT, role=ADMIN>
-    Note over Admin,Gate: Body (JSON, PlatformWrite):<br/>{<br/>  "id":"<platformId>",<br/>  "baseUrl":"https://efti.<orgDomain>",<br/>  "supportsSubsetting":true,<br/>  "certSubject":"CN=eDelivery-Platform, O=<orgName>, C=EE",<br/>  "certSerial":"0123456789ABCDEF"<br/>}
+    Admin->>+Gate: POST /api/v1/platforms<br/>Authorization: Bearer TARA-JWT (role=ADMIN)
+    Note over Admin,Gate: Body (JSON, PlatformWrite):<br/>{<br/>  "id":"plt-xxx-001",<br/>  "baseUrl":"https://efti.example.com",<br/>  "supportsSubsetting":true,<br/>  "certSubject":"CN=eDelivery-Platform, O=Example Logistics, C=EE",<br/>  "certSerial":"0123456789ABCDEF"<br/>}
 
-    Gate->>Gate: Validate JWT (signature, exp, iss, aud, not in denylist);<br/>require resource_access.efti-gate.roles ∋ ADMIN
+    Gate->>Gate: Validate JWT (signature, exp, iss, aud, not in denylist),<br/>require resource_access.efti-gate.roles ∋ ADMIN
 
     Gate->>+PlatformReg: save(PlatformWrite)
     PlatformReg->>+DB: Append a new platforms row carrying the platform's id, baseUrl,<br/>supportsSubsetting flag, certSubject + certSerial, is_active=TRUE,<br/>created_by=admin's user-row-id.
@@ -17,6 +17,6 @@ sequenceDiagram
     DB-->>-PlatformReg: written
     PlatformReg-->>-Gate: saved
 
-    Gate-->>-Admin: 201 Created<br/>{ "id":"<platformId>", "baseUrl":"https://efti.<orgDomain>",<br/>  "supportsSubsetting":true, "certSubject":"CN=…", "certSerial":"0123456789ABCDEF",<br/>  "isActive":true, "createdAt":"2026-04-22T10:15:30Z" }
+    Gate-->>-Admin: 201 Created<br/>{ "id":"plt-xxx-001", "baseUrl":"https://efti.example.com",<br/>  "supportsSubsetting":true, "certSubject":"CN=…", "certSerial":"0123456789ABCDEF",<br/>  "isActive":true, "createdAt":"2026-04-22T10:15:30Z" }
 
     Note over Admin,Gate: Platform now authenticates via mTLS — the cert is the credential.<br/>NO user record is created; NO secret is issued. Platform identity<br/>is the cert subject DN, resolved per request against platforms.<br/><br/>If the platform later renews its cert, admin sends PUT /api/v1/platforms/{platformId}<br/>with the new certSubject / certSerial — append-only INSERT, old cert<br/>stops resolving once the new row is the latest.

@@ -1,11 +1,11 @@
 stateDiagram-v2
-    [*] --> Active: Admin: POST /api/v1/platforms<br/>→ INSERT platforms (id, …, is_active=TRUE)
+    [*] --> Active: Admin — POST /api/v1/platforms<br/>→ INSERT platforms (id, …, is_active=TRUE)
 
-    Active --> Active: Admin: PUT /api/v1/platforms/{id}<br/>→ INSERT new platforms row sharing the same id<br/>(updated base_url / headers / certs)
+    Active --> Active: Admin — PUT /api/v1/platforms/{id}<br/>→ INSERT new platforms row sharing the same id<br/>(updated base_url / headers / certs)
 
-    Active --> Inactive: Admin: DELETE /api/v1/platforms/{id}<br/>→ INSERT new platforms row with is_active=FALSE
+    Active --> Inactive: Admin — DELETE /api/v1/platforms/{id}<br/>→ INSERT new platforms row with is_active=FALSE
 
-    Inactive --> Active: Admin: POST again<br/>→ INSERT new row with is_active=TRUE
+    Inactive --> Active: Admin — POST again<br/>→ INSERT new row with is_active=TRUE
 
     note right of Active
         Latest platforms row for this id has is_active=TRUE.

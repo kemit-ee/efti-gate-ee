@@ -8,7 +8,7 @@ sequenceDiagram
 
     CM->>+Gate: POST /api/v1/admin/expire-identifiers<br/>Authorization: Bearer ${BEARER_OPS_TOKEN}
     Gate->>Gate: Auth: literal compare with ARCHIVE_OPS_TOKEN env var
-    Gate->>Gate: Acquire concurrency guard (advisory lock); if held, return 409 ARCHIVE_IN_PROGRESS
+    Gate->>Gate: Acquire concurrency guard via advisory lock — 409 ARCHIVE_IN_PROGRESS if already held
 
     Gate->>+DB: Resolve the latest row per dataset_id where mode='road',<br/>status='active', and transport_date + 14 days has passed.
     Note over DB: Cabotage retention per Reg 2024/1942 Art 11(4).<br/>Latest-row resolution per db/README.md.
@@ -17,7 +17,7 @@ sequenceDiagram
     loop For each expired road consignment
         Gate->>+DB: Append a new consignments row sharing the same dataset_id<br/>with status='inactive' (denormalised columns copied from the prior latest row).
         DB-->>-Gate: written
-        Note over DB: Append-only — no UPDATE. The newly inserted row becomes the latest;<br/>downstream reads (DISTINCT ON dataset_id) now resolve to status='inactive'.
+        Note over DB: Append-only — no UPDATE. The newly inserted row becomes the latest,<br/>downstream reads (DISTINCT ON dataset_id) now resolve to status='inactive'.
         Gate->>Log: { event.action: "identifier.expire",<br/>efti.dataset.id: "550e8400-…",<br/>efti.expiry.reason: "cabotage_14d" }
     end
 
