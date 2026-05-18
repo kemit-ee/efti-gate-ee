@@ -20,7 +20,7 @@ stateDiagram-v2
     Active --> SoftDeleted: DELETE /api/v1/platforms/{id}<br/>(latest row is_active=FALSE)
     SoftDeleted --> Active: PUT with new row is_active=TRUE
     note right of Active
-        Registry change → app emits NOTIFY registry_change, id
+        Registry change → app emits NOTIFY registry_change_platforms, id
         in same transaction; other nodes LISTEN and reload
         from gates/platforms within ≤ 500 ms.
     end note
@@ -48,7 +48,7 @@ See `seq-10-platform-registration.mmd` and `state-03-platform-status.mmd` for fu
 - [ ] Admin writing to a platform whose owning gate is not in the admin's `roles[ADMIN]` scope-IDs → `403 FORBIDDEN_WRITE_ACCESS`
 
 **Technical constraints:**
-- [ ] Registry changes propagated to all nodes via an app-emitted `NOTIFY registry_change, '<id>'` in the same transaction as the INSERT — other nodes LISTEN and reload within 500 ms
+- [ ] Registry changes propagated to all nodes via an app-emitted `NOTIFY registry_change_platforms, '<id>'` in the same transaction as the INSERT — other nodes LISTEN and reload within 500 ms
 
 **Technical artifacts:**
 - [ ] OpenAPI: `GET /api/v1/platforms`, `GET /api/v1/platforms/{platformId}`, `POST /api/v1/platforms`, `PUT /api/v1/platforms/{platformId}`, `DELETE /api/v1/platforms/{platformId}`, `POST /api/v1/platforms/{platformId}/ping`
