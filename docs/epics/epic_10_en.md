@@ -6,16 +6,29 @@
 **I WANT** to communicate with other EU gates via the eDelivery AS4 protocol  
 **SO THAT** cross-border eFTI data exchange uses the standard EU infrastructure
 
-**References:**
-- [eDelivery XSD](../efti-analysis/xsd/edelivery/gate.xsd) — eDelivery message schema
-- [DB Schema](../specs/db/README.md) — async_responses table schema
-- [Data Transformations](../specs/data-transformations.md) — JSON ↔ AS4 envelope wrapping; SOAP fault handling
-- [Diagrams](../specs/diagrams/seq-14-gate-to-gate-search.mmd) — Gate-to-gate AS4 search; [seq-16](../specs/diagrams/seq-16-mtls-fast-protocol.mmd) — mTLS fast-protocol alternative
-- [Errors](../specs/errors.json) — `GATEWAY_UNAVAILABLE`, `GATE_TIMEOUT`, `EDELIVERY_ERROR`
-- [RA §4 Protocol Architecture](../architecture/eFTI-Gate-Reference-Architecture.md#4-protocol-architecture-generic-envelope--variable-payload) — Generic envelope and AS4 protocol model
-- [RA §5.1 Identifier Query](../architecture/eFTI-Gate-Reference-Architecture.md#51-identifier-query-cross-border-search) — Cross-border AS4 message flow
+## Spec anchors
 
-**AS4 message exchange at a glance:**
+| Contract surface | Reference |
+|---|---|
+| **API operations** | `POST /services/msh` (AS4 inbound) |
+| | `POST /services/fast` (mTLS fast protocol) |
+| | Full request / response / error shapes: [`openapi.yaml`](../specs/openapi.yaml) |
+| **Schema** | `async_responses` (peer-gate async responses; routed back to the owning node via `LISTEN/NOTIFY`) |
+| | `request_id_cache` (outbound `requestId` dedup) |
+| | Full schema: [`db/schema.sql`](../specs/db/schema.sql) |
+| **XML schemas** | [`gate.xsd`](../efti-analysis/xsd/edelivery/gate.xsd) (eDelivery message schema) |
+| **Wire transformations** | JSON ↔ AS4 envelope, WS-Security sign + encrypt, SOAP fault → RFC 7807: [`data-transformations.md`](../specs/data-transformations.md) |
+| **Protocol pinning** | EU eDelivery AS4 1.15 conformance profile; XML Signature SHA-256; XML Encryption AES-128-GCM; `eb:Action` literals: `identifierQuery`, `identifierResponse`, `uilQuery`, `uilResponse`, `postFollowUpRequest`, `followUpResponse` — [`non-functional.md`](../specs/non-functional.md) §3, §4 |
+| **Error codes** | `GATEWAY_UNAVAILABLE` |
+| | `GATE_TIMEOUT` |
+| | `EDELIVERY_ERROR` |
+| | Full catalog: [`errors.json`](../specs/errors.json) |
+| **Architecture** | [RA §4 Protocol Architecture](../architecture/eFTI-Gate-Reference-Architecture.md#4-protocol-architecture-generic-envelope--variable-payload) |
+| | [RA §5.1 Identifier Query](../architecture/eFTI-Gate-Reference-Architecture.md#51-identifier-query-cross-border-search) |
+| **Diagrams** | [`seq-14-gate-to-gate-search.mmd`](../specs/diagrams/seq-14-gate-to-gate-search.mmd) |
+| | [`seq-16-mtls-fast-protocol.mmd`](../specs/diagrams/seq-16-mtls-fast-protocol.mmd) |
+
+## AS4 message exchange at a glance
 
 ```mermaid
 sequenceDiagram
@@ -32,67 +45,50 @@ sequenceDiagram
     DomA-->>GateA: async callback → async_responses table<br/>(LISTEN/NOTIFY routes to owning node)
 ```
 
-See `seq-14-gate-to-gate-search.mmd` and `seq-16-mtls-fast-protocol.mmd` for full detail.
+## Acceptance Criteria
 
-#### Acceptance Criteria
+### Inbound AS4 messages
 
-##### Inbound messages
+**Business rules:**
+- [ ] `POST /services/msh` accepts SOAP/AS4 messages; the gate decrypts and parses per the AS4 1.15 conformance profile.
+- [ ] Inbound `eb:Action` family handled by the gate: `identifierQuery`, `uilQuery`, `postFollowUpRequest`, `saveIdentifiersRequest` (each maps to its corresponding handler in the local-gate flow).
+- [ ] Outbound responses for the above: `identifierResponse`, `uilResponse`, `followUpResponse`, etc.
 
-**Happy path:**
-- [ ] `POST /services/msh` accepts SOAP/AS4 message; decrypts and parses per AS4 profile
-- [ ] `identifierQuery` → processes search; returns `identifierResponse`
-- [ ] `uilQuery` → retrieves dataset from platform; returns `uilResponse`
-- [ ] `postFollowUpRequest` → forwards follow-up to platform; returns acknowledgement
-- [ ] `saveIdentifiersRequest` → stores identifiers
+**Denial scenarios:**
+- [ ] Unknown `eb:Action` → AS4 fault returned to the sender; logged WARN. Never silently ignored.
+- [ ] Unknown `CompressionType` → AS4 fault returned; never silently decompressed.
+- [ ] Invalid AS4 signature → rejected; logged WARN with the sender Party ID.
+- [ ] SOAP-parse failure → AS4 fault with error code and description.
 
-**Edge cases:**
-- [ ] Unknown `Action` field → error returned to sender; event logged WARN; not silently ignored
-- [ ] Unknown `CompressionType` → error returned; not silently decompressed
-- [ ] Incoming message with invalid AS4 signature → rejected; event logged WARN with sender Party ID
+### Outbound AS4 + Fast-protocol
 
-**Error handling:**
-- [ ] SOAP parsing failure → AS4 fault returned with error code and description
+**Business rules:**
+- [ ] The outbound gate-to-gate client emits one structured log entry per call carrying: target gate id, chosen protocol (`fast` / `eDelivery`), URL, duration ms, HTTP / SOAP status, error.
+- [ ] eDelivery client also logs: destination Party ID, `requestId`, duration ms, response status.
+- [ ] Fast protocol: `POST {gate.eDeliveryUrl}` with **mTLS** (no `X-API-Key`; see Epic 2).
+- [ ] eDelivery: SOAP message encrypted + signed via WS-Security **before** sending.
+- [ ] An outbound failure (timeout / 5xx / SOAP fault) is logged at ERROR with full context; the originating caller receives a `502`-class response.
 
-**Technical constraints:**
-- [ ] MUST use a protocol-compatible AS4 access point — either the embedded AS4 implementation (Askend baseline) or [Domibus](https://ec.europa.eu/digital-building-blocks/sites/display/DIGITAL/Domibus). Operator's choice per `non-functional.md` §4. No bespoke / non-conformant AS4 stack.
+### Protocol envelope and request generation
 
-**Technical artifacts:**
-- [ ] Diagram: `seq-14-gate-to-gate-search.mmd`
+**Business rules:**
+- [ ] Every outbound request envelope (`identifierQuery`, `uilQuery`, etc.) **must validate against the eDelivery XSD before sending**. An XSD-invalid envelope is a `500` (logged ERROR) — never forwarded.
+- [ ] Every outbound carries a `requestId` (UUID v4) for the audit trail.
+- [ ] The gate is **content-agnostic** for dataset payloads — the dataset body is wrapped in the eDelivery envelope and forwarded unchanged.
+- [ ] The same envelope-build path operates across all transport modes without mode-specific logic.
 
-##### Outbound messages
+### Asynchronous response handling
 
-**Happy path:**
-- [ ] Gate-to-gate client logs each outbound: gate ID, protocol (Fast/eDelivery), URL, duration ms, HTTP status, error
-- [ ] eDelivery client logs: destination Party ID, requestId, duration ms, response status
-- [ ] Fast protocol: `POST {gate.eDeliveryUrl}` with mTLS (X-API-Key removed)
-- [ ] eDelivery AS4: SOAP message encrypted and signed (WS-Security) before sending
+**Business rules:**
+- [ ] Async responses (`uilResponse`, `identifierResponse`) are persisted to `async_responses` and dispatched back to the originating in-flight request via PostgreSQL `LISTEN/NOTIFY` — no session affinity required.
+- [ ] The dispatch handler runs on every gate node; each node consumes only responses matching the `requestId` of its in-flight callers.
+- [ ] An async response that arrives **after** its originating SSE stream has closed is discarded and logged at DEBUG.
 
-**Error handling:**
-- [ ] Outbound eDelivery failure → logged ERROR with full context; caller receives `502 Bad Gateway`
+## Implementation contract
 
-##### Protocol envelope and request generation
+- [ ] The AS4 access point **must** be protocol-compatible with the EU eDelivery AS4 1.15 conformance profile. Operator's choice between the embedded AS4 implementation (Askend baseline) and [Domibus](https://ec.europa.eu/digital-building-blocks/sites/display/DIGITAL/Domibus). No bespoke / non-conformant AS4 stack.
+- [ ] WS-Security signing key is loaded from a runtime secret (K8s Secret / vault) — never baked into the container image.
 
-**Happy path:**
-- [ ] eFTI Gate generates request envelope (identifierQuery, uilQuery XML) conforming to `xsd/edelivery.xsd`
-- [ ] Dataset content forwarded **unchanged** — eFTI Gate is content-agnostic
-- [ ] Every outbound request includes `requestId` (UUID v4) for audit trail
-- [ ] Envelope validated against XSD before sending — invalid XML returns error, not silent failure
-- [ ] Operates across all transport modes without mode-specific logic
+## Rationale
 
-**Edge cases:**
-- [ ] XSD validation of generated envelope fails → `500` logged ERROR; not forwarded to client
-
-**Technical constraints:**
-- [ ] WS-Security signing certificate loaded from K8s Secret at runtime — never in container image
-
-##### Asynchronous response handling
-
-**Happy path:**
-- [ ] Async responses (uilResponse, identifierResponse) delivered via PostgreSQL LISTEN/NOTIFY — no session affinity needed
-- [ ] Handler runs on all nodes; each node processes only responses matching its `requestId`
-
-**Edge cases:**
-- [ ] Async response arrives after SSE stream closed → discarded; logged DEBUG
-
-**Technical artifacts:**
-- [ ] DB schema: `async_responses` table (full column list in `schema.sql`); inbound peer-gate responses are appended here and routed back to the owning node via the `async_responses` LISTEN/NOTIFY channel.
+eDelivery AS4 is the EU's standard cross-border message bus for regulatory data exchange. The gate is content-agnostic for dataset payloads (the platform owns content) but **wire-strict** for envelope handling — XSD validation on outbound and inbound, signature verification, AES-GCM/RSA-OAEP per the conformance profile. Async response routing via `LISTEN/NOTIFY` lets any gate node receive a peer-gate reply and dispatch it back to the originating in-flight handler without session affinity.
