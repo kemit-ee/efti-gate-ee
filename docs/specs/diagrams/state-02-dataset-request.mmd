@@ -31,7 +31,7 @@ stateDiagram-v2
 
     RemoteForward --> GateUnavailable: checkGateAvailable() fails\n(gate.status != ONLINE)
 
-    GateUnavailable --> Returned: 502 Bad Gateway\n"Cannot reach Gate eu-yy01: OFFLINE"
+    GateUnavailable --> Returned: 502 Bad Gateway — Cannot reach Gate eu-yy01 — OFFLINE
 
     note right of RemoteForward
         Routing decision based on UIL.gateId:

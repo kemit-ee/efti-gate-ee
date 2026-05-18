@@ -8,7 +8,7 @@ sequenceDiagram
     Note over GateEE: Remote gate eu-yy01 has received a<br/>search request and is broadcasting to all gates.
 
     GateEE->>+GateFI: eDelivery AS4 / Fast HTTP: IdentifierQueryRequest
-    Note over GateEE,GateFI: X-API-Key: eu-yy01<br/>Body: &lt;identifierQuery requestId="req-b2c3d4e5"&gt,<br/>  &lt;identifier&gt;456XYZ&lt;/identifier&gt,<br/>  &lt;registrationCountryCode&gt;FI&lt;/registrationCountryCode&gt,<br/>&lt;/identifierQuery&gt;
+    Note over GateEE,GateFI: X-API-Key: eu-yy01<br/>Body: identifierQuery with requestId=req-b2c3d4e5,<br/>identifier=456XYZ, registrationCountryCode=FI<br/>(escaped XML body — see seq-14 source for the literal envelope)
 
     GateFI->>+Handler: handleMessage(payload)
     Handler->>Handler: Parse message type → IdentifierQuery
@@ -19,11 +19,11 @@ sequenceDiagram
     DB-->>-EftiSvc: 1 consignment (datasetId=a1b2c3d4-...)
 
     EftiSvc->>EftiSvc: Wrap result in identifierResponse XML
-    EftiSvc-->>-Handler: "&lt;identifierResponse status='200' requestId='req-b2c3d4e5'&gt;&lt;ed:consignment&gt;...&lt;/ed:consignment&gt;&lt;/identifierResponse&gt;"
+    EftiSvc-->>-Handler: identifierResponse XML with status=200, requestId=req-b2c3d4e5, ed:consignment payload
 
     Handler-->>-GateFI: response payload
 
-    GateFI-->>-GateEE: eDelivery AS4 / Fast HTTP Response\n&lt;identifierResponse status="200" requestId="req-b2c3d4e5"&gt;...
+    GateFI-->>-GateEE: eDelivery AS4 / Fast HTTP Response — identifierResponse status=200, requestId=req-b2c3d4e5
 
     GateEE->>GateEE: Parse GateIdentifiersResponse<br/>Extract ConsignmentXml objects<br/>Set identifierCountryOfOrigin = "FI"
 

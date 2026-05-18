@@ -13,10 +13,10 @@ sequenceDiagram
 
     Gate->>+PlatformReg: save(PlatformWrite)
     PlatformReg->>+DB: Append a new platforms row carrying the platform's id, baseUrl,<br/>supportsSubsetting flag, certSubject + certSerial, is_active=TRUE,<br/>created_by=admin's user-row-id.
-    Note over DB: Append-only — every save is a new row; the latest row by created_at wins.<br/>An index on (cert_subject, cert_serial) supports the inbound-mTLS lookup.
+    Note over DB: Append-only — every save is a new row — the latest row by created_at wins.<br/>An index on (cert_subject, cert_serial) supports the inbound-mTLS lookup.
     DB-->>-PlatformReg: written
     PlatformReg-->>-Gate: saved
 
     Gate-->>-Admin: 201 Created<br/>{ "id":"plt-xxx-001", "baseUrl":"https://efti.example.com",<br/>  "supportsSubsetting":true, "certSubject":"CN=…", "certSerial":"0123456789ABCDEF",<br/>  "isActive":true, "createdAt":"2026-04-22T10:15:30Z" }
 
-    Note over Admin,Gate: Platform now authenticates via mTLS — the cert is the credential.<br/>NO user record is created; NO secret is issued. Platform identity<br/>is the cert subject DN, resolved per request against platforms.<br/><br/>If the platform later renews its cert, admin sends PUT /api/v1/platforms/{platformId}<br/>with the new certSubject / certSerial — append-only INSERT, old cert<br/>stops resolving once the new row is the latest.
+    Note over Admin,Gate: Platform now authenticates via mTLS — the cert is the credential.<br/>NO user record is created — NO secret is issued. Platform identity<br/>is the cert subject DN, resolved per request against platforms.<br/><br/>If the platform later renews its cert, admin sends PUT /api/v1/platforms/{platformId}<br/>with the new certSubject / certSerial — append-only INSERT, old cert<br/>stops resolving once the new row is the latest.

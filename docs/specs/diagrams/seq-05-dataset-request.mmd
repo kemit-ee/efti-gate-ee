@@ -9,7 +9,7 @@ sequenceDiagram
     Authority->>+GateEE: GET /v1/dataset/eu-yy01/plt-xxx-001/a1b2c3d4-e5f6-7890-abcd-ef1234567890?subsetId=EU07
     Note over Authority,GateEE: Authorization: Bearer TARA-JWT (role=AUTHORITY)<br/>X-Request-ID: req-d4e5f6a7
 
-    GateEE->>GateEE: Validate JWT (signature, exp, iss, aud, not in denylist),<br/>require roles ∋ AUTHORITY; subsetCheck
+    GateEE->>GateEE: Validate JWT (signature, exp, iss, aud, not in denylist),<br/>require roles ∋ AUTHORITY — subsetCheck
     GateEE->>GateEE: uil.gateId = "eu-yy01" ≠ Config.gateId "eu-xx01"<br/>→ Forward to remote gate
 
     GateEE->>GateEE: gateRegistry["eu-yy01"] → Gate{status=ONLINE}
@@ -23,10 +23,10 @@ sequenceDiagram
     Note over GateFI,Platform: HTTP request with platform credentials
 
     Platform->>Platform: Retrieve dataset XML for subset EU07
-    Platform-->>-GateFI: 200 OK\n&lt;consignment xmlns="http://efti.eu/v1/consignment/identifier"&gt;...&lt;/consignment&gt;
+    Platform-->>-GateFI: 200 OK — consignment XML (default xmlns http://efti.eu/v1/consignment/identifier)
 
-    GateFI-->>-GateEE: UILQueryResponse{status=200, body=&lt;consignment&gt;...}
+    GateFI-->>-GateEE: UILQueryResponse status=200 with consignment XML body
 
-    GateEE-->>-Authority: 200 OK (application/xml)\nX-Request-ID: req-d4e5f6a7\n&lt;consignment xmlns="http://efti.eu/v1/consignment/identifier"&gt;...
+    GateEE-->>-Authority: 200 OK (application/xml) — X-Request-ID req-d4e5f6a7 — consignment XML body
 
     Note over Authority: Received EU07 subset dataset for consignment.<br/>Includes transport details, route, operator info.

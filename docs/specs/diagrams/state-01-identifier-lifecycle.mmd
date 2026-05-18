@@ -10,8 +10,8 @@ stateDiagram-v2
 
     inactive --> active: rare — re-registration of same dataset_id<br/>(INSERT new row with status='active')
 
-    active --> deleted: Platform — DELETE /v1/identifiers/{datasetId}<br/>(platform-initiated; mTLS-authenticated)<br/>→ INSERT new consignments row with status='deleted'
-    active --> deleted: Admin — DELETE /api/v1/consignments/{datasetId}<br/>(operator-initiated)<br/>→ INSERT new consignments row with status='deleted'<br/>(logical delete; nothing physically removed)
+    active --> deleted: Platform — DELETE /v1/identifiers/{datasetId}<br/>(platform-initiated — mTLS-authenticated)<br/>→ INSERT new consignments row with status='deleted'
+    active --> deleted: Admin — DELETE /api/v1/consignments/{datasetId}<br/>(operator-initiated)<br/>→ INSERT new consignments row with status='deleted'<br/>(logical delete — nothing physically removed)
     inactive --> deleted: Platform / Admin — DELETE<br/>→ INSERT new consignments row with status='deleted'
 
     note right of active

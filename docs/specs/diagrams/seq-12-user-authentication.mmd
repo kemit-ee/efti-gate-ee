@@ -25,7 +25,7 @@ sequenceDiagram
     Auth->>+DB: Resolve the latest active users row by tara_sub = jwt.sub,<br/>verify jwt.iat ≥ users.token_revoked_at
     DB-->>-Auth: User{id='d2e3f4a5-…', is_active=TRUE, roles={'AUTHORITY':['aut-xxx-001']}, subsets=['EU07'], token_revoked_at=NULL}
 
-    Note over Auth: Permission claims are read from the resolved users row,<br/>NOT directly from the JWT — TARA's `resource_access` may<br/>differ from the gate's `users.roles` if admin has updated<br/>scope since the JWT was issued. JWT carries identity<br/>(`sub`) and freshness (`iat`, `jti`); the gate carries the authorisation.<br/><br/>Missing-row policy: if no active users row matches the JWT `sub`,<br/>respond 401 TOKEN_INVALID with detail "no provisioned user".<br/>Admin must POST /api/v1/users first.<br/><br/>Per-user broadcast revocation: if jwt.iat < users.token_revoked_at,<br/>respond 401 TOKEN_INVALID with detail "token revoked".
+    Note over Auth: Permission claims are read from the resolved users row,<br/>NOT directly from the JWT — TARA's `resource_access` may<br/>differ from the gate's `users.roles` if admin has updated<br/>scope since the JWT was issued. JWT carries identity<br/>(`sub`) and freshness (`iat`, `jti`) — the gate carries the authorisation.<br/><br/>Missing-row policy: if no active users row matches the JWT `sub`,<br/>respond 401 TOKEN_INVALID with detail "no provisioned user".<br/>Admin must POST /api/v1/users first.<br/><br/>Per-user broadcast revocation: if jwt.iat < users.token_revoked_at,<br/>respond 401 TOKEN_INVALID with detail "token revoked".
 
     Auth-->>-Gate: AuthenticatedUser{<br/>userId="d2e3f4a5-…", roles=["AUTHORITY"],<br/>scope=["aut-xxx-001"], subsets=["EU07"], jti="abc..." }
 
@@ -57,7 +57,7 @@ sequenceDiagram
     alt User-level revocation (per-user broadcast via /api/v1/users/{id}/revoke-token)
         Officer->>Gate: GET /v1/identifiers/123ABC<br/>Authorization: Bearer jwt-issued-before-revoke
         Gate->>Auth: authenticate
-        Auth->>DB: Resolve users row; jwt.iat < users.token_revoked_at
+        Auth->>DB: Resolve users row — jwt.iat < users.token_revoked_at
         DB-->>Auth: User{token_revoked_at=2026-04-23T10:00:00Z}
         Auth-->>Gate: null
         Gate-->>Officer: 401 Unauthorized<br/>{"code":"TOKEN_INVALID","detail":"Token has been revoked"}

@@ -16,7 +16,7 @@ sequenceDiagram
     GateReg->>GateReg: in-memory cache: gates["eu-xx02"] = Gate{...}<br/>(this node only)
 
     GateReg->>+DB: In a single transaction: append a new gates row for 'eu-xx02'<br/>and emit a registry_change_gates notification carrying the gate id.
-    DB-->>-GateReg: written (new row; latest row for id wins on next read)
+    DB-->>-GateReg: written (new row — latest row for id wins on next read)
 
     Note over DB,OtherNode: The notification is emitted by the application inside<br/>the same transaction as the INSERT — there is no DB-side trigger.<br/>The notification is delivered to LISTENers on transaction commit.
 

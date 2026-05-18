@@ -48,7 +48,7 @@ stateDiagram-v2
     note right of [*]
         DELETE /api/v1/gates/{id} (soft-delete):
         → INSERT gates row with is_active=FALSE.
-        Status axis is unchanged on this transition; the gate
+        Status axis is unchanged on this transition — the gate
         leaves the operational set entirely (registry sync,
         peer broadcast, ping sweeps all skip is_active=FALSE).
         Distinct from status='DISABLED' (operator-paused but

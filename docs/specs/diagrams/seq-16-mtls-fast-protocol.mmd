@@ -12,7 +12,7 @@ sequenceDiagram
     alt cert valid + CN matches a registered gate
         CA-->>GateB: Trust chain OK
         GateB->>GateB: Resolve peer gate by matching cert PEM against gates.e_delivery_cert (active rows only)
-        GateB->>GateB: Authorize: peer's latest status is ONLINE; apply per-gate rate limit
+        GateB->>GateB: Authorize: peer's latest status is ONLINE — apply per-gate rate limit
         GateB-->>GateA: 200 OK<br/>application/json — search results / dataset / follow-up
         GateB->>GateB: Append an audit_log row (action='g2g_request', resource='gate', resource_id=cert CN)
     else cert invalid or CN not registered
