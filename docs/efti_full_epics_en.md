@@ -455,7 +455,7 @@ See `seq-01-identifier-registration.mmd` for full detail.
 
 ```mermaid
 flowchart TD
-    Q[GET /v1/identifiers/{identifier}<br/>Accept: text/event-stream] --> Local[Query identifiers table<br/>status=active, pg_trgm plate match]
+    Q["GET /v1/identifiers/{identifier}<br/>Accept: text/event-stream"] --> Local["Query identifiers table<br/>status=active, pg_trgm plate match"]
     Local --> Count{local count > 0<br/>OR forceBroadcast?}
     Count -- local hits, no force --> SSEonly[SSE: stream local<br/>+ event: complete]
     Count -- empty or force --> Broadcast[Broadcast to ONLINE gates<br/>parallel, 8 s timeout]
