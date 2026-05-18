@@ -10,11 +10,25 @@
 
 | Contract surface | Reference |
 |---|---|
-| **API operations** | `POST/GET/PUT/DELETE /api/v1/users[/{userId}]`, `POST /api/v1/users/{userId}/revoke-token`, `POST /api/v1/auth/logout`, `POST /api/v1/auth/local-token` — full request / response / error shapes in [`openapi.yaml`](../specs/openapi.yaml). |
-| **Schema** | `users` (`tara_sub`, `roles JSONB` restricted to `AUTHORITY` / `ADMIN`, `subsets TEXT[]`, `secret_hash TEXT NULL`, `token_revoked_at TIMESTAMPTZ`), `sessions` (JWT denylist) — see [`db/schema.sql`](../specs/db/schema.sql). Partial index `(tara_sub, created_at DESC) WHERE tara_sub IS NOT NULL`. |
-| **Error codes** | `TOKEN_INVALID`, `FORBIDDEN`, `FORBIDDEN_SUBSET`, `FORBIDDEN_WRITE_ACCESS`, `FORBIDDEN_NO_PLATFORM`, `FORBIDDEN_MULTI_PLATFORM`, `BAD_REQUEST_GENERAL` — see [`errors.json`](../specs/errors.json). |
-| **Access-check rules** | Full path × role × subset matrix in [`permissions-matrix.md`](../specs/permissions-matrix.md). |
-| **Auth flow** | [`flow-02-authorization-check.mmd`](../specs/diagrams/flow-02-authorization-check.mmd) (full decision tree). |
+| **API operations** | `POST/GET/PUT/DELETE /api/v1/users[/{userId}]` |
+| | `POST /api/v1/users/{userId}/revoke-token` |
+| | `POST /api/v1/auth/logout` |
+| | `POST /api/v1/auth/local-token` |
+| | Full request / response / error shapes: [`openapi.yaml`](../specs/openapi.yaml) |
+| **Schema** | `users` (`tara_sub`, `roles JSONB` restricted to `AUTHORITY` / `ADMIN`, `subsets TEXT[]`, `secret_hash TEXT NULL`, `token_revoked_at TIMESTAMPTZ`) |
+| | `sessions` (JWT denylist) |
+| | Partial index `(tara_sub, created_at DESC) WHERE tara_sub IS NOT NULL` |
+| | Full schema: [`db/schema.sql`](../specs/db/schema.sql) |
+| **Error codes** | `TOKEN_INVALID` |
+| | `FORBIDDEN` |
+| | `FORBIDDEN_SUBSET` |
+| | `FORBIDDEN_WRITE_ACCESS` |
+| | `FORBIDDEN_NO_PLATFORM` |
+| | `FORBIDDEN_MULTI_PLATFORM` |
+| | `BAD_REQUEST_GENERAL` |
+| | Full catalog: [`errors.json`](../specs/errors.json) |
+| **Access-check rules** | Full path × role × subset matrix: [`permissions-matrix.md`](../specs/permissions-matrix.md) |
+| **Auth flow** | [`flow-02-authorization-check.mmd`](../specs/diagrams/flow-02-authorization-check.mmd) (full decision tree) |
 
 ## Authorisation at a glance
 
