@@ -6,11 +6,26 @@
 **I WANT** the gate to run on multiple nodes without shared memory  
 **SO THAT** the system is horizontally scalable and tolerates a single node failure
 
-**References:**
-- [DB Schema](../specs/db/README.md) — `request_id_cache` deduplication table, `audit_log` table
-- [RA §7.1 Logical Component Layers](../architecture/eFTI-Gate-Reference-Architecture.md#71-logical-component-layers) — Stateless application layer and shared database architecture
+## Spec anchors
 
-**Multi-node topology at a glance:**
+| Contract surface | Reference |
+|---|---|
+| **Topology / scaling contract** | Two-replica minimum, HPA mandatory (min=2, max=10 default, CPU 70 % / mem 75 %, aggressive scale-up, gradual scale-down): [`non-functional.md`](../specs/non-functional.md) §3, §3.1 |
+| **Cluster-sync mechanism** | PostgreSQL `LISTEN/NOTIFY` on per-table channels (`registry_change_gates`, `_platforms`, `_authorities`); `async_responses` for peer-gate response routing: [`non-functional.md`](../specs/non-functional.md) §3 |
+| **Admin-endpoint concurrency** | PostgreSQL advisory locks (one distinct lock id per CronManager endpoint): [`non-functional.md`](../specs/non-functional.md) §3 |
+| **Schema** | `request_id_cache` (`X-Request-ID` dedup, 10 min TTL) |
+| | `audit_log` (action-level audit trail; preserved indefinitely on live DB; never archived) |
+| | Append-only design + no FK constraints between operational tables; latest-row index `(logical_id, created_at DESC)` per table |
+| | Full schema: [`db/schema.sql`](../specs/db/schema.sql); design rules: [`db/README.md`](../specs/db/README.md) |
+| **Error codes** | `DUPLICATE_REQUEST_ID` |
+| | `ARCHIVE_IN_PROGRESS` (the canonical 409 for any admin-endpoint mutex collision) |
+| | Full catalog: [`errors.json`](../specs/errors.json) |
+| **Architecture** | [RA §7.1 Logical Component Layers](../architecture/eFTI-Gate-Reference-Architecture.md#71-logical-component-layers) |
+| **Diagrams** | [`arch-01-multi-node-deployment.mmd`](../specs/diagrams/arch-01-multi-node-deployment.mmd) |
+| | [`seq-15-gate-registry-sync.mmd`](../specs/diagrams/seq-15-gate-registry-sync.mmd) |
+| **Related epic** | [Epic 26](epic_26_en.md) — CronManager-driven archival |
+
+## Multi-node topology at a glance
 
 ```mermaid
 graph TD
@@ -24,76 +39,48 @@ graph TD
     DB --> Lock[Multi-node-safe mutex<br/>per CronManager admin endpoint<br/>409 Conflict if already running]
 ```
 
-See `arch-01-multi-node-deployment.mmd` and `seq-15-gate-registry-sync.mmd` for full detail.
+## Acceptance Criteria
 
-#### Acceptance Criteria
+### Statelessness
 
-##### Registry synchronisation
+**Business rules:**
+- [ ] The gate runtime holds **no** in-memory request state, no sticky sessions, no node-local files, no in-process scheduling. Every request is independent.
+- [ ] Admin auth is JWT-only (validated as OAuth 2.0 Resource Server). No DB-stored admin session, no cookie, no session affinity at the load balancer.
+- [ ] Revocation is multi-node-consistent because `sessions` (the JWT denylist) is a shared DB table — every node sees the same view on the next request without coordination.
+- [ ] After a node restart, registries (gates / platforms / authorities) are re-loaded from PostgreSQL at startup. No data loss.
 
-**Happy path:**
-- [ ] Registry changes → PostgreSQL NOTIFY; all nodes update in-memory copy within 500 ms
-- [ ] After node restart, registry loaded from database — no data loss
+### Registry synchronisation
 
-**Edge cases:**
-- [ ] Node receives NOTIFY for unknown registry entry → loads from database
-- [ ] Database unreachable on startup → node does not start; readiness probe returns `503`
+**Business rules:**
+- [ ] Every registry write commits + emits a `NOTIFY` on the table's channel from the **same transaction**. Subscribers receive on commit; no DB-side trigger.
+- [ ] All gate nodes hold an open `LISTEN` on each registry channel; cache refresh happens within ≤ 500 ms of the writer's commit.
+- [ ] A node that receives a NOTIFY for an id it doesn't have cached → loads the latest row from the DB.
 
-**Technical constraints:**
-- [ ] MUST use PostgreSQL LISTEN/NOTIFY — no Redis, Hazelcast, or other shared-memory dependencies
-- [ ] Rationale: minimises infrastructure dependencies (PostgreSQL already required)
+### Request-id deduplication (across nodes)
 
-##### Request ID duplicate checking
+**Business rules:**
+- [ ] `X-Request-ID` uniqueness is enforced via the shared `request_id_cache` table — visible to all nodes. Window: 10 minutes (per `request_id_cache.expires_at` default).
+- [ ] Same id arriving at two nodes within 1 ms → the DB unique constraint guarantees only one succeeds; the other returns `DUPLICATE_REQUEST_ID`.
 
-**Happy path:**
-- [ ] `X-Request-ID` uniqueness checked in shared database table — checked across all nodes
-- [ ] Duplicate detection window: 600 seconds
-- [ ] Duplicate from any node → `409 Conflict` with `code: DUPLICATE_REQUEST_ID` and `"detail": "Duplicate X-Request-ID within 600 seconds"` (per `errors.json` + OpenAPI; 10-min window matches `request_id_cache.expires_at` default)
+### Scheduled-job concurrency
 
-**Edge cases:**
-- [ ] Same ID arrives at 2 nodes within 1 ms → database unique constraint prevents both succeeding; one gets `400`
+**Business rules:**
+- [ ] All scheduled work — archive, expire-identifiers, ping-gates — runs **only** via CronManager calling the gate's admin endpoints. The gate process never schedules its own jobs.
+- [ ] Each admin endpoint acquires a distinct numeric advisory lock at handler entry. A concurrent invocation returns `409` (the canonical code is `ARCHIVE_IN_PROGRESS` even for non-archive endpoints; see `errors.json`).
+- [ ] The lock is released automatically when the handler's connection drops (advisory-lock auto-release; survives node crash).
 
-**Technical constraints:**
-- [ ] DB: `request_id_cache (request_id VARCHAR PK, seen_at TIMESTAMPTZ, expires_at TIMESTAMPTZ)` with 10-minute TTL (per `schema.sql`)
+### Health and readiness
 
-##### Admin auth state
+**Business rules:**
+- [ ] Database unreachable at startup → the node does not pass readiness; `/health/ready` returns 503; the LB withdraws the node.
+- [ ] Health and readiness probes follow the topology defined in [`non-functional.md`](../specs/non-functional.md) §3 (5 s interval, 2 failures → unready, 1 success → ready).
 
-**Happy path:**
-- [ ] Admin auth is **stateless** — every request carries a TARA-issued JWT; the gate validates it as an OAuth 2.0 Resource Server. No DB-stored admin session, no `session_id` cookie, no sticky-session requirement.
-- [ ] Revocation is multi-node-consistent because `sessions` (the JWT denylist: `jti, revoked_at, reason`) is a shared DB table. Every node sees the same denylist on the next request without coordination.
+### Schema migrations
 
-**Edge cases:**
-- [ ] JWT `exp` past → `401 TOKEN_INVALID` on next request; the UI re-runs the TARA OIDC login flow.
-- [ ] JWT `jti` added to denylist via `POST /api/v1/auth/logout` or `POST /api/v1/users/{userId}/revoke-token` → all nodes reject the same JWT on the next request.
+**Business rules:**
+- [ ] `schema.sql` is the v0 baseline, applied once against an empty database. All subsequent changes go through versioned migration tooling at `gate/db/changelog/` (declarative, idempotent on re-apply, per `non-functional.md` §4).
+- [ ] Migration lock is released even on application crash (the migration tool's built-in lock semantics).
 
-##### CronManager-driven scheduled jobs
+## Rationale
 
-**Happy path:**
-- [ ] Archive (`/api/v1/admin/archive`), expire (`/api/v1/admin/expire-identifiers`), and ping-gates (`/api/v1/admin/ping-gates`) are all driven by external CronManager (Epic 26). The gate process never schedules its own jobs.
-- [ ] Multi-node concurrency guard: each handler acquires a distinct mutex at entry. If the mutex is held by an in-flight invocation, return `409 Conflict`. The mutex survives node crashes (released automatically when the handler's connection drops).
-
-**Edge cases:**
-- [ ] Two CronManager instances racing the same admin endpoint → second call gets 409 immediately; CronManager's retry policy backs off.
-
-**Technical constraints:**
-- [ ] Concurrency: a multi-node-safe mutex with one distinct identity per job (archive / expire / ping-gates). Implementation choice; PostgreSQL advisory locks are one suitable mechanism.
-
-##### Database migrations
-
-**Happy path:**
-- [ ] `schema.sql` is the v0 baseline applied once against an empty database; subsequent changes go through Liquibase changesets at `gate/db/changelog/`.
-- [ ] Migration lock released even if the application crashes (Liquibase's built-in lock semantics).
-
-**Technical constraints:**
-- [ ] MUST use **Liquibase** (per `non-functional.md` §4 — pinned migration tool).
-
-##### Database design
-
-**Happy path:**
-- [ ] All tables and fields have English `COMMENT ON …` (schema.sql).
-- [ ] Append-only: every operational table is INSERT-only at the GRANT layer. No `_history` companion tables; the operational table itself is its own change log.
-- [ ] Every logical foreign-key column (`created_by`, `dataset_id`, `gate_id`, `platform_id`, `user_id`) carries a btree index on `(logical_id, created_at DESC)` to support the canonical latest-row read pattern. There are no DB-level FK CONSTRAINTs between operational tables (the schema is FK-light by design — see `db/README.md` §Foreign keys).
-- [ ] `audit_log` table (action-level audit trail): row_id, user_id, action, resource, resource_id, ip_address, details JSONB, recorded_at; preserved indefinitely on the live DB (≥ 7 years; never archived).
-
-**Technical artifacts:**
-- [ ] DB schema canonical: `docs/specs/db/schema.sql` with full `COMMENT ON` coverage.
-- [ ] Technical constraints: PostgreSQL 14+, extensions `uuid-ossp`, `citext`, `pg_trgm`, `btree_gin`.
+The gate scales horizontally because every piece of cross-request state lives in PostgreSQL (`sessions` denylist, `request_id_cache`, registries, `audit_log`). The application layer is fully stateless. `LISTEN/NOTIFY` removes the polling-vs-cache-staleness trade-off without adding Redis / Hazelcast / etc. Advisory locks give CronManager-driven jobs a cluster-wide mutex without any extra coordinator. Two-replica floor + HPA covers the SLO error budget under rolling upgrade or single-host failure.
