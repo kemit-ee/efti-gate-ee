@@ -43,8 +43,8 @@ graph TB
     Node3 --> DB
     DB --> DBReplica
 
-    Node1 -.->|"NOTIFY channel: registry_change"| Node2
-    Node1 -.->|"NOTIFY channel: registry_change"| Node3
+    Node1 -.->|"NOTIFY channels: registry_change_{gates,platforms,authorities}"| Node2
+    Node1 -.->|"NOTIFY channels: registry_change_{gates,platforms,authorities}"| Node3
 
     ArchiveJob -.->|"POST /api/v1/admin/archive\nAuthorization: Bearer ${ARCHIVE_OPS_TOKEN}"| LB
     ExpireJob  -.->|"POST /api/v1/admin/expire-identifiers\nAuthorization: Bearer ${ARCHIVE_OPS_TOKEN}"| LB
