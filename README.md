@@ -44,7 +44,7 @@ The implementation contracts. Build the new gate against these.
 - **`docs/epics/`** — 26 epics across 9 themes; the canonical specification surface.
 - **`docs/architecture/`** — target reference architecture per EU Reg 2020/1056, 2024/1942, 2024/2024, 2025/2243.
 - **`docs/planning/`** — KeMIT's LLM prompts (`PROMPT-00..09`) that drove the v2 specification generation, plus the executive summary explaining v1 gaps. Background only; not authoritative input.
-- **`docs/efti-analysis/`** — surviving background material from Askend Estonia OÜ's procurement deliverable: broad project analysis (`1-analysis/`), ER diagram (`3-model/`), and the eFTI XML schemas (`xsd/`). Sections superseded by `docs/specs/` have been removed; the original full deliverable is preserved on the `kemit-ee/efti-gate` repository under the `askend-baseline` tag.
+- **`docs/efti-analysis/`** — surviving background material from Askend Estonia OÜ's procurement deliverable: broad project analysis (`1-analysis/`), ER diagram (`3-model/`), and the eFTI XML schemas (`xsd/`). Sections superseded by `docs/specs/` have been removed; the original full deliverable is preserved on the `kemit-ee/efti-gate-poc` repository under the `v0.2-askend-final` tag.
 
 ## Open issues
 
