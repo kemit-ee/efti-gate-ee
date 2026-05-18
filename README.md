@@ -85,6 +85,8 @@ KeMIT — Riigi Infosüsteemi Amet (Estonia)
 
 ## Licence
 
-This work is licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0). Free to use, modify, and distribute — including commercially — with attribution to KeMIT, Estonia. See [`LICENSE`](LICENSE) for the full terms.
+This work is licensed under the [PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0). Free to use, modify, and distribute for any noncommercial purpose, including use by government institutions, educational institutions, public research organisations, and charities. Attribution to KeMIT, Estonia is required.
 
-`SPDX-License-Identifier: Apache-2.0`
+**Commercial use requires a separate licence.** Contact `help@kemit.ee` with the intended use case, the licensee entity, and the geographic scope. See [`LICENSE`](LICENSE) for the full terms.
+
+`SPDX-License-Identifier: LicenseRef-PolyForm-Noncommercial-1.0.0`

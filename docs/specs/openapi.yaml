@@ -34,8 +34,8 @@ info:
     email: efti@example.com
     url: https://github.com/kemit-ee/efti-gate-ee
   license:
-    name: Apache-2.0
-    url: https://www.apache.org/licenses/LICENSE-2.0
+    name: PolyForm Noncommercial License 1.0.0
+    url: https://polyformproject.org/licenses/noncommercial/1.0.0
 
 servers:
   - url: https://api.dev.efti.ee
