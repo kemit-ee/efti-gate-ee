@@ -83,6 +83,10 @@ KeMIT — Riigi Infosüsteemi Amet (Estonia)
 - **Primary contact:** [@turnerrainer](https://github.com/turnerrainer) on GitHub.
 - **Fallback:** `help@kemit.ee`.
 
+## Authors and acknowledgements
+
+The architecture and specification corpus are authored by Rainer Türner (KeMIT), building on the procurement-phase analysis delivered by Askend Estonia OÜ and the original PoC by Digilogistika Keskus. Drafts were produced with assistance from Anthropic Claude; AI assistants are tools, not authors. Copyright and licence remain with KeMIT. See [`AUTHORS`](AUTHORS) for full credits.
+
 ## Licence
 
 This work is licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0). Free to use, modify, and distribute — including commercially — with attribution to KeMIT, Estonia. See [`LICENSE`](LICENSE) for the full terms.
