@@ -8,8 +8,8 @@
 
 <!-- issue-body:begin -->
 
-**AS A** technical architect<br>
-**I WANT** documented eDelivery AS4 message flows with sequence diagrams<br>
+**AS A** technical architect
+**I WANT** documented eDelivery AS4 message flows with sequence diagrams
 **SO THAT** developers understand exactly how inter-gate messages travel through the AS4 protocol.
 
 ## Spec anchors

@@ -8,8 +8,8 @@
 
 <!-- issue-body:begin -->
 
-**AS A** gate operator<br>
-**I WANT** non-latest rows of every operational table moved to archival storage on a regular schedule<br>
+**AS A** gate operator
+**I WANT** non-latest rows of every operational table moved to archival storage on a regular schedule
 **SO THAT** the live database stays lean while the full event history is preserved for audit and forensics.
 
 ## Spec anchors

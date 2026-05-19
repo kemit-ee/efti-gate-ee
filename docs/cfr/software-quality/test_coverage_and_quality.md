@@ -8,8 +8,8 @@
 
 <!-- issue-body:begin -->
 
-**AS A** developer<br>
-**I WANT** automated tests covering the core business logic<br>
+**AS A** developer
+**I WANT** automated tests covering the core business logic
 **SO THAT** regressions are caught before reaching production.
 
 ## Spec anchors

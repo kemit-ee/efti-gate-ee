@@ -170,14 +170,10 @@ def sync_one(
         except subprocess.CalledProcessError as exc:
             die(f"failed to fetch existing issue {owner_repo}#{num}: {exc.stderr.strip()}")
         if ac_section is None:
-            # Issue exists but carries no AC section yet — treat as bootstrap for AC only.
-            ac_section = ""
-            for_line in rewritten.splitlines()
-            for i, _ in enumerate(for_line):
-                pass  # noqa
+            # Issue exists but carries no AC section yet (e.g. placeholder body) —
+            # treat as bootstrap for AC: take it from the markdown.
             m = AC_HEADING.search(rewritten)
-            if m:
-                ac_section = rewritten[m.start() :]
+            ac_section = rewritten[m.start():] if m else ""
         body = upper.rstrip() + "\n\n" + ac_section.lstrip() + provenance_footer(md)
 
     if dry_run:

@@ -8,8 +8,8 @@
 
 <!-- issue-body:begin -->
 
-**AS A** integration partner<br>
-**I WANT** a well-documented, versioned API<br>
+**AS A** integration partner
+**I WANT** a well-documented, versioned API
 **SO THAT** I can integrate with the gate without direct technical support.
 
 ## Spec anchors

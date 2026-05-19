@@ -8,8 +8,8 @@
 
 <!-- issue-body:begin -->
 
-**AS A** eFTI Gate<br>
-**I WANT** to communicate with other EU gates via the eDelivery AS4 protocol<br>
+**AS A** eFTI Gate
+**I WANT** to communicate with other EU gates via the eDelivery AS4 protocol
 **SO THAT** cross-border eFTI data exchange uses the standard EU infrastructure.
 
 ## Spec anchors

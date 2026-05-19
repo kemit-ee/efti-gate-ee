@@ -8,8 +8,8 @@
 
 <!-- issue-body:begin -->
 
-**AS A** competent authority officer<br>
-**I WANT** to search freight transport identifiers (e.g. by registration plate) across all EU gates<br>
+**AS A** competent authority officer
+**I WANT** to search freight transport identifiers (e.g. by registration plate) across all EU gates
 **SO THAT** I can verify a consignment's compliance with eFTI regulations.
 
 ## Spec anchors
