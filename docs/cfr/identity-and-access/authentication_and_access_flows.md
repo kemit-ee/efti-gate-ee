@@ -2,7 +2,7 @@
 
 ## Changes
 
-- **2026-05-19** — initial version (formerly `docs/epics/epic_23_en.md`); architecture extracted to [`../../architecture/identity-and-access/authentication_and_access_flows.md`](../../architecture/identity-and-access/authentication_and_access_flows.md), AC retained here.
+- _Initial state. Change tracking begins at v1.0.0._
 
 > Part of [Theme 1](README.md). Architecture: [identity-and-access/README.md](../../architecture/identity-and-access/README.md) (theme-wide rules) + [identity-and-access/authentication_and_access_flows.md](../../architecture/identity-and-access/authentication_and_access_flows.md) (the four canonical flow diagrams).
 

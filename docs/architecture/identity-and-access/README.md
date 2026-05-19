@@ -2,7 +2,7 @@
 
 ## Changes
 
-- **2026-05-19** — §1.1 (JWT is the authorisation snapshot, gate mints its own access token from TARA identity, no DB queries on hot path by default) and §1.3 (revocation = refresh denial; per-request denylist mode is opt-in/future) rewritten. §1.2 and §1.4 updated to remove "denylist on hot path" references. Earlier today: initial version of theme-wide overarching rules (Theme 1 architecture pilot).
+- _Initial state. Change tracking begins at v1.0.0._
 
 > Theme-wide architectural rules. Every epic under this theme — and every Acceptance Criterion (AC) it carries — must derive from or at minimum **not conflict with** the rules stated here. AC live in the corresponding epic files under [`docs/cfr/`](../../cfr/); this document describes the *contract those AC implement*.
 

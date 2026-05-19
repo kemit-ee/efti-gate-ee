@@ -2,7 +2,7 @@
 
 ## Changes
 
-- **2026-05-19** — §2 TARA pipeline reframed as login/refresh-only (gate mints its own JWT carrying permissions); §7 Revocation model rewritten as refresh-denial (default profile) with per-request denylist mode noted as a future opt-in. Earlier today: initial version (Theme 1 architecture pilot).
+- _Initial state. Change tracking begins at v1.0.0._
 
 > Sub-architecture for the authentication surface. For overarching rules (DB-backed authorisation snapshot, stateless Resource Server, append-only revocation, channel routing, secret loading) see [theme README](README.md). AC are in [`docs/cfr/identity-and-access/authentication.md`](../../cfr/identity-and-access/authentication.md).
 
