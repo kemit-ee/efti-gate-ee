@@ -60,3 +60,27 @@ Outstanding work items that are tracked outside the per-file `## Changes` log an
 - [ ] `scripts/sync-epic-to-issue.py` has run cleanly against that issue's markdown source.
 - [ ] The sub-issue reference (`- [ ] #N`) survives the sync intact.
 - [ ] If the script does **not** survive sub-task promotion cleanly, the failure mode is documented here and a fix is scoped (likely in the `existing_ac_section` extractor in [`scripts/sync-epic-to-issue.py`](scripts/sync-epic-to-issue.py)).
+
+---
+
+## Two-zone sync — AC-section content removal needs `--force-ac`
+
+**Status:** known model gotcha; manual workaround in place; future automation should detect and handle.
+
+**The gotcha.** The default (non-`--force-ac`) sync regenerates the upper zone of the issue body from markdown but **preserves the AC section from the live issue body** to protect sub-task promotions and checkbox state. When content is **removed** from inside the issue-body markers in markdown — specifically content that sits below the `## Acceptance Criteria` heading — a regular sync will not propagate that removal. The live issue body keeps the now-orphaned content.
+
+**Concrete past incident.** PR #31 commit (f) removed two corpus-wide tables (Priority Summary, Reference Architecture Compliance Check) from `docs/cfr/user-interfaces/admin_ui.md`. Both tables sat inside the issue-body markers and below the `## Acceptance Criteria` heading. The regular re-sync after (f) preserved them in issue #35; the workaround was a one-shot `scripts/sync-epic-to-issue.py --force-ac docs/cfr/user-interfaces/admin_ui.md`.
+
+**What should exist.** Until the AC-extraction logic is smarter, any time a removal is made inside the AC zone of a CFR markdown file, the operator (or the future GitHub Actions workflow) must:
+
+1. Detect that the markdown's AC zone shrunk — diff the file vs. previous, look for deletions inside the `<!-- issue-body:begin --> ... <!-- issue-body:end -->` block below `## Acceptance Criteria`.
+2. Run `scripts/sync-epic-to-issue.py --force-ac <path>` for the affected file(s). Surface a warning that any in-progress checkbox / sub-issue state on the issue gets overwritten.
+3. Note in the PR description which issues were `--force-ac`'d so reviewers know what happened.
+
+Manual rule for now: **after merging any PR that deletes content inside the AC zone, run `--force-ac` for the affected file(s) before considering the spec corpus and the issue board in sync**.
+
+**Acceptance criteria** (for the smarter version):
+
+- [ ] The sync script or workflow detects an AC-zone shrink between the previous and current markdown.
+- [ ] On detection, it either (a) auto-runs `--force-ac` for that file (default), or (b) warns and refuses to sync without explicit operator confirmation (safer default for the workflow).
+- [ ] The transition is documented in `CONTRIBUTING.md` alongside the rest of the spec-change protocol.
