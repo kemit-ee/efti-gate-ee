@@ -819,3 +819,20 @@ Platform is responsible for GDPR compliance of full datasets.
 | **H2M** | Human-to-Machine interface (browser/app access) |
 | **M2M** | Machine-to-Machine interface (API/AS4) |
 | **Mode** | Transport type (1=maritime, 2=rail, 3=road, 4=air, etc.) |
+
+## 13. Compliance check — RA principles × epic coverage
+
+A flat matrix mapping each Reference Architecture principle to the epics that implement it. Useful for audit-trail purposes and for spotting RA principles that lack epic coverage.
+
+| RA principle | Epics | Status |
+|---|---|---|
+| Gate is a content-agnostic router | E3, E4, E5, E10 | Covered |
+| Broadcast only on 0 local results | E4 | Covered |
+| Platform filters subsets | E5 | Clarified |
+| Gate does not store full datasets | E5, E9 | Covered |
+| UIL = URL-based structure | E3, E4, E5 | Covered |
+| CMDS statuses active / inactive / deleted | E9 | Addressed |
+| AAP = authority REST interface (H2M + M2M) | E21 | Covered |
+| Identifier `expires_at` field | E9 | Addressed |
+| Audit logging jurisdiction question | E15 | Clarified |
+| Multimodal support (road / sea / rail / air) | E3, E10 | Covered |
