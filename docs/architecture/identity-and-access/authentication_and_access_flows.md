@@ -1,8 +1,8 @@
-# Architecture — Epic 23: Authentication and Access Flows
+# Architecture: Authentication and Access Flows
 
-> Epic-specific architecture: the four canonical sequence diagrams that document the four authentication channels end-to-end. For overarching rules see [theme README](README.md); for credential-routing detail see [Epic 2 architecture](epic_2.md). AC are in [`docs/epics/epic_23_en.md`](../../epics/epic_23_en.md).
+> Sub-architecture: the four canonical sequence diagrams that document the four authentication channels end-to-end. For overarching rules see [theme README](README.md); for credential-routing detail see [Authentication architecture](authentication.md). AC are in [`docs/epics/epic_23_en.md`](../../epics/epic_23_en.md).
 
-This epic's deliverable *is* this document: keeping the four flow diagrams accurate and in lockstep with Epic 1 (RBAC) and Epic 2 (Authentication) AC.
+This sub-architecture's deliverable *is* this document: keeping the four flow diagrams accurate and in lockstep with the AC in [Epic 1 (RBAC)](../../epics/epic_1_en.md) and [Epic 2 (Authentication)](../../epics/epic_2_en.md).
 
 ## 1. Channel decision
 

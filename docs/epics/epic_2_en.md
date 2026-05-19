@@ -1,6 +1,6 @@
 # EPIC 2 — Authentication
 
-> Part of [Theme 1](theme_1_en.md). Architecture: [identity-and-access/README.md](../architecture/identity-and-access/README.md) (theme-wide rules) + [identity-and-access/epic_2.md](../architecture/identity-and-access/epic_2.md) (epic-specific architecture).
+> Part of [Theme 1](theme_1_en.md). Architecture: [identity-and-access/README.md](../architecture/identity-and-access/README.md) (theme-wide rules) + [identity-and-access/authentication.md](../architecture/identity-and-access/authentication.md) (epic-specific architecture).
 
 <!-- issue-body:begin -->
 
@@ -29,7 +29,7 @@
 | **Diagrams** | [`seq-12-user-authentication.mmd`](../specs/diagrams/seq-12-user-authentication.mmd) |
 | | [`seq-16-mtls-fast-protocol.mmd`](../specs/diagrams/seq-16-mtls-fast-protocol.mmd) |
 | | [`flow-02-authorization-check.mmd`](../specs/diagrams/flow-02-authorization-check.mmd) |
-| **Architecture** | [identity-and-access/README.md](../architecture/identity-and-access/README.md) (theme rules) + [identity-and-access/epic_2.md](../architecture/identity-and-access/epic_2.md) (epic-specific) |
+| **Architecture** | [identity-and-access/README.md](../architecture/identity-and-access/README.md) (theme rules) + [identity-and-access/authentication.md](../architecture/identity-and-access/authentication.md) (epic-specific) |
 
 ## Acceptance Criteria
 

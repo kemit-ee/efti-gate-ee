@@ -4,11 +4,11 @@
 
 **System-wide reference:** [eFTI Gate Reference Architecture §8 Security](../eFTI-Gate-Reference-Architecture.md). This document narrows the system-wide rules to the Identity & Access surface.
 
-**Epics in this theme:**
+**Sub-architectures in this theme** (each is the architectural surface for the AC tracked in the linked epic):
 
-- [Epic 1 — User Management and RBAC](epic_1.md) (AC: [`docs/epics/epic_1_en.md`](../../epics/epic_1_en.md))
-- [Epic 2 — Authentication](epic_2.md) (AC: [`docs/epics/epic_2_en.md`](../../epics/epic_2_en.md))
-- [Epic 23 — Authentication and Access Flows](epic_23.md) (AC: [`docs/epics/epic_23_en.md`](../../epics/epic_23_en.md))
+- [User Management and RBAC](user_management_and_rbac.md) — AC: [`docs/epics/epic_1_en.md`](../../epics/epic_1_en.md)
+- [Authentication](authentication.md) — AC: [`docs/epics/epic_2_en.md`](../../epics/epic_2_en.md)
+- [Authentication and Access Flows](authentication_and_access_flows.md) — AC: [`docs/epics/epic_23_en.md`](../../epics/epic_23_en.md)
 
 ---
 

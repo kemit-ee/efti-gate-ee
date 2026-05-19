@@ -1,6 +1,6 @@
-# Architecture — Epic 2: Authentication
+# Architecture: Authentication
 
-> Epic-specific architecture for the authentication surface. For overarching rules (DB-backed authorisation snapshot, stateless Resource Server, append-only revocation, channel routing, secret loading) see [theme README](README.md). AC are in [`docs/epics/epic_2_en.md`](../../epics/epic_2_en.md).
+> Sub-architecture for the authentication surface. For overarching rules (DB-backed authorisation snapshot, stateless Resource Server, append-only revocation, channel routing, secret loading) see [theme README](README.md). AC are in [`docs/epics/epic_2_en.md`](../../epics/epic_2_en.md).
 
 ## 1. Authentication channels — detailed view
 

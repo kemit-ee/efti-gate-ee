@@ -1,6 +1,6 @@
-# Architecture — Epic 1: User Management and RBAC
+# Architecture: User Management and RBAC
 
-> Epic-specific architecture for the RBAC surface. For overarching rules that apply across the whole theme (authorisation snapshot in DB, stateless Resource Server, append-only revocation, channel routing, secret loading) see [theme README](README.md). AC are in [`docs/epics/epic_1_en.md`](../../epics/epic_1_en.md).
+> Sub-architecture for the RBAC surface. For overarching rules that apply across the whole theme (authorisation snapshot in DB, stateless Resource Server, append-only revocation, channel routing, secret loading) see [theme README](README.md). AC are in [`docs/epics/epic_1_en.md`](../../epics/epic_1_en.md).
 
 ## 1. Role and scope model
 

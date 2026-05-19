@@ -1,6 +1,6 @@
 # EPIC 23 — Authentication and Access Flows
 
-> Part of [Theme 1](theme_1_en.md). Architecture: [identity-and-access/README.md](../architecture/identity-and-access/README.md) (theme-wide rules) + [identity-and-access/epic_23.md](../architecture/identity-and-access/epic_23.md) (the four canonical flow diagrams).
+> Part of [Theme 1](theme_1_en.md). Architecture: [identity-and-access/README.md](../architecture/identity-and-access/README.md) (theme-wide rules) + [identity-and-access/authentication_and_access_flows.md](../architecture/identity-and-access/authentication_and_access_flows.md) (the four canonical flow diagrams).
 
 <!-- issue-body:begin -->
 
@@ -18,15 +18,15 @@
 | **Companion diagrams** | [`seq-12-user-authentication.mmd`](../specs/diagrams/seq-12-user-authentication.mmd) |
 | | [`flow-02-authorization-check.mmd`](../specs/diagrams/flow-02-authorization-check.mmd) |
 | | [`seq-16-mtls-fast-protocol.mmd`](../specs/diagrams/seq-16-mtls-fast-protocol.mmd) |
-| **Architecture** | [identity-and-access/README.md](../architecture/identity-and-access/README.md) (theme rules) + [identity-and-access/epic_23.md](../architecture/identity-and-access/epic_23.md) (the four canonical flow diagrams) |
+| **Architecture** | [identity-and-access/README.md](../architecture/identity-and-access/README.md) (theme rules) + [identity-and-access/authentication_and_access_flows.md](../architecture/identity-and-access/authentication_and_access_flows.md) (the four canonical flow diagrams) |
 
 ## Acceptance Criteria
 
 - [ ] Every authentication channel is documented with a sequence diagram that covers: credential presentation, validation steps, DB lookups (if any), allow / deny branches, and error codes.
 - [ ] The diagrams stay in sync with Epic 1 / Epic 2 AC — any change to the auth contract there must be reflected in the architecture diagrams in the same PR.
-- [ ] Flow 1 (Admin UI login, UI-side OIDC → JWT to gate) is documented in [`identity-and-access/epic_23.md`](../architecture/identity-and-access/epic_23.md) §2.
-- [ ] Flow 2 (Authority / Admin API, TARA OIDC JWT) is documented in [`identity-and-access/epic_23.md`](../architecture/identity-and-access/epic_23.md) §3.
-- [ ] Flow 2b (Platform API, mTLS) is documented in [`identity-and-access/epic_23.md`](../architecture/identity-and-access/epic_23.md) §4.
-- [ ] Flow 3 (Gate-to-gate fast protocol, mTLS) is documented in [`identity-and-access/epic_23.md`](../architecture/identity-and-access/epic_23.md) §5.
+- [ ] Flow 1 (Admin UI login, UI-side OIDC → JWT to gate) is documented in [`identity-and-access/authentication_and_access_flows.md`](../architecture/identity-and-access/authentication_and_access_flows.md) §2.
+- [ ] Flow 2 (Authority / Admin API, TARA OIDC JWT) is documented in [`identity-and-access/authentication_and_access_flows.md`](../architecture/identity-and-access/authentication_and_access_flows.md) §3.
+- [ ] Flow 2b (Platform API, mTLS) is documented in [`identity-and-access/authentication_and_access_flows.md`](../architecture/identity-and-access/authentication_and_access_flows.md) §4.
+- [ ] Flow 3 (Gate-to-gate fast protocol, mTLS) is documented in [`identity-and-access/authentication_and_access_flows.md`](../architecture/identity-and-access/authentication_and_access_flows.md) §5.
 
 <!-- issue-body:end -->

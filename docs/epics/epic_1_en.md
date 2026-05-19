@@ -1,6 +1,6 @@
 # EPIC 1 — User Management and RBAC
 
-> Part of [Theme 1](theme_1_en.md). Architecture: [identity-and-access/README.md](../architecture/identity-and-access/README.md) (theme-wide rules) + [identity-and-access/epic_1.md](../architecture/identity-and-access/epic_1.md) (epic-specific architecture).
+> Part of [Theme 1](theme_1_en.md). Architecture: [identity-and-access/README.md](../architecture/identity-and-access/README.md) (theme-wide rules) + [identity-and-access/user_management_and_rbac.md](../architecture/identity-and-access/user_management_and_rbac.md) (epic-specific architecture).
 
 <!-- issue-body:begin -->
 
@@ -30,7 +30,7 @@
 | | `BAD_REQUEST_GENERAL` |
 | | Full catalog: [`errors.json`](../specs/errors.json) |
 | **Access-check rules** | Full path × role × subset matrix: [`permissions-matrix.md`](../specs/permissions-matrix.md) |
-| **Architecture** | [identity-and-access/README.md](../architecture/identity-and-access/README.md) (theme rules) + [identity-and-access/epic_1.md](../architecture/identity-and-access/epic_1.md) (epic-specific) |
+| **Architecture** | [identity-and-access/README.md](../architecture/identity-and-access/README.md) (theme rules) + [identity-and-access/user_management_and_rbac.md](../architecture/identity-and-access/user_management_and_rbac.md) (epic-specific) |
 
 ## Acceptance Criteria
 
