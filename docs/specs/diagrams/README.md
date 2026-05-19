@@ -12,47 +12,47 @@
 
 | # | File | Description | Epic |
 |---|------|-------------|------|
-| 1 | [seq-01-identifier-registration.mmd](seq-01-identifier-registration.mmd) | Platform registers identifier via POST /v1/identifiers/{datasetId} | [Epic 3](../../cfr/epic_3_en.md) |
-| 2 | [seq-02-identifier-search-local-only.mmd](seq-02-identifier-search-local-only.mmd) | Authority search — results found locally, no broadcast | [Epic 4](../../cfr/epic_4_en.md) |
-| 3 | [seq-03-identifier-search-broadcast.mmd](seq-03-identifier-search-broadcast.mmd) | Authority search — empty local results, broadcast to all ONLINE gates | [Epic 4](../../cfr/epic_4_en.md) |
-| 4 | [seq-04-identifier-search-no-results.mmd](seq-04-identifier-search-no-results.mmd) | Authority search — no results in any gate | [Epic 4](../../cfr/epic_4_en.md) |
-| 5 | [seq-05-dataset-request.mmd](seq-05-dataset-request.mmd) | Authority requests dataset by UIL (cross-gate, via eDelivery) | [Epic 5](../../cfr/epic_5_en.md) |
-| 6 | [seq-06-dataset-request-denied.mmd](seq-06-dataset-request-denied.mmd) | Platform denies or cannot serve dataset request (403/404/502) | [Epic 5](../../cfr/epic_5_en.md) |
-| 7 | [seq-07-dataset-upload.mmd](seq-07-dataset-upload.mmd) | Platform uploads or updates dataset XML (upsert) | [Epic 3](../../cfr/epic_3_en.md) |
-| 8 | [seq-08-identifier-expiration.mmd](seq-08-identifier-expiration.mmd) | CronManager triggers `POST /api/v1/admin/expire-identifiers`; gate INSERTs `status='inactive'` rows for cabotage-expired road consignments (Reg 2024/1942 Art 11(4)) | [Epic 5](../../cfr/epic_5_en.md), [Epic 17](../../cfr/epic_17_en.md), [Epic 26](../../cfr/epic_26_en.md) |
-| 9 | [seq-09-gate-ping.mmd](seq-09-gate-ping.mmd) | CronManager triggers `POST /api/v1/admin/ping-gates`; gate probes peer registry and INSERTs latest health rows | [Epic 6](../../cfr/epic_6_en.md), [Epic 26](../../cfr/epic_26_en.md) |
-| 10 | [seq-10-platform-registration.mmd](seq-10-platform-registration.mmd) | Admin registers platform and creates platform user | [Epic 7](../../cfr/epic_7_en.md) |
-| 11 | [seq-11-authority-registration.mmd](seq-11-authority-registration.mmd) | Admin registers authority and creates user with subset validation | [Epic 8](../../cfr/epic_8_en.md) |
+| 1 | [seq-01-identifier-registration.mmd](seq-01-identifier-registration.mmd) | Platform registers identifier via POST /v1/identifiers/{datasetId} | [Epic 3](../../cfr/core-functionality/identifier_management.md) |
+| 2 | [seq-02-identifier-search-local-only.mmd](seq-02-identifier-search-local-only.mmd) | Authority search — results found locally, no broadcast | [Epic 4](../../cfr/core-functionality/identifier_search.md) |
+| 3 | [seq-03-identifier-search-broadcast.mmd](seq-03-identifier-search-broadcast.mmd) | Authority search — empty local results, broadcast to all ONLINE gates | [Epic 4](../../cfr/core-functionality/identifier_search.md) |
+| 4 | [seq-04-identifier-search-no-results.mmd](seq-04-identifier-search-no-results.mmd) | Authority search — no results in any gate | [Epic 4](../../cfr/core-functionality/identifier_search.md) |
+| 5 | [seq-05-dataset-request.mmd](seq-05-dataset-request.mmd) | Authority requests dataset by UIL (cross-gate, via eDelivery) | [Epic 5](../../cfr/core-functionality/dataset_retrieval_and_follow_up.md) |
+| 6 | [seq-06-dataset-request-denied.mmd](seq-06-dataset-request-denied.mmd) | Platform denies or cannot serve dataset request (403/404/502) | [Epic 5](../../cfr/core-functionality/dataset_retrieval_and_follow_up.md) |
+| 7 | [seq-07-dataset-upload.mmd](seq-07-dataset-upload.mmd) | Platform uploads or updates dataset XML (upsert) | [Epic 3](../../cfr/core-functionality/identifier_management.md) |
+| 8 | [seq-08-identifier-expiration.mmd](seq-08-identifier-expiration.mmd) | CronManager triggers `POST /api/v1/admin/expire-identifiers`; gate INSERTs `status='inactive'` rows for cabotage-expired road consignments (Reg 2024/1942 Art 11(4)) | [Epic 5](../../cfr/core-functionality/dataset_retrieval_and_follow_up.md), [Epic 17](../../cfr/observability/monitoring_and_alerting.md), [Epic 26](../../cfr/infrastructure/append_only_archival.md) |
+| 9 | [seq-09-gate-ping.mmd](seq-09-gate-ping.mmd) | CronManager triggers `POST /api/v1/admin/ping-gates`; gate probes peer registry and INSERTs latest health rows | [Epic 6](../../cfr/registry-management/gate_registry.md), [Epic 26](../../cfr/infrastructure/append_only_archival.md) |
+| 10 | [seq-10-platform-registration.mmd](seq-10-platform-registration.mmd) | Admin registers platform and creates platform user | [Epic 7](../../cfr/registry-management/platform_registry.md) |
+| 11 | [seq-11-authority-registration.mmd](seq-11-authority-registration.mmd) | Admin registers authority and creates user with subset validation | [Epic 8](../../cfr/registry-management/authority_registry.md) |
 | 12 | [seq-12-user-authentication.mmd](seq-12-user-authentication.mmd) | TARA OIDC authentication flow — JWT validation against TARA JWKS, denylist check, role/subset enforcement | [Epic 2](../../cfr/identity-and-access/authentication.md), [Epic 23](../../cfr/identity-and-access/authentication_and_access_flows.md) |
 | 13 | [seq-13-multi-platform-user.mmd](seq-13-multi-platform-user.mmd) | Multi-platform user restriction for identifier submission | [Epic 1](../../cfr/identity-and-access/user_management_and_rbac.md) |
-| 14 | [seq-14-gate-to-gate-search.mmd](seq-14-gate-to-gate-search.mmd) | Gate receives identifier query from remote gate and responds | [Epic 4](../../cfr/epic_4_en.md), [Epic 10](../../cfr/epic_10_en.md) |
-| 15 | [seq-15-gate-registry-sync.mmd](seq-15-gate-registry-sync.mmd) | Admin adds gate, in-memory registry syncs across nodes via LISTEN/NOTIFY | [Epic 6](../../cfr/epic_6_en.md) |
-| 16 | [seq-16-mtls-fast-protocol.mmd](seq-16-mtls-fast-protocol.mmd) | Gate-to-gate fast protocol over mTLS (alternative to AS4 envelope) | [Epic 2](../../cfr/identity-and-access/authentication.md), [Epic 10](../../cfr/epic_10_en.md) |
+| 14 | [seq-14-gate-to-gate-search.mmd](seq-14-gate-to-gate-search.mmd) | Gate receives identifier query from remote gate and responds | [Epic 4](../../cfr/core-functionality/identifier_search.md), [Epic 10](../../cfr/integrations/edelivery_as4.md) |
+| 15 | [seq-15-gate-registry-sync.mmd](seq-15-gate-registry-sync.mmd) | Admin adds gate, in-memory registry syncs across nodes via LISTEN/NOTIFY | [Epic 6](../../cfr/registry-management/gate_registry.md) |
+| 16 | [seq-16-mtls-fast-protocol.mmd](seq-16-mtls-fast-protocol.mmd) | Gate-to-gate fast protocol over mTLS (alternative to AS4 envelope) | [Epic 2](../../cfr/identity-and-access/authentication.md), [Epic 10](../../cfr/integrations/edelivery_as4.md) |
 
 ## State Diagrams (5)
 
 | # | File | Description | States | Epic |
 |---|------|-------------|--------|------|
-| 17 | [state-01-identifier-lifecycle.mmd](state-01-identifier-lifecycle.mmd) | Consignment identifier lifecycle | active → inactive → deleted | [Epic 3](../../cfr/epic_3_en.md), [Epic 5](../../cfr/epic_5_en.md) |
-| 18 | [state-02-dataset-request.mmd](state-02-dataset-request.mmd) | Dataset request routing and outcome | Initiated → LocalFetch/RemoteForward → Approved/Denied/Error | [Epic 5](../../cfr/epic_5_en.md) |
-| 19 | [state-03-platform-status.mmd](state-03-platform-status.mmd) | Platform lifecycle | Active → Deleted | [Epic 7](../../cfr/epic_7_en.md) |
-| 20 | [state-04-authority-status.mmd](state-04-authority-status.mmd) | Authority lifecycle | Active → Deleted | [Epic 8](../../cfr/epic_8_en.md) |
-| 21 | [state-05-gate-health.mmd](state-05-gate-health.mmd) | Remote gate connection health | ONLINE → OFFLINE → DISABLED | [Epic 6](../../cfr/epic_6_en.md) |
+| 17 | [state-01-identifier-lifecycle.mmd](state-01-identifier-lifecycle.mmd) | Consignment identifier lifecycle | active → inactive → deleted | [Epic 3](../../cfr/core-functionality/identifier_management.md), [Epic 5](../../cfr/core-functionality/dataset_retrieval_and_follow_up.md) |
+| 18 | [state-02-dataset-request.mmd](state-02-dataset-request.mmd) | Dataset request routing and outcome | Initiated → LocalFetch/RemoteForward → Approved/Denied/Error | [Epic 5](../../cfr/core-functionality/dataset_retrieval_and_follow_up.md) |
+| 19 | [state-03-platform-status.mmd](state-03-platform-status.mmd) | Platform lifecycle | Active → Deleted | [Epic 7](../../cfr/registry-management/platform_registry.md) |
+| 20 | [state-04-authority-status.mmd](state-04-authority-status.mmd) | Authority lifecycle | Active → Deleted | [Epic 8](../../cfr/registry-management/authority_registry.md) |
+| 21 | [state-05-gate-health.mmd](state-05-gate-health.mmd) | Remote gate connection health | ONLINE → OFFLINE → DISABLED | [Epic 6](../../cfr/registry-management/gate_registry.md) |
 
 ## Flowcharts (3)
 
 | # | File | Description | Decision criterion | Epic |
 |---|------|-------------|--------------------|------|
-| 22 | [flow-01-search-broadcast-decision.mmd](flow-01-search-broadcast-decision.mmd) | When to broadcast vs. return local results only | `local.isEmpty() \|\| forceBroadcast` | [Epic 4](../../cfr/epic_4_en.md) |
-| 23 | [flow-02-authorization-check.mmd](flow-02-authorization-check.mmd) | Role-based authorization for all API endpoints | JWT validation → @Access annotation → role-specific RLS | [Epic 1](../../cfr/identity-and-access/user_management_and_rbac.md), [Epic 14](../../cfr/epic_14_en.md) |
-| 24 | [flow-03-dataset-access-control.mmd](flow-03-dataset-access-control.mmd) | Dataset routing: local vs. remote gate, platform approval/denial | `UIL.gateId == thisGateId` → direct; else → eDelivery forward | [Epic 5](../../cfr/epic_5_en.md) |
+| 22 | [flow-01-search-broadcast-decision.mmd](flow-01-search-broadcast-decision.mmd) | When to broadcast vs. return local results only | `local.isEmpty() \|\| forceBroadcast` | [Epic 4](../../cfr/core-functionality/identifier_search.md) |
+| 23 | [flow-02-authorization-check.mmd](flow-02-authorization-check.mmd) | Role-based authorization for all API endpoints | JWT validation → @Access annotation → role-specific RLS | [Epic 1](../../cfr/identity-and-access/user_management_and_rbac.md), [Epic 14](../../cfr/security-and-compliance/security.md) |
+| 24 | [flow-03-dataset-access-control.mmd](flow-03-dataset-access-control.mmd) | Dataset routing: local vs. remote gate, platform approval/denial | `UIL.gateId == thisGateId` → direct; else → eDelivery forward | [Epic 5](../../cfr/core-functionality/dataset_retrieval_and_follow_up.md) |
 
 ## Architecture Diagrams (2)
 
 | # | File | Description | Components | Epic |
 |---|------|-------------|------------|------|
-| 25 | [arch-01-multi-node-deployment.mmd](arch-01-multi-node-deployment.mmd) | Multi-node cluster deployment | Load Balancer, Gate Nodes, PostgreSQL, LISTEN/NOTIFY, Background Jobs | [Epic 12](../../cfr/epic_12_en.md) |
-| 26 | [arch-02-gate-network.mmd](arch-02-gate-network.mmd) | EU-wide eFTI Gate network | National gates + eDelivery AS4 connections + local platforms/authorities | [Epic 6](../../cfr/epic_6_en.md), [Epic 10](../../cfr/epic_10_en.md) |
+| 25 | [arch-01-multi-node-deployment.mmd](arch-01-multi-node-deployment.mmd) | Multi-node cluster deployment | Load Balancer, Gate Nodes, PostgreSQL, LISTEN/NOTIFY, Background Jobs | [Epic 12](../../cfr/infrastructure/scalability_and_statelessness.md) |
+| 26 | [arch-02-gate-network.mmd](arch-02-gate-network.mmd) | EU-wide eFTI Gate network | National gates + eDelivery AS4 connections + local platforms/authorities | [Epic 6](../../cfr/registry-management/gate_registry.md), [Epic 10](../../cfr/integrations/edelivery_as4.md) |
 
 ---
 
