@@ -1,6 +1,10 @@
 # EPIC 2 — Authentication
 
-> Part of [Theme 1](../README.md). Architecture: [identity-and-access/README.md](../../../architecture/identity-and-access/README.md) (theme-wide rules) + [identity-and-access/authentication/](../../../architecture/identity-and-access/authentication/README.md) (sub-architecture).
+## Changes
+
+- **2026-05-19** — initial version (formerly `docs/epics/epic_2_en.md`); architecture extracted to [`../../architecture/identity-and-access/authentication.md`](../../architecture/identity-and-access/authentication.md), AC retained here.
+
+> Part of [Theme 1](README.md). Architecture: [identity-and-access/README.md](../../architecture/identity-and-access/README.md) (theme-wide rules) + [identity-and-access/authentication.md](../../architecture/identity-and-access/authentication.md) (sub-architecture).
 
 <!-- issue-body:begin -->
 
@@ -16,20 +20,20 @@
 | | `POST /api/v1/auth/local-token` (default-disabled break-glass) |
 | | `POST /api/v1/users/{userId}/revoke-token` |
 | | `POST /services/fast` (gate-to-gate fast protocol, mTLS) |
-| | Full request / response / error shapes: [`openapi.yaml`](../../../specs/openapi.yaml) |
+| | Full request / response / error shapes: [`openapi.yaml`](../../specs/openapi.yaml) |
 | **Schema** | `users` (`tara_sub`, `secret_hash` for break-glass only, `token_revoked_at`) |
 | | `sessions` (JWT denylist: `jti`, `revoked_at`, `reason`) |
-| | Full schema: [`db/schema.sql`](../../../specs/db/schema.sql) |
+| | Full schema: [`db/schema.sql`](../../specs/db/schema.sql) |
 | **Error codes** | `TOKEN_INVALID` |
 | | `FORBIDDEN_NO_PLATFORM` |
 | | `FORBIDDEN_MULTI_PLATFORM` |
-| | Full catalog: [`errors.json`](../../../specs/errors.json) |
-| **Access-check rules** | Credential routing + JWT validation pipeline: [`permissions-matrix.md`](../../../specs/permissions-matrix.md) §1.1, §8.1 |
-| **Environment** | `TARA_OIDC_DISCOVERY_URL`, `TARA_CLIENT_ID`, `TARA_CLIENT_SECRET`, `TARA_JWKS_CACHE_SECONDS`, `ARCHIVE_OPS_TOKEN`, `LOCAL_ADMIN_FALLBACK_ENABLED`, `BREAK_GLASS_JWT_SIGNING_KEY`, `BREAK_GLASS_JWT_TTL_SECONDS` — see [`non-functional.md`](../../../specs/non-functional.md) §4.1 |
-| **Diagrams** | [`seq-12-user-authentication.mmd`](../../../specs/diagrams/seq-12-user-authentication.mmd) |
-| | [`seq-16-mtls-fast-protocol.mmd`](../../../specs/diagrams/seq-16-mtls-fast-protocol.mmd) |
-| | [`flow-02-authorization-check.mmd`](../../../specs/diagrams/flow-02-authorization-check.mmd) |
-| **Architecture** | [identity-and-access/README.md](../../../architecture/identity-and-access/README.md) (theme rules) + [identity-and-access/authentication/](../../../architecture/identity-and-access/authentication/README.md) (sub-architecture) |
+| | Full catalog: [`errors.json`](../../specs/errors.json) |
+| **Access-check rules** | Credential routing + JWT validation pipeline: [`permissions-matrix.md`](../../specs/permissions-matrix.md) §1.1, §8.1 |
+| **Environment** | `TARA_OIDC_DISCOVERY_URL`, `TARA_CLIENT_ID`, `TARA_CLIENT_SECRET`, `TARA_JWKS_CACHE_SECONDS`, `ARCHIVE_OPS_TOKEN`, `LOCAL_ADMIN_FALLBACK_ENABLED`, `BREAK_GLASS_JWT_SIGNING_KEY`, `BREAK_GLASS_JWT_TTL_SECONDS` — see [`non-functional.md`](../../specs/non-functional.md) §4.1 |
+| **Diagrams** | [`seq-12-user-authentication.mmd`](../../specs/diagrams/seq-12-user-authentication.mmd) |
+| | [`seq-16-mtls-fast-protocol.mmd`](../../specs/diagrams/seq-16-mtls-fast-protocol.mmd) |
+| | [`flow-02-authorization-check.mmd`](../../specs/diagrams/flow-02-authorization-check.mmd) |
+| **Architecture** | [identity-and-access/README.md](../../architecture/identity-and-access/README.md) (theme rules) + [identity-and-access/authentication.md](../../architecture/identity-and-access/authentication.md) (sub-architecture) |
 
 ## Acceptance Criteria
 
@@ -73,7 +77,7 @@
 ### Authentication contract
 
 - [ ] JWT signing: **RS256**. The break-glass JWT signing key is loaded from a runtime secret (K8s Secret / vault) — never baked into the container image.
-- [ ] JWT validation: any RS256-capable JWT library satisfies the contract (the spec doesn't mandate a specific implementation). Validate as an OAuth 2.0 Resource Server with the named claims; clock-skew tolerance ±60 s per [`non-functional.md`](../../../specs/non-functional.md) §4.
+- [ ] JWT validation: any RS256-capable JWT library satisfies the contract (the spec doesn't mandate a specific implementation). Validate as an OAuth 2.0 Resource Server with the named claims; clock-skew tolerance ±60 s per [`non-functional.md`](../../specs/non-functional.md) §4.
 - [ ] Denylist TTL: a `sessions` row remains effective until the underlying token's `exp`; expired entries can be archived per the standard append-only retention.
 - [ ] mTLS certificates (Platform-API and AS4 access point) loaded from runtime secret at startup — never in the container image.
 

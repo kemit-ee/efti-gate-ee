@@ -1,5 +1,9 @@
 # eFTI Gate Reference Architecture
 
+## Changes
+
+- **2026-05-19** — adopted per-file `## Changes` convention; established the three-tier model (system / theme / sub-area) during the Theme 1 architecture pilot. Earlier revisions of this file: see `git log`.
+
 **Version:** 2.0
 
 **Date:** 2026-04-02

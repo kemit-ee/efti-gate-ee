@@ -4,9 +4,9 @@
 
 ## [THEME 1 — Identity and Access](identity-and-access/README.md)
 
-- [User Management and RBAC](identity-and-access/user_management_and_rbac/README.md)
-- [Authentication](identity-and-access/authentication/README.md)
-- [Authentication and Access Flows](identity-and-access/authentication_and_access_flows/README.md)
+- [User Management and RBAC](identity-and-access/user_management_and_rbac.md)
+- [Authentication](identity-and-access/authentication.md)
+- [Authentication and Access Flows](identity-and-access/authentication_and_access_flows.md)
 
 ## [THEME 2 — Core Functionality](theme_2_en.md)
 

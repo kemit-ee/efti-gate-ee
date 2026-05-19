@@ -1,14 +1,18 @@
 # Architecture: Identity and Access
 
+## Changes
+
+- **2026-05-19** — initial version of theme-wide overarching rules (Theme 1 architecture pilot).
+
 > Theme-wide architectural rules. Every epic under this theme — and every Acceptance Criterion (AC) it carries — must derive from or at minimum **not conflict with** the rules stated here. AC live in the corresponding epic files under [`docs/cfr/`](../../cfr/); this document describes the *contract those AC implement*.
 
 **System-wide reference:** [eFTI Gate Reference Architecture §8 Security](../eFTI-Gate-Reference-Architecture.md). This document narrows the system-wide rules to the Identity & Access surface.
 
 **Sub-architectures in this theme** (each is the architectural surface for the AC tracked in the linked epic):
 
-- [User Management and RBAC](user_management_and_rbac/README.md) — AC: [`docs/cfr/identity-and-access/user_management_and_rbac/README.md`](../../cfr/identity-and-access/user_management_and_rbac/README.md)
-- [Authentication](authentication/README.md) — AC: [`docs/cfr/identity-and-access/authentication/README.md`](../../cfr/identity-and-access/authentication/README.md)
-- [Authentication and Access Flows](authentication_and_access_flows/README.md) — AC: [`docs/cfr/identity-and-access/authentication_and_access_flows/README.md`](../../cfr/identity-and-access/authentication_and_access_flows/README.md)
+- [User Management and RBAC](user_management_and_rbac.md) — AC: [`docs/cfr/identity-and-access/user_management_and_rbac.md`](../../cfr/identity-and-access/user_management_and_rbac.md)
+- [Authentication](authentication.md) — AC: [`docs/cfr/identity-and-access/authentication.md`](../../cfr/identity-and-access/authentication.md)
+- [Authentication and Access Flows](authentication_and_access_flows.md) — AC: [`docs/cfr/identity-and-access/authentication_and_access_flows.md`](../../cfr/identity-and-access/authentication_and_access_flows.md)
 
 ---
 

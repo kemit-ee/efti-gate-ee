@@ -4,9 +4,9 @@ Map of the 9 themes and 26 epics that make up the v2 spec. For artifacts and des
 
 | # | Theme | Epic |
 |---|---|---|
-| T1 | Identity & Access | [E1 User Management & RBAC](docs/cfr/identity-and-access/user_management_and_rbac/README.md) |
-| | | [E2 Authentication](docs/cfr/identity-and-access/authentication/README.md) |
-| | | [E23 Auth & Access Flows](docs/cfr/identity-and-access/authentication_and_access_flows/README.md) |
+| T1 | Identity & Access | [E1 User Management & RBAC](docs/cfr/identity-and-access/user_management_and_rbac.md) |
+| | | [E2 Authentication](docs/cfr/identity-and-access/authentication.md) |
+| | | [E23 Auth & Access Flows](docs/cfr/identity-and-access/authentication_and_access_flows.md) |
 | T2 | Core Functionality | [E3 Identifier Management — Platform API](docs/cfr/epic_3_en.md) |
 | | | [E4 Identifier Search — Authority API](docs/cfr/epic_4_en.md) |
 | | | [E5 Dataset Retrieval & Follow-up](docs/cfr/epic_5_en.md) |

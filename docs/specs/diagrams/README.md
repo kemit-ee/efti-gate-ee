@@ -23,11 +23,11 @@
 | 9 | [seq-09-gate-ping.mmd](seq-09-gate-ping.mmd) | CronManager triggers `POST /api/v1/admin/ping-gates`; gate probes peer registry and INSERTs latest health rows | [Epic 6](../../cfr/epic_6_en.md), [Epic 26](../../cfr/epic_26_en.md) |
 | 10 | [seq-10-platform-registration.mmd](seq-10-platform-registration.mmd) | Admin registers platform and creates platform user | [Epic 7](../../cfr/epic_7_en.md) |
 | 11 | [seq-11-authority-registration.mmd](seq-11-authority-registration.mmd) | Admin registers authority and creates user with subset validation | [Epic 8](../../cfr/epic_8_en.md) |
-| 12 | [seq-12-user-authentication.mmd](seq-12-user-authentication.mmd) | TARA OIDC authentication flow — JWT validation against TARA JWKS, denylist check, role/subset enforcement | [Epic 2](../../cfr/identity-and-access/authentication/README.md), [Epic 23](../../cfr/identity-and-access/authentication_and_access_flows/README.md) |
-| 13 | [seq-13-multi-platform-user.mmd](seq-13-multi-platform-user.mmd) | Multi-platform user restriction for identifier submission | [Epic 1](../../cfr/identity-and-access/user_management_and_rbac/README.md) |
+| 12 | [seq-12-user-authentication.mmd](seq-12-user-authentication.mmd) | TARA OIDC authentication flow — JWT validation against TARA JWKS, denylist check, role/subset enforcement | [Epic 2](../../cfr/identity-and-access/authentication.md), [Epic 23](../../cfr/identity-and-access/authentication_and_access_flows.md) |
+| 13 | [seq-13-multi-platform-user.mmd](seq-13-multi-platform-user.mmd) | Multi-platform user restriction for identifier submission | [Epic 1](../../cfr/identity-and-access/user_management_and_rbac.md) |
 | 14 | [seq-14-gate-to-gate-search.mmd](seq-14-gate-to-gate-search.mmd) | Gate receives identifier query from remote gate and responds | [Epic 4](../../cfr/epic_4_en.md), [Epic 10](../../cfr/epic_10_en.md) |
 | 15 | [seq-15-gate-registry-sync.mmd](seq-15-gate-registry-sync.mmd) | Admin adds gate, in-memory registry syncs across nodes via LISTEN/NOTIFY | [Epic 6](../../cfr/epic_6_en.md) |
-| 16 | [seq-16-mtls-fast-protocol.mmd](seq-16-mtls-fast-protocol.mmd) | Gate-to-gate fast protocol over mTLS (alternative to AS4 envelope) | [Epic 2](../../cfr/identity-and-access/authentication/README.md), [Epic 10](../../cfr/epic_10_en.md) |
+| 16 | [seq-16-mtls-fast-protocol.mmd](seq-16-mtls-fast-protocol.mmd) | Gate-to-gate fast protocol over mTLS (alternative to AS4 envelope) | [Epic 2](../../cfr/identity-and-access/authentication.md), [Epic 10](../../cfr/epic_10_en.md) |
 
 ## State Diagrams (5)
 
@@ -44,7 +44,7 @@
 | # | File | Description | Decision criterion | Epic |
 |---|------|-------------|--------------------|------|
 | 22 | [flow-01-search-broadcast-decision.mmd](flow-01-search-broadcast-decision.mmd) | When to broadcast vs. return local results only | `local.isEmpty() \|\| forceBroadcast` | [Epic 4](../../cfr/epic_4_en.md) |
-| 23 | [flow-02-authorization-check.mmd](flow-02-authorization-check.mmd) | Role-based authorization for all API endpoints | JWT validation → @Access annotation → role-specific RLS | [Epic 1](../../cfr/identity-and-access/user_management_and_rbac/README.md), [Epic 14](../../cfr/epic_14_en.md) |
+| 23 | [flow-02-authorization-check.mmd](flow-02-authorization-check.mmd) | Role-based authorization for all API endpoints | JWT validation → @Access annotation → role-specific RLS | [Epic 1](../../cfr/identity-and-access/user_management_and_rbac.md), [Epic 14](../../cfr/epic_14_en.md) |
 | 24 | [flow-03-dataset-access-control.mmd](flow-03-dataset-access-control.mmd) | Dataset routing: local vs. remote gate, platform approval/denial | `UIL.gateId == thisGateId` → direct; else → eDelivery forward | [Epic 5](../../cfr/epic_5_en.md) |
 
 ## Architecture Diagrams (2)
