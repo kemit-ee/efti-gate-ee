@@ -2,7 +2,7 @@
 
 ## Changes
 
-- **2026-05-19** — Denial-scenario AC reframed for the refresh-denial revocation model: per-request denylist and `token_revoked_at` checks moved to "login / refresh only" or "future opt-in mode" per the corrected theme rule §1.3. Earlier today: initial version (formerly `docs/epics/epic_1_en.md`); architecture extracted to [`../../architecture/identity-and-access/user_management_and_rbac.md`](../../architecture/identity-and-access/user_management_and_rbac.md), AC retained here.
+- _Initial state. Change tracking begins at v1.0.0 (not yet released)._
 
 > Part of [Theme 1](README.md). Architecture: [identity-and-access/README.md](../../architecture/identity-and-access/README.md) (theme-wide rules) + [identity-and-access/user_management_and_rbac.md](../../architecture/identity-and-access/user_management_and_rbac.md) (sub-architecture).
 

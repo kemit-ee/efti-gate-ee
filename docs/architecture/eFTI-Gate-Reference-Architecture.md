@@ -2,7 +2,7 @@
 
 ## Changes
 
-- **2026-05-19** — adopted per-file `## Changes` convention; established the three-tier model (system / theme / sub-area) during the Theme 1 architecture pilot. Earlier revisions of this file: see `git log`.
+- _Initial state. Change tracking begins at v1.0.0 (not yet released)._
 
 **Version:** 2.0
 

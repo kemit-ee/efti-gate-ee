@@ -2,7 +2,7 @@
 
 ## Changes
 
-- **2026-05-19** — Revocation contract rewritten as refresh-denial (default profile); Authentication contract clarified that JWT validation is signature-only on the hot path with no DB query, and that the gate mints its own JWT at login/refresh from the resolved `users` row. Per-request denylist mode noted as a future opt-in. Earlier today: initial version (formerly `docs/epics/epic_2_en.md`); architecture extracted to [`../../architecture/identity-and-access/authentication.md`](../../architecture/identity-and-access/authentication.md), AC retained here.
+- _Initial state. Change tracking begins at v1.0.0 (not yet released)._
 
 > Part of [Theme 1](README.md). Architecture: [identity-and-access/README.md](../../architecture/identity-and-access/README.md) (theme-wide rules) + [identity-and-access/authentication.md](../../architecture/identity-and-access/authentication.md) (sub-architecture).
 

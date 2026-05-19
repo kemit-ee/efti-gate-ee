@@ -2,7 +2,7 @@
 
 ## Changes
 
-- **2026-05-19** — initial version (Theme 1 architecture pilot).
+- _Initial state. Change tracking begins at v1.0.0 (not yet released)._
 
 > Sub-architecture for the RBAC surface. For overarching rules that apply across the whole theme (authorisation snapshot in DB, stateless Resource Server, append-only revocation, channel routing, secret loading) see [theme README](README.md). AC are in [`docs/cfr/identity-and-access/user_management_and_rbac.md`](../../cfr/identity-and-access/user_management_and_rbac.md).
 
