@@ -1,13 +1,13 @@
-# Maps source markdown (theme or epic) to GitHub issue.
+# Maps source markdown (theme/sub-area/CFR) to GitHub issue.
 # Format: <markdown-path>\t<owner/repo>\t<issue-number>
 # Lines starting with '#' are comments. Tab-separated.
 #
 # This manifest is environment-specific (test vs production). The current
 # entries point at turnerrainer/eFTI — the throwaway test target. When the
-# theme/epic structure is replicated on kemit-ee/efti-gate-ee for production,
-# replace the second column with kemit-ee/efti-gate-ee and the third column
-# with the production issue numbers.
-docs/epics/theme_1_en.md	turnerrainer/eFTI	1
-docs/epics/epic_1_en.md	turnerrainer/eFTI	2
-docs/epics/epic_2_en.md	turnerrainer/eFTI	3
-docs/epics/epic_23_en.md	turnerrainer/eFTI	4
+# theme/sub-area structure is replicated on kemit-ee/efti-gate-ee for
+# production, replace the second column with kemit-ee/efti-gate-ee and the
+# third column with the production issue numbers.
+docs/cfr/identity-and-access/README.md	turnerrainer/eFTI	1
+docs/cfr/identity-and-access/user_management_and_rbac/README.md	turnerrainer/eFTI	2
+docs/cfr/identity-and-access/authentication/README.md	turnerrainer/eFTI	3
+docs/cfr/identity-and-access/authentication_and_access_flows/README.md	turnerrainer/eFTI	4

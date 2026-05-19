@@ -1,13 +1,12 @@
-# eFTI Gate — Epics Index
+# eFTI Gate — Cross-Functional Requirements Index
 
-> Canonical specification surface. Each epic file carries its own Spec anchors, acceptance criteria, and mini-diagram.
+> Canonical user-facing requirements surface. Each entry carries its own Spec anchors and acceptance criteria. Themes that have been migrated to the nested per-sub-area layout point to their theme folder; themes still on the flat layout link to their theme file (will migrate later).
 
+## [THEME 1 — Identity and Access](identity-and-access/README.md)
 
-## [THEME 1 — Identity and Access](theme_1_en.md)
-
-- [EPIC 1 — User Management and RBAC](epic_1_en.md)
-- [EPIC 2 — Authentication](epic_2_en.md)
-- [EPIC 23 — Authentication and Access Flows](epic_23_en.md)
+- [User Management and RBAC](identity-and-access/user_management_and_rbac/README.md)
+- [Authentication](identity-and-access/authentication/README.md)
+- [Authentication and Access Flows](identity-and-access/authentication_and_access_flows/README.md)
 
 ## [THEME 2 — Core Functionality](theme_2_en.md)
 

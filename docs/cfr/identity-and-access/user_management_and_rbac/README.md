@@ -1,6 +1,6 @@
 # EPIC 1 — User Management and RBAC
 
-> Part of [Theme 1](theme_1_en.md). Architecture: [identity-and-access/README.md](../architecture/identity-and-access/README.md) (theme-wide rules) + [identity-and-access/user_management_and_rbac.md](../architecture/identity-and-access/user_management_and_rbac.md) (epic-specific architecture).
+> Part of [Theme 1](../README.md). Architecture: [identity-and-access/README.md](../../../architecture/identity-and-access/README.md) (theme-wide rules) + [identity-and-access/user_management_and_rbac/](../../../architecture/identity-and-access/user_management_and_rbac/README.md) (sub-architecture).
 
 <!-- issue-body:begin -->
 
@@ -16,11 +16,11 @@
 | | `POST /api/v1/users/{userId}/revoke-token` |
 | | `POST /api/v1/auth/logout` |
 | | `POST /api/v1/auth/local-token` |
-| | Full request / response / error shapes: [`openapi.yaml`](../specs/openapi.yaml) |
+| | Full request / response / error shapes: [`openapi.yaml`](../../../specs/openapi.yaml) |
 | **Schema** | `users` (`tara_sub`, `roles JSONB` restricted to `AUTHORITY` / `ADMIN`, `subsets TEXT[]`, `secret_hash TEXT NULL`, `token_revoked_at TIMESTAMPTZ`) |
 | | `sessions` (JWT denylist) |
 | | Partial index `(tara_sub, created_at DESC) WHERE tara_sub IS NOT NULL` |
-| | Full schema: [`db/schema.sql`](../specs/db/schema.sql) |
+| | Full schema: [`db/schema.sql`](../../../specs/db/schema.sql) |
 | **Error codes** | `TOKEN_INVALID` |
 | | `FORBIDDEN` |
 | | `FORBIDDEN_SUBSET` |
@@ -28,9 +28,9 @@
 | | `FORBIDDEN_NO_PLATFORM` |
 | | `FORBIDDEN_MULTI_PLATFORM` |
 | | `BAD_REQUEST_GENERAL` |
-| | Full catalog: [`errors.json`](../specs/errors.json) |
-| **Access-check rules** | Full path × role × subset matrix: [`permissions-matrix.md`](../specs/permissions-matrix.md) |
-| **Architecture** | [identity-and-access/README.md](../architecture/identity-and-access/README.md) (theme rules) + [identity-and-access/user_management_and_rbac.md](../architecture/identity-and-access/user_management_and_rbac.md) (epic-specific) |
+| | Full catalog: [`errors.json`](../../../specs/errors.json) |
+| **Access-check rules** | Full path × role × subset matrix: [`permissions-matrix.md`](../../../specs/permissions-matrix.md) |
+| **Architecture** | [identity-and-access/README.md](../../../architecture/identity-and-access/README.md) (theme rules) + [identity-and-access/user_management_and_rbac/](../../../architecture/identity-and-access/user_management_and_rbac/README.md) (sub-architecture) |
 
 ## Acceptance Criteria
 
@@ -50,14 +50,14 @@
 
 ### Access control
 
-**Path → role mapping** (canonical table in [`permissions-matrix.md`](../specs/permissions-matrix.md) §1; summary here):
+**Path → role mapping** (canonical table in [`permissions-matrix.md`](../../../specs/permissions-matrix.md) §1; summary here):
 
 - [ ] `/api/v1/...` (Admin API) — caller's resolved `users.roles` must contain `ADMIN`.
 - [ ] `/v1/identifiers/{identifier}`, `/v1/dataset/...`, `/v1/follow-up/{gateId}/...` (Authority API) — caller's resolved `users.roles` must contain `AUTHORITY`.
 - [ ] `/v1/identifiers/{datasetId}` and the other Platform-API routes — mTLS-only; the cert subject DN + serial must resolve to exactly one active `platforms` row.
 - [ ] Admin write operations check **both** that the caller has `ADMIN` AND that the target entity id is in the caller's `users.roles[ADMIN]` scope-IDs.
 
-**Denial scenarios** (status codes and `efti.error.code` values in [`errors.json`](../specs/errors.json)):
+**Denial scenarios** (status codes and `efti.error.code` values in [`errors.json`](../../../specs/errors.json)):
 
 - [ ] Authority-role JWT calling an Admin endpoint.
 - [ ] Missing `Authorization` header on a JWT-protected route.

@@ -1,14 +1,14 @@
-# Architecture — Identity & Access (Theme 1)
+# Architecture: Identity and Access
 
-> Theme-wide architectural rules. Every epic under this theme — and every Acceptance Criterion (AC) it carries — must derive from or at minimum **not conflict with** the rules stated here. AC live in the corresponding epic files under [`docs/epics/`](../../epics/); this document describes the *contract those AC implement*.
+> Theme-wide architectural rules. Every epic under this theme — and every Acceptance Criterion (AC) it carries — must derive from or at minimum **not conflict with** the rules stated here. AC live in the corresponding epic files under [`docs/cfr/`](../../cfr/); this document describes the *contract those AC implement*.
 
 **System-wide reference:** [eFTI Gate Reference Architecture §8 Security](../eFTI-Gate-Reference-Architecture.md). This document narrows the system-wide rules to the Identity & Access surface.
 
 **Sub-architectures in this theme** (each is the architectural surface for the AC tracked in the linked epic):
 
-- [User Management and RBAC](user_management_and_rbac.md) — AC: [`docs/epics/epic_1_en.md`](../../epics/epic_1_en.md)
-- [Authentication](authentication.md) — AC: [`docs/epics/epic_2_en.md`](../../epics/epic_2_en.md)
-- [Authentication and Access Flows](authentication_and_access_flows.md) — AC: [`docs/epics/epic_23_en.md`](../../epics/epic_23_en.md)
+- [User Management and RBAC](user_management_and_rbac/README.md) — AC: [`docs/cfr/identity-and-access/user_management_and_rbac/README.md`](../../cfr/identity-and-access/user_management_and_rbac/README.md)
+- [Authentication](authentication/README.md) — AC: [`docs/cfr/identity-and-access/authentication/README.md`](../../cfr/identity-and-access/authentication/README.md)
+- [Authentication and Access Flows](authentication_and_access_flows/README.md) — AC: [`docs/cfr/identity-and-access/authentication_and_access_flows/README.md`](../../cfr/identity-and-access/authentication_and_access_flows/README.md)
 
 ---
 

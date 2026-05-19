@@ -1,8 +1,8 @@
 # Architecture: Authentication and Access Flows
 
-> Sub-architecture: the four canonical sequence diagrams that document the four authentication channels end-to-end. For overarching rules see [theme README](README.md); for credential-routing detail see [Authentication architecture](authentication.md). AC are in [`docs/epics/epic_23_en.md`](../../epics/epic_23_en.md).
+> Sub-architecture: the four canonical sequence diagrams that document the four authentication channels end-to-end. For overarching rules see [theme README](../README.md); for credential-routing detail see [Authentication architecture](../authentication/README.md). AC are in [`docs/cfr/identity-and-access/authentication_and_access_flows/README.md`](../../../cfr/identity-and-access/authentication_and_access_flows/README.md).
 
-This sub-architecture's deliverable *is* this document: keeping the four flow diagrams accurate and in lockstep with the AC in [Epic 1 (RBAC)](../../epics/epic_1_en.md) and [Epic 2 (Authentication)](../../epics/epic_2_en.md).
+This sub-architecture's deliverable *is* this document: keeping the four flow diagrams accurate and in lockstep with the AC in [Epic 1 (RBAC)](../../../cfr/identity-and-access/user_management_and_rbac/README.md) and [Epic 2 (Authentication)](../../../cfr/identity-and-access/authentication/README.md).
 
 ## 1. Channel decision
 
@@ -118,8 +118,8 @@ sequenceDiagram
 
 ## See also
 
-- [`docs/specs/diagrams/seq-12-user-authentication.mmd`](../../specs/diagrams/seq-12-user-authentication.mmd), [`seq-16-mtls-fast-protocol.mmd`](../../specs/diagrams/seq-16-mtls-fast-protocol.mmd), [`flow-02-authorization-check.mmd`](../../specs/diagrams/flow-02-authorization-check.mmd) — canonical Mermaid sources reused above.
-- [`docs/specs/errors.json`](../../specs/errors.json) — error catalog for the denial branches.
+- [`docs/specs/diagrams/seq-12-user-authentication.mmd`](../../../specs/diagrams/seq-12-user-authentication.mmd), [`seq-16-mtls-fast-protocol.mmd`](../../../specs/diagrams/seq-16-mtls-fast-protocol.mmd), [`flow-02-authorization-check.mmd`](../../../specs/diagrams/flow-02-authorization-check.mmd) — canonical Mermaid sources reused above.
+- [`docs/specs/errors.json`](../../../specs/errors.json) — error catalog for the denial branches.
 
 ## Rationale
 

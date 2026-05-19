@@ -84,7 +84,7 @@ The archival contract:
 - Archived data must be retained per the compliance windows in [`../non-functional.md`](../non-functional.md) §5: minimum 7 years for `audit_log` on the live DB (operator may extend indefinitely; not archived), and 7 years on live DB **plus archive** for `follow_up_log` and every other operational table.
 - Archive destination is implementation-defined (S3-compatible object store, secondary Postgres, etc.); the live DB does not depend on archive location.
 
-The full contract — endpoint shape, batching strategy, idempotency rules, retention windows — lives in **Epic 26** ([`../../epics/epic_26_en.md`](../../epics/epic_26_en.md)).
+The full contract — endpoint shape, batching strategy, idempotency rules, retention windows — lives in **Epic 26** ([`../../cfr/epic_26_en.md`](../../cfr/epic_26_en.md)).
 
 ## Roles — `app` vs `db_archiver`
 
@@ -109,4 +109,4 @@ The schema declares two PostgreSQL roles with strictly disjoint capabilities:
 - Permission rules: [`../permissions-matrix.md`](../permissions-matrix.md)
 - Error catalog: [`../errors.json`](../errors.json)
 - Non-functional contracts (SLOs, capacity, retention): [`../non-functional.md`](../non-functional.md)
-- Archival epic: [`../../epics/epic_26_en.md`](../../epics/epic_26_en.md)
+- Archival epic: [`../../cfr/epic_26_en.md`](../../cfr/epic_26_en.md)

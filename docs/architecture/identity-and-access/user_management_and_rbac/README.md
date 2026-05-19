@@ -1,6 +1,6 @@
 # Architecture: User Management and RBAC
 
-> Sub-architecture for the RBAC surface. For overarching rules that apply across the whole theme (authorisation snapshot in DB, stateless Resource Server, append-only revocation, channel routing, secret loading) see [theme README](README.md). AC are in [`docs/epics/epic_1_en.md`](../../epics/epic_1_en.md).
+> Sub-architecture for the RBAC surface. For overarching rules that apply across the whole theme (authorisation snapshot in DB, stateless Resource Server, append-only revocation, channel routing, secret loading) see [theme README](../README.md). AC are in [`docs/cfr/identity-and-access/user_management_and_rbac/README.md`](../../../cfr/identity-and-access/user_management_and_rbac/README.md).
 
 ## 1. Role and scope model
 
@@ -46,7 +46,7 @@ Every authorisation denial is logged with: caller user id (if resolved, else `nu
 
 ## See also
 
-- [`docs/specs/permissions-matrix.md`](../../specs/permissions-matrix.md) §1 — canonical path × role × subset matrix.
-- [`docs/specs/db/schema.sql`](../../specs/db/schema.sql) — `users`, `sessions` table definitions.
-- [`docs/specs/errors.json`](../../specs/errors.json) — `FORBIDDEN`, `FORBIDDEN_SUBSET`, `FORBIDDEN_WRITE_ACCESS`, `FORBIDDEN_NO_PLATFORM`, `FORBIDDEN_MULTI_PLATFORM`, `TOKEN_INVALID`, `BAD_REQUEST_GENERAL`.
-- [`docs/specs/diagrams/flow-02-authorization-check.mmd`](../../specs/diagrams/flow-02-authorization-check.mmd) — full decision-tree source.
+- [`docs/specs/permissions-matrix.md`](../../../specs/permissions-matrix.md) §1 — canonical path × role × subset matrix.
+- [`docs/specs/db/schema.sql`](../../../specs/db/schema.sql) — `users`, `sessions` table definitions.
+- [`docs/specs/errors.json`](../../../specs/errors.json) — `FORBIDDEN`, `FORBIDDEN_SUBSET`, `FORBIDDEN_WRITE_ACCESS`, `FORBIDDEN_NO_PLATFORM`, `FORBIDDEN_MULTI_PLATFORM`, `TOKEN_INVALID`, `BAD_REQUEST_GENERAL`.
+- [`docs/specs/diagrams/flow-02-authorization-check.mmd`](../../../specs/diagrams/flow-02-authorization-check.mmd) — full decision-tree source.

@@ -1,6 +1,6 @@
 # Architecture: Authentication
 
-> Sub-architecture for the authentication surface. For overarching rules (DB-backed authorisation snapshot, stateless Resource Server, append-only revocation, channel routing, secret loading) see [theme README](README.md). AC are in [`docs/epics/epic_2_en.md`](../../epics/epic_2_en.md).
+> Sub-architecture for the authentication surface. For overarching rules (DB-backed authorisation snapshot, stateless Resource Server, append-only revocation, channel routing, secret loading) see [theme README](../README.md). AC are in [`docs/cfr/identity-and-access/authentication/README.md`](../../../cfr/identity-and-access/authentication/README.md).
 
 ## 1. Authentication channels — detailed view
 
@@ -32,13 +32,13 @@ flowchart TD
 ## 3. Platform mTLS pipeline
 
 - TLS terminated by a trusted reverse proxy (Envoy, Nginx, etc.) that validates the cert chain.
-- Proxy forwards the request with `X-Client-Cert-Subject` and `X-Client-Cert-Serial` headers (header names configurable via `MTLS_HEADER_SUBJECT` / `MTLS_HEADER_SERIAL` per [`docs/specs/non-functional.md`](../../specs/non-functional.md) §4.1).
+- Proxy forwards the request with `X-Client-Cert-Subject` and `X-Client-Cert-Serial` headers (header names configurable via `MTLS_HEADER_SUBJECT` / `MTLS_HEADER_SERIAL` per [`docs/specs/non-functional.md`](../../../specs/non-functional.md) §4.1).
 - Gate resolves `platforms` by `(cert_subject, cert_serial)` against rows with `is_active = TRUE`.
 - 0 rows → `403 FORBIDDEN_NO_PLATFORM`. >1 rows → `403 FORBIDDEN_MULTI_PLATFORM` (operator misconfiguration; both conditions are detectable and distinguishable).
 
 ## 4. CronManager static token
 
-A literal `Bearer` compare against `ARCHIVE_OPS_TOKEN`. Constant-time compare to avoid timing side-channels. Mismatch → `403 FORBIDDEN`. No DB lookup — this is operational identity, not user identity. Documented in [Epic 26 — Append-Only Archival](../../epics/epic_26_en.md).
+A literal `Bearer` compare against `ARCHIVE_OPS_TOKEN`. Constant-time compare to avoid timing side-channels. Mismatch → `403 FORBIDDEN`. No DB lookup — this is operational identity, not user identity. Documented in [Epic 26 — Append-Only Archival](../../../cfr/epic_26_en.md).
 
 ## 5. Gate-to-gate fast protocol — mTLS only
 
@@ -64,10 +64,10 @@ Denylist TTL: a `sessions` row remains effective until the underlying token's `e
 
 ## See also
 
-- [Reference Architecture §8 Security](../eFTI-Gate-Reference-Architecture.md#8-security)
-- [`docs/specs/permissions-matrix.md`](../../specs/permissions-matrix.md) §1.1, §8.1 — credential routing + JWT validation pipeline.
-- [`docs/specs/diagrams/seq-12-user-authentication.mmd`](../../specs/diagrams/seq-12-user-authentication.mmd), [`seq-16-mtls-fast-protocol.mmd`](../../specs/diagrams/seq-16-mtls-fast-protocol.mmd), [`flow-02-authorization-check.mmd`](../../specs/diagrams/flow-02-authorization-check.mmd).
-- [`docs/specs/non-functional.md`](../../specs/non-functional.md) §4.1 — environment variables for TARA, mTLS headers, break-glass.
+- [Reference Architecture §8 Security](../../eFTI-Gate-Reference-Architecture.md#8-security)
+- [`docs/specs/permissions-matrix.md`](../../../specs/permissions-matrix.md) §1.1, §8.1 — credential routing + JWT validation pipeline.
+- [`docs/specs/diagrams/seq-12-user-authentication.mmd`](../../../specs/diagrams/seq-12-user-authentication.mmd), [`seq-16-mtls-fast-protocol.mmd`](../../../specs/diagrams/seq-16-mtls-fast-protocol.mmd), [`flow-02-authorization-check.mmd`](../../../specs/diagrams/flow-02-authorization-check.mmd).
+- [`docs/specs/non-functional.md`](../../../specs/non-functional.md) §4.1 — environment variables for TARA, mTLS headers, break-glass.
 
 ## Rationale
 
