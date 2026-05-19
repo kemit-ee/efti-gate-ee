@@ -7,7 +7,7 @@ This is the **eFTI Gate (EE)**: the **Estonian** national node of the EU electro
 | You want to | Read |
 |---|---|
 | 1-page visual map (themes × epics) | [`PROJECT-OVERVIEW.md`](PROJECT-OVERVIEW.md) |
-| Acceptance criteria, per epic | [`docs/epics/`](docs/epics/) (each epic opens with a Mermaid mini-diagram) |
+| Acceptance criteria, per epic | [`docs/cfr/`](docs/cfr/) (each epic opens with a Mermaid mini-diagram) |
 | Reference architecture (target design, EU regs) | [`docs/architecture/eFTI-Gate-Reference-Architecture.md`](docs/architecture/eFTI-Gate-Reference-Architecture.md) |
 | Authoritative artifact list | the table below |
 
@@ -25,7 +25,7 @@ The implementation contracts. Build the new gate against these.
 | Permissions | [`docs/specs/permissions-matrix.md`](docs/specs/permissions-matrix.md) | Endpoint × role matrix, RLS rules, subset enforcement |
 | Transformations | [`docs/specs/data-transformations.md`](docs/specs/data-transformations.md) | XML ↔ DB ↔ JSON ↔ AS4 ↔ SSE conversions, denormalised-column mapping |
 | Diagrams | [`docs/specs/diagrams/`](docs/specs/diagrams/) | 26 Mermaid diagrams (16 sequence / 5 state / 3 flow / 2 architecture) |
-| Epics (canonical) | [`docs/epics/`](docs/epics/) | 26 epics across 9 themes; per-epic / per-theme files with acceptance criteria and a Mermaid mini-diagram |
+| Epics (canonical) | [`docs/cfr/`](docs/cfr/) | 26 epics across 9 themes; per-epic / per-theme files with acceptance criteria and a Mermaid mini-diagram |
 | Reference architecture | [`docs/architecture/eFTI-Gate-Reference-Architecture.md`](docs/architecture/eFTI-Gate-Reference-Architecture.md) | Target architecture per EU 2020/1056, 2024/1942, 2024/2024, 2025/2243 |
 | Non-functional contracts | [`docs/specs/non-functional.md`](docs/specs/non-functional.md) | SLOs / SLIs per surface, capacity model, deployment topology, pinned protocols and version floors, compliance retention |
 | Deployment | [`docs/specs/deploy/`](docs/specs/deploy/) | Topology constraints; concrete Helm/k8s/compose artefacts deferred to implementation phase |
@@ -41,7 +41,7 @@ The implementation contracts. Build the new gate against these.
 ## Repository layout
 
 - **`docs/specs/`** — authoritative v2 specifications: OpenAPI, PostgreSQL schema, errors catalog, logging spec, permissions matrix, data transformations, 26 Mermaid diagrams.
-- **`docs/epics/`** — 26 epics across 9 themes; the canonical specification surface.
+- **`docs/cfr/`** — 26 epics across 9 themes; the canonical specification surface.
 - **`docs/architecture/`** — target reference architecture per EU Reg 2020/1056, 2024/1942, 2024/2024, 2025/2243.
 - **`docs/planning/`** — KeMIT's LLM prompts (`PROMPT-00..09`) that drove the v2 specification generation, plus the executive summary explaining v1 gaps. Background only; not authoritative input.
 - **`docs/efti-analysis/`** — surviving background material from Askend Estonia OÜ's procurement deliverable: broad project analysis (`1-analysis/`), ER diagram (`3-model/`), and the eFTI XML schemas (`xsd/`). Sections superseded by `docs/specs/` have been removed; the original full deliverable is preserved on the `kemit-ee/efti-gate-poc` repository under the `v0.2-askend-final` tag.

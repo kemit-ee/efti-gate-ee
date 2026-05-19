@@ -10,7 +10,7 @@ First public release of the eFTI Gate (EE) specification corpus by KeMIT.
 
 ### Released artifacts
 
-- **Epics** — 26 epics across 9 themes under [`docs/epics/`](docs/epics/), each with Spec anchors, business-rule-style acceptance criteria, and a mini-diagram.
+- **Epics** — 26 epics across 9 themes under [`docs/cfr/`](docs/cfr/), each with Spec anchors, business-rule-style acceptance criteria, and a mini-diagram.
 - **OpenAPI 3.0** — Platform, Authority, Admin, Health, and Auth APIs ([`docs/specs/openapi.yaml`](docs/specs/openapi.yaml)). RFC 7807 errors, JWT + mTLS, pagination, audit, SSE.
 - **PostgreSQL schema** — append-only everywhere; every column carries `COMMENT ON` ([`docs/specs/db/schema.sql`](docs/specs/db/schema.sql)).
 - **Errors catalog** — 36 RFC 7807 codes with realistic payloads ([`docs/specs/errors.json`](docs/specs/errors.json)).
