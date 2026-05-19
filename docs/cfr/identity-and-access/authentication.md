@@ -2,7 +2,7 @@
 
 ## Changes
 
-- **2026-05-19** — initial version (formerly `docs/epics/epic_2_en.md`); architecture extracted to [`../../architecture/identity-and-access/authentication.md`](../../architecture/identity-and-access/authentication.md), AC retained here.
+- **2026-05-19** — Revocation contract rewritten as refresh-denial (default profile); Authentication contract clarified that JWT validation is signature-only on the hot path with no DB query, and that the gate mints its own JWT at login/refresh from the resolved `users` row. Per-request denylist mode noted as a future opt-in. Earlier today: initial version (formerly `docs/epics/epic_2_en.md`); architecture extracted to [`../../architecture/identity-and-access/authentication.md`](../../architecture/identity-and-access/authentication.md), AC retained here.
 
 > Part of [Theme 1](README.md). Architecture: [identity-and-access/README.md](../../architecture/identity-and-access/README.md) (theme-wide rules) + [identity-and-access/authentication.md](../../architecture/identity-and-access/authentication.md) (sub-architecture).
 
@@ -47,11 +47,10 @@
 
 **Denial scenarios:**
 - [ ] JWT signature invalid.
-- [ ] `iss` claim does not match the configured TARA issuer.
-- [ ] `aud` claim does not match the gate's TARA `client_id`.
+- [ ] `iss` claim does not match the gate's signing-key issuer (for gate-JWT) or the configured TARA issuer (for TARA ID token at login/refresh).
+- [ ] `aud` claim does not match the expected audience.
 - [ ] `exp` is in the past.
-- [ ] `jti` is in the `sessions` denylist.
-- [ ] `sub` does not resolve to any active `users` row.
+- [ ] `sub` does not resolve to any active `users` row (checked only at login / refresh — see Revocation contract below).
 
 ### Authority and Platform API authentication
 
@@ -76,15 +75,19 @@
 
 ### Authentication contract
 
-- [ ] JWT signing: **RS256**. The break-glass JWT signing key is loaded from a runtime secret (K8s Secret / vault) — never baked into the container image.
-- [ ] JWT validation: any RS256-capable JWT library satisfies the contract (the spec doesn't mandate a specific implementation). Validate as an OAuth 2.0 Resource Server with the named claims; clock-skew tolerance ±60 s per [`non-functional.md`](../../specs/non-functional.md) §4.
-- [ ] Denylist TTL: a `sessions` row remains effective until the underlying token's `exp`; expired entries can be archived per the standard append-only retention.
+- [ ] JWT signing: **RS256**. Both the gate-JWT signing key and the break-glass JWT signing key are loaded from a runtime secret (K8s Secret / vault) — never baked into the container image.
+- [ ] JWT validation on the hot path checks signature + claims (`iss`, `aud`, `exp`) against the gate's own signing key only — **no DB query per request in the default profile**.
+- [ ] JWT TTL is configurable per use case: long-lived (admin sessions), short-lived (API calls), or one-shot (single-use step-up). Pick the TTL based on the desired revocation latency.
+- [ ] At login and refresh, the TARA OIDC ID token is validated against the cached TARA JWKS (RS256, `iss`, `aud`, `exp`, `sub`), the `users` row is resolved by `tara_sub`, and the gate mints its own JWT carrying `tara_sub`, `roles`, `subsets`, `scopes`.
+- [ ] Clock-skew tolerance ±60 s per [`non-functional.md`](../../specs/non-functional.md) §4.
 - [ ] mTLS certificates (Platform-API and AS4 access point) loaded from runtime secret at startup — never in the container image.
 
-### Revocation contract
+### Revocation contract (default profile: refresh denial)
 
-- [ ] **Logout** (`POST /api/v1/auth/logout`): inserts `(jti, revoked_at, reason='logout')` into `sessions`. Subsequent calls with the same JWT → unauthenticated.
-- [ ] **Admin revoke** (`POST /api/v1/users/{userId}/revoke-token`): inserts a new `users` row with `token_revoked_at = NOW()`. Append-only: the previous row is unchanged. Every previously issued JWT for that user becomes invalid on the next request (compared against `jwt.iat`).
-- [ ] **Break-glass** (`POST /api/v1/auth/local-token`): default-disabled (`LOCAL_ADMIN_FALLBACK_ENABLED=false`). When enabled, validates against the single bcrypt local-admin row in `users.secret_hash` and issues a gate-signed JWT with hard-coded 600 s TTL (`BREAK_GLASS_JWT_TTL_SECONDS`). The issued JWT then follows the same validation pipeline as a TARA JWT (`tara_sub='local-admin'` resolves the local-admin row).
+- [ ] **Logout** (`POST /api/v1/auth/logout`): inserts `(jti, revoked_at, reason='logout')` into `sessions`. The currently-held gate-JWT lives until `exp`; subsequent refresh attempts for the same `jti` fail.
+- [ ] **Admin revoke** (`POST /api/v1/users/{userId}/revoke-token`): inserts a new `users` row with `token_revoked_at = NOW()`. Append-only: the previous row is unchanged. The currently-held gate-JWT for that user lives until `exp`; subsequent refresh attempts fail because the refresh pipeline rejects a TARA ID token whose `iat` predates `users.token_revoked_at`.
+- [ ] **Break-glass** (`POST /api/v1/auth/local-token`): default-disabled (`LOCAL_ADMIN_FALLBACK_ENABLED=false`). When enabled, validates against the single bcrypt local-admin row in `users.secret_hash` and issues a gate-signed JWT with hard-coded 600 s TTL (`BREAK_GLASS_JWT_TTL_SECONDS`).
+- [ ] Revocation latency is bounded by the JWT TTL. For scopes where TTL-bounded latency is unacceptable, short-lived or one-shot JWTs are minted.
+- [ ] **(Future opt-in mode — not in the default profile)**: a per-request denylist check against `sessions` (by `jti`) and `users.token_revoked_at` (by `jwt.iat`) can be enabled, restoring immediate revocation at the cost of two hot-path DB queries per request. Schema already supports this; toggle is a runtime config item.
 
 <!-- issue-body:end -->

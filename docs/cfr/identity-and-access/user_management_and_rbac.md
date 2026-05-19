@@ -2,7 +2,7 @@
 
 ## Changes
 
-- **2026-05-19** — initial version (formerly `docs/epics/epic_1_en.md`); architecture extracted to [`../../architecture/identity-and-access/user_management_and_rbac.md`](../../architecture/identity-and-access/user_management_and_rbac.md), AC retained here.
+- **2026-05-19** — Denial-scenario AC reframed for the refresh-denial revocation model: per-request denylist and `token_revoked_at` checks moved to "login / refresh only" or "future opt-in mode" per the corrected theme rule §1.3. Earlier today: initial version (formerly `docs/epics/epic_1_en.md`); architecture extracted to [`../../architecture/identity-and-access/user_management_and_rbac.md`](../../architecture/identity-and-access/user_management_and_rbac.md), AC retained here.
 
 > Part of [Theme 1](README.md). Architecture: [identity-and-access/README.md](../../architecture/identity-and-access/README.md) (theme-wide rules) + [identity-and-access/user_management_and_rbac.md](../../architecture/identity-and-access/user_management_and_rbac.md) (sub-architecture).
 
@@ -63,14 +63,15 @@
 
 **Denial scenarios** (status codes and `efti.error.code` values in [`errors.json`](../../specs/errors.json)):
 
-- [ ] Authority-role JWT calling an Admin endpoint.
+- [ ] Authority-role JWT calling an Admin endpoint (claims `roles` lacks `ADMIN`).
 - [ ] Missing `Authorization` header on a JWT-protected route.
-- [ ] Expired JWT (TARA-side `exp` past).
+- [ ] Expired gate-JWT (`exp` past).
 - [ ] Tampered JWT signature — no internal detail leaked to the caller.
-- [ ] JWT `sub` does not resolve to any active `users` row — caller must be provisioned by an admin first.
-- [ ] JWT `jti` is in the `sessions` denylist (per-token revocation).
-- [ ] `jwt.iat` predates the resolved user's `users.token_revoked_at` (per-user broadcast revocation).
+- [ ] At login / refresh only: TARA `sub` does not resolve to any active `users` row — caller must be provisioned by an admin first.
+- [ ] At login / refresh only: target user has been revoked (`users.token_revoked_at > tara_id_token.iat`), so the refresh is denied.
+- [ ] At login / refresh only: token `jti` appears in `sessions` (logged out), so the refresh is denied.
 - [ ] Platform mTLS cert subject + serial resolve to 0 active rows.
 - [ ] Platform mTLS cert subject + serial resolve to >1 active row (operator misconfiguration).
+- [ ] **(Future opt-in mode — not in the default profile)**: per-request denylist check fails — `jti` is in `sessions`, or `jwt.iat` predates `users.token_revoked_at`. Default profile waits for the JWT TTL to expire instead.
 
 <!-- issue-body:end -->

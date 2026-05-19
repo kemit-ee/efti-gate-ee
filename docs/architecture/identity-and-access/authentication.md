@@ -2,7 +2,7 @@
 
 ## Changes
 
-- **2026-05-19** — initial version (Theme 1 architecture pilot).
+- **2026-05-19** — §2 TARA pipeline reframed as login/refresh-only (gate mints its own JWT carrying permissions); §7 Revocation model rewritten as refresh-denial (default profile) with per-request denylist mode noted as a future opt-in. Earlier today: initial version (Theme 1 architecture pilot).
 
 > Sub-architecture for the authentication surface. For overarching rules (DB-backed authorisation snapshot, stateless Resource Server, append-only revocation, channel routing, secret loading) see [theme README](README.md). AC are in [`docs/cfr/identity-and-access/authentication.md`](../../cfr/identity-and-access/authentication.md).
 
@@ -25,13 +25,17 @@ flowchart TD
     BG --> Resource
 ```
 
-## 2. TARA OIDC pipeline
+## 2. TARA OIDC pipeline (login + gate-JWT exchange)
+
+This pipeline runs at **login and refresh**, not on every request. Hot-path requests are validated against the gate-issued JWT only (no DB lookup) — see [theme README §1.1](README.md).
 
 - **Issuer:** discovered from `TARA_OIDC_DISCOVERY_URL`; the gate is registered as an OAuth client with `TARA_CLIENT_ID` / `TARA_CLIENT_SECRET`.
-- **Code exchange happens in the admin UI**, not in the gate. The gate is purely a Resource Server — it validates JWTs but never holds the OIDC client_secret-bearing code-exchange role. (The client_secret is configured for cases where future flows might need it; the current admin-UI flow is OIDC implicit/code-public.)
-- **Token validation:** RS256, JWKS fetched from the discovered URL, cached for `TARA_JWKS_CACHE_SECONDS`. Required claims: `iss`, `aud`, `exp`, `sub` (Estonian PIC), `jti`. Clock-skew tolerance ±60 s.
-- **Identity resolution:** `users` row by `tara_sub = jwt.sub` AND `is_active = TRUE`. If no row exists the request is rejected — the gate **does not auto-provision** on first inbound JWT; an admin must `POST /api/v1/users` first.
-- **Permission resolution:** `users.roles`, `users.subsets`, scope-IDs — taken from the resolved row, not from the JWT.
+- **Code exchange happens in the admin UI**, not in the gate. The gate receives the resulting TARA OIDC ID token from the UI.
+- **TARA ID-token validation:** RS256, JWKS fetched from the discovered URL, cached for `TARA_JWKS_CACHE_SECONDS`. Required claims: `iss`, `aud`, `exp`, `sub` (Estonian PIC), `jti`. Clock-skew tolerance ±60 s.
+- **Identity resolution (one DB lookup at exchange/refresh time):** `users` row by `tara_sub = jwt.sub` AND `is_active = TRUE`. If no row exists, the exchange is rejected — the gate **does not auto-provision** on first inbound JWT; an admin must `POST /api/v1/users` first.
+- **Refresh denial check:** if the latest `users` row carries `token_revoked_at` such that `token_revoked_at > tara_id_token.iat`, the exchange is rejected (refresh denied).
+- **Gate-JWT mint:** the gate mints its own RS256 JWT signed with the gate's signing key, carrying `tara_sub`, the resolved `roles`, `subsets`, scope-IDs, plus standard claims (`iat`, `exp`, `jti`). TTL is configurable per use case (long-lived admin session vs. short-lived API call vs. one-shot step-up).
+- **Subsequent requests:** the UI sends the gate-JWT as `Authorization: Bearer ...`. Validation is local (signature + claims); no DB query in the default profile.
 
 ## 3. Platform mTLS pipeline
 
@@ -54,15 +58,19 @@ Default-disabled (`LOCAL_ADMIN_FALLBACK_ENABLED=false`). The reserved `users` ro
 
 The issued JWT then **follows the TARA path** — the gate's `tara_sub` lookup resolves the `local-admin` row identically to how it would resolve any other user. This is why break-glass is not a fifth channel: it's a recoverable backdoor onto channel 1.
 
-## 7. Revocation model
+## 7. Revocation model — refresh denial (default profile)
 
-Three append-only revocation primitives, summarised by the rule in the theme README §1.3:
+The default profile honours the in-flight JWT to its `exp` (see [theme README §1.3](README.md)). Revocation acts on the refresh path, not on individual requests.
 
-- **`POST /api/v1/auth/logout`** → `INSERT INTO sessions (jti, revoked_at, reason='logout')`. Idempotent. Subsequent requests carrying the same `jti` → `401 TOKEN_INVALID`.
-- **`POST /api/v1/users/{userId}/revoke-token`** → `INSERT INTO users (…, token_revoked_at = NOW())` (new row). The previous row is unchanged (append-only). Validation pipeline rejects any JWT with `iat < users.token_revoked_at` of the latest `users` row.
-- **Break-glass JWT** → hard 600 s TTL via `exp` claim; no separate revocation needed at that timescale.
+- **`POST /api/v1/auth/logout`**: marks the calling user (or specific token `jti`) as no-refresh. Implementation: INSERT a row into `sessions` carrying `(jti, revoked_at, reason='logout')` — the row is **not** consulted on the hot path in the default profile, but it is consulted by the refresh pipeline (a `jti` that appears in `sessions` cannot be exchanged for a new gate-JWT). The currently-held gate-JWT lives until its `exp`. Idempotent.
+- **`POST /api/v1/users/{userId}/revoke-token`**: INSERTs a new `users` row with `token_revoked_at = NOW()` (append-only; the previous row is unchanged). The refresh pipeline (see §2 above) rejects any TARA ID token with `iat < users.token_revoked_at`. The currently-held gate-JWT for that user lives until its `exp`; rapid revocation requires a short TTL.
+- **Break-glass JWT**: hard 600 s TTL (`BREAK_GLASS_JWT_TTL_SECONDS`) — no explicit revocation primitive needed at that timescale.
 
-Denylist TTL: a `sessions` row remains effective until the underlying token's `exp`; expired entries are archived per the standard append-only retention (see Epic 26).
+**Latency contract:** revocation takes effect within one JWT TTL window. For scopes where TTL-bounded latency is too long, mint short-lived or one-shot JWTs.
+
+**Future opt-in mode** (per theme README §1.3): a per-request denylist check against `sessions` (by `jti`) and `users.token_revoked_at` (by `jwt.iat`) can be enabled. This restores immediate revocation at the cost of two hot-path DB queries per request. The schema already supports this; the toggle is a runtime config item.
+
+**Retention:** a `sessions` row remains effective until the underlying token's `exp`; expired entries are archived per the standard append-only retention (see Epic 26).
 
 ---
 
@@ -75,4 +83,4 @@ Denylist TTL: a `sessions` row remains effective until the underlying token's `e
 
 ## Rationale
 
-Authentication is federated for Authority/Admin (TARA owns identity + expiry), cert-based for Platform and G2G (mTLS), and pinned-by-token for CronManager. The gate maintains no admin session state; it validates each request against TARA's JWKS + the `sessions` denylist + the `users.token_revoked_at` marker. Break-glass exists for total TARA outage and is default-disabled so an enabled break-glass channel is always a deliberate operational decision.
+Identity is federated (TARA proves who the user is at login), cert-based for Platform and G2G (mTLS), and pinned-by-token for CronManager. For Authority/Admin paths the gate exchanges the TARA ID token for its own gate-JWT carrying identity and permissions, and that gate-JWT — validated against the gate's own signing key only — is the authoritative session token. The gate maintains no per-request server state and performs no per-request DB query in the default profile; this is what makes it horizontally scalable without session affinity or shared cache. Revocation operates on the refresh path; the JWT TTL is the latency knob. Break-glass exists for total TARA outage and is default-disabled so an enabled break-glass channel is always a deliberate operational decision.
