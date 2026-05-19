@@ -2,7 +2,7 @@
 
 ## Changes
 
-- _Initial state. Change tracking begins at v1.0.0 (not yet released)._
+- _Initial state. Change tracking begins at v1.0.0._
 
 > Architecture: [`../../architecture/identity-and-access/README.md`](../../architecture/identity-and-access/README.md). The overarching rules — authorisation snapshot in DB (never JWT), stateless OAuth 2.0 Resource Server, append-only revocation, channel routing, secret loading — are defined there; the AC below verify the gate honours those rules end-to-end.
 

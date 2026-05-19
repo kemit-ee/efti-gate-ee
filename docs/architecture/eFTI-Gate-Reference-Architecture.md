@@ -2,7 +2,7 @@
 
 ## Changes
 
-- _Initial state. Change tracking begins at v1.0.0 (not yet released)._
+- _Initial state. Change tracking begins at v1.0.0._
 
 **Version:** 2.0
 

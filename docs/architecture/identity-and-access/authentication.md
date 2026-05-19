@@ -2,7 +2,7 @@
 
 ## Changes
 
-- _Initial state. Change tracking begins at v1.0.0 (not yet released)._
+- _Initial state. Change tracking begins at v1.0.0._
 
 > Sub-architecture for the authentication surface. For overarching rules (DB-backed authorisation snapshot, stateless Resource Server, append-only revocation, channel routing, secret loading) see [theme README](README.md). AC are in [`docs/cfr/identity-and-access/authentication.md`](../../cfr/identity-and-access/authentication.md).
 

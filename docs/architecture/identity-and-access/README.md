@@ -2,7 +2,7 @@
 
 ## Changes
 
-- _Initial state. Change tracking begins at v1.0.0 (not yet released)._
+- _Initial state. Change tracking begins at v1.0.0._
 
 > Theme-wide architectural rules. Every epic under this theme — and every Acceptance Criterion (AC) it carries — must derive from or at minimum **not conflict with** the rules stated here. AC live in the corresponding epic files under [`docs/cfr/`](../../cfr/); this document describes the *contract those AC implement*.
 

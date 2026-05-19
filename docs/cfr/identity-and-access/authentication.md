@@ -2,7 +2,7 @@
 
 ## Changes
 
-- _Initial state. Change tracking begins at v1.0.0 (not yet released)._
+- _Initial state. Change tracking begins at v1.0.0._
 
 > Part of [Theme 1](README.md). Architecture: [identity-and-access/README.md](../../architecture/identity-and-access/README.md) (theme-wide rules) + [identity-and-access/authentication.md](../../architecture/identity-and-access/authentication.md) (sub-architecture).
 

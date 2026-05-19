@@ -2,7 +2,7 @@
 
 ## Changes
 
-- _Initial state. Change tracking begins at v1.0.0 (not yet released)._
+- _Initial state. Change tracking begins at v1.0.0._
 
 > Sub-architecture: the four canonical sequence diagrams that document the four authentication channels end-to-end. For overarching rules see [theme README](README.md); for credential-routing detail see [Authentication architecture](authentication.md). AC are in [`docs/cfr/identity-and-access/authentication_and_access_flows.md`](../../cfr/identity-and-access/authentication_and_access_flows.md).
 
