@@ -8,8 +8,8 @@
 
 <!-- issue-body:begin -->
 
-**AS A** competent authority officer<br>
-**I WANT** a web interface for searching identifiers and viewing datasets<br>
+**AS A** competent authority officer
+**I WANT** a web interface for searching identifiers and viewing datasets
 **SO THAT** I can conduct roadside inspections without a separate IT system.
 
 ## Spec anchors

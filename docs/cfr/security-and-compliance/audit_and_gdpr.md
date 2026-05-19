@@ -8,8 +8,8 @@
 
 <!-- issue-body:begin -->
 
-**AS A** GDPR data controller<br>
-**I WANT** data changes and admin actions to be logged, and authority query auditing to be configurable<br>
+**AS A** GDPR data controller
+**I WANT** data changes and admin actions to be logged, and authority query auditing to be configurable
 **SO THAT** the Gate complies with GDPR Article 30 requirements and jurisdiction-specific obligations.
 
 ## Spec anchors

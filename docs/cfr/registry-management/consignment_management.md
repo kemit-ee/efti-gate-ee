@@ -8,8 +8,8 @@
 
 <!-- issue-body:begin -->
 
-**AS A** system administrator<br>
-**I WANT** to view and manage stored consignment data<br>
+**AS A** system administrator
+**I WANT** to view and manage stored consignment data
 **SO THAT** I can audit data and remove erroneous records.
 
 ## Spec anchors

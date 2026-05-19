@@ -8,8 +8,8 @@
 
 <!-- issue-body:begin -->
 
-**AS A** system administrator<br>
-**I WANT** to manage the eFTI platform registry<br>
+**AS A** system administrator
+**I WANT** to manage the eFTI platform registry
 **SO THAT** platforms can register identifiers and authorities can retrieve datasets.
 
 ## Spec anchors

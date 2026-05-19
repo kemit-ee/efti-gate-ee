@@ -8,8 +8,8 @@
 
 <!-- issue-body:begin -->
 
-**AS A** competent authority officer<br>
-**I WANT** to retrieve the full dataset for a specific consignment and send a follow-up message to the platform<br>
+**AS A** competent authority officer
+**I WANT** to retrieve the full dataset for a specific consignment and send a follow-up message to the platform
 **SO THAT** I can fulfil my legal obligation in freight transport inspection.
 
 ## Spec anchors

@@ -8,8 +8,8 @@
 
 <!-- issue-body:begin -->
 
-**AS A** operations engineer<br>
-**I WANT** structured JSON logs, request tracing, and operational visibility<br>
+**AS A** operations engineer
+**I WANT** structured JSON logs, request tracing, and operational visibility
 **SO THAT** I can troubleshoot issues, monitor performance, and ensure GDPR compliance.
 
 ## Spec anchors

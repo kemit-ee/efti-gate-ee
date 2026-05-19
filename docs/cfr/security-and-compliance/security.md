@@ -8,8 +8,8 @@
 
 <!-- issue-body:begin -->
 
-**AS A** security auditor<br>
-**I WANT** the gate to meet production security requirements<br>
+**AS A** security auditor
+**I WANT** the gate to meet production security requirements
 **SO THAT** the system passes a security audit and complies with e-government standards.
 
 ## Spec anchors

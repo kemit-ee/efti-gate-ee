@@ -8,8 +8,8 @@
 
 <!-- issue-body:begin -->
 
-**AS A** DevOps engineer<br>
-**I WANT** the gate to run on multiple nodes without shared memory<br>
+**AS A** DevOps engineer
+**I WANT** the gate to run on multiple nodes without shared memory
 **SO THAT** the system is horizontally scalable and tolerates a single node failure.
 
 ## Spec anchors

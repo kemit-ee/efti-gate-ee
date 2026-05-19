@@ -8,8 +8,8 @@
 
 <!-- issue-body:begin -->
 
-**AS A** system administrator<br>
-**I WANT** to manage the registry of Competent Authorities<br>
+**AS A** system administrator
+**I WANT** to manage the registry of Competent Authorities
 **SO THAT** authority users have controlled access to eFTI data.
 
 ## Spec anchors

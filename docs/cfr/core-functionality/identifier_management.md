@@ -8,8 +8,8 @@
 
 <!-- issue-body:begin -->
 
-**AS A** eFTI platform operator<br>
-**I WANT** to register freight transport identifiers in the gate<br>
+**AS A** eFTI platform operator
+**I WANT** to register freight transport identifiers in the gate
 **SO THAT** competent authorities can search for them later.
 
 ## Spec anchors

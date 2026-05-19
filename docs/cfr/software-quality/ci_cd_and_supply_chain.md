@@ -8,8 +8,8 @@
 
 <!-- issue-body:begin -->
 
-**AS A** DevOps engineer<br>
-**I WANT** automated build, test, security analysis, and deployment pipelines<br>
+**AS A** DevOps engineer
+**I WANT** automated build, test, security analysis, and deployment pipelines
 **SO THAT** every release is repeatable, auditable, and secure.
 
 ## Spec anchors

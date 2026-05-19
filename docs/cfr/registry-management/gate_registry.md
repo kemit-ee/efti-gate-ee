@@ -8,8 +8,8 @@
 
 <!-- issue-body:begin -->
 
-**AS A** system administrator<br>
-**I WANT** to manage the list of EU eFTI gates and monitor their status<br>
+**AS A** system administrator
+**I WANT** to manage the list of EU eFTI gates and monitor their status
 **SO THAT** broadcast requests only reach operational gates.
 
 ## Spec anchors

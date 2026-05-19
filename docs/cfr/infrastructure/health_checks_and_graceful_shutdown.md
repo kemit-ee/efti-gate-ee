@@ -8,8 +8,8 @@
 
 <!-- issue-body:begin -->
 
-**AS A** orchestrated deployment environment<br>
-**I WANT** the gate to expose health check endpoints and handle graceful shutdown<br>
+**AS A** orchestrated deployment environment
+**I WANT** the gate to expose health check endpoints and handle graceful shutdown
 **SO THAT** the deployment platform can manage the application lifecycle correctly.
 
 ## Spec anchors

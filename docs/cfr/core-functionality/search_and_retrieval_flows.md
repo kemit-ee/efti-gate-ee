@@ -8,8 +8,8 @@
 
 <!-- issue-body:begin -->
 
-**AS A** technical architect<br>
-**I WANT** documented data flows with sequence diagrams<br>
+**AS A** technical architect
+**I WANT** documented data flows with sequence diagrams
 **SO THAT** developers and integration partners understand exactly how identifier search, broadcast, and dataset retrieval works.
 
 ## Spec anchors
