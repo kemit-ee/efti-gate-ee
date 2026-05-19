@@ -8,8 +8,8 @@
 
 <!-- issue-body:begin -->
 
-**AS A** system administrator or authority user
-**I WANT** secure authentication mechanisms (TARA, JWT, mTLS)
+**AS A** system administrator or authority user<br>
+**I WANT** secure authentication mechanisms (TARA, JWT, mTLS)<br>
 **SO THAT** only authorized parties can access the gate.
 
 ## Spec anchors

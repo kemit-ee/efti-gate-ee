@@ -8,8 +8,8 @@
 
 <!-- issue-body:begin -->
 
-**AS A** technical architect
-**I WANT** documented authentication and access flows with sequence diagrams
+**AS A** technical architect<br>
+**I WANT** documented authentication and access flows with sequence diagrams<br>
 **SO THAT** integration partners and developers understand exactly how authentication works in each channel type.
 
 ## Spec anchors

@@ -8,8 +8,8 @@
 
 <!-- issue-body:begin -->
 
-**AS A** system administrator
-**I WANT** role-based access control with resource-level filtering
+**AS A** system administrator<br>
+**I WANT** role-based access control with resource-level filtering<br>
 **SO THAT** each user can only see and manage the resources they are permitted to access.
 
 ## Spec anchors
