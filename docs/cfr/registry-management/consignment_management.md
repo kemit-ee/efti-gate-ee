@@ -32,12 +32,12 @@
 | | `ARCHIVE_IN_PROGRESS` (concurrency-guard 409) |
 | | Full catalog: [`errors.json`](../../specs/errors.json) |
 | **CronManager YAML** | [`cronmanager-expire.yaml`](../../specs/deploy/cronmanager-expire.yaml) (default `0 45 3 * * ?` — 03:45 daily) |
-| **Architecture** | [RA §3 Data Lifecycle](../../architecture/eFTI-Gate-Reference-Architecture.md#3-data-lifecycle--ownership) |
+| **Architecture** | [../../architecture/registry-management/README.md](../../architecture/registry-management/README.md) (theme rules) + [../../architecture/registry-management/consignment_management.md](../../architecture/registry-management/consignment_management.md) (sub-architecture) |
+| | [RA §3 Data Lifecycle](../../architecture/eFTI-Gate-Reference-Architecture.md#3-data-lifecycle--ownership) |
 | | [RA §6.2 Data Processing Matrix](../../architecture/eFTI-Gate-Reference-Architecture.md#62-data-processing-matrix) |
 | **Diagrams** | [`state-01-identifier-lifecycle.mmd`](../../specs/diagrams/state-01-identifier-lifecycle.mmd) |
 | | [`seq-08-identifier-expiration.mmd`](../../specs/diagrams/seq-08-identifier-expiration.mmd) |
 | **Related epic** | [Epic 26](../infrastructure/append_only_archival.md) — CronManager-driven append-only archival sweep |
-| **Architecture** | [../../architecture/registry-management/README.md](../../architecture/registry-management/README.md) (theme rules) + [../../architecture/registry-management/consignment_management.md](../../architecture/registry-management/consignment_management.md) (sub-architecture) |
 
 ## Acceptance Criteria
 

@@ -20,8 +20,8 @@
 | | Full request / response shapes: [`openapi.yaml`](../../specs/openapi.yaml) |
 | **Access-check rules** | Authority role + subset enforcement: [`permissions-matrix.md`](../../specs/permissions-matrix.md) |
 | **Auth flow** | TARA OIDC (Authority/Admin path) — Epic 2 |
-| **Architecture** | [RA §9.2 Authority API (AAP)](../../architecture/eFTI-Gate-Reference-Architecture.md#92-authority-api-aap) |
 | **Architecture** | [../../architecture/user-interfaces/README.md](../../architecture/user-interfaces/README.md) (theme rules) + [../../architecture/user-interfaces/authority_ui.md](../../architecture/user-interfaces/authority_ui.md) (sub-architecture) |
+| | [RA §9.2 Authority API (AAP)](../../architecture/eFTI-Gate-Reference-Architecture.md#92-authority-api-aap) |
 
 ## Acceptance Criteria
 

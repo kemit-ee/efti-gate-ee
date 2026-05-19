@@ -32,3 +32,15 @@ Map of the 9 themes and 26 epics that make up the v2 spec. For artifacts and des
 | | | [E22 Admin UI](docs/cfr/user-interfaces/admin_ui.md) |
 
 **Totals:** 9 themes, 26 epics. Canonical per-epic acceptance criteria live in [`docs/cfr/`](docs/cfr/).
+
+## Delivery phases — priority summary
+
+A roadmap cut across the 9 themes. Each phase groups epics that must be delivered together to satisfy the phase's outcome.
+
+| Phase | Themes | Epics | Rationale |
+|---|---|---|---|
+| **1 — Production readiness** | T1, T5, T6 | E2 (Authentication), E12 (Scalability), E13 (Health), E14 (Security) | Cannot go to production without these. |
+| **2 — Core functionality** | T1, T2, T3 | E1 (RBAC), E3–E5 (Platform / Authority API), E6–E9 (Admin CRUD) | Core business logic of the system. |
+| **3 — Integrations** | T4 | E10 (eDelivery), E11 (X-Road) | EU and national interoperability. |
+| **4 — Quality** | T6, T7 | E15 (Audit), E16 (Logging), E17 (Monitoring) | Operational maturity. |
+| **5 — Standards and UI** | T8, T9 | E18–E20 (Tests / API / CI/CD), E21–E22 (UI) | KeMIT MFN compliance and operator-facing surfaces. |

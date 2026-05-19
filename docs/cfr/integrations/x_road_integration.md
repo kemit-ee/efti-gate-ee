@@ -21,10 +21,10 @@
 | **Error codes** | `FORBIDDEN_SUBSET` (X-Road client → subset not permitted) |
 | | All other gate-side errors wrapped as X-Road SOAP faults; underlying RFC 7807 carried in fault detail |
 | | Full catalog: [`errors.json`](../../specs/errors.json) |
-| **Architecture** | [RA §9.1 Platform API](../../architecture/eFTI-Gate-Reference-Architecture.md#91-platform-api) |
+| **Architecture** | [../../architecture/integrations/README.md](../../architecture/integrations/README.md) (theme rules) + [../../architecture/integrations/x_road_integration.md](../../architecture/integrations/x_road_integration.md) (sub-architecture) |
+| | [RA §9.1 Platform API](../../architecture/eFTI-Gate-Reference-Architecture.md#91-platform-api) |
 | | [RA §1 System Actors](../../architecture/eFTI-Gate-Reference-Architecture.md#1-system-actors--components) (X-Road, ANTS, NES) |
 | **Diagrams** | [`seq-10-platform-registration.mmd`](../../specs/diagrams/seq-10-platform-registration.mmd) (X-Road variant of the platform-registration flow) |
-| **Architecture** | [../../architecture/integrations/README.md](../../architecture/integrations/README.md) (theme rules) + [../../architecture/integrations/x_road_integration.md](../../architecture/integrations/x_road_integration.md) (sub-architecture) |
 
 ## Acceptance Criteria
 

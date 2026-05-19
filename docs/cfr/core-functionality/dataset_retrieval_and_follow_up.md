@@ -30,14 +30,14 @@
 | | `FOLLOW_UP_GATE_MISMATCH` |
 | | `BAD_REQUEST_GENERAL` |
 | | Full catalog: [`errors.json`](../../specs/errors.json) |
-| **Architecture** | [RA §2.3 Data Subsets](../../architecture/eFTI-Gate-Reference-Architecture.md#23-data-subsets) |
+| **Architecture** | [../../architecture/core-functionality/README.md](../../architecture/core-functionality/README.md) (theme rules) + [../../architecture/core-functionality/dataset_retrieval_and_follow_up.md](../../architecture/core-functionality/dataset_retrieval_and_follow_up.md) (sub-architecture) |
+| | [RA §2.3 Data Subsets](../../architecture/eFTI-Gate-Reference-Architecture.md#23-data-subsets) |
 | | [RA §5.2 Dataset Query](../../architecture/eFTI-Gate-Reference-Architecture.md#52-dataset-query-request-full-data) |
 | | [RA §5.3 Follow-Up](../../architecture/eFTI-Gate-Reference-Architecture.md#53-follow-up-message) |
 | **Diagrams** | [`seq-05-dataset-request.mmd`](../../specs/diagrams/seq-05-dataset-request.mmd) |
 | | [`seq-06-dataset-request-denied.mmd`](../../specs/diagrams/seq-06-dataset-request-denied.mmd) |
 | | [`state-02-dataset-request.mmd`](../../specs/diagrams/state-02-dataset-request.mmd) |
 | | [`flow-03-dataset-access-control.mmd`](../../specs/diagrams/flow-03-dataset-access-control.mmd) |
-| **Architecture** | [../../architecture/core-functionality/README.md](../../architecture/core-functionality/README.md) (theme rules) + [../../architecture/core-functionality/dataset_retrieval_and_follow_up.md](../../architecture/core-functionality/dataset_retrieval_and_follow_up.md) (sub-architecture) |
 
 ## Acceptance Criteria
 

@@ -19,8 +19,8 @@
 | **Access-check rules** | Admin role + Party-ID scope-IDs enforcement: [`permissions-matrix.md`](../../specs/permissions-matrix.md) |
 | **Auth flow** | TARA OIDC (Authority/Admin path) — Epic 2 |
 | **Environment** | `DRAFT_SAVE_INTERVAL_SECONDS` (default 30): [`non-functional.md`](../../specs/non-functional.md) §4.1 |
-| **Architecture** | [RA §7.1 Logical Component Layers](../../architecture/eFTI-Gate-Reference-Architecture.md#71-logical-component-layers) |
 | **Architecture** | [../../architecture/user-interfaces/README.md](../../architecture/user-interfaces/README.md) (theme rules) + [../../architecture/user-interfaces/admin_ui.md](../../architecture/user-interfaces/admin_ui.md) (sub-architecture) |
+| | [RA §7.1 Logical Component Layers](../../architecture/eFTI-Gate-Reference-Architecture.md#71-logical-component-layers) |
 
 ## Acceptance Criteria
 
@@ -61,34 +61,5 @@
 - [ ] Front-end JS errors are reported to the server via `POST /api/js-error` so they are visible in central logging.
 - [ ] Errors shown to the user are friendly messages — never raw stack traces.
 - [ ] Error pages include the `requestId` for support correlation.
-
-## Priority Summary
-
-| Phase | Theme | Epics | Rationale |
-|-------|-------|-------|-----------|
-| **1 — Production readiness** | T1, T5, T6 | 2 (Authentication), 12 (Scalability), 13 (Health), 14 (Security) | Cannot go to production without these |
-| **2 — Core functionality** | T1, T2, T3 | 1 (RBAC), 3–5 (Platform/Authority API), 6–9 (Admin CRUD) | Core business logic of the system |
-| **3 — Integrations** | T4 | 10 (eDelivery), 11 (X-Road) | EU and national interoperability |
-| **4 — Quality** | T6, T7 | 15 (Audit), 16 (Logging), 17 (Monitoring) | Operational maturity |
-| **5 — Standards and UI** | T8, T9 | 18–20 (Tests/API/CI/CD), 21–22 (UI) | KeMIT MFN compliance |
-
----
-
-## Reference Architecture Compliance Check
-
-| RA Principle | Epic | Status |
-|---|---|---|
-| Gate is a content-agnostic router | EPIC 3, 4, 5, 10 | ✅ Covered |
-| Broadcast only on 0 local results | EPIC 4 | ✅ Covered |
-| Platform filters subsets | EPIC 5 | ✅ Clarified |
-| Gate does not store full datasets | EPIC 5, 9 | ✅ Covered |
-| UIL = URL-based structure | EPIC 3, 4, 5 | ✅ Covered |
-| CMDS statuses active/inactive/deleted | EPIC 9 | ✅ Addressed |
-| AAP = authority REST interface (H2M + M2M) | EPIC 21 | ✅ Covered |
-| Identifier `expires_at` field | EPIC 9 | ✅ Addressed |
-| Audit logging jurisdiction question | EPIC 15 | ✅ Clarified |
-| Multimodal support (road/sea/rail/air) | EPIC 3, 10 | ✅ Covered |
-
-> **Architecture reference:** For component diagrams, security layers, and full design rationale see [eFTI Gate Reference Architecture](../../architecture/eFTI-Gate-Reference-Architecture.md).
 
 <!-- issue-body:end -->

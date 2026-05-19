@@ -26,8 +26,8 @@
 | | [`seq-05-dataset-request.mmd`](../../specs/diagrams/seq-05-dataset-request.mmd) |
 | | [`seq-06-dataset-request-denied.mmd`](../../specs/diagrams/seq-06-dataset-request-denied.mmd) |
 | | [`flow-01-search-broadcast-decision.mmd`](../../specs/diagrams/flow-01-search-broadcast-decision.mmd) |
-| **Architecture** | [RA §5.1 Identifier Query](../../architecture/eFTI-Gate-Reference-Architecture.md#51-identifier-query-cross-border-search) |
-| | [RA §5.2 Dataset Query](../../architecture/eFTI-Gate-Reference-Architecture.md#52-dataset-query-request-full-data) |
 | **Architecture** | [../../architecture/core-functionality/README.md](../../architecture/core-functionality/README.md) (theme rules) + [../../architecture/core-functionality/search_and_retrieval_flows.md](../../architecture/core-functionality/search_and_retrieval_flows.md) (sub-architecture) |
+| | [RA §5.1 Identifier Query](../../architecture/eFTI-Gate-Reference-Architecture.md#51-identifier-query-cross-border-search) |
+| | [RA §5.2 Dataset Query](../../architecture/eFTI-Gate-Reference-Architecture.md#52-dataset-query-request-full-data) |
 
 <!-- issue-body:end -->

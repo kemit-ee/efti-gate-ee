@@ -21,8 +21,8 @@
 | **Error format** | RFC 7807 Problem Details, `requestId` correlation: [`openapi.yaml`](../../specs/openapi.yaml), [`errors.json`](../../specs/errors.json) |
 | **Environment** | `EU_TRUST_LIST_URL`, `OCSP_TIMEOUT_MS`, `CRL_REFRESH_HOURS`, `EU_PLATFORM_REGISTRY_URL`, `EU_PLATFORM_REGISTRY_REFRESH_MINUTES`, `RATE_LIMIT_PER_MINUTE`: [`non-functional.md`](../../specs/non-functional.md) §4.1 |
 | **Reverse-proxy contract** | TLS / mTLS termination, OCSP/CRL fail-closed, EU Trust Service trust list, `X-Client-Cert-Subject` / `X-Client-Cert-Serial` forwarding: [`non-functional.md`](../../specs/non-functional.md) §3 |
-| **Architecture** | [RA §8.1 Security Layers](../../architecture/eFTI-Gate-Reference-Architecture.md#81-security-layers) |
 | **Architecture** | [../../architecture/security-and-compliance/README.md](../../architecture/security-and-compliance/README.md) (theme rules) + [../../architecture/security-and-compliance/security.md](../../architecture/security-and-compliance/security.md) (sub-architecture) |
+| | [RA §8.1 Security Layers](../../architecture/eFTI-Gate-Reference-Architecture.md#81-security-layers) |
 
 ## Acceptance Criteria
 

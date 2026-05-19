@@ -32,12 +32,12 @@
 | | Full catalog: [`errors.json`](../../specs/errors.json) |
 | **Environment** | `PING_TIMEOUT_SECONDS` — see [`non-functional.md`](../../specs/non-functional.md) §4.1 |
 | **CronManager YAML** | [`cronmanager-ping-gates.yaml`](../../specs/deploy/cronmanager-ping-gates.yaml) |
-| **Architecture** | [RA §1 System Actors](../../architecture/eFTI-Gate-Reference-Architecture.md#1-system-actors--components) |
+| **Architecture** | [../../architecture/registry-management/README.md](../../architecture/registry-management/README.md) (theme rules) + [../../architecture/registry-management/gate_registry.md](../../architecture/registry-management/gate_registry.md) (sub-architecture) |
+| | [RA §1 System Actors](../../architecture/eFTI-Gate-Reference-Architecture.md#1-system-actors--components) |
 | **Diagrams** | [`state-05-gate-health.mmd`](../../specs/diagrams/state-05-gate-health.mmd) |
 | | [`seq-09-gate-ping.mmd`](../../specs/diagrams/seq-09-gate-ping.mmd) |
 | | [`seq-15-gate-registry-sync.mmd`](../../specs/diagrams/seq-15-gate-registry-sync.mmd) |
 | | [`arch-02-gate-network.mmd`](../../specs/diagrams/arch-02-gate-network.mmd) |
-| **Architecture** | [../../architecture/registry-management/README.md](../../architecture/registry-management/README.md) (theme rules) + [../../architecture/registry-management/gate_registry.md](../../architecture/registry-management/gate_registry.md) (sub-architecture) |
 
 ## Acceptance Criteria
 

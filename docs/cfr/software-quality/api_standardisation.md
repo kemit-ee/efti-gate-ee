@@ -21,8 +21,8 @@
 | **Path-prefix convention** | `/api/v1/...` (Admin API), `/v1/...` (Platform + Authority API), `/services/...` (eDelivery + fast), `/health/...` (public probes): [`permissions-matrix.md`](../../specs/permissions-matrix.md) §1.1 |
 | **Pagination** | `limit` (default 100, max 1000 per `PageLimit`), `offset`; response carries `X-Total-Count`: [`openapi.yaml`](../../specs/openapi.yaml) |
 | **Environment** | `ALLOWED_ORIGINS` (CORS) — [`non-functional.md`](../../specs/non-functional.md) §4.1 |
-| **Architecture** | [RA §9 API Reference](../../architecture/eFTI-Gate-Reference-Architecture.md#9-api-reference) |
 | **Architecture** | [../../architecture/software-quality/README.md](../../architecture/software-quality/README.md) (theme rules) + [../../architecture/software-quality/api_standardisation.md](../../architecture/software-quality/api_standardisation.md) (sub-architecture) |
+| | [RA §9 API Reference](../../architecture/eFTI-Gate-Reference-Architecture.md#9-api-reference) |
 
 ## Acceptance Criteria
 
