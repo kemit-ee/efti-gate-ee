@@ -34,7 +34,7 @@ Outstanding work items that are tracked outside the per-file `## Changes` log an
 - [ ] `.github/workflows/sync-cfr-to-issues.yml` (or equivalent) exists.
 - [ ] Triggers on push to `feature/planning` (and `main`).
 - [ ] Only runs for files listed in `scripts/epic-issue-map.tsv` (so unrelated edits don't churn).
-- [ ] Uses a `GITHUB_TOKEN` (or a finer-grained PAT) with `issues: write` on the target repo(s). The target repo may not be the same repo as the workflow source (e.g. `turnerrainer/eFTI` during testing, `kemit-ee/efti-gate-ee` in production) — handle cross-repo credentials.
+- [ ] Uses a `GITHUB_TOKEN` (or a finer-grained PAT) with `issues: write` on `kemit-ee/efti-gate-ee`. (Operators running the sync against a sandbox of their own — keyed off the operator-local `scripts/epic-issue-map.tsv` — handle credentials at the developer-machine level; the workflow itself only operates against the canonical repo.)
 - [ ] Skips files whose markdown has no `<!-- issue-body:begin --> ... <!-- issue-body:end -->` markers (instead of erroring).
 - [ ] Workflow-run output is clear enough to diagnose a sync failure without re-running locally.
 - [ ] Documented in `CONTRIBUTING.md` so contributors know the sync is automated and the issue body shouldn't be hand-edited in the upper zone.

@@ -1,0 +1,55 @@
+# Maps source markdown (theme / sub-area) to GitHub issue. Tab-separated.
+# Format: <markdown-path>\t<owner/repo>\t<issue-number>
+# Lines starting with '#' are comments.
+#
+# This file is an EXAMPLE. The actual mapping (scripts/epic-issue-map.tsv) is
+# operator-local and gitignored, because the issue numbers depend on which
+# repo the operator is seeding against and they are not part of the canonical
+# spec corpus.
+#
+# Workflow for the operator:
+#   1. cp scripts/epic-issue-map.tsv.example scripts/epic-issue-map.tsv
+#   2. Edit scripts/epic-issue-map.tsv and fill in the real issue numbers in
+#      the third column. The placeholder is `0` — replace it with the issue
+#      number from `gh issue view <N>` once each issue exists in the target
+#      repo.
+#   3. Run scripts/sync-epic-to-issue.py against your local manifest. The
+#      example file is never read by the script.
+#
+# Theme entries come first in each block; sub-area (epic) entries follow.
+
+docs/cfr/identity-and-access/README.md	kemit-ee/efti-gate-ee	0
+docs/cfr/identity-and-access/user_management_and_rbac.md	kemit-ee/efti-gate-ee	0
+docs/cfr/identity-and-access/authentication.md	kemit-ee/efti-gate-ee	0
+docs/cfr/identity-and-access/authentication_and_access_flows.md	kemit-ee/efti-gate-ee	0
+docs/cfr/core-functionality/README.md	kemit-ee/efti-gate-ee	0
+docs/cfr/core-functionality/identifier_management.md	kemit-ee/efti-gate-ee	0
+docs/cfr/core-functionality/identifier_search.md	kemit-ee/efti-gate-ee	0
+docs/cfr/core-functionality/dataset_retrieval_and_follow_up.md	kemit-ee/efti-gate-ee	0
+docs/cfr/core-functionality/search_and_retrieval_flows.md	kemit-ee/efti-gate-ee	0
+docs/cfr/registry-management/README.md	kemit-ee/efti-gate-ee	0
+docs/cfr/registry-management/gate_registry.md	kemit-ee/efti-gate-ee	0
+docs/cfr/registry-management/platform_registry.md	kemit-ee/efti-gate-ee	0
+docs/cfr/registry-management/authority_registry.md	kemit-ee/efti-gate-ee	0
+docs/cfr/registry-management/consignment_management.md	kemit-ee/efti-gate-ee	0
+docs/cfr/integrations/README.md	kemit-ee/efti-gate-ee	0
+docs/cfr/integrations/edelivery_as4.md	kemit-ee/efti-gate-ee	0
+docs/cfr/integrations/x_road_integration.md	kemit-ee/efti-gate-ee	0
+docs/cfr/integrations/as4_message_flow.md	kemit-ee/efti-gate-ee	0
+docs/cfr/infrastructure/README.md	kemit-ee/efti-gate-ee	0
+docs/cfr/infrastructure/scalability_and_statelessness.md	kemit-ee/efti-gate-ee	0
+docs/cfr/infrastructure/health_checks_and_graceful_shutdown.md	kemit-ee/efti-gate-ee	0
+docs/cfr/infrastructure/append_only_archival.md	kemit-ee/efti-gate-ee	0
+docs/cfr/security-and-compliance/README.md	kemit-ee/efti-gate-ee	0
+docs/cfr/security-and-compliance/security.md	kemit-ee/efti-gate-ee	0
+docs/cfr/security-and-compliance/audit_and_gdpr.md	kemit-ee/efti-gate-ee	0
+docs/cfr/observability/README.md	kemit-ee/efti-gate-ee	0
+docs/cfr/observability/logging_and_observability.md	kemit-ee/efti-gate-ee	0
+docs/cfr/observability/monitoring_and_alerting.md	kemit-ee/efti-gate-ee	0
+docs/cfr/software-quality/README.md	kemit-ee/efti-gate-ee	0
+docs/cfr/software-quality/test_coverage_and_quality.md	kemit-ee/efti-gate-ee	0
+docs/cfr/software-quality/api_standardisation.md	kemit-ee/efti-gate-ee	0
+docs/cfr/software-quality/ci_cd_and_supply_chain.md	kemit-ee/efti-gate-ee	0
+docs/cfr/user-interfaces/README.md	kemit-ee/efti-gate-ee	0
+docs/cfr/user-interfaces/authority_ui.md	kemit-ee/efti-gate-ee	0
+docs/cfr/user-interfaces/admin_ui.md	kemit-ee/efti-gate-ee	0
