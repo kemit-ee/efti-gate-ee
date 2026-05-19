@@ -22,7 +22,7 @@ Sync zones:
 
 Relative spec links inside the extracted block are resolved against the
 source-file's directory and rewritten to absolute github.com URLs against
-the BRANCH env var (default: feature/planning) of the BASE_REPO env var
+the BRANCH env var (default: main) of the BASE_REPO env var
 (default: kemit-ee/efti-gate-ee).
 
 Requires: gh CLI (logged in).
@@ -40,7 +40,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MAP_FILE = REPO_ROOT / "scripts" / "epic-issue-map.tsv"
 BASE_REPO = os.environ.get("BASE_REPO", "kemit-ee/efti-gate-ee")
-BRANCH = os.environ.get("BRANCH", "feature/planning")
+BRANCH = os.environ.get("BRANCH", "main")
 BLOB_PREFIX = f"https://github.com/{BASE_REPO}/blob/{BRANCH}"
 
 ISSUE_BODY_BEGIN = "<!-- issue-body:begin -->"
