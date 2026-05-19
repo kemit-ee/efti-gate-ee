@@ -63,24 +63,28 @@ Outstanding work items that are tracked outside the per-file `## Changes` log an
 
 ---
 
-## Two-zone sync — AC-section content removal needs `--force-ac`
+## Two-zone sync — AC-section content changes need `--force-ac`
 
 **Status:** known model gotcha; manual workaround in place; future automation should detect and handle.
 
-**The gotcha.** The default (non-`--force-ac`) sync regenerates the upper zone of the issue body from markdown but **preserves the AC section from the live issue body** to protect sub-task promotions and checkbox state. When content is **removed** from inside the issue-body markers in markdown — specifically content that sits below the `## Acceptance Criteria` heading — a regular sync will not propagate that removal. The live issue body keeps the now-orphaned content.
+**The gotcha.** The default (non-`--force-ac`) sync regenerates the upper zone of the issue body from markdown but **preserves the AC section from the live issue body** to protect sub-task promotions and checkbox state. When content **inside the AC zone changes in markdown** — whether by *deletion*, by *URL rewriting* (e.g. a `BRANCH` env-var flip), or by AC text edits — a regular sync will **not** propagate that change. The live issue body keeps the old content.
 
-**Concrete past incident.** PR #31 commit (f) removed two corpus-wide tables (Priority Summary, Reference Architecture Compliance Check) from `docs/cfr/user-interfaces/admin_ui.md`. Both tables sat inside the issue-body markers and below the `## Acceptance Criteria` heading. The regular re-sync after (f) preserved them in issue #35; the workaround was a one-shot `scripts/sync-epic-to-issue.py --force-ac docs/cfr/user-interfaces/admin_ui.md`.
+**Concrete past incidents.**
 
-**What should exist.** Until the AC-extraction logic is smarter, any time a removal is made inside the AC zone of a CFR markdown file, the operator (or the future GitHub Actions workflow) must:
+1. **Content deletion (PR #31).** Commit (f) removed two corpus-wide tables (Priority Summary, Reference Architecture Compliance Check) from `docs/cfr/user-interfaces/admin_ui.md`. The regular re-sync after (f) preserved them in issue #35; one-shot `--force-ac` cleaned it up.
+2. **Branch-default flip (PR #70 → PR #71).** The sync script's `BRANCH` default changed from `feature/planning` to `main`. After the post-merge regular sync, the **upper-zone** URLs flipped to `main` (regenerated from markdown), but the **AC-zone** links inside AC bullets (e.g. references to `errors.json` or `permissions-matrix.md` embedded in checkbox text) were still pointing at `feature/planning` because the AC section was preserved verbatim from before. A corpus-wide `--force-ac` sweep cleaned all 35 production issues.
 
-1. Detect that the markdown's AC zone shrunk — diff the file vs. previous, look for deletions inside the `<!-- issue-body:begin --> ... <!-- issue-body:end -->` block below `## Acceptance Criteria`.
-2. Run `scripts/sync-epic-to-issue.py --force-ac <path>` for the affected file(s). Surface a warning that any in-progress checkbox / sub-issue state on the issue gets overwritten.
+**What should exist.** Until the AC-extraction logic is smarter, any time AC-zone content changes (deletion, URL rewriting, or text edit) in a CFR markdown file, the operator (or the future GitHub Actions workflow) must:
+
+1. Detect that the markdown's AC zone changed — diff the file vs. previous, looking inside the `<!-- issue-body:begin --> ... <!-- issue-body:end -->` block at and below `## Acceptance Criteria`.
+2. Run `scripts/sync-epic-to-issue.py --force-ac <path>` for the affected file(s). For corpus-wide changes (like a `BRANCH` default flip), sweep `--all --force-ac`. Surface a warning that any in-progress checkbox / sub-issue state on the issue gets overwritten.
 3. Note in the PR description which issues were `--force-ac`'d so reviewers know what happened.
 
-Manual rule for now: **after merging any PR that deletes content inside the AC zone, run `--force-ac` for the affected file(s) before considering the spec corpus and the issue board in sync**.
+Manual rule for now: **after merging any PR that changes content inside the AC zone (delete, URL rewrite, or text edit), run `--force-ac` for the affected file(s) before considering the spec corpus and the issue board in sync. For corpus-wide changes like a `BRANCH` flip, sweep `--all --force-ac`**.
 
 **Acceptance criteria** (for the smarter version):
 
-- [ ] The sync script or workflow detects an AC-zone shrink between the previous and current markdown.
+- [ ] The sync script or workflow detects any AC-zone content change between the previous and current markdown.
 - [ ] On detection, it either (a) auto-runs `--force-ac` for that file (default), or (b) warns and refuses to sync without explicit operator confirmation (safer default for the workflow).
+- [ ] Corpus-wide configuration changes that affect link rendering (`BRANCH` env-var flip, `BASE_REPO` change) trigger a global `--force-ac` sweep.
 - [ ] The transition is documented in `CONTRIBUTING.md` alongside the rest of the spec-change protocol.
