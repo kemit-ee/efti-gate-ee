@@ -29,12 +29,12 @@
 | | `GATE_TIMEOUT` |
 | | `EDELIVERY_ERROR` |
 | | Full catalog: [`errors.json`](../../specs/errors.json) |
-| **Architecture** | [RA §4 Protocol Architecture](../../architecture/eFTI-Gate-Reference-Architecture.md#4-protocol-architecture-generic-envelope--variable-payload) |
+| **Architecture** | [../../architecture/integrations/README.md](../../architecture/integrations/README.md) (theme rules) + [../../architecture/integrations/edelivery_as4.md](../../architecture/integrations/edelivery_as4.md) (sub-architecture) |
+| | [RA §4 Protocol Architecture](../../architecture/eFTI-Gate-Reference-Architecture.md#4-protocol-architecture-generic-envelope--variable-payload) |
 | | [RA §5.1 Identifier Query](../../architecture/eFTI-Gate-Reference-Architecture.md#51-identifier-query-cross-border-search) |
 | **Diagrams** | [`seq-14-gate-to-gate-search.mmd`](../../specs/diagrams/seq-14-gate-to-gate-search.mmd) |
 | | [`seq-16-mtls-fast-protocol.mmd`](../../specs/diagrams/seq-16-mtls-fast-protocol.mmd) |
 | | [`arch-02-gate-network.mmd`](../../specs/diagrams/arch-02-gate-network.mmd) |
-| **Architecture** | [../../architecture/integrations/README.md](../../architecture/integrations/README.md) (theme rules) + [../../architecture/integrations/edelivery_as4.md](../../architecture/integrations/edelivery_as4.md) (sub-architecture) |
 
 ## Acceptance Criteria
 

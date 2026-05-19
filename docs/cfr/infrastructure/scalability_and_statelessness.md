@@ -26,11 +26,11 @@
 | **Error codes** | `DUPLICATE_REQUEST_ID` |
 | | `ARCHIVE_IN_PROGRESS` (the canonical 409 for any admin-endpoint mutex collision) |
 | | Full catalog: [`errors.json`](../../specs/errors.json) |
-| **Architecture** | [RA §7.1 Logical Component Layers](../../architecture/eFTI-Gate-Reference-Architecture.md#71-logical-component-layers) |
+| **Architecture** | [../../architecture/infrastructure/README.md](../../architecture/infrastructure/README.md) (theme rules) + [../../architecture/infrastructure/scalability_and_statelessness.md](../../architecture/infrastructure/scalability_and_statelessness.md) (sub-architecture) |
+| | [RA §7.1 Logical Component Layers](../../architecture/eFTI-Gate-Reference-Architecture.md#71-logical-component-layers) |
 | **Diagrams** | [`arch-01-multi-node-deployment.mmd`](../../specs/diagrams/arch-01-multi-node-deployment.mmd) |
 | | [`seq-15-gate-registry-sync.mmd`](../../specs/diagrams/seq-15-gate-registry-sync.mmd) |
 | **Related epic** | [Epic 26](../infrastructure/append_only_archival.md) — CronManager-driven archival |
-| **Architecture** | [../../architecture/infrastructure/README.md](../../architecture/infrastructure/README.md) (theme rules) + [../../architecture/infrastructure/scalability_and_statelessness.md](../../architecture/infrastructure/scalability_and_statelessness.md) (sub-architecture) |
 
 ## Acceptance Criteria
 

@@ -27,10 +27,10 @@
 | | `FORBIDDEN_WRITE_ACCESS` |
 | | Full catalog: [`errors.json`](../../specs/errors.json) |
 | **Cluster sync** | `LISTEN/NOTIFY` on channel `registry_change_authorities` — see [`non-functional.md`](../../specs/non-functional.md) §3 |
-| **Architecture** | [RA §2.3 Data Subsets](../../architecture/eFTI-Gate-Reference-Architecture.md#23-data-subsets) |
+| **Architecture** | [../../architecture/registry-management/README.md](../../architecture/registry-management/README.md) (theme rules) + [../../architecture/registry-management/authority_registry.md](../../architecture/registry-management/authority_registry.md) (sub-architecture) |
+| | [RA §2.3 Data Subsets](../../architecture/eFTI-Gate-Reference-Architecture.md#23-data-subsets) |
 | **Diagrams** | [`seq-11-authority-registration.mmd`](../../specs/diagrams/seq-11-authority-registration.mmd) |
 | | [`state-04-authority-status.mmd`](../../specs/diagrams/state-04-authority-status.mmd) |
-| **Architecture** | [../../architecture/registry-management/README.md](../../architecture/registry-management/README.md) (theme rules) + [../../architecture/registry-management/authority_registry.md](../../architecture/registry-management/authority_registry.md) (sub-architecture) |
 
 ## Acceptance Criteria
 

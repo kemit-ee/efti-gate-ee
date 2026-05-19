@@ -29,12 +29,12 @@
 | | `GATE_TIMEOUT` |
 | | `GATEWAY_UNAVAILABLE` |
 | | Full catalog: [`errors.json`](../../specs/errors.json) |
-| **Architecture** | [RA §5.1 Identifier Query](../../architecture/eFTI-Gate-Reference-Architecture.md#51-identifier-query-cross-border-search) |
+| **Architecture** | [../../architecture/core-functionality/README.md](../../architecture/core-functionality/README.md) (theme rules) + [../../architecture/core-functionality/identifier_search.md](../../architecture/core-functionality/identifier_search.md) (sub-architecture) |
+| | [RA §5.1 Identifier Query](../../architecture/eFTI-Gate-Reference-Architecture.md#51-identifier-query-cross-border-search) |
 | | [RA §6.1 Gate Responsibilities](../../architecture/eFTI-Gate-Reference-Architecture.md#61-gate-responsibilities) |
 | **Diagrams** | [`seq-02-identifier-search-local-only.mmd`](../../specs/diagrams/seq-02-identifier-search-local-only.mmd) |
 | | [`seq-03-identifier-search-broadcast.mmd`](../../specs/diagrams/seq-03-identifier-search-broadcast.mmd) |
 | | [`flow-01-search-broadcast-decision.mmd`](../../specs/diagrams/flow-01-search-broadcast-decision.mmd) |
-| **Architecture** | [../../architecture/core-functionality/README.md](../../architecture/core-functionality/README.md) (theme rules) + [../../architecture/core-functionality/identifier_search.md](../../architecture/core-functionality/identifier_search.md) (sub-architecture) |
 
 ## Acceptance Criteria
 

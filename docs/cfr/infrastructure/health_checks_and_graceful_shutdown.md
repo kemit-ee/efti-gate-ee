@@ -22,8 +22,8 @@
 | **Probe topology** | Probe interval 5 s, 2 failures → unready, 1 success → ready: [`non-functional.md`](../../specs/non-functional.md) §3 |
 | **Environment** | `SHUTDOWN_TIMEOUT_SECONDS` (default 30) — see [`non-functional.md`](../../specs/non-functional.md) §4.1 |
 | **HPA tie-in** | Readiness drives the HPA "ready replica" count — a draining pod drops from scale-up capacity automatically: [`non-functional.md`](../../specs/non-functional.md) §3.1 |
-| **Architecture** | [RA §7.1 Logical Component Layers](../../architecture/eFTI-Gate-Reference-Architecture.md#71-logical-component-layers) |
 | **Architecture** | [../../architecture/infrastructure/README.md](../../architecture/infrastructure/README.md) (theme rules) + [../../architecture/infrastructure/health_checks_and_graceful_shutdown.md](../../architecture/infrastructure/health_checks_and_graceful_shutdown.md) (sub-architecture) |
+| | [RA §7.1 Logical Component Layers](../../architecture/eFTI-Gate-Reference-Architecture.md#71-logical-component-layers) |
 
 ## Acceptance Criteria
 

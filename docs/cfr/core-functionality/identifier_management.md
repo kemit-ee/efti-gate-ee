@@ -31,13 +31,13 @@
 | | `FORBIDDEN_MULTI_PLATFORM` |
 | | `BAD_REQUEST_GENERAL` |
 | | Full catalog: [`errors.json`](../../specs/errors.json) |
-| **Architecture** | [RA §2.1 UIL](../../architecture/eFTI-Gate-Reference-Architecture.md#21-uil-unique-identifier-locator) |
+| **Architecture** | [../../architecture/core-functionality/README.md](../../architecture/core-functionality/README.md) (theme rules) + [../../architecture/core-functionality/identifier_management.md](../../architecture/core-functionality/identifier_management.md) (sub-architecture) |
+| | [RA §2.1 UIL](../../architecture/eFTI-Gate-Reference-Architecture.md#21-uil-unique-identifier-locator) |
 | | [RA §2.2 Identifiers vs Datasets](../../architecture/eFTI-Gate-Reference-Architecture.md#22-identifiers-vs-datasets) |
 | | [RA §3 Data Lifecycle](../../architecture/eFTI-Gate-Reference-Architecture.md#3-data-lifecycle--ownership) |
 | **Diagrams** | [`seq-01-identifier-registration.mmd`](../../specs/diagrams/seq-01-identifier-registration.mmd) |
 | | [`seq-07-dataset-upload.mmd`](../../specs/diagrams/seq-07-dataset-upload.mmd) |
 | | [`seq-13-multi-platform-user.mmd`](../../specs/diagrams/seq-13-multi-platform-user.mmd) |
-| **Architecture** | [../../architecture/core-functionality/README.md](../../architecture/core-functionality/README.md) (theme rules) + [../../architecture/core-functionality/identifier_management.md](../../architecture/core-functionality/identifier_management.md) (sub-architecture) |
 
 ## Acceptance Criteria
 

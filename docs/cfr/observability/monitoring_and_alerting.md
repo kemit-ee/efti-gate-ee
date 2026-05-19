@@ -19,8 +19,8 @@
 | **Scaling contract** | HPA driven by CPU 70 % / mem 75 % / readiness: [`non-functional.md`](../../specs/non-functional.md) §3.1 |
 | **Health probes** | `/health/live` / `/health/ready` shared with HPA + LB: [`openapi.yaml`](../../specs/openapi.yaml), Epic 13 |
 | **Logging fields driving alerts** | `event.outcome`, `db.pool.warning`, `runtime.memory.warning`, `gate.ping.failed`, `efti.error.code`: [`logging-spec.md`](../../specs/logging-spec.md) §5, §10 |
-| **Architecture** | [RA §7.1 Logical Component Layers](../../architecture/eFTI-Gate-Reference-Architecture.md#71-logical-component-layers) |
 | **Architecture** | [../../architecture/observability/README.md](../../architecture/observability/README.md) (theme rules) + [../../architecture/observability/monitoring_and_alerting.md](../../architecture/observability/monitoring_and_alerting.md) (sub-architecture) |
+| | [RA §7.1 Logical Component Layers](../../architecture/eFTI-Gate-Reference-Architecture.md#71-logical-component-layers) |
 
 ## Acceptance Criteria
 

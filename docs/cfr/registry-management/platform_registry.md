@@ -27,10 +27,10 @@
 | | `GATEWAY_UNAVAILABLE` |
 | | Full catalog: [`errors.json`](../../specs/errors.json) |
 | **Cluster sync** | `LISTEN/NOTIFY` on channel `registry_change_platforms` — see [`non-functional.md`](../../specs/non-functional.md) §3 |
-| **Architecture** | [RA §1 System Actors](../../architecture/eFTI-Gate-Reference-Architecture.md#1-system-actors--components) |
+| **Architecture** | [../../architecture/registry-management/README.md](../../architecture/registry-management/README.md) (theme rules) + [../../architecture/registry-management/platform_registry.md](../../architecture/registry-management/platform_registry.md) (sub-architecture) |
+| | [RA §1 System Actors](../../architecture/eFTI-Gate-Reference-Architecture.md#1-system-actors--components) |
 | **Diagrams** | [`seq-10-platform-registration.mmd`](../../specs/diagrams/seq-10-platform-registration.mmd) |
 | | [`state-03-platform-status.mmd`](../../specs/diagrams/state-03-platform-status.mmd) |
-| **Architecture** | [../../architecture/registry-management/README.md](../../architecture/registry-management/README.md) (theme rules) + [../../architecture/registry-management/platform_registry.md](../../architecture/registry-management/platform_registry.md) (sub-architecture) |
 
 ## Acceptance Criteria
 

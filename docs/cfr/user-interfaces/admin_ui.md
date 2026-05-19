@@ -19,8 +19,8 @@
 | **Access-check rules** | Admin role + Party-ID scope-IDs enforcement: [`permissions-matrix.md`](../../specs/permissions-matrix.md) |
 | **Auth flow** | TARA OIDC (Authority/Admin path) — Epic 2 |
 | **Environment** | `DRAFT_SAVE_INTERVAL_SECONDS` (default 30): [`non-functional.md`](../../specs/non-functional.md) §4.1 |
-| **Architecture** | [RA §7.1 Logical Component Layers](../../architecture/eFTI-Gate-Reference-Architecture.md#71-logical-component-layers) |
 | **Architecture** | [../../architecture/user-interfaces/README.md](../../architecture/user-interfaces/README.md) (theme rules) + [../../architecture/user-interfaces/admin_ui.md](../../architecture/user-interfaces/admin_ui.md) (sub-architecture) |
+| | [RA §7.1 Logical Component Layers](../../architecture/eFTI-Gate-Reference-Architecture.md#71-logical-component-layers) |
 
 ## Acceptance Criteria
 
