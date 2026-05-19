@@ -1,0 +1,33 @@
+sequenceDiagram
+    participant Platform as Platform Operator (mTLS client)
+    participant Proxy as Reverse Proxy (Caddy/Traefik/nginx)
+    participant Gate as eFTI Gate (eu-xx01)
+    participant Auth as PlatformAuthChecker
+    participant DB as PostgreSQL
+
+    Note over Platform: Cert subject DN matches<br/>TWO active rows in<br/>`platforms`. Typical<br/>cause: rename without<br/>soft-deleting the old<br/>row.
+
+    Platform->>+Proxy: POST /v1/identifiers/550e8400-...<br/>Client cert: CN=eDelivery-Platform, O=Example Logistics
+    Proxy->>Proxy: Validate cert chain against MS-issued CA
+    Proxy->>+Gate: POST /v1/identifiers/550e8400-...<br/>X-Client-Cert-Subject: CN=eDelivery-Platform, O=Example Logistics<br/>X-Client-Cert-Serial: 0123456789ABCDEF
+
+    Gate->>+Auth: resolvePlatform(certSubject, certSerial)
+    Auth->>+DB: Resolve active platforms rows by (cert_subject, cert_serial)
+    DB-->>-Auth: 2 active platforms match: 'plt-xxx-002', 'plt-xxx-003'
+    Auth->>Auth: matches > 1 → CONFIGURATION ERROR
+    Auth-->>-Gate: ForbiddenException(FORBIDDEN_MULTI_PLATFORM)
+
+    Gate-->>Proxy: 403 Forbidden<br/>{ "type": "https://api.efti.ee/errors/forbidden-multi-platform",<br/>  "code": "FORBIDDEN_MULTI_PLATFORM",<br/>  "title": "Certificate matches multiple active platforms",<br/>  "status": 403,<br/>  "detail": "The presented client certificate subject DN matches more than one active row in the platforms registry. This is a configuration error — exactly one platform per certificate. Contact the gate operator." }
+    deactivate Gate
+    Proxy-->>-Platform: 403 Forbidden (forwarded)
+
+    Note over Platform,Gate: Resolution: operator<br/>soft-deletes the obsolete<br/>row (is_active=FALSE) —<br/>cert then resolves to<br/>exactly one platform.
+
+    Note over Platform: After fix:<br/>(retry the same call)
+    Platform->>+Gate: POST /v1/identifiers/550e8400-...<br/>X-Client-Cert-Subject: CN=eDelivery-Platform, O=Example Logistics
+    Gate->>+Auth: resolvePlatform(certSubject, certSerial)
+    Auth->>+DB: Resolve active platforms rows by (cert_subject, cert_serial)
+    DB-->>-Auth: 1 active platform matches: 'plt-xxx-002'
+    Auth->>Auth: matches == 1 → OK
+    Auth-->>-Gate: Platform{id="plt-xxx-002"}
+    Gate-->>-Platform: 200 OK

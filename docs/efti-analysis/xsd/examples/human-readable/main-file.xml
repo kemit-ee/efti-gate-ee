@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<consignment xmlns="http://efti.eu/v1/consignment/common">
+  <!-- This is the consignment part (full dataset) -->
+
+  <!-- 1. associatedDocument (Sequence position 2) -->
+  <associatedDocument>
+    <id>ST034310</id>
+    <typeCode>Consignor Reference</typeCode>
+  </associatedDocument>
+  <associatedDocument>
+    <id>Graniidi tee 14-1</id>
+    <typeCode>Consignee Reference</typeCode>
+  </associatedDocument>
+
+  <!-- 2. carrier (Sequence position 6) -->
+  <carrier>
+    <name>HRX Finland Oy, AS HRX, HRX Sia, HRX UAB</name>
+  </carrier>
+
+  <!-- 3. carrierAcceptanceDateTime (Sequence position 7) -->
+  <carrierAcceptanceDateTime formatId="205">202603030000+0000</carrierAcceptanceDateTime>
+
+  <!-- 4. consignee (Sequence position 10) -->
+  <consignee>
+    <name>Peikko Eesti OU</name>
+    <postalAddress>
+      <cityName>Tallinn</cityName>
+      <countryCode>EE</countryCode>
+      <postcode>11415</postcode>
+      <streetName>Peterburi tee 75A</streetName>
+    </postalAddress>
+  </consignee>
+
+  <!-- 5. consignor (Sequence position 12) -->
+  <consignor>
+    <name>UAB Peikko Lietuva</name>
+    <postalAddress>
+      <cityName>Kaunas</cityName>
+      <countryCode>LT</countryCode>
+      <postcode>52367</postcode>
+      <streetName>Naglio g. 4B</streetName>
+    </postalAddress>
+  </consignor>
+
+  <!-- 6. deliveryEvent (Sequence position 18) -->
+  <deliveryEvent>
+    <occurrenceLocation>
+      <name>Mapri Ehitus OÜ</name>
+      <postalAddress>
+        <cityName>Rae vald</cityName>
+        <countryCode>EE</countryCode>
+        <postcode>75310</postcode>
+        <streetName>Graniidi tee 14</streetName>
+      </postalAddress>
+    </occurrenceLocation>
+  </deliveryEvent>
+
+  <!-- 7. grossVolume (Sequence position 21) -->
+  <grossVolume unitId="MTQ">3.670</grossVolume>
+
+  <!-- 8. grossWeight (Sequence position 22) -->
+  <grossWeight unitId="KGM">1328.00</grossWeight>
+
+  <!-- 9. includedConsignmentItem (Sequence position 23) -->
+  <includedConsignmentItem>
+    <dimensions>
+      <height unitId="CMT">50</height>
+      <length unitId="CMT">80</length>
+      <width unitId="CMT">250</width>
+    </dimensions>
+    <grossVolume unitId="MTQ">1.000</grossVolume>
+  </includedConsignmentItem>
+
+  <includedConsignmentItem>
+    <dimensions>
+      <height unitId="CMT">50</height>
+      <length unitId="CMT">80</length>
+      <width unitId="CMT">250</width>
+    </dimensions>
+    <grossVolume unitId="MTQ">1.000</grossVolume>
+  </includedConsignmentItem>
+
+  <includedConsignmentItem>
+    <dimensions>
+      <height unitId="CMT">60</height>
+      <length unitId="CMT">80</length>
+      <width unitId="CMT">160</width>
+    </dimensions>
+    <grossVolume unitId="MTQ">0.770</grossVolume>
+  </includedConsignmentItem>
+
+  <includedConsignmentItem>
+    <dimensions>
+      <height unitId="CMT">80</height>
+      <length unitId="CMT">80</length>
+      <width unitId="CMT">140</width>
+    </dimensions>
+    <grossVolume unitId="MTQ">0.900</grossVolume>
+  </includedConsignmentItem>
+
+  <includedConsignmentItem>
+    <dimensions>
+      <height unitId="CMT">30</height>
+      <length unitId="CMT">80</length>
+      <width unitId="CMT">0</width>
+    </dimensions>
+    <grossVolume unitId="MTQ">0.000</grossVolume>
+  </includedConsignmentItem>
+
+  <!-- 10. mainCarriageTransportMovement (Sequence position 26) -->
+  <mainCarriageTransportMovement>
+    <dangerousGoodsIndicator>false</dangerousGoodsIndicator>
+    <itineraryRoute>
+      <description>DAP Rae vald</description>
+    </itineraryRoute>
+    <modeCode>3</modeCode>
+    <usedTransportMeans>
+      <!-- plate number (could not find in cmr) -->
+      <id schemeAgencyId="Maanteeamet">ABC125</id>
+      <registrationCountry>
+        <code>EE</code>
+      </registrationCountry>
+    </usedTransportMeans>
+  </mainCarriageTransportMovement>
+
+  <!-- 11. transportContractDocument (Sequence position 36) -->
+  <transportContractDocument>
+    <formattedIssueDateTime formatId="205">202603030000+0000</formattedIssueDateTime>
+    <id>LT01274079</id>
+    <issueLocation>
+      <name>Kaunas</name>
+    </issueLocation>
+  </transportContractDocument>
+
+</consignment>

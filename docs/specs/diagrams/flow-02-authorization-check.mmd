@@ -1,0 +1,66 @@
+flowchart TD
+    Start([Incoming HTTP Request]) --> ProxyType{Cred type?}
+
+    ProxyType -->|"X-Client-Cert-Subject<br/>(mTLS, Platform API)"| LookupCert[Resolve active platforms<br/>by cert_subject + cert_serial]
+    ProxyType -->|"Authorization: Bearer JWT<br/>(Authority / Admin)"| ValidateJwt[Validate JWT signature<br/>against cached JWKS;<br/>check iss, aud, exp, iat]
+    ProxyType -->|"Authorization: Bearer ARCHIVE_OPS_TOKEN<br/>(CronManager admin/*)"| OpsCompare[Literal compare against<br/>ARCHIVE_OPS_TOKEN env var]
+    ProxyType -->|"None"| Anon[Anonymous request]
+
+    LookupCert --> CertCount{Active platforms<br/>matching cert?}
+    CertCount -->|0| Ret403NP[403 FORBIDDEN_NO_PLATFORM]
+    CertCount -->|>1| Ret403MP[403 FORBIDDEN_MULTI_PLATFORM<br/>config error]
+    CertCount -->|1| PlatformAccess[Set platformId in context<br/>Proceed to platform route handler]
+
+    ValidateJwt --> JwtValid{Signature/iss/aud/exp ok?}
+    JwtValid -->|No| Ret401[401 TOKEN_INVALID]
+    JwtValid -->|Yes| Denylist[Check sessions denylist<br/>for the JWT's jti]
+
+    Denylist --> Revoked{jti in denylist?}
+    Revoked -->|Yes| Ret401Rev[401 TOKEN_INVALID<br/>token revoked]
+    Revoked -->|No| LookupUser[Resolve the latest active users row<br/>by tara_sub = jwt.sub]
+
+    LookupUser --> UserFound{Active users row<br/>resolved?}
+    UserFound -->|No| Ret401NoUser[401 TOKEN_INVALID<br/>no provisioned user]
+    UserFound -->|Yes| BroadcastCheck{jwt.iat ≥<br/>users.token_revoked_at?}
+    BroadcastCheck -->|No| Ret401Bcast[401 TOKEN_INVALID<br/>broadcast revocation]
+    BroadcastCheck -->|Yes| ExtractClaims["Read users.roles, users.subsets,<br/>users.roles[ADMIN] scope-IDs<br/>as the authorisation source"]
+
+    ExtractClaims --> RouteType{Required role on route?}
+    RouteType -->|AUTHORITY| CheckAuth{roles ∋ AUTHORITY?}
+    RouteType -->|ADMIN| CheckAdmin{roles ∋ ADMIN?}
+
+    CheckAuth -->|No| Ret403[403 FORBIDDEN]
+    CheckAuth -->|Yes| AuthorityAccess["Set authorityId from users.roles[AUTHORITY]<br/>subsetCheck against requested subsets<br/>Proceed to authority route"]
+
+    CheckAdmin -->|No| Ret403
+    CheckAdmin -->|Yes| AdminWrite{Mutating endpoint<br/>with entityId param?}
+    AdminWrite -->|Yes| CheckScope{"entityId ∈ users.roles[ADMIN]?"}
+    AdminWrite -->|No| AdminAccess[Proceed to admin route]
+    CheckScope -->|No| Ret403WA[403 FORBIDDEN_WRITE_ACCESS]
+    CheckScope -->|Yes| AdminAccess
+
+    OpsCompare --> OpsMatch{Tokens equal?}
+    OpsMatch -->|No| Ret403Ops[403 FORBIDDEN]
+    OpsMatch -->|Yes| OpsAccess[Proceed to /api/v1/admin/ route]
+
+    Anon --> AnonRoute{Route allows<br/>anonymous?}
+    AnonRoute -->|Yes /health| AnonProceed[Proceed]
+    AnonRoute -->|No| Ret401Unauth[401 Unauthorized]
+
+    PlatformAccess --> Exec([Execute route handler])
+    AuthorityAccess --> Exec
+    AdminAccess --> Exec
+    OpsAccess --> Exec
+    AnonProceed --> Exec
+
+    style Ret401 fill:#f99,stroke:#900
+    style Ret401Rev fill:#f99,stroke:#900
+    style Ret401NoUser fill:#f99,stroke:#900
+    style Ret401Bcast fill:#f99,stroke:#900
+    style Ret401Unauth fill:#f99,stroke:#900
+    style Ret403 fill:#f99,stroke:#900
+    style Ret403WA fill:#f99,stroke:#900
+    style Ret403Ops fill:#f99,stroke:#900
+    style Ret403NP fill:#f99,stroke:#900
+    style Ret403MP fill:#f99,stroke:#900
+    style Exec fill:#9f9,stroke:#060

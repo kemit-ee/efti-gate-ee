@@ -1,0 +1,35 @@
+sequenceDiagram
+    participant Admin as Gate Admin
+    participant Gate as eFTI Gate (eu-xx01)
+    participant DB as PostgreSQL
+
+    Admin->>+Gate: POST /api/v1/authorities
+    Note over Admin,Gate: Authorization: Bearer JWT<br/>(role=ADMIN).<br/>Body: AuthorityWrite —<br/>id, name, countryCode,<br/>subsets[]. Full schema:<br/>openapi.yaml.
+
+    Gate->>Gate: Validate JWT (signature, exp, iss, aud),<br/>require resource_access.efti-gate.roles ∋ ADMIN
+
+    Gate->>+DB: Append a new authorities row (id='aut-xxx-001', name, country_code='EE',<br/>subsets={EU07,EU01}, is_active=TRUE, created_by=admin's user-row-id).
+    DB-->>-Gate: written (new row — latest row for this id wins on next read)
+
+    Gate-->>Admin: 201 Created\n{"id":"aut-xxx-001","name":"Example Authority","countryCode":"EE","subsets":["EU07","EU01"]}
+
+    Note over Admin: Authority registered<br/>with allowed subsets.<br/>Now create users.
+
+    Admin->>+Gate: POST /api/v1/users
+    Note over Admin,Gate: Body — UserWrite:<br/>taraSub, name, email,<br/>roles, subsets[].<br/>No secret — primary<br/>auth is TARA JWT.<br/>Full schema: openapi.yaml.
+
+    Gate->>Gate: Validate user.subsets ⊆ authority.subsets:<br/>["EU07"] ⊆ ["EU07","EU01"] → OK
+    Gate->>Gate: Validate taraSub uniqueness against active users<br/>(409 if already in use)
+
+    Gate->>+DB: Append a new users row (id=fresh UUID, tara_sub='EE00000000001',<br/>roles={"AUTHORITY":["aut-xxx-001"]}, subsets={EU07},<br/>secret_hash=NULL, is_active=TRUE).
+    DB-->>-Gate: written — user.id="d2e3f4a5-..."
+
+    Gate-->>-Admin: 201 Created<br/>{"id":"d2e3f4a5-...","taraSub":"EE00000000001","name":"Example User",<br/>"email":"user@example.com","roles":{"AUTHORITY":["aut-xxx-001"]},<br/>"subsets":["EU07"],"isActive":true}
+
+    Note over Admin: User auths via TARA OIDC.<br/>Gate resolves JWT `sub`<br/>to the latest active<br/>users row by tara_sub<br/>on every request.
+
+    alt Invalid subsets (user requests more than authority allows)
+        Admin->>Gate: POST /api/v1/users (subsets=["EU01","EU03"], authority subsets=["EU07","EU01"])
+        Gate->>Gate: Validate: ["EU01","EU03"] ⊄ ["EU07","EU01"] → fails
+        Gate-->>Admin: 400 Bad Request\n{"code":"BAD_REQUEST_GENERAL","detail":"User subsets must be a subset of the authority's subsets."}
+    end

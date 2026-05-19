@@ -1,0 +1,70 @@
+graph TB
+    subgraph EU["EU eFTI Gate Network (eDelivery AS4)"]
+        subgraph EE["Estonia (eu-xx01)"]
+            GateEE[eFTI Gate\neu-xx01\nhttps://efti.example.com/services/msh]
+        end
+
+        subgraph FI["Finland (eu-yy01)"]
+            GateFI[eFTI Gate\neu-yy01\nhttps://efti.example.com/services/msh]
+        end
+
+        subgraph DE["Germany (eu-yy02)"]
+            GateDE[eFTI Gate\neu-yy02\nhttps://efti.example.com/services/msh]
+        end
+
+        subgraph SE["Sweden (eu-yy03)"]
+            GateSE[eFTI Gate\neu-yy03\nhttps://efti.example.com/services/msh]
+        end
+
+        subgraph LT["Lithuania (eu-yy04)"]
+            GateLT[eFTI Gate\neu-yy04\nhttps://efti.example.com/services/msh]
+        end
+
+        subgraph LV["Latvia (eu-yy05)"]
+            GateLV[eFTI Gate\neu-yy05\nhttps://efti.example.com/services/msh]
+        end
+
+        subgraph PL["Poland (eu-yy06)"]
+            GatePL[eFTI Gate\neu-yy06\nhttps://efti.example.com/services/msh]
+        end
+    end
+
+    GateEE <-.->|eDelivery AS4\nIdentifierQuery / UILQuery| GateFI
+    GateEE <-.->|eDelivery AS4| GateDE
+    GateEE <-.->|eDelivery AS4| GateSE
+    GateEE <-.->|eDelivery AS4| GateLT
+    GateEE <-.->|eDelivery AS4| GateLV
+    GateEE <-.->|eDelivery AS4| GatePL
+
+    GateFI <-.->|eDelivery AS4| GateDE
+    GateFI <-.->|eDelivery AS4| GateSE
+    GateFI <-.->|eDelivery AS4| GateLT
+
+    subgraph EEPlatforms["Estonian Platforms"]
+        PltEE1[plt-xxx-001\nExample Logistics]
+        PltEE2[plt-xxx-003\nExample Logistics]
+    end
+
+    subgraph EEAuthorities["Estonian Authorities"]
+        AutPolitsei[aut-xxx-001\nExample Authority]
+        AutMaksu[aut-xxx-002\nExample Authority]
+    end
+
+    subgraph FIPlatforms["Finnish Platforms"]
+        PltFI1[plt-xxx-001\nExample Logistics]
+    end
+
+    GateEE <-->|HTTPS REST API| PltEE1
+    GateEE <-->|HTTPS REST API| PltEE2
+    GateEE <-->|HTTPS REST API| AutPolitsei
+    GateEE <-->|HTTPS REST API| AutMaksu
+    GateFI <-->|HTTPS REST API| PltFI1
+
+    style EU fill:#fff9e6,stroke:#ffc107
+    style EE fill:#e3f2fd,stroke:#2196F3
+    style FI fill:#e8f5e9,stroke:#4CAF50
+    style DE fill:#fce4ec,stroke:#E91E63
+    style SE fill:#f3e5f5,stroke:#9C27B0
+    style LT fill:#fff3e0,stroke:#FF9800
+    style LV fill:#e0f7fa,stroke:#00BCD4
+    style PL fill:#fafafa,stroke:#607D8B

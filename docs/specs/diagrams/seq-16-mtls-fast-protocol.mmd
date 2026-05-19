@@ -1,0 +1,24 @@
+sequenceDiagram
+    participant GateA as eFTI Gate A (eu-xx01)
+    participant GateB as eFTI Gate B (eu-yy01)
+    participant CA as Trusted CA Bundle
+
+    Note over GateA,GateB: Gate-to-gate fast — mTLS.<br/>Replaces eDelivery AS4<br/>for low-latency calls.<br/>Both endpoints present<br/>X.509 client certificates.
+
+    GateA->>GateA: Load client cert + private key<br/>from K8s Secret (mounted at runtime)
+    GateA->>GateB: POST /services/fast<br/>Client cert: CN=gate-eu-xx01.efti.ee<br/>X-Request-ID: 7c9e6679-...
+
+    GateB->>CA: Verify client cert chain<br/>against trusted-cas.pem (configured per gate)
+    alt cert valid + CN matches a registered gate
+        CA-->>GateB: Trust chain OK
+        GateB->>GateB: Resolve peer gate by matching cert PEM against gates.e_delivery_cert (active rows only)
+        GateB->>GateB: Authorize: peer's latest status is ONLINE — apply per-gate rate limit
+        GateB-->>GateA: 200 OK<br/>application/json — search results / dataset / follow-up
+        GateB->>GateB: Append an audit_log row (action='g2g_request', resource='gate', resource_id=cert CN)
+    else cert invalid or CN not registered
+        CA-->>GateB: Untrusted / chain incomplete
+        GateB-->>GateA: 401 Unauthorized<br/>application/problem+json<br/>code: UNAUTHORIZED
+        GateB->>GateB: Append an audit_log row (action='g2g_request_denied', resource='gate', details={reason})
+    end
+
+    Note over GateA,GateB: X-API-Key is NEVER accepted<br/>on /services/fast.<br/>Plain bearer is rejected —<br/>only mTLS satisfies this<br/>endpoint.

@@ -1,0 +1,39 @@
+sequenceDiagram
+    participant Authority as Authority User
+    participant Gate as eFTI Gate (eu-xx01)
+    participant DB as PostgreSQL
+    participant GateFI as Remote Gate (eu-yy01)
+    participant GateDE as Remote Gate (eu-yy02)
+
+    Authority->>+Gate: GET /v1/identifiers/999ZZZ?registrationCountryCode=EE
+    Note over Authority,Gate: Accept: text/event-stream<br/>X-Request-ID echoed.
+
+    Gate->>Gate: Authenticate & authorize (role=AUTHORITY)
+
+    Gate->>+DB: Local identifier search:<br/>resolve latest consignments rows matching vehicle_plate='999ZZZ',<br/>keep only those whose latest status = 'active'.
+    DB-->>-Gate: 0 results
+
+    Note over Gate: local=0 → broadcast<br/>to all online gates.
+
+    Gate-->>Authority: HTTP 200 OK (text/event-stream)
+    Gate-->>Authority: event: gate\ndata: {"gateId":"eu-xx01","responseTimeMs":3,"consignments":null}
+
+    par Broadcast to all online gates
+        Gate->>+GateFI: IdentifierQueryRequest (id="999ZZZ")
+        Gate->>+GateDE: IdentifierQueryRequest (id="999ZZZ")
+    end
+
+    GateFI->>GateFI: Query local DB, 0 results
+    GateFI-->>-Gate: IdentifierQueryResponse (0 consignments)
+    Gate-->>Authority: event: gate\ndata: {"gateId":"eu-yy01","responseTimeMs":145}
+
+    GateDE->>GateDE: Query local DB, 0 results
+    GateDE-->>-Gate: IdentifierQueryResponse (0 consignments)
+    Gate-->>Authority: event: gate\ndata: {"gateId":"eu-yy02","responseTimeMs":189}
+
+    Note over Gate: All gates responded.<br/>0 total results.
+
+    Gate-->>Authority: event: complete\ndata: {}
+    Gate-->>-Authority: SSE stream closed
+
+    Note over Authority: 0 consignments found.<br/>Identifier not registered<br/>in eFTI network.

@@ -1,0 +1,48 @@
+flowchart TD
+    Start([Authority: GET /v1/dataset/gateId/platformId/datasetId?subsetId=EU07]) --> AuthCheck[Authenticate & authorize\nrole=AUTHORITY required]
+
+    AuthCheck --> ParseUIL[Parse UIL\ngateId, platformId, datasetId, subsetId]
+
+    ParseUIL --> GateCheck{uil.gateId ==\nthis gate id?}
+
+    GateCheck -->|Yes, local gate eu-xx01| LookupLocalPlatform[platformRegistry.get platformId\nLookup platform config in memory]
+    GateCheck -->|No, remote gate eu-yy01| LookupRemoteGate[gateRegistry.get gateId]
+
+    LookupLocalPlatform --> LocalPlatformFound{Platform found?}
+    LocalPlatformFound -->|No| Return404P[Return 404\nPlatform not registered]
+    LocalPlatformFound -->|Yes| CallLocalPlatform[HTTP GET platform.baseUrl\n/v1/datasets/datasetId?subsetId=EU07]
+
+    LookupRemoteGate --> GateOnline{gate.status == ONLINE?}
+    GateOnline -->|No, OFFLINE or DISABLED| Return502["Return 502 Bad Gateway<br/>Cannot reach Gate eu-yy01 — OFFLINE"]
+    GateOnline -->|Yes| ForwardToRemote[Forward UILQuery to remote gate\neDelivery AS4 or Fast HTTP]
+
+    ForwardToRemote --> RemoteGateResponse[Remote gate fetches from\nits local platform, returns response]
+
+    RemoteGateResponse --> RemoteStatus{Response status?}
+    RemoteStatus -->|200 OK| ReturnDataset[Return 200 OK with dataset XML\nX-Request-ID header echoed]
+    RemoteStatus -->|403 Forbidden| Return403[Return 403 Forbidden\nplatform denied access]
+    RemoteStatus -->|404 Not Found| Return404[Return 404 Not Found\ndataset expired or deleted]
+    RemoteStatus -->|5xx Server Error| Return502b[Return 502 Bad Gateway\nplatform error]
+
+    CallLocalPlatform --> LocalPlatformStatus{Platform response?}
+
+    LocalPlatformStatus -->|200 OK| CheckSubsetting{platform.supportsSubsetting?}
+    LocalPlatformStatus -->|403 Forbidden| Return403
+    LocalPlatformStatus -->|404 Not Found| Return404
+    LocalPlatformStatus -->|5xx / Timeout| Return502b
+
+    CheckSubsetting -->|Yes| ReturnFilteredDataset[Return subset XML\nfiltered by platform]
+    CheckSubsetting -->|No| ReturnFullDataset[Return full XML\ngate subsetter applies filtering]
+
+    ReturnDataset --> End([Authority receives dataset])
+    ReturnFilteredDataset --> End
+    ReturnFullDataset --> End
+
+    style Return502 fill:#f99,stroke:#900
+    style Return502b fill:#f99,stroke:#900
+    style Return403 fill:#faa,stroke:#900
+    style Return404 fill:#fda,stroke:#960
+    style Return404P fill:#fda,stroke:#960
+    style ReturnDataset fill:#9f9,stroke:#060
+    style ReturnFilteredDataset fill:#9f9,stroke:#060
+    style ReturnFullDataset fill:#9f9,stroke:#060

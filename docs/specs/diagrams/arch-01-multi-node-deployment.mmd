@@ -1,0 +1,62 @@
+graph TB
+    subgraph External["External Clients"]
+        Platform[Platform Operator\nmTLS / EU-Trust-Service cert\nplt-xxx-001]
+        Authority[Authority User\nTARA OIDC JWT\naut-xxx-001]
+        Admin[Gate Admin\nTARA OIDC JWT\nadmin@example.com]
+    end
+
+    subgraph GateCluster["eFTI Gate Cluster (eu-xx01)"]
+        LB[Reverse Proxy + LB\nnginx / Caddy / Traefik\nterminates TLS + mTLS]
+        Node1[Gate Node 1\nJVM / Klite HTTP]
+        Node2[Gate Node 2\nJVM / Klite HTTP]
+        Node3[Gate Node 3\nJVM / Klite HTTP]
+
+        LB --> Node1
+        LB --> Node2
+        LB --> Node3
+    end
+
+    subgraph DataLayer["Data Layer"]
+        DB[(PostgreSQL 14+\nefti_gate DB)]
+        DBReplica[(PostgreSQL Replica\nread-only / DR standby)]
+    end
+
+    subgraph CronMgr["CronManager (sibling pod)\nQuartz, separate Postgres"]
+        ArchiveJob[Archive sweep\n0 0 3 * * ?]
+        ExpireJob[Identifier expiry\n0 45 3 * * ?]
+        PingJob[Gate ping\n0 *\/5 * * * ?]
+    end
+
+    subgraph EUGates["EU eFTI Gate Network"]
+        GateFI[eu-yy01\nFinland Gate]
+        GateDE[eu-yy02\nGermany Gate]
+        GateSE[eu-yy03\nSweden Gate]
+        GateLT[eu-yy03\nLithuania Gate]
+    end
+
+    Platform -->|"HTTPS POST /v1/identifiers/{datasetId}\nmTLS — platforms.cert_subject lookup"| LB
+    Authority -->|"HTTPS GET /v1/identifiers/{plate}\nAuthorization: Bearer {TARA-JWT}\nAccept: text/event-stream"| LB
+    Admin -->|"HTTPS POST/PUT/DELETE /api/v1/*\nAuthorization: Bearer {TARA-JWT}"| LB
+
+    Node1 --> DB
+    Node2 --> DB
+    Node3 --> DB
+    DB --> DBReplica
+
+    Node1 -.->|"NOTIFY channels: registry_change_{gates,platforms,authorities}"| Node2
+    Node1 -.->|"NOTIFY channels: registry_change_{gates,platforms,authorities}"| Node3
+
+    ArchiveJob -.->|"POST /api/v1/admin/archive\nAuthorization: Bearer ${ARCHIVE_OPS_TOKEN}"| LB
+    ExpireJob  -.->|"POST /api/v1/admin/expire-identifiers\nAuthorization: Bearer ${ARCHIVE_OPS_TOKEN}"| LB
+    PingJob    -.->|"POST /api/v1/admin/ping-gates\nAuthorization: Bearer ${ARCHIVE_OPS_TOKEN}"| LB
+
+    Node1 -.->|eDelivery AS4 or Fast HTTP| GateFI
+    Node1 -.->|eDelivery AS4 or Fast HTTP| GateDE
+    Node2 -.->|eDelivery AS4 or Fast HTTP| GateSE
+    Node3 -.->|eDelivery AS4 or Fast HTTP| GateLT
+
+    style GateCluster fill:#e8f4fd,stroke:#2196F3
+    style DataLayer fill:#fff3e0,stroke:#FF9800
+    style External fill:#f3e5f5,stroke:#9C27B0
+    style EUGates fill:#e8f5e9,stroke:#4CAF50
+    style CronMgr fill:#fce4ec,stroke:#E91E63

@@ -1,0 +1,37 @@
+sequenceDiagram
+    participant Admin as Gate Admin
+    participant Gate as eFTI Gate (eu-xx01)
+    participant GateReg as GateRegistry (in-memory)
+    participant DB as PostgreSQL
+    participant OtherNode as Gate Node 2 (eu-xx01)
+
+    Note over Gate,OtherNode: Multi-node deployment.<br/>Both nodes share one<br/>PostgreSQL. GateRegistry<br/>is an in-memory cache<br/>of the latest gates row<br/>per id (loaded at startup).
+
+    Admin->>+Gate: POST /api/v1/gates<br/>Authorization: Bearer TARA-JWT (role=ADMIN)
+    Note over Admin,Gate: Body — GateWrite:<br/>id, countryCode,<br/>eDeliveryUrl,<br/>eDeliveryCert.<br/>Full schema: openapi.yaml.
+
+    Gate->>Gate: Validate JWT (signature, exp, iss, aud),<br/>require resource_access.efti-gate.roles ∋ ADMIN
+    Gate->>+GateReg: save(Gate{id="eu-xx02", ...})
+
+    GateReg->>GateReg: in-memory cache: gates["eu-xx02"] = Gate{...}<br/>(this node only)
+
+    GateReg->>+DB: In a single transaction: append a new gates row for 'eu-xx02'<br/>and emit a registry_change_gates notification carrying the gate id.
+    DB-->>-GateReg: written (new row — latest row for id wins on next read)
+
+    Note over DB,OtherNode: Notification emitted by<br/>the app inside the same<br/>tx as the INSERT — no<br/>DB-side trigger. Delivered<br/>to LISTENers on commit.
+
+    DB->>OtherNode: NOTIFY registry_change_gates (channel: registry_change_gates, payload: eu-xx02)
+
+    OtherNode->>OtherNode: Listen thread receives notification
+    OtherNode->>+DB: Resolve the latest gates row for id='eu-xx02'
+    DB-->>-OtherNode: latest Gate{id="eu-xx02", …}
+    OtherNode->>OtherNode: gateRegistry.gates["eu-xx02"] = Gate{...}
+    Note over OtherNode: In-memory registry<br/>updated on Node 2<br/>without restart.
+
+    GateReg->>GateReg: notifyChanged(gate) → internal listeners
+    GateReg-->>-Gate: done
+
+    Gate->>+Gate: runCatching { ping(gate.id) }
+    Note over Gate: Auto-ping the new gate<br/>to verify connectivity.<br/>A successful ping appends<br/>another gates row with<br/>status='ONLINE' and<br/>last_ping_at=NOW().
+
+    Gate-->>-Admin: 201 Created\n{"id":"eu-xx02","countryCode":"PL","status":"ONLINE","isActive":true,...}

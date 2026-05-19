@@ -1,0 +1,30 @@
+sequenceDiagram
+    participant Authority as Authority User
+    participant Gate as eFTI Gate (eu-xx01)
+    participant Auth as AccessChecker (TARA JWT)
+    participant DB as PostgreSQL
+    participant SSE as SSE Stream
+
+    Authority->>+Gate: GET /v1/identifiers/123ABC?registrationCountryCode=EE
+    Note over Authority,Gate: Accept: text/event-stream<br/>Authorization: Bearer JWT<br/>(role=AUTHORITY)<br/>X-Request-ID echoed.
+
+    Gate->>+Auth: validate(JWT)
+    Auth-->>-Gate: AuthenticatedUser{authorityId="auth-mta", subsets=["EU01","EU02"]}
+
+    Gate->>Gate: Build IdentifiersQuery<br/>(id="123ABC", countryCode="EE", forceBroadcast=false)
+
+    Gate->>Gate: getLocalIdentifiers(query)
+    Gate->>+DB: Local identifier search:<br/>resolve the latest consignments row per dataset_id matching<br/>vehicle_plate='123ABC' AND vehicle_country='EE',<br/>then keep only those whose latest status = 'active'.
+    Note over DB: Latest-row read pattern.<br/>Stale rows whose status<br/>has flipped to inactive<br/>or deleted are skipped.<br/>See db/README.md.
+    DB-->>-Gate: 1 result (datasetId=550e8400-..., platformId="demo")
+
+    Gate->>Gate: local.size=1 → forceBroadcast=false<br/>→ NO broadcast (local results found)
+
+    Note over Gate: Open SSE stream<br/>to authority.
+
+    Gate-->>+SSE: HTTP 200 OK (text/event-stream)
+    Gate-->>SSE: event: gate\ndata: {"gateId":"eu-xx01","consignments":null,"responseTimeMs":4}
+    Gate-->>SSE: event: consignment (id=550e8400-e29b-41d4-a716-446655440000)\ndata: {"vehicle":{"plate":"123ABC","country":"EE"},"mode":"3","uil":{"platformId":"demo","datasetId":"550e8400-..."}}
+    Gate-->>SSE: event: complete\ndata: {}
+    Gate-->>-Authority: SSE stream closed
+    Note over Authority: 1 consignment received.<br/>Local gate only — no<br/>broadcast (found locally).

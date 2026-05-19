@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<consignment xmlns="http://efti.eu/v1/consignment/identifier">
+  <carrierAcceptanceDateTime formatId="205">202603030000+0000</carrierAcceptanceDateTime>
+  <deliveryEvent/>
+  <mainCarriageTransportMovement>
+    <dangerousGoodsIndicator>false</dangerousGoodsIndicator>
+    <modeCode>3</modeCode>
+    <usedTransportMeans>
+      <id schemeAgencyId="Maanteeamet">ABC125</id>
+      <registrationCountry>
+        <code>EE</code>
+      </registrationCountry>
+    </usedTransportMeans>
+  </mainCarriageTransportMovement>
+</consignment>
