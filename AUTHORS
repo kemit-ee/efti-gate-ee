@@ -1,0 +1,49 @@
+eFTI Gate (EE) — Authors
+========================
+
+The eFTI Gate (EE) specification corpus is maintained by KeMIT —
+Keskkonnaministeeriumi Infotehnoloogiakeskus (Estonia). Copyright and licence
+remain with KeMIT (see LICENSE).
+
+This file names the humans behind the work. It does not affect copyright,
+licence terms, or the Contributor License Agreement (see CLA.md).
+
+Architect and lead author
+-------------------------
+
+  Rainer Türner — KeMIT
+    GitHub:  https://github.com/turnerrainer  (@turnerrainer)
+    Email:   rainer.turner@gmail.com
+    Reference architecture, specification corpus, contract artefacts
+    (OpenAPI, DB schema, errors, logging, permissions, transformations),
+    epics, diagrams, planning material, and editorial direction.
+
+Predecessor procurement deliverable
+-----------------------------------
+
+  Askend Estonia OÜ
+    Delivered the initial project analysis, first-pass epic set, and data
+    model under public procurement. The surviving background material is
+    preserved under docs/efti-analysis/; the full original deliverable is
+    preserved on the kemit-ee/efti-gate-poc repository under the
+    v0.2-askend-final tag.
+
+Predecessor PoC
+---------------
+
+  Digilogistika Keskus
+    Built the original eFTI Gate proof-of-concept that informed Askend's
+    procurement-phase analysis. State preserved on the
+    kemit-ee/efti-gate-poc repository under the
+    v0.1-pikker-digilogistika-baseline tag.
+
+Disclosure: AI assistance
+-------------------------
+
+Specification drafts were produced with assistance from Anthropic Claude
+(claude.ai/code, Claude Code CLI). Per institutional policy and prevailing
+authorship conventions, AI assistants are tools rather than authors:
+human authors are responsible for the content, copyright and licence
+remain with KeMIT, and contributors grant rights under the CLA.
+
+Contact: help@kemit.ee

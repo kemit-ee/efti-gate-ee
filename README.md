@@ -83,6 +83,10 @@ KeMIT — Keskkonnaministeeriumi Infotehnoloogiakeskus (Estonia)
 - **Primary contact:** [@turnerrainer](https://github.com/turnerrainer) on GitHub.
 - **Fallback:** `help@kemit.ee`.
 
+## Authors and acknowledgements
+
+The architecture and specification corpus are authored by Rainer Türner (KeMIT) — [@turnerrainer](https://github.com/turnerrainer) on GitHub, `rainer.turner@gmail.com` — building on the procurement-phase analysis delivered by Askend Estonia OÜ and the original PoC by Digilogistika Keskus. Drafts were produced with assistance from Anthropic Claude; AI assistants are tools, not authors. Copyright and licence remain with KeMIT. See [`AUTHORS`](AUTHORS) for full credits.
+
 ## Licence
 
 This work is licensed under the [Business Source License 1.1 (BUSL 1.1)](LICENSE). BUSL 1.1 is **not an Open Source license**. Read, fork, study, modify, and non-production use are permitted today; production use — including operation of a national eFTI Gate by another Member State — requires a commercial licence from KeMIT (`help@kemit.ee`).
