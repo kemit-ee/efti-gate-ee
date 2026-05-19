@@ -18,7 +18,7 @@ Outstanding work items that are tracked outside the per-file `## Changes` log an
 
 **What should exist.** A GitHub Actions workflow that:
 
-1. Triggers on push to `feature/planning` (and to `main` once that becomes the integration branch).
+1. Triggers on push to `main` (the integration branch).
 2. Detects which markdown files under `docs/cfr/` were touched in the push.
 3. For each touched file that has an entry in `scripts/epic-issue-map.tsv`, runs `scripts/sync-epic-to-issue.py <path>` (without `--bootstrap` and without `--force-ac` — the default two-zone sync that preserves the AC section in the issue body).
 4. Surfaces failures (mapping missing, gh CLI error, network issue) as a workflow-run failure so they're visible on the PR / commit page.
@@ -32,7 +32,7 @@ Outstanding work items that are tracked outside the per-file `## Changes` log an
 **Acceptance criteria** (when implemented, the issue tracking this work should carry these):
 
 - [ ] `.github/workflows/sync-cfr-to-issues.yml` (or equivalent) exists.
-- [ ] Triggers on push to `feature/planning` (and `main`).
+- [ ] Triggers on push to `main`.
 - [ ] Only runs for files listed in `scripts/epic-issue-map.tsv` (so unrelated edits don't churn).
 - [ ] Uses a `GITHUB_TOKEN` (or a finer-grained PAT) with `issues: write` on `kemit-ee/efti-gate-ee`. (Operators running the sync against a sandbox of their own — keyed off the operator-local `scripts/epic-issue-map.tsv` — handle credentials at the developer-machine level; the workflow itself only operates against the canonical repo.)
 - [ ] Skips files whose markdown has no `<!-- issue-body:begin --> ... <!-- issue-body:end -->` markers (instead of erroring).
