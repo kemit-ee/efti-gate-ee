@@ -4,7 +4,7 @@
 
 **Date:** 2026-04-02
 
-**Author:** Rainer Türner (KeMIT)
+**Author:** Rainer Türner (KeMIT) — [@turnerrainer](https://github.com/turnerrainer), `rainer.turner@gmail.com`
 
 **Purpose:** Technology-agnostic architectural reference for eFTI Gate
 
