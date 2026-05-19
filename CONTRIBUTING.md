@@ -40,13 +40,15 @@ Branch names: `area/short-slug` — e.g. `docs/fix-mermaid-rendering`, `spec/ope
 - **All Mermaid blocks parse** under mermaid v10 with `securityLevel: 'strict'` (this is what GitHub uses). The simplest harness: extract every `.mmd` and every fenced ` ```mermaid ` block, pipe each through `mermaid.parse()` under Node + jsdom.
 - **No regressions in spec-anchors cross-references.** If you touched an OpenAPI operation, search the epics for the path — at least one epic should still reference it.
 
-## License of contributions
+## Contributor License Agreement
 
-By opening a PR you agree your contribution is released under the repository's current license (see [`LICENSE`](LICENSE)).
+All contributions are accepted under the [Contributor License Agreement (CLA.md)](CLA.md). The CLA grants KeMIT (and downstream recipients) broad rights to use Your contribution, including the right to sublicense and relicense it under different terms than the project's current licence.
+
+**First-time contributors:** include the line `I have read and agree to the CLA.` in your pull-request description. Subsequent contributions are automatically covered.
 
 ## Contact
 
 - **Primary:** [@turnerrainer](https://github.com/turnerrainer) on GitHub.
 - **Fallback:** `help@kemit.ee`.
 
-KeMIT — Riigi Infosüsteemi Amet (Estonia) — reviews and merges.
+KeMIT — Keskkonnaministeeriumi Infotehnoloogiakeskus (Estonia) — reviews and merges.

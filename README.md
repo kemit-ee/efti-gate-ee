@@ -78,13 +78,15 @@ This is **v1.0** — the first public release. The internal "v2" naming visible 
 
 ## Maintainer
 
-KeMIT — Riigi Infosüsteemi Amet (Estonia)
+KeMIT — Keskkonnaministeeriumi Infotehnoloogiakeskus (Estonia)
 
 - **Primary contact:** [@turnerrainer](https://github.com/turnerrainer) on GitHub.
 - **Fallback:** `help@kemit.ee`.
 
 ## Licence
 
-This work is licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0). Free to use, modify, and distribute — including commercially — with attribution to KeMIT, Estonia. See [`LICENSE`](LICENSE) for the full terms.
+This work is licensed under the [Business Source License 1.1 (BUSL 1.1)](LICENSE). BUSL 1.1 is **not an Open Source license**. Read, fork, study, modify, and non-production use are permitted today; production use — including operation of a national eFTI Gate by another Member State — requires a commercial licence from KeMIT (`help@kemit.ee`).
 
-`SPDX-License-Identifier: Apache-2.0`
+On the Change Date — **2030-05-19** — the Licensed Work automatically converts to the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0), and the rights granted under BUSL 1.1 terminate. See [`LICENSE`](LICENSE) for the full parameter block and licence text. Contributions are accepted under the [Contributor License Agreement](CLA.md).
+
+`SPDX-License-Identifier: BUSL-1.1`
