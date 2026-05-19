@@ -30,8 +30,8 @@ info:
 
     All errors return RFC 7807 `application/problem+json`. The required fields are `type`, `code`, `title`, `status`, `detail`, `instance` — `code` is bound to the catalog at `errors.json` (currently 36 codes). The `retryable` field in `errors.json` is a documentation hint for clients; it is never written to the wire.
   contact:
-    name: KeMIT / MKM
-    email: efti@example.com
+    name: KeMIT — Keskkonnaministeeriumi Infotehnoloogiakeskus
+    email: help@kemit.ee
     url: https://github.com/kemit-ee/efti-gate-ee
   license:
     name: Business Source License 1.1
