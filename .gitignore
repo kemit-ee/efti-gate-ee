@@ -5,3 +5,8 @@ docs/efti-analysis/8-codereview/eFTI_codereview_en.pdf
 # Internal working notes, not part of the spec corpus — never push.
 CHANGES-FROM-ASKEND.md
 internal-notes/
+
+# Operator-local issue manifest. Maintained on the developer machine for the
+# environment they're syncing against. Never committed — see
+# scripts/epic-issue-map.tsv.example for the format.
+scripts/epic-issue-map.tsv

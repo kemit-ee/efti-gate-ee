@@ -55,6 +55,13 @@ def die(msg: str) -> "NoReturn":  # noqa: F821
 
 
 def read_manifest() -> list[tuple[str, str, int]]:
+    if not MAP_FILE.is_file():
+        die(
+            f"manifest not found: {MAP_FILE.relative_to(REPO_ROOT)}\n"
+            f"       Copy the example to start a local mapping:\n"
+            f"           cp {MAP_FILE.relative_to(REPO_ROOT)}.example {MAP_FILE.relative_to(REPO_ROOT)}\n"
+            f"       Then fill in the third column (issue numbers) for the repo you're syncing against."
+        )
     rows: list[tuple[str, str, int]] = []
     for raw in MAP_FILE.read_text().splitlines():
         line = raw.strip()
