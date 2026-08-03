@@ -27,9 +27,19 @@ fun main() {
         // return: Fti019SearchIdentifierRequest(ParameterSearchCriteria) as xml
       }
 
+      post("/search/request-to-json") {
+        // body: FTI019SearchIdentifierRequest as xml
+        // return: ParameterSearchCriteria as json
+      }
+
       post("/search/response-to-json") {
         // body: one or more FTI021SearchIdentifierResponse as xml with delimiter
         // return: multiple UIL+ParameterIDSetCriteria as json (for Authority)
+      }
+
+      post("/search/response-to-xml") {
+        // body: ParameterSearchCriteria as json
+        // return: FTI021SearchIdentifierResponse as xml (for another Gate)
       }
 
       post("/dataset/request-to-xml") {
