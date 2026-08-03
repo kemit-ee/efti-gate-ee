@@ -47,9 +47,19 @@ fun main() {
         // return: FTI009GetCmdsRequest as xml
       }
 
+      post("/dataset/request-to-json") {
+        // body: FTI009GetCmdsRequest as xml
+        // return: UIL+SubsetIds as json
+      }
+
       post("/dataset/response-to-json") { // or just unwrap xml?
         // body: FTI010GetCmdsResponse or SpecifiedSupplyChainConsignment as xml
         // return: SpecifiedSupplyChainConsignment as xml or converted to json
+      }
+
+      post("/dataset/response-to-xml") {
+        // body: FTI010GetCmdsResponse or SpecifiedSupplyChainConsignment as xml
+        // return: FTI010GetCmdsResponse as xml
       }
 
       post("/followup/request-to-xml") {
