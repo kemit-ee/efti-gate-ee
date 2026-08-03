@@ -1,0 +1,30 @@
+route:
+  switch:
+    - condition: ${incoming.params.q != null && incoming.params.q != ''}
+      next: by_id
+  next: all
+
+all:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/get_testandmestik"
+    headers:
+      Content-Type: "application/json"
+    body: {}
+  result: resql_result
+  next: respond
+
+by_id:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/get_testandmestik_by_q"
+    headers:
+      Content-Type: "application/json"
+    body:
+      q: "${incoming.params.q}"
+  result: resql_result
+  next: respond
+
+respond:
+  return: ${resql_result.response.body}
+  next: end

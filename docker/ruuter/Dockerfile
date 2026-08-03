@@ -1,2 +1,4 @@
-FROM ghcr.io/buerokratt/ruuter:v2.2.1
-COPY DSL/Ruuter/efti /DSL/efti
+FROM turnerrainer/ruuter:rc
+COPY DSL/Ruuter /app/DSL
+COPY constants.ini /app/constants.ini
+COPY ruuter.yaml /app/ruuter.yaml
