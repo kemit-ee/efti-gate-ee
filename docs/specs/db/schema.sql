@@ -81,22 +81,6 @@ CREATE TYPE consignment_status AS ENUM (
 );
 COMMENT ON TYPE consignment_status IS 'Lifecycle status of a stored consignment record. State transitions happen by INSERTing a new consignments row with the new status; the latest row wins.';
 
-CREATE TYPE transport_mode AS ENUM (
-  'maritime',    -- XML modeCode 1: sea transport
-  'rail',        -- XML modeCode 2: railway transport
-  'road',        -- XML modeCode 3: road transport (cabotage rules apply)
-  'air',         -- XML modeCode 4: air cargo
-  'multimodal'   -- XML modeCode 5: combined/multimodal transport
-);
-COMMENT ON TYPE transport_mode IS 'EU eFTI transport mode classification per EU Reg 2024/2024 Annex I';
-
-CREATE TYPE identifier_type AS ENUM (
-  'means',      -- Means of transport: vehicle registration plate
-  'equipment',  -- Transport equipment: container, trailer
-  'carried'     -- Carried transport unit: swap body, loading unit
-);
-COMMENT ON TYPE identifier_type IS 'Type of consignment identifier as defined in the EU eFTI reference model';
-
 CREATE TYPE job_status AS ENUM (
   'completed',
   'failed'
@@ -301,8 +285,7 @@ CREATE INDEX idx_users_active       ON users (is_active) WHERE is_active = TRUE;
 -- Most-queried table. Append-only: re-registration by the platform, status
 -- transitions (active → inactive by IdentifierExpirationJob, → deleted by
 -- platform or admin) all INSERT a new row with the same dataset_id; latest
--- wins. Authority searches hit the denormalised columns directly — no JOIN
--- to identifiers.
+-- wins. Authority searches hit the denormalised columns directly.
 
 CREATE TABLE consignments (
   row_id              UUID                PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -312,30 +295,34 @@ CREATE TABLE consignments (
   xml                 TEXT                NOT NULL,
   status              consignment_status  NOT NULL DEFAULT 'active',
   -- denormalised search columns (XML extraction; see data-transformations.md §3.1.4)
-  mode                transport_mode,
-  vehicle_plate       VARCHAR(50),
-  vehicle_country     CHAR(2),
-  dangerous_goods     BOOLEAN             NOT NULL DEFAULT FALSE,
-  origin_country      CHAR(2),
-  destination_country CHAR(2),
-  transport_date      DATE,
-  delivered_at        TIMESTAMPTZ,
-  expires_at          TIMESTAMPTZ,
+  transport_mode      CHAR(1),
+  acceptance_date     TIMESTAMP,
+  acceptance_country  CHAR(2),
+  delivery_date       TIMESTAMP,
+  delivery_country    CHAR(2),
+  dangerous_goods     VARCHAR(2),
+  main_transport_id   TEXT,
+  main_transport_type TEXT,
+  transport_reg_country CHAR(2),
+  loading_date        TIMESTAMP,
+  loading_country     CHAR(2),
+  unloading_date      TIMESTAMP,
+  unloading_country   CHAR(2),
+  used_equipment_ids        TEXT[],
+  used_equipment_categories TEXT[],
+  used_equipment_countries  TEXT[],
+  used_equipment_seq        TEXT[],
+  carried_equipment_ids        TEXT[],
+  carried_equipment_categories TEXT[],
+  carried_equipment_seq        TEXT[],
   created_by          UUID,
   created_at          TIMESTAMPTZ         NOT NULL DEFAULT NOW(),
 
-  CONSTRAINT consignments_vehicle_country_fmt   CHECK (vehicle_country IS NULL     OR vehicle_country ~ '^[A-Z]{2}$'),
-  CONSTRAINT consignments_origin_country_fmt    CHECK (origin_country IS NULL      OR origin_country ~ '^[A-Z]{2}$'),
-  CONSTRAINT consignments_destination_fmt       CHECK (destination_country IS NULL OR destination_country ~ '^[A-Z]{2}$'),
-  CONSTRAINT consignments_expires_after_deliver CHECK (expires_at IS NULL OR delivered_at IS NULL OR expires_at > delivered_at),
-  -- Cabotage retention (Reg 2024/1942 Art 11(4)): expires_at is set on road
-  -- consignments only. Non-road must have expires_at NULL; road consignments
-  -- must have expires_at populated whenever transport_date is known.
-  CONSTRAINT consignments_expires_only_road CHECK (
-    (mode = 'road' AND (expires_at IS NULL OR transport_date IS NOT NULL))
-    OR (mode <> 'road' AND expires_at IS NULL)
-    OR mode IS NULL
-  )
+  CONSTRAINT consignments_acceptance_country_fmt   CHECK (acceptance_country IS NULL   OR acceptance_country ~ '^[A-Z]{2}$'),
+  CONSTRAINT consignments_delivery_country_fmt     CHECK (delivery_country IS NULL     OR delivery_country ~ '^[A-Z]{2}$'),
+  CONSTRAINT consignments_transport_reg_country_fmt CHECK (transport_reg_country IS NULL OR transport_reg_country ~ '^[A-Z]{2}$'),
+  CONSTRAINT consignments_loading_country_fmt      CHECK (loading_country IS NULL      OR loading_country ~ '^[A-Z]{2}$'),
+  CONSTRAINT consignments_unloading_country_fmt    CHECK (unloading_country IS NULL    OR unloading_country ~ '^[A-Z]{2}$')
 );
 
 COMMENT ON TABLE  consignments IS 'Stored consignment identifier metadata. Append-only: re-uploads, status flips (active → inactive → deleted) all INSERT new rows with the same dataset_id. Authority queries SELECT DISTINCT ON (dataset_id) via denormalised search columns — no JOIN required.';
@@ -345,15 +332,26 @@ COMMENT ON COLUMN consignments.platform_id         IS 'Logical platform.id at ro
 COMMENT ON COLUMN consignments.gate_id             IS 'Logical gate.id at row-write time (this gate''s id). Denormalised.';
 COMMENT ON COLUMN consignments.xml                 IS 'Identifier XML payload as received from the platform (per consignment-identifier.xsd)';
 COMMENT ON COLUMN consignments.status              IS 'Lifecycle status snapshot at row-write time';
-COMMENT ON COLUMN consignments.mode                IS 'Transport mode extracted from XML mainCarriageTransportMovement[1]/modeCode';
-COMMENT ON COLUMN consignments.vehicle_plate       IS 'Vehicle plate (means/id) extracted from primary movement, denormalised for fast plate search';
-COMMENT ON COLUMN consignments.vehicle_country     IS 'Vehicle registration country (ISO 3166-1 alpha-2)';
-COMMENT ON COLUMN consignments.dangerous_goods     IS 'TRUE if any leg has dangerousGoodsIndicator=true';
-COMMENT ON COLUMN consignments.origin_country      IS 'Place-of-departure country code (denormalised for cross-border filters)';
-COMMENT ON COLUMN consignments.destination_country IS 'Place-of-delivery country code';
-COMMENT ON COLUMN consignments.transport_date      IS 'Carrier-acceptance date extracted from carrierAcceptanceDateTime; anchors the cabotage 14-day clock per Reg 2024/1942 Art 11(4)';
-COMMENT ON COLUMN consignments.delivered_at        IS 'Actual delivery timestamp (UTC) parsed from deliveryEvent/actualOccurrenceDateTime; NULL while in transit. Independent of the cabotage clock.';
-COMMENT ON COLUMN consignments.expires_at          IS 'For mode=road: transport_date + 14 days (Reg 2024/1942 Art 11(4)). NULL for non-road. IdentifierExpirationJob INSERTs a new row with status=''inactive'' when NOW() > expires_at.';
+COMMENT ON COLUMN consignments.transport_mode      IS 'Transport mode extracted from XML mainCarriageTransportMovement[1]/modeCode';
+COMMENT ON COLUMN consignments.acceptance_date      IS 'Carrier acceptance date from XML CarrierAcceptanceDateParameterScope';
+COMMENT ON COLUMN consignments.acceptance_country   IS 'Carrier acceptance country from XML CarrierAcceptanceCountryParameterScope (ISO 3166-1 alpha-2)';
+COMMENT ON COLUMN consignments.delivery_date        IS 'Delivery date from XML DeliveryDateParameterScope';
+COMMENT ON COLUMN consignments.delivery_country     IS 'Delivery country from XML DeliveryCountryParameterScope (ISO 3166-1 alpha-2)';
+COMMENT ON COLUMN consignments.dangerous_goods     IS 'Dangerous goods indication code from XML DangerousGoodsIndicationCodeParameterScope';
+COMMENT ON COLUMN consignments.main_transport_id    IS 'Main carriage transport means ID from XML MainCarriageTransportMeansIDParameterScope';
+COMMENT ON COLUMN consignments.main_transport_type  IS 'Main carriage transport means type code from XML MainCarriageTransportMeansTypeCodeParameterScope';
+COMMENT ON COLUMN consignments.transport_reg_country IS 'Transport means registration country from XML TransportMeansRegistrationCountryParameterScope (ISO 3166-1 alpha-2)';
+COMMENT ON COLUMN consignments.loading_date         IS 'Main carriage loading date from XML MainCarriageLoadingDateParameterScope';
+COMMENT ON COLUMN consignments.loading_country      IS 'Main carriage loading country from XML MainCarriageLoadingCountryParameterScope (ISO 3166-1 alpha-2)';
+COMMENT ON COLUMN consignments.unloading_date       IS 'Main carriage unloading date from XML MainCarriageUnloadingDateParameterScope';
+COMMENT ON COLUMN consignments.unloading_country    IS 'Main carriage unloading country from XML MainCarriageUnloadingCountryParameterScope (ISO 3166-1 alpha-2)';
+COMMENT ON COLUMN consignments.used_equipment_ids         IS 'Used transport equipment IDs from XML UsedTransportEquipmentIDParameterScope';
+COMMENT ON COLUMN consignments.used_equipment_categories  IS 'Used transport equipment category codes from XML UsedTransportEquipmentCategoryCodeParameterScope';
+COMMENT ON COLUMN consignments.used_equipment_countries   IS 'Used transport equipment registration countries from XML UsedTransportEquipmentRegistrationCountryParameterScope (ISO 3166-1 alpha-2)';
+COMMENT ON COLUMN consignments.used_equipment_seq         IS 'Used transport equipment sequence numbers from XML UsedTransportEquipmentSequenceNumberParameterScope';
+COMMENT ON COLUMN consignments.carried_equipment_ids      IS 'Carried transport equipment IDs from XML CarriedTransportEquipmentIDParameterScope';
+COMMENT ON COLUMN consignments.carried_equipment_categories IS 'Carried transport equipment category codes from XML CarriedTransportEquipmentCategoryCodeParameterScope';
+COMMENT ON COLUMN consignments.carried_equipment_seq      IS 'Carried transport equipment sequence numbers from XML CarriedTransportEquipmentSequenceNumberParameterScope';
 COMMENT ON COLUMN consignments.created_by          IS 'users.row_id of the actor that wrote this row';
 COMMENT ON COLUMN consignments.created_at          IS 'When this row was inserted';
 
@@ -361,45 +359,26 @@ CREATE INDEX idx_consignments_dataset_latest  ON consignments (dataset_id, creat
 CREATE INDEX idx_consignments_platform        ON consignments (platform_id);
 CREATE INDEX idx_consignments_gate            ON consignments (gate_id);
 CREATE INDEX idx_consignments_status_active   ON consignments (status) WHERE status = 'active';
-CREATE INDEX idx_consignments_vehicle_plate   ON consignments (vehicle_plate) WHERE vehicle_plate IS NOT NULL;
-CREATE INDEX idx_consignments_plate_trgm      ON consignments USING gin (vehicle_plate gin_trgm_ops) WHERE vehicle_plate IS NOT NULL;
-CREATE INDEX idx_consignments_mode            ON consignments (mode) WHERE mode IS NOT NULL;
-CREATE INDEX idx_consignments_dangerous_goods ON consignments (dangerous_goods) WHERE dangerous_goods = TRUE;
-CREATE INDEX idx_consignments_transport_date  ON consignments (transport_date) WHERE transport_date IS NOT NULL;
-CREATE INDEX idx_consignments_expires_at      ON consignments (expires_at) WHERE expires_at IS NOT NULL AND status = 'active';
-
--- ----------------------------------------------------------------------------
--- 3.6 identifiers — non-plate searchable values (containers, carried units)
--- ----------------------------------------------------------------------------
--- One INSERT per identifier extracted from a consignment's XML. When a
--- consignment is re-uploaded, NEW identifiers are INSERTed for the new
--- consignments row; old identifier rows remain (CronManager archives them).
-
-CREATE TABLE identifiers (
-  row_id           UUID             PRIMARY KEY DEFAULT uuid_generate_v4(),
-  consignment_row  UUID             NOT NULL,                 -- consignments.row_id of the parent row at extraction time
-  dataset_id       UUID             NOT NULL,                 -- logical dataset_id (for fast lookup without resolving consignments.row_id)
-  identifier_type  identifier_type  NOT NULL,
-  identifier_value VARCHAR(200)     NOT NULL,
-  country_code     CHAR(2),
-  created_at       TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
-
-  CONSTRAINT identifiers_country_fmt CHECK (country_code IS NULL OR country_code ~ '^[A-Z]{2}$')
-);
-
-COMMENT ON TABLE  identifiers IS 'Per-row identifier values (containers, carried units, vehicle plates) extracted from each consignments row''s XML. Append-only: an INSERT block per consignments row; old rows preserved until cron-archived.';
-COMMENT ON COLUMN identifiers.row_id           IS 'Synthetic primary key';
-COMMENT ON COLUMN identifiers.consignment_row  IS 'consignments.row_id of the parent row at the time of extraction. Joins disallowed by design — use this only for archival/rebuilding the link.';
-COMMENT ON COLUMN identifiers.dataset_id       IS 'Logical consignments.dataset_id. Allows authority searches that match identifier_value to look up the latest consignments row by dataset_id without indirection.';
-COMMENT ON COLUMN identifiers.identifier_type  IS 'means / equipment / carried';
-COMMENT ON COLUMN identifiers.identifier_value IS 'The actual identifier string (vehicle plate, container number, etc.). Indexed for exact and trigram-fuzzy search.';
-COMMENT ON COLUMN identifiers.country_code     IS 'ISO 3166-1 alpha-2 of the registration country, when applicable';
-COMMENT ON COLUMN identifiers.created_at       IS 'When this row was inserted';
-
-CREATE INDEX idx_identifiers_dataset_id   ON identifiers (dataset_id);
-CREATE INDEX idx_identifiers_value        ON identifiers (identifier_value);
-CREATE INDEX idx_identifiers_value_trgm   ON identifiers USING gin (identifier_value gin_trgm_ops);
-CREATE INDEX idx_identifiers_type         ON identifiers (identifier_type);
+CREATE INDEX idx_consignments_transport_mode  ON consignments (transport_mode);
+CREATE INDEX idx_consignments_acceptance_date   ON consignments (acceptance_date);
+CREATE INDEX idx_consignments_acceptance_country ON consignments (acceptance_country);
+CREATE INDEX idx_consignments_delivery_date     ON consignments (delivery_date);
+CREATE INDEX idx_consignments_delivery_country  ON consignments (delivery_country);
+CREATE INDEX idx_consignments_dangerous_goods ON consignments (dangerous_goods);
+CREATE INDEX idx_consignments_main_transport_id ON consignments (main_transport_id);
+CREATE INDEX idx_consignments_main_transport_type ON consignments (main_transport_type);
+CREATE INDEX idx_consignments_transport_reg_country ON consignments (transport_reg_country);
+CREATE INDEX idx_consignments_loading_date      ON consignments (loading_date);
+CREATE INDEX idx_consignments_loading_country   ON consignments (loading_country);
+CREATE INDEX idx_consignments_unloading_date    ON consignments (unloading_date);
+CREATE INDEX idx_consignments_unloading_country ON consignments (unloading_country);
+CREATE INDEX idx_consignments_used_equip_ids    ON consignments USING gin (used_equipment_ids);
+CREATE INDEX idx_consignments_used_equip_cat    ON consignments USING gin (used_equipment_categories);
+CREATE INDEX idx_consignments_used_equip_ctry   ON consignments USING gin (used_equipment_countries);
+CREATE INDEX idx_consignments_used_equip_seq    ON consignments USING gin (used_equipment_seq);
+CREATE INDEX idx_consignments_carried_equip_ids ON consignments USING gin (carried_equipment_ids);
+CREATE INDEX idx_consignments_carried_equip_cat ON consignments USING gin (carried_equipment_categories);
+CREATE INDEX idx_consignments_carried_equip_seq ON consignments USING gin (carried_equipment_seq);
 
 -- ============================================================================
 -- 4. EPHEMERAL / EVENT-LOG TABLES
@@ -651,7 +630,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT  ON SEQUENCES TO d
 -- Explicit grants for `app` — SELECT + INSERT only on every table. No
 -- UPDATE, no DELETE. Period.
 GRANT SELECT, INSERT ON
-  gates, platforms, authorities, users, consignments, identifiers,
+  gates, platforms, authorities, users, consignments,
   request_id_cache, sessions, jobs_execution_log,
   follow_up_log, audit_log, async_responses
   TO app;
@@ -661,7 +640,7 @@ GRANT SELECT, INSERT ON
 -- No INSERT, no UPDATE. The archival worker reads non-latest rows, copies
 -- them to archival storage, then DELETEs the same rows in batches.
 GRANT SELECT, DELETE ON
-  gates, platforms, authorities, users, consignments, identifiers,
+  gates, platforms, authorities, users, consignments,
   request_id_cache, sessions, jobs_execution_log,
   follow_up_log, async_responses
   TO db_archiver;
@@ -714,15 +693,9 @@ INSERT INTO authorities (id, name, country_code, description, subsets) VALUES
   ('auth-trafi', 'Traficom (FI)',                        'FI', 'Finnish transport authority (peer)', ARRAY['EU01','EU02','EU03']);
 
 -- Seed sample consignments (a representative spread; full seed lives in seed-data/ outside this baseline)
-INSERT INTO consignments (dataset_id, platform_id, gate_id, xml, status, mode, vehicle_plate, vehicle_country, dangerous_goods, origin_country, destination_country, transport_date) VALUES
-  ('550e8400-e29b-41d4-a716-446655440001', 'plt-xxx-001', 'eu-xx01', '<consignment xmlns="http://efti.eu/v1/consignment/identifier"/>', 'active', 'road',     '123ABC', 'EE', TRUE,  'EE', 'FI', '2026-04-22'),
-  ('550e8400-e29b-41d4-a716-446655440002', 'plt-xxx-001', 'eu-xx01', '<consignment xmlns="http://efti.eu/v1/consignment/identifier"/>', 'active', 'maritime', NULL,     NULL, FALSE, 'EE', 'NL', '2026-04-23'),
-  ('550e8400-e29b-41d4-a716-446655440003', 'plt-xxx-001', 'eu-xx01', '<consignment xmlns="http://efti.eu/v1/consignment/identifier"/>', 'active', 'road',     '456XYZ', 'EE', FALSE, 'EE', 'LV', '2026-04-24');
-
--- Identifiers extracted from those consignments (in production these are derived from the XML by EftiParser)
-INSERT INTO identifiers (consignment_row, dataset_id, identifier_type, identifier_value, country_code)
-SELECT row_id, dataset_id, 'means', vehicle_plate, vehicle_country
-FROM consignments
-WHERE vehicle_plate IS NOT NULL;
+INSERT INTO consignments (dataset_id, platform_id, gate_id, xml, status, mode, vehicle_plate, vehicle_country, origin_country, destination_country, transport_date) VALUES
+  ('550e8400-e29b-41d4-a716-446655440001', 'plt-xxx-001', 'eu-xx01', '<consignment xmlns="http://efti.eu/v1/consignment/identifier"/>', 'active', 'road',     '123ABC', 'EE', 'EE', 'FI', '2026-04-22'),
+  ('550e8400-e29b-41d4-a716-446655440002', 'plt-xxx-001', 'eu-xx01', '<consignment xmlns="http://efti.eu/v1/consignment/identifier"/>', 'active', 'maritime', NULL,     NULL, 'EE', 'NL', '2026-04-23'),
+  ('550e8400-e29b-41d4-a716-446655440003', 'plt-xxx-001', 'eu-xx01', '<consignment xmlns="http://efti.eu/v1/consignment/identifier"/>', 'active', 'road',     '456XYZ', 'EE', 'EE', 'LV', '2026-04-24');
 
 COMMIT;
