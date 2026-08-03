@@ -1,0 +1,25 @@
+server:
+  bind: "0.0.0.0:8090"
+  max_body_bytes: 1048576
+  request_timeout_seconds: 30
+
+sql_dir: "./sql"
+
+project_datasource_map: {}
+
+allow_datasource_header: false
+
+datasources:
+  - name: efti
+    url: "postgres://efti:01234@database:5432/efti"
+    username: ""
+    password_env: ""
+    max_connections: 10
+    acquire_timeout_seconds: 5
+
+cors:
+  allowed_origins: "*"
+
+logging:
+  level: "info,resql=debug"
+  format: "text"

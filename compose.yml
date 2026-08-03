@@ -3,21 +3,22 @@ services:
     container_name: database
     image: postgres:18
     environment:
-      - POSTGRES_USER=efti
-      - POSTGRES_PASSWORD=01234
-      - POSTGRES_DB=efti
+    - POSTGRES_USER=efti
+    - POSTGRES_PASSWORD=01234
+    - POSTGRES_DB=efti
     ports:
-      - 54321:5432
+    - 54321:5432
     volumes:
-      - data:/var/lib/postgresql
-      - ./DSL/Liquibase/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    - data:/var/lib/postgresql
+    - ./DSL/Liquibase/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U efti -d efti"]
+      test:
+      - CMD-SHELL
+      - pg_isready -U efti -d efti
       interval: 5s
       timeout: 5s
       retries: 20
       start_period: 10s
-
   liquibase:
     container_name: liquibase
     build:
@@ -27,31 +28,19 @@ services:
       database:
         condition: service_healthy
     volumes:
-      - ./DSL/Liquibase:/liquibase/changelog
+    - ./DSL/Liquibase:/liquibase/changelog
     environment:
-      - AUDIT_SALT=${AUDIT_SALT:-dev-local-audit-salt-change-me-32chars}
+    - AUDIT_SALT=${AUDIT_SALT:-dev-local-audit-salt-change-me-32chars}
     command: --defaultsFile=/liquibase/changelog/liquibase.properties update -DAUDIT_SALT=${AUDIT_SALT:-dev-local-audit-salt-change-me-32chars}
-
   resql:
     build:
       context: .
       dockerfile: docker/resql/Dockerfile
     platform: linux/amd64
     depends_on:
-      - database
-    environment:
-      - server.port=8090
-      - SQLMS_SAVED_QUERIES_DIR=/DSL
-      - sqlms.datasources.[0].name=byk
-      - sqlms.datasources.[0].jdbcUrl=jdbc:postgresql://database:5432/efti
-      - sqlms.datasources.[0].username=efti
-      - sqlms.datasources.[0].password=01234
-      - logging.level.org.springframework.boot=INFO
+    - database
     ports:
-      - 8090:8090
-    volumes:
-      - ./DSL/Resql:/DSL
-
+    - 8090:8090
   ruuter:
     container_name: ruuter
     build:
@@ -59,48 +48,52 @@ services:
       dockerfile: docker/ruuter/Dockerfile
     platform: linux/amd64
     environment:
-      - RUST_LOG=debug
+    - RUST_LOG=debug
     volumes:
-      - ./DSL/Ruuter:/app/DSL
-      - ./constants.ini:/app/constants.ini
-      - ./ruuter.yaml:/app/ruuter.yaml
+    - ./DSL/Ruuter:/app/DSL
+    - ./constants.ini:/app/constants.ini
+    - ./ruuter.yaml:/app/ruuter.yaml
     ports:
-      - 8086:8086
-    cpus: "0.5"
-    mem_limit: "512M"
-
+    - 8086:8086
+    cpus: '0.5'
+    mem_limit: 512M
   edelivery:
     build:
       context: code
       dockerfile: ../docker/code/Dockerfile
       args:
-        - PROJECT=edelivery
-        - PORT=8081
+      - PROJECT=edelivery
+      - PORT=8081
     ports:
-      - 8081:8081
-    mem_limit: "512M"
-
+    - 8081:8081
+    mem_limit: 512M
   xml-mapper:
     build:
       context: code
       dockerfile: ../docker/code/Dockerfile
       args:
-        - PROJECT=xml-mapper
-        - PORT=8082
+      - PROJECT=xml-mapper
+      - PORT=8082
     ports:
-      - 8082:8082
-    mem_limit: "512M"
-
+    - 8082:8082
+    mem_limit: 512M
   multiplexer:
     build:
       context: code
       dockerfile: ../docker/code/Dockerfile
       args:
-        - PROJECT=multiplexer
-        - PORT=8083
+      - PROJECT=multiplexer
+      - PORT=8083
     ports:
-      - 8083:8083
-    mem_limit: "512M"
-
+    - 8083:8083
+    mem_limit: 512M
+  datamapper:
+    build:
+      context: .
+      dockerfile: docker/datamapper/Dockerfile
+    platform: linux/amd64
+    ports:
+    - 3000:3000
+    mem_limit: 512M
 volumes:
-  data:
+  data: null
