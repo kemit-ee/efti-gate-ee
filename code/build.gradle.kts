@@ -1,5 +1,7 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
+val mainClassName = "LauncherKt"
+
 plugins {
   val kotlinVersion = "2.4.0"
   kotlin("jvm") version kotlinVersion
@@ -18,8 +20,6 @@ subprojects {
   kotlin {
     jvmToolchain(25)
   }
-
-  val mainClassName: String? by project.extra
 
   dependencies {
     fun klite(module: String) = "com.github.keksworks.klite:klite-$module:d05ff6fd" // 2.0.0+
@@ -73,7 +73,7 @@ subprojects {
 
   tasks.jar {
     dependsOn("deps")
-    if (mainClassName != null) doFirst {
+    doFirst {
       manifest {
         attributes(mapOf(
           "Main-Class" to mainClassName,

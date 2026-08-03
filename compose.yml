@@ -76,5 +76,38 @@ services:
     cpus: "0.5"
     mem_limit: "512M"
 
+  edelivery:
+    build:
+      context: code
+      dockerfile: ../docker/code/Dockerfile
+      args:
+        - PROJECT=edelivery
+        - PORT=8081
+    ports:
+      - 8081:8081
+    mem_limit: "512M"
+
+  xml-mapper:
+    build:
+      context: code
+      dockerfile: ../docker/code/Dockerfile
+      args:
+        - PROJECT=xml-mapper
+        - PORT=8082
+    ports:
+      - 8082:8082
+    mem_limit: "512M"
+
+  multiplexer:
+    build:
+      context: code
+      dockerfile: ../docker/code/Dockerfile
+      args:
+        - PROJECT=multiplexer
+        - PORT=8083
+    ports:
+      - 8083:8083
+    mem_limit: "512M"
+
 volumes:
   data:
