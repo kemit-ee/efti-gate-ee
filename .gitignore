@@ -1,3 +1,5 @@
+AGENTS.md
+
 # Local rendering artifacts (HTML/PDF generated from .md sources)
 docs/efti-analysis/8-codereview/eFTI_codereview_en.html
 docs/efti-analysis/8-codereview/eFTI_codereview_en.pdf
@@ -6,7 +8,13 @@ docs/efti-analysis/8-codereview/eFTI_codereview_en.pdf
 CHANGES-FROM-ASKEND.md
 internal-notes/
 
+
 # Operator-local issue manifest. Maintained on the developer machine for the
 # environment they're syncing against. Never committed — see
 # scripts/epic-issue-map.tsv.example for the format.
 scripts/epic-issue-map.tsv
+
+# OS / IDE / build artifacts
+.DS_Store
+**/.DS_Store
+code/.gradle/
