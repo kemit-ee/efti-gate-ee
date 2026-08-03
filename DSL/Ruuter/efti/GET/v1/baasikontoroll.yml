@@ -17,11 +17,11 @@ all:
 by_id:
   call: http.post
   args:
-    url: "http://resql:8090/efti/get_testandmestik_by_q"
+    url: "http://resql:8090/efti/get_testandmestik_by_id"
     headers:
       Content-Type: "application/json"
     body:
-      q: "${incoming.params.q}"
+      id: "${incoming.params.q}"
   result: resql_result
   next: respond
 

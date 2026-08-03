@@ -1,3 +1,3 @@
 SELECT id, hash, data
 FROM testandmestik
-ORDER BY id;
+WHERE id = (:id)::int;
