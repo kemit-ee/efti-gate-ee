@@ -1,0 +1,80 @@
+services:
+  database:
+    container_name: database
+    image: postgres:18
+    environment:
+      - POSTGRES_USER=efti
+      - POSTGRES_PASSWORD=01234
+      - POSTGRES_DB=efti
+    ports:
+      - 54321:5432
+    volumes:
+      - data:/var/lib/postgresql
+      - ./DSL/Liquibase/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U efti -d efti"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  liquibase:
+    container_name: liquibase
+    build:
+      context: .
+      dockerfile: docker/liquibase/Dockerfile
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - ./DSL/Liquibase:/liquibase
+    environment:
+      - AUDIT_SALT=${AUDIT_SALT:-dev-local-audit-salt-change-me-32chars}
+    command: --defaultsFile=/liquibase/liquibase.properties update -DAUDIT_SALT=${AUDIT_SALT:-dev-local-audit-salt-change-me-32chars}
+
+  resql:
+    build:
+      context: .
+      dockerfile: docker/resql/Dockerfile
+    platform: linux/amd64
+    depends_on:
+      - database
+    environment:
+      - server.port=8090
+      - sqlms.datasources.[0].name=efti
+      - sqlms.datasources.[0].jdbcUrl=jdbc:postgresql://database:5432/efti
+      - sqlms.datasources.[0].username=efti
+      - sqlms.datasources.[0].password=01234
+      - logging.level.org.springframework.boot=INFO
+    ports:
+      - 8090:8090
+    volumes:
+      - ./DSL/Resql:/DSL
+
+  ruuter:
+    container_name: ruuter
+    build:
+      context: .
+      dockerfile: docker/ruuter/Dockerfile
+    platform: linux/amd64
+    environment:
+      - application.cors.allowedOrigins=http://localhost:8086,http://localhost:3001,http://localhost:3004,http://localhost:8080
+      - application.httpCodesAllowList=200,201,202,400,401,403,500
+      - application.incomingRequests.allowedMethodTypes=POST,GET,PUT,DELETE
+      - application.internalRequests.allowedIPs=127.0.0.1
+      - application.logging.displayRequestContent=true
+      - application.logging.displayResponseContent=true
+      - application.logging.printStackTrace=true
+      - application.internalRequests.disabled=true
+      - server.port=8086
+      - application.externalAuthAllowed=.*mock.*
+    volumes:
+      - ./DSL/Ruuter:/DSL
+      - ./constants.ini:/app/constants.ini
+    ports:
+      - 8086:8086
+    cpus: "0.5"
+    mem_limit: "512M"
+
+volumes:
+  data:
