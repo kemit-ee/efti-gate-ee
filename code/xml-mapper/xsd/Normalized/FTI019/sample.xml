@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rsm:FTI019SearchIdentifierRequest
+  xmlns:rsm="urn:eu:move:eFTI:data:draft:FTI019SearchIdentifierRequest:1"
+  xmlns="urn:eu:move:eFTI:data:standard:ReusableAggregateBusinessInformationEntity:34"
+  xmlns:udt="urn:eu:move:eFTI:data:standard:UnqualifiedDataType:34">
+
+  <rsm:ExchangedDocumentContext>
+    <MessageStandardSpecifiedDocumentContextParameter>
+      <ID>FTI019</ID>
+      <SpecifiedDocumentVersion>
+        <ID>1.0</ID>
+      </SpecifiedDocumentVersion>
+    </MessageStandardSpecifiedDocumentContextParameter>
+  </rsm:ExchangedDocumentContext>
+
+  <rsm:ExchangedDocument>
+    <ID schemeID="RFC 9562-4">MSG-FTI019-001</ID>
+    <TypeCode>019</TypeCode>
+    <IssueDateTime>
+      <udt:DateTimeString format="207">2021-09-24T08:45:00</udt:DateTimeString>
+    </IssueDateTime>
+    <RequestedSpecifiedQuery>
+      <ID schemeID="RFC 9562-4">SEARCH_ID</ID>
+    </RequestedSpecifiedQuery>
+    <RequesterTradeParty>
+      <PostalTradeAddress>
+        <CountryID>DE</CountryID>
+      </PostalTradeAddress>
+    </RequesterTradeParty>
+  </rsm:ExchangedDocument>
+
+  <rsm:EFTIIDInformation>
+    <ParameterSearchCriteria>
+      <MainCarriageTransportMeansIDParameterScope>
+        <SubtypeCode>EQ</SubtypeCode>
+        <ID>VESSEL-001</ID>
+      </MainCarriageTransportMeansIDParameterScope>
+      <CarrierAcceptanceDateParameterScope>
+        <SubtypeCode>EQ</SubtypeCode>
+        <SpecifiedDateTime>
+          <udt:DateTimeString format="2021-09-24">2021-09-24</udt:DateTimeString>
+        </SpecifiedDateTime>
+      </CarrierAcceptanceDateParameterScope>
+      <CarrierAcceptanceCountryParameterScope>
+        <SubtypeCode>EQ</SubtypeCode>
+        <CountryID>DE</CountryID>
+      </CarrierAcceptanceCountryParameterScope>
+      <MainCarriageModeCodeParameterScope>
+        <SubtypeCode>EQ</SubtypeCode>
+        <TransportModeCodeType>1</TransportModeCodeType>
+      </MainCarriageModeCodeParameterScope>
+    </ParameterSearchCriteria>
+  </rsm:EFTIIDInformation>
+
+</rsm:FTI019SearchIdentifierRequest>

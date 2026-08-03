@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:rsm="urn:eu:move:eFTI:data:draft:FTI019SearchIdentifierRequest:1"
+           xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:ram="urn:eu:move:eFTI:data:standard:ReusableAggregateBusinessInformationEntity:34"
+           targetNamespace="urn:eu:move:eFTI:data:draft:FTI019SearchIdentifierRequest:1"
+           elementFormDefault="qualified">
+  <xs:import namespace="urn:eu:move:eFTI:data:standard:QualifiedDataType:34" schemaLocation="FTI019n_urn_eu_move_eFTI_data_standard_QualifiedDataType_34.xsd"/>
+  <xs:import namespace="urn:eu:move:eFTI:data:standard:ReusableAggregateBusinessInformationEntity:34" schemaLocation="FTI019n_urn_eu_move_eFTI_data_standard_ReusableAggregateBusinessInformationEntity_34.xsd"/>
+  <xs:import namespace="urn:eu:move:eFTI:data:standard:UnqualifiedDataType:34" schemaLocation="FTI019n_urn_eu_move_eFTI_data_standard_UnqualifiedDataType_34.xsd"/>
+  <xs:element name="FTI019SearchIdentifierRequest" type="rsm:FTI019SearchIdentifierRequestType"/>
+  <xs:complexType name="FTI019SearchIdentifierRequestType">
+    <xs:sequence>
+      <xs:element name="ExchangedDocumentContext" type="ram:ExchangedDocumentContextType"/>
+      <xs:element name="ExchangedDocument" type="ram:ExchangedDocumentType"/>
+      <xs:element name="EFTIIDInformation" type="ram:EFTIIDInformationType"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>

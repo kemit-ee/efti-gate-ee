@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rsm:FTI010GetCmdsResponse
+  xmlns:rsm="urn:eu:move:eFTI:data:draft:FTI010GetCmdsResponse:1"
+  xmlns="urn:eu:move:eFTI:data:standard:ReusableAggregateBusinessInformationEntity:34"
+  xmlns:udt="urn:eu:move:eFTI:data:standard:UnqualifiedDataType:34">
+
+  <rsm:ExchangedDocumentContext>
+    <MessageStandardSpecifiedDocumentContextParameter>
+      <ID>FTI010</ID>
+      <SpecifiedDocumentVersion>
+        <ID>1.0</ID>
+      </SpecifiedDocumentVersion>
+    </MessageStandardSpecifiedDocumentContextParameter>
+  </rsm:ExchangedDocumentContext>
+
+  <rsm:ExchangedDocument>
+    <ID schemeID="RFC 9562-4">MSG-FTI010-001</ID>
+    <TypeCode>010</TypeCode>
+    <StatusCode>C</StatusCode>
+    <IssueDateTime>
+      <udt:DateTimeString format="207">2021-09-24T08:50:00</udt:DateTimeString>
+    </IssueDateTime>
+    <RequestedSpecifiedQuery>
+      <ID schemeID="RFC 9562-4">GET_CMDS</ID>
+    </RequestedSpecifiedQuery>
+  </rsm:ExchangedDocument>
+
+  <rsm:MessageInformation>
+    <SubsetID schemeID="RFC 9562-4">EE05b</SubsetID>
+  </rsm:MessageInformation>
+
+  <rsm:EFTIIDInformation>
+    <UniqueIDSetUIL>
+      <GateID>Gate-001</GateID>
+      <PlatformID>Platform-001</PlatformID>
+      <DatasetID schemeID="RFC 9562-4">550e8400-e29b-41d4-a716-446655440000</DatasetID>
+    </UniqueIDSetUIL>
+  </rsm:EFTIIDInformation>
+
+  <rsm:SpecifiedSupplyChainConsignment>
+    <GrossWeightMeasure unitCode="KGM">15000.00</GrossWeightMeasure>
+    <NetWeightMeasure unitCode="KGM">12000.00</NetWeightMeasure>
+    <GrossVolumeMeasure unitCode="MTQ">45.00</GrossVolumeMeasure>
+    <PackageQuantity unitCode="C62">120</PackageQuantity>
+    <TransportEquipmentQuantity unitCode="C62">2</TransportEquipmentQuantity>
+    <ConsignorTradeParty>
+      <ID schemeID="EORI">DE123456789012345</ID>
+      <Name>Acme Logistics GmbH</Name>
+      <PostalTradeAddress>
+        <StreetName>Hauptstrasse</StreetName>
+        <CityName>Berlin</CityName>
+        <CountryID>DE</CountryID>
+      </PostalTradeAddress>
+    </ConsignorTradeParty>
+    <ConsigneeTradeParty>
+      <ID schemeID="EORI">FR987654321012345</ID>
+      <Name>Speedy Imports SAS</Name>
+      <PostalTradeAddress>
+        <StreetName>Rue de la Paix</StreetName>
+        <CityName>Paris</CityName>
+        <CountryID>FR</CountryID>
+      </PostalTradeAddress>
+    </ConsigneeTradeParty>
+    <CarrierTradeParty>
+      <Name>TransEuropa Shipping BV</Name>
+    </CarrierTradeParty>
+    <MainCarriageLogisticsTransportMovement>
+      <ModeCode>1</ModeCode>
+      <ID>VOY-2021-001</ID>
+      <SequenceNumeric>1</SequenceNumeric>
+      <UsedLogisticsTransportMeans>
+        <TypeCode>3</TypeCode>
+        <ID>IMO-9876543</ID>
+        <Name>Pacific Trader</Name>
+        <RegistrationTradeCountry>
+          <CountryID>NL</CountryID>
+        </RegistrationTradeCountry>
+      </UsedLogisticsTransportMeans>
+      <LoadingTransportEvent>
+        <ActualOccurrenceDateTime>
+          <udt:DateTimeString format="2021-09-20T06:00:00">2021-09-20T06:00:00</udt:DateTimeString>
+        </ActualOccurrenceDateTime>
+        <OccurrenceLogisticsLocation>
+          <Name>Port of Hamburg</Name>
+          <PostalTradeAddress>
+            <CountryID>DE</CountryID>
+          </PostalTradeAddress>
+        </OccurrenceLogisticsLocation>
+      </LoadingTransportEvent>
+      <UnloadingTransportEvent>
+        <ActualOccurrenceDateTime>
+          <udt:DateTimeString format="2021-09-24T14:00:00">2021-09-24T14:00:00</udt:DateTimeString>
+        </ActualOccurrenceDateTime>
+        <OccurrenceLogisticsLocation>
+          <Name>Port of Le Havre</Name>
+          <PostalTradeAddress>
+            <CountryID>FR</CountryID>
+          </PostalTradeAddress>
+        </OccurrenceLogisticsLocation>
+      </UnloadingTransportEvent>
+    </MainCarriageLogisticsTransportMovement>
+  </rsm:SpecifiedSupplyChainConsignment>
+
+</rsm:FTI010GetCmdsResponse>
