@@ -11,6 +11,13 @@ fun main() {
       get { "OK" }
     }
 
+    context("/api/v1") {
+      post("/search-request-xml") {
+        // body: ParameterSearchCriteria as json
+        // return: Fti019SearchIdentifierRequest(ParameterSearchCriteria) as xml
+      }
+    }
+
     start()
   }
 }
