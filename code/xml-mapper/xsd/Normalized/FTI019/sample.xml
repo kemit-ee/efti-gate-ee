@@ -14,13 +14,13 @@
   </rsm:ExchangedDocumentContext>
 
   <rsm:ExchangedDocument>
-    <ID schemeID="RFC 9562-4">MSG-FTI019-001</ID>
+    <ID schemeID="RFC 9562-4">2dbf0677-8f35-11f1-850c-3c9c0f2eb459</ID>
     <TypeCode>019</TypeCode>
     <IssueDateTime>
       <udt:DateTimeString format="207">2021-09-24T08:45:00</udt:DateTimeString>
     </IssueDateTime>
     <RequestedSpecifiedQuery>
-      <ID schemeID="RFC 9562-4">SEARCH_ID</ID>
+      <ID schemeID="RFC 9562-4">32153c5c-8f35-11f1-aee4-3c9c0f2eb459</ID>
     </RequestedSpecifiedQuery>
     <RequesterTradeParty>
       <PostalTradeAddress>

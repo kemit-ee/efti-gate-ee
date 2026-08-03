@@ -13,12 +13,12 @@ fun main() {
     }
 
     context("/api/v1") {
-      post("/first") {
+      post("/first/:searchId") {
         // body as xml payload -> send to every gate, return first response (xml)
       }
 
-      get("/rest") {
-        // by requestId - return all the rest responses (many xmls)
+      get("/rest/:searchId") {
+        // return all the rest responses (many xmls, with string delimiter)
       }
     }
 

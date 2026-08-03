@@ -12,9 +12,34 @@ fun main() {
     }
 
     context("/api/v1") {
-      post("/search-request-xml") {
+      post("/search/request-to-xml") {
         // body: ParameterSearchCriteria as json
         // return: Fti019SearchIdentifierRequest(ParameterSearchCriteria) as xml
+      }
+
+      post("/search/response-to-json") {
+        // body: one or more FTI021SearchIdentifierResponse as xml with delimiter
+        // return: multiple UIL+ParameterIDSetCriteria as json (for Authority)
+      }
+
+      post("/dataset/request-to-xml") {
+        // body: UIL+SubsetIds as json
+        // return: FTI009GetCmdsRequest as xml
+      }
+
+      post("/dataset/response-to-json") { // or just unwrap xml?
+        // body: FTI010GetCmdsResponse/SpecifiedSupplyChainConsignment as xml
+        // return: SpecifiedSupplyChainConsignment as xml or converted to json
+      }
+
+      post("/followup/request-to-xml") {
+        // body: UIL+Message as json
+        // return: FTI025LodgeFollowUpCommRequest as xml
+      }
+
+      post("/followup/response-to-json") { // do we need this at all?
+        // body: FTI030LodgeFollowUpCommResponse as xml
+        // return: UIL as json
       }
     }
 

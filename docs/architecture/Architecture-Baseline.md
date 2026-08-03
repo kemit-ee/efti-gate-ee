@@ -105,19 +105,19 @@ Turvaserver → Ruuter → ReSql (local DB lookup)
 - Ruuter
 - ReSql (local identifiers query)
   - If found -> Ruuter tagastab jsonit küsijale (Authority)
-  - If not found -> xml-mapper -> multiplexer -> Send ~27 parallel queries through edelivery component -> Ruuter -> xml-mapper -> json response
+  - If not found -> xml-mapper -> Ruuter -> multiplexer -> Send ~27 parallel queries through edelivery component -> Ruuter -> xml-mapper -> json response
 
 - Full results available on retry (all gates respond) - JSON response
 
-#### Dataset Query / Followup Query
+#### Dataset Query (returns xml) / Followup Query
 ```
 XTR → Ruuter → ReSql (resolve UIL → platform/gate)
               → edelivery (forward to remote gate) OR platform (direct REST/eDelivery)
 ```
 - ReSql looks up UIL to determine: local platform, remote gate, or both
 - If local: direct REST call to platform
-- If local eDelivery: send to platform via edelivery
-- If remote: send to another gate via edelivery
+- If local eDelivery: send to platform via xml-mapper -> edelivery
+- If remote: send to another gate via xml-mapper -> edelivery
 
 Response: original XML sent by (local or remote) platform
 
