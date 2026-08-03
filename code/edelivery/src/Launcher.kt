@@ -32,6 +32,10 @@ fun main() {
   }
 }
 
+/** Forwards raw EFTI xmls to Ruuter for further conversion */
 interface RuuterClient {
-  fun postConsignment(xml: String /* FTI004UploadIdentifierRequest */)
+  fun saveConsignment(xml: String /* FTI004UploadIdentifierRequest */)
+  fun searchConsignments(xml: String /* FTI019SearchIdentifierRequest */)
+  fun getDataset(xml: String /* FTI009GetCmdsRequest */)
+  fun followUp(xml: String /* FTI025LodgeFollowUpCommRequest */)
 }
