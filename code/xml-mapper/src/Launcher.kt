@@ -12,6 +12,16 @@ fun main() {
     }
 
     context("/api/v1") {
+      post("/upload/request-to-json") {
+        // body: FTI004UploadIdentifierRequest or UniqueIDSetUIL as xml
+        // return: UIL+ParameterIDSetCriteria
+      }
+
+      post("/upload/response-to-xml") {
+        // body: UIL as json
+        // return: FTI029UploadIdentifierResponse as xml
+      }
+
       post("/search/request-to-xml") {
         // body: ParameterSearchCriteria as json
         // return: Fti019SearchIdentifierRequest(ParameterSearchCriteria) as xml
@@ -28,7 +38,7 @@ fun main() {
       }
 
       post("/dataset/response-to-json") { // or just unwrap xml?
-        // body: FTI010GetCmdsResponse/SpecifiedSupplyChainConsignment as xml
+        // body: FTI010GetCmdsResponse or SpecifiedSupplyChainConsignment as xml
         // return: SpecifiedSupplyChainConsignment as xml or converted to json
       }
 

@@ -31,3 +31,7 @@ fun main() {
     start()
   }
 }
+
+interface RuuterClient {
+  fun postConsignment(xml: String /* FTI004UploadIdentifierRequest */)
+}
