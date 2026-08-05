@@ -27,6 +27,7 @@ subprojects {
     implementation(klite("json"))
     implementation(klite("xml"))
     implementation(klite("slf4j"))
+    implementation(klite("openapi"))
     implementation("org.postgresql:postgresql:42.7.13")
 
     testImplementation(klite("jdbc-test"))
