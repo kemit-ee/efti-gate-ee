@@ -2,6 +2,7 @@ import klite.Config
 import klite.Server
 import klite.annotations.annotated
 import klite.metrics
+import search.SearchRoutes
 import upload.UploadRoutes
 
 fun main() {
@@ -15,26 +16,7 @@ fun main() {
 
     context("/api/v1") {
       annotated<UploadRoutes>("/upload")
-
-      post("/search/request-to-xml") {
-        // body: ParameterSearchCriteria as json
-        // return: Fti019SearchIdentifierRequest(ParameterSearchCriteria) as xml
-      }
-
-      post("/search/request-to-json") {
-        // body: FTI019SearchIdentifierRequest as xml
-        // return: ParameterSearchCriteria as json
-      }
-
-      post("/search/response-to-json") {
-        // body: one or more FTI021SearchIdentifierResponse as xml with delimiter
-        // return: multiple UIL+ParameterIDSetCriteria as json (for Authority)
-      }
-
-      post("/search/response-to-xml") {
-        // body: ParameterSearchCriteria as json
-        // return: FTI021SearchIdentifierResponse as xml (for another Gate)
-      }
+      annotated<SearchRoutes>("/search")
 
       post("/dataset/request-to-xml") {
         // body: UIL+SubsetIds as json
