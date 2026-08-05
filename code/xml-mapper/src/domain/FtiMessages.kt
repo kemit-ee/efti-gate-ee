@@ -177,6 +177,8 @@ data class UniqueIDSetUIL(
   @XmlPath("ParameterIDSetCriteria") val criteria: ParameterIDSetCriteria
 )
 
+typealias SpecifiedSupplyChainConsignment = Node
+
 // --- Request message classes ---
 
 data class Fti004UploadIdentifierRequest(
@@ -222,7 +224,7 @@ data class Fti010GetCmdsResponse(
   @XmlPath("ExchangedDocument/RequestedSpecifiedQuery/ID") val queryId: String? = null,
   @XmlPath("MessageInformation/SubsetID") val subsetIds: List<String> = emptyList(),
   @XmlPath("EFTIIDInformation/UniqueIDSetUIL") val uil: UIL,
-  @XmlPath("SpecifiedSupplyChainConsignment") val consignment: Node? = null,
+  @XmlPath("SpecifiedSupplyChainConsignment") val consignment: SpecifiedSupplyChainConsignment? = null,
 )
 
 data class Fti021SearchIdentifierResponse(

@@ -1,3 +1,4 @@
+import dataset.DatasetRoutes
 import klite.Config
 import klite.Server
 import klite.annotations.annotated
@@ -17,26 +18,7 @@ fun main() {
     context("/api/v1") {
       annotated<UploadRoutes>("/upload")
       annotated<SearchRoutes>("/search")
-
-      post("/dataset/request-to-xml") {
-        // body: UIL+SubsetIds as json
-        // return: FTI009GetCmdsRequest as xml
-      }
-
-      post("/dataset/request-to-json") {
-        // body: FTI009GetCmdsRequest as xml
-        // return: UIL+SubsetIds as json
-      }
-
-      post("/dataset/response-to-json") { // or just unwrap xml?
-        // body: FTI010GetCmdsResponse or SpecifiedSupplyChainConsignment as xml
-        // return: SpecifiedSupplyChainConsignment as xml or converted to json
-      }
-
-      post("/dataset/response-to-xml") {
-        // body: FTI010GetCmdsResponse or SpecifiedSupplyChainConsignment as xml
-        // return: FTI010GetCmdsResponse as xml
-      }
+      annotated<DatasetRoutes>("/dataset")
 
       post("/followup/request-to-xml") {
         // body: UIL+Message as json
