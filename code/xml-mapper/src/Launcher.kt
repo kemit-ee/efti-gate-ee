@@ -1,6 +1,8 @@
 import klite.Config
 import klite.Server
+import klite.annotations.annotated
 import klite.metrics
+import upload.UploadRoutes
 
 fun main() {
   Config.useEnvFile()
@@ -12,15 +14,7 @@ fun main() {
     }
 
     context("/api/v1") {
-      post("/upload/request-to-json") {
-        // body: FTI004UploadIdentifierRequest or UniqueIDSetUIL as xml
-        // return: UIL+ParameterIDSetCriteria
-      }
-
-      post("/upload/response-to-xml") {
-        // body: UIL as json
-        // return: FTI029UploadIdentifierResponse as xml
-      }
+      annotated<UploadRoutes>("/upload")
 
       post("/search/request-to-xml") {
         // body: ParameterSearchCriteria as json
