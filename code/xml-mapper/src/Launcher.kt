@@ -1,15 +1,20 @@
 import dataset.DatasetRoutes
 import followup.FollowupRoutes
+import io.swagger.v3.oas.annotations.OpenAPIDefinition
+import io.swagger.v3.oas.annotations.info.Info
 import klite.Config
 import klite.Server
 import klite.annotations.annotated
+import klite.json.JsonBody
 import klite.metrics
+import klite.openapi.openApi
 import search.SearchRoutes
 import upload.UploadRoutes
 
 fun main() {
   Config.useEnvFile()
   Server().apply {
+    use<JsonBody>()
     metrics()
 
     context("/health") {
@@ -21,6 +26,10 @@ fun main() {
       annotated<SearchRoutes>("/search")
       annotated<DatasetRoutes>("/dataset")
       annotated<FollowupRoutes>("/followup")
+
+      openApi(annotations = listOf(
+        OpenAPIDefinition(info = Info(title = "XML-Mapper", version = "1.0")),
+      ))
     }
 
     start()
