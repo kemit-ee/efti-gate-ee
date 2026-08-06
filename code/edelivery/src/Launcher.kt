@@ -1,13 +1,19 @@
+import io.swagger.v3.oas.annotations.OpenAPIDefinition
+import io.swagger.v3.oas.annotations.info.Info
 import klite.Config
 import klite.Server
+import klite.annotations.annotated
+import klite.json.JsonBody
 import klite.metrics
+import klite.openapi.openApi
 
 fun main() {
   Config.useEnvFile()
-  val fromPartyId = Config["OWN_PARTY_ID"]
+//  val fromPartyId = Config["OWN_PARTY_ID"]
   // TODO: val partyRegistry load on startup using ReSql (CI/whatever will restart us on change)
 
   Server().apply {
+    use<JsonBody>()
     metrics()
 
     context("/health") {
@@ -16,16 +22,16 @@ fun main() {
 
     // Internal
     context("/api/v1") {
-      post("/send/:partyId") {
-        // body as xml payload
-      }
+      annotated<InternalRoutes>()
+
+      openApi(annotations = listOf(
+        OpenAPIDefinition(info = Info(title = "eDelivery", version = "1.0")),
+      ))
     }
 
     // Internet-facing
-    context("/services/msh") {
-      post {
-        // body as xml payload
-      }
+    context("/services") {
+      annotated<EDeliveryRoutes>()
     }
 
     start()
