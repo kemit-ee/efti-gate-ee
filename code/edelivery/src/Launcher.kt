@@ -3,9 +3,11 @@ import io.swagger.v3.oas.annotations.info.Info
 import klite.Config
 import klite.Server
 import klite.annotations.annotated
+import klite.http.httpClient
 import klite.json.JsonBody
 import klite.metrics
 import klite.openapi.openApi
+import klite.register
 
 fun main() {
   Config.useEnvFile()
@@ -14,6 +16,7 @@ fun main() {
 
   Server().apply {
     use<JsonBody>()
+    register(httpClient())
     metrics()
 
     context("/health") {
@@ -36,12 +39,4 @@ fun main() {
 
     start()
   }
-}
-
-/** Forwards raw EFTI xmls to Ruuter for further conversion */
-interface RuuterClient {
-  fun saveConsignment(xml: String /* FTI004UploadIdentifierRequest */)
-  fun searchConsignments(xml: String /* FTI019SearchIdentifierRequest */)
-  fun getDataset(xml: String /* FTI009GetCmdsRequest */)
-  fun followUp(xml: String /* FTI025LodgeFollowUpCommRequest */)
 }
