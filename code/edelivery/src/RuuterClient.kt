@@ -2,21 +2,21 @@ import java.net.http.HttpClient
 
 /** Forwards raw EFTI XMLs to Ruuter for further conversion */
 class RuuterClient(
-    private val http: HttpClient,
+  private val http: HttpClient,
 ) {
-    fun saveConsignment(xml: String /* FTI004UploadIdentifierRequest */) {
+  fun saveConsignment(xml: String /* FTI004UploadIdentifierRequest */) {
+    TODO()
+  }
 
-    }
+  fun searchConsignments(xml: String /* FTI019SearchIdentifierRequest */) {
+    TODO()
+  }
 
-    fun searchConsignments(xml: String /* FTI019SearchIdentifierRequest */) {
+  fun getDataset(xml: String /* FTI009GetCmdsRequest */) {
+    TODO()
+  }
 
-    }
-
-    fun getDataset(xml: String /* FTI009GetCmdsRequest */) {
-
-    }
-
-    fun followUp(xml: String /* FTI025LodgeFollowUpCommRequest */) {
-
-    }
+  fun followUp(xml: String /* FTI025LodgeFollowUpCommRequest */) {
+    TODO()
+  }
 }
