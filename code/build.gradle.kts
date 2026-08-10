@@ -22,7 +22,7 @@ subprojects {
   }
 
   dependencies {
-    fun klite(module: String) = "com.github.keksworks.klite:klite-$module:e290fd61" // 2.0.0+
+    fun klite(module: String) = "com.github.keksworks.klite:klite-$module:2.0.1"
     implementation(klite("server"))
     implementation(klite("json"))
     implementation(klite("xml"))
