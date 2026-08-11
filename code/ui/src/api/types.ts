@@ -8,9 +8,9 @@ export interface Authority {countryCode: CountryCode; id: string; subsets: Array
 // class efti.domain.Status
 export enum Status {ONLINE = 'ONLINE', OFFLINE = 'OFFLINE', DISABLED = 'DISABLED'}
 // class efti.gates.Gate
-export interface Gate {countryCode: CountryCode; eDeliveryCert: string; eDeliveryUrl: URI; id: string; isDisabled: boolean; isFast: boolean; isOnline: boolean; status: Status; tlsCert?: string; xsdVersion: XsdVersion}
+export interface Gate {countryCode: CountryCode; eDeliveryCert: string; eDeliveryUrl: URI; id: string; isDisabled: boolean; isFast: boolean; isOnline: boolean; status: Status; tlsCert?: string; xsdVersion: XsdVersion, xsdSupport: XsdVersion}
 // class efti.platforms.Platform
-export interface Platform {baseUrl: URI; eDeliveryCert?: string; eDeliveryUrl?: URI; headers: Record<string, string>; id: string; isDisabled: boolean; isOnline: boolean; status: Status; supportsSubsetting: boolean; tlsCert?: string; xsdVersion: XsdVersion}
+export interface Platform {baseUrl: URI; eDeliveryCert?: string; eDeliveryUrl?: URI; headers: Record<string, string>; id: string; isDisabled: boolean; isOnline: boolean; status: Status; supportsSubsetting: boolean; tlsCert?: string; xsdVersion: XsdVersion, xsdSupport: XsdVersion}
 // class users.Role
 export enum Role {ADMIN = 'ADMIN', GATE = 'GATE', PLATFORM = 'PLATFORM', AUTHORITY = 'AUTHORITY'}
 // class users.User

@@ -1,14 +1,12 @@
 <script lang="ts">
-  import {changeLang, lang, t,} from 'i18n'
+  import {changeLang, lang, t} from 'i18n'
   import langs from 'i18n/langs.json'
   import {activePath, Link} from 'src/router'
-  import {Mode, type NavRoute} from 'src/shared/Mode'
+  import {type NavRoute} from 'src/shared/Mode'
   import Button from 'src/components/Button.svelte'
   import {user, userSwitch} from 'src/stores/auth'
   import SelectField from 'src/forms/SelectField.svelte'
 
-  export let mode: Mode
-  export let onToggleMode: () => void
   export let routes: NavRoute[]
 
   const isMobile = innerWidth < 640
@@ -17,13 +15,12 @@
   $: if (selectedLang !== lang) changeLang(selectedLang)
 
   $: isActive = (path: string) => $activePath.split('/')[1] === path.split('/')[1]
-  $: otherMode = mode === Mode.ADMIN ? Mode.AUTHORITY : Mode.ADMIN
 </script>
 
 <nav class="fixed w-full top-0 z-40 bg-gradient-to-r from-zinc-600 to-blue-700 shadow-lg text-white">
   <div class="px-4 sm:px-6 lg:px-8 flex h-16 items-center justify-between">
     <div class="flex items-center gap-4">
-      <h1 class="text-lg font-bold">{t[mode.toLowerCase()]?.title}</h1>
+      <h1 class="text-lg font-bold">{t.general.admin}</h1>
       {#if import.meta.env.DEV}
         <h5 class="font-black ml-4 text-red-500">DEV</h5>
       {/if}
@@ -37,7 +34,6 @@
               {link.name}
             </Link>
           {/each}
-          <Button label={t.modes[otherMode]} onclick={() => {mode = otherMode; onToggleMode()}}/>
         </div>
       {/if}
     </div>

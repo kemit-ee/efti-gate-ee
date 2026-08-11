@@ -4,11 +4,11 @@
   import type {Consignment} from 'src/api/types'
   import Button from 'src/components/Button.svelte'
   import Modal from 'src/components/Modal.svelte'
-  import XmlViewer from 'src/pages/authority/datasets/XmlViewer.svelte'
   import api from 'src/api/api'
   import {showToast} from 'src/stores/toasts'
-  import QrCodeViewer from 'src/pages/authority/identifiers/QrCodeViewer.svelte'
-  import {combineUIL} from 'src/pages/authority/uil'
+  import {combineUIL} from "src/shared/uil";
+  import XmlViewer from "src/components/XmlViewer.svelte";
+  import QrCodeViewer from "src/components/QrCodeViewer.svelte";
 
   export let consignments: Consignment[] | undefined
   export let onDeleted: (consignment: Consignment) => void

@@ -18,7 +18,6 @@ function choosePreferredLang() {
 
 async function load() {
   if (lang === 'en') return (await import('./en.json')).default
-  if (lang === 'pt') return (await import('./pt.json')).default
   else throw new Error('Unsupported lang: ' + lang)
 }
 

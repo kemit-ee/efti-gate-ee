@@ -1,16 +1,9 @@
 {
-  "admin": {
-    "title": "eFTI Gate"
-  },
   "authority": {
     "title": "eFTI Authority"
   },
   "nav": {
     "menu": "Menu"
-  },
-  "modes": {
-    "ADMIN": "Admin",
-    "AUTHORITY": "Authority"
   },
   "statuses": {
     "ONLINE": "ONLINE",
@@ -24,6 +17,7 @@
   "general": {
     "any": "Any",
     "save": "Save",
+    "admin": "Admin",
     "saved": "Saved",
     "add": "Add",
     "remove": "Remove",
