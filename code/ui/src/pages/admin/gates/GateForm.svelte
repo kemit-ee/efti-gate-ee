@@ -1,0 +1,44 @@
+<script lang="ts">
+  import {type Gate, Status} from 'src/api/types'
+  import api from 'src/api/api'
+  import {t} from 'i18n'
+  import Form from 'src/forms/Form.svelte'
+  import Button from 'src/components/Button.svelte'
+  import FormField from 'src/forms/FormField.svelte'
+  import {showToast} from 'src/stores/toasts'
+  import CheckboxField from 'src/forms/CheckboxField.svelte'
+  import EDeliveryFields from 'src/pages/admin/EDeliveryFields.svelte'
+  import CountrySelect from 'src/pages/admin/CountrySelect.svelte'
+  import SelectField from 'src/forms/SelectField.svelte'
+
+  export let gate: Gate
+  export let onSaved = (gate: Gate, isNew: boolean) => {}
+  export let disabled = false
+
+  const isEdit = !!gate.id
+
+   async function submit() {
+    gate.status = gate.isDisabled ? Status.DISABLED : Status.OFFLINE
+    await api.post('gates', gate)
+    if (!gate.isDisabled) api.post(`gates/${gate.id}/ping`).catch(() => {})
+    showToast(isEdit ? t.general.saved : `${t.gates.added}: ${gate.id}`)
+    onSaved(gate, !isEdit)
+  }
+</script>
+
+<Form {submit}>
+  <FormField label={t.gates.id} bind:value={gate.id} disabled={disabled || isEdit}/>
+  <CountrySelect label={t.general.countryCode} bind:countryCode={gate.countryCode} {disabled}/>
+  <FormField label={t.gates.eDeliveryUrl} type="url" bind:value={gate.eDeliveryUrl} placeholder={t.gates.eDeliveryUrlPlaceholder} {disabled}/>
+
+  <EDeliveryFields bind:entity={gate} {disabled}/>
+
+  <SelectField label={t.gates.xsdSupport} options={t.xsdSupport} bind:value={gate.xsdSupport} {disabled}/>
+
+  {#if !disabled}
+    <div class="flex gap-4 items-center">
+      <Button type="submit" label={t.general.save} class="primary"/>
+      <CheckboxField label={t.gates.disabled} bind:checked={gate.isDisabled} class="ml-4"/>
+    </div>
+  {/if}
+</Form>

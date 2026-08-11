@@ -18,3 +18,7 @@ scripts/epic-issue-map.tsv
 .DS_Store
 **/.DS_Store
 code/.gradle/
+
+# lib & build files
+node_modules/
+build/

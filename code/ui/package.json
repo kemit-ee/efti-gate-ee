@@ -1,0 +1,41 @@
+{
+  "name": "app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-check",
+    "test": "vitest watch",
+    "test:run": "vitest run"
+  },
+  "dependencies": {
+    "@tailwindcss/forms": "^0.5.9",
+    "highlight.js": "^11.11.1",
+    "qr-scanner": "^1.4.2",
+    "qrcode": "^1.5.4",
+    "svelte-highlight": "^7.9.0"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^6.2.4",
+    "@testing-library/svelte": "^5.3.0",
+    "@tsconfig/svelte": "^5.0.4",
+    "@types/qrcode": "^1.5.6",
+    "autoprefixer": "^10.4.15",
+    "jsdom": "^25.0.1",
+    "postcss": "^8.5.16",
+    "postcss-load-config": "^4.0.1",
+    "svelte": "^5.56.4",
+    "svelte-check": "^4.1.0",
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5.7.2",
+    "vite": "^7.3.6",
+    "vitest": "^4.1.10"
+  },
+  "browserslist": [
+    "> 0.5%",
+    "not dead"
+  ]
+}
