@@ -22,7 +22,7 @@
     <div class="flex items-center gap-4">
       <h1 class="text-lg font-bold">{t.general.admin}</h1>
       {#if import.meta.env.DEV}
-        <h5 class="font-black ml-4 text-red-500">DEV</h5>
+        <h5 class="font-black text-red-500">DEV</h5>
       {/if}
 
       {#if menuOpen}
