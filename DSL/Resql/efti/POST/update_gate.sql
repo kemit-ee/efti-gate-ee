@@ -6,7 +6,7 @@ VALUES (
   :eDeliveryCert,
   :tlsCert,
   COALESCE(:status, 'OFFLINE')::gate_status,
-  COALESCE(:isActive, true)
+  true
 )
 RETURNING
   row_id,

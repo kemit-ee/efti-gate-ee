@@ -4,7 +4,7 @@ VALUES (
   :countryCode,
   :name,
   ARRAY(SELECT jsonb_array_elements_text(:subsets::jsonb)),
-  COALESCE(:isActive, true)
+  true
 )
 RETURNING
   row_id,

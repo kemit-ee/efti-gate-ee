@@ -17,8 +17,8 @@ VALUES (
   :tlsCert,
   :certSubject,
   :certSerial,
-  COALESCE(:supportsSubsetting, true),
-  COALESCE(:isActive, true)
+  COALESCE(:supportsSubsetting::text, 'true')::boolean,
+  true
 )
 RETURNING
   row_id,
