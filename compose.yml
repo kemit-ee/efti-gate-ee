@@ -1,7 +1,7 @@
 services:
   database:
     container_name: efti_database
-    image: postgres:18
+    image: postgres:17
     environment:
     - POSTGRES_USER=efti
     - POSTGRES_PASSWORD=01234
