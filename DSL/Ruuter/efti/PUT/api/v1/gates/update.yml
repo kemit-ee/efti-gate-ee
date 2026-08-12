@@ -1,0 +1,53 @@
+update_gate:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/update_gate"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.params.gateId}"
+      countryCode: "${incoming.body.countryCode}"
+      eDeliveryUrl: "${incoming.body.eDeliveryUrl}"
+      eDeliveryCert: "${incoming.body.eDeliveryCert}"
+      tlsCert: "${incoming.body.tlsCert}"
+      status: "${incoming.body.status}"
+      isGateActive: "${incoming.body.isGateActive}"
+  result: update_result
+  next: check_update
+
+check_update:
+  switch:
+    - condition: ${update_result.response.body == null || update_result.response.body.length == 0}
+      next: update_failed
+  next: verify_gate
+
+verify_gate:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/get_gate_by_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.params.gateId}"
+  result: verify_result
+  next: check_verify
+
+check_verify:
+  switch:
+    - condition: ${verify_result.response.body == null || verify_result.response.body.length == 0}
+      next: verify_failed
+  next: respond
+
+respond:
+  return: ${verify_result.response.body}
+  next: end
+
+update_failed:
+  return: '{"error": "Failed to update gate"}'
+  status: 500
+  next: end
+
+verify_failed:
+  return: '{"error": "Gate updated but could not be verified"}'
+  status: 500
+  next: end

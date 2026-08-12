@@ -1,0 +1,15 @@
+fetch_authorities:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/get_authorities"
+    headers:
+      Content-Type: "application/json"
+    body:
+      limit: "${incoming.params.limit}"
+      offset: "${incoming.params.offset}"
+  result: result
+  next: respond
+
+respond:
+  return: ${result.response.body}
+  next: end
