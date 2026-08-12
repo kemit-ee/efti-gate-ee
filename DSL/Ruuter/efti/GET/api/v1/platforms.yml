@@ -5,8 +5,8 @@ fetch_platforms:
     headers:
       Content-Type: "application/json"
     body:
-      limit: "${incoming.params.limit ?: 20}"
-      offset: "${incoming.params.offset ?: 0}"
+      limit: "${incoming.params.limit}"
+      offset: "${incoming.params.offset}"
   result: result
   next: respond
 

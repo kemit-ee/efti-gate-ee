@@ -8,4 +8,4 @@ SELECT DISTINCT ON (id)
   created_at
 FROM authorities
 ORDER BY id, created_at DESC
-LIMIT :limit OFFSET :offset;
+LIMIT COALESCE(:limit::int, 20) OFFSET COALESCE(:offset::int, 0);

@@ -10,8 +10,8 @@ fetch_audit_log:
       userId: "${incoming.params.userId}"
       from: "${incoming.params.from}"
       to: "${incoming.params.to}"
-      limit: "${incoming.params.limit ?: 20}"
-      offset: "${incoming.params.offset ?: 0}"
+      limit: "${incoming.params.limit}"
+      offset: "${incoming.params.offset}"
   result: result
   next: respond
 
