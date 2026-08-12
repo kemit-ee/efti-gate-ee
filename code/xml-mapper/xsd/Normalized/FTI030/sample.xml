@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rsm:FTI030LodgeFollowUpCommResponse
+  xmlns:rsm="urn:eu:move:eFTI:data:draft:FTI030LodgeFollowUpCommResponse:1"
+  xmlns="urn:eu:move:eFTI:data:standard:ReusableAggregateBusinessInformationEntity:34"
+  xmlns:udt="urn:eu:move:eFTI:data:standard:UnqualifiedDataType:34">
+
+  <rsm:ExchangedDocumentContext>
+    <MessageStandardSpecifiedDocumentContextParameter>
+      <ID>FTI030</ID>
+      <SpecifiedDocumentVersion>
+        <ID>1.0</ID>
+      </SpecifiedDocumentVersion>
+    </MessageStandardSpecifiedDocumentContextParameter>
+  </rsm:ExchangedDocumentContext>
+
+  <rsm:ExchangedDocument>
+    <ID schemeID="RFC 9562-4">MSG-FTI030-001</ID>
+    <TypeCode>030</TypeCode>
+    <StatusCode>C</StatusCode>
+    <IssueDateTime>
+      <udt:DateTimeString format="207">2021-09-24T09:05:00</udt:DateTimeString>
+    </IssueDateTime>
+    <RequestedSpecifiedQuery>
+      <ID schemeID="RFC 9562-4">FOLLOW_UP</ID>
+    </RequestedSpecifiedQuery>
+  </rsm:ExchangedDocument>
+
+  <rsm:EFTIIDInformation>
+    <UniqueIDSetUIL>
+      <GateID>Gate-001</GateID>
+      <PlatformID>Platform-001</PlatformID>
+      <DatasetID schemeID="RFC 9562-4">550e8400-e29b-41d4-a716-446655440000</DatasetID>
+    </UniqueIDSetUIL>
+  </rsm:EFTIIDInformation>
+
+</rsm:FTI030LodgeFollowUpCommResponse>

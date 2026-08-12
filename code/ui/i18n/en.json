@@ -1,0 +1,183 @@
+{
+  "authority": {
+    "title": "eFTI Authority"
+  },
+  "nav": {
+    "menu": "Menu"
+  },
+  "statuses": {
+    "ONLINE": "ONLINE",
+    "OFFLINE": "OFFLINE",
+    "DISABLED": "DISABLED"
+  },
+  "xsdSupport": {
+    "V0_9": "v0.9",
+    "FTI": "FTI"
+  },
+  "general": {
+    "any": "Any",
+    "save": "Save",
+    "admin": "Admin",
+    "saved": "Saved",
+    "add": "Add",
+    "remove": "Remove",
+    "edit": "Edit",
+    "view": "View",
+    "delete": "Delete",
+    "deleteConfirm": "Really delete",
+    "deleted": "Deleted",
+    "optional": "Optional",
+    "close": "Close",
+    "noItems": "No items found",
+    "send": "Send",
+    "search": "Search",
+    "ping": "Ping",
+    "pinged": "pinged successfully",
+    "countryCode": "Country",
+    "test": "Test",
+    "running": "Running",
+    "failed": "Failed",
+    "success": "Success",
+    "runTests": "Run tests"
+  },
+  "gates": {
+    "title": "Gates",
+    "gate": "Gate",
+    "ownGate": "This gate details",
+    "id": "Gate ID",
+    "eDeliveryUrl": "eDelivery URL",
+    "eDeliveryUrlPlaceholder": "https://some.host/services/msh",
+    "eDeliveryCert": "eDelivery certificate",
+    "tlsCert": "TLS certificate",
+    "disabled": "Disabled",
+    "xsdSupport": "XSD Support",
+    "added": "Gate registered successfully",
+    "ownGateDescription": "Information about this gate. Use this to configure your eDelivery access point"
+  },
+  "platforms": {
+    "key": "Key",
+    "value": "Value",
+    "title": "Platforms",
+    "platform": "Platform",
+    "id": "Platform ID",
+    "baseUrl": "Base URL",
+    "supportsSubsetting": "Supports Subsetting",
+    "eDelivery": "EDelivery",
+    "eDeliveryCert": "eDelivery certificate",
+    "tlsCert": "TLS certificate",
+    "headers": "Headers",
+    "xsdSupport": "XSD Support",
+    "added": "Platform registered successfully",
+    "disabled": "Disabled",
+    "status": "Status",
+    "consignments": "Consignments"
+  },
+  "authorities": {
+    "title": "Authorities",
+    "id": "Authority ID",
+    "authority": "Authority",
+    "subsets": "Allowed subsets",
+    "added": "Authority registered successfully"
+  },
+  "users": {
+    "title": "Users",
+    "user": "User",
+    "name": "Name",
+    "email": "Email",
+    "isAdmin": "Admin",
+    "generateSecret": "Generate new password or token",
+    "copyPastePassword": "Copy user's password (you won't see it again)",
+    "copyPasteToken": "Copy user's bearer token (you won't see it again)",
+    "createForAdmin": "Success! Now create a technical user to get access token or an administrative user",
+    "subsets": "Allowed subsets",
+    "subsetsNone": "Select none to allow all",
+    "addGate": "Add Gate",
+    "addGates": "Add gates",
+    "addPlatform": "Add Platform",
+    "addPlatforms": "Add platforms",
+    "addAuthority": "Add Authority",
+    "addAuthorities": "Add authorities",
+    "selectGate": "Select Gate...",
+    "selectPlatform": "Select Platform...",
+    "selectAuthority": "Select Authority...",
+    "roles": "Roles"
+  },
+  "datasets": {
+    "title": "Datasets",
+    "gateId": "Gate ID",
+    "platformId": "Platform ID",
+    "datasetId": "Dataset ID",
+    "followupSuccess": "Sent follow-up message successfully",
+    "followUp": "Follow-up",
+    "subsets": "Subsets",
+    "commaSeparatedSubsets": "Comma separated subset ids",
+    "scanQrCode": "Scan QR Code",
+    "scanConsignmentQr": "Scan Consignment's QR Code",
+    "identifierTestResult": "Identifier query test result:",
+    "datasetTestResult": "Dataset query test result:",
+    "followUpTestResult": "Follow-up test result:"
+  },
+  "errors": {
+    "technical": "Technical error, please try again",
+    "alreadyExists": "Already exists",
+    "tooLong": "Value is too long",
+    "invalidCert": "Invalid PEM certificate, should include BEGIN CERTIFICATE"
+  },
+  "identifiers": {
+    "title": "Identifiers",
+    "identifier": "Identifier",
+    "identifierPlaceholder": "E.g. license plate number",
+    "identifierDescription": "A unique code used to identify the transportation. For road transport, this refers to the license plate number.",
+    "transportationMode": "Transportation Mode",
+    "transportationModeDescription": "Method of transport, such as by air, sea, rail, road or inland waterway, for the main leg of transport of the movement of a consignment of goods.",
+    "registrationCountry": "Registration Country",
+    "registrationCountryDescription": "The country of registration of the means of transport used in the main leg of transportation of the consignment of goods from one place to another.",
+    "identifierType": "Identifier Type",
+    "dangerousGoods": "Dangerous Goods Only",
+    "dangerousGoodsDescription": "The indication of whether or not dangerous goods are carried for this logistics transport movement.",
+    "means": "Means",
+    "equipment": "Equipment",
+    "carriedEquipment": "Carried Equipment",
+    "identifierSearch": "Identifier Search",
+    "identifierSearchDescription": "Search for transport identifiers across the network",
+    "queryDataset": "Query Full Dataset",
+    "carrierAcceptance": "Carrier Acceptance",
+    "delivery": "Delivery",
+    "transport": "Transport",
+    "mode": "Mode",
+    "modes": {
+      "1": "Waterway",
+      "2": "Rail",
+      "3": "Road",
+      "4": "Air"
+    },
+    "country": "Country",
+    "category": "Category",
+    "sequence": "Seq",
+    "forceBroadcast": "Force Broadcast",
+    "forceBroadcastDescription": "Ask for identifiers from all available gates even if data is available locally",
+    "addType": "Add type...",
+    "types": {
+      "means": "Means",
+      "equipment": "Equipment",
+      "carried": "Carried"
+    }
+  },
+  "consignments": {
+    "title": "Consignments",
+    "consignment": "Consignment",
+    "datasetId": "Dataset ID",
+    "platformId": "Platform ID",
+    "createdAt": "Created",
+    "updatedAt": "Updated",
+    "filter": "Filter...",
+    "showCabotage": "Show only cabotage",
+    "viewQrCode": "View QR Code",
+    "uilQrCode": "UIL QR Code"
+  },
+  "metrics": {
+    "title": "Metrics",
+    "metric": "Metric",
+    "value": "Value"
+  }
+}

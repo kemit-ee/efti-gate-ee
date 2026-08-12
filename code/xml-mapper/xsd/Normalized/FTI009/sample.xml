@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rsm:FTI009GetCmdsRequest
+  xmlns:rsm="urn:eu:move:eFTI:data:draft:FTI009GetCmdsRequest:1"
+  xmlns="urn:eu:move:eFTI:data:standard:ReusableAggregateBusinessInformationEntity:34"
+  xmlns:udt="urn:eu:move:eFTI:data:standard:UnqualifiedDataType:34">
+
+  <rsm:ExchangedDocumentContext>
+    <MessageStandardSpecifiedDocumentContextParameter>
+      <ID>FTI009</ID>
+      <SpecifiedDocumentVersion>
+        <ID>1.0</ID>
+      </SpecifiedDocumentVersion>
+    </MessageStandardSpecifiedDocumentContextParameter>
+  </rsm:ExchangedDocumentContext>
+
+  <rsm:ExchangedDocument>
+    <ID schemeID="RFC 9562-4">MSG-FTI009-001</ID>
+    <TypeCode>009</TypeCode>
+    <IssueDateTime>
+      <udt:DateTimeString format="207">2021-09-24T08:45:00</udt:DateTimeString>
+    </IssueDateTime>
+    <RequestedSpecifiedQuery>
+      <ID schemeID="RFC 9562-4">GET_CMDS</ID>
+    </RequestedSpecifiedQuery>
+    <RequesterTradeParty>
+      <PostalTradeAddress>
+        <CountryID>DE</CountryID>
+      </PostalTradeAddress>
+    </RequesterTradeParty>
+  </rsm:ExchangedDocument>
+
+  <rsm:MessageInformation>
+    <SubsetID schemeID="RFC 9562-4">EE05b</SubsetID>
+  </rsm:MessageInformation>
+
+  <rsm:EFTIIDInformation>
+    <UniqueIDSetUIL>
+      <GateID>Gate-001</GateID>
+      <PlatformID>Platform-001</PlatformID>
+      <DatasetID schemeID="RFC 9562-4">550e8400-e29b-41d4-a716-446655440000</DatasetID>
+    </UniqueIDSetUIL>
+  </rsm:EFTIIDInformation>
+
+</rsm:FTI009GetCmdsRequest>

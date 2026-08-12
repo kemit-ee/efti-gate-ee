@@ -1,0 +1,54 @@
+<script lang="ts">
+  import {type Gate, Status} from 'src/api/types'
+  import api from 'src/api/api'
+  import SortableTable from 'src/components/SortableTable.svelte'
+  import {showToast} from 'src/stores/toasts'
+  import {t} from 'i18n'
+  import Button from 'src/components/Button.svelte'
+  import {navigate} from 'src/router'
+
+  export let gates: Gate[]
+  export let onEdit: (gate: Gate) => void
+  export let onDeleted: (gate: Gate) => void
+  export let onTest: (gate: Gate) => void
+
+  async function ping(gate: Gate) {
+    try {
+      await api.post(`gates/${gate.id}/ping`)
+      showToast(gate.id + ' ' + t.general.pinged)
+    } catch (e: any) {
+      if (!gate.isDisabled) gates = gates.map(g => g.id === gate.id ? { ...g, status: Status.OFFLINE, isOnline: false } : g)
+      throw e
+    }
+  }
+
+  async function onDelete(gate: Gate) {
+    if (!confirm(t.general.deleteConfirm + ' ' + gate.id + '?')) return
+    await api.delete(`gates/${gate.id}`)
+    showToast(t.general.deleted + ': ' + gate.id)
+    onDeleted(gate)
+  }
+</script>
+
+<SortableTable items={gates} labels={t.gates} columns={['id', [t.general.countryCode, 'countryCode'], 'eDeliveryUrl', 'status', '']} let:item={g}>
+  <tr class="{g.isDisabled ? 'bg-gray-300' : 'bg-none'}">
+    <td>{g.id}</td>
+    <td>{g.countryCode}</td>
+    <td><a href={g.eDeliveryUrl} target="_blank">{g.eDeliveryUrl}</a></td>
+    <td>
+      <div class="flex items-center gap-2">
+        <div class="h-4 w-4 rounded-full {g.isOnline ? 'bg-green-500' : g.isDisabled ? 'bg-yellow-500' :  'bg-red-500'}" ></div>
+        <span>{t.statuses[g.status]}</span>
+      </div>
+    </td>
+    <td>
+      <div class="flex flex-wrap justify-end gap-2">
+        <Button label={t.users.title} onclick={() => navigate('/users?gateId=' + g.id)} size="sm"/>
+        <Button label={t.general.edit} onclick={() => onEdit(g)} size="sm"/>
+        <Button label={t.general.ping} onclick={() => ping(g)} size="sm"/>
+        <Button label={t.general.test} onclick={() => onTest(g)} size="sm"/>
+        <Button label={t.general.delete} onclick={() => onDelete(g)} size="sm" class="danger"/>
+      </div>
+    </td>
+  </tr>
+</SortableTable>

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:ram="urn:eu:move:eFTI:data:standard:ReusableAggregateBusinessInformationEntity:34"
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    xmlns:qdt="urn:eu:move:eFTI:data:standard:QualifiedDataType:34"
+    xmlns:udt="urn:eu:move:eFTI:data:standard:UnqualifiedDataType:34"
+    targetNamespace="urn:eu:move:eFTI:data:standard:ReusableAggregateBusinessInformationEntity:34"
+    elementFormDefault="qualified">
+  <xs:import namespace="urn:eu:move:eFTI:data:standard:QualifiedDataType:34" schemaLocation="FTI029n_urn_eu_move_eFTI_data_standard_QualifiedDataType_34.xsd"/>
+  <xs:import namespace="urn:eu:move:eFTI:data:standard:UnqualifiedDataType:34" schemaLocation="FTI029n_urn_eu_move_eFTI_data_standard_UnqualifiedDataType_34.xsd"/>
+  <xs:complexType name="DocumentContextParameterType">
+    <xs:sequence>
+      <xs:element name="ID" type="udt:IDType"/>
+      <xs:element name="SpecifiedDocumentVersion" type="ram:DocumentVersionType"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="DocumentVersionType">
+    <xs:sequence>
+      <xs:element name="ID" type="udt:IDType"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="EFTIIDInformationType">
+    <xs:sequence>
+      <xs:element name="UniqueIDSetUIL" type="ram:UILType"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="ExchangedDocumentContextType">
+    <xs:sequence>
+      <xs:element name="MessageStandardSpecifiedDocumentContextParameter" type="ram:DocumentContextParameterType"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="ExchangedDocumentType">
+    <xs:sequence>
+      <xs:element name="ID" type="udt:IDType"/>
+      <xs:element name="TypeCode" type="qdt:DocumentCodeType"/>
+      <xs:element name="StatusCode" type="qdt:DocumentStatusCodeType"/>
+      <xs:element name="IssueDateTime" type="udt:DateTimeType"/>
+      <xs:element name="IncludedNote" type="ram:NoteType" minOccurs="0"/>
+      <xs:element name="RequestedSpecifiedQuery" type="ram:SpecifiedQueryType"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="NoteType">
+    <xs:sequence>
+      <xs:element name="ContentCode" type="udt:CodeType" minOccurs="0"/>
+      <xs:element name="Content" type="udt:TextType"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="SpecifiedQueryType">
+    <xs:sequence>
+      <xs:element name="ID" type="udt:IDType"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="UILType">
+    <xs:sequence>
+      <xs:element name="GateID" type="udt:IDType"/>
+      <xs:element name="PlatformID" type="udt:IDType"/>
+      <xs:element name="DatasetID" type="udt:IDType"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>

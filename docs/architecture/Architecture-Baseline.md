@@ -46,22 +46,22 @@ WHERE uil = :uil
 ### eFTI specific components
 Handles eFTI/eDelivery protocol specifics that Ruuter cannot do:
 
-EFTI-MAPPER:
+XML-MAPPER:
 | **XML/XSD parsing** | Parses incoming eFTI XML requests (by default only new XSD schemas), extracts data into JSON for Ruuter/ReSql                   |
 | **XML generation** | Builds eFTI XML responses from JSON data returned by ReSql                                                                      |
 
-GATE-MULTIPLEXER:
+multiplexer:
 | **Multiplexing** | Fans out identifier queries to all remote gates, aggregates responses (returns first result immediately, full results on retry) |
 
-EDR:
+EDELIVERY:
 | **eDelivery protocol** | Handles AS4 messaging, SOAP envelopes, and eDelivery transport for gate-to-gate and platform communication                      |
 | **Protocol translation** | Converts between REST (internal) and eDelivery/SOAP (external)                                                                  |
 
 **All these components are called by Ruuter DSLs as HTTP services:**
 ```
-Ruuter DSL step → POST http://edr:8080/parse/xml  (incoming XML → JSON)
-Ruuter DSL step → POST http://edr:8080/build/xml  (JSON → outgoing XML)
-Ruuter DSL step → POST http://edr:8080/send/gate  (deliver to remote gate via eDelivery)
+Ruuter DSL step → POST http://edelivery:8080/parse/xml  (incoming XML → JSON)
+Ruuter DSL step → POST http://edelivery:8080/build/xml  (JSON → outgoing XML)
+Ruuter DSL step → POST http://edelivery:8080/send/gate  (deliver to remote gate via eDelivery)
 ```
 
 ## Data Flow Pattern (3-hop rule)
@@ -73,10 +73,10 @@ Client → Ruuter → ReSql → DB
          (route)  (query)
 ```
 
-For operations requiring XML processing or external delivery, EDR adds additional hops:
+For operations requiring XML processing or external delivery, edelivery adds additional hops:
 
 ```
-Client → Ruuter → EDR (parse XML) → Ruuter → ReSql → DB
+Client → Ruuter → edelivery (parse XML) → Ruuter → ReSql → DB
          (route)   (extract data)    (route)  (query)
 ```
 
@@ -99,61 +99,61 @@ CronManager iga päev (vms) genereerib constants.ini uuesti ja toimub redeploy
 #### Identifier Query (eeldab, et vastus on kindlas formaadis json)
 ```
 Turvaserver → Ruuter → ReSql (local DB lookup)
-            → MULTIPLEXER (multiplex query to all remote gates)
+            → multiplexer (multiplex query to all remote gates)
             → Ruuter → response
 ```
 - Ruuter
 - ReSql (local identifiers query)
   - If found -> Ruuter tagastab jsonit küsijale (Authority)
-  - If not found -> MULTIPLEXER -> Send ~27 parallel queries through EDR component -> Ruuter -> EFTI-MAPPER -> json response
+  - If not found -> xml-mapper -> Ruuter -> multiplexer -> Send ~27 parallel queries through edelivery component -> Ruuter -> xml-mapper -> json response
 
 - Full results available on retry (all gates respond) - JSON response
 
-#### Dataset Query / Followup Query
+#### Dataset Query (returns xml) / Followup Query
 ```
 XTR → Ruuter → ReSql (resolve UIL → platform/gate)
-              → EDR (forward to remote gate) OR platform (direct REST/eDelivery)
+              → edelivery (forward to remote gate) OR platform (direct REST/eDelivery)
 ```
 - ReSql looks up UIL to determine: local platform, remote gate, or both
 - If local: direct REST call to platform
-- If local eDelivery: send to platform via EDR
-- If remote: send to another gate via EDR
+- If local eDelivery: send to platform via xml-mapper -> edelivery
+- If remote: send to another gate via xml-mapper -> edelivery
 
 Response: original XML sent by (local or remote) platform
 
 ### Platform Save Identifiers (FTI004)
 
-**Flow:** `Platform → Ruuter → EFTI-MAPPER (parse XML) → Ruuter → ReSql → DB`
+**Flow:** `Platform → Ruuter → xml-mapper (parse XML) → Ruuter → ReSql → DB`
 
 Consignment table should contain a separate column per each EFTI ParameterIDSetCriteria xml field.
 
 Implementation steps in Ruuter DSL:
-- **Receive XML** — EFTI-MAPPER parses `saveIdentifiersRequest` XML → JSON
+- **Receive XML** — xml-mapper parses `saveIdentifiersRequest` XML → JSON
 - **Insert updated consignment** — ReSql: `INSERT ...`
 
 ### Gate-to-Gate Identifier Query (FTI019)
 
 ```
-Remote gate → EDR (receive) → EFTI-MAPPER (parse) → Ruuter → ReSql (local search) → EDR (aggregate + respond)
+Remote gate → edelivery (receive) → xml-mapper (parse) → Ruuter → ReSql (local search) → edelivery (aggregate + respond)
 ```
-- EDR handles incoming eDelivery message
+- edelivery handles incoming eDelivery message
 - ReSql searches local identifiers
-- EDR combines results and builds XML response
+- edelivery combines results and builds XML response
 
 ### Gate-to-Gate Dataset/Followup Query (FTI009/FTI025)
 
 ```
-Remote gate → EDR (receive) → EFTI-MAPPER (parse) → Ruuter → ReSql (resolve routing)
-            → Platform (REST) or EDR (forward to another gate)
+Remote gate → edelivery (receive) → xml-mapper (parse) → Ruuter → ReSql (resolve routing)
+            → Platform (REST) or edelivery (forward to another gate)
 ```
 
 ## Implementation Notes (Rainer's requirements)
 
 - **All REST traffic** goes through Ruuter — no direct component-to-component REST calls
 - **All DB queries** go through ReSql — no direct database access from other components
-- **EDR handles protocol boundaries** — XML↔JSON conversion, eDelivery transport, gate multiplexing
+- **edelivery handles protocol boundaries** — XML↔JSON conversion, eDelivery transport, gate multiplexing
 - **Ruuter DSL files** define the orchestration logic; ReSql `.sql` files define the data access
 - **Secrets** come from the secrets vault (except public certificates, which are in the DB)
-- **Gate/Platform registry** (public certs, URLs) is stored in the database and cached by each EDR instance
+- **Gate/Platform registry** (public certs, URLs) is stored in the database and cached by each edelivery instance
 
 - Rainer verifies `[#${platformId}_URL]` dynamic syntax works in Ruuter
