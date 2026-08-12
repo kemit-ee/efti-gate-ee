@@ -72,3 +72,56 @@ Hinda Liquibase 5.x ühilduvust uuesti siis, kui saadaval on uuem 5.x väljalase
 - `docker/liquibase/Dockerfile` — Liquibase versioon
 - `compose.yml`, `compose.ci.yml` — compose seadistus
 - `DSL/Liquibase/liquibase.properties` — Liquibase konfiguratsioon
+
+---
+
+## KI-003 · ResQL 0.1.0-alpha.1 — JSON boolean binary serialization bug
+
+**Staatus:** 🟡 Mitigated (2026-08-12)
+**Mõjutatud komponendid:** `resql-efti`
+
+### Kirjeldus
+
+ResQL 0.1.0-alpha.1 serialiseerib JSON request body boolean väljad (`true`/`false`) PostgreSQL prepared statement parameetritena binary protokollis (`\u0001`/`\u0000`) asemel tekstina `'true'`/`'false'`. PostgreSQL COALESCE-lausetes tekitab see vea:
+
+```
+invalid input syntax for type boolean: "\u0001"
+COALESCE types text and boolean cannot be matched
+```
+
+Probleem ilmneb kõigis SQL failides kus kasutatakse `COALESCE(:boolParam, <default>)` ja parameeter on JSON boolean.
+
+### Lahendus (workaround)
+
+Kaks mustrit sõltuvalt kontekstist:
+
+1. **INSERT, kus DB DEFAULT sobib** — eemalda boolean veerg INSERT column listist:
+   ```sql
+   -- Asemel: INSERT INTO gates (..., is_active) VALUES (..., COALESCE(:isActive, true))
+   INSERT INTO gates (...) VALUES (...)  -- is_active DEFAULT true DB-s
+   ```
+
+2. **INSERT/UPDATE, kus väärtus on alati `true`** — hardcode:
+   ```sql
+   INSERT INTO gates (..., is_active) VALUES (..., true)
+   ```
+
+3. **Optional boolean parameeter tekstina** — cast `::text` kaudu:
+   ```sql
+   COALESCE(:supportsSubsetting::text, 'true')::boolean
+   -- Töötab kui parameeter on null (body väljas puudub)
+   -- EI tööta kui parameeter on JSON boolean (binary) — ainult null/string
+   ```
+
+### Mõjutatud failid
+
+- `DSL/Resql/efti/POST/insert_gate.sql` — `is_active` eemaldatud INSERT-ist
+- `DSL/Resql/efti/POST/update_gate.sql` — `is_active = true` hardcode
+- `DSL/Resql/efti/POST/insert_platform.sql` — `is_active` eemaldatud; `supportsSubsetting::text`
+- `DSL/Resql/efti/POST/update_platform.sql` — `is_active = true` hardcode; `supportsSubsetting::text`
+- `DSL/Resql/efti/POST/insert_authority.sql` — `is_active` eemaldatud INSERT-ist
+- `DSL/Resql/efti/POST/update_authority.sql` — `is_active = true` hardcode
+
+### Järgmine samm
+
+Jälgi ResQL issue tracker'it — kui versioon > 0.1.0-alpha.1 ilmub, kontrolli kas boolean serialization on parandatud. Kui jah, saab COALESCE tagasi lisada.
