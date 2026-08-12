@@ -17,5 +17,5 @@ RETURNING
   tls_cert,
   status::text,
   last_ping_at,
-  is_active,
+  is_active AS is_gate_active,
   created_at;

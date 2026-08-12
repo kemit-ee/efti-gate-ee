@@ -57,7 +57,7 @@
               "",
               "pm.test('Created authority is active', function () {",
               "    const row = pm.response.json().response[0];",
-              "    pm.expect(row.isActive !== undefined ? row.isActive : row.is_active).to.equal(true);",
+              "    pm.expect(row.isAuthorityActive).to.equal(true);",
               "});"
             ]
           }
@@ -68,7 +68,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"id\": \"{{authority_id}}\",\n  \"countryCode\": \"EE\",\n  \"name\": \"Test Authority\",\n  \"subsets\": [\"EU01\", \"EU02\"],\n  \"isActive\": true\n}"
+          "raw": "{\n  \"id\": \"{{authority_id}}\",\n  \"countryCode\": \"EE\",\n  \"name\": \"Test Authority\",\n  \"subsets\": [\"EU01\", \"EU02\"],\n  \"isAuthorityActive\": true\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/authorities",
@@ -183,7 +183,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"countryCode\": \"EE\",\n  \"name\": \"Test Authority Updated\",\n  \"subsets\": [\"EU01\", \"EU02\", \"EU03\"],\n  \"isActive\": true\n}"
+          "raw": "{\n  \"countryCode\": \"EE\",\n  \"name\": \"Test Authority Updated\",\n  \"subsets\": [\"EU01\", \"EU02\", \"EU03\"],\n  \"isAuthorityActive\": true\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/authorities/update?authorityId={{authority_id}}",
@@ -233,8 +233,7 @@
               "",
               "pm.test('Authority is inactive (is_active=false)', function () {",
               "    const row = pm.response.json().response[0];",
-              "    const isActive = row.isActive !== undefined ? row.isActive : row.is_active;",
-              "    pm.expect(isActive).to.equal(false);",
+              "    pm.expect(row.isAuthorityActive).to.equal(false);",
               "});"
             ]
           }

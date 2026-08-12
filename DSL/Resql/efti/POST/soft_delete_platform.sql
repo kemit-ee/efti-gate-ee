@@ -10,5 +10,5 @@ FROM (
 RETURNING
   row_id,
   id,
-  is_active,
+  is_active AS is_platform_active,
   created_at;

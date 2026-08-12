@@ -9,7 +9,7 @@ update_authority:
       countryCode: "${incoming.body.countryCode}"
       name: "${incoming.body.name}"
       subsets: "${incoming.body.subsets}"
-      isActive: "${incoming.body.isActive}"
+      isAuthorityActive: "${incoming.body.isAuthorityActive}"
   result: update_result
   next: check_update
 
