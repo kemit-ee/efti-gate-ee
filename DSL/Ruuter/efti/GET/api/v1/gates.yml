@@ -1,0 +1,15 @@
+fetch_gates:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/get_gates"
+    headers:
+      Content-Type: "application/json"
+    body:
+      limit: "${incoming.params.limit ?: 20}"
+      offset: "${incoming.params.offset ?: 0}"
+  result: result
+  next: respond
+
+respond:
+  return: ${result.response.body}
+  next: end

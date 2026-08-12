@@ -1,0 +1,25 @@
+fetch_gate:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/get_gate_by_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.params.gateId}"
+  result: result
+  next: check_found
+
+check_found:
+  switch:
+    - condition: ${result.response.body == null || result.response.body.length == 0}
+      next: not_found
+  next: respond
+
+respond:
+  return: ${result.response.body}
+  next: end
+
+not_found:
+  return: '{"error": "Not Found"}'
+  status: 404
+  next: end

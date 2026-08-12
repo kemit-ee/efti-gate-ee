@@ -1,0 +1,55 @@
+update_platform:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/update_platform"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.params.platformId}"
+      baseUrl: "${incoming.body.baseUrl}"
+      headers: "${incoming.body.headers}"
+      eDeliveryCert: "${incoming.body.eDeliveryCert}"
+      tlsCert: "${incoming.body.tlsCert}"
+      certSubject: "${incoming.body.certSubject}"
+      certSerial: "${incoming.body.certSerial}"
+      supportsSubsetting: "${incoming.body.supportsSubsetting}"
+      isActive: "${incoming.body.isActive}"
+  result: update_result
+  next: check_update
+
+check_update:
+  switch:
+    - condition: ${update_result.response.body == null || update_result.response.body.length == 0}
+      next: update_failed
+  next: verify_platform
+
+verify_platform:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/get_platform_by_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.params.platformId}"
+  result: verify_result
+  next: check_verify
+
+check_verify:
+  switch:
+    - condition: ${verify_result.response.body == null || verify_result.response.body.length == 0}
+      next: verify_failed
+  next: respond
+
+respond:
+  return: ${verify_result.response.body}
+  next: end
+
+update_failed:
+  return: '{"error": "Failed to update platform"}'
+  status: 500
+  next: end
+
+verify_failed:
+  return: '{"error": "Platform updated but could not be verified"}'
+  status: 500
+  next: end

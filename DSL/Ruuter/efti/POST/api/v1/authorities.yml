@@ -1,0 +1,52 @@
+create_authority:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/insert_authority"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.body.id}"
+      countryCode: "${incoming.body.countryCode}"
+      name: "${incoming.body.name}"
+      subsets: "${incoming.body.subsets}"
+      isActive: "${incoming.body.isActive ?: true}"
+  result: insert_result
+  next: check_insert
+
+check_insert:
+  switch:
+    - condition: ${insert_result.response.body == null || insert_result.response.body.length == 0}
+      next: insert_failed
+  next: verify_authority
+
+verify_authority:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/get_authority_by_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.body.id}"
+  result: verify_result
+  next: check_verify
+
+check_verify:
+  switch:
+    - condition: ${verify_result.response.body == null || verify_result.response.body.length == 0}
+      next: verify_failed
+  next: respond
+
+respond:
+  return: ${verify_result.response.body}
+  status: 201
+  next: end
+
+insert_failed:
+  return: '{"error": "Failed to create authority"}'
+  status: 500
+  next: end
+
+verify_failed:
+  return: '{"error": "Authority created but could not be verified"}'
+  status: 500
+  next: end
