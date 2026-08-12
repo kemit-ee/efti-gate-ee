@@ -7,7 +7,7 @@ services:
     - POSTGRES_PASSWORD=01234
     - POSTGRES_DB=efti
     ports:
-    - 54321:5432
+    - "${EFTI_DB_PORT:-54321}:5432"
     volumes:
     - data:/var/lib/postgresql
     - ./DSL/Liquibase/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
@@ -20,7 +20,7 @@ services:
       retries: 20
       start_period: 10s
   liquibase:
-    container_name: liquibase
+    container_name: efti_liquibase
     build:
       context: .
       dockerfile: docker/liquibase/Dockerfile
@@ -40,9 +40,9 @@ services:
     depends_on:
     - database
     ports:
-    - 8090:8090
+    - "${EFTI_RESQL_PORT:-8090}:8090"
   ruuter:
-    container_name: ruuter
+    container_name: efti_ruuter
     build:
       context: .
       dockerfile: docker/ruuter/Dockerfile
@@ -54,7 +54,7 @@ services:
     - ./constants.ini:/app/constants.ini
     - ./ruuter.yaml:/app/ruuter.yaml
     ports:
-    - 8086:8086
+    - "${EFTI_RUUTER_PORT:-8086}:8086"
     cpus: '0.5'
     mem_limit: 512M
   edelivery:

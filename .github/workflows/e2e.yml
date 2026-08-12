@@ -1,0 +1,59 @@
+name: E2E smoke tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      EFTI_DB_PORT: 19432
+      EFTI_RESQL_PORT: 19090
+      EFTI_RUUTER_PORT: 19086
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build CI images
+        run: |
+          docker compose -f compose.yml -f compose.ci.yml \
+            build database liquibase resql ruuter
+
+      - name: Start services
+        run: |
+          docker compose -f compose.yml -f compose.ci.yml \
+            up -d database liquibase resql ruuter
+
+      - name: Wait for ruuter
+        run: |
+          echo "Waiting for ruuter to become ready (max 120s)..."
+          for i in $(seq 1 40); do
+            if curl -sf http://localhost:19086/efti/v1/baasikontoroll > /dev/null; then
+              echo "Ruuter is ready after ~$((i * 3))s"
+              break
+            fi
+            echo "  attempt $i/40 — sleeping 3s"
+            sleep 3
+            if [ $i -eq 40 ]; then
+              echo "Ruuter did not become ready within 120s"
+              exit 1
+            fi
+          done
+
+      - name: Run Newman e2e tests
+        run: |
+          npx --yes newman run tests/e2e/baasikontoroll.postman_collection.json \
+            --env-var "base_url=http://localhost:19086"
+
+      - name: Print logs on failure
+        if: failure()
+        run: |
+          docker compose -f compose.yml -f compose.ci.yml logs
+
+      - name: Teardown
+        if: always()
+        run: |
+          docker compose -f compose.yml -f compose.ci.yml down -v
