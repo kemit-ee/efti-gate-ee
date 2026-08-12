@@ -1,0 +1,56 @@
+create_platform:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/insert_platform"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.body.id}"
+      baseUrl: "${incoming.body.baseUrl}"
+      headers: "${incoming.body.headers}"
+      eDeliveryCert: "${incoming.body.eDeliveryCert}"
+      tlsCert: "${incoming.body.tlsCert}"
+      certSubject: "${incoming.body.certSubject}"
+      certSerial: "${incoming.body.certSerial}"
+      supportsSubsetting: "${incoming.body.supportsSubsetting ?: true}"
+      isActive: "${incoming.body.isActive ?: true}"
+  result: insert_result
+  next: check_insert
+
+check_insert:
+  switch:
+    - condition: ${insert_result.response.body == null || insert_result.response.body.length == 0}
+      next: insert_failed
+  next: verify_platform
+
+verify_platform:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/get_platform_by_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.body.id}"
+  result: verify_result
+  next: check_verify
+
+check_verify:
+  switch:
+    - condition: ${verify_result.response.body == null || verify_result.response.body.length == 0}
+      next: verify_failed
+  next: respond
+
+respond:
+  return: ${verify_result.response.body}
+  status: 201
+  next: end
+
+insert_failed:
+  return: '{"error": "Failed to create platform"}'
+  status: 500
+  next: end
+
+verify_failed:
+  return: '{"error": "Platform created but could not be verified"}'
+  status: 500
+  next: end

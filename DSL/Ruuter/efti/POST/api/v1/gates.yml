@@ -1,0 +1,54 @@
+create_gate:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/insert_gate"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.body.id}"
+      countryCode: "${incoming.body.countryCode}"
+      eDeliveryUrl: "${incoming.body.eDeliveryUrl}"
+      eDeliveryCert: "${incoming.body.eDeliveryCert}"
+      tlsCert: "${incoming.body.tlsCert}"
+      status: "${incoming.body.status ?: 'OFFLINE'}"
+      isActive: "${incoming.body.isActive ?: true}"
+  result: insert_result
+  next: check_insert
+
+check_insert:
+  switch:
+    - condition: ${insert_result.response.body == null || insert_result.response.body.length == 0}
+      next: insert_failed
+  next: verify_gate
+
+verify_gate:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/get_gate_by_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.body.id}"
+  result: verify_result
+  next: check_verify
+
+check_verify:
+  switch:
+    - condition: ${verify_result.response.body == null || verify_result.response.body.length == 0}
+      next: verify_failed
+  next: respond
+
+respond:
+  return: ${verify_result.response.body}
+  status: 201
+  next: end
+
+insert_failed:
+  return: '{"error": "Failed to create gate"}'
+  status: 500
+  next: end
+
+verify_failed:
+  return: '{"error": "Gate created but could not be verified"}'
+  status: 500
+  next: end
