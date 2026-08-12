@@ -11,5 +11,5 @@ RETURNING
   country_code,
   name,
   subsets,
-  is_active,
+  is_active AS is_authority_active,
   created_at;

@@ -59,7 +59,7 @@
               "",
               "pm.test('Created gate is active', function () {",
               "    const row = pm.response.json().response[0];",
-              "    pm.expect(row.isActive !== undefined ? row.isActive : row.is_active).to.equal(true);",
+              "    pm.expect(row.isGateActive).to.equal(true);",
               "});"
             ]
           }
@@ -186,7 +186,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"countryCode\": \"EE\",\n  \"eDeliveryUrl\": \"https://test-gate-updated.efti.ee/services/msh\",\n  \"status\": \"OFFLINE\",\n  \"isActive\": true\n}"
+          "raw": "{\n  \"countryCode\": \"EE\",\n  \"eDeliveryUrl\": \"https://test-gate-updated.efti.ee/services/msh\",\n  \"status\": \"OFFLINE\",\n  \"isGateActive\": true\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/gates/update?gateId={{gate_id}}",
@@ -236,8 +236,7 @@
               "",
               "pm.test('Gate is inactive (is_active=false)', function () {",
               "    const row = pm.response.json().response[0];",
-              "    const isActive = row.isActive !== undefined ? row.isActive : row.is_active;",
-              "    pm.expect(isActive).to.equal(false);",
+              "    pm.expect(row.isGateActive).to.equal(false);",
               "});"
             ]
           }

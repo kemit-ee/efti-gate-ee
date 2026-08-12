@@ -8,7 +8,7 @@ SELECT DISTINCT ON (id)
   cert_subject,
   cert_serial,
   supports_subsetting,
-  is_active,
+  is_active AS is_platform_active,
   created_at
 FROM platforms
 ORDER BY id, created_at DESC

@@ -11,7 +11,7 @@ update_gate:
       eDeliveryCert: "${incoming.body.eDeliveryCert}"
       tlsCert: "${incoming.body.tlsCert}"
       status: "${incoming.body.status}"
-      isActive: "${incoming.body.isActive}"
+      isGateActive: "${incoming.body.isGateActive}"
   result: update_result
   next: check_update
 

@@ -28,5 +28,5 @@ RETURNING
   cert_subject,
   cert_serial,
   supports_subsetting,
-  is_active,
+  is_active AS is_platform_active,
   created_at;

@@ -58,7 +58,7 @@
               "",
               "pm.test('Created platform is active', function () {",
               "    const row = pm.response.json().response[0];",
-              "    pm.expect(row.isActive !== undefined ? row.isActive : row.is_active).to.equal(true);",
+              "    pm.expect(row.isPlatformActive).to.equal(true);",
               "});"
             ]
           }
@@ -69,7 +69,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"id\": \"{{platform_id}}\",\n  \"baseUrl\": \"https://test-platform.example.com/efti/v1\",\n  \"supportsSubsetting\": true,\n  \"isActive\": true\n}"
+          "raw": "{\n  \"id\": \"{{platform_id}}\",\n  \"baseUrl\": \"https://test-platform.example.com/efti/v1\",\n  \"supportsSubsetting\": true,\n  \"isPlatformActive\": true\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/platforms",
@@ -185,7 +185,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"baseUrl\": \"https://test-platform-updated.example.com/efti/v1\",\n  \"supportsSubsetting\": true,\n  \"isActive\": true\n}"
+          "raw": "{\n  \"baseUrl\": \"https://test-platform-updated.example.com/efti/v1\",\n  \"supportsSubsetting\": true,\n  \"isPlatformActive\": true\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/platforms/update?platformId={{platform_id}}",
@@ -235,8 +235,7 @@
               "",
               "pm.test('Platform is inactive (is_active=false)', function () {",
               "    const row = pm.response.json().response[0];",
-              "    const isActive = row.isActive !== undefined ? row.isActive : row.is_active;",
-              "    pm.expect(isActive).to.equal(false);",
+              "    pm.expect(row.isPlatformActive).to.equal(false);",
               "});"
             ]
           }
