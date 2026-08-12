@@ -45,8 +45,17 @@ jobs:
 
       - name: Run Newman e2e tests
         run: |
+          BASE_URL="http://localhost:19086"
           npx --yes newman run tests/e2e/baasikontoroll.postman_collection.json \
-            --env-var "base_url=http://localhost:19086"
+            --env-var "base_url=${BASE_URL}"
+          npx newman run tests/e2e/health.postman_collection.json \
+            --env-var "base_url=${BASE_URL}"
+          npx newman run tests/e2e/gates.postman_collection.json \
+            --env-var "base_url=${BASE_URL}"
+          npx newman run tests/e2e/platforms.postman_collection.json \
+            --env-var "base_url=${BASE_URL}"
+          npx newman run tests/e2e/authorities.postman_collection.json \
+            --env-var "base_url=${BASE_URL}"
 
       - name: Print logs on failure
         if: failure()

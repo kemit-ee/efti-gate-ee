@@ -1,0 +1,74 @@
+{
+  "info": {
+    "name": "efti-gate-ee health probes",
+    "description": "Smoke tests for Kubernetes liveness and readiness probes.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8086",
+      "description": "Ruuter base URL. Override with --env-var base_url=... when running Newman."
+    }
+  ],
+  "item": [
+    {
+      "name": "GET /health/live — liveness probe",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Body is OK', function () {",
+              "    pm.expect(pm.response.text()).to.include('OK');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/efti/health/live",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "health", "live"]
+        }
+      }
+    },
+    {
+      "name": "GET /health/ready — readiness probe",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Body is OK', function () {",
+              "    pm.expect(pm.response.text()).to.include('OK');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/efti/health/ready",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "health", "ready"]
+        }
+      }
+    }
+  ]
+}

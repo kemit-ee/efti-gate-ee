@@ -3,7 +3,7 @@ VALUES (
   :id,
   :countryCode,
   :name,
-  :subsets::text[],
+  ARRAY(SELECT jsonb_array_elements_text(:subsets::jsonb)),
   COALESCE(:isActive, true)
 )
 RETURNING

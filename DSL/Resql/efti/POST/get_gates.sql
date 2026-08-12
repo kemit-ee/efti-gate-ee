@@ -5,10 +5,10 @@ SELECT DISTINCT ON (id)
   e_delivery_url,
   e_delivery_cert,
   tls_cert,
-  status,
+  status::text,
   last_ping_at,
   is_active,
   created_at
 FROM gates
 ORDER BY id, created_at DESC
-LIMIT :limit OFFSET :offset;
+LIMIT COALESCE(:limit::int, 20) OFFSET COALESCE(:offset::int, 0);

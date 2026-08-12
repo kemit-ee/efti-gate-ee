@@ -10,8 +10,8 @@ create_gate:
       eDeliveryUrl: "${incoming.body.eDeliveryUrl}"
       eDeliveryCert: "${incoming.body.eDeliveryCert}"
       tlsCert: "${incoming.body.tlsCert}"
-      status: "${incoming.body.status ?: 'OFFLINE'}"
-      isActive: "${incoming.body.isActive ?: true}"
+      status: "${incoming.body.status}"
+      isActive: "${incoming.body.isActive}"
   result: insert_result
   next: check_insert
 

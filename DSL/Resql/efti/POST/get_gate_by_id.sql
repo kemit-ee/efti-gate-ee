@@ -5,7 +5,7 @@ SELECT DISTINCT ON (id)
   e_delivery_url,
   e_delivery_cert,
   tls_cert,
-  status,
+  status::text,
   last_ping_at,
   is_active,
   created_at

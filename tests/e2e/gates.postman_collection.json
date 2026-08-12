@@ -1,0 +1,258 @@
+{
+  "info": {
+    "name": "efti-gate-ee Admin — Gates CRUD",
+    "description": "End-to-end CRUD cycle for the Admin Gates API: create → list → get → update → delete.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8086",
+      "description": "Ruuter base URL. Override with --env-var base_url=... when running Newman."
+    },
+    {
+      "key": "gate_id",
+      "value": "",
+      "description": "Test gate logical ID — set by the pre-request script to a unique value each run."
+    }
+  ],
+  "item": [
+    {
+      "name": "POST /api/v1/gates — create gate",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Generate a unique gate id matching ^eu-[a-z]{2}[0-9]{2}$ for each test run.",
+              "var n = Math.floor(Math.random() * 90) + 10;",
+              "var id = 'eu-zz' + n;",
+              "pm.collectionVariables.set('gate_id', id);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 201', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Response has a non-empty array under .response', function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.property('response');",
+              "    pm.expect(body.response).to.be.an('array').with.length.above(0);",
+              "});",
+              "",
+              "pm.test('Created gate has correct id', function () {",
+              "    const row = pm.response.json().response[0];",
+              "    pm.expect(row.id).to.equal(pm.collectionVariables.get('gate_id'));",
+              "});",
+              "",
+              "pm.test('Created gate has correct countryCode', function () {",
+              "    const row = pm.response.json().response[0];",
+              "    pm.expect(row.countryCode || row.country_code).to.equal('EE');",
+              "});",
+              "",
+              "pm.test('Created gate is active', function () {",
+              "    const row = pm.response.json().response[0];",
+              "    pm.expect(row.isActive !== undefined ? row.isActive : row.is_active).to.equal(true);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"{{gate_id}}\",\n  \"countryCode\": \"EE\",\n  \"eDeliveryUrl\": \"https://test-gate.efti.ee/services/msh\",\n  \"status\": \"OFFLINE\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/gates",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "gates"]
+        }
+      }
+    },
+    {
+      "name": "GET /api/v1/gates — list gates (includes created)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response has array under .response', function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.property('response');",
+              "    pm.expect(body.response).to.be.an('array');",
+              "});",
+              "",
+              "pm.test('Created gate is in the list', function () {",
+              "    const gateId = pm.collectionVariables.get('gate_id');",
+              "    const gates = pm.response.json().response;",
+              "    const found = gates.some(g => g.id === gateId);",
+              "    pm.expect(found, gateId + ' should be in gate list').to.be.true;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/gates",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "gates"]
+        }
+      }
+    },
+    {
+      "name": "GET /api/v1/gates/get?gateId={{gate_id}} — get single gate",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response has array under .response', function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.property('response');",
+              "    pm.expect(body.response).to.be.an('array').with.length.above(0);",
+              "});",
+              "",
+              "pm.test('Gate id matches', function () {",
+              "    const row = pm.response.json().response[0];",
+              "    pm.expect(row.id).to.equal(pm.collectionVariables.get('gate_id'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/gates/get?gateId={{gate_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "gates", "get"],
+          "query": [{ "key": "gateId", "value": "{{gate_id}}" }]
+        }
+      }
+    },
+    {
+      "name": "PUT /api/v1/gates/update?gateId={{gate_id}} — update gate",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response has array under .response', function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.property('response');",
+              "    pm.expect(body.response).to.be.an('array').with.length.above(0);",
+              "});",
+              "",
+              "pm.test('Updated eDeliveryUrl is reflected', function () {",
+              "    const row = pm.response.json().response[0];",
+              "    const url = row.eDeliveryUrl || row.e_delivery_url;",
+              "    pm.expect(url).to.equal('https://test-gate-updated.efti.ee/services/msh');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"countryCode\": \"EE\",\n  \"eDeliveryUrl\": \"https://test-gate-updated.efti.ee/services/msh\",\n  \"status\": \"OFFLINE\",\n  \"isActive\": true\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/gates/update?gateId={{gate_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "gates", "update"],
+          "query": [{ "key": "gateId", "value": "{{gate_id}}" }]
+        }
+      }
+    },
+    {
+      "name": "DELETE /api/v1/gates/delete?gateId={{gate_id}} — soft-delete gate",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 204', function () {",
+              "    pm.response.to.have.status(204);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/gates/delete?gateId={{gate_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "gates", "delete"],
+          "query": [{ "key": "gateId", "value": "{{gate_id}}" }]
+        }
+      }
+    },
+    {
+      "name": "GET /api/v1/gates/get?gateId={{gate_id}} — gate is inactive after delete",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Gate is inactive (is_active=false)', function () {",
+              "    const row = pm.response.json().response[0];",
+              "    const isActive = row.isActive !== undefined ? row.isActive : row.is_active;",
+              "    pm.expect(isActive).to.equal(false);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/gates/get?gateId={{gate_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "gates", "get"],
+          "query": [{ "key": "gateId", "value": "{{gate_id}}" }]
+        }
+      }
+    }
+  ]
+}
