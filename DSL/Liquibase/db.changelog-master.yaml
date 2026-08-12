@@ -1,7 +1,17 @@
 databaseChangeLog:
   - changeSet:
+      id: 000-init-schema
+      author: efti
+      changes:
+        - sqlFile:
+            path: changelogs/000-init-schema.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            encoding: UTF-8
+
+  - changeSet:
       id: 001-create-testandmestik
-      author: devin
+      author: liqubase
       changes:
         - createTable:
             tableName: testandmestik
@@ -25,7 +35,7 @@ databaseChangeLog:
 
   - changeSet:
       id: 002-seed-testandmestik
-      author: devin
+      author: liqubase
       changes:
         - insert:
             tableName: testandmestik
