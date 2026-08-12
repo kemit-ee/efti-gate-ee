@@ -1,12 +1,11 @@
-INSERT INTO gates (id, country_code, e_delivery_url, e_delivery_cert, tls_cert, status, is_active)
+INSERT INTO gates (id, country_code, e_delivery_url, e_delivery_cert, tls_cert, status)
 VALUES (
   :id,
   :countryCode,
   :eDeliveryUrl,
   :eDeliveryCert,
   :tlsCert,
-  COALESCE(:status, 'OFFLINE')::gate_status,
-  COALESCE(:isActive, true)
+  COALESCE(:status, 'OFFLINE')::gate_status
 )
 RETURNING
   row_id,
