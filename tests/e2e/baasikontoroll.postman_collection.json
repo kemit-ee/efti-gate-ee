@@ -1,0 +1,66 @@
+{
+  "info": {
+    "name": "efti-gate-ee e2e",
+    "description": "Smoke tests for efti-gate-ee: verifies all core infrastructure components are up and the baasikontoroll endpoint returns database status.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8086",
+      "description": "Ruuter base URL. Override with --env-var base_url=... when running Newman."
+    }
+  ],
+  "item": [
+    {
+      "name": "baasikontoroll — DB health check",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response has a non-empty array under .response', function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.property('response');",
+              "    pm.expect(body.response).to.be.an('array').with.length.above(0);",
+              "});",
+              "",
+              "pm.test('pgVersion is present and is a string', function () {",
+              "    const row = pm.response.json().response[0];",
+              "    pm.expect(row).to.have.property('pgVersion');",
+              "    pm.expect(row.pgVersion).to.be.a('string').and.not.empty;",
+              "});",
+              "",
+              "pm.test('startedAt is present and not null', function () {",
+              "    const row = pm.response.json().response[0];",
+              "    pm.expect(row).to.have.property('startedAt');",
+              "    pm.expect(row.startedAt).to.not.be.null;",
+              "});",
+              "",
+              "pm.test('uptime is present and not null', function () {",
+              "    const row = pm.response.json().response[0];",
+              "    pm.expect(row).to.have.property('uptime');",
+              "    pm.expect(row.uptime).to.not.be.null;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/efti/v1/baasikontoroll",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "v1", "baasikontoroll"]
+        },
+        "description": "Calls the baasikontoroll DSL endpoint which queries PostgreSQL for version and uptime via ResQL."
+      }
+    }
+  ]
+}

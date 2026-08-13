@@ -1,0 +1,256 @@
+{
+  "info": {
+    "name": "efti-gate-ee Admin — Platforms CRUD",
+    "description": "End-to-end CRUD cycle for the Admin Platforms API: create → list → get → update → delete.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8086",
+      "description": "Ruuter base URL. Override with --env-var base_url=... when running Newman."
+    },
+    {
+      "key": "platform_id",
+      "value": "",
+      "description": "Test platform logical ID — set by the pre-request script to a unique value each run."
+    }
+  ],
+  "item": [
+    {
+      "name": "POST /api/v1/platforms — create platform",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "var n = Math.floor(Math.random() * 9000) + 1000;",
+              "pm.collectionVariables.set('platform_id', 'plt-test-' + n);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 201', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Response has a non-empty array under .response', function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.property('response');",
+              "    pm.expect(body.response).to.be.an('array').with.length.above(0);",
+              "});",
+              "",
+              "pm.test('Created platform has correct id', function () {",
+              "    const row = pm.response.json().response[0];",
+              "    pm.expect(row.id).to.equal(pm.collectionVariables.get('platform_id'));",
+              "});",
+              "",
+              "pm.test('Created platform has correct baseUrl', function () {",
+              "    const row = pm.response.json().response[0];",
+              "    const url = row.baseUrl || row.base_url;",
+              "    pm.expect(url).to.equal('https://test-platform.example.com/efti/v1');",
+              "});",
+              "",
+              "pm.test('Created platform is active', function () {",
+              "    const row = pm.response.json().response[0];",
+              "    pm.expect(row.isPlatformActive).to.equal(true);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"{{platform_id}}\",\n  \"baseUrl\": \"https://test-platform.example.com/efti/v1\",\n  \"supportsSubsetting\": true,\n  \"isPlatformActive\": true\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/platforms",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "platforms"]
+        }
+      }
+    },
+    {
+      "name": "GET /api/v1/platforms — list platforms (includes created)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response has array under .response', function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.property('response');",
+              "    pm.expect(body.response).to.be.an('array');",
+              "});",
+              "",
+              "pm.test('Created platform is in the list', function () {",
+              "    const platformId = pm.collectionVariables.get('platform_id');",
+              "    const platforms = pm.response.json().response;",
+              "    const found = platforms.some(p => p.id === platformId);",
+              "    pm.expect(found, platformId + ' should be in platform list').to.be.true;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/platforms",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "platforms"]
+        }
+      }
+    },
+    {
+      "name": "GET /api/v1/platforms/get?platformId={{platform_id}} — get single platform",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response has array under .response', function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.property('response');",
+              "    pm.expect(body.response).to.be.an('array').with.length.above(0);",
+              "});",
+              "",
+              "pm.test('Platform id matches', function () {",
+              "    const row = pm.response.json().response[0];",
+              "    pm.expect(row.id).to.equal(pm.collectionVariables.get('platform_id'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/platforms/get?platformId={{platform_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "platforms", "get"],
+          "query": [{ "key": "platformId", "value": "{{platform_id}}" }]
+        }
+      }
+    },
+    {
+      "name": "PUT /api/v1/platforms/update?platformId={{platform_id}} — update platform",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response has array under .response', function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.property('response');",
+              "    pm.expect(body.response).to.be.an('array').with.length.above(0);",
+              "});",
+              "",
+              "pm.test('Updated baseUrl is reflected', function () {",
+              "    const row = pm.response.json().response[0];",
+              "    const url = row.baseUrl || row.base_url;",
+              "    pm.expect(url).to.equal('https://test-platform-updated.example.com/efti/v1');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"baseUrl\": \"https://test-platform-updated.example.com/efti/v1\",\n  \"supportsSubsetting\": true,\n  \"isPlatformActive\": true\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/platforms/update?platformId={{platform_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "platforms", "update"],
+          "query": [{ "key": "platformId", "value": "{{platform_id}}" }]
+        }
+      }
+    },
+    {
+      "name": "DELETE /api/v1/platforms/delete?platformId={{platform_id}} — soft-delete platform",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 204', function () {",
+              "    pm.response.to.have.status(204);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/platforms/delete?platformId={{platform_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "platforms", "delete"],
+          "query": [{ "key": "platformId", "value": "{{platform_id}}" }]
+        }
+      }
+    },
+    {
+      "name": "GET /api/v1/platforms/get?platformId={{platform_id}} — platform is inactive after delete",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Platform is inactive (is_active=false)', function () {",
+              "    const row = pm.response.json().response[0];",
+              "    pm.expect(row.isPlatformActive).to.equal(false);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/platforms/get?platformId={{platform_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "platforms", "get"],
+          "query": [{ "key": "platformId", "value": "{{platform_id}}" }]
+        }
+      }
+    }
+  ]
+}

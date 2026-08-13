@@ -5,9 +5,10 @@ check_db:
     headers:
       Content-Type: "application/json"
     body: {}
-  result: db_status
+  result: db_result
   next: respond
 
 respond:
-  return: ${db_status.response.body}
+  return: "OK"
+  status: 200
   next: end

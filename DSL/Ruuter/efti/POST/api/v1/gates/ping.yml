@@ -1,0 +1,4 @@
+respond:
+  return: '{"error": "Not Implemented"}'
+  status: 501
+  next: end
