@@ -35,7 +35,7 @@
     </button>
 
     <div class="flex items-center gap-3 order-2 sm:order-none mr-auto ml-4 sm:ml-0 py-2 sm:py-0">
-      <img src="/src/icons/kemit-logo.svg" alt={t.general.systemManagerName} class="h-6 sm:h-10">
+      <img src="/kemit-logo.svg" alt={t.general.systemManagerName} class="h-6 sm:h-10">
       <div class="flex flex-col text-primary-700">
         <span class="text-sm">{t.general.systemName}</span>
         <span class="text-xs font-bold">{t.general.systemManagerName}</span>
