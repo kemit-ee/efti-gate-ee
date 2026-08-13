@@ -1,0 +1,17 @@
+fetch_users:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/get_users"
+    headers:
+      Content-Type: "application/json"
+    body:
+      limit: "${incoming.params.limit}"
+      offset: "${incoming.params.offset}"
+      gateId: "${incoming.params.gateId}"
+      authorityId: "${incoming.params.authorityId}"
+  result: result
+  next: respond
+
+respond:
+  return: ${result.response.body}
+  next: end

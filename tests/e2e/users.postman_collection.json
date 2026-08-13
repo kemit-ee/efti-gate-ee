@@ -1,0 +1,351 @@
+{
+  "info": {
+    "name": "efti-gate-ee Admin — Users CRUD",
+    "description": "End-to-end CRUD cycle for the Admin Users API: create → duplicate-409 → list → get → update → revoke-token → delete.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8086",
+      "description": "Ruuter base URL. Override with --env-var base_url=... when running Newman."
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "description": "Test user logical UUID — set from the create response."
+    },
+    {
+      "key": "tara_sub",
+      "value": "",
+      "description": "Test user taraSub — set by the pre-request script to a unique value each run."
+    }
+  ],
+  "item": [
+    {
+      "name": "POST /api/v1/users — create user",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "var n = Math.floor(Math.random() * 900000000000) + 100000000000;",
+              "pm.collectionVariables.set('tara_sub', 'EE' + n);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 201', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Response has a non-empty array under .response', function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.property('response');",
+              "    pm.expect(body.response).to.be.an('array').with.length.above(0);",
+              "});",
+              "",
+              "pm.test('Created user has correct taraSub', function () {",
+              "    const row = pm.response.json().response[0];",
+              "    pm.expect(row.taraSub).to.equal(pm.collectionVariables.get('tara_sub'));",
+              "});",
+              "",
+              "pm.test('Created user has correct name', function () {",
+              "    const row = pm.response.json().response[0];",
+              "    pm.expect(row.name).to.equal('Test User');",
+              "});",
+              "",
+              "pm.test('Created user is active', function () {",
+              "    const row = pm.response.json().response[0];",
+              "    pm.expect(row.isUserActive).to.equal(true);",
+              "});",
+              "",
+              "pm.test('Save user_id from response', function () {",
+              "    const row = pm.response.json().response[0];",
+              "    pm.collectionVariables.set('user_id', row.id);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"taraSub\": \"{{tara_sub}}\",\n  \"email\": \"test-{{tara_sub}}@example.com\",\n  \"name\": \"Test User\",\n  \"isAdmin\": false,\n  \"roles\": {\"AUTHORITY\": [\"auth-test\"]},\n  \"subsets\": [\"EU01\", \"EU02\"]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/users",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "users"]
+        }
+      }
+    },
+    {
+      "name": "POST /api/v1/users — duplicate taraSub returns 409",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 409 on duplicate taraSub', function () {",
+              "    pm.response.to.have.status(409);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"taraSub\": \"{{tara_sub}}\",\n  \"email\": \"test2-{{tara_sub}}@example.com\",\n  \"name\": \"Duplicate User\",\n  \"isAdmin\": false,\n  \"roles\": {},\n  \"subsets\": []\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/users",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "users"]
+        }
+      }
+    },
+    {
+      "name": "GET /api/v1/users — list users (includes created)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response has array under .response', function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.property('response');",
+              "    pm.expect(body.response).to.be.an('array');",
+              "});",
+              "",
+              "pm.test('Created user is in the list', function () {",
+              "    const userId = pm.collectionVariables.get('user_id');",
+              "    const users = pm.response.json().response;",
+              "    const found = users.some(u => u.id === userId);",
+              "    pm.expect(found, userId + ' should be in user list').to.be.true;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/users",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "users"]
+        }
+      }
+    },
+    {
+      "name": "GET /api/v1/users/get?userId={{user_id}} — get single user",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response has array under .response', function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.property('response');",
+              "    pm.expect(body.response).to.be.an('array').with.length.above(0);",
+              "});",
+              "",
+              "pm.test('User id matches', function () {",
+              "    const row = pm.response.json().response[0];",
+              "    pm.expect(row.id).to.equal(pm.collectionVariables.get('user_id'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/users/get?userId={{user_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "users", "get"],
+          "query": [{ "key": "userId", "value": "{{user_id}}" }]
+        }
+      }
+    },
+    {
+      "name": "PUT /api/v1/users/update?userId={{user_id}} — update user",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Response has array under .response', function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.property('response');",
+              "    pm.expect(body.response).to.be.an('array').with.length.above(0);",
+              "});",
+              "",
+              "pm.test('Updated name is reflected', function () {",
+              "    const row = pm.response.json().response[0];",
+              "    pm.expect(row.name).to.equal('Test User Updated');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"taraSub\": \"{{tara_sub}}\",\n  \"email\": \"test-{{tara_sub}}@example.com\",\n  \"name\": \"Test User Updated\",\n  \"isAdmin\": false,\n  \"roles\": {\"AUTHORITY\": [\"auth-test\", \"auth-test2\"]},\n  \"subsets\": [\"EU01\", \"EU02\", \"EU03\"]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/users/update?userId={{user_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "users", "update"],
+          "query": [{ "key": "userId", "value": "{{user_id}}" }]
+        }
+      }
+    },
+    {
+      "name": "POST /api/v1/users/revoke-token?userId={{user_id}} — revoke tokens",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 204', function () {",
+              "    pm.response.to.have.status(204);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/users/revoke-token?userId={{user_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "users", "revoke-token"],
+          "query": [{ "key": "userId", "value": "{{user_id}}" }]
+        }
+      }
+    },
+    {
+      "name": "GET /api/v1/users/get?userId={{user_id}} — tokenRevokedAt is set after revoke",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('tokenRevokedAt is set after revoke', function () {",
+              "    const row = pm.response.json().response[0];",
+              "    pm.expect(row.tokenRevokedAt).to.not.equal(null);",
+              "    pm.expect(row.tokenRevokedAt).to.be.a('string');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/users/get?userId={{user_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "users", "get"],
+          "query": [{ "key": "userId", "value": "{{user_id}}" }]
+        }
+      }
+    },
+    {
+      "name": "DELETE /api/v1/users/delete?userId={{user_id}} — soft-delete user",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 204', function () {",
+              "    pm.response.to.have.status(204);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/users/delete?userId={{user_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "users", "delete"],
+          "query": [{ "key": "userId", "value": "{{user_id}}" }]
+        }
+      }
+    },
+    {
+      "name": "GET /api/v1/users/get?userId={{user_id}} — user is inactive after delete",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('User is inactive (isUserActive=false)', function () {",
+              "    const row = pm.response.json().response[0];",
+              "    pm.expect(row.isUserActive).to.equal(false);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/users/get?userId={{user_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "users", "get"],
+          "query": [{ "key": "userId", "value": "{{user_id}}" }]
+        }
+      }
+    }
+  ]
+}
