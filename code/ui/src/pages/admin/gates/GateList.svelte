@@ -31,13 +31,13 @@
 </script>
 
 <SortableTable items={gates} labels={t.gates} columns={['id', [t.general.countryCode, 'countryCode'], 'eDeliveryUrl', 'status', '']} let:item={g}>
-  <tr class="{g.isDisabled ? 'bg-gray-300' : 'bg-none'}">
+  <tr class="{g.isDisabled ? 'bg-neutral-300' : 'bg-none'}">
     <td>{g.id}</td>
     <td>{g.countryCode}</td>
     <td><a href={g.eDeliveryUrl} target="_blank">{g.eDeliveryUrl}</a></td>
     <td>
       <div class="flex items-center gap-2">
-        <div class="h-4 w-4 rounded-full {g.isOnline ? 'bg-green-500' : g.isDisabled ? 'bg-yellow-500' :  'bg-red-500'}" ></div>
+        <div class="h-4 w-4 rounded-full {g.isOnline ? 'bg-success-500' : g.isDisabled ? 'bg-warning-500' :  'bg-danger-500'}" ></div>
         <span>{t.statuses[g.status]}</span>
       </div>
     </td>

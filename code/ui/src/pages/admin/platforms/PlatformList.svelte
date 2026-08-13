@@ -32,7 +32,7 @@
 </script>
 
 <SortableTable items={platforms} labels={t.platforms} columns={['id', 'baseUrl', 'supportsSubsetting', ['eDelivery', p => !!p.eDeliveryUrl], 'headers', 'status', ['consignments', p => consignmentCounts[p.id] ?? 0], '']} let:item={p}>
-  <tr class="{p.isDisabled ? 'bg-gray-300' : 'bg-none'}">
+  <tr class="{p.isDisabled ? 'bg-neutral-300' : 'bg-none'}">
     <td>{p.id}</td>
     <td><a href={p.baseUrl} target="_blank">{p.baseUrl}</a></td>
     <td class="text-center">{p.supportsSubsetting ? '✅' : ''}</td>
@@ -40,7 +40,7 @@
     <td>{Object.keys(p.headers).join(', ')}</td>
     <td>
       <div class="flex items-center gap-2">
-        <div class="h-4 w-4 rounded-full {p.isOnline ? 'bg-green-500' : p.isDisabled ? 'bg-yellow-500' :  'bg-red-500'}" ></div>
+        <div class="h-4 w-4 rounded-full {p.isOnline ? 'bg-success-500' : p.isDisabled ? 'bg-warning-500' :  'bg-danger-500'}" ></div>
         <span>{t.statuses[p.status]}</span>
       </div>
     </td>

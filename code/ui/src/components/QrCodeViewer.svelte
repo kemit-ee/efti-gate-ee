@@ -20,10 +20,10 @@
 </script>
 
 <div
-  class="flex flex-col items-center justify-center p-6 bg-gray-50 border border-gray-200 rounded text-center {$$restProps.class ?? ''}"
+  class="flex flex-col items-center justify-center p-6 bg-neutral-200 border border-neutral-350 rounded text-center {$$restProps.class ?? ''}"
   {...$$restProps}
 >
-  <div class="bg-white p-4 rounded border border-gray-200 shadow-sm flex justify-center">
+  <div class="bg-white p-4 rounded border border-neutral-350 shadow-sm flex justify-center">
     <canvas bind:this={canvasElement}></canvas>
   </div>
 </div>

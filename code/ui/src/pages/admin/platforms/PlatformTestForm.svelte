@@ -77,11 +77,11 @@
     <div class="text-sm">
       {t.datasets.datasetTestResult}
       {#if datasetStatus === 'running'}
-        <span class="text-blue-600">{t.general.running}</span>
+        <span class="text-primary-600">{t.general.running}</span>
       {:else if datasetStatus === 'success'}
-        <span class="text-green-600">{t.general.success} ({datasetDuration}ms)</span>
+        <span class="text-success-700">{t.general.success} ({datasetDuration}ms)</span>
       {:else if datasetStatus === 'failed'}
-        <span class="text-red-600">{t.general.failed} ({datasetError}) ({datasetDuration}ms)</span>
+        <span class="text-danger-700">{t.general.failed} ({datasetError}) ({datasetDuration}ms)</span>
       {/if}
     </div>
   {/if}
@@ -90,11 +90,11 @@
     <div class="text-sm">
       {t.datasets.followUpTestResult}
       {#if followUpStatus === 'running'}
-        <span class="text-blue-600">{t.general.running}</span>
+        <span class="text-primary-600">{t.general.running}</span>
       {:else if followUpStatus === 'success'}
-        <span class="text-green-600">{t.general.success} ({followUpDuration}ms)</span>
+        <span class="text-success-700">{t.general.success} ({followUpDuration}ms)</span>
       {:else if followUpStatus === 'failed'}
-        <span class="text-red-600">{t.general.failed} ({followUpError}) ({followUpDuration}ms)</span>
+        <span class="text-danger-700">{t.general.failed} ({followUpError}) ({followUpDuration}ms)</span>
       {/if}
     </div>
   {/if}

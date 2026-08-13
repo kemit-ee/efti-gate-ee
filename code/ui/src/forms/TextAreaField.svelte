@@ -16,7 +16,7 @@
 </script>
 
 <FormField {label} let:id {required} class={$$props.class}>
-  <div class="float-right text-sm -mt-6" class:text-red-500={tooLong}>
+  <div class="float-right text-sm -mt-6" class:text-danger-600={tooLong}>
     {value?.length ?? 0} / {maxlength}
   </div>
   <textarea {id} bind:this={textarea} bind:value {rows} {required} {...$$restProps}></textarea>

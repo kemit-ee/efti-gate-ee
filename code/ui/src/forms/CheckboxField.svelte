@@ -19,6 +19,6 @@
 
 <style>
   :global(input[type=checkbox]) {
-    @apply focus:ring-primary-500 h-4 w-4 text-primary-500 border-gray-300 rounded;
+    @apply focus:ring-primary-600 h-4 w-4 text-primary-600 border-neutral-500 rounded;
   }
 </style>

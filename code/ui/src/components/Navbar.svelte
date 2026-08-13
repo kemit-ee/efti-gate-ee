@@ -17,19 +17,19 @@
   $: isActive = (path: string) => $activePath.split('/')[1] === path.split('/')[1]
 </script>
 
-<nav class="fixed w-full top-0 z-40 bg-gradient-to-r from-zinc-600 to-blue-700 shadow-lg text-white">
+<nav class="fixed w-full top-0 z-40 bg-primary-700 shadow-lg text-white">
   <div class="px-4 sm:px-6 lg:px-8 flex h-16 items-center justify-between">
     <div class="flex items-center gap-4">
       <h1 class="text-lg font-bold">{t.general.admin}</h1>
       {#if import.meta.env.DEV}
-        <h5 class="font-black text-red-500">DEV</h5>
+        <h5 class="font-black text-danger-400">DEV</h5>
       {/if}
 
       {#if menuOpen}
-        <div class="flex flex-col max-sm:bg-zinc-400 gap-4 sm:flex-row sm:ml-8 max-sm:fixed max-sm:top-16 max-sm:mt-1 max-sm:left-0 max-sm:right-0 max-sm:p-4 max-sm:border-b">
+        <div class="flex flex-col max-sm:bg-primary-800 gap-4 sm:flex-row sm:ml-8 max-sm:fixed max-sm:top-16 max-sm:mt-1 max-sm:left-0 max-sm:right-0 max-sm:p-4 max-sm:border-b">
           {#each routes as link}
             <Link to={link.path.replace(/\/\*.*/, '')} on:click={() => {if (isMobile) menuOpen = false}}
-              class="inline-flex items-center px-1 pt-1 flex-1 text-white hover:text-zinc-100
+              class="inline-flex items-center px-1 pt-1 flex-1 text-white hover:text-primary-200
                     {isActive(link.path) ? 'font-bold' : 'font-medium'}">
               {link.name}
             </Link>

@@ -13,6 +13,6 @@
 
 <style>
   .validated :global(input:invalid), .validated :global(select:invalid), .validated :global(textarea:invalid), .validated :global(.invalid) {
-    @apply border-danger-500 ring-danger-500 focus:border-danger-500 focus:ring-danger-500;
+    @apply border-danger-700 ring-danger-700 focus:border-danger-700 focus:ring-danger-700;
   }
 </style>

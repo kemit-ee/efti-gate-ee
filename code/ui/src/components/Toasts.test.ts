@@ -8,7 +8,7 @@ describe('Toasts', () => {
     await act(() => showToast('Great success', {type: ToastType.SUCCESS}))
     const toast = container.querySelector('.toast')!
     expect(toast.textContent).to.contain('Great success')
-    expect(toast.querySelector('.text-success-400')).to.exist
+    expect(toast.querySelector('.text-success-600')).to.exist
   })
 
   it('renders warning toast', async () => {
@@ -16,6 +16,6 @@ describe('Toasts', () => {
     await act(() => showToast('Great warning', {type: ToastType.WARNING}))
     const toast = [...container.querySelectorAll('.toast')].last()
     expect(toast.textContent).to.contain('Great warning')
-    expect(toast.querySelector('.text-warning-400')).to.exist
+    expect(toast.querySelector('.text-warning-600')).to.exist
   })
 })

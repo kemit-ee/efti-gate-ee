@@ -34,18 +34,18 @@
 {#if show}
   <div bind:this={modal} class="modal transition-opacity fixed z-40 inset-0 overflow-y-auto" transition:fade={{duration: flyParams.duration}}>
     <div class="flex items-center justify-center min-h-screen p-4 md:pb-20 text-center">
-      <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+      <div class="fixed inset-0 bg-neutral-850/40 transition-opacity"></div>
 
       <div class="w-full {wide ? 'max-w-7xl': 'max-w-xl'} relative inline-block bg-white rounded-lg p-6 md:p-10 text-left overflow-hidden shadow-xl transform transition-all align-middle"
            role="dialog" transition:fly={flyParams}>
         <div class="block absolute top-0 right-0 pt-4 md:pt-8 pr-4 md:pr-8">
-          <button type="button" title={t.general.close} onclick={close} class="bg-white flex items-center justify-center text-gray-400 hover:text-gray-500 h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500">
+          <button type="button" title={t.general.close} onclick={close} class="bg-white flex items-center justify-center text-neutral-500 hover:text-neutral-700 h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-600">
             <Icon name="x"/>
           </button>
         </div>
 
         {#if title}<h3 class="mb-4">{title}</h3>
-          {#if description}<p class="mb-4 text-sm text-gray-500">{description}</p>
+          {#if description}<p class="mb-4 text-sm text-neutral-600">{description}</p>
           {/if}
         {/if}
         <slot/>
