@@ -15,6 +15,10 @@
     "FTI": "FTI"
   },
   "general": {
+    "systemName": "EFTI GATE",
+    "systemManagerName": "KEMIT",
+    "language": "Language",
+    "menu": "Menu",
     "any": "Any",
     "save": "Save",
     "admin": "Admin",
