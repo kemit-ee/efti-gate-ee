@@ -1,32 +1,33 @@
 @tailwind base;
 
 @layer base {
-  h1, h2, h3, h4, h5 {
-    @apply font-semibold;
+  body {
+    @apply text-neutral-850;
+    background-color: #F0F0F2;
   }
 
   h1, .h1 {
-    @apply text-3xl;
+    @apply text-2xl font-light;
   }
 
   h2, .h2 {
-    @apply text-2xl;
+    @apply text-[1.375rem] font-normal;
   }
 
   h3, .h3 {
-    @apply text-xl;
+    @apply text-xl font-normal;
   }
 
   h4, .h4 {
-    @apply text-xl text-gray-900;
+    @apply text-lg font-normal text-neutral-850;
   }
 
   h5, .h5 {
-    @apply text-lg font-medium text-gray-900;
+    @apply text-base font-bold text-neutral-850;
   }
 
   h6, .h6 {
-    @apply text-base font-medium text-gray-900;
+    @apply text-base font-bold text-neutral-850;
   }
 
   img, svg {
@@ -43,7 +44,7 @@
 
   a {
     cursor: pointer;
-    @apply text-primary-600 hover:text-primary-700;
+    @apply text-primary-600 hover:text-primary-700 underline;
   }
 
   table th, table td {
@@ -51,7 +52,7 @@
   }
 
   label {
-    @apply block text-sm font-semibold text-gray-700;
+    @apply block text-sm font-normal text-neutral-700;
   }
 
   .form-field label {
@@ -59,7 +60,13 @@
   }
 
   .form-field input, .form-field select, .form-field textarea {
-    @apply block w-full py-2 px-3 border border-gray-300 bg-white text-black rounded-md shadow-sm text-sm focus:outline-none focus:ring-primary-500 focus:ring-1 focus:border-primary-500 disabled:bg-gray-100;
+    @apply block w-full py-2 px-3 border border-neutral-500 bg-white text-neutral-850 rounded-md shadow-sm text-sm
+      focus:outline-none focus:ring-1 focus:ring-primary-600 focus:border-primary-600
+      disabled:bg-neutral-300 disabled:text-neutral-700;
+  }
+
+  .form-field input::placeholder, .form-field textarea::placeholder {
+    @apply text-neutral-550;
   }
 
   .form-field.lg input, .form-field.lg select, .form-field.lg textarea {
@@ -74,23 +81,23 @@
   }
 
   .btn.default {
-    @apply focus:ring-primary-500 hover:bg-gray-50 bg-white text-gray-700 border border-gray-300;
+    @apply focus:ring-primary-600 hover:bg-primary-100 bg-white text-primary-600 border border-neutral-450;
   }
 
   .btn.primary {
-    @apply text-white hover:text-white bg-primary-600 hover:bg-primary-700 focus:ring-primary-500;
+    @apply text-white hover:text-white bg-primary-600 hover:bg-primary-700 focus:ring-primary-600;
   }
 
   .btn.danger {
-    @apply text-danger-500 border border-gray-300 hover:bg-gray-50;
+    @apply text-danger-700 border border-neutral-450 hover:bg-neutral-300;
   }
 
   .btn.success {
-    @apply text-white hover:text-white bg-success-400 hover:bg-success-700 focus:ring-success-500;
+    @apply text-white hover:text-white bg-success-700 hover:bg-success-800 focus:ring-success-600;
   }
 
   .btn.link {
-    @apply text-primary-600 hover:text-primary-500 hover:bg-primary-100 focus:ring-primary-400;
+    @apply text-primary-600 hover:text-primary-700 hover:bg-primary-100 focus:ring-primary-600;
   }
 
   .btn.sm {
@@ -123,7 +130,7 @@
 
 @layer utilities {
   .text-muted {
-    @apply text-gray-400;
+    @apply text-neutral-600;
   }
 
   .common-grid {

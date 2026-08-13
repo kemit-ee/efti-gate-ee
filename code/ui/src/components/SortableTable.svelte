@@ -132,15 +132,15 @@
   @reference "./../global.css";
 
   table {
-    @apply relative bg-white text-black min-w-full md:shadow-sm border-separate border-spacing-0;
+    @apply relative bg-white text-neutral-850 min-w-full md:shadow-sm border-separate border-spacing-0;
   }
 
   table :global(th), table :global(td) {
-    @apply px-4 py-3 border-b border-gray-200;
+    @apply px-4 py-3 border-b border-neutral-350;
   }
 
   table thead th {
-    @apply text-xs font-medium uppercase tracking-wider sticky top-0 bg-white border-b-2 border-gray-200 border-solid;
+    @apply text-xs font-medium uppercase tracking-wider sticky top-0 bg-white border-b-2 border-neutral-350 border-solid;
   }
 
   table :global(th:last-child), :global(td:last-child:not(:first-child)) {
@@ -152,7 +152,7 @@
   }
 
   th.sorted::after {
-    @apply border-gray-500;
+    @apply border-neutral-600;
     position: absolute;
     content: '';
     transform: translateY(-50%);

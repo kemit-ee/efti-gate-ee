@@ -91,9 +91,9 @@
       {#if user.roles[Role.GATE]?.length}
         <div class="flex flex-wrap gap-2">
           {#each user.roles[Role.GATE] as id}
-        <span class="flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-sm">
+        <span class="flex items-center gap-1 rounded bg-neutral-300 px-2 py-1 text-sm">
           {id}
-          <Button type="button" icon="x" size="sm" data-id={id} class="text-gray-400 hover:text-red-500" onclick={() => removeRole(Role.GATE, id)}/>
+          <Button type="button" icon="x" size="sm" data-id={id} class="text-neutral-500 hover:text-danger-600" onclick={() => removeRole(Role.GATE, id)}/>
         </span>
           {/each}
         </div>
@@ -110,9 +110,9 @@
       {#if user.roles[Role.PLATFORM]?.length}
         <div class="flex flex-wrap gap-2">
           {#each user.roles[Role.PLATFORM] as id}
-        <span class="flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-sm">
+        <span class="flex items-center gap-1 rounded bg-neutral-300 px-2 py-1 text-sm">
           {id}
-          <Button type="button" icon="x" size="sm" data-id={id} class="text-gray-400 hover:text-red-500" onclick={() => removeRole(Role.PLATFORM, id)}/>
+          <Button type="button" icon="x" size="sm" data-id={id} class="text-neutral-500 hover:text-danger-600" onclick={() => removeRole(Role.PLATFORM, id)}/>
         </span>
           {/each}
         </div>
@@ -129,9 +129,9 @@
       {#if user.roles[Role.AUTHORITY]?.length}
         <div class="flex flex-wrap gap-2">
           {#each user.roles[Role.AUTHORITY] as id}
-        <span class="flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-sm">
+        <span class="flex items-center gap-1 rounded bg-neutral-300 px-2 py-1 text-sm">
           {id}
-          <Button type="button" icon="x" size="sm" data-id={id} class="text-gray-400 hover:text-red-500" onclick={() => removeRole(Role.AUTHORITY, id)}/>
+          <Button type="button" icon="x" size="sm" data-id={id} class="text-neutral-500 hover:text-danger-600" onclick={() => removeRole(Role.AUTHORITY, id)}/>
         </span>
           {/each}
         </div>

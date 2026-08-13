@@ -3,7 +3,7 @@ import {svelte} from '@sveltejs/vite-plugin-svelte'
 import {svelteTesting} from '@testing-library/svelte/vite'
 
 const backendHost = process.env.BACKEND_HOST ?? 'localhost'
-const backendPort = process.env.BACKEND_PORT ?? '8086'
+const backendPort = process.env.BACKEND_PORT ?? '8080'
 const backendUrl = `http://${backendHost}:${backendPort}`
 
 // https://vite.dev/config/
