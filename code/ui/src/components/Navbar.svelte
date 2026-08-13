@@ -4,7 +4,6 @@
   import {activePath,Link} from 'src/router'
   import type {NavRoute} from 'src/shared/Mode'
   import {user,userSwitch} from 'src/stores/auth'
-  import SelectField from 'src/forms/SelectField.svelte'
   import Icon from "src/icons/Icon.svelte";
 
   export let routes: NavRoute[]

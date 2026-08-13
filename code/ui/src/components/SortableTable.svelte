@@ -77,7 +77,7 @@
           {#if column || column === ''}
             <th onclick={() => items = items && !!column ? sortBy(items, fields[i]) : items}
                 scope="col"
-                class="text-muted {asc === 1 ? 'asc' : 'desc'} {rightAlignIndices.has(i) ? 'text-right' : ''}"
+                class="{asc === 1 ? 'asc' : 'desc'} {rightAlignIndices.has(i) ? 'text-right' : ''}"
                 class:sortable={!!column}
                 class:sorted={sortedBy === fields[i]}>
               {#if column}
@@ -132,7 +132,7 @@
   @reference "./../global.css";
 
   table {
-    @apply relative bg-white text-neutral-850 min-w-full md:shadow-sm border-separate border-spacing-0;
+    @apply relative bg-white text-neutral-850 min-w-full md:shadow-sm border border-neutral-400;
   }
 
   table :global(th), table :global(td) {
@@ -140,7 +140,7 @@
   }
 
   table thead th {
-    @apply text-xs font-medium uppercase tracking-wider sticky top-0 bg-white border-b-2 border-neutral-350 border-solid;
+    @apply font-medium tracking-wider sticky top-0 bg-white border-b border-neutral-500 border-solid;
   }
 
   table :global(th:last-child), :global(td:last-child:not(:first-child)) {
