@@ -155,7 +155,7 @@
       }
     },
     {
-      "name": "GET /api/v1/users/get?userId={{user_id}} — get single user",
+      "name": "GET /api/v1/users?userId={{user_id}} — get single user",
       "event": [
         {
           "listen": "test",
@@ -184,15 +184,15 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/users/get?userId={{user_id}}",
+          "raw": "{{base_url}}/efti/api/v1/users?userId={{user_id}}",
           "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "users", "get"],
+          "path": ["efti", "api", "v1", "users"],
           "query": [{ "key": "userId", "value": "{{user_id}}" }]
         }
       }
     },
     {
-      "name": "PUT /api/v1/users/update?userId={{user_id}} — update user",
+      "name": "PUT /api/v1/users?userId={{user_id}} — update user",
       "event": [
         {
           "listen": "test",
@@ -225,9 +225,9 @@
           "raw": "{\n  \"taraSub\": \"{{tara_sub}}\",\n  \"email\": \"test-{{tara_sub}}@example.com\",\n  \"name\": \"Test User Updated\",\n  \"isAdmin\": false,\n  \"roles\": {\"AUTHORITY\": [\"auth-test\", \"auth-test2\"]},\n  \"subsets\": [\"EU01\", \"EU02\", \"EU03\"]\n}"
         },
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/users/update?userId={{user_id}}",
+          "raw": "{{base_url}}/efti/api/v1/users?userId={{user_id}}",
           "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "users", "update"],
+          "path": ["efti", "api", "v1", "users"],
           "query": [{ "key": "userId", "value": "{{user_id}}" }]
         }
       }
@@ -259,7 +259,7 @@
       }
     },
     {
-      "name": "GET /api/v1/users/get?userId={{user_id}} — tokenRevokedAt is set after revoke",
+      "name": "GET /api/v1/users?userId={{user_id}} — tokenRevokedAt is set after revoke",
       "event": [
         {
           "listen": "test",
@@ -283,15 +283,15 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/users/get?userId={{user_id}}",
+          "raw": "{{base_url}}/efti/api/v1/users?userId={{user_id}}",
           "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "users", "get"],
+          "path": ["efti", "api", "v1", "users"],
           "query": [{ "key": "userId", "value": "{{user_id}}" }]
         }
       }
     },
     {
-      "name": "DELETE /api/v1/users/delete?userId={{user_id}} — soft-delete user",
+      "name": "DELETE /api/v1/users?userId={{user_id}} — soft-delete user",
       "event": [
         {
           "listen": "test",
@@ -309,15 +309,15 @@
         "method": "DELETE",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/users/delete?userId={{user_id}}",
+          "raw": "{{base_url}}/efti/api/v1/users?userId={{user_id}}",
           "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "users", "delete"],
+          "path": ["efti", "api", "v1", "users"],
           "query": [{ "key": "userId", "value": "{{user_id}}" }]
         }
       }
     },
     {
-      "name": "GET /api/v1/users/get?userId={{user_id}} — user is inactive after delete",
+      "name": "GET /api/v1/users?userId={{user_id}} — user is inactive after delete",
       "event": [
         {
           "listen": "test",
@@ -340,9 +340,9 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/users/get?userId={{user_id}}",
+          "raw": "{{base_url}}/efti/api/v1/users?userId={{user_id}}",
           "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "users", "get"],
+          "path": ["efti", "api", "v1", "users"],
           "query": [{ "key": "userId", "value": "{{user_id}}" }]
         }
       }

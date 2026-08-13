@@ -1,4 +1,31 @@
-fetch_gates:
+route:
+  switch:
+    - condition: ${incoming.params.gateId != null}
+      next: fetch_single
+  next: fetch_list
+
+fetch_single:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/get_gate_by_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.params.gateId}"
+  result: single_result
+  next: check_single
+
+check_single:
+  switch:
+    - condition: ${single_result.response.body == null || single_result.response.body.length == 0}
+      next: not_found
+  next: respond_single
+
+respond_single:
+  return: ${single_result.response.body}
+  next: end
+
+fetch_list:
   call: http.post
   args:
     url: "http://resql:8090/efti/get_gates"
@@ -7,9 +34,14 @@ fetch_gates:
     body:
       limit: "${incoming.params.limit}"
       offset: "${incoming.params.offset}"
-  result: result
-  next: respond
+  result: list_result
+  next: respond_list
 
-respond:
-  return: ${result.response.body}
+respond_list:
+  return: ${list_result.response.body}
+  next: end
+
+not_found:
+  return: '{"error": "Not Found"}'
+  status: 404
   next: end
