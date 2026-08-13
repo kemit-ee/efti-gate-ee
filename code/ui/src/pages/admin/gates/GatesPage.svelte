@@ -2,7 +2,6 @@
   import {t} from 'i18n'
   import GateList from 'src/pages/admin/gates/GateList.svelte'
   import GateForm from 'src/pages/admin/gates/GateForm.svelte'
-  import type {Gate} from 'src/api/types'
   import {onMount} from 'svelte'
   import api from 'src/api/api'
   import Button from 'src/components/Button.svelte'
@@ -12,6 +11,7 @@
   import {navigate} from 'src/router'
   import {user} from 'src/stores/auth'
   import GateTestForm from 'src/pages/admin/gates/GateTestForm.svelte'
+  import type {Gate, RuuterResponse} from "src/api/ruuterTypes";
 
   let gates: Gate[]
   let editGate: Gate | false = false
@@ -20,7 +20,7 @@
   onMount(load)
 
   async function load() {
-    gates = await api.get('gates')
+    gates = await api.get<Gate[]>('v1/gates')
   }
 
   function add() {
@@ -48,9 +48,7 @@
   {t.gates.title} ({gates?.length})
   <span>
     <OwnGateButton/>
-    {#if $user?.isSuperAdmin}
-      <Button label={t.general.add} onclick={add} class="primary"/>
-    {/if}
+    <Button label={t.general.add} onclick={add} class="primary"/>
   </span>
 </h1>
 

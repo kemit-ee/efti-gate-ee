@@ -1,5 +1,4 @@
 <script lang="ts">
-  import {type Authority, type Gate, type Platform, Role, type Subset, type User} from 'src/api/types'
   import api from 'src/api/api'
   import {t} from 'i18n'
   import Form from 'src/forms/Form.svelte'
@@ -10,6 +9,7 @@
   import {onMount} from 'svelte'
   import { user as currentUser } from 'src/stores/auth'
   import SelectField from 'src/forms/SelectField.svelte'
+  import type {Authority, Gate, Platform, User} from "src/api/ruuterTypes";
 
   export let user: User
   export let hideRoles = false

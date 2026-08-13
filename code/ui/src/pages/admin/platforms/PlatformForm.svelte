@@ -1,5 +1,4 @@
 <script lang="ts">
-  import {type Platform, Status} from 'src/api/types'
   import api from 'src/api/api'
   import {t} from 'i18n'
   import Form from 'src/forms/Form.svelte'
@@ -9,12 +8,15 @@
   import CheckboxField from 'src/forms/CheckboxField.svelte'
   import EDeliveryFields from 'src/pages/admin/EDeliveryFields.svelte'
   import HeadersEditor from 'src/pages/admin/platforms/HeadersEditor.svelte'
-  import SelectField from 'src/forms/SelectField.svelte'
+  import {type Platform, Status} from "src/api/ruuterTypes";
 
   export let platform: Platform
   export let onSaved = (platform: Platform, isNew: boolean) => {}
 
   const isEdit = !!platform.id
+
+  let isPlatformDisabled = platform.status === Status.DISABLED
+  $: platform.status = isPlatformDisabled ? Status.DISABLED : Status.OFFLINE
 
   let eDelivery = !!platform.eDeliveryCert
   $: if (platform.baseUrl?.endsWith('/msh')) eDelivery = true
@@ -23,7 +25,7 @@
   $: platform.headers = Object.fromEntries(headers)
 
   async function submit() {
-    platform.status = platform.isDisabled ? Status.DISABLED : Status.ONLINE
+    platform.status = platform.status === Status.DISABLED ? Status.DISABLED : Status.ONLINE
     if (!eDelivery) {
       platform.eDeliveryCert = ''
       platform.tlsCert = ''
@@ -45,10 +47,12 @@
   {#if eDelivery}
     <EDeliveryFields bind:entity={platform}/>
   {/if}
-  <HeadersEditor bind:headers={headers} />
+  <HeadersEditor bind:headers={headers}/>
+  <!-- TODO add xsd version support
   <SelectField label={t.platforms.xsdSupport} options={t.xsdSupport} bind:value={platform.xsdSupport}/>
+  -->
   <div class="flex gap-4 items-center">
     <Button type="submit" label={t.general.save} class="primary"/>
-    <CheckboxField label={t.platforms.disabled} bind:checked={platform.isDisabled} class="ml-4"/>
+    <CheckboxField label={t.platforms.disabled} bind:checked={isPlatformDisabled} class="ml-4"/>
   </div>
 </Form>

@@ -3,14 +3,14 @@
   import FormField from 'src/forms/FormField.svelte'
 
   export let label: string|undefined = undefined
-  export let value: string = ''
+  export let value: string | null = ''
   export let maxlength = 1000
   export let rows = (value?.split('\n').length ?? 0) + 1
   export let required = true
   export let validator: ((value: string) => string)|undefined = undefined
 
   let textarea: HTMLTextAreaElement
-  $: tooLong = value?.length > maxlength
+  $: tooLong = value?.length || 0 > maxlength
   $: validationError = tooLong ? t.errors.tooLong : (value && validator?.(value)) ?? ''
   $: textarea?.setCustomValidity(validationError)
 </script>

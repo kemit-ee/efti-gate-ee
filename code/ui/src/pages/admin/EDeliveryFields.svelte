@@ -2,7 +2,7 @@
   import {t} from 'i18n'
   import TextAreaField from 'src/forms/TextAreaField.svelte'
 
-  export let entity: {eDeliveryCert?: string, tlsCert?: string}
+  export let entity: {eDeliveryCert: string | null, tlsCert: string | null}
   export let disabled = false
 
   async function handleFileChange(e: Event) {

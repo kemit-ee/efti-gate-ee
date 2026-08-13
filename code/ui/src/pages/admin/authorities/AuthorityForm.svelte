@@ -1,5 +1,4 @@
 <script lang="ts">
-  import {type Authority} from 'src/api/types'
   import api from 'src/api/api'
   import {t} from 'i18n'
   import Form from 'src/forms/Form.svelte'
@@ -8,6 +7,7 @@
   import {showToast} from 'src/stores/toasts'
   import CountrySelect from 'src/pages/admin/CountrySelect.svelte'
   import SubsetsEditor from 'src/pages/admin/SubsetsEditor.svelte'
+  import type {Authority} from "src/api/ruuterTypes";
 
   export let authority: Authority
   export let onSaved = (authority: Authority, isNew: boolean) => {}

@@ -1,11 +1,11 @@
 <script lang="ts">
-  import {type Gate, Status} from 'src/api/types'
   import api from 'src/api/api'
   import SortableTable from 'src/components/SortableTable.svelte'
   import {showToast} from 'src/stores/toasts'
   import {t} from 'i18n'
   import Button from 'src/components/Button.svelte'
   import {navigate} from 'src/router'
+  import {type Gate, Status} from "src/api/ruuterTypes";
 
   export let gates: Gate[]
   export let onEdit: (gate: Gate) => void
@@ -17,7 +17,7 @@
       await api.post(`gates/${gate.id}/ping`)
       showToast(gate.id + ' ' + t.general.pinged)
     } catch (e: any) {
-      if (!gate.isDisabled) gates = gates.map(g => g.id === gate.id ? { ...g, status: Status.OFFLINE, isOnline: false } : g)
+      if (gate.status !== Status.DISABLED) gates = gates.map(g => g.id === gate.id ? { ...g, status: Status.OFFLINE, isOnline: false } : g)
       throw e
     }
   }
@@ -31,13 +31,13 @@
 </script>
 
 <SortableTable items={gates} labels={t.gates} columns={['id', [t.general.countryCode, 'countryCode'], 'eDeliveryUrl', 'status', '']} let:item={g}>
-  <tr class="{g.isDisabled ? 'bg-neutral-300' : 'bg-none'}">
+  <tr class="{g.status === Status.DISABLED ? 'bg-neutral-300' : 'bg-none'}">
     <td>{g.id}</td>
     <td>{g.countryCode}</td>
     <td><a href={g.eDeliveryUrl} target="_blank">{g.eDeliveryUrl}</a></td>
     <td>
       <div class="flex items-center gap-2">
-        <div class="h-4 w-4 rounded-full {g.isOnline ? 'bg-success-500' : g.isDisabled ? 'bg-warning-500' :  'bg-danger-500'}" ></div>
+        <div class="h-4 w-4 rounded-full {g.status === Status.ONLINE ? 'bg-success-500' : g.status === Status.DISABLED ? 'bg-warning-500' :  'bg-danger-500'}" ></div>
         <span>{t.statuses[g.status]}</span>
       </div>
     </td>

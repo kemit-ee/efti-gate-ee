@@ -1,11 +1,11 @@
 <script lang="ts">
-  import type {Authority} from 'src/api/types'
   import api from 'src/api/api'
   import {t} from 'i18n'
   import SortableTable from 'src/components/SortableTable.svelte'
   import Button from 'src/components/Button.svelte'
   import {showToast} from 'src/stores/toasts'
   import {navigate} from 'src/router'
+  import type {Authority} from "src/api/ruuterTypes";
 
   export let authorities: Authority[]
   export let onEdit: (authority: Authority) => void

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import {CountryCode} from 'src/api/types'
   import SelectField from 'src/forms/SelectField.svelte'
   import {t} from 'i18n'
+  import {CountryCode} from "src/api/ruuterTypes";
 
   export let label = t.general.countryCode
   export let countryCode: CountryCode

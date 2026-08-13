@@ -1,10 +1,10 @@
 <script lang="ts">
   import {t} from 'i18n'
-  import {CountryCode, type Subset} from 'src/api/types'
   import Button from 'src/components/Button.svelte'
   import FormField from 'src/forms/FormField.svelte'
   import CheckboxField from 'src/forms/CheckboxField.svelte'
   import {tick} from 'svelte'
+  import type {CountryCode, Subset} from "src/api/ruuterTypes";
 
   export let countryCode: CountryCode
   export let subsets: Subset[]
