@@ -4,7 +4,7 @@ Dokument kirjeldab kõiki `openapi.yaml` spetsifitseeritud endpointe:
 mis on **teostatud**, mis on **puudu** ja millised on näidisissendid/väljundid.
 
 > **Ruuter URL-konventsioon:** Kuna Ruuter (Rust) ei toeta natiivset tee-parameetrit `{gateId}`,
-> kasutatakse workaround: `GET /api/v1/gates/get?gateId=eu-xx01` asemel `GET /api/v1/gates/{gateId}`.
+> kasutatakse workaround: `GET /api/v1/gates?gateId=eu-xx01` asemel `GET /api/v1/gates/{gateId}`.
 > Spec-i URI-d ja tegelikud Ruuter URI-d erinevad — vt iga endpoindi juures märkus.
 
 ---
@@ -291,17 +291,17 @@ GET /efti/api/v1/gates/own
 
 ---
 
-### `GET /efti/api/v1/gates/get?gateId={id}` — Üks gate
+### `GET /efti/api/v1/gates?gateId={id}` — Üks gate
 
 **Spec:** `GET /api/v1/gates/{gateId}`
-**Ruuter DSL:** `DSL/Ruuter/efti/GET/api/v1/gates/get.yml`
+**Ruuter DSL:** `DSL/Ruuter/efti/GET/api/v1/gates.yml`
 
 > ℹ️ **Ruuter workaround:** Spec-i tee-parameeter `{gateId}` on asendatud query-parameetriga `?gateId=`.
 
 Tagastab viimase rea `DISTINCT ON (id) ORDER BY created_at DESC` — sealhulgas soft-kustutatud gate (`isActive: false`).
 
 ```
-GET /efti/api/v1/gates/get?gateId=eu-de01
+GET /efti/api/v1/gates?gateId=eu-de01
 
 → 200 OK
 {
@@ -324,17 +324,17 @@ GET /efti/api/v1/gates/get?gateId=eu-de01
 
 ---
 
-### `PUT /efti/api/v1/gates/update?gateId={id}` — Uuenda gate
+### `PUT /efti/api/v1/gates?gateId={id}` — Uuenda gate
 
 **Spec:** `PUT /api/v1/gates/{gateId}`
-**Ruuter DSL:** `DSL/Ruuter/efti/PUT/api/v1/gates/update.yml`
+**Ruuter DSL:** `DSL/Ruuter/efti/PUT/api/v1/gates.yml`
 **Voog:** INSERT uus rida → verify GET → 200
 
 Päringu keha sama mis `POST /gates`.
 
 ```json
 // Päring
-PUT /efti/api/v1/gates/update?gateId=eu-de01
+PUT /efti/api/v1/gates?gateId=eu-de01
 Content-Type: application/json
 
 {
@@ -359,14 +359,14 @@ Content-Type: application/json
 
 ---
 
-### `DELETE /efti/api/v1/gates/delete?gateId={id}` — Kustuta gate
+### `DELETE /efti/api/v1/gates?gateId={id}` — Kustuta gate
 
 **Spec:** `DELETE /api/v1/gates/{gateId}`
-**Ruuter DSL:** `DSL/Ruuter/efti/DELETE/api/v1/gates/delete.yml`
+**Ruuter DSL:** `DSL/Ruuter/efti/DELETE/api/v1/gates.yml`
 **Voog:** INSERT rida `is_active=false` → verify GET (`isActive == false`) → 204
 
 ```
-DELETE /efti/api/v1/gates/delete?gateId=eu-de01
+DELETE /efti/api/v1/gates?gateId=eu-de01
 
 → 204 No Content   (keha puudub)
 
@@ -494,12 +494,12 @@ Content-Type: application/json
 
 ---
 
-### `GET /efti/api/v1/platforms/get?platformId={id}` — Üks platform
+### `GET /efti/api/v1/platforms?platformId={id}` — Üks platform
 
-**Ruuter DSL:** `DSL/Ruuter/efti/GET/api/v1/platforms/get.yml`
+**Ruuter DSL:** `DSL/Ruuter/efti/GET/api/v1/platforms.yml`
 
 ```
-GET /efti/api/v1/platforms/get?platformId=plt-cargo-ee-001
+GET /efti/api/v1/platforms?platformId=plt-cargo-ee-001
 
 → 200 OK
 {
@@ -517,9 +517,9 @@ GET /efti/api/v1/platforms/get?platformId=plt-cargo-ee-001
 
 ---
 
-### `PUT /efti/api/v1/platforms/update?platformId={id}` — Uuenda platform
+### `PUT /efti/api/v1/platforms?platformId={id}` — Uuenda platform
 
-**Ruuter DSL:** `DSL/Ruuter/efti/PUT/api/v1/platforms/update.yml`
+**Ruuter DSL:** `DSL/Ruuter/efti/PUT/api/v1/platforms.yml`
 
 Päringu keha sama mis POST. Voog: INSERT → verify → 200.
 
@@ -538,12 +538,12 @@ Päringu keha sama mis POST. Voog: INSERT → verify → 200.
 
 ---
 
-### `DELETE /efti/api/v1/platforms/delete?platformId={id}` — Kustuta platform
+### `DELETE /efti/api/v1/platforms?platformId={id}` — Kustuta platform
 
-**Ruuter DSL:** `DSL/Ruuter/efti/DELETE/api/v1/platforms/delete.yml`
+**Ruuter DSL:** `DSL/Ruuter/efti/DELETE/api/v1/platforms.yml`
 
 ```
-DELETE /efti/api/v1/platforms/delete?platformId=plt-cargo-ee-001
+DELETE /efti/api/v1/platforms?platformId=plt-cargo-ee-001
 
 → 204 No Content
 ```
@@ -660,12 +660,12 @@ Content-Type: application/json
 
 ---
 
-### `GET /efti/api/v1/authorities/get?authorityId={id}` — Üks authority
+### `GET /efti/api/v1/authorities?authorityId={id}` — Üks authority
 
-**Ruuter DSL:** `DSL/Ruuter/efti/GET/api/v1/authorities/get.yml`
+**Ruuter DSL:** `DSL/Ruuter/efti/GET/api/v1/authorities.yml`
 
 ```
-GET /efti/api/v1/authorities/get?authorityId=auth-mta
+GET /efti/api/v1/authorities?authorityId=auth-mta
 
 → 200 OK
 {
@@ -683,9 +683,9 @@ GET /efti/api/v1/authorities/get?authorityId=auth-mta
 
 ---
 
-### `PUT /efti/api/v1/authorities/update?authorityId={id}` — Uuenda authority
+### `PUT /efti/api/v1/authorities?authorityId={id}` — Uuenda authority
 
-**Ruuter DSL:** `DSL/Ruuter/efti/PUT/api/v1/authorities/update.yml`
+**Ruuter DSL:** `DSL/Ruuter/efti/PUT/api/v1/authorities.yml`
 
 Päringu keha sama mis POST. Voog: INSERT → verify → 200.
 
@@ -705,12 +705,12 @@ Päringu keha sama mis POST. Voog: INSERT → verify → 200.
 
 ---
 
-### `DELETE /efti/api/v1/authorities/delete?authorityId={id}` — Kustuta authority
+### `DELETE /efti/api/v1/authorities?authorityId={id}` — Kustuta authority
 
-**Ruuter DSL:** `DSL/Ruuter/efti/DELETE/api/v1/authorities/delete.yml`
+**Ruuter DSL:** `DSL/Ruuter/efti/DELETE/api/v1/authorities.yml`
 
 ```
-DELETE /efti/api/v1/authorities/delete?authorityId=auth-mta
+DELETE /efti/api/v1/authorities?authorityId=auth-mta
 
 → 204 No Content
 ```

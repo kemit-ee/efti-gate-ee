@@ -53,6 +53,8 @@ Ruuter DSL kasutab **staatilisi path segmente** failitee kaardistamiseks. Dünaa
 | `POST /v1/users/admin/read/get` | CRUD-tegevus lisatasandil — `read/get` on redundantne |
 | `POST /v1/users/admin/edit/insert` | CRUD-verb URI-s — loomine on `POST` meetodi ülesanne, mitte URI osa |
 | `POST /v1/users/admin/list` | Nimekirja lugemine `POST`-iga — nimekirioperatsioonid on `GET` |
+| `PUT /v1/users/admin/update?id=123` | `/update` kordab `PUT` meetodi tähendust — kasuta `PUT /v1/users/admin?id=123` |
+| `DELETE /v1/users/admin/delete?id=123` | `/delete` kordab `DELETE` meetodi tähendust — kasuta `DELETE /v1/users/admin?id=123` |
 
 ### 2.4 Soovituslikud mustrid
 
@@ -61,7 +63,7 @@ Ruuter DSL kasutab **staatilisi path segmente** failitee kaardistamiseks. Dünaa
 | Nimekirja otsing | `GET /v1/users/admin/search/?q=Mari&page=0&pageSize=20` | Eraldi `search` endpoint, `?q=` filtrina |
 | Üksiku ressursi lugemine | `GET /v1/users/admin/?q=123` | `?q=` on de facto standard ID-paramina, ressursinimi ei kordu |
 | Ressursi loomine | `POST /v1/users/admin` | HTTP meetod tähistab loomist |
-| Ressursi uuendamine | `PUT /v1/users/admin/update` | Toiming staatilise segmendina, `id` request body-s |
+| Ressursi uuendamine | `PUT /v1/users/admin?id=abc-123` | HTTP meetod tähistab uuendamist — verb URI-s on keelatud |
 | Seosega ressursi lugemine | `GET /v1/user-groups/admin/users/?q=456` | `scope` path segmendina, `?q=` query paramina |
 | Ressursi kustutamine | `DELETE /v1/user-groups/user?id=456&userId=789` | Mitu identifikaatorit query paramitena |
 
