@@ -125,3 +125,12 @@ Kaks mustrit sõltuvalt kontekstist:
 ### Järgmine samm
 
 Jälgi ResQL issue tracker'it — kui versioon > 0.1.0-alpha.1 ilmub, kontrolli kas boolean serialization on parandatud. Kui jah, saab COALESCE tagasi lisada.
+
+---
+
+## KI-004 · Users API — auth-sõltuvad reeglid rakendamata
+
+**Staatus:** 🟡 Mitigated (2026-08-12)
+**Mõjutatud komponendid:** `DSL/Ruuter/efti/POST/api/v1/users.yml`, `DSL/Ruuter/efti/DELETE/api/v1/users/delete.yml`
+
+Kolm reeglit spetsifikatsioonist on rakendamata, kuna vajavad JWT autentimiskonteksti (kõik guard-failid on hetkel `allow-all`). Täpsem kirjeldus ja järgmised sammud: [`docs/planning/user_api_known_restrictions.md`](user_api_known_restrictions.md).

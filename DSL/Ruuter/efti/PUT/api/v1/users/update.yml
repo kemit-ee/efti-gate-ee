@@ -1,0 +1,75 @@
+check_exists:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/get_user_by_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      userId: "${incoming.params.userId}"
+  result: exists_result
+  next: check_found
+
+check_found:
+  switch:
+    - condition: ${exists_result.response.body == null || exists_result.response.body.length == 0}
+      next: not_found
+  next: update_user
+
+update_user:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/update_user"
+    headers:
+      Content-Type: "application/json"
+    body:
+      userId: "${incoming.params.userId}"
+      taraSub: "${incoming.body.taraSub}"
+      email: "${incoming.body.email}"
+      name: "${incoming.body.name}"
+      isAdmin: "${incoming.body.isAdmin}"
+      roles: "${incoming.body.roles}"
+      subsets: "${incoming.body.subsets}"
+  result: update_result
+  next: check_update
+
+check_update:
+  switch:
+    - condition: ${update_result.response.body == null || update_result.response.body.length == 0}
+      next: update_failed
+  next: verify_user
+
+verify_user:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/get_user_by_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      userId: "${incoming.params.userId}"
+  result: verify_result
+  next: check_verify
+
+check_verify:
+  switch:
+    - condition: ${verify_result.response.body == null || verify_result.response.body.length == 0}
+      next: verify_failed
+  next: respond
+
+respond:
+  return: ${verify_result.response.body}
+  next: end
+
+not_found:
+  return: '{"error": "Not Found"}'
+  status: 404
+  next: end
+
+update_failed:
+  return: '{"error": "Failed to update user"}'
+  status: 500
+  next: end
+
+verify_failed:
+  return: '{"error": "User updated but could not be verified"}'
+  status: 500
+  next: end
