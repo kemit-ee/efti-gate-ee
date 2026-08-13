@@ -75,56 +75,58 @@ Hinda Liquibase 5.x ühilduvust uuesti siis, kui saadaval on uuem 5.x väljalase
 
 ---
 
-## KI-003 · ResQL 0.1.0-alpha.1 — JSON boolean binary serialization bug
+## KI-003 · ResQL JSON parameter type mapping muutused alpha versioonides
 
-**Staatus:** 🟡 Mitigated (2026-08-12)
+**Staatus:** 🟡 Mitigated (2026-08-13)
 **Mõjutatud komponendid:** `resql-efti`
 
-### Kirjeldus
+### Alpha.1 — JSON boolean binary serialization bug
 
-ResQL 0.1.0-alpha.1 serialiseerib JSON request body boolean väljad (`true`/`false`) PostgreSQL prepared statement parameetritena binary protokollis (`\u0001`/`\u0000`) asemel tekstina `'true'`/`'false'`. PostgreSQL COALESCE-lausetes tekitab see vea:
+ResQL 0.1.0-alpha.1 serialiseerib JSON request body boolean väljad PostgreSQL prepared statement parameetritena binary protokollis (`\u0001`/`\u0000`) asemel tekstina. PostgreSQL COALESCE-lausetes tekitab see vea:
 
 ```
 invalid input syntax for type boolean: "\u0001"
 COALESCE types text and boolean cannot be matched
 ```
 
-Probleem ilmneb kõigis SQL failides kus kasutatakse `COALESCE(:boolParam, <default>)` ja parameeter on JSON boolean.
+**Workaround (alpha.1):** eemalda boolean veerud INSERT column listist (kasuta DB DEFAULT `true`) või kasuta `COALESCE(:param::text, 'false')::boolean` mustrit.
 
-### Lahendus (workaround)
+### Alpha.2 — JSON massiivid saadetakse `text[]`-na
 
-Kaks mustrit sõltuvalt kontekstist:
+ResQL 0.1.0-alpha.2 konverteerib JSON request body massiivid (`["EU01","EU02"]`) PostgreSQL natiivseks `text[]` tüübiks. Alpha.1-s saadeti need JSON tekstina. See tähendab, et `::jsonb` cast massiivi parameetritele ebaõnnestub:
 
-1. **INSERT, kus DB DEFAULT sobib** — eemalda boolean veerg INSERT column listist:
-   ```sql
-   -- Asemel: INSERT INTO gates (..., is_active) VALUES (..., COALESCE(:isActive, true))
-   INSERT INTO gates (...) VALUES (...)  -- is_active DEFAULT true DB-s
-   ```
+```
+cannot cast type text[] to jsonb
+```
 
-2. **INSERT/UPDATE, kus väärtus on alati `true`** — hardcode:
-   ```sql
-   INSERT INTO gates (..., is_active) VALUES (..., true)
-   ```
+Mõjutab SQL lauseid, kus JSON array parameetrit castiti `::jsonb`-ks:
+```sql
+-- KATKINE alpha.2-s:
+ARRAY(SELECT jsonb_array_elements_text(:subsets::jsonb))
+-- ÕIGE alpha.2-s (kasuta otse, alpha.2 saadab juba text[]):
+:subsets
+```
 
-3. **Optional boolean parameeter tekstina** — cast `::text` kaudu:
-   ```sql
-   COALESCE(:supportsSubsetting::text, 'true')::boolean
-   -- Töötab kui parameeter on null (body väljas puudub)
-   -- EI tööta kui parameeter on JSON boolean (binary) — ainult null/string
-   ```
+JSON objekt parameetrid (nt `roles jsonb`) töötavad `::jsonb` cast-iga edasi.
+
+### Lahendus (alpha.2)
+
+Eemaldatud `ARRAY(SELECT jsonb_array_elements_text(... ::jsonb))` konstruktsioon — kasuta `:subsets` otse, kuna alpha.2 saadab JSON massiivi juba PostgreSQL `text[]`-na.
 
 ### Mõjutatud failid
 
-- `DSL/Resql/efti/POST/insert_gate.sql` — `is_active` eemaldatud INSERT-ist
-- `DSL/Resql/efti/POST/update_gate.sql` — `is_active = true` hardcode
-- `DSL/Resql/efti/POST/insert_platform.sql` — `is_active` eemaldatud; `supportsSubsetting::text`
-- `DSL/Resql/efti/POST/update_platform.sql` — `is_active = true` hardcode; `supportsSubsetting::text`
-- `DSL/Resql/efti/POST/insert_authority.sql` — `is_active` eemaldatud INSERT-ist
-- `DSL/Resql/efti/POST/update_authority.sql` — `is_active = true` hardcode
+- `DSL/Resql/efti/POST/insert_gate.sql` — boolean workaround (alpha.1)
+- `DSL/Resql/efti/POST/update_gate.sql` — boolean workaround (alpha.1)
+- `DSL/Resql/efti/POST/insert_platform.sql` — boolean workaround (alpha.1)
+- `DSL/Resql/efti/POST/update_platform.sql` — boolean workaround (alpha.1)
+- `DSL/Resql/efti/POST/insert_authority.sql` — boolean + array workaround (alpha.1 → alpha.2)
+- `DSL/Resql/efti/POST/update_authority.sql` — boolean + array workaround (alpha.1 → alpha.2)
+- `DSL/Resql/efti/POST/insert_user.sql` — array workaround (alpha.2)
+- `DSL/Resql/efti/POST/update_user.sql` — array workaround (alpha.2)
 
 ### Järgmine samm
 
-Jälgi ResQL issue tracker'it — kui versioon > 0.1.0-alpha.1 ilmub, kontrolli kas boolean serialization on parandatud. Kui jah, saab COALESCE tagasi lisada.
+Jälgi ResQL release'e (praegu alpha.2 = viimane). Kui alpha.3+ ilmub, kontrolli kas JSON array ja boolean type mapping on stabiliseerunud. Hetkel kasuta `docker/resql/Dockerfile` versiooni `0.1.0-alpha.2`.
 
 ---
 
