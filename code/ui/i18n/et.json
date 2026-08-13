@@ -1,0 +1,124 @@
+{
+  "statuses": {
+    "ONLINE": "ONLINE",
+    "OFFLINE": "OFFLINE",
+    "DISABLED": "KEELATUD"
+  },
+  "xsdSupport": {
+    "V0_9": "v0.9",
+    "FTI": "FTI"
+  },
+  "general": {
+    "systemName": "EFTI GATE",
+    "systemManagerName": "KEMIT",
+    "language": "Keel",
+    "menu": "Menüü",
+    "save": "Salvesta",
+    "admin": "Admin",
+    "saved": "Salvestatud",
+    "add": "Lisa",
+    "remove": "Eemalda",
+    "edit": "Muuda",
+    "view": "Vaata",
+    "delete": "Kustuta",
+    "deleteConfirm": "Kas kustutada",
+    "deleted": "Kustutatud",
+    "optional": "Valikuline",
+    "close": "Sulge",
+    "noItems": "Ühtegi kirjet ei leitud",
+    "ping": "Ping",
+    "pinged": "ping edukas",
+    "countryCode": "Riik",
+    "test": "Test",
+    "running": "Käib",
+    "failed": "Ebaõnnestus",
+    "success": "Õnnestus",
+    "runTests": "Käivita testid"
+  },
+  "gates": {
+    "title": "Väravad",
+    "gate": "Värav",
+    "ownGate": "Selle värava andmed",
+    "id": "Värava ID",
+    "eDeliveryUrl": "eDelivery URL",
+    "eDeliveryUrlPlaceholder": "https://some.host/services/msh",
+    "disabled": "Keelatud",
+    "xsdSupport": "XSD tugi",
+    "added": "Värav edukalt registreeritud",
+    "ownGateDescription": "Teave selle värava kohta. Kasutage seda oma eDelivery juurdepääsupunkti seadistamiseks"
+  },
+  "platforms": {
+    "key": "Võti",
+    "value": "Väärtus",
+    "title": "Platvormid",
+    "platform": "Platvorm",
+    "id": "Platvormi ID",
+    "baseUrl": "Baas URL",
+    "supportsSubsetting": "Toetab alamhulki",
+    "eDelivery": "EDelivery",
+    "eDeliveryCert": "eDelivery sertifikaat",
+    "tlsCert": "TLS sertifikaat",
+    "headers": "Päised",
+    "xsdSupport": "XSD tugi",
+    "added": "Platvorm edukalt registreeritud",
+    "disabled": "Keelatud",
+    "status": "Staatus",
+    "consignments": "Saadetised"
+  },
+  "authorities": {
+    "title": "Asutused",
+    "id": "Asutuse ID",
+    "authority": "Asutus",
+    "subsets": "Lubatud alamhulgad",
+    "added": "Asutus edukalt registreeritud"
+  },
+  "users": {
+    "title": "Kasutajad",
+    "user": "Kasutaja",
+    "name": "Nimi",
+    "email": "E-post",
+    "isAdmin": "Admin",
+    "generateSecret": "Loo uus parool või token",
+    "copyPastePassword": "Kopeeri kasutaja parool (te ei näe seda enam)",
+    "copyPasteToken": "Kopeeri kasutaja bearer token (te ei näe seda enam)",
+    "createForAdmin": "Õnnestus! Nüüd looge tehniline kasutaja juurdepääsutokeni või administratiivse kasutaja saamiseks",
+    "subsets": "Lubatud alamhulgad",
+    "subsetsNone": "Valige mitte midagi, et lubada kõik",
+    "addGate": "Lisa värav",
+    "addGates": "Lisa väravad",
+    "addPlatform": "Lisa platvorm",
+    "addPlatforms": "Lisa platvormid",
+    "addAuthority": "Lisa asutus",
+    "addAuthorities": "Lisa asutused",
+    "selectGate": "Vali värav...",
+    "selectPlatform": "Vali platvorm...",
+    "selectAuthority": "Vali asutus...",
+    "roles": "Rollid"
+  },
+  "datasets": {
+    "datasetId": "Andmekogu ID",
+    "identifierTestResult": "Identifikaatori päringu testi tulemus:",
+    "datasetTestResult": "Andmekogu päringu testi tulemus:",
+    "followUpTestResult": "Järelpäringu testi tulemus:"
+  },
+  "errors": {
+    "technical": "Tehniline viga, palun proovige uuesti",
+    "tooLong": "Väärtus on liiga pikk",
+    "invalidCert": "Vigane PEM sertifikaat, peab sisaldama BEGIN CERTIFICATE"
+  },
+  "identifiers": {
+    "identifier": "Identifikaator",
+    "identifierPlaceholder": "Nt. registreerimisnumber"
+  },
+  "consignments": {
+    "title": "Saadetised",
+    "consignment": "Saadetis",
+    "datasetId": "Andmekogu ID",
+    "platformId": "Platvormi ID",
+    "updatedAt": "Uuendatud",
+    "filter": "Filtreeri...",
+    "showCabotage": "Näita ainult kabotaaži",
+    "viewQrCode": "Vaata QR-koodi",
+    "uilQrCode": "UIL QR-kood"
+  }
+}

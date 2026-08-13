@@ -17,6 +17,7 @@ function choosePreferredLang() {
 }
 
 async function load() {
+  if (lang === 'et') return (await import('./et.json')).default
   if (lang === 'en') return (await import('./en.json')).default
   else throw new Error('Unsupported lang: ' + lang)
 }
@@ -25,5 +26,5 @@ export const lang = choosePreferredLang()
 export let t: typeof en = await load()
 
 export function formatDateTime(date?: Instant) {
-  return date ? new Intl.DateTimeFormat('en-GB', {dateStyle: 'long', timeStyle: 'medium'}).format(new Date(date)) : ''
+  return date ? new Intl.DateTimeFormat(lang === 'et' ? 'et-EE' : 'en-GB', {dateStyle: 'long', timeStyle: 'medium'}).format(new Date(date)) : ''
 }
