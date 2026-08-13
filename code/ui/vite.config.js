@@ -19,7 +19,6 @@ export default defineConfig({
     proxy: {
       '/api': backendUrl,
       '/v1': backendUrl,
-      '/metrics': backendUrl
     }
   },
   build: {

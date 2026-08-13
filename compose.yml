@@ -69,6 +69,15 @@ services:
     cpus: "0.5"
     mem_limit: "512M"
 
+  ui:
+    build:
+      context: .
+      dockerfile: docker/ui/Dockerfile
+    ports:
+      - 8000:80
+    depends_on:
+      - ruuter
+
   edelivery:
     build:
       context: code
