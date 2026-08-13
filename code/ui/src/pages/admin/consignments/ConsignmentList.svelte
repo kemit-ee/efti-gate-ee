@@ -1,7 +1,6 @@
 <script lang='ts'>
   import SortableTable from 'src/components/SortableTable.svelte'
   import {formatDateTime, t} from 'i18n'
-  import type {Consignment} from 'src/api/types'
   import Button from 'src/components/Button.svelte'
   import Modal from 'src/components/Modal.svelte'
   import api from 'src/api/api'
@@ -9,6 +8,7 @@
   import {combineUIL} from "src/shared/uil";
   import XmlViewer from "src/components/XmlViewer.svelte";
   import QrCodeViewer from "src/components/QrCodeViewer.svelte";
+  import type {Consignment} from "src/api/ruuterTypes";
 
   export let consignments: Consignment[] | undefined
   export let onDeleted: (consignment: Consignment) => void

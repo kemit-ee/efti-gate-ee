@@ -1,9 +1,9 @@
 <script lang="ts">
-  import type {Gate} from 'src/api/types'
   import api, {eftiApi} from 'src/api/api'
   import FormField from 'src/forms/FormField.svelte'
   import Button from 'src/components/Button.svelte'
   import {t} from 'i18n'
+  import type {Gate} from "src/api/ruuterTypes";
 
   export let gate: Gate
 

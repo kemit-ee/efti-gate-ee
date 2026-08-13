@@ -1,6 +1,5 @@
 <script lang="ts">
   import PlatformList from 'src/pages/admin/platforms/PlatformList.svelte'
-  import type {Platform} from 'src/api/types'
   import {onMount} from 'svelte'
   import api from 'src/api/api'
   import {t} from 'i18n'
@@ -12,19 +11,16 @@
   import OwnGateButton from 'src/pages/admin/gates/OwnGateButton.svelte'
   import {user} from 'src/stores/auth'
   import PlatformTestForm from 'src/pages/admin/platforms/PlatformTestForm.svelte'
+  import type {Platform} from "src/api/ruuterTypes";
 
   let platforms: Platform[]
   let editPlatform: Platform | false = false
-  let consignmentCounts: Record<string, number>
   let testPlatform: Platform | false = false
 
   onMount(load)
 
   async function load() {
-    [platforms, consignmentCounts] = await Promise.all([
-      api.get<Platform[]>('platforms'),
-      api.get<Record<string, number>>('consignments/counts-by-platform')
-    ])
+    platforms = await api.get<Platform[]>('v1/platforms')
   }
 
   function add() {
@@ -52,13 +48,11 @@
   {t.platforms.title} ({platforms?.length})
   <span>
     <OwnGateButton/>
-    {#if $user?.isSuperAdmin}
-      <Button label={t.general.add} onclick={add} class="primary"/>
-    {/if}
+    <Button label={t.general.add} onclick={add} class="primary"/>
   </span>
 </h1>
 
-<PlatformList {platforms} {consignmentCounts} onEdit={onEdit} onDeleted={load} onTest={onTest}/>
+<PlatformList {platforms} onEdit={onEdit} onDeleted={load} onTest={onTest}/>
 
 <Modal bind:show={editPlatform} title={t.platforms.platform}>
   {#if editPlatform}

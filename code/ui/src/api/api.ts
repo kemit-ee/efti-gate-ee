@@ -5,7 +5,7 @@ export const headers = {'Content-Type': 'application/json; charset=UTF-8', 'Acce
 type Body = object|string|FormData|File
 
 class Api {
-  constructor(public prefix = '/api/') {}
+  constructor(public prefix = '/efti/api/') {}
 
   request(path: string, init?: RequestInit | {body?: Body, headers?: HeadersInit}): Promise<Response> {
     if (path.startsWith('/')) throw new Error('Invalid path: ' + path)
@@ -64,7 +64,7 @@ class Api {
     } else if (apiVersion && apiVersion != window.apiVersion) {
       location.reload()
     }
-    return data
+    return data.response
   }
 
   private handleFetchFailure(error: any) {

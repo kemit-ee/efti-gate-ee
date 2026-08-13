@@ -1,14 +1,14 @@
 <script lang="ts">
-  import type {Gate, Platform} from 'src/api/types'
   import api, {eftiApi} from 'src/api/api'
   import FormField from 'src/forms/FormField.svelte'
   import {t} from 'i18n'
   import Button from 'src/components/Button.svelte'
+  import type {Gate, Platform, RuuterResponse} from "src/api/ruuterTypes";
 
   export let platform: Platform
 
   let ownGateId: string | undefined
-  api.get<Gate>('gates/own').then(g => ownGateId = g.id)
+  api.get<RuuterResponse<Gate>>('gates/own').then(g => ownGateId = g.response.id)
 
   let datasetId = ''
 
