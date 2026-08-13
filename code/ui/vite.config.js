@@ -19,7 +19,6 @@ export default defineConfig({
     port: 8000,
     proxy: {
       '/api': backendUrl,
-      '/v1': backendUrl,
     }
   },
   build: {
