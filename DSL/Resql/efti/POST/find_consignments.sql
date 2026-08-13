@@ -32,7 +32,14 @@ SELECT * FROM (
   ORDER BY platform_id, dataset_id, created_at DESC
 ) latest
 WHERE (:transportMode IS NULL OR :transportMode->>'operator' = 'EQ' AND transport_mode = :transportMode->>'mode' OR :transportMode->>'operator' = 'NE' AND transport_mode != :transportMode->>'mode')
-  AND (:acceptanceDate IS NULL OR :acceptanceDate->0->>'operator' = 'EQ' AND acceptance_date = :acceptanceDate->0->>'date' OR :acceptanceDate->0->>'operator' = 'NE' AND acceptance_date != :acceptanceDate->0->>'date')
+  AND (:acceptanceDate IS NULL
+       OR :acceptanceDate->0->>'operator' = 'EQ' AND acceptance_date = :acceptanceDate->0->>'date'
+       OR :acceptanceDate->0->>'operator' = 'NE' AND acceptance_date != :acceptanceDate->0->>'date'
+       OR :acceptanceDate->0->>'operator' = 'LT' AND acceptance_date < :acceptanceDate->0->>'date'
+       OR :acceptanceDate->0->>'operator' = 'LE' AND acceptance_date <= :acceptanceDate->0->>'date'
+       OR :acceptanceDate->0->>'operator' = 'GT' AND acceptance_date > :acceptanceDate->0->>'date'
+       OR :acceptanceDate->0->>'operator' = 'GE' AND acceptance_date >= :acceptanceDate->0->>'date'
+  )
   AND (:acceptanceCountry IS NULL OR :acceptanceCountry->>'operator' = 'EQ' AND acceptance_country = :acceptanceCountry->>'country' OR :acceptanceCountry->>'operator' = 'NE' AND acceptance_country != :acceptanceCountry->>'country')
   AND (:deliveryDate IS NULL OR :deliveryDate->0->>'operator' = 'EQ' AND delivery_date = :deliveryDate->0->>'date' OR :deliveryDate->0->>'operator' = 'NE' AND delivery_date != :deliveryDate->0->>'date')
   AND (:deliveryCountry IS NULL OR :deliveryCountry->>'operator' = 'EQ' AND delivery_country = :deliveryCountry->>'country' OR :deliveryCountry->>'operator' = 'NE' AND delivery_country != :deliveryCountry->>'country')
