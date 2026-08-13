@@ -1,0 +1,140 @@
+# ============================================================================
+# TODO: AUTH REQUIRED BLOCK — uncomment when auth is implemented
+#
+# Before check_duplicate, add JWT validation and admin role resolution:
+#
+# validate_jwt:
+#   call: http.post
+#   args:
+#     url: "http://auth-service/validate"
+#     headers:
+#       Content-Type: "application/json"
+#     body:
+#       token: "${incoming.headers.Authorization}"
+#   result: jwt_result
+#   next: check_jwt
+#
+# check_jwt:
+#   switch:
+#     - condition: ${jwt_result.response.body == null || jwt_result.response.body.valid != true}
+#       next: unauthorized
+#   next: resolve_caller
+#
+# resolve_caller:
+#   call: http.post
+#   args:
+#     url: "http://resql:8090/efti/get_user_by_tara_sub"
+#     headers:
+#       Content-Type: "application/json"
+#     body:
+#       taraSub: "${jwt_result.response.body.sub}"
+#   result: caller_result
+#   next: check_caller
+#
+# check_caller:
+#   switch:
+#     - condition: ${caller_result.response.body == null || caller_result.response.body.length == 0}
+#       next: unauthorized
+#     - condition: ${caller_result.response.body[0].isUserAdmin != true}
+#       next: forbidden
+#   next: check_write_access
+#
+# check_write_access:
+#   # checkWriteAccess: entityId must be in caller's roles.ADMIN scope (unless super admin)
+#   # Super admin: isUserAdmin == true AND roles == {} (empty object)
+#   switch:
+#     - condition: ${caller_result.response.body[0].roles != '{}' && ...}
+#       next: forbidden_write_access
+#   next: check_duplicate
+#
+# unauthorized:
+#   return: '{"error": "Unauthorized"}'
+#   status: 401
+#   next: end
+#
+# forbidden:
+#   return: '{"error": "Forbidden"}'
+#   status: 403
+#   next: end
+#
+# forbidden_write_access:
+#   return: '{"error": "Forbidden", "detail": "FORBIDDEN_WRITE_ACCESS"}'
+#   status: 403
+#   next: end
+# ============================================================================
+
+check_duplicate:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/check_tara_sub_exists"
+    headers:
+      Content-Type: "application/json"
+    body:
+      taraSub: "${incoming.body.taraSub}"
+  result: dup_result
+  next: check_dup_result
+
+check_dup_result:
+  switch:
+    - condition: ${dup_result.response.body != null && dup_result.response.body.length > 0}
+      next: conflict
+  next: create_user
+
+create_user:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/insert_user"
+    headers:
+      Content-Type: "application/json"
+    body:
+      taraSub: "${incoming.body.taraSub}"
+      email: "${incoming.body.email}"
+      name: "${incoming.body.name}"
+      isAdmin: "${incoming.body.isAdmin}"
+      roles: "${incoming.body.roles}"
+      subsets: "${incoming.body.subsets}"
+  result: insert_result
+  next: check_insert
+
+check_insert:
+  switch:
+    - condition: ${insert_result.response.body == null || insert_result.response.body.length == 0}
+      next: insert_failed
+  next: verify_user
+
+verify_user:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/get_user_by_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      userId: "${insert_result.response.body[0].id}"
+  result: verify_result
+  next: check_verify
+
+check_verify:
+  switch:
+    - condition: ${verify_result.response.body == null || verify_result.response.body.length == 0}
+      next: verify_failed
+  next: respond
+
+respond:
+  return: ${verify_result.response.body}
+  status: 201
+  next: end
+
+conflict:
+  return: '{"error": "Conflict", "detail": "tara_sub already exists on an active user"}'
+  status: 409
+  next: end
+
+insert_failed:
+  return: '{"error": "Failed to create user"}'
+  status: 500
+  next: end
+
+verify_failed:
+  return: '{"error": "User created but could not be verified"}'
+  status: 500
+  next: end

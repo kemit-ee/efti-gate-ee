@@ -1,3 +1,5 @@
+name: efti_gate_ee
+
 services:
   database:
     container_name: efti_database
@@ -33,6 +35,7 @@ services:
     - AUDIT_SALT=${AUDIT_SALT:-dev-local-audit-salt-change-me-32chars}
     command: --defaultsFile=/liquibase/changelog/liquibase.properties update -DAUDIT_SALT=${AUDIT_SALT:-dev-local-audit-salt-change-me-32chars}
   resql:
+    container_name: efti_resql
     build:
       context: .
       dockerfile: docker/resql/Dockerfile

@@ -1,0 +1,72 @@
+check_exists:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/get_user_by_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      userId: "${incoming.params.userId}"
+  result: exists_result
+  next: check_found
+
+check_found:
+  switch:
+    - condition: ${exists_result.response.body == null || exists_result.response.body.length == 0}
+      next: not_found
+  next: revoke_token
+
+revoke_token:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/revoke_user_token"
+    headers:
+      Content-Type: "application/json"
+    body:
+      userId: "${incoming.params.userId}"
+  result: revoke_result
+  next: check_revoke
+
+check_revoke:
+  switch:
+    - condition: ${revoke_result.response.body == null || revoke_result.response.body.length == 0}
+      next: revoke_failed
+  next: verify_user
+
+verify_user:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/get_user_by_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      userId: "${incoming.params.userId}"
+  result: verify_result
+  next: check_verify
+
+check_verify:
+  switch:
+    - condition: ${verify_result.response.body == null || verify_result.response.body.length == 0}
+      next: verify_failed
+    - condition: ${verify_result.response.body[0].tokenRevokedAt == null}
+      next: verify_failed
+  next: respond
+
+respond:
+  return: ""
+  status: 204
+  next: end
+
+not_found:
+  return: '{"error": "Not Found"}'
+  status: 404
+  next: end
+
+revoke_failed:
+  return: '{"error": "Failed to revoke user token"}'
+  status: 500
+  next: end
+
+verify_failed:
+  return: '{"error": "Token revocation could not be verified"}'
+  status: 500
+  next: end
