@@ -144,6 +144,7 @@ CREATE TABLE IF NOT EXISTS platforms (
   cert_subject        TEXT,
   cert_serial         TEXT,
   supports_subsetting BOOLEAN      NOT NULL DEFAULT FALSE,
+  status              gate_status  NOT NULL DEFAULT 'ONLINE',
   is_active           BOOLEAN      NOT NULL DEFAULT TRUE,
   created_by          UUID,
   created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW()
@@ -159,11 +160,13 @@ COMMENT ON COLUMN platforms.tls_cert            IS 'Public TLS certificate (PEM)
 COMMENT ON COLUMN platforms.cert_subject        IS 'Subject DN of the platform''s eDelivery AP X.509 certificate. Used for inbound mTLS lookup.';
 COMMENT ON COLUMN platforms.cert_serial         IS 'Serial number of the eDelivery AP certificate. Together with cert_subject forms the natural key for inbound-mTLS lookup.';
 COMMENT ON COLUMN platforms.supports_subsetting IS 'TRUE if the platform applies subset filtering itself; FALSE means the gate must run the subsetter';
+COMMENT ON COLUMN platforms.status              IS 'Operational status snapshot at row time: ONLINE / OFFLINE / DISABLED';
 COMMENT ON COLUMN platforms.is_active           IS 'Logical-deletion flag.';
 COMMENT ON COLUMN platforms.created_by          IS 'users.row_id of the actor that wrote this row';
 COMMENT ON COLUMN platforms.created_at          IS 'When this row was inserted';
 
 CREATE INDEX IF NOT EXISTS idx_platforms_id_latest   ON platforms (id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_platforms_status      ON platforms (status);
 CREATE INDEX IF NOT EXISTS idx_platforms_active      ON platforms (is_active) WHERE is_active = TRUE;
 CREATE INDEX IF NOT EXISTS idx_platforms_cert_lookup ON platforms (cert_subject, cert_serial) WHERE is_active = TRUE;
 
