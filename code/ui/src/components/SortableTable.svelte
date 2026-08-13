@@ -51,7 +51,7 @@
     scrollable = findScrollParent(el)
 
     const onScroll = debounce(() => {
-        if (!items) return
+        if (!items || (!onLoadMore && renderMax >= items.length)) return
         const scrollMax = scrollable.scrollHeight - scrollable.clientHeight * 1.2
         if (scrollable.scrollTop + scrollable.clientHeight <= scrollMax) return
         if (onLoadMore) { onLoadMore(); return }
