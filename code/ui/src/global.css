@@ -72,57 +72,6 @@
   .form-field.lg input, .form-field.lg select, .form-field.lg textarea {
     @apply text-lg;
   }
-
-  .btn {
-    @apply border border-transparent rounded-md text-center inline-flex
-      focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-opacity-75
-      disabled:opacity-50 justify-center py-2 px-4 text-sm font-medium
-      active:opacity-75 active:transition-opacity;
-  }
-
-  .btn.default {
-    @apply focus:ring-primary-600 hover:bg-primary-100 bg-white text-primary-600 border border-neutral-450;
-  }
-
-  .btn.primary {
-    @apply text-white hover:text-white bg-primary-600 hover:bg-primary-700 focus:ring-primary-600;
-  }
-
-  .btn.danger {
-    @apply text-danger-700 border border-neutral-450 hover:bg-neutral-300;
-  }
-
-  .btn.success {
-    @apply text-white hover:text-white bg-success-700 hover:bg-success-800 focus:ring-success-600;
-  }
-
-  .btn.link {
-    @apply text-primary-600 hover:text-primary-700 hover:bg-primary-100 focus:ring-primary-600;
-  }
-
-  .btn.sm {
-    @apply py-1.5 px-3;
-  }
-
-  .btn.lg {
-    @apply py-3 px-4 font-semibold;
-  }
-
-  .btn.icon-only {
-    @apply px-2;
-  }
-
-  .btn.icon-only.sm {
-    @apply px-1.5;
-  }
-
-  .btn.icon-first {
-    @apply flex-col text-sm items-center whitespace-nowrap;
-  }
-
-  .btn.icon-first span {
-    @apply !m-0;
-  }
 }
 
 @tailwind components;

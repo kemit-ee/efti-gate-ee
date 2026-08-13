@@ -40,7 +40,7 @@
 
     <div class="flex items-center gap-2">
       {#if $user}
-        <Button class="sm" onclick={userSwitch}>{$user.name}</Button>
+        <Button class="sm secondary-inverted" onclick={userSwitch}>{$user.name}</Button>
       {/if}
 
       <SelectField
