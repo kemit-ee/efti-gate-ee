@@ -1,0 +1,51 @@
+update_authority:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/update_authority"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.params.authorityId}"
+      countryCode: "${incoming.body.countryCode}"
+      name: "${incoming.body.name}"
+      subsets: "${incoming.body.subsets}"
+      isAuthorityActive: "${incoming.body.isAuthorityActive}"
+  result: update_result
+  next: check_update
+
+check_update:
+  switch:
+    - condition: ${update_result.response.body == null || update_result.response.body.length == 0}
+      next: update_failed
+  next: verify_authority
+
+verify_authority:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/get_authority_by_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.params.authorityId}"
+  result: verify_result
+  next: check_verify
+
+check_verify:
+  switch:
+    - condition: ${verify_result.response.body == null || verify_result.response.body.length == 0}
+      next: verify_failed
+  next: respond
+
+respond:
+  return: ${verify_result.response.body}
+  next: end
+
+update_failed:
+  return: '{"error": "Failed to update authority"}'
+  status: 500
+  next: end
+
+verify_failed:
+  return: '{"error": "Authority updated but could not be verified"}'
+  status: 500
+  next: end
