@@ -54,7 +54,11 @@
       {/if}
       <div class="flex flex-row sm:flex-col items-center sm:items-start gap-2 sm:gap-0">
         <span class="hidden sm:block text-sm text-neutral-700">{t.general.language}</span>
-        <SelectField options={Object.fromEntries(langs.map(l => [l, l.toUpperCase()]))} bind:value={selectedLang} required={false}/>
+        <select class="text-primary-600 font-medium bg-transparent border-none p-0 pr-8 focus:ring-0 cursor-pointer uppercase appearance-none" bind:value={selectedLang}>
+          {#each langs as l}
+            <option value={l}>{l}</option>
+          {/each}
+        </select>
       </div>
     </div>
   </div>
