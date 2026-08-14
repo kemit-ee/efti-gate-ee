@@ -9,12 +9,10 @@
   import {showToast, ToastType} from 'src/stores/toasts'
   import {navigate} from 'src/router'
   import OwnGateButton from 'src/pages/admin/gates/OwnGateButton.svelte'
-  import PlatformTestForm from 'src/pages/admin/platforms/PlatformTestForm.svelte'
   import type {Platform} from "src/api/ruuterTypes";
 
   let platforms: Platform[]
   let editPlatform: Platform | false = false
-  let testPlatform: Platform | false = false
 
   onMount(load)
 
@@ -28,10 +26,6 @@
 
   function onEdit(platform: Platform) {
     editPlatform = platform
-  }
-
-  function onTest(platform: Platform) {
-    testPlatform = platform
   }
 
   function onSaved(platform: Platform, isNew: boolean) {
@@ -51,16 +45,10 @@
   </span>
 </h1>
 
-<PlatformList {platforms} onEdit={onEdit} onDeleted={load} onTest={onTest}/>
+<PlatformList {platforms} onEdit={onEdit} onDeleted={load}/>
 
 <Modal bind:show={editPlatform} title={t.platforms.platform}>
   {#if editPlatform}
     <PlatformForm platform={editPlatform} {onSaved}/>
-  {/if}
-</Modal>
-
-<Modal bind:show={testPlatform} title="{t.general.test}: {testPlatform ? testPlatform.id : ''}">
-  {#if testPlatform}
-    <PlatformTestForm platform={testPlatform}/>
   {/if}
 </Modal>
