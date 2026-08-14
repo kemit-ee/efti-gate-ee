@@ -59,7 +59,7 @@ class Api {
     }
     const apiVersion = response.headers?.get('x-api-version')
     if (response.status < 200 || response.status >= 400) {
-      data.message = data.message || data.reason || data.response?.error
+      data.message = JSON.parse(data.response).error
       throw data
     } else if (apiVersion && apiVersion != window.apiVersion) {
       location.reload()
@@ -101,4 +101,3 @@ class Api {
 }
 
 export default new Api()
-export const eftiApi = new Api('/v1/')
