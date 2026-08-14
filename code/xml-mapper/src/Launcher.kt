@@ -1,5 +1,7 @@
 import efti.DatasetRoutes
 import efti.FollowupRoutes
+import efti.SearchRoutes
+import efti.UploadRoutes
 import io.swagger.v3.oas.annotations.OpenAPIDefinition
 import io.swagger.v3.oas.annotations.info.Info
 import klite.Config
@@ -8,11 +10,6 @@ import klite.annotations.annotated
 import klite.json.JsonBody
 import klite.metrics
 import klite.openapi.openApi
-import efti.SearchRoutes
-import efti.UploadRoutes
-import efti.xml.fti.FtiCapitalize
-import klite.register
-import klite.xml.XmlParser
 
 fun main() {
   Config.useEnvFile()
