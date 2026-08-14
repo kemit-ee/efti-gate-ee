@@ -45,7 +45,6 @@
     </td>
     <td>
       <div class="flex flex-wrap justify-end gap-2">
-        <Button label={t.users.title} onclick={() => navigate('/users?platformId=' + p.id)} size="sm"/>
         <Button label={t.general.edit} onclick={() => onEdit(p)} size="sm"/>
         <Button label={t.general.ping} onclick={() => ping(p)} size="sm"/>
         <Button label={t.general.delete} onclick={() => onDelete(p)} size="sm" class="danger"/>

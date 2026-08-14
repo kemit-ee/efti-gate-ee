@@ -26,7 +26,6 @@
     <td>{a.countryCode}</td>
     <td>{a.subsets.join(', ')}</td>
     <td>
-      <Button label={t.users.title} onclick={() => navigate('/users?authorityId=' + a.id)} size="sm"/>
       <Button label={t.general.edit} onclick={() => onEdit(a)} size="sm"/>
       <Button label={t.general.delete} onclick={() => onDelete(a)} size="sm" class="danger"/>
     </td>
