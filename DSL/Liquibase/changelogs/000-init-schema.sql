@@ -317,9 +317,8 @@ COMMENT ON COLUMN consignments.carried_equipment_seq         IS 'Carried transpo
 COMMENT ON COLUMN consignments.created_by                    IS 'users.row_id of the actor that wrote this row';
 COMMENT ON COLUMN consignments.created_at                    IS 'When this row was inserted';
 
-CREATE INDEX IF NOT EXISTS idx_consignments_dataset_latest    ON consignments (dataset_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_consignments_dataset_latest    ON consignments (dataset_id, platform_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_consignments_platform          ON consignments (platform_id);
-CREATE INDEX IF NOT EXISTS idx_consignments_gate              ON consignments (gate_id);
 CREATE INDEX IF NOT EXISTS idx_consignments_status_active     ON consignments (status) WHERE status = 'active';
 CREATE INDEX IF NOT EXISTS idx_consignments_transport_mode    ON consignments (transport_mode);
 CREATE INDEX IF NOT EXISTS idx_consignments_acceptance_date   ON consignments (acceptance_date);
