@@ -59,7 +59,7 @@ class Api {
     }
     const apiVersion = response.headers?.get('x-api-version')
     if (response.status < 200 || response.status >= 400) {
-      data.message = data.message || data.reason
+      data.message = data.message || data.reason || data.response?.error
       throw data
     } else if (apiVersion && apiVersion != window.apiVersion) {
       location.reload()
