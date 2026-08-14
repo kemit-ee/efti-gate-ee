@@ -11,7 +11,7 @@
   import {type GateRequest, type Gate, Status} from "src/api/ruuterTypes";
 
   export let gate: Gate
-  export let onSaved = (gate: Gate, isNew: boolean) => {}
+  export let onSaved = () => {}
   export let disabled = false
 
   let isGateDisabled = gate.status === Status.DISABLED
@@ -32,7 +32,7 @@
     else await api.post('v1/gates', request)
     if (gate.status !== Status.DISABLED) api.post(`gates/${gate.id}/ping`).catch(() => {})
     showToast(isEdit ? t.general.saved : `${t.gates.added}: ${gate.id}`)
-    onSaved(gate, !isEdit)
+    onSaved()
   }
 
   $: gate.status = isGateDisabled ? Status.DISABLED : Status.OFFLINE

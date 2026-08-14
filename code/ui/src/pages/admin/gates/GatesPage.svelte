@@ -7,8 +7,6 @@
   import Button from 'src/components/Button.svelte'
   import Modal from 'src/components/Modal.svelte'
   import OwnGateButton from 'src/pages/admin/gates/OwnGateButton.svelte'
-  import {showToast, ToastType} from 'src/stores/toasts'
-  import {navigate} from 'src/router'
   import type {Gate} from "src/api/ruuterTypes";
 
   let gates: Gate[]
@@ -28,12 +26,9 @@
     editGate = gate
   }
 
-  function onSaved(gate: Gate, isNew: boolean) {
+  function onSaved() {
     editGate = false
-    if (isNew) {
-      showToast(t.users.createForAdmin, {type: ToastType.INFO, timeoutSec: 10})
-      navigate(`/users?gateId=${gate.id}`)
-    } else load()
+    load()
   }
 </script>
 

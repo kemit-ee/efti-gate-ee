@@ -6,8 +6,6 @@
   import Modal from 'src/components/Modal.svelte'
   import AuthorityForm from 'src/pages/admin/authorities/AuthorityForm.svelte'
   import Button from 'src/components/Button.svelte'
-  import {showToast, ToastType} from 'src/stores/toasts'
-  import {navigate} from 'src/router'
   import type {Authority, Subset} from "src/api/ruuterTypes";
 
   let authorities: Authority[]
@@ -23,12 +21,9 @@
     editAuthority = {subsets: [] as Subset[]} as Authority
   }
 
-  function onSaved(authority: Authority, isNew: boolean) {
+  function onSaved() {
     editAuthority = false
-    if (isNew) {
-      showToast(t.users.createForAdmin, {type: ToastType.INFO, timeoutSec: 10})
-      navigate(`/users?authorityId=${authority.id}`)
-    } else load()
+    load()
   }
 </script>
 

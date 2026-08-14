@@ -11,7 +11,7 @@
   import {type PlatformRequest, type Platform, Status} from "src/api/ruuterTypes";
 
   export let platform: Platform
-  export let onSaved = (platform: Platform, isNew: boolean) => {}
+  export let onSaved = () => {}
 
   const isEdit = !!platform.id
 
@@ -44,7 +44,7 @@
     if (isEdit) await api.put(`v1/platforms/update?platformId=${request.id}`, request)
     else await api.post('v1/platforms', request)
     showToast(isEdit ? t.general.saved : `${t.platforms.added}: ${platform.id}`)
-    onSaved(platform, !isEdit)
+    onSaved()
   }
 </script>
 
