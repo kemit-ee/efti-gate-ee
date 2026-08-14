@@ -13,7 +13,7 @@
 
   async function onDelete(authority: Authority) {
     if (!confirm(t.general.deleteConfirm + ' ' + authority.id + '?')) return
-    await api.delete(`authorities/${authority.id}`)
+    await api.delete(`v1/authorities/delete?authorityId=${authority.id}`)
     showToast(t.general.deleted + ': ' + authority.id)
     onDeleted(authority)
   }

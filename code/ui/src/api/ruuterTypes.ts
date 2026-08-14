@@ -30,16 +30,16 @@ export interface RuuterResponse<T> {
 
 export interface Gate {
   id: string
+  rowId: string
   countryCode: CountryCode
   eDeliveryUrl: string
   eDeliveryCert: string | null
   tlsCert: string | null
   status: Status
   lastPingAt: string | null
-  isActive: boolean
+  isGateActive: boolean
   createdAt: string
 }
-
 export interface GateRequest {
   id: string
   countryCode: string
@@ -47,7 +47,7 @@ export interface GateRequest {
   eDeliveryCert?: string | null
   tlsCert?: string | null
   status?: Status
-  isActive?: boolean
+  isGateActive?: boolean
 }
 
 export interface Platform {
@@ -59,7 +59,7 @@ export interface Platform {
   certSubject: string | null
   certSerial: string | null
   supportsSubsetting: boolean
-  isActive: boolean
+  isPlatformActive: boolean
   status?: Status
   createdAt: string
 }
@@ -73,7 +73,7 @@ export interface PlatformRequest {
   tlsCert?: string | null
   certSubject?: string | null
   certSerial?: string | null
-  isActive?: boolean
+  isGateActive?: boolean
 }
 
 export interface Authority {
@@ -81,7 +81,7 @@ export interface Authority {
   countryCode: CountryCode
   name: string
   subsets: SubsetCode[]
-  isActive: boolean
+  isAuthorityActive: boolean
   createdAt: string
 }
 
@@ -90,7 +90,7 @@ export interface AuthorityRequest {
   countryCode: string
   name: string
   subsets: SubsetCode[]
-  isActive?: boolean
+  isAuthorityActive?: boolean
 }
 
 export interface User {
