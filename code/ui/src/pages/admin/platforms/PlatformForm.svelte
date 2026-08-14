@@ -8,7 +8,7 @@
   import CheckboxField from 'src/forms/CheckboxField.svelte'
   import EDeliveryFields from 'src/pages/admin/EDeliveryFields.svelte'
   import HeadersEditor from 'src/pages/admin/platforms/HeadersEditor.svelte'
-  import {type CreatePlatformRequest, type Platform, Status} from "src/api/ruuterTypes";
+  import {type PlatformRequest, type Platform, Status} from "src/api/ruuterTypes";
 
   export let platform: Platform
   export let onSaved = (platform: Platform, isNew: boolean) => {}
@@ -31,7 +31,7 @@
       platform.tlsCert = ''
     }
 
-    const request: CreatePlatformRequest = {
+    const request: PlatformRequest = {
       id: platform.id,
       baseUrl: platform.baseUrl,
       supportsSubsetting: platform.supportsSubsetting,
@@ -41,7 +41,8 @@
       certSubject: platform.certSubject,
       certSerial: platform.certSerial,
     }
-    await api.post('v1/platforms', request)
+    if (isEdit) await api.put(`v1/platforms/update?platformId=${request.id}`, request)
+    else await api.post('v1/platforms', request)
     showToast(isEdit ? t.general.saved : `${t.platforms.added}: ${platform.id}`)
     onSaved(platform, !isEdit)
   }
