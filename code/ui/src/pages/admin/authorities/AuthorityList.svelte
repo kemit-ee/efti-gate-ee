@@ -19,9 +19,10 @@
   }
 </script>
 
-<SortableTable items={authorities} labels={t.authorities} columns={['id', [t.general.countryCode, 'countryCode'], 'subsets', '']} let:item={a}>
+<SortableTable items={authorities} labels={t.authorities} columns={['id', 'name', [t.general.countryCode, 'countryCode'], 'subsets', '']} let:item={a}>
   <tr>
     <td>{a.id}</td>
+    <td>{a.name}</td>
     <td>{a.countryCode}</td>
     <td>{a.subsets.join(', ')}</td>
     <td>
