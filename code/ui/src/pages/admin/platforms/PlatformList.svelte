@@ -20,7 +20,7 @@
 
   async function ping(platform: Platform) {
     try{
-      await api.post(`platforms/${platform.id}/ping`)
+      await api.post(`v1/platforms/ping?platformId=${platform.id}`)
       showToast(platform.id + ' pinged successfully')
     } catch (e: any) {
       if (platform.status !== Status.DISABLED) platforms = platforms.map(g => g.id === platform.id ? { ...g, status: Status.OFFLINE, isOnline: false } : g)

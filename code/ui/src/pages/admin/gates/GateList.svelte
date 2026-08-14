@@ -4,7 +4,6 @@
   import {showToast} from 'src/stores/toasts'
   import {t} from 'i18n'
   import Button from 'src/components/Button.svelte'
-  import {navigate} from 'src/router'
   import {type Gate, Status} from "src/api/ruuterTypes";
 
   export let gates: Gate[]
@@ -13,7 +12,7 @@
 
   async function ping(gate: Gate) {
     try {
-      await api.post(`gates/${gate.id}/ping`)
+      await api.post(`v1/gates/ping?gateId=${gate.id}`)
       showToast(gate.id + ' ' + t.general.pinged)
     } catch (e: any) {
       if (gate.status !== Status.DISABLED) gates = gates.map(g => g.id === gate.id ? { ...g, status: Status.OFFLINE, isOnline: false } : g)
