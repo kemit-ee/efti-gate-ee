@@ -9,7 +9,6 @@
   import {showToast, ToastType} from 'src/stores/toasts'
   import {navigate} from 'src/router'
   import OwnGateButton from 'src/pages/admin/gates/OwnGateButton.svelte'
-  import {user} from 'src/stores/auth'
   import PlatformTestForm from 'src/pages/admin/platforms/PlatformTestForm.svelte'
   import type {Platform} from "src/api/ruuterTypes";
 

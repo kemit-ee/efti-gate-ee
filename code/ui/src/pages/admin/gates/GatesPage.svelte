@@ -9,12 +9,10 @@
   import OwnGateButton from 'src/pages/admin/gates/OwnGateButton.svelte'
   import {showToast, ToastType} from 'src/stores/toasts'
   import {navigate} from 'src/router'
-  import GateTestForm from 'src/pages/admin/gates/GateTestForm.svelte'
   import type {Gate} from "src/api/ruuterTypes";
 
   let gates: Gate[]
   let editGate: Gate | false = false
-  let testGate: Gate | false = false
 
   onMount(load)
 
@@ -28,10 +26,6 @@
 
   function onEdit(gate: Gate) {
     editGate = gate
-  }
-
-  function onTest(gate: Gate) {
-    testGate = gate
   }
 
   function onSaved(gate: Gate, isNew: boolean) {
@@ -51,16 +45,10 @@
   </span>
 </h1>
 
-<GateList {gates} onEdit={onEdit} onDeleted={load} onTest={onTest}/>
+<GateList {gates} onEdit={onEdit} onDeleted={load}/>
 
 <Modal bind:show={editGate} title={t.gates.gate}>
   {#if editGate}
     <GateForm gate={editGate} {onSaved}/>
-  {/if}
-</Modal>
-
-<Modal bind:show={testGate} title="{t.general.test}: {testGate ? testGate.id : ''}">
-  {#if testGate}
-    <GateTestForm gate={testGate} />
   {/if}
 </Modal>
