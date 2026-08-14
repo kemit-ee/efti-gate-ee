@@ -14,7 +14,7 @@
 
   async function onDelete(platform: Platform) {
     if (!confirm(t.general.deleteConfirm + ' ' + platform.id + '?')) return
-    await api.delete(`platforms/${platform.id}`)
+    await api.delete(`v1/platforms/delete?platformId=${platform.id}`)
     showToast(t.general.deleted + ': ' + platform.id)
     onDeleted(platform)
   }

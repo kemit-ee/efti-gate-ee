@@ -24,7 +24,7 @@
 
   async function onDelete(gate: Gate) {
     if (!confirm(t.general.deleteConfirm + ' ' + gate.id + '?')) return
-    await api.delete(`gates/${gate.id}`)
+    await api.delete(`v1/gates/delete?gateId=${gate.id}`)
     showToast(t.general.deleted + ': ' + gate.id)
     onDeleted(gate)
   }
