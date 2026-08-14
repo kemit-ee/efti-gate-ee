@@ -6,7 +6,6 @@
   import api from 'src/api/api'
   import Button from 'src/components/Button.svelte'
   import Modal from 'src/components/Modal.svelte'
-  import OwnGateButton from 'src/pages/admin/gates/OwnGateButton.svelte'
   import type {Gate} from "src/api/ruuterTypes";
 
   let gates: Gate[]
@@ -34,10 +33,7 @@
 
 <h1 class="mb-6 flex justify-between items-center gap-8">
   {t.gates.title} ({gates?.length})
-  <span>
-    <OwnGateButton/>
-    <Button label={t.general.add} onclick={add} class="primary"/>
-  </span>
+  <Button label={t.general.add} onclick={add} class="primary"/>
 </h1>
 
 <GateList {gates} onEdit={onEdit} onDeleted={load}/>
