@@ -1,7 +1,7 @@
 package search
 
-import domain.ParameterSearchCriteria
-import domain.UniqueIDSetUIL
+import efti.xml.fti.ParameterSearchCriteria
+import efti.xml.fti.UniqueIDSetUIL
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import klite.annotations.POST

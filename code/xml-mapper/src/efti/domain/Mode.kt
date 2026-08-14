@@ -1,4 +1,4 @@
-package domain
+package efti.domain
 
 import klite.Converter
 
