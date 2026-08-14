@@ -6,8 +6,6 @@
   import Modal from 'src/components/Modal.svelte'
   import Button from 'src/components/Button.svelte'
   import PlatformForm from 'src/pages/admin/platforms/PlatformForm.svelte'
-  import {showToast, ToastType} from 'src/stores/toasts'
-  import {navigate} from 'src/router'
   import OwnGateButton from 'src/pages/admin/gates/OwnGateButton.svelte'
   import type {Platform} from "src/api/ruuterTypes";
 
@@ -28,12 +26,9 @@
     editPlatform = platform
   }
 
-  function onSaved(platform: Platform, isNew: boolean) {
+  function onSaved() {
     editPlatform = false
-    if (isNew) {
-      showToast(t.users.createForAdmin, {type: ToastType.INFO, timeoutSec: 10})
-      navigate(`/users?platformId=${platform.id}`)
-    } else load()
+    load()
   }
 </script>
 

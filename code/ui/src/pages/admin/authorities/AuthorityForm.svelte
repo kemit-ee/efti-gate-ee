@@ -10,7 +10,7 @@
   import type {Authority, AuthorityRequest} from "src/api/ruuterTypes";
 
   export let authority: Authority
-  export let onSaved = (authority: Authority, isNew: boolean) => {}
+  export let onSaved = () => {}
 
   const isEdit = !!authority.id
 
@@ -26,7 +26,7 @@
     else await api.post('v1/authorities', request)
 
     showToast(isEdit ? t.general.saved : `${t.authorities.added}: ${authority.id}`)
-    onSaved(authority, !isEdit)
+    onSaved()
   }
 </script>
 
