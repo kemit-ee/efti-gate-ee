@@ -5,6 +5,7 @@ import efti.domain.UIL
 import efti.subsets.Subset
 import efti.xml.fti.ExchangedDocument
 import efti.xml.fti.FTI009GetCmdsRequest
+import efti.xml.fti.FTI010GetCmdsResponse
 import efti.xml.fti.FtiCapitalize
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -28,13 +29,16 @@ class DatasetRoutes {
 
   @Operation(description = "Map FTI010GetCmdsResponse or SpecifiedSupplyChainConsignment as XML to FTI010GetCmdsResponse as XML.")
   @POST("/response-to-xml") fun responseToXml(xml: String): String {
-    TODO("Implement")
+    if (xml.contains("FTI010")) return xml
+    val queryId = UUID.randomUUID() // TODO: should it come outside?
+    // return FTI010GetCmdsResponse(ExchangedDocument("010", queryId)).render()
+    TODO("where to get UIL?")
   }
 
   @Operation(description = "Map FTI010GetCmdsResponse or SpecifiedSupplyChainConsignment as XML to SpecifiedSupplyChainConsignment as JSON.")
-  @POST("/response-to-json") fun responseToJson(xml: String): SpecifiedSupplyChainConsignment {
-    TODO("Implement")
-  }
+  @POST("/response-to-json") fun responseToJson(xml: String): SpecifiedSupplyChainConsignment =
+    if (xml.contains("FTI010")) xmlParser.parse<FTI010GetCmdsResponse>(xml).consignment!!
+    else xmlParser.parse<SpecifiedSupplyChainConsignment>(xml)
 }
 
 data class DatasetQueryRequest(val uil: UIL, val subsets: List<Subset>, val queryId: UUID = UUID.randomUUID())
