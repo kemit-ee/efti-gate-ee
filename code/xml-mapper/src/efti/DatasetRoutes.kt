@@ -1,4 +1,4 @@
-package dataset
+package efti
 
 import efti.xml.fti.SpecifiedSupplyChainConsignment
 import efti.domain.UIL

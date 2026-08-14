@@ -1,4 +1,4 @@
-package followup
+package efti
 
 import ch.tutteli.atrium.api.fluent.en_GB.toContain
 import ch.tutteli.atrium.api.fluent.en_GB.toEqual
@@ -6,8 +6,6 @@ import ch.tutteli.atrium.api.verbs.expect
 import efti.domain.GateId
 import efti.domain.PlatformId
 import efti.domain.UIL
-import efti.xml.fti.FTI025LodgeFollowUpCommRequest
-import efti.xml.fti.FTI030LodgeFollowUpCommResponse
 import klite.uuid
 import org.junit.jupiter.api.Test
 import java.io.File

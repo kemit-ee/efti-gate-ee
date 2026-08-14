@@ -1,4 +1,4 @@
-package search
+package efti
 
 import efti.xml.fti.ExchangedDocument
 import efti.xml.fti.FTI019SearchIdentifierRequest
