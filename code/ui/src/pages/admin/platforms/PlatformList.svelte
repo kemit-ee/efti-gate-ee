@@ -35,6 +35,7 @@
     <td><a href={p.baseUrl} target="_blank">{p.baseUrl}</a></td>
     <td class="text-center">{p.supportsSubsetting ? '✅' : ''}</td>
     <td class="text-center">{p.eDeliveryCert ? '✅' : ''}</td>
+    <td>{Object.keys(p.headers ?? {}).length}</td>
     <td>
       <div class="flex items-center gap-2">
         {#if p.status}
