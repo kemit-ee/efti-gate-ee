@@ -23,7 +23,7 @@
       await api.post(`v1/platforms/ping?platformId=${platform.id}`)
       showToast(platform.id + ' pinged successfully')
     } catch (e: any) {
-      if (platform.status !== Status.DISABLED) platforms = platforms.map(g => g.id === platform.id ? { ...g, status: Status.OFFLINE, isOnline: false } : g)
+      if (platform.status !== Status.DISABLED) platforms = platforms.map(g => g.id === platform.id ? { ...g, status: Status.OFFLINE } : g)
       throw e
     }
   }
@@ -38,10 +38,8 @@
     <td>{Object.keys(p.headers ?? {}).length}</td>
     <td>
       <div class="flex items-center gap-2">
-        {#if p.status}
-          <div class="h-4 w-4 rounded-full {p.status === Status.OFFLINE ? 'bg-success-500' : p.status === Status.DISABLED ? 'bg-warning-500' :  'bg-danger-500'}" ></div>
-          <span>{t.statuses[p.status]}</span>
-        {/if}
+        <div class="h-4 w-4 rounded-full {p.status === Status.ONLINE ? 'bg-success-500' : p.status === Status.DISABLED ? 'bg-warning-500' :  'bg-danger-500'}" ></div>
+        <span>{t.statuses[p.status] ?? t.statuses[Status.OFFLINE]}</span>
       </div>
     </td>
     <td>

@@ -15,7 +15,7 @@
       await api.post(`v1/gates/ping?gateId=${gate.id}`)
       showToast(gate.id + ' ' + t.general.pinged)
     } catch (e: any) {
-      if (gate.status !== Status.DISABLED) gates = gates.map(g => g.id === gate.id ? { ...g, status: Status.OFFLINE, isOnline: false } : g)
+      if (gate.status !== Status.DISABLED) gates = gates.map(g => g.id === gate.id ? { ...g, status: Status.OFFLINE } : g)
       throw e
     }
   }
