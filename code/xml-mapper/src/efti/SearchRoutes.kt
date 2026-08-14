@@ -6,6 +6,7 @@ import efti.xml.fti.FTI021SearchIdentifierResponse
 import efti.xml.fti.FtiCapitalize
 import efti.xml.fti.ParameterSearchCriteria
 import efti.xml.fti.UniqueIDSetUIL
+import efti.xml.fti.xmlParser
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import klite.annotations.POST
@@ -17,8 +18,6 @@ import java.util.UUID
   description = "These routes are for mapping requests and responses for identifiers search."
 )
 class SearchRoutes {
-  val xmlParser = XmlParser(keys = FtiCapitalize)
-
   @Operation(description = "Map ParameterSearchCriteria as JSON to Fti019SearchIdentifierRequest as XML.")
   @POST("/request-to-xml") fun requestToXml(criteria: ParameterSearchCriteria): String =
     // TODO: queryId should come from somewhere?

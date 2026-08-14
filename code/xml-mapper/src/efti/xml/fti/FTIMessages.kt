@@ -13,6 +13,7 @@ import klite.StatusCode
 import klite.html.each
 import klite.html.unaryPlus
 import klite.nodes.Node
+import klite.xml.XmlParser
 import klite.xml.XmlPath
 import org.intellij.lang.annotations.Language
 import java.time.Instant
@@ -23,6 +24,8 @@ object FtiCapitalize: KeyConverter() {
   override fun to(o: String) = Capitalize.to(o).replace("Id", "ID")
   override fun from(o: String) = Capitalize.from(o).replace("ID", "Id")
 }
+
+val xmlParser = XmlParser(keys = FtiCapitalize)
 
 enum class FTIResponseCode {
   Completed,

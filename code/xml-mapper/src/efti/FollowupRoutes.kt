@@ -6,6 +6,7 @@ import efti.xml.fti.ExchangedDocument
 import efti.xml.fti.FTI025LodgeFollowUpCommRequest
 import efti.xml.fti.FTI030LodgeFollowUpCommResponse
 import efti.xml.fti.FtiCapitalize
+import efti.xml.fti.xmlParser
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import klite.annotations.POST
@@ -16,8 +17,6 @@ import klite.xml.XmlParser
   description = "These routes are for mapping requests and responses for follow-up request."
 )
 class FollowupRoutes {
-  val xmlParser = XmlParser(keys = FtiCapitalize)
-
   @Operation(description = "Map UIL and Message as JSON to FTI025LodgeFollowUpCommRequest as XML.")
   @POST("/request-to-xml") fun requestToXml(req: FollowupRequest): String =
     FTI025LodgeFollowUpCommRequest(ExchangedDocument("025", req.uil.datasetId), req.message, req.files, req.uil).render()
