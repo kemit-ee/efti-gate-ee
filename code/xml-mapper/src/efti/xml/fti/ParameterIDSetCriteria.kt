@@ -36,11 +36,11 @@ data class ParameterIDSetCriteria(
   @XmlPath("UsedTransportEquipmentIDParameterScope/ID") val usedEquipmentIds: List<String> = emptyList(),
   @XmlPath("UsedTransportEquipmentCategoryCodeParameterScope/TransportEquipmentCategoryParameterCode") val usedEquipmentCategories: List<String> = emptyList(),
   @XmlPath("UsedTransportEquipmentRegistrationCountryParameterScope/CountryID") val usedEquipmentCountries: List<CountryCode> = emptyList(),
-  @XmlPath("UsedTransportEquipmentSequenceNumberParameterScope/SequenceNumeric") val usedEquipmentSeq: List<String> = emptyList(),
+  @XmlPath("UsedTransportEquipmentSequenceNumberParameterScope/SequenceNumeric") val usedEquipmentSeq: List<Int> = emptyList(),
 
   @XmlPath("CarriedTransportEquipmentIDParameterScope/ID") val carriedEquipmentIds: List<String> = emptyList(),
   @XmlPath("CarriedTransportEquipmentCategoryCodeParameterScope/TransportEquipmentCategoryParameterCode") val carriedEquipmentCategories: List<String> = emptyList(),
-  @XmlPath("CarriedTransportEquipmentSequenceNumberParameterScope/SequenceNumeric") val carriedEquipmentSeq: List<String> = emptyList(),
+  @XmlPath("CarriedTransportEquipmentSequenceNumberParameterScope/SequenceNumeric") val carriedEquipmentSeq: List<Int> = emptyList(),
 ) {
   companion object {
     fun render(criteria: ParameterIDSetCriteria?): String {

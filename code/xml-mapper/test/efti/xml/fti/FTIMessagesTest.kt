@@ -149,10 +149,10 @@ class FTIMessagesTest {
       usedEquipmentIds = listOf("TE-001", "TE-002"),
       usedEquipmentCategories = listOf("T10", "T10"),
       usedEquipmentCountries = listOf(DE, DE),
-      usedEquipmentSeq = listOf("1", "2"),
+      usedEquipmentSeq =  listOf(1, 2),
       carriedEquipmentIds = listOf("TE-003", "TE-004"),
       carriedEquipmentCategories = listOf("BPR", "BPR"),
-      carriedEquipmentSeq = listOf("3", "4")
+      carriedEquipmentSeq = listOf(3, 4)
     )
     val xml = ParameterIDSetCriteria.render(criteria)
 
