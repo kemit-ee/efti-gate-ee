@@ -30,7 +30,7 @@ export interface RuuterResponse<T> {
 
 export interface Gate {
   id: string
-  countryCode: string
+  countryCode: CountryCode
   eDeliveryUrl: string
   eDeliveryCert: string | null
   tlsCert: string | null

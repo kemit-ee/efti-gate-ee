@@ -68,6 +68,7 @@
   "authorities": {
     "title": "Authorities",
     "id": "Authority ID",
+    "name": "Authority name",
     "authority": "Authority",
     "subsets": "Allowed subsets",
     "added": "Authority registered successfully"

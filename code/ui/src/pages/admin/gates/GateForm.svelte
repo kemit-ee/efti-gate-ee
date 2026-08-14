@@ -8,7 +8,7 @@
   import CheckboxField from 'src/forms/CheckboxField.svelte'
   import EDeliveryFields from 'src/pages/admin/EDeliveryFields.svelte'
   import CountrySelect from 'src/pages/admin/CountrySelect.svelte'
-  import {type Gate, Status} from "src/api/ruuterTypes";
+  import {type CreateGateRequest, type Gate, Status} from "src/api/ruuterTypes";
 
   export let gate: Gate
   export let onSaved = (gate: Gate, isNew: boolean) => {}
@@ -20,7 +20,15 @@
 
   async function submit() {
     gate.status = gate.status === Status.DISABLED ? Status.DISABLED : Status.OFFLINE
-    await api.post('gates', gate)
+    const request: CreateGateRequest = {
+      id: gate.id,
+      countryCode: gate.countryCode,
+      eDeliveryUrl: gate.eDeliveryUrl,
+      eDeliveryCert: gate.eDeliveryCert,
+      tlsCert: gate.tlsCert,
+      status: gate.status
+    }
+    await api.post('v1/gates', request)
     if (gate.status !== Status.DISABLED) api.post(`gates/${gate.id}/ping`).catch(() => {})
     showToast(isEdit ? t.general.saved : `${t.gates.added}: ${gate.id}`)
     onSaved(gate, !isEdit)
