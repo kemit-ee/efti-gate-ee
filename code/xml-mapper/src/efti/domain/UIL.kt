@@ -1,9 +1,10 @@
-package domain
+package efti.domain
 
+import klite.StringValue
 import java.util.*
 
-typealias PlatformId = String
-typealias GateId = String
+class PlatformId(value: String): StringValue(value)
+class GateId(value: String): StringValue(value)
 
 data class UIL(
   val platformId: PlatformId,

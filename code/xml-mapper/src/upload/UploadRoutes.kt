@@ -1,7 +1,7 @@
 package upload
 
-import domain.UIL
-import domain.UniqueIDSetUIL
+import efti.domain.UIL
+import efti.xml.fti.UniqueIDSetUIL
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import klite.annotations.POST

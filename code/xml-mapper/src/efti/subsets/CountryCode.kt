@@ -1,4 +1,4 @@
-package domain
+package efti.subsets
 
 enum class CountryCode {
   EU,

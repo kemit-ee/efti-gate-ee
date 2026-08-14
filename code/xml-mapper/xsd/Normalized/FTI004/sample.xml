@@ -6,7 +6,7 @@
 
   <rsm:ExchangedDocumentContext>
     <MessageStandardSpecifiedDocumentContextParameter>
-      <ID>FTI004</ID>
+      <ID>eFTI</ID>
       <SpecifiedDocumentVersion>
         <ID>1.0</ID>
       </SpecifiedDocumentVersion>
@@ -17,7 +17,7 @@
     <ID schemeID="RFC 9562-4">0f6c30b4-89b5-11f1-a20a-3c9c0f2eb459</ID>
     <TypeCode>004</TypeCode>
     <IssueDateTime>
-      <udt:DateTimeString format="207">2021-09-24T08:45:00</udt:DateTimeString>
+      <udt:DateTimeString format="207">202109240850+0000</udt:DateTimeString>
     </IssueDateTime>
     <RequestedSpecifiedQuery>
       <ID schemeID="RFC 9562-4">17022113-89b5-11f1-bec0-3c9c0f2eb459</ID>
@@ -26,13 +26,13 @@
 
   <rsm:EFTIIDInformation>
     <UniqueIDSetUIL>
-      <GateID>Gate-001</GateID>
-      <PlatformID>Platform-001</PlatformID>
+      <GateID>POC</GateID>
+      <PlatformID>demo</PlatformID>
       <DatasetID schemeID="RFC 9562-4">550e8400-e29b-41d4-a716-446655440000</DatasetID>
       <ParameterIDSetCriteria>
         <CarrierAcceptanceDateParameterScope>
           <SpecifiedDateTime>
-            <udt:DateTimeString format="102">2021-09-24</udt:DateTimeString>
+            <udt:DateTimeString format="102">20210924</udt:DateTimeString>
           </SpecifiedDateTime>
         </CarrierAcceptanceDateParameterScope>
         <CarrierAcceptanceCountryParameterScope>
@@ -41,7 +41,7 @@
 
         <DeliveryDateParameterScope>
           <SpecifiedDateTime>
-            <udt:DateTimeString format="102">2026-09-24</udt:DateTimeString>
+            <udt:DateTimeString format="102">20260924</udt:DateTimeString>
           </SpecifiedDateTime>
         </DeliveryDateParameterScope>
         <DeliveryCountryParameterScope>
@@ -66,7 +66,7 @@
         </TransportMeansRegistrationCountryParameterScope>
         <MainCarriageLoadingDateParameterScope>
           <SpecifiedDateTime>
-            <udt:DateTimeString format="102">2021-09-24</udt:DateTimeString>
+            <udt:DateTimeString format="102">20210924</udt:DateTimeString>
           </SpecifiedDateTime>
         </MainCarriageLoadingDateParameterScope>
         <MainCarriageLoadingCountryParameterScope>
@@ -74,7 +74,7 @@
         </MainCarriageLoadingCountryParameterScope>
         <MainCarriageUnloadingDateParameterScope>
           <SpecifiedDateTime>
-            <udt:DateTimeString format="102">2021-09-24</udt:DateTimeString>
+            <udt:DateTimeString format="102">20210924</udt:DateTimeString>
           </SpecifiedDateTime>
         </MainCarriageUnloadingDateParameterScope>
         <MainCarriageUnloadingCountryParameterScope>
