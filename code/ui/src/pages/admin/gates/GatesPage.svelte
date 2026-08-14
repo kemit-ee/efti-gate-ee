@@ -9,9 +9,8 @@
   import OwnGateButton from 'src/pages/admin/gates/OwnGateButton.svelte'
   import {showToast, ToastType} from 'src/stores/toasts'
   import {navigate} from 'src/router'
-  import {user} from 'src/stores/auth'
   import GateTestForm from 'src/pages/admin/gates/GateTestForm.svelte'
-  import type {Gate, RuuterResponse} from "src/api/ruuterTypes";
+  import type {Gate} from "src/api/ruuterTypes";
 
   let gates: Gate[]
   let editGate: Gate | false = false

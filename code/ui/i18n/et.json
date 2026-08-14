@@ -66,8 +66,9 @@
     "consignments": "Saadetised"
   },
   "authorities": {
-    "title": "Asutused",
+    "title": "Pädevad asutused",
     "id": "Asutuse ID",
+    "name": "Asutuse nimi",
     "authority": "Asutus",
     "subsets": "Lubatud alamhulgad",
     "added": "Asutus edukalt registreeritud"
