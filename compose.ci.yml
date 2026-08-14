@@ -19,9 +19,3 @@
 # Pass 19xxx values to avoid conflicts with a running dev stack on the same host.
 
 services:
-  resql:
-    depends_on:
-      database:
-        condition: service_healthy
-      liquibase:
-        condition: service_completed_successfully
