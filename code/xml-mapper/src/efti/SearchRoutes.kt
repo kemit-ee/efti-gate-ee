@@ -1,17 +1,10 @@
 package efti
 
-import efti.xml.fti.ExchangedDocument
-import efti.xml.fti.FTI019SearchIdentifierRequest
-import efti.xml.fti.FTI021SearchIdentifierResponse
-import efti.xml.fti.FtiCapitalize
-import efti.xml.fti.ParameterSearchCriteria
-import efti.xml.fti.UniqueIDSetUIL
-import efti.xml.fti.xmlParser
+import efti.xml.fti.*
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import klite.annotations.POST
-import klite.xml.XmlParser
-import java.util.UUID
+import java.util.*
 
 @Tag(
   name = "Identifiers search",
@@ -35,8 +28,9 @@ class SearchRoutes {
     return regex.findAll(xml).flatMap { xmlParser.parse<FTI021SearchIdentifierResponse>(it.value).content }.toList()
   }
 
-  @Operation(description = "Map ParameterSearchCriteria as JSON to FTI021SearchIdentifierResponse as XML. Meant for other Gate request.")
-  @POST("/response-to-xml") fun responseToXml(criteria: ParameterSearchCriteria): String {
-    TODO("requires UniqueIDSetUIL results, not just criteria")
-  }
+  @Operation(description = "Map UniqueIDSetUIL as JSON to FTI021SearchIdentifierResponse as XML. Meant for other Gate request.")
+  @POST("/response-to-xml") fun responseToXml(consignments: List<UniqueIDSetUIL>): String =
+    // TODO: maybe create a more convenient class that corresponds to the consignments table as input
+    // TODO: queryId should come from somewhere?
+    FTI021SearchIdentifierResponse(ExchangedDocument("021", UUID.randomUUID()), consignments).render()
 }
