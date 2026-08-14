@@ -1,4 +1,4 @@
-package search
+package efti
 
 import ch.tutteli.atrium.api.fluent.en_GB.toContain
 import ch.tutteli.atrium.api.fluent.en_GB.toEqual

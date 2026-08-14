@@ -1,4 +1,4 @@
-package upload
+package efti
 
 import efti.domain.UIL
 import efti.xml.fti.ExchangedDocument
