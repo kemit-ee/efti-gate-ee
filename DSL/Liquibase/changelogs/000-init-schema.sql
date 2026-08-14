@@ -108,7 +108,6 @@ CREATE TABLE IF NOT EXISTS gates (
   created_by      UUID,
   created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
-  CONSTRAINT gates_id_format      CHECK (id ~ '^eu-[a-z]{2}[0-9]{2}$'),
   CONSTRAINT gates_country_format CHECK (country_code ~ '^[A-Z]{2}$')
 );
 
