@@ -7,6 +7,7 @@ import efti.xml.fti.ExchangedDocument
 import efti.xml.fti.FTI009GetCmdsRequest
 import efti.xml.fti.FTI010GetCmdsResponse
 import efti.xml.fti.FtiCapitalize
+import efti.xml.fti.xmlParser
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import klite.annotations.POST
@@ -15,8 +16,6 @@ import java.util.UUID
 
 @Tag(name = "Dataset query", description = "These routes are for mapping requests and responses for dataset query.")
 class DatasetRoutes {
-  val xmlParser = XmlParser(keys = FtiCapitalize)
-
   @Operation(description = "Map UIL and SubsetIds as JSON to FTI009GetCmdsRequest as XML.")
   @POST("/request-to-xml") fun requestToXml(req: DatasetQueryRequest): String =
     FTI009GetCmdsRequest(ExchangedDocument("009", req.queryId), req.subsets, req.uil).render()

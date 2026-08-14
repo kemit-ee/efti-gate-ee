@@ -10,16 +10,19 @@ import klite.metrics
 import klite.openapi.openApi
 import efti.SearchRoutes
 import efti.UploadRoutes
+import efti.xml.fti.FtiCapitalize
+import klite.register
+import klite.xml.XmlParser
 
 fun main() {
   Config.useEnvFile()
   Server().apply {
-    use<JsonBody>()
-    metrics()
-
     context("/health") {
       get { "OK" }
     }
+
+    use<JsonBody>()
+    metrics()
 
     context("/api/v1") {
       annotated<UploadRoutes>("/upload")
