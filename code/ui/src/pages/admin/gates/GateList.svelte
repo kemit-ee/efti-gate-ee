@@ -10,7 +10,6 @@
   export let gates: Gate[]
   export let onEdit: (gate: Gate) => void
   export let onDeleted: (gate: Gate) => void
-  export let onTest: (gate: Gate) => void
 
   async function ping(gate: Gate) {
     try {
@@ -46,7 +45,6 @@
         <Button label={t.users.title} onclick={() => navigate('/users?gateId=' + g.id)} size="sm"/>
         <Button label={t.general.edit} onclick={() => onEdit(g)} size="sm"/>
         <Button label={t.general.ping} onclick={() => ping(g)} size="sm"/>
-        <Button label={t.general.test} onclick={() => onTest(g)} size="sm"/>
         <Button label={t.general.delete} onclick={() => onDelete(g)} size="sm" class="danger"/>
       </div>
     </td>

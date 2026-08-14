@@ -8,7 +8,6 @@
   import Button from 'src/components/Button.svelte'
   import {showToast, ToastType} from 'src/stores/toasts'
   import {navigate} from 'src/router'
-  import {user} from 'src/stores/auth'
   import type {Authority, Subset} from "src/api/ruuterTypes";
 
   let authorities: Authority[]
