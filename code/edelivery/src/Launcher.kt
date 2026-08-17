@@ -1,7 +1,6 @@
 import edelivery.AsyncResponseProvider
 import edelivery.EDeliveryRoutes
 import edelivery.MessageHandler
-import edelivery.PartyId
 import edelivery.PartyRegistry
 import edelivery.SingleNodeAsyncResponseProvider
 import io.swagger.v3.oas.annotations.OpenAPIDefinition
@@ -18,7 +17,6 @@ import klite.require
 
 fun main() {
   Config.useEnvFile()
-  // TODO: val partyRegistry load on startup using ReSql (CI/whatever will restart us on change)
 
   Server().apply {
     use<JsonBody>()
