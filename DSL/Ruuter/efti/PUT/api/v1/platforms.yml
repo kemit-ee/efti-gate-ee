@@ -13,7 +13,7 @@ update_platform:
       certSubject: "${incoming.body.certSubject}"
       certSerial: "${incoming.body.certSerial}"
       supportsSubsetting: "${incoming.body.supportsSubsetting}"
-      isPlatformActive: "${incoming.body.isPlatformActive}"
+      status: "${incoming.body.status}"
   result: update_result
   next: check_update
 

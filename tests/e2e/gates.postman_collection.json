@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "efti-gate-ee Admin — Gates CRUD",
-    "description": "End-to-end CRUD cycle for the Admin Gates API: create → list → get → update → delete.",
+    "description": "End-to-end CRUD cycle for the Admin Gates API: create → list → get → update → delete → bulk lifecycle.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -14,6 +14,11 @@
       "key": "gate_id",
       "value": "",
       "description": "Test gate logical ID — set by the pre-request script to a unique value each run."
+    },
+    {
+      "key": "bulk_ts",
+      "value": "",
+      "description": "Timestamp suffix used to make bulk gate IDs unique per test run."
     }
   ],
   "item": [
@@ -57,9 +62,9 @@
               "    pm.expect(row.countryCode || row.country_code).to.equal('EE');",
               "});",
               "",
-              "pm.test('Created gate is active', function () {",
+              "pm.test('Created gate has status field', function () {",
               "    const row = pm.response.json().response[0];",
-              "    pm.expect(row.isGateActive).to.equal(true);",
+              "    pm.expect(row.status).to.be.a('string');",
               "});"
             ]
           }
@@ -186,7 +191,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"countryCode\": \"EE\",\n  \"eDeliveryUrl\": \"https://test-gate-updated.efti.ee/services/msh\",\n  \"status\": \"OFFLINE\",\n  \"isGateActive\": true\n}"
+          "raw": "{\n  \"countryCode\": \"EE\",\n  \"eDeliveryUrl\": \"https://test-gate-updated.efti.ee/services/msh\",\n  \"status\": \"OFFLINE\"\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/gates?gateId={{gate_id}}",
@@ -223,7 +228,7 @@
       }
     },
     {
-      "name": "GET /api/v1/gates?gateId={{gate_id}} — gate is inactive after delete",
+      "name": "GET /api/v1/gates?gateId={{gate_id}} — gate is DELETED after soft-delete",
       "event": [
         {
           "listen": "test",
@@ -234,9 +239,9 @@
               "    pm.response.to.have.status(200);",
               "});",
               "",
-              "pm.test('Gate is inactive (is_active=false)', function () {",
+              "pm.test('Gate status is DELETED after soft-delete', function () {",
               "    const row = pm.response.json().response[0];",
-              "    pm.expect(row.isGateActive).to.equal(false);",
+              "    pm.expect(row.status).to.equal('DELETED');",
               "});"
             ]
           }
@@ -250,6 +255,284 @@
           "host": ["{{base_url}}"],
           "path": ["efti", "api", "v1", "gates"],
           "query": [{ "key": "gateId", "value": "{{gate_id}}" }]
+        }
+      }
+    },
+    {
+      "name": "BULK — POST gate-bulk-1 (setup)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('bulk_ts', Date.now());"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 201', function () { pm.response.to.have.status(201); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"eu-b1{{bulk_ts}}\",\n  \"countryCode\": \"EE\",\n  \"eDeliveryUrl\": \"https://bulk1.efti.ee/msh\",\n  \"status\": \"ONLINE\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/gates",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "gates"]
+        }
+      }
+    },
+    {
+      "name": "BULK — POST gate-bulk-2",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 201', function () { pm.response.to.have.status(201); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"eu-b2{{bulk_ts}}\",\n  \"countryCode\": \"EE\",\n  \"eDeliveryUrl\": \"https://bulk2.efti.ee/msh\",\n  \"status\": \"ONLINE\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/gates",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "gates"]
+        }
+      }
+    },
+    {
+      "name": "BULK — POST gate-bulk-3",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 201', function () { pm.response.to.have.status(201); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"eu-b3{{bulk_ts}}\",\n  \"countryCode\": \"EE\",\n  \"eDeliveryUrl\": \"https://bulk3.efti.ee/msh\",\n  \"status\": \"ONLINE\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/gates",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "gates"]
+        }
+      }
+    },
+    {
+      "name": "BULK — POST gate-bulk-4",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 201', function () { pm.response.to.have.status(201); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"eu-b4{{bulk_ts}}\",\n  \"countryCode\": \"EE\",\n  \"eDeliveryUrl\": \"https://bulk4.efti.ee/msh\",\n  \"status\": \"ONLINE\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/gates",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "gates"]
+        }
+      }
+    },
+    {
+      "name": "BULK — POST gate-bulk-5",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 201', function () { pm.response.to.have.status(201); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"eu-b5{{bulk_ts}}\",\n  \"countryCode\": \"EE\",\n  \"eDeliveryUrl\": \"https://bulk5.efti.ee/msh\",\n  \"status\": \"ONLINE\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/gates",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "gates"]
+        }
+      }
+    },
+    {
+      "name": "BULK — GET list — verify 5 bulk gates present",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+              "",
+              "pm.test('All 5 bulk gates are in the list', function () {",
+              "    const ts = pm.collectionVariables.get('bulk_ts');",
+              "    const gates = pm.response.json().response;",
+              "    const bulk = gates.filter(g => g.id && g.id.endsWith(ts));",
+              "    pm.expect(bulk.length, '5 bulk gates should be in list').to.equal(5);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/gates?limit=200",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "gates"],
+          "query": [{ "key": "limit", "value": "200" }]
+        }
+      }
+    },
+    {
+      "name": "BULK — DELETE gate-bulk-3",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 204', function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/gates?gateId=eu-b3{{bulk_ts}}",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "gates"],
+          "query": [{ "key": "gateId", "value": "eu-b3{{bulk_ts}}" }]
+        }
+      }
+    },
+    {
+      "name": "BULK — DELETE gate-bulk-4",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 204', function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/gates?gateId=eu-b4{{bulk_ts}}",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "gates"],
+          "query": [{ "key": "gateId", "value": "eu-b4{{bulk_ts}}" }]
+        }
+      }
+    },
+    {
+      "name": "BULK — DELETE gate-bulk-5",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 204', function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/gates?gateId=eu-b5{{bulk_ts}}",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "gates"],
+          "query": [{ "key": "gateId", "value": "eu-b5{{bulk_ts}}" }]
+        }
+      }
+    },
+    {
+      "name": "BULK — GET list — verify only 2 bulk gates remain (status != DELETED)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+              "",
+              "pm.test('Exactly 2 bulk gates remain in list after deleting 3', function () {",
+              "    const ts = pm.collectionVariables.get('bulk_ts');",
+              "    const gates = pm.response.json().response;",
+              "    const bulk = gates.filter(g => g.id && g.id.endsWith(ts));",
+              "    pm.expect(bulk.length, 'Only 2 of 5 bulk gates should remain (3 deleted)').to.equal(2);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/efti/api/v1/gates?limit=200",
+          "host": ["{{base_url}}"],
+          "path": ["efti", "api", "v1", "gates"],
+          "query": [{ "key": "limit", "value": "200" }]
         }
       }
     }

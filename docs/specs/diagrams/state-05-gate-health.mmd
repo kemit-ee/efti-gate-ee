@@ -1,5 +1,5 @@
 stateDiagram-v2
-    [*] --> ONLINE: Admin — POST /api/v1/gates<br/>→ INSERT gates (id, …, status='ONLINE', is_active=TRUE)<br/>(auto-pinged on next cycle)
+    [*] --> ONLINE: Admin — POST /api/v1/gates<br/>→ INSERT gates (id, …, status='ONLINE')<br/>(auto-pinged on next cycle)
 
     ONLINE --> OFFLINE: Ping fails<br/>CronManager → POST /api/v1/admin/ping-gates<br/>→ INSERT gates row with status='OFFLINE'
 
@@ -12,15 +12,12 @@ stateDiagram-v2
     DISABLED --> ONLINE: Admin — PUT /api/v1/gates/{id} body status='ONLINE'<br/>→ INSERT gates row with status='ONLINE'<br/>AND next ping succeeds
 
     note left of ONLINE
-        Two axes (kept separate):
+        Single status axis:
         --
-        status (ping/admin):
-          ONLINE — ping success
-          OFFLINE — ping failed
-          DISABLED — admin-set
-        is_active (operator):
-          TRUE — in registry
-          FALSE — soft-deleted
+        ONLINE — ping success
+        OFFLINE — ping failed
+        DISABLED — admin-set
+        DELETED — soft-deleted
     end note
 
     note right of ONLINE
@@ -62,12 +59,12 @@ stateDiagram-v2
         DELETE — soft delete:
         --
         INSERT new row with
-        is_active=FALSE.
-        Status axis unchanged.
+        status='DELETED'.
         Gate leaves operational
         set entirely (registry
         sync, broadcasts, ping
-        all skip is_active=FALSE).
+        all skip status=DELETED).
         Distinct from DISABLED:
         DELETE is logical retire.
+        Row retained for audit.
     end note

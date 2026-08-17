@@ -8,7 +8,6 @@ SELECT * FROM (
     tls_cert,
     status::text,
     last_ping_at,
-    is_active AS is_gate_active,
     created_at
   FROM gates
   ORDER BY id, created_at DESC

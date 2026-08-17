@@ -289,7 +289,7 @@
       "code": "FORBIDDEN_NO_PLATFORM",
       "httpStatus": 403,
       "title": "No matching platform",
-      "description": "The presented client certificate's subject DN + serial resolve to zero active rows in the `platforms` registry. Either the platform is not registered, or its row is `is_active=FALSE`.",
+      "description": "The presented client certificate's subject DN + serial resolve to zero active rows in the `platforms` registry. Either the platform is not registered, or its latest row has status='DELETED'.",
       "type": "https://api.efti.ee/errors/forbidden-no-platform",
       "examples": [
         {
