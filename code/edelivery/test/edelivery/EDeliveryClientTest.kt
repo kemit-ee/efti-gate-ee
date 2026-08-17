@@ -1,8 +1,6 @@
 package edelivery
 
-import io.mockk.Runs
 import io.mockk.every
-import io.mockk.just
 import io.mockk.mockk
 import klite.Config
 import org.junit.jupiter.api.Test
@@ -20,12 +18,9 @@ class EDeliveryClientTest {
     Config["KEYSTORE_DIR"] = "../gate/certs"
   }
 
-  val partyRegistry = mockk<PartyRegistry>(relaxUnitFun = true) {
-    every { onChange(any()) } just Runs
-  }
   val keyManager = mockk<KeyManager>(relaxed = true)
   val eDeliveryClient =
-    EDeliveryClient(mockk(relaxed = true), keyManager, mockk(relaxed = true), partyRegistry, msInSec = 10L)
+    EDeliveryClient(mockk(relaxed = true), keyManager, mockk(relaxed = true), msInSec = 10L)
 
   val http = mockk<HttpClient>().also {
     eDeliveryClient.javaClass.getDeclaredField("http").apply { isAccessible = true }.set(eDeliveryClient, it)

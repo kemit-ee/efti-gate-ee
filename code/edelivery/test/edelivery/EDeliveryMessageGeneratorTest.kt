@@ -28,7 +28,7 @@ class EDeliveryMessageGeneratorTest {
   val generator = EDeliveryMessageGenerator(keyManager)
   val xmlParser = XmlParser()
   val xsdValidator = SchemaFactory.newInstance("http://www.w3.org/2001/XMLSchema").newSchema(
-    listOf("soap.xsd", "ebms-header.xsd").map { StreamSource(File("../xsd/edelivery/$it")) }.toTypedArray()
+    listOf("soap.xsd", "ebms-header.xsd").map { StreamSource(File("xsd/$it")) }.toTypedArray()
   ).newValidator()
 
   @Test fun requestMessage() {
