@@ -1,20 +1,16 @@
-import efti.DatasetRoutes
-import efti.FollowupRoutes
-import efti.SearchRoutes
-import efti.UploadRoutes
+import efti.*
 import io.swagger.v3.oas.annotations.OpenAPIDefinition
 import io.swagger.v3.oas.annotations.info.Info
-import klite.*
+import klite.Config
+import klite.Server
 import klite.annotations.annotated
 import klite.json.JsonBody
+import klite.metrics
 import klite.openapi.openApi
-import java.util.*
 
 fun main() {
   Config.useEnvFile()
-  Server(requestIdGenerator = object: RequestIdGenerator() {
-    override fun invoke(headers: Headers) = headers.getFirst("x-request-id") ?: UUID.randomUUID().toString()
-  }).apply {
+  Server(requestIdGenerator = RequestIdHandler()).apply {
     context("/health") {
       get { "OK" }
     }

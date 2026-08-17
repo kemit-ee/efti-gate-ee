@@ -10,7 +10,7 @@ import klite.annotations.POST
 import klite.uuid
 
 @Tag(name = "Dataset query", description = "These routes are for mapping requests and responses for dataset query.")
-class DatasetRoutes {
+class DatasetRoutes(val requestIdHandler: RequestIdHandler) {
   @Operation(description = "Map UIL and SubsetIds as JSON to FTI009GetCmdsRequest as XML.")
   @POST("/request-to-xml") fun requestToXml(req: DatasetQueryRequest, e: HttpExchange): String =
     FTI009GetCmdsRequest(ExchangedDocument("009", e.requestId.uuid), req.subsets, req.uil).render()
@@ -18,7 +18,7 @@ class DatasetRoutes {
   @Operation(description = "Map FTI009GetCmdsRequest as XML to UIL and SubsetIds as JSON.")
   @POST("/request-to-json") fun requestToJson(xml: String, e: HttpExchange): DatasetQueryRequest {
     val req = xmlParser.parse<FTI009GetCmdsRequest>(xml)
-    e.header("x-request-id", req.document.queryId.toString())
+    requestIdHandler.send(e, req.document.queryId)
     return DatasetQueryRequest(req.uil, req.subsets)
   }
 
