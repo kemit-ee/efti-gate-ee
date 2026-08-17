@@ -34,7 +34,6 @@
     const request: PlatformRequest = {
       id: platform.id,
       baseUrl: platform.baseUrl,
-      supportsSubsetting: platform.supportsSubsetting,
       headers: platform.headers ?? undefined,
       eDeliveryCert: platform.eDeliveryCert,
       tlsCert: platform.tlsCert,
@@ -51,10 +50,7 @@
 <Form {submit}>
   <FormField label={t.platforms.id} bind:value={platform.id} disabled={isEdit}/>
   <FormField label={t.platforms.baseUrl} type="url" bind:value={platform.baseUrl}/>
-  <div class="grid grid-cols-2 gap-4">
-    <CheckboxField label={t.platforms.eDelivery} bind:checked={eDelivery}/>
-    <CheckboxField label={t.platforms.supportsSubsetting} bind:checked={platform.supportsSubsetting}/>
-  </div>
+  <CheckboxField label={t.platforms.eDelivery} bind:checked={eDelivery}/>
   {#if eDelivery}
     <EDeliveryFields bind:entity={platform}/>
   {/if}

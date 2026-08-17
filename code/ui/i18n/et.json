@@ -54,7 +54,6 @@
     "platform": "Platvorm",
     "id": "Platvormi ID",
     "baseUrl": "Baas URL",
-    "supportsSubsetting": "Toetab alamhulki",
     "eDelivery": "EDelivery",
     "eDeliveryCert": "eDelivery sertifikaat",
     "tlsCert": "TLS sertifikaat",

@@ -29,17 +29,16 @@
   }
 </script>
 
-<SortableTable items={platforms} labels={t.platforms} columns={['id', 'baseUrl', 'supportsSubsetting', ['eDelivery', p => !!p.baseUrl], 'headers', 'status', '']} let:item={p}>
+<SortableTable items={platforms} labels={t.platforms} columns={['id', 'baseUrl', ['eDelivery', p => !!p.baseUrl], 'headers', 'status', '']} let:item={p}>
   <tr class="{p.status === Status.DISABLED ? 'bg-neutral-300' : 'bg-none'}">
     <td>{p.id}</td>
     <td><a href={p.baseUrl} target="_blank">{p.baseUrl}</a></td>
-    <td class="text-center">{p.supportsSubsetting ? '✅' : ''}</td>
     <td class="text-center">{p.eDeliveryCert ? '✅' : ''}</td>
     <td>{Object.keys(p.headers ?? {}).length}</td>
     <td>
       <div class="flex items-center gap-2">
         <div class="h-4 w-4 rounded-full {p.status === Status.ONLINE ? 'bg-success-500' : p.status === Status.DISABLED ? 'bg-warning-500' :  'bg-danger-500'}" ></div>
-        <span>{t.statuses[p.status] ?? t.statuses[Status.OFFLINE]}</span>
+        <span>{(p.status && t.statuses[p.status]) ?? t.statuses[Status.OFFLINE]}</span>
       </div>
     </td>
     <td>

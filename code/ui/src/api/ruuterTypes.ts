@@ -58,7 +58,6 @@ export interface Platform {
   tlsCert: string | null
   certSubject: string | null
   certSerial: string | null
-  supportsSubsetting: boolean
   isPlatformActive: boolean
   status?: Status
   createdAt: string
@@ -67,7 +66,6 @@ export interface Platform {
 export interface PlatformRequest {
   id: string
   baseUrl: string
-  supportsSubsetting?: boolean
   headers?: Record<string, string>
   eDeliveryCert?: string | null
   tlsCert?: string | null
