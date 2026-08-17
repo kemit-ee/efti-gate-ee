@@ -2,7 +2,6 @@ package edelivery
 
 import ch.tutteli.atrium.api.fluent.en_GB.toEqual
 import ch.tutteli.atrium.api.verbs.expect
-import core.PartyId
 import org.junit.jupiter.api.Test
 
 class PartyTest {

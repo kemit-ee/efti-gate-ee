@@ -1,3 +1,9 @@
+import edelivery.AsyncResponseProvider
+import edelivery.EDeliveryRoutes
+import edelivery.MessageHandler
+import edelivery.PartyId
+import edelivery.PartyRegistry
+import edelivery.SingleNodeAsyncResponseProvider
 import io.swagger.v3.oas.annotations.OpenAPIDefinition
 import io.swagger.v3.oas.annotations.info.Info
 import klite.Config
@@ -11,11 +17,14 @@ import klite.register
 
 fun main() {
   Config.useEnvFile()
-//  val fromPartyId = Config["OWN_PARTY_ID"]
   // TODO: val partyRegistry load on startup using ReSql (CI/whatever will restart us on change)
 
   Server().apply {
     use<JsonBody>()
+    register(httpClient())
+    register<AsyncResponseProvider>(SingleNodeAsyncResponseProvider::class)
+    register<MessageHandler>(EftiMessageHandler::class)
+    register<PartyRegistry>(EDeliveryPartyRegistry::class)
     register(httpClient())
     metrics()
 

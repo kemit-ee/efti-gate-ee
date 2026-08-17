@@ -1,4 +1,4 @@
-package core
+package edelivery
 
 import klite.*
 import klite.StatusCode.Companion.InternalServerError

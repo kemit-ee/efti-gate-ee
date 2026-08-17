@@ -1,4 +1,4 @@
-package core
+package edelivery
 
 import klite.*
 import klite.http.contentType
@@ -22,7 +22,6 @@ class EDeliveryClient(
   private val asyncResponseProvider: AsyncResponseProvider,
   private val keyManager: KeyManager,
   private val eDeliveryMessageGenerator: EDeliveryMessageGenerator,
-  partyRegistry: PartyRegistry,
   private val msInSec: Long = 1000L
 ) {
   private val statusRegex = """status\s*=\s*"(\d+)"""".toRegex()
@@ -50,10 +49,6 @@ class EDeliveryClient(
     } catch (e: Exception) {
       logger<EDeliveryClient>().warn("Could not register metrics: ${e.message}")
     }
-  }
-
-  init {
-    partyRegistry.onChange { http = buildHttpClient() }
   }
 
   private val faultReasonRegex = Regex("<\\w+:Text[^>]*>(.*?)</\\w+:Text>", DOT_MATCHES_ALL)

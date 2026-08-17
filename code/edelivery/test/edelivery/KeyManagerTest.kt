@@ -2,8 +2,6 @@ package edelivery
 
 import ch.tutteli.atrium.api.fluent.en_GB.toEqual
 import ch.tutteli.atrium.api.verbs.expect
-import core.KeyManager
-import core.toX509
 import io.mockk.mockk
 import klite.Config
 import org.junit.jupiter.api.Test

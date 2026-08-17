@@ -1,4 +1,4 @@
-package core
+package edelivery
 
 data class UserMessageParams(
   val requestKey: RequestKey,
