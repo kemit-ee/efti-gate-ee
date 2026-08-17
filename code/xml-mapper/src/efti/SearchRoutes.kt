@@ -3,9 +3,9 @@ package efti
 import efti.xml.fti.*
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
-import klite.annotations.HeaderParam
+import klite.HttpExchange
 import klite.annotations.POST
-import java.util.*
+import klite.uuid
 
 @Tag(
   name = "Identifiers search",
@@ -13,12 +13,13 @@ import java.util.*
 )
 class SearchRoutes {
   @Operation(description = "Map ParameterSearchCriteria as JSON to Fti019SearchIdentifierRequest as XML.")
-  @POST("/request-to-xml") fun requestToXml(criteria: ParameterSearchCriteria, @HeaderParam("x-request-id") queryId: UUID = UUID.randomUUID()): String =
-    FTI019SearchIdentifierRequest(ExchangedDocument("019", queryId), criteria).render()
+  @POST("/request-to-xml") fun requestToXml(criteria: ParameterSearchCriteria, e: HttpExchange): String =
+    FTI019SearchIdentifierRequest(ExchangedDocument("019", e.requestId.uuid), criteria).render()
 
   @Operation(description = "Map FTI019SearchIdentifierRequest as XML to ParameterSearchCriteria as JSON.")
-  @POST("/request-to-json") fun requestToJson(xml: String): ParameterSearchCriteria {
+  @POST("/request-to-json") fun requestToJson(xml: String, e: HttpExchange): ParameterSearchCriteria {
     val req = xmlParser.parse<FTI019SearchIdentifierRequest>(xml)
+    e.header("x-request-id", req.document.queryId.toString())
     return req.searchCriteria
   }
 
@@ -29,7 +30,7 @@ class SearchRoutes {
   }
 
   @Operation(description = "Map UniqueIDSetUIL as JSON to FTI021SearchIdentifierResponse as XML. Meant for other Gate request.")
-  @POST("/response-to-xml") fun responseToXml(consignments: List<UniqueIDSetUIL>, @HeaderParam("x-request-id") queryId: UUID = UUID.randomUUID()): String =
+  @POST("/response-to-xml") fun responseToXml(consignments: List<UniqueIDSetUIL>, e: HttpExchange): String =
     // TODO: maybe create a more convenient class that corresponds to the consignments table as input
-    FTI021SearchIdentifierResponse(ExchangedDocument("021", queryId), consignments).render()
+    FTI021SearchIdentifierResponse(ExchangedDocument("021", e.requestId.uuid), consignments).render()
 }
