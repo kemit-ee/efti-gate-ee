@@ -99,6 +99,9 @@ services:
     - 8082:8082
     mem_limit: 512M
   multiplexer:
+    environment:
+      - RESQL_URL=http://resql:8090
+      - EDELIVERY_URL=http://edelivery:8081
     build:
       context: code
       dockerfile: ../docker/code/Dockerfile
