@@ -29,7 +29,7 @@ $COMPOSE up -d database liquibase resql ruuter
 echo ""
 echo "==> Ootan ruuterit (max ${MAX_WAIT}s)..."
 elapsed=0
-until curl -sf "${RUUTER_URL}/efti/v1/baasikontoroll" > /dev/null 2>&1; do
+until curl -sf "${RUUTER_URL}/efti/api/v1/test/baasikontoroll" > /dev/null 2>&1; do
   sleep $INTERVAL
   elapsed=$((elapsed + INTERVAL))
   echo "   ${elapsed}s / ${MAX_WAIT}s"

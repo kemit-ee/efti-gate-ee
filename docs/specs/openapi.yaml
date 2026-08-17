@@ -829,7 +829,7 @@ paths:
       tags: [Admin - Gates]
       summary: Get gate
       operationId: getGate
-      description: Returns the current state for the given gate id — the latest row by `created_at`. Soft-deleted gates (latest row `is_active=FALSE`) are returned with `isActive=false`.
+      description: Returns the current state for the given gate id — the latest row by `created_at`. Soft-deleted gates (latest row `is_active=FALSE`) are returned with `isGateActive=false`.
       parameters:
         - $ref: '#/components/parameters/GateIdPath'
       responses:
@@ -1278,7 +1278,7 @@ paths:
       operationId: listUsers
       description: |
         Lists users visible to the authenticated admin. SUPER_ADMIN sees all users;
-        gate-scoped ADMIN sees only users within their gate/platform/authority scope.
+        gate-scoped ADMIN sees only users within their gate/authority scope.
         Paginated; total row count in `X-Total-Count` header.
       parameters:
         - name: gateId
@@ -1287,12 +1287,6 @@ paths:
           schema:
             type: string
             example: "eu-xx01"
-        - name: platformId
-          in: query
-          required: false
-          schema:
-            type: string
-            example: "plt-xxx-001"
         - name: authorityId
           in: query
           required: false
@@ -2780,11 +2774,11 @@ components:
         status:
           $ref: '#/components/schemas/GateStatus'
           description: Ping-job-driven operational state (ONLINE / OFFLINE / DISABLED).
-        isActive:
+        isGateActive:
           type: boolean
           description: |
             Operator-driven logical-deletion flag (distinct from `status`, which is
-            ping-job-driven). `isActive=false` excludes the gate from registry sync,
+            ping-job-driven). `isGateActive=false` excludes the gate from registry sync,
             peer broadcast, and ping sweeps. The row remains in the table for audit.
           example: true
         createdAt:
@@ -2819,7 +2813,7 @@ components:
           nullable: true
         status:
           $ref: '#/components/schemas/GateStatus'
-        isActive:
+        isGateActive:
           type: boolean
           default: true
           description: Operator-driven logical-deletion flag.
@@ -2861,12 +2855,12 @@ components:
           nullable: true
           description: Serial number of the same certificate.
           example: "0123456789ABCDEF"
-        isActive:
+        isPlatformActive:
           type: boolean
           description: |
             Whether the latest row for this `id` has `is_active=TRUE`. Soft-deleted
             platforms are returned by GET (so admins can audit them) but with
-            `isActive=false`; subsequent registrations from the cert mapped to a
+            `isPlatformActive=false`; subsequent registrations from the cert mapped to a
             soft-deleted platform return 403 `FORBIDDEN_NO_PLATFORM`.
           example: true
         createdAt:
@@ -2944,11 +2938,11 @@ components:
             $ref: '#/components/schemas/Subset'
           minItems: 1
           example: ["EU01", "EU02", "EU05"]
-        isActive:
+        isAuthorityActive:
           type: boolean
           description: |
             Whether the latest row for this `id` has `is_active=TRUE`. Soft-deleted
-            authorities are returned by GET with `isActive=false`; their users lose
+            authorities are returned by GET with `isAuthorityActive=false`; their users lose
             authority-side access on the next read.
           example: true
 
@@ -3018,12 +3012,12 @@ components:
             gate rejects any JWT whose `iat` predates this value. NULL means no
             broadcast revocation has occurred for this user.
           example: null
-        isAdmin:
+        isUserAdmin:
           type: boolean
           description: |
             Admin bypass flag — set on every gate-admin row (super or scoped). A
-            super admin is distinguished by `is_admin=TRUE` AND `roles={}` (no
-            scope restriction); a regular gate-scoped admin has `is_admin=TRUE`
+            super admin is distinguished by `is_user_admin=TRUE` AND `roles={}` (no
+            scope restriction); a regular gate-scoped admin has `is_user_admin=TRUE`
             AND `roles={"ADMIN":["<gate-id>"]}` (writes restricted to that gate
             via `checkWriteAccess`).
           example: false
@@ -3047,12 +3041,12 @@ components:
           items:
             $ref: '#/components/schemas/Subset'
           example: ["EU01", "EU02"]
-        isActive:
+        isUserActive:
           type: boolean
           description: |
             Whether the latest row for this `id` has `is_active=TRUE`. Soft-deleted
             users cannot authenticate (TARA login still succeeds, but the gate's
-            user lookup resolves to `is_active=FALSE` and the request is rejected
+            user lookup resolves to `is_user_active=FALSE` and the request is rejected
             with 401 `TOKEN_INVALID`).
           example: true
 
