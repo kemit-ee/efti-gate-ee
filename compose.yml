@@ -59,6 +59,8 @@ services:
     ports:
     - "${EFTI_RUUTER_PORT:-8086}:8086"
     cpus: '0.5'
+    depends_on:
+      - resql
     mem_limit: 512M
   ui:
     build:
@@ -78,7 +80,7 @@ services:
       - PROJECT=edelivery
       - PORT=8081
     depends_on:
-      - resql
+      - ruuter
     ports:
     - 8081:8081
     mem_limit: 512M
