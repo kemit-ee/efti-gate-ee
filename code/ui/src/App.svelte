@@ -3,7 +3,6 @@
   import Navbar from 'src/components/Navbar.svelte'
   import Toasts from 'src/components/Toasts.svelte'
   import {navigate, Route, Router} from 'src/router'
-  import {user} from 'src/stores/auth'
   import GatesPage from 'src/pages/admin/gates/GatesPage.svelte'
   import PlatformsPage from 'src/pages/admin/platforms/PlatformsPage.svelte'
   import AuthoritiesPage from 'src/pages/admin/authorities/AuthoritiesPage.svelte'
@@ -21,7 +20,7 @@
     navigate(routes.first()!.path)
   }
 
-  $: if ($user && location.pathname === '/') navigateToFirstPage()
+  $: if (location.pathname === '/') navigateToFirstPage()
 </script>
 
 <svelte:head>
@@ -31,12 +30,10 @@
 <Toasts/>
 
 <Router>
-  {#key $user?.id}
-    <Navbar {routes}/>
-    <main class="min-h-screen p-4 md:p-6 !pt-24">
-      {#each routes as r}
-        <Route {...r}/>
-      {/each}
-    </main>
-  {/key}
+  <Navbar {routes}/>
+  <main class="min-h-screen p-4 md:p-6 !pt-24">
+    {#each routes as r}
+      <Route {...r}/>
+    {/each}
+  </main>
 </Router>

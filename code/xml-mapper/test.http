@@ -1,0 +1,119 @@
+@baseUrl=http://localhost:8080/api/v1
+
+### Health check
+GET http://localhost:8080/health
+
+### Dataset - request-to-json (FTI009 XML → JSON)
+POST {{baseUrl}}/dataset/request-to-json
+Content-Type: text/xml
+
+< xsd/Normalized/FTI009/sample.xml
+
+### Dataset - request-to-xml (JSON → FTI009 XML)
+POST {{baseUrl}}/dataset/request-to-xml
+Content-Type: application/json
+
+{
+  "uil": {
+    "datasetId": "0a1e95cb-b03b-44c8-881d-13c7bfe38c4d",
+    "platformId": "demo",
+    "gateId": "poc"
+  },
+  "subsets": ["EE01", "EE02"]
+}
+
+### Dataset - response-to-json (FTI010 XML → JSON)
+POST {{baseUrl}}/dataset/response-to-json
+Content-Type: text/xml
+
+< xsd/Normalized/FTI010/sample.xml
+
+### Dataset - response-to-xml (XML → FTI010 XML)
+POST {{baseUrl}}/dataset/response-to-xml
+Content-Type: text/xml
+
+< xsd/Normalized/FTI010/sample.xml
+
+### Upload - request-to-json (FTI004 XML → JSON)
+POST {{baseUrl}}/upload/request-to-json
+Content-Type: text/xml
+
+< xsd/Normalized/FTI004/sample.xml
+
+### Upload - response-to-xml (JSON → FTI029 XML)
+POST {{baseUrl}}/upload/response-to-xml
+Content-Type: application/json
+
+{
+  "datasetId": "0a1e95cb-b03b-44c8-881d-13c7bfe38c4d",
+  "platformId": "demo",
+  "gateId": "poc"
+}
+
+### Search - request-to-json (FTI019 XML → JSON)
+POST {{baseUrl}}/search/request-to-json
+Content-Type: text/xml
+
+< xsd/Normalized/FTI019/sample.xml
+
+### Search - request-to-xml (JSON → FTI019 XML)
+POST {{baseUrl}}/search/request-to-xml
+Content-Type: application/json
+
+{
+  "countryCode": "EE",
+  "businessName": "Test Company"
+}
+
+### Search - response-to-json (FTI021 XML → JSON)
+POST {{baseUrl}}/search/response-to-json
+Content-Type: text/xml
+
+< xsd/Normalized/FTI021/sample.xml
+
+### Search - response-to-xml (JSON → FTI021 XML)
+POST {{baseUrl}}/search/response-to-xml
+Content-Type: application/json
+
+[
+  {
+    "datasetId": "0a1e95cb-b03b-44c8-881d-13c7bfe38c4d",
+    "platformId": "demo",
+    "gateId": "poc"
+  }
+]
+
+### Followup - request-to-json (FTI025 XML → JSON)
+POST {{baseUrl}}/followup/request-to-json
+Content-Type: text/xml
+
+< xsd/Normalized/FTI025/sample.xml
+
+### Followup - request-to-xml (JSON → FTI025 XML)
+POST {{baseUrl}}/followup/request-to-xml
+Content-Type: application/json
+
+{
+  "uil": {
+    "datasetId": "0a1e95cb-b03b-44c8-881d-13c7bfe38c4d",
+    "platformId": "demo",
+    "gateId": "poc"
+  },
+  "message": "Follow-up message"
+}
+
+### Followup - response-to-json (FTI030 XML → JSON)
+POST {{baseUrl}}/followup/response-to-json
+Content-Type: text/xml
+
+< xsd/Normalized/FTI030/sample.xml
+
+### Followup - response-to-xml (JSON → FTI030 XML)
+POST {{baseUrl}}/followup/response-to-xml
+Content-Type: application/json
+
+{
+  "datasetId": "0a1e95cb-b03b-44c8-881d-13c7bfe38c4d",
+  "platformId": "demo",
+  "gateId": "poc"
+}

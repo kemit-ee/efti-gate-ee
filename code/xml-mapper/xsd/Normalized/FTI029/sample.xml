@@ -6,7 +6,7 @@
 
   <rsm:ExchangedDocumentContext>
     <MessageStandardSpecifiedDocumentContextParameter>
-      <ID>FTI029</ID>
+      <ID>eFTI</ID>
       <SpecifiedDocumentVersion>
         <ID>1.0</ID>
       </SpecifiedDocumentVersion>
@@ -14,14 +14,14 @@
   </rsm:ExchangedDocumentContext>
 
   <rsm:ExchangedDocument>
-    <ID schemeID="RFC 9562-4">4f5db53d-89b5-11f1-9bb9-3c9c0f2eb459</ID>
+    <ID schemeID="RFC 9562-4">0f6c30b4-89b5-11f1-a20a-3c9c0f2eb459</ID>
     <TypeCode>029</TypeCode>
     <StatusCode>C</StatusCode>
     <IssueDateTime>
-      <udt:DateTimeString format="207">2021-09-24T08:50:00</udt:DateTimeString>
+      <udt:DateTimeString format="207">202109240850+0000</udt:DateTimeString>
     </IssueDateTime>
     <RequestedSpecifiedQuery>
-      <ID schemeID="RFC 9562-4">53a42ae1-89b5-11f1-a70c-3c9c0f2eb459</ID>
+      <ID schemeID="RFC 9562-4">17022113-89b5-11f1-bec0-3c9c0f2eb459</ID>
     </RequestedSpecifiedQuery>
   </rsm:ExchangedDocument>
 

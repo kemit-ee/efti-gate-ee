@@ -4,27 +4,25 @@
   import {showToast} from 'src/stores/toasts'
   import {t} from 'i18n'
   import Button from 'src/components/Button.svelte'
-  import {navigate} from 'src/router'
   import {type Gate, Status} from "src/api/ruuterTypes";
 
   export let gates: Gate[]
   export let onEdit: (gate: Gate) => void
   export let onDeleted: (gate: Gate) => void
-  export let onTest: (gate: Gate) => void
 
   async function ping(gate: Gate) {
     try {
-      await api.post(`gates/${gate.id}/ping`)
+      await api.post(`v1/gates/ping?gateId=${gate.id}`)
       showToast(gate.id + ' ' + t.general.pinged)
     } catch (e: any) {
-      if (gate.status !== Status.DISABLED) gates = gates.map(g => g.id === gate.id ? { ...g, status: Status.OFFLINE, isOnline: false } : g)
+      if (gate.status !== Status.DISABLED) gates = gates.map(g => g.id === gate.id ? { ...g, status: Status.OFFLINE } : g)
       throw e
     }
   }
 
   async function onDelete(gate: Gate) {
     if (!confirm(t.general.deleteConfirm + ' ' + gate.id + '?')) return
-    await api.delete(`gates/${gate.id}`)
+    await api.delete(`v1/gates/delete?gateId=${gate.id}`)
     showToast(t.general.deleted + ': ' + gate.id)
     onDeleted(gate)
   }
@@ -43,10 +41,8 @@
     </td>
     <td>
       <div class="flex flex-wrap justify-end gap-2">
-        <Button label={t.users.title} onclick={() => navigate('/users?gateId=' + g.id)} size="sm"/>
         <Button label={t.general.edit} onclick={() => onEdit(g)} size="sm"/>
         <Button label={t.general.ping} onclick={() => ping(g)} size="sm"/>
-        <Button label={t.general.test} onclick={() => onTest(g)} size="sm"/>
         <Button label={t.general.delete} onclick={() => onDelete(g)} size="sm" class="danger"/>
       </div>
     </td>

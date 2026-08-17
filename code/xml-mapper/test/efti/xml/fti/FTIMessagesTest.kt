@@ -1,0 +1,195 @@
+package efti.xml.fti
+
+import ch.tutteli.atrium.api.fluent.en_GB.notToContain
+import ch.tutteli.atrium.api.fluent.en_GB.toContain
+import ch.tutteli.atrium.api.fluent.en_GB.toEqual
+import ch.tutteli.atrium.api.verbs.expect
+import efti.domain.*
+import efti.subsets.CountryCode.*
+import efti.subsets.Subset
+import efti.xml.fti.FTIResponseCode.Completed
+import klite.uuid
+import klite.xml.XmlParser
+import org.junit.jupiter.api.Test
+import java.io.File
+
+class FTIMessagesTest {
+  val samplesDir = File("xsd/Normalized")
+  val parser = XmlParser(keys = FtiCapitalize)
+
+  val docId = "0f6c30b4-89b5-11f1-a20a-3c9c0f2eb459".uuid
+  val queryId = "17022113-89b5-11f1-bec0-3c9c0f2eb459".uuid
+  val context = ExchangedDocumentContext()
+  val document = ExchangedDocument("004", id = docId, queryId = queryId, issueDateTime = DateTimeString(value = "202109240850+0000"))
+
+  @Test fun parseFTI004() {
+    val xml = File(samplesDir, "FTI004/sample.xml").readText()
+    val req = parser.parse<FTI004UploadIdentifierRequest>(xml)
+
+    expect(req.context).toEqual(context)
+    expect(req.document).toEqual(document)
+    expect(req.content.uil.gateId).toEqual(GateId("POC"))
+    expect(req.content.uil.platformId).toEqual(PlatformId("demo"))
+    expect(req.content.uil.datasetId).toEqual("550e8400-e29b-41d4-a716-446655440000".uuid)
+    expect(req.content.criteria.acceptanceCountry).toEqual(DE)
+    expect(req.content.criteria.transportMode).toEqual(Mode("1"))
+
+    expect(parser.parse<FTI004UploadIdentifierRequest>(req.render())).toEqual(req)
+  }
+
+  @Test fun parseFTI009() {
+    val xml = File(samplesDir, "FTI009/sample.xml").readText()
+    val req = parser.parse<FTI009GetCmdsRequest>(xml)
+
+    expect(req.context).toEqual(context)
+    expect(req.document).toEqual(document.copy(typeCode = "009", requesterCountry = DE))
+    expect(req.subsets).toEqual(listOf(Subset("EE05b")))
+    expect(req.uil.gateId).toEqual(GateId("Gate-001"))
+    expect(req.uil.platformId).toEqual(PlatformId("Platform-001"))
+    expect(req.uil.datasetId).toEqual("550e8400-e29b-41d4-a716-446655440000".uuid)
+
+    expect(parser.parse<FTI009GetCmdsRequest>(req.render())).toEqual(req)
+  }
+
+  @Test fun parseFTI019() {
+    val xml = File(samplesDir, "FTI019/sample.xml").readText()
+    val req = parser.parse<FTI019SearchIdentifierRequest>(xml)
+
+    expect(req.context).toEqual(context)
+    expect(req.document).toEqual(document.copy(typeCode = "019", requesterCountry = DE))
+    expect(req.searchCriteria.acceptanceCountry?.country).toEqual(DE)
+    expect(req.searchCriteria.transportMode?.mode).toEqual(Mode("1"))
+
+    expect(parser.parse<FTI019SearchIdentifierRequest>(req.render())).toEqual(req)
+  }
+
+  @Test fun parseFTI025() {
+    val xml = File(samplesDir, "FTI025/sample.xml").readText()
+    val req = parser.parse<FTI025LodgeFollowUpCommRequest>(xml)
+
+    expect(req.context).toEqual(context)
+    expect(req.document).toEqual(document.copy(typeCode = "025", requesterCountry = DE, disposition = "Additional information regarding shipment"))
+    expect(req.followUp).toEqual("Follow-up: correction of consignee address")
+    expect(req.uil.gateId).toEqual(GateId("Gate-001"))
+    expect(req.uil.platformId).toEqual(PlatformId("Platform-001"))
+    expect(req.uil.datasetId).toEqual("550e8400-e29b-41d4-a716-446655440000".uuid)
+
+    expect(parser.parse<FTI025LodgeFollowUpCommRequest>(req.render())).toEqual(req)
+  }
+
+  @Test fun parseFTI010() {
+    val xml = File(samplesDir, "FTI010/sample.xml").readText()
+    val resp = parser.parse<FTI010GetCmdsResponse>(xml)
+
+    expect(resp.context).toEqual(context)
+    expect(resp.document).toEqual(document.copy(typeCode = "010", responseCode = Completed))
+    expect(resp.subsets).toEqual(listOf(Subset("EE05b")))
+    expect(resp.uil.gateId).toEqual(GateId("POC"))
+    expect(resp.consignment!!["grossWeightMeasure"]).toEqual("15000.00")
+
+    expect(parser.parse<FTI010GetCmdsResponse>(resp.render(xml.extractSpecifiedSupplyChainConsignment()))).toEqual(resp)
+  }
+
+  @Test fun parseFTI021() {
+    val xml = File(samplesDir, "FTI021/sample.xml").readText()
+    val resp = parser.parse<FTI021SearchIdentifierResponse>(xml)
+
+    expect(resp.context).toEqual(context)
+    expect(resp.document).toEqual(document.copy(typeCode = "021", responseCode = Completed))
+    expect(resp.content.first().uil.gateId).toEqual(GateId("Gate-001"))
+
+    expect(parser.parse<FTI021SearchIdentifierResponse>(resp.render())).toEqual(resp)
+  }
+
+  @Test fun parseFTI029() {
+    val xml = File(samplesDir, "FTI029/sample.xml").readText()
+    val resp = parser.parse<FTI029UploadIdentifierResponse>(xml)
+
+    expect(resp.context).toEqual(context)
+    expect(resp.document).toEqual(document.copy(typeCode = "029", responseCode = Completed))
+    expect(resp.uil.gateId).toEqual(GateId("Gate-001"))
+
+    expect(parser.parse<FTI029UploadIdentifierResponse>(resp.render())).toEqual(resp)
+  }
+
+  @Test fun parseFTI030() {
+    val xml = File(samplesDir, "FTI030/sample.xml").readText()
+    val resp = parser.parse<FTI030LodgeFollowUpCommResponse>(xml)
+
+    expect(resp.context).toEqual(context)
+    expect(resp.document).toEqual(document.copy(typeCode = "030", responseCode = Completed))
+    expect(resp.uil.gateId).toEqual(GateId("Gate-001"))
+
+    expect(parser.parse<FTI030LodgeFollowUpCommResponse>(resp.render())).toEqual(resp)
+  }
+
+  @Test fun renderNullParameterIDSetCriteria() {
+    expect(ParameterIDSetCriteria.render(null)).toEqual("")
+  }
+
+  @Test fun renderEmptyParameterIDSetCriteria() {
+    expect(ParameterIDSetCriteria.render(ParameterIDSetCriteria())).toEqual("")
+  }
+
+  @Test fun renderFullParameterIDSetCriteria() {
+    val criteria = ParameterIDSetCriteria(
+      acceptanceDate = DateTimeString("102", "20210924"),
+      acceptanceCountry = DE,
+      deliveryDate = DateTimeString("102", "20260924"),
+      deliveryCountry = EE,
+      dangerousGoods = DangerousGoods.MEDIUM,
+      transportMode = Mode.MARINE,
+      mainTransportId = "VESSEL-001",
+      mainTransportType = "1513",
+      transportRegCountry = DE,
+      loadingDate = DateTimeString("102", "20210924"),
+      loadingCountry = FI,
+      unloadingDate = DateTimeString("102", "20210924"),
+      unloadingCountry = AE,
+      usedEquipmentIds = listOf("TE-001", "TE-002"),
+      usedEquipmentCategories = listOf("T10", "T10"),
+      usedEquipmentCountries = listOf(DE, DE),
+      usedEquipmentSeq =  listOf(1, 2),
+      carriedEquipmentIds = listOf("TE-003", "TE-004"),
+      carriedEquipmentCategories = listOf("BPR", "BPR"),
+      carriedEquipmentSeq = listOf(3, 4)
+    )
+    val xml = ParameterIDSetCriteria.render(criteria)
+
+    expect(xml).toContain("<CarrierAcceptanceDateParameterScope><SpecifiedDateTime><udt:DateTimeString format=\"102\">20210924</udt:DateTimeString></SpecifiedDateTime></CarrierAcceptanceDateParameterScope>")
+    expect(xml).toContain("<CarrierAcceptanceCountryParameterScope><CountryID>DE</CountryID></CarrierAcceptanceCountryParameterScope>")
+    expect(xml).toContain("<DeliveryDateParameterScope><SpecifiedDateTime><udt:DateTimeString format=\"102\">20260924</udt:DateTimeString></SpecifiedDateTime></DeliveryDateParameterScope>")
+    expect(xml).toContain("<DeliveryCountryParameterScope><CountryID>EE</CountryID></DeliveryCountryParameterScope>")
+    expect(xml).toContain("<DangerousGoodsIndicationCodeParameterScope><DangerousGoodsIndicationParameterCode>2</DangerousGoodsIndicationParameterCode></DangerousGoodsIndicationCodeParameterScope>")
+    expect(xml).toContain("<MainCarriageModeCodeParameterScope><TransportModeParameterCode>1</TransportModeParameterCode></MainCarriageModeCodeParameterScope>")
+    expect(xml).toContain("<MainCarriageTransportMeansIDParameterScope><ID>VESSEL-001</ID></MainCarriageTransportMeansIDParameterScope>")
+    expect(xml).toContain("<MainCarriageTransportMeansTypeCodeParameterScope><TransportMeansParameterCode>1513</TransportMeansParameterCode></MainCarriageTransportMeansTypeCodeParameterScope>")
+    expect(xml).toContain("<TransportMeansRegistrationCountryParameterScope><CountryID>DE</CountryID></TransportMeansRegistrationCountryParameterScope>")
+    expect(xml).toContain("<MainCarriageLoadingDateParameterScope><SpecifiedDateTime><udt:DateTimeString format=\"102\">20210924</udt:DateTimeString></SpecifiedDateTime></MainCarriageLoadingDateParameterScope>")
+    expect(xml).toContain("<MainCarriageLoadingCountryParameterScope><CountryID>FI</CountryID></MainCarriageLoadingCountryParameterScope>")
+    expect(xml).toContain("<MainCarriageUnloadingDateParameterScope><SpecifiedDateTime><udt:DateTimeString format=\"102\">20210924</udt:DateTimeString></SpecifiedDateTime></MainCarriageUnloadingDateParameterScope>")
+    expect(xml).toContain("<MainCarriageUnloadingCountryParameterScope><CountryID>AE</CountryID></MainCarriageUnloadingCountryParameterScope>")
+    expect(xml).toContain("<UsedTransportEquipmentIDParameterScope><ID>TE-001</ID><ID>TE-002</ID></UsedTransportEquipmentIDParameterScope>")
+    expect(xml).toContain("<UsedTransportEquipmentCategoryCodeParameterScope><TransportEquipmentCategoryParameterCode>T10</TransportEquipmentCategoryParameterCode><TransportEquipmentCategoryParameterCode>T10</TransportEquipmentCategoryParameterCode></UsedTransportEquipmentCategoryCodeParameterScope>")
+    expect(xml).toContain("<UsedTransportEquipmentRegistrationCountryParameterScope><CountryID>DE</CountryID><CountryID>DE</CountryID></UsedTransportEquipmentRegistrationCountryParameterScope>")
+    expect(xml).toContain("<UsedTransportEquipmentSequenceNumberParameterScope><SequenceNumeric>1</SequenceNumeric><SequenceNumeric>2</SequenceNumeric></UsedTransportEquipmentSequenceNumberParameterScope>")
+    expect(xml).toContain("<CarriedTransportEquipmentIDParameterScope><ID>TE-003</ID><ID>TE-004</ID></CarriedTransportEquipmentIDParameterScope>")
+    expect(xml).toContain("<CarriedTransportEquipmentCategoryCodeParameterScope><TransportEquipmentCategoryParameterCode>BPR</TransportEquipmentCategoryParameterCode><TransportEquipmentCategoryParameterCode>BPR</TransportEquipmentCategoryParameterCode></CarriedTransportEquipmentCategoryCodeParameterScope>")
+    expect(xml).toContain("<CarriedTransportEquipmentSequenceNumberParameterScope><SequenceNumeric>3</SequenceNumeric><SequenceNumeric>4</SequenceNumeric></CarriedTransportEquipmentSequenceNumberParameterScope>")
+  }
+
+  @Test fun renderPartialParameterIDSetCriteria() {
+    val criteria = ParameterIDSetCriteria(
+      acceptanceCountry = DE,
+      transportMode = Mode.ROAD,
+      mainTransportId = "TRUCK-001"
+    )
+    val xml = ParameterIDSetCriteria.render(criteria)
+
+    expect(xml).toContain("<CarrierAcceptanceCountryParameterScope><CountryID>DE</CountryID></CarrierAcceptanceCountryParameterScope>")
+    expect(xml).toContain("<MainCarriageModeCodeParameterScope><TransportModeParameterCode>3</TransportModeParameterCode></MainCarriageModeCodeParameterScope>")
+    expect(xml).toContain("<MainCarriageTransportMeansIDParameterScope><ID>TRUCK-001</ID></MainCarriageTransportMeansIDParameterScope>")
+    expect(xml).notToContain("DeliveryDateParameterScope")
+    expect(xml).notToContain("DangerousGoodsIndicationCodeParameterScope")
+  }
+}

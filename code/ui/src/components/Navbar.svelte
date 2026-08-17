@@ -3,7 +3,6 @@
   import langs from 'i18n/langs.json'
   import {activePath,Link} from 'src/router'
   import type {NavRoute} from 'src/shared/Mode'
-  import {user,userSwitch} from 'src/stores/auth'
   import Icon from "src/icons/Icon.svelte";
 
   export let routes: NavRoute[]
@@ -43,14 +42,6 @@
     </div>
 
     <div class="flex items-center gap-4 sm:gap-6 order-3 sm:order-none px-4 sm:px-0">
-      {#if $user}
-        <div class="hidden sm:flex flex-col items-end">
-          <button class="text-primary-600 font-medium flex items-center gap-1 hover:text-primary-800" onclick={userSwitch}>
-            {$user.name}
-          </button>
-        </div>
-        <div class="hidden sm:block w-px h-10 bg-neutral-350"></div>
-      {/if}
       <div class="flex flex-row sm:flex-col items-center sm:items-start gap-2 sm:gap-0">
         <span class="hidden sm:block text-sm text-neutral-700">{t.general.language}</span>
         <select class="text-primary-600 font-medium bg-transparent border-none p-0 pr-8 focus:ring-0 cursor-pointer uppercase appearance-none" bind:value={selectedLang}>

@@ -13,19 +13,19 @@
 
   async function onDelete(authority: Authority) {
     if (!confirm(t.general.deleteConfirm + ' ' + authority.id + '?')) return
-    await api.delete(`authorities/${authority.id}`)
+    await api.delete(`v1/authorities/delete?authorityId=${authority.id}`)
     showToast(t.general.deleted + ': ' + authority.id)
     onDeleted(authority)
   }
 </script>
 
-<SortableTable items={authorities} labels={t.authorities} columns={['id', [t.general.countryCode, 'countryCode'], 'subsets', '']} let:item={a}>
+<SortableTable items={authorities} labels={t.authorities} columns={['id', 'name', [t.general.countryCode, 'countryCode'], 'subsets', '']} let:item={a}>
   <tr>
     <td>{a.id}</td>
+    <td>{a.name}</td>
     <td>{a.countryCode}</td>
     <td>{a.subsets.join(', ')}</td>
     <td>
-      <Button label={t.users.title} onclick={() => navigate('/users?authorityId=' + a.id)} size="sm"/>
       <Button label={t.general.edit} onclick={() => onEdit(a)} size="sm"/>
       <Button label={t.general.delete} onclick={() => onDelete(a)} size="sm" class="danger"/>
     </td>

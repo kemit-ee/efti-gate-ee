@@ -1,25 +1,20 @@
-import dataset.DatasetRoutes
-import followup.FollowupRoutes
+import efti.*
 import io.swagger.v3.oas.annotations.OpenAPIDefinition
 import io.swagger.v3.oas.annotations.info.Info
-import klite.Config
-import klite.Server
+import klite.*
 import klite.annotations.annotated
 import klite.json.JsonBody
-import klite.metrics
 import klite.openapi.openApi
-import search.SearchRoutes
-import upload.UploadRoutes
 
 fun main() {
   Config.useEnvFile()
-  Server().apply {
-    use<JsonBody>()
-    metrics()
-
+  Server(requestIdGenerator = RequestIdHandler()).apply {
     context("/health") {
       get { "OK" }
     }
+
+    useOnly<JsonOrXmlBody>()
+    metrics()
 
     context("/api/v1") {
       annotated<UploadRoutes>("/upload")
@@ -35,3 +30,11 @@ fun main() {
     start()
   }
 }
+
+class JsonOrXmlBody: JsonBody() {
+  override fun render(e: HttpExchange, code: StatusCode, value: Any?) {
+    if (value is String) e.send(code, value, MimeTypes.xml)
+    else super.render(e, code, value)
+  }
+}
+

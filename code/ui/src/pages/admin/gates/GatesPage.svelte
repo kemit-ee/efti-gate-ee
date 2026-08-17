@@ -6,16 +6,10 @@
   import api from 'src/api/api'
   import Button from 'src/components/Button.svelte'
   import Modal from 'src/components/Modal.svelte'
-  import OwnGateButton from 'src/pages/admin/gates/OwnGateButton.svelte'
-  import {showToast, ToastType} from 'src/stores/toasts'
-  import {navigate} from 'src/router'
-  import {user} from 'src/stores/auth'
-  import GateTestForm from 'src/pages/admin/gates/GateTestForm.svelte'
-  import type {Gate, RuuterResponse} from "src/api/ruuterTypes";
+  import type {Gate} from "src/api/ruuterTypes";
 
   let gates: Gate[]
   let editGate: Gate | false = false
-  let testGate: Gate | false = false
 
   onMount(load)
 
@@ -31,37 +25,21 @@
     editGate = gate
   }
 
-  function onTest(gate: Gate) {
-    testGate = gate
-  }
-
-  function onSaved(gate: Gate, isNew: boolean) {
+  function onSaved() {
     editGate = false
-    if (isNew) {
-      showToast(t.users.createForAdmin, {type: ToastType.INFO, timeoutSec: 10})
-      navigate(`/users?gateId=${gate.id}`)
-    } else load()
+    load()
   }
 </script>
 
 <h1 class="mb-6 flex justify-between items-center gap-8">
   {t.gates.title} ({gates?.length})
-  <span>
-    <OwnGateButton/>
-    <Button label={t.general.add} onclick={add} class="primary"/>
-  </span>
+  <Button label={t.general.add} onclick={add} class="primary"/>
 </h1>
 
-<GateList {gates} onEdit={onEdit} onDeleted={load} onTest={onTest}/>
+<GateList {gates} onEdit={onEdit} onDeleted={load}/>
 
 <Modal bind:show={editGate} title={t.gates.gate}>
   {#if editGate}
     <GateForm gate={editGate} {onSaved}/>
-  {/if}
-</Modal>
-
-<Modal bind:show={testGate} title="{t.general.test}: {testGate ? testGate.id : ''}">
-  {#if testGate}
-    <GateTestForm gate={testGate} />
   {/if}
 </Modal>

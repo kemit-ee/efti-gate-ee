@@ -35,9 +35,9 @@ COMMENT ON TYPE gate_status IS 'Operational status of an eFTI gate node';
 DO $$
 BEGIN
   CREATE TYPE consignment_status AS ENUM (
-    'active',
-    'inactive',
-    'deleted'
+    'ACTIVE',
+    'INACTIVE',
+    'DELETED'
   );
 EXCEPTION WHEN duplicate_object THEN NULL;
 END$$;
@@ -47,8 +47,8 @@ COMMENT ON TYPE consignment_status IS 'Lifecycle status of a stored consignment 
 DO $$
 BEGIN
   CREATE TYPE job_status AS ENUM (
-    'completed',
-    'failed'
+    'COMPLETED',
+    'FAILED'
   );
 EXCEPTION WHEN duplicate_object THEN NULL;
 END$$;
@@ -58,8 +58,8 @@ COMMENT ON TYPE job_status IS 'Final outcome of a scheduled job execution. jobs_
 DO $$
 BEGIN
   CREATE TYPE follow_up_status AS ENUM (
-    'delivered',
-    'failed'
+    'DELIVERED',
+    'FAILED'
   );
 EXCEPTION WHEN duplicate_object THEN NULL;
 END$$;
@@ -108,7 +108,6 @@ CREATE TABLE IF NOT EXISTS gates (
   created_by      UUID,
   created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
-  CONSTRAINT gates_id_format      CHECK (id ~ '^eu-[a-z]{2}[0-9]{2}$'),
   CONSTRAINT gates_country_format CHECK (country_code ~ '^[A-Z]{2}$')
 );
 
@@ -256,7 +255,7 @@ CREATE TABLE IF NOT EXISTS consignments (
   platform_id                   CITEXT              NOT NULL,
   gate_id                       CITEXT              NOT NULL,
   xml                           TEXT                NOT NULL,
-  status                        consignment_status  NOT NULL DEFAULT 'active',
+  status                        consignment_status  NOT NULL DEFAULT 'ACTIVE',
   transport_mode                CHAR(1),
   acceptance_date               TIMESTAMP,
   acceptance_country            CHAR(2),
@@ -317,10 +316,9 @@ COMMENT ON COLUMN consignments.carried_equipment_seq         IS 'Carried transpo
 COMMENT ON COLUMN consignments.created_by                    IS 'users.row_id of the actor that wrote this row';
 COMMENT ON COLUMN consignments.created_at                    IS 'When this row was inserted';
 
-CREATE INDEX IF NOT EXISTS idx_consignments_dataset_latest    ON consignments (dataset_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_consignments_dataset_latest    ON consignments (dataset_id, platform_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_consignments_platform          ON consignments (platform_id);
-CREATE INDEX IF NOT EXISTS idx_consignments_gate              ON consignments (gate_id);
-CREATE INDEX IF NOT EXISTS idx_consignments_status_active     ON consignments (status) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_consignments_status_active     ON consignments (status) WHERE status = 'ACTIVE';
 CREATE INDEX IF NOT EXISTS idx_consignments_transport_mode    ON consignments (transport_mode);
 CREATE INDEX IF NOT EXISTS idx_consignments_acceptance_date   ON consignments (acceptance_date);
 CREATE INDEX IF NOT EXISTS idx_consignments_acceptance_country ON consignments (acceptance_country);
