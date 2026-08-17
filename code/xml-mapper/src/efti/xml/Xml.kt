@@ -2,9 +2,7 @@ package efti.xml
 
 import java.time.ZoneOffset.UTC
 import java.time.format.DateTimeFormatterBuilder
-import java.time.temporal.ChronoField.HOUR_OF_DAY
-import java.time.temporal.ChronoField.MINUTE_OF_HOUR
-import java.time.temporal.ChronoField.SECOND_OF_MINUTE
+import java.time.temporal.ChronoField.*
 import kotlin.text.RegexOption.DOT_MATCHES_ALL
 
 fun String.dropXmlHeader() = substringAfter("?>").trim()
@@ -34,9 +32,9 @@ private fun formatter(s: String) = DateTimeFormatterBuilder().appendPattern(s)
   .toFormatter()
 
 val edifactDateTimeFormats = mapOf(
-  "102" to formatter("uuuuMMdd").withZone(UTC),         // LocalDate (CCYYMMDD)
-  "203" to formatter("uuuuMMddHHmm").withZone(UTC),     // LocalDateTime (CCYYMMDDHHMM)
-  "204" to formatter("uuuuMMddHHmmss").withZone(UTC),   // LocalDateTime (CCYYMMDDHHMMSS)
-  "205" to formatter("uuuuMMddHHmmXX"),   // OffsetDateTime / Instant (CCYYMMDDHHMMZHHMM)
-  "207" to formatter("uuuuMMddHHmmssXX"), // OffsetDateTime / Instant (CCYYMMDDHHMMSSZHHMM)
+  "102" to formatter("yyyyMMdd").withZone(UTC),         // LocalDate (CCYYMMDD)
+  "203" to formatter("yyyyMMddHHmm").withZone(UTC),     // LocalDateTime (CCYYMMDDHHMM)
+  "204" to formatter("yyyyMMddHHmmss").withZone(UTC),   // LocalDateTime (CCYYMMDDHHMMSS)
+  "205" to formatter("yyyyMMddHHmmXX").withZone(UTC),   // OffsetDateTime / Instant (CCYYMMDDHHMMZHHMM)
+  "207" to formatter("yyyyMMddHHmmssXX").withZone(UTC), // OffsetDateTime / Instant (CCYYMMDDHHMMSSZHHMM)
 )
