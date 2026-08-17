@@ -10,12 +10,17 @@ import efti.subsets.CountryCode.DE
 import efti.xml.fti.DateTimeString
 import efti.xml.fti.ParameterSearchCriteria
 import efti.xml.fti.ParameterSearchCriteria.*
+import io.mockk.every
+import io.mockk.mockk
+import klite.HttpExchange
 import klite.uuid
 import org.junit.jupiter.api.Test
 import java.io.File
 
 class SearchRoutesTest {
-  val routes = SearchRoutes()
+  val requestIdHandler = mockk<RequestIdHandler>(relaxed = true)
+  val exchange = mockk<HttpExchange>(relaxed = true) { every { requestId } returns "00000000-0000-0000-0000-000000000001" }
+  val routes = SearchRoutes(requestIdHandler)
 
   val criteria = ParameterSearchCriteria(
     acceptanceCountry = CountryScope(DE),
@@ -26,7 +31,7 @@ class SearchRoutesTest {
 
   @Test fun requestToJson() {
     val xml = File("xsd/Normalized/FTI019/sample.xml").readText()
-    val result = routes.requestToJson(xml)
+    val result = routes.requestToJson(xml, exchange)
 
     expect(result.acceptanceCountry?.country).toEqual(DE)
     expect(result.transportMode?.mode).toEqual(Mode("1"))
@@ -34,7 +39,7 @@ class SearchRoutesTest {
   }
 
   @Test fun requestToXml() {
-    val xml = routes.requestToXml(criteria)
+    val xml = routes.requestToXml(criteria, exchange)
 
     expect(xml).toContain("<TypeCode>019</TypeCode>")
     expect(xml).toContain("<CarrierAcceptanceCountryParameterScope>")
@@ -47,8 +52,8 @@ class SearchRoutesTest {
   }
 
   @Test fun requestToXmlRoundtrip() {
-    val xml = routes.requestToXml(criteria)
-    val parsed = routes.requestToJson(xml)
+    val xml = routes.requestToXml(criteria, exchange)
+    val parsed = routes.requestToJson(xml, exchange)
 
     expect(parsed.acceptanceCountry?.country).toEqual(DE)
     expect(parsed.transportMode?.mode).toEqual(Mode("1"))

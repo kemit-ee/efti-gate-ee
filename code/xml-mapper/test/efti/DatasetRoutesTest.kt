@@ -7,16 +7,24 @@ import efti.domain.GateId
 import efti.domain.PlatformId
 import efti.domain.UIL
 import efti.subsets.Subset
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
+import klite.HttpExchange
 import klite.uuid
 import org.junit.jupiter.api.Test
 import java.io.File
 
 class DatasetRoutesTest {
-  val routes = DatasetRoutes()
+  val requestIdHandler = mockk<RequestIdHandler>(relaxed = true)
+  val exchange = mockk<HttpExchange>(relaxed = true) { every { requestId } returns "00000000-0000-0000-0000-000000000001" }
+  val routes = DatasetRoutes(requestIdHandler)
 
   @Test fun requestToJson() {
     val xml = File("xsd/Normalized/FTI009/sample.xml").readText()
-    val result = routes.requestToJson(xml)
+    val result = routes.requestToJson(xml, exchange)
+
+    verify { requestIdHandler.send(exchange, "17022113-89b5-11f1-bec0-3c9c0f2eb459".uuid) }
 
     expect(result.uil.gateId).toEqual(GateId("Gate-001"))
     expect(result.uil.platformId).toEqual(PlatformId("Platform-001"))
@@ -27,7 +35,7 @@ class DatasetRoutesTest {
   @Test fun requestToXml() {
     val uil = UIL(PlatformId("Platform-001"), "550e8400-e29b-41d4-a716-446655440000".uuid, GateId("Gate-001"))
     val req = DatasetQueryRequest(uil, listOf(Subset("EE05b")))
-    val xml = routes.requestToXml(req)
+    val xml = routes.requestToXml(req, exchange)
 
     expect(xml).toContain("<TypeCode>009</TypeCode>")
     expect(xml).toContain("<GateID>Gate-001</GateID>")
@@ -39,8 +47,8 @@ class DatasetRoutesTest {
   @Test fun requestToXmlRoundtrip() {
     val uil = UIL(PlatformId("Platform-001"), "550e8400-e29b-41d4-a716-446655440000".uuid, GateId("Gate-001"))
     val req = DatasetQueryRequest(uil, listOf(Subset("EE05b")))
-    val xml = routes.requestToXml(req)
-    val parsed = routes.requestToJson(xml)
+    val xml = routes.requestToXml(req, exchange)
+    val parsed = routes.requestToJson(xml, exchange)
 
     expect(parsed.uil.gateId).toEqual(GateId("Gate-001"))
     expect(parsed.uil.platformId).toEqual(PlatformId("Platform-001"))
@@ -58,7 +66,7 @@ class DatasetRoutesTest {
 
   @Test fun responseToXmlPassThrough() {
     val xml = File("xsd/Normalized/FTI010/sample.xml").readText()
-    val result = routes.responseToXml(xml)
+    val result = routes.responseToXml(xml, exchange)
 
     expect(result).toContain("FTI010GetCmdsResponse")
     expect(result).toContain("<GrossWeightMeasure")
