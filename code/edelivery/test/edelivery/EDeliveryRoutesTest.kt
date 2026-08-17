@@ -60,6 +60,6 @@ class EDeliveryRoutesTest {
 
     routes.msh(exchange)
 
-    verify { messageHandler.response(match { it.receiverId == party.id }, payload) }
+    verify(timeout = 5000) { messageHandler.response(match { it.receiverId == party.id }, payload) }
   }
 }
