@@ -1,7 +1,4 @@
-import efti.DatasetRoutes
-import efti.FollowupRoutes
-import efti.SearchRoutes
-import efti.UploadRoutes
+import efti.*
 import io.swagger.v3.oas.annotations.OpenAPIDefinition
 import io.swagger.v3.oas.annotations.info.Info
 import klite.Config
@@ -13,7 +10,7 @@ import klite.openapi.openApi
 
 fun main() {
   Config.useEnvFile()
-  Server().apply {
+  Server(requestIdGenerator = RequestIdHandler()).apply {
     context("/health") {
       get { "OK" }
     }
