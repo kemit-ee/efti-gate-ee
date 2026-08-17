@@ -19,7 +19,7 @@
 | **API operations** | `GET/POST/PUT/DELETE /api/v1/platforms[/{platformId}]` |
 | | `POST /api/v1/platforms/{platformId}/ping` |
 | | Full request / response / error shapes: [`openapi.yaml`](../../specs/openapi.yaml) |
-| **Schema** | `platforms` (append-only; logical id = `platforms.id`; latest row by `created_at` wins; `is_active=FALSE` on latest = soft-delete; columns: `base_url`, `supports_subsetting`, `cert_subject`, `cert_serial`, `e_delivery_cert`) |
+| **Schema** | `platforms` (append-only; logical id = `platforms.id`; latest row by `created_at` wins; `status='DELETED'` on latest = soft-delete; columns: `base_url`, `cert_subject`, `cert_serial`, `e_delivery_cert`) |
 | | Full schema: [`db/schema.sql`](../../specs/db/schema.sql) |
 | **Access-check rules** | Admin write scope-ID check on the platform's owning gate: [`permissions-matrix.md`](../../specs/permissions-matrix.md) §8.1 |
 | **Error codes** | `BAD_REQUEST_GENERAL` |
@@ -37,9 +37,9 @@
 **Business rules:**
 - [ ] Listing: Super Admin sees all platforms; a regular Admin sees only platforms whose owning gate is in their `users.roles[ADMIN]` scope-IDs.
 - [ ] All writes (create / update / delete) are INSERTs of a new `platforms` row sharing the same logical `id`. Latest row wins.
-- [ ] Delete is **always** soft (`is_active=FALSE` on the latest row). There is no force-delete and no purge. Identifiers previously registered by the platform remain queryable.
+- [ ] Delete is **always** soft (`status='DELETED'` on the latest row). There is no force-delete and no purge. Identifiers previously registered by the platform remain queryable.
 - [ ] A platform with `eDeliveryCert` set is callable via both REST and eDelivery AS4. Without it, REST only.
-- [ ] A platform with `supportsSubsetting=false` triggers gate-side subset filtering on dataset retrieval (Epic 5).
+- [ ] Platform is always responsible for subsetting — the gate forwards `subsetId` to the platform's `/v1/datasets/{datasetId}` endpoint (ADR-003).
 - [ ] Manual ping (`POST /api/v1/platforms/{platformId}/ping`) checks HTTP reachability to `baseUrl`; response carries `responseTimeMs`.
 
 **Denial scenarios:**

@@ -7,16 +7,16 @@ sequenceDiagram
     Note over Admin: Admin has the platform's<br/>eDelivery AP X.509 cert<br/>(MS-issued per Reg<br/>2024/1942 Art 11).<br/>Subject DN + serial<br/>ready to register.
 
     Admin->>+Gate: POST /api/v1/platforms<br/>Authorization: Bearer TARA-JWT (role=ADMIN)
-    Note over Admin,Gate: Body — PlatformWrite:<br/>id, baseUrl,<br/>supportsSubsetting,<br/>certSubject, certSerial.<br/>Full schema: openapi.yaml.
+    Note over Admin,Gate: Body — PlatformWrite:<br/>id, baseUrl,<br/>certSubject, certSerial.<br/>Full schema: openapi.yaml.
 
     Gate->>Gate: Validate JWT (signature, exp, iss, aud, not in denylist),<br/>require resource_access.efti-gate.roles ∋ ADMIN
 
     Gate->>+PlatformReg: save(PlatformWrite)
-    PlatformReg->>+DB: Append a new platforms row carrying the platform's id, baseUrl,<br/>supportsSubsetting flag, certSubject + certSerial, is_active=TRUE,<br/>created_by=admin's user-row-id.
+    PlatformReg->>+DB: Append a new platforms row carrying the platform's id, baseUrl,<br/>certSubject + certSerial, status='ONLINE',<br/>created_by=admin's user-row-id.
     Note over DB: Append-only — every<br/>save is a new row.<br/>Latest row by created_at<br/>wins. Index on (subject,<br/>serial) supports the<br/>inbound-mTLS lookup.
     DB-->>-PlatformReg: written
     PlatformReg-->>-Gate: saved
 
-    Gate-->>-Admin: 201 Created<br/>{ "id":"plt-xxx-001", "baseUrl":"https://efti.example.com",<br/>  "supportsSubsetting":true, "certSubject":"CN=…", "certSerial":"0123456789ABCDEF",<br/>  "isActive":true, "createdAt":"2026-04-22T10:15:30Z" }
+    Gate-->>-Admin: 201 Created<br/>{ "id":"plt-xxx-001", "baseUrl":"https://efti.example.com",<br/>  "certSubject":"CN=…", "certSerial":"0123456789ABCDEF",<br/>  "status":"ONLINE", "createdAt":"2026-04-22T10:15:30Z" }
 
     Note over Admin,Gate: Platform auths via mTLS —<br/>the cert is the credential.<br/>No user, no secret issued.<br/>Identity = cert subject DN.<br/>--<br/>Cert renewal: PUT with<br/>new subject / serial —<br/>append-only INSERT, old<br/>cert stops resolving once<br/>the new row is latest.

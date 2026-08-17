@@ -68,11 +68,12 @@ CREATE EXTENSION IF NOT EXISTS "btree_gin";   -- GIN indexes on scalar types
 -- ============================================================================
 
 CREATE TYPE gate_status AS ENUM (
-  'ONLINE',    -- Gate is reachable and accepting queries
-  'OFFLINE',   -- Gate is unreachable (failed ping)
-  'DISABLED'   -- Gate manually deactivated by administrator
+  'ONLINE',    -- Gate/platform is reachable and accepting queries
+  'OFFLINE',   -- Gate/platform is unreachable (failed ping)
+  'DISABLED',  -- Gate/platform manually deactivated by administrator (visible in list)
+  'DELETED'    -- Soft-deleted by operator; hidden from list queries, row retained for audit
 );
-COMMENT ON TYPE gate_status IS 'Operational status of an eFTI gate node';
+COMMENT ON TYPE gate_status IS 'Operational status of an eFTI gate or platform node';
 
 CREATE TYPE consignment_status AS ENUM (
   'active',    -- Registered and queryable by authorities
@@ -137,7 +138,6 @@ CREATE TABLE gates (
   tls_cert        TEXT,
   status          gate_status  NOT NULL,
   last_ping_at    TIMESTAMPTZ,
-  is_active       BOOLEAN      NOT NULL DEFAULT TRUE,  -- logical-deletion flag (operator-driven)
   created_by      UUID,                          -- denormalised users.row_id of actor (NULL for ping job)
   created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
@@ -152,37 +152,34 @@ COMMENT ON COLUMN gates.country_code    IS 'ISO 3166-1 alpha-2 country code';
 COMMENT ON COLUMN gates.e_delivery_url  IS 'AS4 access-point URL for inbound G2G messages';
 COMMENT ON COLUMN gates.e_delivery_cert IS 'Public certificate (PEM) used to verify AS4 messages from this gate';
 COMMENT ON COLUMN gates.tls_cert        IS 'Public TLS certificate (PEM) used to verify the gate''s HTTPS endpoint';
-COMMENT ON COLUMN gates.status          IS 'Operational status snapshot at row time: ONLINE (recent ping success) / OFFLINE (recent ping fail or never pinged) / DISABLED (operator manually disabled). Set by the ping job.';
+COMMENT ON COLUMN gates.status          IS 'Värava tööseisund hetkel: ONLINE — aktiivne ja kättesaadav; OFFLINE — ping ebaõnnestus; DISABLED — halduslikult välja lülitatud (nähtav loendis); DELETED — pehme kustutus (operaatori poolt eemaldatud, rida säilib auditiks).';
 COMMENT ON COLUMN gates.last_ping_at    IS 'Timestamp of the latest successful ping that produced this row. NULL if this row pre-dates first ping.';
-COMMENT ON COLUMN gates.is_active       IS 'Logical-deletion flag (operator-driven, distinct from status which is ping-job-driven). FALSE excludes the gate from registry sync, peer broadcast, and ping sweeps; the row remains for audit.';
 COMMENT ON COLUMN gates.created_by      IS 'Denormalised users.row_id of the actor that wrote this row. NULL for system events (ping job, registry sync).';
 COMMENT ON COLUMN gates.created_at      IS 'When this row was inserted. Latest created_at per id is the current state.';
 
 CREATE INDEX idx_gates_id_latest    ON gates (id, created_at DESC);
 CREATE INDEX idx_gates_status       ON gates (status);
 CREATE INDEX idx_gates_country      ON gates (country_code);
-CREATE INDEX idx_gates_active       ON gates (is_active) WHERE is_active = TRUE;
 
 -- ----------------------------------------------------------------------------
 -- 3.2 platforms — registered eFTI platforms
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE platforms (
-  row_id              UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
-  id                  CITEXT       NOT NULL,    -- logical identifier; NOT unique
-  base_url            TEXT,
-  headers             JSONB        NOT NULL DEFAULT '{}'::jsonb,
-  e_delivery_cert     TEXT,
-  tls_cert            TEXT,
-  cert_subject        TEXT,                                 -- DN string from the platform's eDelivery AP cert (for inbound mTLS lookup)
-  cert_serial         TEXT,                                 -- serial number of the same cert; (subject, serial) is the natural key for the lookup
-  supports_subsetting BOOLEAN      NOT NULL DEFAULT FALSE,
-  is_active           BOOLEAN      NOT NULL DEFAULT TRUE,  -- logical-deletion flag
-  created_by          UUID,
-  created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+  row_id          UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id              CITEXT       NOT NULL,    -- logical identifier; NOT unique
+  base_url        TEXT,
+  headers         JSONB        NOT NULL DEFAULT '{}'::jsonb,
+  e_delivery_cert TEXT,
+  tls_cert        TEXT,
+  cert_subject    TEXT,                    -- DN string from the platform's eDelivery AP cert (for inbound mTLS lookup)
+  cert_serial     TEXT,                    -- serial number of the same cert; (subject, serial) is the natural key for the lookup
+  status          gate_status  NOT NULL DEFAULT 'ONLINE',
+  created_by      UUID,
+  created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-COMMENT ON TABLE  platforms IS 'Registry of eFTI platforms registered with this gate. Append-only: each edit is a new row sharing the same id; latest wins. is_active=FALSE represents logical deletion.';
+COMMENT ON TABLE  platforms IS 'Registry of eFTI platforms registered with this gate. Append-only: each edit is a new row sharing the same id; latest wins. status=DELETED represents logical deletion.';
 COMMENT ON COLUMN platforms.row_id              IS 'Synthetic primary key, unique per row';
 COMMENT ON COLUMN platforms.id                  IS 'Logical platform identifier (e.g. plt-xxx-001). Many rows can share this id over time.';
 COMMENT ON COLUMN platforms.base_url            IS 'Platform''s REST API base URL';
@@ -191,14 +188,13 @@ COMMENT ON COLUMN platforms.e_delivery_cert     IS 'Public certificate (PEM) for
 COMMENT ON COLUMN platforms.tls_cert            IS 'Public TLS certificate (PEM) for HTTPS communication';
 COMMENT ON COLUMN platforms.cert_subject        IS 'Subject DN of the platform''s eDelivery AP X.509 certificate (Member-State-issued per Impl Reg 2024/1942 Art 11). The reverse proxy terminates mTLS on inbound Platform-API calls and forwards X-Client-Cert-Subject; the gate looks up (cert_subject, cert_serial) to resolve the platform identity.';
 COMMENT ON COLUMN platforms.cert_serial         IS 'Serial number of the eDelivery AP certificate. Together with cert_subject forms the natural key for inbound-mTLS lookup. NULL during transition before the platform''s cert is registered.';
-COMMENT ON COLUMN platforms.supports_subsetting IS 'TRUE if the platform applies subset filtering itself; FALSE means the gate must run the subsetter';
-COMMENT ON COLUMN platforms.is_active           IS 'Logical-deletion flag. FALSE excludes this platform from normal operations; the platform row remains in the table for audit.';
+COMMENT ON COLUMN platforms.status IS 'Platvormi tööseisund hetkel: ONLINE — aktiivne ja kättesaadav; OFFLINE — ping ebaõnnestus; DISABLED — halduslikult välja lülitatud (nähtav loendis); DELETED — pehme kustutus (operaatori poolt eemaldatud, rida säilib auditiks).';
 COMMENT ON COLUMN platforms.created_by          IS 'users.row_id of the actor that wrote this row';
 COMMENT ON COLUMN platforms.created_at          IS 'When this row was inserted';
 
 CREATE INDEX idx_platforms_id_latest    ON platforms (id, created_at DESC);
-CREATE INDEX idx_platforms_active       ON platforms (is_active) WHERE is_active = TRUE;
-CREATE INDEX idx_platforms_cert_lookup  ON platforms (cert_subject, cert_serial) WHERE is_active = TRUE;
+CREATE INDEX idx_platforms_status       ON platforms (status);
+CREATE INDEX idx_platforms_cert_lookup  ON platforms (cert_subject, cert_serial);
 
 -- ----------------------------------------------------------------------------
 -- 3.3 authorities — registered competent authorities
@@ -680,9 +676,9 @@ INSERT INTO gates (id, country_code, e_delivery_url, status, last_ping_at) VALUE
   ('eu-yy02', 'LV', 'https://efti-peer2.example.com/services/msh',             'OFFLINE', NULL);
 
 -- Seed platforms
-INSERT INTO platforms (id, base_url, supports_subsetting) VALUES
-  ('plt-xxx-001', 'https://platform-demo.example.com/v1', TRUE),
-  ('plt-yyy-001',    'https://platform-cargo.example.com/v1', FALSE);
+INSERT INTO platforms (id, base_url) VALUES
+  ('plt-xxx-001', 'https://platform-demo.example.com/v1'),
+  ('plt-yyy-001', 'https://platform-cargo.example.com/v1');
 
 -- Seed authorities
 INSERT INTO authorities (id, name, country_code, description, subsets) VALUES

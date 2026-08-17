@@ -341,9 +341,9 @@ The Gate **does not** parse, validate, or transform dataset XML — it is byte-f
 
 Subset values on the wire are always the canonical `EU01`..`EU07` codes from `users.subsets` / `authorities.subsets`.
 
-### 3.5 Subset XSLT mapping (gate-side filtering for `supportsSubsetting=false` platforms)
+### 3.5 Subset XSLT mapping (gate-side permission enforcement)
 
-When the responding platform's `supportsSubsetting=false` flag is set, the gate must run an XSLT subsetter against the platform's full dataset XML and return only the elements visible under the requested subset(s). The mapping from `EU01..EU07` to the consignment XSD's element groups is canonical (per Reg 2024/2024 Annex):
+The gate enforces subset access-control permissions regardless of what the platform returns. Per ADR-003 (17.08.2026), all platforms are required by regulation to perform subsetting themselves — the gate forwards the `subsetId[]` parameter to the platform's `/v1/datasets/{datasetId}` endpoint. The gate does **not** apply gate-side XSLT subsetting. However, the `EU01..EU07` → XSD element group mapping below remains the canonical reference for validating what each subset must contain:
 
 | Subset | Element groups retained | Practical content |
 |---|---|---|
@@ -355,7 +355,7 @@ When the responding platform's `supportsSubsetting=false` flag is set, the gate 
 | `EU06` | Operator / carrier company identifiers | Company VAT IDs, tax IDs, legal name and address of the carrier and any subcarrier. |
 | `EU07` | Customs and cross-border clearance | Customs procedure codes, border-crossing timestamps, cabotage indicators, transit declarations. |
 
-The gate ships a single canonical XSLT stylesheet (`subsetter.xsl`) that takes a `subsetId[]` parameter and selects the union of the listed element groups from the input dataset. The stylesheet's identity-template default is "drop"; only nodes matching the requested subsets pass through. When the platform itself has `supportsSubsetting=true`, the gate forwards the `subsetId` query parameter to the platform's `/v1/datasets/{datasetId}` endpoint and the platform performs the filtering — the gate's XSLT does not run.
+The gate ships a canonical XSLT stylesheet (`subsetter.xsl`) as a validation reference tool only. In production, the platform performs filtering; the gate validates that the authority's permitted subsets are not exceeded. When the platform's response already contains only the requested subsets, the gate passes the XML through directly.
 
 **Per-MS subset codes inside the consignment-identifier XML.** The eFTI XSD permits member-state-specific subset codes (`AT01..AT16`, `BE01..BE10`, `EE01..EE08`, etc.) in the `<dataSubset>` elements of the identifier registration. The gate stores these byte-for-byte in `consignments.xml` and **does not interpret them**. Authority subset filtering uses only the canonical `EU01..EU07` vocabulary at the gate's API surface; per-MS codes are visible to platforms but never used for the gate's authorisation or routing decisions.
 

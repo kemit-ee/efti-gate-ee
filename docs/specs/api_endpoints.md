@@ -37,7 +37,7 @@ mis on **teostatud**, mis on **puudu** ja millised on näidisissendid/väljundid
 | **`X-Request-ID`** | UUID päis kõigil muteerivaatel (POST/PUT/DELETE); duplikaat 10 min jooksul → 409 |
 | **Paginatsioon** | `?limit=100&offset=0`; kogus `X-Total-Count` päises |
 | **Kirjutused** | Append-only INSERT — pole UPDATE/DELETE. Viimane rida `created_at` järgi on kehtiv seis |
-| **Pehme kustutus** | Kirjutab uue rea `is_active = FALSE` |
+| **Pehme kustutus** | Kirjutab uue rea `status = 'DELETED'` (gates, platforms); `is_active = FALSE` (authorities, users) |
 
 ---
 
@@ -199,7 +199,6 @@ GET /efti/api/v1/gates?limit=2&offset=0
       "tlsCert": null,
       "status": "ONLINE",
       "lastPingAt": "2026-04-23T10:00:00Z",
-      "isActive": true,
       "createdAt": "2026-01-15T09:00:00Z"
     }
   ]
@@ -225,8 +224,7 @@ GET /efti/api/v1/gates?limit=2&offset=0
 | `eDeliveryUrl` | string (uri) | ✅ | AS4 MSH endpoint |
 | `eDeliveryCert` | string\|null | ❌ | PEM-sertifikaat |
 | `tlsCert` | string\|null | ❌ | mTLS sertifikaat |
-| `status` | `ONLINE`\|`OFFLINE`\|`DISABLED` | ❌ | Vaikimisi `OFFLINE` |
-| `isActive` | boolean | ❌ | Vaikimisi `true` |
+| `status` | `ONLINE`\|`OFFLINE`\|`DISABLED`\|`DELETED` | ❌ | Vaikimisi `OFFLINE` |
 
 ```json
 // Päring
@@ -249,7 +247,6 @@ Content-Type: application/json
       "countryCode": "DE",
       "eDeliveryUrl": "https://efti-peer.bkg.bund.de/services/msh",
       "status": "OFFLINE",
-      "isActive": true,
       "createdAt": "2026-04-23T11:00:00Z"
     }
   ]
@@ -278,7 +275,6 @@ GET /efti/api/v1/gates/own
       "countryCode": "EE",
       "eDeliveryUrl": "https://efti.ria.ee/services/msh",
       "status": "ONLINE",
-      "isActive": true
     }
   ]
 }
@@ -298,7 +294,7 @@ GET /efti/api/v1/gates/own
 
 > ℹ️ **Ruuter workaround:** Spec-i tee-parameeter `{gateId}` on asendatud query-parameetriga `?gateId=`.
 
-Tagastab viimase rea `DISTINCT ON (id) ORDER BY created_at DESC` — sealhulgas soft-kustutatud gate (`isActive: false`).
+Tagastab viimase rea `DISTINCT ON (id) ORDER BY created_at DESC` — sealhulgas soft-kustutatud gate (`status: DELETED`).
 
 ```
 GET /efti/api/v1/gates?gateId=eu-de01
@@ -310,7 +306,6 @@ GET /efti/api/v1/gates?gateId=eu-de01
       "id": "eu-de01",
       "countryCode": "DE",
       "status": "ONLINE",
-      "isActive": true,
       "createdAt": "2026-04-23T11:00:00Z"
     }
   ]
@@ -341,7 +336,6 @@ Content-Type: application/json
   "countryCode": "DE",
   "eDeliveryUrl": "https://efti-peer-new.bkg.bund.de/services/msh",
   "status": "ONLINE",
-  "isActive": true
 }
 
 // Vastus 200 OK
@@ -351,7 +345,6 @@ Content-Type: application/json
       "id": "eu-de01",
       "eDeliveryUrl": "https://efti-peer-new.bkg.bund.de/services/msh",
       "status": "ONLINE",
-      "isActive": true
     }
   ]
 }
@@ -363,7 +356,7 @@ Content-Type: application/json
 
 **Spec:** `DELETE /api/v1/gates/{gateId}`
 **Ruuter DSL:** `DSL/Ruuter/efti/DELETE/api/v1/gates.yml`
-**Voog:** INSERT rida `is_active=false` → verify GET (`isActive == false`) → 204
+**Voog:** INSERT rida `status='DELETED'` → verify GET (`status == 'DELETED'`) → 204
 
 ```
 DELETE /efti/api/v1/gates?gateId=eu-de01
@@ -436,8 +429,7 @@ GET /efti/api/v1/platforms
     {
       "id": "plt-cargo-ee-001",
       "baseUrl": "https://api.cargo-ee.com/efti/v1",
-      "supportsSubsetting": true,
-      "isActive": true,
+      "status": "ONLINE",
       "createdAt": "2026-03-01T08:00:00Z"
     }
   ]
@@ -456,13 +448,12 @@ GET /efti/api/v1/platforms
 |---|---|---|---|
 | `id` | string | ✅ | Platvormi identifikaator |
 | `baseUrl` | string (uri) | ✅ | REST API baas-URL |
-| `supportsSubsetting` | boolean | ❌ | Vaikimisi `true` |
 | `headers` | object | ❌ | Lisapäised (nt API võtmed) |
 | `eDeliveryCert` | string\|null | ❌ | AS4 sertifikaat PEM |
 | `tlsCert` | string\|null | ❌ | mTLS sertifikaat PEM |
 | `certSubject` | string\|null | ❌ | mTLS lahendamiseks vajalik tootmises |
 | `certSerial` | string\|null | ❌ | Sama sertifikaadi seeria |
-| `isActive` | boolean | ❌ | Vaikimisi `true` |
+| `status` | `ONLINE`\|`OFFLINE`\|`DISABLED`\|`DELETED` | ❌ | Vaikimisi `ONLINE` |
 
 ```json
 // Päring
@@ -472,7 +463,7 @@ Content-Type: application/json
 {
   "id": "plt-cargo-ee-001",
   "baseUrl": "https://api.cargo-ee.com/efti/v1",
-  "supportsSubsetting": true,
+  "status": "ONLINE",
   "headers": { "X-Api-Key": "secret-key-abc123" },
   "certSubject": "CN=eDelivery-Platform, O=Cargo EE OÜ, C=EE",
   "certSerial": "0123456789ABCDEF"
@@ -484,8 +475,7 @@ Content-Type: application/json
     {
       "id": "plt-cargo-ee-001",
       "baseUrl": "https://api.cargo-ee.com/efti/v1",
-      "supportsSubsetting": true,
-      "isActive": true,
+      "status": "ONLINE",
       "createdAt": "2026-04-23T11:05:00Z"
     }
   ]
@@ -508,8 +498,7 @@ GET /efti/api/v1/platforms?platformId=plt-cargo-ee-001
       "id": "plt-cargo-ee-001",
       "baseUrl": "https://api.cargo-ee.com/efti/v1",
       "certSubject": "CN=eDelivery-Platform, O=Cargo EE OÜ, C=EE",
-      "supportsSubsetting": true,
-      "isActive": true
+      "status": "ONLINE"
     }
   ]
 }
@@ -530,7 +519,7 @@ Päringu keha sama mis POST. Voog: INSERT → verify → 200.
     {
       "id": "plt-cargo-ee-001",
       "baseUrl": "https://api.cargo-ee-v2.com/efti/v1",
-      "isActive": true
+      "status": "ONLINE"
     }
   ]
 }
@@ -886,9 +875,8 @@ Kõik vead järgivad RFC 7807 `application/problem+json` formaati.
 | `eDeliveryUrl` | string | AS4 MSH endpoint |
 | `eDeliveryCert` | string\|null | PEM |
 | `tlsCert` | string\|null | PEM |
-| `status` | `ONLINE`\|`OFFLINE`\|`DISABLED` | Viimase pingi tulemus |
+| `status` | `ONLINE`\|`OFFLINE`\|`DISABLED`\|`DELETED` | Viimase pingi tulemus / pehme kustutus |
 | `lastPingAt` | datetime\|null | Viimane edukas ping |
-| `isActive` | boolean | `false` = pehme kustutus |
 | `createdAt` | datetime | Selle rea INSERT aeg |
 
 ### `Platform` (lugemine)
@@ -902,8 +890,7 @@ Kõik vead järgivad RFC 7807 `application/problem+json` formaati.
 | `tlsCert` | string\|null | |
 | `certSubject` | string\|null | mTLS lahendamiseks |
 | `certSerial` | string\|null | |
-| `supportsSubsetting` | boolean | |
-| `isActive` | boolean | |
+| `status` | `ONLINE`\|`OFFLINE`\|`DISABLED`\|`DELETED` | pehme kustutus = DELETED |
 | `createdAt` | datetime | |
 
 ### `Authority` (lugemine)
