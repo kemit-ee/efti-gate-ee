@@ -1,5 +1,6 @@
 import edelivery.EDeliveryParty
 import edelivery.PartyId
+import klite.Config
 import klite.http.get
 import klite.info
 import klite.json.JsonMapper
@@ -32,7 +33,7 @@ class RuuterClient(
   private val jsonMapper: JsonMapper,
 ) {
   private val log = logger()
-  private val baseUrl = URI("http://ruuter:8086")
+  private val baseUrl = URI(Config["RUUTER_URL"])
 
   fun getParties(): Map<PartyId, EDeliveryParty> {
     val gates = jsonMapper.parse<RuuterResponse<List<GateParty>>>(http.get(baseUrl.resolve("/efti/api/v1/gates")).body()).response
