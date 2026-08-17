@@ -14,6 +14,7 @@ import klite.json.JsonBody
 import klite.metrics
 import klite.openapi.openApi
 import klite.register
+import klite.require
 
 fun main() {
   Config.useEnvFile()
@@ -22,10 +23,13 @@ fun main() {
   Server().apply {
     use<JsonBody>()
     register(httpClient())
+    require<RuuterClient>().apply {
+      val partyRegistry = require<EDeliveryPartyRegistry>()
+      partyRegistry.load(getParties())
+    }
     register<AsyncResponseProvider>(SingleNodeAsyncResponseProvider::class)
     register<MessageHandler>(EftiMessageHandler::class)
     register<PartyRegistry>(EDeliveryPartyRegistry::class)
-    register(httpClient())
     metrics()
 
     context("/health") {

@@ -10,4 +10,6 @@ class EDeliveryPartyRegistry: PartyRegistry {
   override operator fun get(id: PartyId): Party = parties[id] ?: error("Unknown party: $id")
   override fun onChange(listener: (Party) -> Unit) {}
   override fun list(): List<Party> = parties.values.toList()
+
+  fun load(p: Map<PartyId, EDeliveryParty>) = parties.putAll(p)
 }
