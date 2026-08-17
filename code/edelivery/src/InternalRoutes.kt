@@ -13,8 +13,14 @@ class InternalRoutes(
   private val partyRegistry: EDeliveryPartyRegistry
 ) {
   @Operation(description = "Send eDelivery message to given Party.")
-  @POST("/send/:partyId") fun send(xml: String, @PathParam partyId: PartyId) {
+  @POST("/send/:partyId") fun send(xml: String, @PathParam partyId: PartyId): String {
     val party = partyRegistry[partyId]
-    eDeliveryClient.sendAndReceive(party.eDeliveryUrl, UserMessageParams(RequestKey(partyId)), xml)
+    return eDeliveryClient.sendAndReceive(party.eDeliveryUrl, UserMessageParams(RequestKey(partyId)), xml)
+  }
+
+  @Operation(description = "Ping eDelivery party to verify connectivity.")
+  @POST("/ping/:partyId") fun ping(@PathParam partyId: PartyId) {
+    val party = partyRegistry[partyId]
+    eDeliveryClient.ping(party)
   }
 }
