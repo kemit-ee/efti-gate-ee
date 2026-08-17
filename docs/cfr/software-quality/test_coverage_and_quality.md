@@ -47,7 +47,7 @@
 
 ### Integration tests (must-cover scenarios)
 
-- [ ] **Platform client.** REST-only platform vs eDelivery-capable platform → correct channel selected; timeouts produce `502`-class; subsetter applied when `supportsSubsetting=false`.
+- [ ] **Platform client.** REST-only platform vs eDelivery-capable platform → correct channel selected; timeouts produce `502`-class; platform always performs subsetting (ADR-003).
 - [ ] **Repository latest-row reads.** `DISTINCT ON (logical_id) ORDER BY logical_id, created_at DESC` returns only the latest row per id; previous rows are silently retained.
 - [ ] **CronManager mutex.** Two concurrent calls to `/api/v1/admin/archive` → one succeeds, one returns `ARCHIVE_IN_PROGRESS`.
 - [ ] **`LISTEN/NOTIFY` cluster sync.** Write on node A propagates to node B's in-memory cache within ≤ 500 ms.

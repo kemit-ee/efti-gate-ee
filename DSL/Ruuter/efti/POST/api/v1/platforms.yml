@@ -12,7 +12,6 @@ create_platform:
       tlsCert: "${incoming.body.tlsCert}"
       certSubject: "${incoming.body.certSubject}"
       certSerial: "${incoming.body.certSerial}"
-      supportsSubsetting: "${incoming.body.supportsSubsetting}"
       status: "${incoming.body.status}"
   result: insert_result
   next: check_insert

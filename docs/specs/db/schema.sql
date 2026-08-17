@@ -166,18 +166,17 @@ CREATE INDEX idx_gates_country      ON gates (country_code);
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE platforms (
-  row_id              UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
-  id                  CITEXT       NOT NULL,    -- logical identifier; NOT unique
-  base_url            TEXT,
-  headers             JSONB        NOT NULL DEFAULT '{}'::jsonb,
-  e_delivery_cert     TEXT,
-  tls_cert            TEXT,
-  cert_subject        TEXT,                                 -- DN string from the platform's eDelivery AP cert (for inbound mTLS lookup)
-  cert_serial         TEXT,                                 -- serial number of the same cert; (subject, serial) is the natural key for the lookup
-  supports_subsetting BOOLEAN      NOT NULL DEFAULT FALSE,
-  status              gate_status  NOT NULL DEFAULT 'ONLINE',
-  created_by          UUID,
-  created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+  row_id          UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id              CITEXT       NOT NULL,    -- logical identifier; NOT unique
+  base_url        TEXT,
+  headers         JSONB        NOT NULL DEFAULT '{}'::jsonb,
+  e_delivery_cert TEXT,
+  tls_cert        TEXT,
+  cert_subject    TEXT,                    -- DN string from the platform's eDelivery AP cert (for inbound mTLS lookup)
+  cert_serial     TEXT,                    -- serial number of the same cert; (subject, serial) is the natural key for the lookup
+  status          gate_status  NOT NULL DEFAULT 'ONLINE',
+  created_by      UUID,
+  created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
 COMMENT ON TABLE  platforms IS 'Registry of eFTI platforms registered with this gate. Append-only: each edit is a new row sharing the same id; latest wins. status=DELETED represents logical deletion.';
@@ -189,8 +188,7 @@ COMMENT ON COLUMN platforms.e_delivery_cert     IS 'Public certificate (PEM) for
 COMMENT ON COLUMN platforms.tls_cert            IS 'Public TLS certificate (PEM) for HTTPS communication';
 COMMENT ON COLUMN platforms.cert_subject        IS 'Subject DN of the platform''s eDelivery AP X.509 certificate (Member-State-issued per Impl Reg 2024/1942 Art 11). The reverse proxy terminates mTLS on inbound Platform-API calls and forwards X-Client-Cert-Subject; the gate looks up (cert_subject, cert_serial) to resolve the platform identity.';
 COMMENT ON COLUMN platforms.cert_serial         IS 'Serial number of the eDelivery AP certificate. Together with cert_subject forms the natural key for inbound-mTLS lookup. NULL during transition before the platform''s cert is registered.';
-COMMENT ON COLUMN platforms.supports_subsetting IS 'TRUE if the platform applies subset filtering itself; FALSE means the gate must run the subsetter';
-COMMENT ON COLUMN platforms.status              IS 'Platvormi tööseisund hetkel: ONLINE — aktiivne ja kättesaadav; OFFLINE — ping ebaõnnestus; DISABLED — halduslikult välja lülitatud (nähtav loendis); DELETED — pehme kustutus (operaatori poolt eemaldatud, rida säilib auditiks).';
+COMMENT ON COLUMN platforms.status IS 'Platvormi tööseisund hetkel: ONLINE — aktiivne ja kättesaadav; OFFLINE — ping ebaõnnestus; DISABLED — halduslikult välja lülitatud (nähtav loendis); DELETED — pehme kustutus (operaatori poolt eemaldatud, rida säilib auditiks).';
 COMMENT ON COLUMN platforms.created_by          IS 'users.row_id of the actor that wrote this row';
 COMMENT ON COLUMN platforms.created_at          IS 'When this row was inserted';
 
@@ -678,9 +676,9 @@ INSERT INTO gates (id, country_code, e_delivery_url, status, last_ping_at) VALUE
   ('eu-yy02', 'LV', 'https://efti-peer2.example.com/services/msh',             'OFFLINE', NULL);
 
 -- Seed platforms
-INSERT INTO platforms (id, base_url, supports_subsetting) VALUES
-  ('plt-xxx-001', 'https://platform-demo.example.com/v1', TRUE),
-  ('plt-yyy-001',    'https://platform-cargo.example.com/v1', FALSE);
+INSERT INTO platforms (id, base_url) VALUES
+  ('plt-xxx-001', 'https://platform-demo.example.com/v1'),
+  ('plt-yyy-001', 'https://platform-cargo.example.com/v1');
 
 -- Seed authorities
 INSERT INTO authorities (id, name, country_code, description, subsets) VALUES

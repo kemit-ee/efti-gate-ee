@@ -1,6 +1,6 @@
 # ADR-002: `is_active` asendamine `status` väljaga (gates, platforms)
 
-**Otsus (Sten Viljus, Anton Keks, 17.08.2026):**
+**Otsus (Sten Viljus, Anton Keks, 14.08.2026):**
 
 ## Otsus
 

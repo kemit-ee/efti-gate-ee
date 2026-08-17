@@ -23,7 +23,7 @@ sequenceDiagram
         Gate->>Remote: AS4 uilQuery / fast /services/fast
         Remote-->>Gate: uilResponse XML
     end
-    Gate->>Gate: XSLT subset filter (if !supportsSubsetting)
+    Gate->>Gate: Forward subsetId to platform (platform performs subsetting)
     Gate-->>Officer: 200 OK XML
     Officer->>Gate: POST /v1/follow-up/.../{datasetRequestId}<br/>(optional)
     Gate-->>Officer: 200 OK
@@ -31,5 +31,5 @@ sequenceDiagram
 
 ## Rationale
 
-The gate routes by UIL (`gateId`/`platformId`/`datasetId`) and enforces the subset-permission contract; the dataset body itself is the platform's responsibility. The gate-vs-platform subsetting split (platform may advertise `supportsSubsetting`) keeps the gate stateless about dataset content while still guaranteeing the authority cannot exceed their permitted subsets. Streaming XML processing is non-negotiable: a DOM parser would OOM on a real freight dataset.
+The gate routes by UIL (`gateId`/`platformId`/`datasetId`) and enforces the subset-permission contract; the dataset body itself is the platform's responsibility. The platform is always responsible for subsetting (ADR-003) — the gate forwards `subsetId` to the platform and returns the result, guaranteeing the authority cannot exceed their permitted subsets. Streaming XML processing is non-negotiable: a DOM parser would OOM on a real freight dataset.
 

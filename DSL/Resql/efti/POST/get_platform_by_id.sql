@@ -7,7 +7,6 @@ SELECT DISTINCT ON (id)
   tls_cert,
   cert_subject,
   cert_serial,
-  supports_subsetting,
   status::text,
   created_at
 FROM platforms

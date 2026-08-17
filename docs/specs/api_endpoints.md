@@ -429,7 +429,6 @@ GET /efti/api/v1/platforms
     {
       "id": "plt-cargo-ee-001",
       "baseUrl": "https://api.cargo-ee.com/efti/v1",
-      "supportsSubsetting": true,
       "status": "ONLINE",
       "createdAt": "2026-03-01T08:00:00Z"
     }
@@ -449,7 +448,6 @@ GET /efti/api/v1/platforms
 |---|---|---|---|
 | `id` | string | ✅ | Platvormi identifikaator |
 | `baseUrl` | string (uri) | ✅ | REST API baas-URL |
-| `supportsSubsetting` | boolean | ❌ | Vaikimisi `true` |
 | `headers` | object | ❌ | Lisapäised (nt API võtmed) |
 | `eDeliveryCert` | string\|null | ❌ | AS4 sertifikaat PEM |
 | `tlsCert` | string\|null | ❌ | mTLS sertifikaat PEM |
@@ -465,7 +463,6 @@ Content-Type: application/json
 {
   "id": "plt-cargo-ee-001",
   "baseUrl": "https://api.cargo-ee.com/efti/v1",
-  "supportsSubsetting": true,
   "status": "ONLINE",
   "headers": { "X-Api-Key": "secret-key-abc123" },
   "certSubject": "CN=eDelivery-Platform, O=Cargo EE OÜ, C=EE",
@@ -478,7 +475,6 @@ Content-Type: application/json
     {
       "id": "plt-cargo-ee-001",
       "baseUrl": "https://api.cargo-ee.com/efti/v1",
-      "supportsSubsetting": true,
       "status": "ONLINE",
       "createdAt": "2026-04-23T11:05:00Z"
     }
@@ -502,7 +498,6 @@ GET /efti/api/v1/platforms?platformId=plt-cargo-ee-001
       "id": "plt-cargo-ee-001",
       "baseUrl": "https://api.cargo-ee.com/efti/v1",
       "certSubject": "CN=eDelivery-Platform, O=Cargo EE OÜ, C=EE",
-      "supportsSubsetting": true,
       "status": "ONLINE"
     }
   ]
@@ -895,7 +890,6 @@ Kõik vead järgivad RFC 7807 `application/problem+json` formaati.
 | `tlsCert` | string\|null | |
 | `certSubject` | string\|null | mTLS lahendamiseks |
 | `certSerial` | string\|null | |
-| `supportsSubsetting` | boolean | |
 | `status` | `ONLINE`\|`OFFLINE`\|`DISABLED`\|`DELETED` | pehme kustutus = DELETED |
 | `createdAt` | datetime | |
 
