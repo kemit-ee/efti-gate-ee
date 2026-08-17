@@ -75,6 +75,7 @@ services:
       args:
       - PROJECT=edelivery
       - PORT=8081
+      - OWN_PARTY_ID=eu-ee01
     depends_on:
       - resql
     ports:
