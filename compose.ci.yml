@@ -1,14 +1,16 @@
 # CI-specific Docker Compose override.
 #
+# Project name: efti_gate_ee_ci_stack  (via -p flag — override files cannot set name:)
+#
 # Usage (set EFTI_*_PORT env vars to pick conflict-free host ports):
 #   EFTI_DB_PORT=19432 EFTI_RESQL_PORT=19090 EFTI_RUUTER_PORT=19086 \
-#     docker compose -f compose.yml -f compose.ci.yml \
+#     docker compose -p efti_gate_ee_ci_stack -f compose.yml -f compose.ci.yml \
 #     build database liquibase resql ruuter
 #   EFTI_DB_PORT=19432 EFTI_RESQL_PORT=19090 EFTI_RUUTER_PORT=19086 \
-#     docker compose -f compose.yml -f compose.ci.yml \
+#     docker compose -p efti_gate_ee_ci_stack -f compose.yml -f compose.ci.yml \
 #     up -d database liquibase resql ruuter
 #   EFTI_DB_PORT=19432 EFTI_RESQL_PORT=19090 EFTI_RUUTER_PORT=19086 \
-#     docker compose -f compose.yml -f compose.ci.yml down -v
+#     docker compose -p efti_gate_ee_ci_stack -f compose.yml -f compose.ci.yml down -v
 #
 # What this overrides:
 #   - resql: depends on liquibase completing successfully before starting.
@@ -19,3 +21,19 @@
 # Pass 19xxx values to avoid conflicts with a running dev stack on the same host.
 
 services:
+  database:
+    container_name: efti_ci_database
+
+  liquibase:
+    container_name: efti_ci_liquibase
+
+  resql:
+    container_name: efti_ci_resql
+    depends_on:
+      database:
+        condition: service_healthy
+      liquibase:
+        condition: service_completed_successfully
+
+  ruuter:
+    container_name: efti_ci_ruuter

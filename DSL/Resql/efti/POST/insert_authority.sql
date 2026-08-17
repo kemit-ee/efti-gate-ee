@@ -3,7 +3,7 @@ VALUES (
   :id,
   :countryCode,
   :name,
-  ARRAY(SELECT jsonb_array_elements_text(:subsets::jsonb))
+  :subsets
 )
 RETURNING
   row_id,

@@ -19,12 +19,12 @@ jobs:
 
       - name: Build CI images
         run: |
-          docker compose -f compose.yml -f compose.ci.yml \
+          docker compose -p efti_gate_ee_ci_stack -f compose.yml -f compose.ci.yml \
             build database liquibase resql ruuter
 
       - name: Start services
         run: |
-          docker compose -f compose.yml -f compose.ci.yml \
+          docker compose -p efti_gate_ee_ci_stack -f compose.yml -f compose.ci.yml \
             up -d database liquibase resql ruuter
 
       - name: Wait for ruuter
@@ -56,13 +56,15 @@ jobs:
             --env-var "base_url=${BASE_URL}"
           npx newman run tests/e2e/authorities.postman_collection.json \
             --env-var "base_url=${BASE_URL}"
+          npx newman run tests/e2e/users.postman_collection.json \
+            --env-var "base_url=${BASE_URL}"
 
       - name: Print logs on failure
         if: failure()
         run: |
-          docker compose -f compose.yml -f compose.ci.yml logs
+          docker compose -p efti_gate_ee_ci_stack -f compose.yml -f compose.ci.yml logs
 
       - name: Teardown
         if: always()
         run: |
-          docker compose -f compose.yml -f compose.ci.yml down -v
+          docker compose -p efti_gate_ee_ci_stack -f compose.yml -f compose.ci.yml down -v
