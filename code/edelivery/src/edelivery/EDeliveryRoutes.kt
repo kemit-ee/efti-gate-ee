@@ -81,14 +81,6 @@ class EDeliveryRoutes(
     }
   }
 
-  @POST("/fast")
-  fun fast(payload: String, e: HttpExchange, @HeaderParam("X-API-Key") apiKey: String) {
-    // TODO: review API key security
-    val requestId = requestIdRegex.from(payload) ?: ftiRequestIdRegex.from(payload)
-    val response = messageHandler.response(RequestKey(PartyId(apiKey), requestId ?: e.requestId), payload)
-    e.send(OK, response, MimeTypes.xml)
-  }
-
   private fun decryptPayload(header: MessageHeader, privateKey: PrivateKey, encryptedPayload: ByteArray, encryptedSymmetricKey: ByteArray): String {
     val incomingIdentifier = header.keyIdentifier ?: header.serialNumber
     require(incomingIdentifier != null) {
