@@ -31,7 +31,7 @@ jobs:
         run: |
           echo "Waiting for ruuter to become ready (max 120s)..."
           for i in $(seq 1 40); do
-            if curl -sf http://localhost:19086/efti/v1/baasikontoroll > /dev/null; then
+            if curl -sf http://localhost:19086/efti/tests/baasikontoroll > /dev/null; then
               echo "Ruuter is ready after ~$((i * 3))s"
               break
             fi
