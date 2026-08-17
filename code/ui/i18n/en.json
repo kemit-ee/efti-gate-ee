@@ -54,7 +54,6 @@
     "platform": "Platform",
     "id": "Platform ID",
     "baseUrl": "Base URL",
-    "supportsSubsetting": "Supports Subsetting",
     "eDelivery": "EDelivery",
     "eDeliveryCert": "eDelivery certificate",
     "tlsCert": "TLS certificate",
