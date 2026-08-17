@@ -4,19 +4,19 @@ import java.net.http.HttpClient
 class RuuterClient(
   private val http: HttpClient,
 ) {
-  fun saveConsignment(xml: String /* FTI004UploadIdentifierRequest */) {
+  fun saveConsignment(xml: String /* FTI004UploadIdentifierRequest */): String {
     TODO()
   }
 
-  fun searchConsignments(xml: String /* FTI019SearchIdentifierRequest */) {
+  fun searchConsignments(xml: String /* FTI019SearchIdentifierRequest */): String {
     TODO()
   }
 
-  fun getDataset(xml: String /* FTI009GetCmdsRequest */) {
+  fun getDataset(xml: String /* FTI009GetCmdsRequest */): String {
     TODO()
   }
 
-  fun followUp(xml: String /* FTI025LodgeFollowUpCommRequest */) {
+  fun followUp(xml: String /* FTI025LodgeFollowUpCommRequest */): String {
     TODO()
   }
 }

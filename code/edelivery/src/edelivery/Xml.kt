@@ -1,4 +1,4 @@
-package core
+package edelivery
 
 private val whiteSpaceRegex = Regex("\\s+")
 fun String.canonicalXml(): String {

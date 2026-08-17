@@ -1,8 +1,5 @@
 package edelivery
 
-import core.EDeliveryClient
-import core.KeyManager
-import core.PartyRegistry
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just

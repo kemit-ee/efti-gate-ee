@@ -80,16 +80,16 @@
         <eb:PartyInfo>
           <eb:From>
             <eb:PartyId type="urn:oasis:names:tc:ebcore:partyid-type:unregistered">fi-tst</eb:PartyId>
-            <eb:Role>http://docs.oasis-open.org/ebxml-msg/ebms/v3.0/ns/core/200704/initiator</eb:Role>
+            <eb:Role>http://docs.oasis-open.org/ebxml-msg/ebms/v3.0/ns/edelivery/200704/initiator</eb:Role>
           </eb:From>
           <eb:To>
             <eb:PartyId type="urn:oasis:names:tc:ebcore:partyid-type:unregistered">eu-ee31</eb:PartyId>
-            <eb:Role>http://docs.oasis-open.org/ebxml-msg/ebms/v3.0/ns/core/200704/responder</eb:Role>
+            <eb:Role>http://docs.oasis-open.org/ebxml-msg/ebms/v3.0/ns/edelivery/200704/responder</eb:Role>
           </eb:To>
         </eb:PartyInfo>
         <eb:CollaborationInfo>
-          <eb:Service>http://docs.oasis-open.org/ebxml-msg/ebms/v3.0/ns/core/200704/service</eb:Service>
-          <eb:Action>http://docs.oasis-open.org/ebxml-msg/ebms/v3.0/ns/core/200704/test</eb:Action>
+          <eb:Service>http://docs.oasis-open.org/ebxml-msg/ebms/v3.0/ns/edelivery/200704/service</eb:Service>
+          <eb:Action>http://docs.oasis-open.org/ebxml-msg/ebms/v3.0/ns/edelivery/200704/test</eb:Action>
           <eb:ConversationId>18911313-0e64-4c16-bec1-670a16648b9a</eb:ConversationId>
         </eb:CollaborationInfo>
         <eb:MessageProperties>

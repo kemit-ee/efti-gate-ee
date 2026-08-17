@@ -1,4 +1,4 @@
-package core
+package edelivery
 
 import klite.base64Encode
 import org.intellij.lang.annotations.Language
@@ -122,7 +122,7 @@ class EDeliveryMessageGenerator(
   }
 
   @Language("xml")
-  private fun encryptedKeyXml(partyId: PartyId<*>, aesKey: SecretKey): String {
+  private fun encryptedKeyXml(partyId: PartyId, aesKey: SecretKey): String {
     val receiverCert = keyManager.receiverCert(partyId)
     val encryptedAesKeyB64 = encryptAesKey(receiverCert, aesKey).base64Encode()
 

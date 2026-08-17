@@ -1,4 +1,4 @@
-package core
+package edelivery
 
 import klite.logger
 import java.util.concurrent.ArrayBlockingQueue

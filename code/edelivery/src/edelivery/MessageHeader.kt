@@ -1,10 +1,10 @@
-package core
+package edelivery
 
 import klite.xml.XmlPath
 
 data class MessageHeader(
-  @XmlPath("Header/Messaging/UserMessage/PartyInfo/From/PartyId") val senderId: PartyId<*>,
-  @XmlPath("Header/Messaging/UserMessage/PartyInfo/To/PartyId") val receiverId: PartyId<*>,
+  @XmlPath("Header/Messaging/UserMessage/PartyInfo/From/PartyId") val senderId: PartyId,
+  @XmlPath("Header/Messaging/UserMessage/PartyInfo/To/PartyId") val receiverId: PartyId,
   @XmlPath("Header/Messaging/UserMessage/MessageInfo/MessageId") val messageId: String,
   @XmlPath("Header/Security/EncryptedKey/EncryptionMethod/@Algorithm") val keyEncryptionAlgorithm: String,
   @XmlPath("Header/Security/EncryptedKey/KeyInfo/SecurityTokenReference/KeyIdentifier") val keyIdentifier: String? = null,
