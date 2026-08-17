@@ -11,7 +11,7 @@ import klite.uuid
   name = "Identifiers search",
   description = "These routes are for mapping requests and responses for identifiers search."
 )
-class SearchRoutes {
+class SearchRoutes(val requestIdHandler: RequestIdHandler) {
   @Operation(description = "Map ParameterSearchCriteria as JSON to Fti019SearchIdentifierRequest as XML.")
   @POST("/request-to-xml") fun requestToXml(criteria: ParameterSearchCriteria, e: HttpExchange): String =
     FTI019SearchIdentifierRequest(ExchangedDocument("019", e.requestId.uuid), criteria).render()
@@ -19,7 +19,7 @@ class SearchRoutes {
   @Operation(description = "Map FTI019SearchIdentifierRequest as XML to ParameterSearchCriteria as JSON.")
   @POST("/request-to-json") fun requestToJson(xml: String, e: HttpExchange): ParameterSearchCriteria {
     val req = xmlParser.parse<FTI019SearchIdentifierRequest>(xml)
-    e.header("x-request-id", req.document.queryId.toString())
+    requestIdHandler.send(e, req.document.queryId)
     return req.searchCriteria
   }
 

@@ -12,7 +12,7 @@ import klite.uuid
   name = "Follow-up request",
   description = "These routes are for mapping requests and responses for follow-up request."
 )
-class FollowupRoutes {
+class FollowupRoutes(val requestIdHandler: RequestIdHandler) {
   @Operation(description = "Map UIL and Message as JSON to FTI025LodgeFollowUpCommRequest as XML.")
   @POST("/request-to-xml") fun requestToXml(req: FollowupRequest, e: HttpExchange): String =
     FTI025LodgeFollowUpCommRequest(ExchangedDocument("025", e.requestId.uuid), req.message, req.files, req.uil).render()
@@ -20,14 +20,14 @@ class FollowupRoutes {
   @Operation(description = "Map FTI025LodgeFollowUpCommRequest as XML to UIL and Message as JSON.")
   @POST("/request-to-json") fun requestToJson(xml: String, e: HttpExchange): FollowupRequest {
     val req = xmlParser.parse<FTI025LodgeFollowUpCommRequest>(xml)
-    e.header("x-request-id", req.document.queryId.toString())
+    requestIdHandler.send(e, req.document.queryId)
     return FollowupRequest(req.uil, req.followUp ?: "", req.files)
   }
 
   @Operation(description = "Map FTI030LodgeFollowUpCommResponse as XML to UIL as JSON.")
   @POST("/response-to-json") fun responseToJson(xml: String, e: HttpExchange): UIL {
     val resp = xmlParser.parse<FTI030LodgeFollowUpCommResponse>(xml)
-    e.header("x-request-id", resp.document.queryId.toString())
+    requestIdHandler.send(e, resp.document.queryId)
     return resp.uil
   }
 

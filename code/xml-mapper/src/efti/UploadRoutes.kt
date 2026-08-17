@@ -12,12 +12,12 @@ import klite.uuid
   name = "Consignment upload",
   description = "These routes are for mapping requests and responses for consignment uploads."
 )
-class UploadRoutes {
+class UploadRoutes(val requestIdHandler: RequestIdHandler) {
   @Operation(description = "Map FTI004UploadIdentifierRequest or UniqueIDSetUIL as XML to UniqueIDSetUIL as JSON.")
   @POST("/request-to-json") fun requestToJson(xml: String, e: HttpExchange): UniqueIDSetUIL =
     if (xml.contains("FTI004UploadIdentifierRequest")) {
       val req = xmlParser.parse<FTI004UploadIdentifierRequest>(xml)
-      e.header("x-request-id", req.document.queryId.toString())
+      requestIdHandler.send(e, req.document.queryId)
       req.content
     } else xmlParser.parse<UniqueIDSetUIL>(xml)
 
