@@ -69,13 +69,14 @@ services:
     depends_on:
       - ruuter
   edelivery:
+    environment:
+      - OWN_PARTY_ID=eu-ee01
     build:
       context: code
       dockerfile: ../docker/code/Dockerfile
       args:
       - PROJECT=edelivery
       - PORT=8081
-      - OWN_PARTY_ID=eu-ee01
     depends_on:
       - resql
     ports:
