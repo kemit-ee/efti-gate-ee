@@ -71,15 +71,27 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"id\": \"{{platform_id}}\",\n  \"baseUrl\": \"https://test-platform.example.com/efti/v1\",\n  \"supportsSubsetting\": true,\n  \"status\": \"ONLINE\"\n}"
+          "raw": "{\n  \"id\": \"{{platform_id}}\",\n  \"baseUrl\": \"https://test-platform.example.com/efti/v1\",\n  \"status\": \"ONLINE\"\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/platforms",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "platforms"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "platforms"
+          ]
         }
       }
     },
@@ -121,8 +133,15 @@
         "header": [],
         "url": {
           "raw": "{{base_url}}/efti/api/v1/platforms",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "platforms"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "platforms"
+          ]
         }
       }
     },
@@ -162,9 +181,21 @@
         "header": [],
         "url": {
           "raw": "{{base_url}}/efti/api/v1/platforms?platformId={{platform_id}}",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "platforms"],
-          "query": [{ "key": "platformId", "value": "{{platform_id}}" }]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "platforms"
+          ],
+          "query": [
+            {
+              "key": "platformId",
+              "value": "{{platform_id}}"
+            }
+          ]
         }
       }
     },
@@ -202,16 +233,33 @@
       ],
       "request": {
         "method": "PUT",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"baseUrl\": \"https://test-platform-updated.example.com/efti/v1\",\n  \"supportsSubsetting\": true,\n  \"status\": \"OFFLINE\"\n}"
+          "raw": "{\n  \"baseUrl\": \"https://test-platform-updated.example.com/efti/v1\",\n  \"status\": \"OFFLINE\"\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/platforms?platformId={{platform_id}}",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "platforms"],
-          "query": [{ "key": "platformId", "value": "{{platform_id}}" }]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "platforms"
+          ],
+          "query": [
+            {
+              "key": "platformId",
+              "value": "{{platform_id}}"
+            }
+          ]
         }
       }
     },
@@ -235,9 +283,21 @@
         "header": [],
         "url": {
           "raw": "{{base_url}}/efti/api/v1/platforms?platformId={{platform_id}}",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "platforms"],
-          "query": [{ "key": "platformId", "value": "{{platform_id}}" }]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "platforms"
+          ],
+          "query": [
+            {
+              "key": "platformId",
+              "value": "{{platform_id}}"
+            }
+          ]
         }
       }
     },
@@ -266,9 +326,21 @@
         "header": [],
         "url": {
           "raw": "{{base_url}}/efti/api/v1/platforms?platformId={{platform_id}}",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "platforms"],
-          "query": [{ "key": "platformId", "value": "{{platform_id}}" }]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "platforms"
+          ],
+          "query": [
+            {
+              "key": "platformId",
+              "value": "{{platform_id}}"
+            }
+          ]
         }
       }
     },
@@ -296,15 +368,27 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"id\": \"plt-bulk-1-{{bulk_ts}}\",\n  \"baseUrl\": \"https://bulk1.example.com/efti\",\n  \"supportsSubsetting\": false,\n  \"status\": \"ONLINE\"\n}"
+          "raw": "{\n  \"id\": \"plt-bulk-1-{{bulk_ts}}\",\n  \"baseUrl\": \"https://bulk1.example.com/efti\",\n  \"status\": \"ONLINE\"\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/platforms",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "platforms"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "platforms"
+          ]
         }
       }
     },
@@ -323,15 +407,27 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"id\": \"plt-bulk-2-{{bulk_ts}}\",\n  \"baseUrl\": \"https://bulk2.example.com/efti\",\n  \"supportsSubsetting\": false,\n  \"status\": \"ONLINE\"\n}"
+          "raw": "{\n  \"id\": \"plt-bulk-2-{{bulk_ts}}\",\n  \"baseUrl\": \"https://bulk2.example.com/efti\",\n  \"status\": \"ONLINE\"\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/platforms",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "platforms"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "platforms"
+          ]
         }
       }
     },
@@ -350,15 +446,27 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"id\": \"plt-bulk-3-{{bulk_ts}}\",\n  \"baseUrl\": \"https://bulk3.example.com/efti\",\n  \"supportsSubsetting\": false,\n  \"status\": \"ONLINE\"\n}"
+          "raw": "{\n  \"id\": \"plt-bulk-3-{{bulk_ts}}\",\n  \"baseUrl\": \"https://bulk3.example.com/efti\",\n  \"status\": \"ONLINE\"\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/platforms",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "platforms"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "platforms"
+          ]
         }
       }
     },
@@ -377,15 +485,27 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"id\": \"plt-bulk-4-{{bulk_ts}}\",\n  \"baseUrl\": \"https://bulk4.example.com/efti\",\n  \"supportsSubsetting\": false,\n  \"status\": \"ONLINE\"\n}"
+          "raw": "{\n  \"id\": \"plt-bulk-4-{{bulk_ts}}\",\n  \"baseUrl\": \"https://bulk4.example.com/efti\",\n  \"status\": \"ONLINE\"\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/platforms",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "platforms"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "platforms"
+          ]
         }
       }
     },
@@ -404,15 +524,27 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"id\": \"plt-bulk-5-{{bulk_ts}}\",\n  \"baseUrl\": \"https://bulk5.example.com/efti\",\n  \"supportsSubsetting\": false,\n  \"status\": \"ONLINE\"\n}"
+          "raw": "{\n  \"id\": \"plt-bulk-5-{{bulk_ts}}\",\n  \"baseUrl\": \"https://bulk5.example.com/efti\",\n  \"status\": \"ONLINE\"\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/platforms",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "platforms"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "platforms"
+          ]
         }
       }
     },
@@ -441,9 +573,21 @@
         "header": [],
         "url": {
           "raw": "{{base_url}}/efti/api/v1/platforms?limit=200",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "platforms"],
-          "query": [{ "key": "limit", "value": "200" }]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "platforms"
+          ],
+          "query": [
+            {
+              "key": "limit",
+              "value": "200"
+            }
+          ]
         }
       }
     },
@@ -465,9 +609,21 @@
         "header": [],
         "url": {
           "raw": "{{base_url}}/efti/api/v1/platforms?platformId=plt-bulk-3-{{bulk_ts}}",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "platforms"],
-          "query": [{ "key": "platformId", "value": "plt-bulk-3-{{bulk_ts}}" }]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "platforms"
+          ],
+          "query": [
+            {
+              "key": "platformId",
+              "value": "plt-bulk-3-{{bulk_ts}}"
+            }
+          ]
         }
       }
     },
@@ -489,9 +645,21 @@
         "header": [],
         "url": {
           "raw": "{{base_url}}/efti/api/v1/platforms?platformId=plt-bulk-4-{{bulk_ts}}",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "platforms"],
-          "query": [{ "key": "platformId", "value": "plt-bulk-4-{{bulk_ts}}" }]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "platforms"
+          ],
+          "query": [
+            {
+              "key": "platformId",
+              "value": "plt-bulk-4-{{bulk_ts}}"
+            }
+          ]
         }
       }
     },
@@ -513,9 +681,21 @@
         "header": [],
         "url": {
           "raw": "{{base_url}}/efti/api/v1/platforms?platformId=plt-bulk-5-{{bulk_ts}}",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "platforms"],
-          "query": [{ "key": "platformId", "value": "plt-bulk-5-{{bulk_ts}}" }]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "platforms"
+          ],
+          "query": [
+            {
+              "key": "platformId",
+              "value": "plt-bulk-5-{{bulk_ts}}"
+            }
+          ]
         }
       }
     },
@@ -544,9 +724,21 @@
         "header": [],
         "url": {
           "raw": "{{base_url}}/efti/api/v1/platforms?limit=200",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "platforms"],
-          "query": [{ "key": "limit", "value": "200" }]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "platforms"
+          ],
+          "query": [
+            {
+              "key": "limit",
+              "value": "200"
+            }
+          ]
         }
       }
     }

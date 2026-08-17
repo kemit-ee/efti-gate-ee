@@ -8,7 +8,6 @@ SELECT * FROM (
     tls_cert,
     cert_subject,
     cert_serial,
-    supports_subsetting,
     status::text,
     created_at
   FROM platforms

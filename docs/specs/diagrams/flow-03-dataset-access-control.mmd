@@ -26,17 +26,13 @@ flowchart TD
 
     CallLocalPlatform --> LocalPlatformStatus{Platform response?}
 
-    LocalPlatformStatus -->|200 OK| CheckSubsetting{platform.supportsSubsetting?}
+    LocalPlatformStatus -->|200 OK| ReturnFilteredDataset[Return subset XML\nfiltered by platform]
     LocalPlatformStatus -->|403 Forbidden| Return403
     LocalPlatformStatus -->|404 Not Found| Return404
     LocalPlatformStatus -->|5xx / Timeout| Return502b
 
-    CheckSubsetting -->|Yes| ReturnFilteredDataset[Return subset XML\nfiltered by platform]
-    CheckSubsetting -->|No| ReturnFullDataset[Return full XML\ngate subsetter applies filtering]
-
     ReturnDataset --> End([Authority receives dataset])
     ReturnFilteredDataset --> End
-    ReturnFullDataset --> End
 
     style Return502 fill:#f99,stroke:#900
     style Return502b fill:#f99,stroke:#900
@@ -45,4 +41,3 @@ flowchart TD
     style Return404P fill:#fda,stroke:#960
     style ReturnDataset fill:#9f9,stroke:#060
     style ReturnFilteredDataset fill:#9f9,stroke:#060
-    style ReturnFullDataset fill:#9f9,stroke:#060

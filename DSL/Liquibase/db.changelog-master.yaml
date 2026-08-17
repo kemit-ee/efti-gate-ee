@@ -26,3 +26,12 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: false
             encoding: UTF-8
+  - changeSet:
+      id: 003-remove-supports-subsetting
+      author: efti
+      changes:
+        - sqlFile:
+            path: changelogs/003-remove-supports-subsetting.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            encoding: UTF-8

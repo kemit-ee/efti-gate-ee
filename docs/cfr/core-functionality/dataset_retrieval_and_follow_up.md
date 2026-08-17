@@ -60,7 +60,7 @@
 ### Subsetter
 
 **Business rules:**
-- [ ] If the platform advertises `supportsSubsetting=false`, the gate applies the XSLT subset filter **before** responding to the authority — the authority never sees data beyond their permitted subsets.
+- [ ] The platform performs subsetting for the authority's requested subsets (ADR-003). The gate enforces that the authority's permitted subsets are not exceeded in the response.
 - [ ] XSLT-empty output is a `200 OK` with empty XML body, **not** a `404`.
 - [ ] XML processing must be **streaming** (SAX-style) — the dataset must not be fully loaded into application heap. Required because freight datasets routinely exceed 10 MB.
 
