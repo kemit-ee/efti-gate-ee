@@ -10,6 +10,7 @@ import efti.subsets.CountryCode.DE
 import efti.xml.fti.DateTimeString
 import efti.xml.fti.ParameterSearchCriteria
 import efti.xml.fti.ParameterSearchCriteria.*
+import io.mockk.verify
 import klite.uuid
 import org.junit.jupiter.api.Test
 import java.io.File
@@ -27,6 +28,8 @@ class SearchRoutesTest : BaseMocks() {
   @Test fun requestToJson() {
     val xml = File("xsd/Normalized/FTI019/sample.xml").readText()
     val result = routes.requestToJson(xml, exchange)
+
+    verify { requestIdHandler.send(exchange, "17022113-89b5-11f1-bec0-3c9c0f2eb459".uuid) }
 
     expect(result.acceptanceCountry?.country).toEqual(DE)
     expect(result.transportMode?.mode).toEqual(Mode("1"))
@@ -49,6 +52,8 @@ class SearchRoutesTest : BaseMocks() {
   @Test fun requestToXmlRoundtrip() {
     val xml = routes.requestToXml(criteria, exchange)
     val parsed = routes.requestToJson(xml, exchange)
+
+    verify { requestIdHandler.send(exchange, "00000000-0000-0000-0000-000000000001".uuid) }
 
     expect(parsed.acceptanceCountry?.country).toEqual(DE)
     expect(parsed.transportMode?.mode).toEqual(Mode("1"))

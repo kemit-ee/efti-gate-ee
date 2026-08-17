@@ -6,6 +6,7 @@ import ch.tutteli.atrium.api.verbs.expect
 import efti.domain.GateId
 import efti.domain.PlatformId
 import efti.domain.UIL
+import io.mockk.verify
 import klite.uuid
 import org.junit.jupiter.api.Test
 import java.io.File
@@ -16,6 +17,8 @@ class FollowupRoutesTest : BaseMocks() {
   @Test fun requestToJson() {
     val xml = File("xsd/Normalized/FTI025/sample.xml").readText()
     val result = routes.requestToJson(xml, exchange)
+
+    verify { requestIdHandler.send(exchange, "17022113-89b5-11f1-bec0-3c9c0f2eb459".uuid) }
 
     expect(result.uil.gateId).toEqual(GateId("Gate-001"))
     expect(result.uil.platformId).toEqual(PlatformId("Platform-001"))
@@ -41,6 +44,8 @@ class FollowupRoutesTest : BaseMocks() {
     val xml = routes.requestToXml(request, exchange)
     val parsed = routes.requestToJson(xml, exchange)
 
+    verify { requestIdHandler.send(exchange, "00000000-0000-0000-0000-000000000001".uuid) }
+
     expect(parsed.uil.gateId).toEqual(GateId("Gate-001"))
     expect(parsed.uil.platformId).toEqual(PlatformId("Platform-001"))
     expect(parsed.uil.datasetId).toEqual("550e8400-e29b-41d4-a716-446655440000".uuid)
@@ -50,6 +55,8 @@ class FollowupRoutesTest : BaseMocks() {
   @Test fun responseToJson() {
     val xml = File("xsd/Normalized/FTI030/sample.xml").readText()
     val result = routes.responseToJson(xml, exchange)
+
+    verify { requestIdHandler.send(exchange, "17022113-89b5-11f1-bec0-3c9c0f2eb459".uuid) }
 
     expect(result.gateId).toEqual(GateId("Gate-001"))
     expect(result.platformId).toEqual(PlatformId("Platform-001"))
@@ -70,6 +77,8 @@ class FollowupRoutesTest : BaseMocks() {
     val uil = UIL(PlatformId("Platform-001"), "550e8400-e29b-41d4-a716-446655440000".uuid, GateId("Gate-001"))
     val xml = routes.responseToXml(uil, exchange)
     val parsed = routes.responseToJson(xml, exchange)
+
+    verify { requestIdHandler.send(exchange, "00000000-0000-0000-0000-000000000001".uuid) }
 
     expect(parsed.gateId).toEqual(GateId("Gate-001"))
     expect(parsed.platformId).toEqual(PlatformId("Platform-001"))

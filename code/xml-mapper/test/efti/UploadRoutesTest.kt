@@ -10,6 +10,7 @@ import efti.domain.UIL
 import efti.subsets.CountryCode.DE
 import efti.xml.fti.FTI029UploadIdentifierResponse
 import efti.xml.fti.xmlParser
+import io.mockk.verify
 import klite.uuid
 import org.junit.jupiter.api.Test
 import java.io.File
@@ -21,6 +22,8 @@ class UploadRoutesTest : BaseMocks() {
   @Test fun requestToJson() {
     val xml = File("xsd/Normalized/FTI004/sample.xml").readText()
     val result = routes.requestToJson(xml, exchange)
+
+    verify { requestIdHandler.send(exchange, "17022113-89b5-11f1-bec0-3c9c0f2eb459".uuid) }
 
     expect(result.uil).toEqual(uil)
     expect(result.criteria.acceptanceCountry).toEqual(DE)

@@ -45,6 +45,8 @@ class DatasetRoutesTest : BaseMocks() {
     val xml = routes.requestToXml(req, exchange)
     val parsed = routes.requestToJson(xml, exchange)
 
+    verify { requestIdHandler.send(exchange, "00000000-0000-0000-0000-000000000001".uuid) }
+
     expect(parsed.uil.gateId).toEqual(GateId("Gate-001"))
     expect(parsed.uil.platformId).toEqual(PlatformId("Platform-001"))
     expect(parsed.uil.datasetId).toEqual("550e8400-e29b-41d4-a716-446655440000".uuid)
