@@ -1,4 +1,4 @@
-# Docker Compose konteinerite nimetamine
+# ADR-001: Docker Compose konteinerite nimetamine
 
 **Otsus (Sten Viljus, 2026-08-12):**
 

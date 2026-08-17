@@ -14,7 +14,7 @@ sequenceDiagram
     Gate->>Gate: Acquire concurrency guard via advisory lock — 409 if already running
 
     Gate->>+GateReg: enabledGates()
-    GateReg->>+DB: Resolve the latest row per gate id — keep only those with<br/>status ≠ 'DISABLED' and is_active=TRUE.
+    GateReg->>+DB: Resolve the latest row per gate id — keep only those with<br/>status NOT IN ('DISABLED', 'DELETED').
     DB-->>-GateReg: [eu-yy01{ONLINE}, eu-yy02{ONLINE}, eu-yy03{OFFLINE}]
     GateReg-->>-Gate: [eu-yy01, eu-yy02, eu-yy03]
 
@@ -28,7 +28,7 @@ sequenceDiagram
             GateFI-->>GateClient: AS4 SOAP pong
         end
         GateClient->>+GateReg: save(gate.copy(status=ONLINE, last_ping_at=NOW()))
-        GateReg->>+DB: Append a new gates row for eu-yy01 with status='ONLINE',<br/>last_ping_at=NOW(), is_active=TRUE.
+        GateReg->>+DB: Append a new gates row for eu-yy01 with status='ONLINE',<br/>last_ping_at=NOW().
         DB-->>-GateReg: written (new row — latest row for eu-yy01 wins on next read)
         GateReg-->>-GateClient: saved
         GateClient-->>-Gate: OK (eu-yy01 ONLINE)

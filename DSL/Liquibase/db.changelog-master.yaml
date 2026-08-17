@@ -17,3 +17,12 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: false
             encoding: UTF-8
+  - changeSet:
+      id: 002-status-refactor
+      author: efti
+      changes:
+        - sqlFile:
+            path: changelogs/002-status-refactor.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            encoding: UTF-8

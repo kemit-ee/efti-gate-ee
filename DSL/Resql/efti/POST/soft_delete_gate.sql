@@ -1,8 +1,8 @@
-INSERT INTO gates (id, country_code, e_delivery_url, e_delivery_cert, tls_cert, status, is_active)
-SELECT id, country_code, e_delivery_url, e_delivery_cert, tls_cert, status, false
+INSERT INTO gates (id, country_code, e_delivery_url, e_delivery_cert, tls_cert, status)
+SELECT id, country_code, e_delivery_url, e_delivery_cert, tls_cert, 'DELETED'::gate_status
 FROM (
   SELECT DISTINCT ON (id)
-    id, country_code, e_delivery_url, e_delivery_cert, tls_cert, status
+    id, country_code, e_delivery_url, e_delivery_cert, tls_cert
   FROM gates
   WHERE id = :id
   ORDER BY id, created_at DESC
@@ -10,5 +10,5 @@ FROM (
 RETURNING
   row_id,
   id,
-  is_active AS is_gate_active,
+  status::text,
   created_at;
