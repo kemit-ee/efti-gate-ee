@@ -55,9 +55,9 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/v1/tests/baasikontoroll",
+          "raw": "{{base_url}}/efti/api/v1/test/baasikontoroll",
           "host": ["{{base_url}}"],
-          "path": ["efti", "v1", "tests", "baasikontoroll"]
+          "path": ["efti", "api", "v1", "test", "baasikontoroll"]
         },
         "description": "Calls the baasikontoroll DSL endpoint which queries PostgreSQL for version and uptime via ResQL."
       }
