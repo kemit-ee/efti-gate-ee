@@ -40,11 +40,19 @@ class MultiplexerRoutes(private val registry: PartyRegistry, private val http: H
     return responses.xmls.poll(1, MINUTES) ?: throw StatusCodeException(GatewayTimeout)
   }
 
-  @Operation(description = "Returns rest of the received responses as XMLs with string delimiter. Can be polled.")
-  @GET("/rest/:searchId") fun rest(@PathParam searchId: UUID): String {
+  @Operation(description = "Returns rest of the received responses as XMLs with string delimiter '⦀'. Can be polled.")
+  @GET("/rest/:searchId") fun rest(@PathParam searchId: UUID, e: HttpExchange): String {
     val responses = pending[searchId]
-    if (responses?.complete != true) return ""
-    return responses.xmls.joinToString { "⦀" }
+
+    if (responses == null) {
+      e.header("complete", "true")
+      return ""
+    }
+
+    e.header("complete", responses.complete.toString())
+    val xmls = mutableListOf<String>()
+    responses.xmls.drainTo(xmls)
+    return xmls.joinToString("⦀")
   }
 }
 
