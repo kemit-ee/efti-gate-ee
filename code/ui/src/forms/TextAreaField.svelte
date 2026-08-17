@@ -10,7 +10,7 @@
   export let validator: ((value: string) => string)|undefined = undefined
 
   let textarea: HTMLTextAreaElement
-  $: tooLong = value?.length || 0 > maxlength
+  $: tooLong = (value?.length ?? 0) > maxlength
   $: validationError = tooLong ? t.errors.tooLong : (value && validator?.(value)) ?? ''
   $: textarea?.setCustomValidity(validationError)
 </script>

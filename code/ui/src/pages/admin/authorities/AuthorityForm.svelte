@@ -7,22 +7,32 @@
   import {showToast} from 'src/stores/toasts'
   import CountrySelect from 'src/pages/admin/CountrySelect.svelte'
   import SubsetsEditor from 'src/pages/admin/SubsetsEditor.svelte'
-  import type {Authority} from "src/api/ruuterTypes";
+  import type {Authority, AuthorityRequest} from "src/api/ruuterTypes";
 
   export let authority: Authority
-  export let onSaved = (authority: Authority, isNew: boolean) => {}
+  export let onSaved = () => {}
 
   const isEdit = !!authority.id
 
   async function submit() {
-    await api.post('authorities', authority)
+    const request: AuthorityRequest = {
+      id: authority.id,
+      countryCode: authority.countryCode,
+      name: authority.name,
+      subsets: authority.subsets,
+    }
+
+    if (isEdit) await api.put(`v1/authorities/update?authorityId=${request.id}`, request)
+    else await api.post('v1/authorities', request)
+
     showToast(isEdit ? t.general.saved : `${t.authorities.added}: ${authority.id}`)
-    onSaved(authority, !isEdit)
+    onSaved()
   }
 </script>
 
 <Form {submit}>
   <FormField label={t.authorities.id} bind:value={authority.id} disabled={isEdit}/>
+  <FormField label={t.authorities.name} bind:value={authority.name}/>
   <CountrySelect bind:countryCode={authority.countryCode}/>
   <SubsetsEditor countryCode={authority.countryCode} bind:subsets={authority.subsets}/>
 

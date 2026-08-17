@@ -30,33 +30,24 @@ export interface RuuterResponse<T> {
 
 export interface Gate {
   id: string
-  countryCode: string
+  rowId: string
+  countryCode: CountryCode
   eDeliveryUrl: string
   eDeliveryCert: string | null
   tlsCert: string | null
   status: Status
   lastPingAt: string | null
-  isActive: boolean
+  isGateActive: boolean
   createdAt: string
 }
-
-export interface CreateGateRequest {
+export interface GateRequest {
   id: string
   countryCode: string
   eDeliveryUrl: string
   eDeliveryCert?: string | null
   tlsCert?: string | null
   status?: Status
-  isActive?: boolean
-}
-
-export interface UpdateGateRequest {
-  countryCode?: string
-  eDeliveryUrl?: string
-  eDeliveryCert?: string | null
-  tlsCert?: string | null
-  status?: Status
-  isActive?: boolean
+  isGateActive?: boolean
 }
 
 export interface Platform {
@@ -68,12 +59,12 @@ export interface Platform {
   certSubject: string | null
   certSerial: string | null
   supportsSubsetting: boolean
-  isActive: boolean
+  isPlatformActive: boolean
   status?: Status
   createdAt: string
 }
 
-export interface CreatePlatformRequest {
+export interface PlatformRequest {
   id: string
   baseUrl: string
   supportsSubsetting?: boolean
@@ -82,18 +73,7 @@ export interface CreatePlatformRequest {
   tlsCert?: string | null
   certSubject?: string | null
   certSerial?: string | null
-  isActive?: boolean
-}
-
-export interface UpdatePlatformRequest {
-  baseUrl?: string
-  supportsSubsetting?: boolean
-  headers?: Record<string, string>
-  eDeliveryCert?: string | null
-  tlsCert?: string | null
-  certSubject?: string | null
-  certSerial?: string | null
-  isActive?: boolean
+  isGateActive?: boolean
 }
 
 export interface Authority {
@@ -101,35 +81,16 @@ export interface Authority {
   countryCode: CountryCode
   name: string
   subsets: SubsetCode[]
-  isActive: boolean
+  isAuthorityActive: boolean
   createdAt: string
 }
 
-export interface CreateAuthorityRequest {
+export interface AuthorityRequest {
   id: string
   countryCode: string
   name: string
   subsets: SubsetCode[]
-  isActive?: boolean
-}
-
-export interface UpdateAuthorityRequest {
-  countryCode?: string
-  name?: string
-  subsets?: SubsetCode[]
-  isActive?: boolean
-}
-
-export interface GateIdParam {
-  gateId: string
-}
-
-export interface PlatformIdParam {
-  platformId: string
-}
-
-export interface AuthorityIdParam {
-  authorityId: string
+  isAuthorityActive?: boolean
 }
 
 export interface User {

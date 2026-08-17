@@ -41,7 +41,10 @@ services:
       dockerfile: docker/resql/Dockerfile
     platform: linux/amd64
     depends_on:
-    - database
+      database:
+        condition: service_healthy
+      liquibase:
+        condition: service_completed_successfully
     ports:
     - "${EFTI_RESQL_PORT:-8090}:8090"
   ruuter:
@@ -59,6 +62,8 @@ services:
     ports:
     - "${EFTI_RUUTER_PORT:-8086}:8086"
     cpus: '0.5'
+    depends_on:
+      - resql
     mem_limit: 512M
   ui:
     build:
@@ -69,12 +74,16 @@ services:
     depends_on:
       - ruuter
   edelivery:
+    environment:
+      - OWN_PARTY_ID=eu-ee01
     build:
       context: code
       dockerfile: ../docker/code/Dockerfile
       args:
       - PROJECT=edelivery
       - PORT=8081
+    depends_on:
+      - ruuter
     ports:
     - 8081:8081
     mem_limit: 512M
@@ -95,6 +104,8 @@ services:
       args:
       - PROJECT=multiplexer
       - PORT=8083
+    depends_on:
+      - resql
     ports:
     - 8083:8083
     mem_limit: 512M

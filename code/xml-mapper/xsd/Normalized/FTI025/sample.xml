@@ -6,7 +6,7 @@
 
   <rsm:ExchangedDocumentContext>
     <MessageStandardSpecifiedDocumentContextParameter>
-      <ID>FTI025</ID>
+      <ID>eFTI</ID>
       <SpecifiedDocumentVersion>
         <ID>1.0</ID>
       </SpecifiedDocumentVersion>
@@ -14,14 +14,14 @@
   </rsm:ExchangedDocumentContext>
 
   <rsm:ExchangedDocument>
-    <ID schemeID="RFC 9562-4">MSG-FTI025-001</ID>
+    <ID schemeID="RFC 9562-4">0f6c30b4-89b5-11f1-a20a-3c9c0f2eb459</ID>
     <TypeCode>025</TypeCode>
     <IssueDateTime>
-      <udt:DateTimeString format="207">2021-09-24T09:00:00</udt:DateTimeString>
+      <udt:DateTimeString format="207">202109240850+0000</udt:DateTimeString>
     </IssueDateTime>
     <Disposition>Additional information regarding shipment</Disposition>
     <RequestedSpecifiedQuery>
-      <ID schemeID="RFC 9562-4">FOLLOW_UP</ID>
+      <ID schemeID="RFC 9562-4">17022113-89b5-11f1-bec0-3c9c0f2eb459</ID>
     </RequestedSpecifiedQuery>
     <RequesterTradeParty>
       <PostalTradeAddress>
@@ -31,7 +31,14 @@
   </rsm:ExchangedDocument>
 
   <rsm:MessageInformation>
-    <FollowUp>Follow-up: correction of consignee address</FollowUp>
+    <FollowUp languageID="en">Follow-up: correction of consignee address</FollowUp>
+    <AttachedSpecifiedBinaryFile>
+      <FileName>Example</FileName>
+      <MIMECode>application/pdf</MIMECode>
+      <EncodingCode>7</EncodingCode>
+      <CharacterSetCode>3</CharacterSetCode>
+      <IncludedBinaryObject format="base64Binary">MTIzCg==</IncludedBinaryObject>
+    </AttachedSpecifiedBinaryFile>
   </rsm:MessageInformation>
 
   <rsm:EFTIIDInformation>
