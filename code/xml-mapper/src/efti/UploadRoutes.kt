@@ -4,6 +4,7 @@ import efti.domain.UIL
 import efti.xml.fti.*
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
+import klite.annotations.HeaderParam
 import klite.annotations.POST
 import java.util.*
 
@@ -18,7 +19,6 @@ class UploadRoutes {
     else xmlParser.parse<UniqueIDSetUIL>(xml)
 
   @Operation(description = "Map UIL as JSON to FTI029UploadIdentifierResponse as XML.")
-  @POST("/response-to-xml") fun responseToXml(uil: UIL): String =
-    // TODO: queryId should come from somewhere
-    FTI029UploadIdentifierResponse(ExchangedDocument("029", UUID.randomUUID()), uil).render()
+  @POST("/response-to-xml") fun responseToXml(uil: UIL, @HeaderParam("x-request-id") queryId: UUID = UUID.randomUUID()): String =
+    FTI029UploadIdentifierResponse(ExchangedDocument("029", queryId), uil).render()
 }
