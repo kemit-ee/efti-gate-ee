@@ -1,11 +1,9 @@
 import efti.*
 import io.swagger.v3.oas.annotations.OpenAPIDefinition
 import io.swagger.v3.oas.annotations.info.Info
-import klite.Config
-import klite.Server
+import klite.*
 import klite.annotations.annotated
 import klite.json.JsonBody
-import klite.metrics
 import klite.openapi.openApi
 
 fun main() {
@@ -15,7 +13,7 @@ fun main() {
       get { "OK" }
     }
 
-    use<JsonBody>()
+    useOnly<JsonOrXmlBody>()
     metrics()
 
     context("/api/v1") {
@@ -32,3 +30,11 @@ fun main() {
     start()
   }
 }
+
+class JsonOrXmlBody: JsonBody() {
+  override fun render(e: HttpExchange, code: StatusCode, value: Any?) {
+    if (value is String) e.send(code, value, MimeTypes.xml)
+    else super.render(e, code, value)
+  }
+}
+

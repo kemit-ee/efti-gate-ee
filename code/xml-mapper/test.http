@@ -1,0 +1,52 @@
+@baseUrl=http://localhost:8080/api/v1
+
+POST {{baseUrl}}/dataset/request-to-xml
+Content-Type: application/json
+
+{
+  "uil": {
+    "datasetId": "0a1e95cb-b03b-44c8-881d-13c7bfe38c4d",
+    "platformId": "demo",
+    "gateId": "poc"
+  },
+  "subsets": ["EE01", "EE02"]
+}
+
+###
+
+POST {{baseUrl}}/dataset/request-to-json
+Content-Type: text/xml
+
+<rsm:FTI009GetCmdsRequest xmlns:rsm="urn:eu:move:eFTI:data:draft:FTI009GetCmdsRequest:1"
+                          xmlns="urn:eu:move:eFTI:data:standard:ReusableAggregateBusinessInformationEntity:34"
+                          xmlns:udt="urn:eu:move:eFTI:data:standard:UnqualifiedDataType:34">
+  <rsm:ExchangedDocumentContext>
+    <MessageStandardSpecifiedDocumentContextParameter>
+      <ID>eFTI</ID>
+      <SpecifiedDocumentVersion>
+        <ID>1.0</ID>
+      </SpecifiedDocumentVersion>
+    </MessageStandardSpecifiedDocumentContextParameter>
+  </rsm:ExchangedDocumentContext>
+  <rsm:ExchangedDocument>
+    <ID schemeID="RFC 9562-4">6a6ee147-d107-4812-be82-f6139cb432e8</ID>
+    <TypeCode>009</TypeCode>
+    <IssueDateTime>
+      <udt:DateTimeString format="207">20260817091306Z</udt:DateTimeString>
+    </IssueDateTime>
+    <RequestedSpecifiedQuery>
+      <ID schemeID="RFC 9562-4">b86e87c2-ed67-49e9-a4ab-8cd046bae222</ID>
+    </RequestedSpecifiedQuery>
+  </rsm:ExchangedDocument>
+  <rsm:MessageInformation>
+    <SubsetID>EE01</SubsetID>
+    <SubsetID>EE02</SubsetID>
+  </rsm:MessageInformation>
+  <rsm:EFTIIDInformation>
+    <rsm:UniqueIDSetUIL>
+      <GateID>poc</GateID>
+      <PlatformID>demo</PlatformID>
+      <DatasetID schemeID="RFC 9562-4">0a1e95cb-b03b-44c8-881d-13c7bfe38c4d</DatasetID>
+    </rsm:UniqueIDSetUIL>
+  </rsm:EFTIIDInformation>
+</rsm:FTI009GetCmdsRequest>
