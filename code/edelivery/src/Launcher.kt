@@ -24,10 +24,10 @@ fun main() {
     require<RuuterClient>().apply {
       val partyRegistry = require<EDeliveryPartyRegistry>()
       partyRegistry.load(getParties())
+      register<PartyRegistry>(partyRegistry)
     }
     register<AsyncResponseProvider>(SingleNodeAsyncResponseProvider::class)
     register<MessageHandler>(EftiMessageHandler::class)
-    register<PartyRegistry>(EDeliveryPartyRegistry::class)
     metrics()
 
     context("/health") {
