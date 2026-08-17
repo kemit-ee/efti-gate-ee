@@ -14,6 +14,9 @@ import klite.metrics
 import klite.openapi.openApi
 import klite.register
 import klite.require
+import java.net.URI
+
+val Config.resqlUrl get() = URI(get("RESQL_URL"))
 
 fun main() {
   Config.useEnvFile()
@@ -21,7 +24,7 @@ fun main() {
   Server().apply {
     use<JsonBody>()
     register(httpClient())
-    require<RuuterClient>().apply {
+    require<ResqlClient>().apply {
       val partyRegistry = require<EDeliveryPartyRegistry>()
       partyRegistry.load(getParties())
       register<PartyRegistry>(partyRegistry)
