@@ -25,12 +25,13 @@ BEGIN
   CREATE TYPE gate_status AS ENUM (
     'ONLINE',
     'OFFLINE',
-    'DISABLED'
+    'DISABLED',
+    'DELETED'
   );
 EXCEPTION WHEN duplicate_object THEN NULL;
 END$$;
 
-COMMENT ON TYPE gate_status IS 'Operational status of an eFTI gate node';
+COMMENT ON TYPE gate_status IS 'Operational status of an eFTI gate or platform node';
 
 DO $$
 BEGIN
@@ -104,7 +105,6 @@ CREATE TABLE IF NOT EXISTS gates (
   tls_cert        TEXT,
   status          gate_status  NOT NULL,
   last_ping_at    TIMESTAMPTZ,
-  is_active       BOOLEAN      NOT NULL DEFAULT TRUE,
   created_by      UUID,
   created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
@@ -118,35 +118,31 @@ COMMENT ON COLUMN gates.country_code    IS 'ISO 3166-1 alpha-2 country code';
 COMMENT ON COLUMN gates.e_delivery_url  IS 'AS4 access-point URL for inbound G2G messages';
 COMMENT ON COLUMN gates.e_delivery_cert IS 'Public certificate (PEM) used to verify AS4 messages from this gate';
 COMMENT ON COLUMN gates.tls_cert        IS 'Public TLS certificate (PEM) used to verify the gate''s HTTPS endpoint';
-COMMENT ON COLUMN gates.status          IS 'Operational status snapshot at row time: ONLINE / OFFLINE / DISABLED';
+COMMENT ON COLUMN gates.status          IS 'Värava tööseisund hetkel: ONLINE — aktiivne ja kättesaadav; OFFLINE — ping ebaõnnestus; DISABLED — halduslikult välja lülitatud (nähtav loendis); DELETED — pehme kustutus (operaatori poolt eemaldatud, rida säilib auditiks).';
 COMMENT ON COLUMN gates.last_ping_at    IS 'Timestamp of the latest successful ping that produced this row. NULL if this row pre-dates first ping.';
-COMMENT ON COLUMN gates.is_active       IS 'Logical-deletion flag. FALSE excludes the gate from registry sync, peer broadcast, and ping sweeps.';
 COMMENT ON COLUMN gates.created_by      IS 'Denormalised users.row_id of the actor. NULL for system events (ping job, registry sync).';
 COMMENT ON COLUMN gates.created_at      IS 'When this row was inserted. Latest created_at per id is the current state.';
 
 CREATE INDEX IF NOT EXISTS idx_gates_id_latest ON gates (id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_gates_status    ON gates (status);
 CREATE INDEX IF NOT EXISTS idx_gates_country   ON gates (country_code);
-CREATE INDEX IF NOT EXISTS idx_gates_active    ON gates (is_active) WHERE is_active = TRUE;
 
 -- ----------------------------------------------------------------------------
 -- 3.2 platforms
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS platforms (
-  row_id              UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
-  id                  CITEXT       NOT NULL,
-  base_url            TEXT,
-  headers             JSONB        NOT NULL DEFAULT '{}'::jsonb,
-  e_delivery_cert     TEXT,
-  tls_cert            TEXT,
-  cert_subject        TEXT,
-  cert_serial         TEXT,
-  supports_subsetting BOOLEAN      NOT NULL DEFAULT FALSE,
-  status              gate_status  NOT NULL DEFAULT 'ONLINE',
-  is_active           BOOLEAN      NOT NULL DEFAULT TRUE,
-  created_by          UUID,
-  created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+  row_id          UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id              CITEXT       NOT NULL,
+  base_url        TEXT,
+  headers         JSONB        NOT NULL DEFAULT '{}'::jsonb,
+  e_delivery_cert TEXT,
+  tls_cert        TEXT,
+  cert_subject    TEXT,
+  cert_serial     TEXT,
+  status          gate_status  NOT NULL DEFAULT 'ONLINE',
+  created_by      UUID,
+  created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
 COMMENT ON TABLE  platforms IS 'Registry of eFTI platforms registered with this gate. Append-only: each edit is a new row sharing the same id; latest wins.';
@@ -158,16 +154,13 @@ COMMENT ON COLUMN platforms.e_delivery_cert     IS 'Public certificate (PEM) for
 COMMENT ON COLUMN platforms.tls_cert            IS 'Public TLS certificate (PEM) for HTTPS communication';
 COMMENT ON COLUMN platforms.cert_subject        IS 'Subject DN of the platform''s eDelivery AP X.509 certificate. Used for inbound mTLS lookup.';
 COMMENT ON COLUMN platforms.cert_serial         IS 'Serial number of the eDelivery AP certificate. Together with cert_subject forms the natural key for inbound-mTLS lookup.';
-COMMENT ON COLUMN platforms.supports_subsetting IS 'TRUE if the platform applies subset filtering itself; FALSE means the gate must run the subsetter';
-COMMENT ON COLUMN platforms.status              IS 'Operational status snapshot at row time: ONLINE / OFFLINE / DISABLED';
-COMMENT ON COLUMN platforms.is_active           IS 'Logical-deletion flag.';
+COMMENT ON COLUMN platforms.status IS 'Platvormi tööseisund hetkel: ONLINE — aktiivne ja kättesaadav; OFFLINE — ping ebaõnnestus; DISABLED — halduslikult välja lülitatud (nähtav loendis); DELETED — pehme kustutus (operaatori poolt eemaldatud, rida säilib auditiks).';
 COMMENT ON COLUMN platforms.created_by          IS 'users.row_id of the actor that wrote this row';
 COMMENT ON COLUMN platforms.created_at          IS 'When this row was inserted';
 
 CREATE INDEX IF NOT EXISTS idx_platforms_id_latest   ON platforms (id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_platforms_status      ON platforms (status);
-CREATE INDEX IF NOT EXISTS idx_platforms_active      ON platforms (is_active) WHERE is_active = TRUE;
-CREATE INDEX IF NOT EXISTS idx_platforms_cert_lookup ON platforms (cert_subject, cert_serial) WHERE is_active = TRUE;
+CREATE INDEX IF NOT EXISTS idx_platforms_cert_lookup ON platforms (cert_subject, cert_serial);
 
 -- ----------------------------------------------------------------------------
 -- 3.3 authorities

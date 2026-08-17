@@ -6,20 +6,25 @@ INSERT INTO platforms (
   tls_cert,
   cert_subject,
   cert_serial,
-  supports_subsetting,
-  is_active
+  status
 )
-VALUES (
+SELECT
   :id,
-  :baseUrl,
-  COALESCE(:headers::jsonb, '{}'::jsonb),
-  :eDeliveryCert,
-  :tlsCert,
-  :certSubject,
-  :certSerial,
-  COALESCE(:supportsSubsetting::text, 'true')::boolean,
-  true
-)
+  COALESCE(:baseUrl, latest.base_url),
+  COALESCE(:headers::jsonb, latest.headers),
+  COALESCE(:eDeliveryCert, latest.e_delivery_cert),
+  COALESCE(:tlsCert, latest.tls_cert),
+  COALESCE(:certSubject, latest.cert_subject),
+  COALESCE(:certSerial, latest.cert_serial),
+  COALESCE(:status::gate_status, latest.status)
+FROM (
+  SELECT DISTINCT ON (id)
+    base_url, headers, e_delivery_cert, tls_cert,
+    cert_subject, cert_serial, status
+  FROM platforms
+  WHERE id = :id
+  ORDER BY id, created_at DESC
+) latest
 RETURNING
   row_id,
   id,
@@ -29,6 +34,5 @@ RETURNING
   tls_cert,
   cert_subject,
   cert_serial,
-  supports_subsetting,
-  is_active AS is_platform_active,
+  status::text,
   created_at;

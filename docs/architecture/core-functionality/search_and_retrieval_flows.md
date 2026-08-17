@@ -84,7 +84,7 @@ sequenceDiagram
     alt UIL points to own gate
         Gate->>Platform: GET /datasets/:datasetId (REST or AS4)
         Platform-->>Gate: XML dataset (full)
-        Gate->>Gate: Apply subset filter (if supportsSubsetting=false)
+        Gate->>Gate: Forward subsetId — platform performs subsetting
         Gate-->>Officer: 200 OK XML (subset)
     else UIL points to remote gate
         Gate->>RemoteGate: POST /services/fast (uilQuery XML)

@@ -6,7 +6,7 @@ INSERT INTO platforms (
   tls_cert,
   cert_subject,
   cert_serial,
-  supports_subsetting
+  status
 )
 VALUES (
   :id,
@@ -16,7 +16,7 @@ VALUES (
   :tlsCert,
   :certSubject,
   :certSerial,
-  COALESCE(:supportsSubsetting::text, 'true')::boolean
+  COALESCE(:status, 'ONLINE')::gate_status
 )
 RETURNING
   row_id,
@@ -27,6 +27,5 @@ RETURNING
   tls_cert,
   cert_subject,
   cert_serial,
-  supports_subsetting,
-  is_active AS is_platform_active,
+  status::text,
   created_at;

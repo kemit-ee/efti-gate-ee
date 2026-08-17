@@ -368,7 +368,7 @@ paths:
       description: |
         Allows a platform to retrieve its own full dataset XML. Used primarily to test
         whether the gate's XSLT subsetter is correctly filtering subsets for platforms
-        that do not support subsetting natively (`supportsSubsetting=false`).
+        that do not need further gate-side filtering.
       parameters:
         - $ref: '#/components/parameters/DatasetIdPath'
         - name: subsetId
@@ -565,7 +565,7 @@ paths:
 
         **Subset access control**: The gate rejects requests for subsets not in the authority's
         permitted subset list (403). The platform further filters the XML to the requested subsets
-        if `supportsSubsetting=true`; otherwise the gate applies XSLT subsetting.
+        The platform always performs subsetting per ADR-003 (Reg 2024/1942).
       parameters:
         - name: gateId
           in: path
@@ -963,7 +963,6 @@ paths:
               example:
                 - id: "plt-xxx-001"
                   baseUrl: "https://platform.example.com/v1"
-                  supportsSubsetting: true
                   createdAt: "2025-01-15T09:00:00Z"
         '401':
           $ref: '#/components/responses/Unauthorized'
@@ -987,7 +986,6 @@ paths:
             example:
               id: "plt-yyy-001-ee"
               baseUrl: "https://api.cargo-ee.com/efti/v1"
-              supportsSubsetting: true
               headers:
                 X-Api-Key: "secret-key-abc123"
       responses:
@@ -2834,7 +2832,6 @@ components:
           format: uri
           description: REST API base URL for dataset queries
           example: "https://platform.example.com/v1"
-        supportsSubsetting:
           type: boolean
           description: If false, gate applies XSLT subsetting on behalf of the platform
           example: true
@@ -2888,7 +2885,6 @@ components:
           description: Additional HTTP headers the gate sends with outbound requests to this platform.
           example:
             X-Api-Key: "secret-key-abc123"
-        supportsSubsetting:
           type: boolean
           default: true
         eDeliveryCert:
