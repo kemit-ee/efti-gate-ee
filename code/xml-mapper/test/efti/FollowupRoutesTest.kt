@@ -6,16 +6,21 @@ import ch.tutteli.atrium.api.verbs.expect
 import efti.domain.GateId
 import efti.domain.PlatformId
 import efti.domain.UIL
+import io.mockk.every
+import io.mockk.mockk
+import klite.HttpExchange
 import klite.uuid
 import org.junit.jupiter.api.Test
 import java.io.File
 
 class FollowupRoutesTest {
-  val routes = FollowupRoutes()
+  val requestIdHandler = mockk<RequestIdHandler>(relaxed = true)
+  val exchange = mockk<HttpExchange>(relaxed = true) { every { requestId } returns "00000000-0000-0000-0000-000000000001" }
+  val routes = FollowupRoutes(requestIdHandler)
 
   @Test fun requestToJson() {
     val xml = File("xsd/Normalized/FTI025/sample.xml").readText()
-    val result = routes.requestToJson(xml)
+    val result = routes.requestToJson(xml, exchange)
 
     expect(result.uil.gateId).toEqual(GateId("Gate-001"))
     expect(result.uil.platformId).toEqual(PlatformId("Platform-001"))
@@ -26,7 +31,7 @@ class FollowupRoutesTest {
   @Test fun requestToXml() {
     val uil = UIL(PlatformId("Platform-001"), "550e8400-e29b-41d4-a716-446655440000".uuid, GateId("Gate-001"))
     val request = FollowupRequest(uil, "Follow-up: correction of consignee address")
-    val xml = routes.requestToXml(request)
+    val xml = routes.requestToXml(request, exchange)
 
     expect(xml).toContain("<TypeCode>025</TypeCode>")
     expect(xml).toContain("<GateID>Gate-001</GateID>")
@@ -38,8 +43,8 @@ class FollowupRoutesTest {
   @Test fun requestToXmlRoundtrip() {
     val uil = UIL(PlatformId("Platform-001"), "550e8400-e29b-41d4-a716-446655440000".uuid, GateId("Gate-001"))
     val request = FollowupRequest(uil, "Follow-up: correction of consignee address")
-    val xml = routes.requestToXml(request)
-    val parsed = routes.requestToJson(xml)
+    val xml = routes.requestToXml(request, exchange)
+    val parsed = routes.requestToJson(xml, exchange)
 
     expect(parsed.uil.gateId).toEqual(GateId("Gate-001"))
     expect(parsed.uil.platformId).toEqual(PlatformId("Platform-001"))
@@ -49,7 +54,7 @@ class FollowupRoutesTest {
 
   @Test fun responseToJson() {
     val xml = File("xsd/Normalized/FTI030/sample.xml").readText()
-    val result = routes.responseToJson(xml)
+    val result = routes.responseToJson(xml, exchange)
 
     expect(result.gateId).toEqual(GateId("Gate-001"))
     expect(result.platformId).toEqual(PlatformId("Platform-001"))
@@ -58,7 +63,7 @@ class FollowupRoutesTest {
 
   @Test fun responseToXml() {
     val uil = UIL(PlatformId("Platform-001"), "550e8400-e29b-41d4-a716-446655440000".uuid, GateId("Gate-001"))
-    val xml = routes.responseToXml(uil)
+    val xml = routes.responseToXml(uil, exchange)
 
     expect(xml).toContain("<TypeCode>030</TypeCode>")
     expect(xml).toContain("<GateID>Gate-001</GateID>")
@@ -68,8 +73,8 @@ class FollowupRoutesTest {
 
   @Test fun responseToXmlRoundtrip() {
     val uil = UIL(PlatformId("Platform-001"), "550e8400-e29b-41d4-a716-446655440000".uuid, GateId("Gate-001"))
-    val xml = routes.responseToXml(uil)
-    val parsed = routes.responseToJson(xml)
+    val xml = routes.responseToXml(uil, exchange)
+    val parsed = routes.responseToJson(xml, exchange)
 
     expect(parsed.gateId).toEqual(GateId("Gate-001"))
     expect(parsed.platformId).toEqual(PlatformId("Platform-001"))
