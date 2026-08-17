@@ -10,16 +10,11 @@ import efti.domain.UIL
 import efti.subsets.CountryCode.DE
 import efti.xml.fti.FTI029UploadIdentifierResponse
 import efti.xml.fti.xmlParser
-import io.mockk.every
-import io.mockk.mockk
-import klite.HttpExchange
 import klite.uuid
 import org.junit.jupiter.api.Test
 import java.io.File
 
-class UploadRoutesTest {
-  val requestIdHandler = mockk<RequestIdHandler>(relaxed = true)
-  val exchange = mockk<HttpExchange>(relaxed = true) { every { requestId } returns "00000000-0000-0000-0000-000000000001" }
+class UploadRoutesTest : BaseMocks() {
   val routes = UploadRoutes(requestIdHandler)
   val uil = UIL(PlatformId("demo"), "550e8400-e29b-41d4-a716-446655440000".uuid, GateId("POC"))
 

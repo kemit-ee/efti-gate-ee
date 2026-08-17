@@ -6,16 +6,11 @@ import ch.tutteli.atrium.api.verbs.expect
 import efti.domain.GateId
 import efti.domain.PlatformId
 import efti.domain.UIL
-import io.mockk.every
-import io.mockk.mockk
-import klite.HttpExchange
 import klite.uuid
 import org.junit.jupiter.api.Test
 import java.io.File
 
-class FollowupRoutesTest {
-  val requestIdHandler = mockk<RequestIdHandler>(relaxed = true)
-  val exchange = mockk<HttpExchange>(relaxed = true) { every { requestId } returns "00000000-0000-0000-0000-000000000001" }
+class FollowupRoutesTest : BaseMocks() {
   val routes = FollowupRoutes(requestIdHandler)
 
   @Test fun requestToJson() {

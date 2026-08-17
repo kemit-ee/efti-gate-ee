@@ -10,16 +10,11 @@ import efti.subsets.CountryCode.DE
 import efti.xml.fti.DateTimeString
 import efti.xml.fti.ParameterSearchCriteria
 import efti.xml.fti.ParameterSearchCriteria.*
-import io.mockk.every
-import io.mockk.mockk
-import klite.HttpExchange
 import klite.uuid
 import org.junit.jupiter.api.Test
 import java.io.File
 
-class SearchRoutesTest {
-  val requestIdHandler = mockk<RequestIdHandler>(relaxed = true)
-  val exchange = mockk<HttpExchange>(relaxed = true) { every { requestId } returns "00000000-0000-0000-0000-000000000001" }
+class SearchRoutesTest : BaseMocks() {
   val routes = SearchRoutes(requestIdHandler)
 
   val criteria = ParameterSearchCriteria(

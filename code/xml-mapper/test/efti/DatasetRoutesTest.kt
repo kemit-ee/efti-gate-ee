@@ -7,17 +7,12 @@ import efti.domain.GateId
 import efti.domain.PlatformId
 import efti.domain.UIL
 import efti.subsets.Subset
-import io.mockk.every
-import io.mockk.mockk
 import io.mockk.verify
-import klite.HttpExchange
 import klite.uuid
 import org.junit.jupiter.api.Test
 import java.io.File
 
-class DatasetRoutesTest {
-  val requestIdHandler = mockk<RequestIdHandler>(relaxed = true)
-  val exchange = mockk<HttpExchange>(relaxed = true) { every { requestId } returns "00000000-0000-0000-0000-000000000001" }
+class DatasetRoutesTest : BaseMocks() {
   val routes = DatasetRoutes(requestIdHandler)
 
   @Test fun requestToJson() {
