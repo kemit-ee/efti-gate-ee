@@ -68,87 +68,87 @@ WHERE (:criteria->'transportMode' IS NULL
        OR :criteria->'unloadingCountry'->>'operator' = 'NE' AND unloading_country != :criteria->'unloadingCountry'->>'country'
   )
   AND (:criteria->'usedEquipmentIds' IS NULL
-       OR :criteria->'usedEquipmentIds'->>'operator' = 'EQ' AND to_jsonb(used_equipment_ids) @> :criteria->'usedEquipmentIds'->>'id'::text[]
-       OR :criteria->'usedEquipmentIds'->>'operator' = 'NE' AND NOT to_jsonb(used_equipment_ids) @> :criteria->'usedEquipmentIds'->>'id'::text[]
+       OR :criteria->'usedEquipmentIds'->>'operator' = 'EQ' AND :criteria->'usedEquipmentIds'->>'id' = any(used_equipment_ids)
+       OR :criteria->'usedEquipmentIds'->>'operator' = 'NE' AND :criteria->'usedEquipmentIds'->>'id' != any(used_equipment_ids)
   )
   AND (:criteria->'usedEquipmentCategories' IS NULL
-       OR :criteria->'usedEquipmentCategories'->>'operator' = 'EQ' AND to_jsonb(used_equipment_categories) @> :criteria->'usedEquipmentCategories'->>'code'::text[]
-       OR :criteria->'usedEquipmentCategories'->>'operator' = 'NE' AND NOT to_jsonb(used_equipment_categories) @> :criteria->'usedEquipmentCategories'->>'code'::text[]
+       OR :criteria->'usedEquipmentCategories'->>'operator' = 'EQ' AND :criteria->'usedEquipmentCategories'->>'code' = any(used_equipment_categories)
+       OR :criteria->'usedEquipmentCategories'->>'operator' = 'NE' AND :criteria->'usedEquipmentCategories'->>'code' != any(used_equipment_categories)
   )
   AND (:criteria->'usedEquipmentCountries' IS NULL
-       OR :criteria->'usedEquipmentCountries'->>'operator' = 'EQ' AND to_jsonb(used_equipment_countries) @> :criteria->'usedEquipmentCountries'->>'country'::text[]
-       OR :criteria->'usedEquipmentCountries'->>'operator' = 'NE' AND NOT to_jsonb(used_equipment_countries) @> :criteria->'usedEquipmentCountries'->>'country'::text[]
+       OR :criteria->'usedEquipmentCountries'->>'operator' = 'EQ' AND :criteria->'usedEquipmentCountries'->>'country' = any(used_equipment_countries)
+       OR :criteria->'usedEquipmentCountries'->>'operator' = 'NE' AND :criteria->'usedEquipmentCountries'->>'country' != any(used_equipment_countries)
   )
   AND (:criteria->'usedEquipmentSeq' IS NULL
-       OR :criteria->'usedEquipmentSeq'->>'operator' = 'EQ' AND to_jsonb(used_equipment_seq) @> :criteria->'usedEquipmentSeq'->>'sequence'::text[]
-       OR :criteria->'usedEquipmentSeq'->>'operator' = 'NE' AND NOT to_jsonb(used_equipment_seq) @> :criteria->'usedEquipmentSeq'->>'sequence'::text[]
+       OR :criteria->'usedEquipmentSeq'->>'operator' = 'EQ' AND :criteria->'usedEquipmentSeq'->>'sequence' = any(used_equipment_seq)
+       OR :criteria->'usedEquipmentSeq'->>'operator' = 'NE' AND :criteria->'usedEquipmentSeq'->>'sequence' != any(used_equipment_seq)
   )
   AND (:criteria->'carriedEquipmentIds' IS NULL
-       OR :criteria->'carriedEquipmentIds'->>'operator' = 'EQ' AND to_jsonb(carried_equipment_ids) @> :criteria->'carriedEquipmentIds'->>'id'::text[]
-       OR :criteria->'carriedEquipmentIds'->>'operator' = 'NE' AND NOT to_jsonb(carried_equipment_ids) @> :criteria->'carriedEquipmentIds'->>'id'::text[]
+       OR :criteria->'carriedEquipmentIds'->>'operator' = 'EQ' AND :criteria->'carriedEquipmentIds'->>'id' = any(carried_equipment_ids)
+       OR :criteria->'carriedEquipmentIds'->>'operator' = 'NE' AND :criteria->'carriedEquipmentIds'->>'id' != any(carried_equipment_ids)
   )
   AND (:criteria->'carriedEquipmentCategories' IS NULL
-       OR :criteria->'carriedEquipmentCategories'->>'operator' = 'EQ' AND to_jsonb(carried_equipment_categories) @> :criteria->'carriedEquipmentCategories'->>'code'::text[]
-       OR :criteria->'carriedEquipmentCategories'->>'operator' = 'NE' AND NOT to_jsonb(carried_equipment_categories) @> :criteria->'carriedEquipmentCategories'->>'code'::text[]
+       OR :criteria->'carriedEquipmentCategories'->>'operator' = 'EQ' AND :criteria->'carriedEquipmentCategories'->>'code' = any(carried_equipment_categories)
+       OR :criteria->'carriedEquipmentCategories'->>'operator' = 'NE' AND :criteria->'carriedEquipmentCategories'->>'code' != any(carried_equipment_categories)
   )
   AND (:criteria->'carriedEquipmentSeq' IS NULL
-       OR :criteria->'carriedEquipmentSeq'->>'operator' = 'EQ' AND to_jsonb(carried_equipment_seq) @> :criteria->'carriedEquipmentSeq'->>'sequence'::text[]
-       OR :criteria->'carriedEquipmentSeq'->>'operator' = 'NE' AND NOT to_jsonb(carried_equipment_seq) @> :criteria->'carriedEquipmentSeq'->>'sequence'::text[]
+       OR :criteria->'carriedEquipmentSeq'->>'operator' = 'EQ' AND :criteria->'carriedEquipmentSeq'->>'sequence' = any(carried_equipment_seq)
+       OR :criteria->'carriedEquipmentSeq'->>'operator' = 'NE' AND :criteria->'carriedEquipmentSeq'->>'sequence' != any(carried_equipment_seq)
   )
   AND (:criteria->'acceptanceDate'->0 IS NULL
-       OR :criteria->'acceptanceDate'->0->>'operator' = 'EQ' AND acceptance_date = :criteria->'acceptanceDate'->0->>'date'
-       OR :criteria->'acceptanceDate'->0->>'operator' = 'NE' AND acceptance_date != :criteria->'acceptanceDate'->0->>'date'
-       OR :criteria->'acceptanceDate'->0->>'operator' = 'LT' AND acceptance_date < :criteria->'acceptanceDate'->0->>'date'
-       OR :criteria->'acceptanceDate'->0->>'operator' = 'LE' AND acceptance_date <= :criteria->'acceptanceDate'->0->>'date'
-       OR :criteria->'acceptanceDate'->0->>'operator' = 'GT' AND acceptance_date > :criteria->'acceptanceDate'->0->>'date'
-       OR :criteria->'acceptanceDate'->0->>'operator' = 'GE' AND acceptance_date >= :criteria->'acceptanceDate'->0->>'date'
+       OR :criteria->'acceptanceDate'->0->>'operator' = 'EQ' AND acceptance_date = (:criteria->'acceptanceDate'->0->>'date')::timestamptz
+       OR :criteria->'acceptanceDate'->0->>'operator' = 'NE' AND acceptance_date != (:criteria->'acceptanceDate'->0->>'date')::timestamptz
+       OR :criteria->'acceptanceDate'->0->>'operator' = 'LT' AND acceptance_date < (:criteria->'acceptanceDate'->0->>'date')::timestamptz
+       OR :criteria->'acceptanceDate'->0->>'operator' = 'LE' AND acceptance_date <= (:criteria->'acceptanceDate'->0->>'date')::timestamptz
+       OR :criteria->'acceptanceDate'->0->>'operator' = 'GT' AND acceptance_date > (:criteria->'acceptanceDate'->0->>'date')::timestamptz
+       OR :criteria->'acceptanceDate'->0->>'operator' = 'GE' AND acceptance_date >= (:criteria->'acceptanceDate'->0->>'date')::timestamptz
   )
   AND (:criteria->'acceptanceDate'->1 IS NULL
-       OR :criteria->'acceptanceDate'->1->>'operator' = 'LT' AND acceptance_date < :criteria->'acceptanceDate'->1->>'date'
-       OR :criteria->'acceptanceDate'->1->>'operator' = 'LE' AND acceptance_date <= :criteria->'acceptanceDate'->1->>'date'
-       OR :criteria->'acceptanceDate'->1->>'operator' = 'GT' AND acceptance_date > :criteria->'acceptanceDate'->1->>'date'
-       OR :criteria->'acceptanceDate'->1->>'operator' = 'GE' AND acceptance_date >= :criteria->'acceptanceDate'->1->>'date'
+       OR :criteria->'acceptanceDate'->1->>'operator' = 'LT' AND acceptance_date < (:criteria->'acceptanceDate'->1->>'date')::timestamptz
+       OR :criteria->'acceptanceDate'->1->>'operator' = 'LE' AND acceptance_date <= (:criteria->'acceptanceDate'->1->>'date')::timestamptz
+       OR :criteria->'acceptanceDate'->1->>'operator' = 'GT' AND acceptance_date > (:criteria->'acceptanceDate'->1->>'date')::timestamptz
+       OR :criteria->'acceptanceDate'->1->>'operator' = 'GE' AND acceptance_date >= (:criteria->'acceptanceDate'->1->>'date')::timestamptz
   )
   AND (:criteria->'deliveryDate'->0 IS NULL
-       OR :criteria->'deliveryDate'->0->>'operator' = 'EQ' AND delivery_date = :criteria->'deliveryDate'->0->>'date'
-       OR :criteria->'deliveryDate'->0->>'operator' = 'NE' AND delivery_date != :criteria->'deliveryDate'->0->>'date'
-       OR :criteria->'deliveryDate'->0->>'operator' = 'LT' AND delivery_date < :criteria->'deliveryDate'->0->>'date'
-       OR :criteria->'deliveryDate'->0->>'operator' = 'LE' AND delivery_date <= :criteria->'deliveryDate'->0->>'date'
-       OR :criteria->'deliveryDate'->0->>'operator' = 'GT' AND delivery_date > :criteria->'deliveryDate'->0->>'date'
-       OR :criteria->'deliveryDate'->0->>'operator' = 'GE' AND delivery_date >= :criteria->'deliveryDate'->0->>'date'
+       OR :criteria->'deliveryDate'->0->>'operator' = 'EQ' AND delivery_date = (:criteria->'deliveryDate'->0->>'date')::timestamptz
+       OR :criteria->'deliveryDate'->0->>'operator' = 'NE' AND delivery_date != (:criteria->'deliveryDate'->0->>'date')::timestamptz
+       OR :criteria->'deliveryDate'->0->>'operator' = 'LT' AND delivery_date < (:criteria->'deliveryDate'->0->>'date')::timestamptz
+       OR :criteria->'deliveryDate'->0->>'operator' = 'LE' AND delivery_date <= (:criteria->'deliveryDate'->0->>'date')::timestamptz
+       OR :criteria->'deliveryDate'->0->>'operator' = 'GT' AND delivery_date > (:criteria->'deliveryDate'->0->>'date')::timestamptz
+       OR :criteria->'deliveryDate'->0->>'operator' = 'GE' AND delivery_date >= (:criteria->'deliveryDate'->0->>'date')::timestamptz
   )
   AND (:criteria->'deliveryDate'->1 IS NULL
-       OR :criteria->'deliveryDate'->1->>'operator' = 'LT' AND delivery_date < :criteria->'deliveryDate'->1->>'date'
-       OR :criteria->'deliveryDate'->1->>'operator' = 'LE' AND delivery_date <= :criteria->'deliveryDate'->1->>'date'
-       OR :criteria->'deliveryDate'->1->>'operator' = 'GT' AND delivery_date > :criteria->'deliveryDate'->1->>'date'
-       OR :criteria->'deliveryDate'->1->>'operator' = 'GE' AND delivery_date >= :criteria->'deliveryDate'->1->>'date'
+       OR :criteria->'deliveryDate'->1->>'operator' = 'LT' AND delivery_date < (:criteria->'deliveryDate'->1->>'date')::timestamptz
+       OR :criteria->'deliveryDate'->1->>'operator' = 'LE' AND delivery_date <= (:criteria->'deliveryDate'->1->>'date')::timestamptz
+       OR :criteria->'deliveryDate'->1->>'operator' = 'GT' AND delivery_date > (:criteria->'deliveryDate'->1->>'date')::timestamptz
+       OR :criteria->'deliveryDate'->1->>'operator' = 'GE' AND delivery_date >= (:criteria->'deliveryDate'->1->>'date')::timestamptz
   )
   AND (:criteria->'loadingDate'->0 IS NULL
-       OR :criteria->'loadingDate'->0->>'operator' = 'EQ' AND loading_date = :criteria->'loadingDate'->0->>'date'
-       OR :criteria->'loadingDate'->0->>'operator' = 'NE' AND loading_date != :criteria->'loadingDate'->0->>'date'
-       OR :criteria->'loadingDate'->0->>'operator' = 'LT' AND loading_date < :criteria->'loadingDate'->0->>'date'
-       OR :criteria->'loadingDate'->0->>'operator' = 'LE' AND loading_date <= :criteria->'loadingDate'->0->>'date'
-       OR :criteria->'loadingDate'->0->>'operator' = 'GT' AND loading_date > :criteria->'loadingDate'->0->>'date'
-       OR :criteria->'loadingDate'->0->>'operator' = 'GE' AND loading_date >= :criteria->'loadingDate'->0->>'date'
+       OR :criteria->'loadingDate'->0->>'operator' = 'EQ' AND loading_date = (:criteria->'loadingDate'->0->>'date')::timestamptz
+       OR :criteria->'loadingDate'->0->>'operator' = 'NE' AND loading_date != (:criteria->'loadingDate'->0->>'date')::timestamptz
+       OR :criteria->'loadingDate'->0->>'operator' = 'LT' AND loading_date < (:criteria->'loadingDate'->0->>'date')::timestamptz
+       OR :criteria->'loadingDate'->0->>'operator' = 'LE' AND loading_date <= (:criteria->'loadingDate'->0->>'date')::timestamptz
+       OR :criteria->'loadingDate'->0->>'operator' = 'GT' AND loading_date > (:criteria->'loadingDate'->0->>'date')::timestamptz
+       OR :criteria->'loadingDate'->0->>'operator' = 'GE' AND loading_date >= (:criteria->'loadingDate'->0->>'date')::timestamptz
   )
   AND (:criteria->'loadingDate'->1 IS NULL
-       OR :criteria->'loadingDate'->1->>'operator' = 'LT' AND loading_date < :criteria->'loadingDate'->1->>'date'
-       OR :criteria->'loadingDate'->1->>'operator' = 'LE' AND loading_date <= :criteria->'loadingDate'->1->>'date'
-       OR :criteria->'loadingDate'->1->>'operator' = 'GT' AND loading_date > :criteria->'loadingDate'->1->>'date'
-       OR :criteria->'loadingDate'->1->>'operator' = 'GE' AND loading_date >= :criteria->'loadingDate'->1->>'date'
+       OR :criteria->'loadingDate'->1->>'operator' = 'LT' AND loading_date < (:criteria->'loadingDate'->1->>'date')::timestamptz
+       OR :criteria->'loadingDate'->1->>'operator' = 'LE' AND loading_date <= (:criteria->'loadingDate'->1->>'date')::timestamptz
+       OR :criteria->'loadingDate'->1->>'operator' = 'GT' AND loading_date > (:criteria->'loadingDate'->1->>'date')::timestamptz
+       OR :criteria->'loadingDate'->1->>'operator' = 'GE' AND loading_date >= (:criteria->'loadingDate'->1->>'date')::timestamptz
   )
   AND (:criteria->'unloadingDate'->0 IS NULL
-       OR :criteria->'unloadingDate'->0->>'operator' = 'EQ' AND unloading_date = :criteria->'unloadingDate'->0->>'date'
-       OR :criteria->'unloadingDate'->0->>'operator' = 'NE' AND unloading_date != :criteria->'unloadingDate'->0->>'date'
-       OR :criteria->'unloadingDate'->0->>'operator' = 'LT' AND unloading_date < :criteria->'unloadingDate'->0->>'date'
-       OR :criteria->'unloadingDate'->0->>'operator' = 'LE' AND unloading_date <= :criteria->'unloadingDate'->0->>'date'
-       OR :criteria->'unloadingDate'->0->>'operator' = 'GT' AND unloading_date > :criteria->'unloadingDate'->0->>'date'
-       OR :criteria->'unloadingDate'->0->>'operator' = 'GE' AND unloading_date >= :criteria->'unloadingDate'->0->>'date'
+       OR :criteria->'unloadingDate'->0->>'operator' = 'EQ' AND unloading_date = (:criteria->'unloadingDate'->0->>'date')::timestamptz
+       OR :criteria->'unloadingDate'->0->>'operator' = 'NE' AND unloading_date != (:criteria->'unloadingDate'->0->>'date')::timestamptz
+       OR :criteria->'unloadingDate'->0->>'operator' = 'LT' AND unloading_date < (:criteria->'unloadingDate'->0->>'date')::timestamptz
+       OR :criteria->'unloadingDate'->0->>'operator' = 'LE' AND unloading_date <= (:criteria->'unloadingDate'->0->>'date')::timestamptz
+       OR :criteria->'unloadingDate'->0->>'operator' = 'GT' AND unloading_date > (:criteria->'unloadingDate'->0->>'date')::timestamptz
+       OR :criteria->'unloadingDate'->0->>'operator' = 'GE' AND unloading_date >= (:criteria->'unloadingDate'->0->>'date')::timestamptz
   )
   AND (:criteria->'unloadingDate'->1 IS NULL
-       OR :criteria->'unloadingDate'->1->>'operator' = 'LT' AND unloading_date < :criteria->'unloadingDate'->1->>'date'
-       OR :criteria->'unloadingDate'->1->>'operator' = 'LE' AND unloading_date <= :criteria->'unloadingDate'->1->>'date'
-       OR :criteria->'unloadingDate'->1->>'operator' = 'GT' AND unloading_date > :criteria->'unloadingDate'->1->>'date'
-       OR :criteria->'unloadingDate'->1->>'operator' = 'GE' AND unloading_date >= :criteria->'unloadingDate'->1->>'date'
+       OR :criteria->'unloadingDate'->1->>'operator' = 'LT' AND unloading_date < (:criteria->'unloadingDate'->1->>'date')::timestamptz
+       OR :criteria->'unloadingDate'->1->>'operator' = 'LE' AND unloading_date <= (:criteria->'unloadingDate'->1->>'date')::timestamptz
+       OR :criteria->'unloadingDate'->1->>'operator' = 'GT' AND unloading_date > (:criteria->'unloadingDate'->1->>'date')::timestamptz
+       OR :criteria->'unloadingDate'->1->>'operator' = 'GE' AND unloading_date >= (:criteria->'unloadingDate'->1->>'date')::timestamptz
   )
 ORDER BY platform_id, dataset_id, created_at DESC;
