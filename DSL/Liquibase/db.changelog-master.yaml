@@ -8,30 +8,3 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: false
             encoding: UTF-8
-  - changeSet:
-      id: 001-add-platform-status
-      author: efti
-      changes:
-        - sqlFile:
-            path: changelogs/001-add-platform-status.sql
-            relativeToChangelogFile: true
-            splitStatements: false
-            encoding: UTF-8
-  - changeSet:
-      id: 002-status-refactor
-      author: efti
-      changes:
-        - sqlFile:
-            path: changelogs/002-status-refactor.sql
-            relativeToChangelogFile: true
-            splitStatements: false
-            encoding: UTF-8
-  - changeSet:
-      id: 003-remove-supports-subsetting
-      author: efti
-      changes:
-        - sqlFile:
-            path: changelogs/003-remove-supports-subsetting.sql
-            relativeToChangelogFile: true
-            splitStatements: false
-            encoding: UTF-8
