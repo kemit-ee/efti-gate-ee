@@ -38,3 +38,7 @@ val edifactDateTimeFormats = mapOf(
   "205" to formatter("yyyyMMddHHmmXX").withZone(UTC),   // OffsetDateTime / Instant (CCYYMMDDHHMMZHHMM)
   "207" to formatter("yyyyMMddHHmmssXX").withZone(UTC), // OffsetDateTime / Instant (CCYYMMDDHHMMSSZHHMM)
 )
+
+data class RuuterXmlWrapper(
+  val xml: String
+)

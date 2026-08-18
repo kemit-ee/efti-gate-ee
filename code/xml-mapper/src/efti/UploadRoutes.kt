@@ -2,6 +2,7 @@ package efti
 
 import RequestIdHandler
 import efti.domain.UIL
+import efti.xml.RuuterXmlWrapper
 import efti.xml.fti.*
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -27,6 +28,6 @@ class UploadRoutes(val requestIdHandler: RequestIdHandler) {
   }
 
   @Operation(description = "Map UIL as JSON to FTI029UploadIdentifierResponse as XML.")
-  @POST("/response-to-xml") fun responseToXml(uil: UIL, e: HttpExchange): String =
-    FTI029UploadIdentifierResponse(ExchangedDocument("029", e.requestId.uuid), uil).render()
+  @POST("/response-to-xml") fun responseToXml(uil: UIL, e: HttpExchange): RuuterXmlWrapper =
+    RuuterXmlWrapper(FTI029UploadIdentifierResponse(ExchangedDocument("029", e.requestId.uuid), uil).render())
 }
