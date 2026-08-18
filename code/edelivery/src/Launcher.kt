@@ -11,7 +11,7 @@ import resql.ResqlClient
 fun main() {
   Config.useEnvFile()
 
-  Server().apply {
+  Server(requestIdGenerator = RequestIdHandler()).apply {
     use<JsonBody>()
     register(httpClient())
     require<ResqlClient>().apply {
