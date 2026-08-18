@@ -33,3 +33,12 @@ services:
   ui:
     ports:
       - 8000:80
+
+  http-tests:
+    image: jetbrains/intellij-http-client
+    depends_on:
+      - ruuter
+      - xml-mapper
+    volumes:
+      - ./:/workdir
+    command: tests/e2e/consignments.http

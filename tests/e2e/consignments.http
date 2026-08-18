@@ -1,5 +1,6 @@
-@ruuterUrl=http://localhost:8086/efti/api/v1
-@resqlUrl=http://localhost:8090/efti
+# TODO: define local & compose env files for these
+@ruuterUrl=http://ruuter:8086/efti/api/v1
+@resqlUrl=http://resql:8090/efti
 
 ### Platform uploads a new consignment over REST (TODO: auth)
 POST {{ruuterUrl}}/consignments
