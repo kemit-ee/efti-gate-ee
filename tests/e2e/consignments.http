@@ -8,6 +8,13 @@ Content-Type: text/xml
 
 < ../../code/xml-mapper/xsd/Normalized/FTI004/sample.xml
 
+> {%
+  client.test("Test status code", () => {
+    client.assert(response.status === 200, "Response status is not 200")
+    client.assert(response.body.gateId === "POC", "Gate ID is not POC")
+  })
+%}
+
 ### Find consignments
 
 POST {{resqlUrl}}/get_consignments
