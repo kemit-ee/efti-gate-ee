@@ -95,33 +95,32 @@ export interface User {
   id: string
   taraSub: string
   name: string
-  roles: string[]
-  gateId: string | null
-  platformId: string | null
-  authorityId: string | null
+  email: string
+  isAdmin: boolean
+  subsets: string[]
+  roles: Roles
   isActive: boolean
   createdAt: string
-}
-
-export interface UserListParams extends PaginationParams {
-  gateId?: string
-  platformId?: string
-  authorityId?: string
 }
 
 export interface CreateUserRequest {
   taraSub: string
   name: string
-  roles: string[]
-  gateId?: string
-  platformId?: string
-  authorityId?: string
+  email: string
+  isAdmin: boolean
+  subsets: string[]
+  roles: Roles
 }
 
 export interface UpdateUserRequest {
   name?: string
-  roles?: string[]
+  roles?: Roles
   isActive?: boolean
+}
+
+export interface Roles {
+  AUTHORITY?: string[]
+  ADMIN?: string[]
 }
 
 export interface UserIdParam {
