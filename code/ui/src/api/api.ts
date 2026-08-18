@@ -58,8 +58,8 @@ class Api {
       throw {message: 'errors.notJson'}
     }
     const apiVersion = response.headers?.get('x-api-version')
-    if (response.status < 200 || response.status >= 400) {
-      data.message = data.error
+    if (response.status < 200 || response.status >= 400 || data.error) {
+      data.message = data.message || data.error
       throw data
     } else if (apiVersion && apiVersion != window.apiVersion) {
       location.reload()
