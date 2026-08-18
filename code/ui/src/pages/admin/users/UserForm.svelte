@@ -37,9 +37,8 @@
       const request: UpdateUserRequest = {
         name: user.name,
         roles: user.roles,
-        isActive: user.isActive,
       }
-      await api.put(`v1/users/${user.id}`, request)
+      await api.put(`v1/users?userId=${user.id}`, request)
     } else {
       const request: CreateUserRequest = {
         taraSub: user.taraSub,
@@ -65,9 +64,6 @@
   <FormField label={t.users.email} bind:value={user.email}/>
   <SelectField label={t.users.selectGate} bind:value={selectedGateId} options={gateOptions} emptyOption="--" required={false}/>
   <SelectField label={t.users.selectAuthority} bind:value={selectedAuthorityId} options={authorityOptions} emptyOption="--" required={false}/>
-  {#if isEdit}
-    <CheckboxField label="Active" bind:checked={user.isActive}/>
-  {/if}
 
   <Button type="submit" label={t.general.save} class="primary"/>
 </Form>

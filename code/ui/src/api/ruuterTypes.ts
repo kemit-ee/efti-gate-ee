@@ -99,7 +99,6 @@ export interface User {
   isAdmin: boolean
   subsets: string[]
   roles: Roles
-  isActive: boolean
   createdAt: string
 }
 
