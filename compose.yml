@@ -67,7 +67,7 @@ services:
   edelivery:
     environment:
       - OWN_PARTY_ID=eu-ee01
-      - RESQL_URL=http://resql:8090
+      - RESQL_URL=http://resql:8090/efti
     build:
       context: code
       dockerfile: ../docker/code/Dockerfile
@@ -89,7 +89,7 @@ services:
 
   multiplexer:
     environment:
-      - RESQL_URL=http://resql:8090
+      - RESQL_URL=http://resql:8090/efti
       - EDELIVERY_URL=http://edelivery:8081
     build:
       context: code
