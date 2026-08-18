@@ -18,7 +18,7 @@
   }
 
   function add() {
-    editUser = {roles: []} as User
+    editUser = {roles: {}} as User
   }
 
   function onSaved() {

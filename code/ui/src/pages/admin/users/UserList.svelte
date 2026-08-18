@@ -18,15 +18,12 @@
   }
 </script>
 
-<SortableTable items={users} labels={t.users} columns={['id', 'name', 'taraSub', 'roles', 'gateId', 'platformId', 'authorityId', 'isActive', '']} let:item={u}>
+<SortableTable items={users} labels={t.users} columns={['id', 'name', 'taraSub', 'roles', 'isActive', '']} let:item={u}>
   <tr>
     <td>{u.id}</td>
     <td>{u.name}</td>
     <td>{u.taraSub}</td>
-    <td>{u.roles.join(', ')}</td>
-    <td>{u.gateId || '-'}</td>
-    <td>{u.platformId || '-'}</td>
-    <td>{u.authorityId || '-'}</td>
+    <td>{JSON.stringify(u.roles)}</td>
     <td>{u.isActive ? 'Yes' : 'No'}</td>
     <td>
       <Button label={t.general.edit} onclick={() => onEdit(u)} size="sm"/>
