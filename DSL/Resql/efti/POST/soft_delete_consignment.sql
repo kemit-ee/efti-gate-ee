@@ -31,7 +31,7 @@ SELECT
   platform_id,
   gate_id,
   xml,
-  'deleted'::consignment_status,
+  'DELETED'::consignment_status,
   transport_mode,
   acceptance_date,
   acceptance_country,
