@@ -4,7 +4,6 @@ import klite.*
 import klite.StatusCode.Companion.InternalServerError
 import klite.StatusCode.Companion.OK
 import klite.annotations.GET
-import klite.annotations.HeaderParam
 import klite.annotations.POST
 import klite.xml.XmlParser
 import java.io.ByteArrayInputStream

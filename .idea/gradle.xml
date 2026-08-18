@@ -9,6 +9,7 @@
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$/code" />
+            <option value="$PROJECT_DIR$/code/core" />
             <option value="$PROJECT_DIR$/code/edelivery" />
             <option value="$PROJECT_DIR$/code/multiplexer" />
             <option value="$PROJECT_DIR$/code/xml-mapper" />

@@ -1,25 +1,12 @@
 import edelivery.EDeliveryParty
+import edelivery.GateParty
 import edelivery.PartyId
+import edelivery.PlatformParty
 import klite.Config
 import klite.http.post
 import klite.json.JsonMapper
 import klite.json.parse
-import java.net.URI
 import java.net.http.HttpClient
-
-data class GateParty(
-  val id: PartyId,
-  val eDeliveryUrl: URI,
-  val eDeliveryCert: String,
-  val tlsCert: String?
-)
-
-data class PlatformParty(
-  val id: PartyId,
-  val baseUrl: URI,
-  val eDeliveryCert: String?,
-  val tlsCert: String?
-)
 
 data class ResqlParams(
   val limit: Int = 9999,

@@ -1,5 +1,3 @@
-package efti
-
 import klite.Headers
 import klite.HttpExchange
 import klite.RequestIdGenerator

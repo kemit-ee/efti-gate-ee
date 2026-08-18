@@ -1,4 +1,5 @@
 import edelivery.EDeliveryParty
+import edelivery.GateParty
 import edelivery.PartyId
 import klite.Config
 import klite.http.post
@@ -6,13 +7,6 @@ import klite.json.JsonMapper
 import klite.json.parse
 import java.net.URI
 import java.net.http.HttpClient
-
-data class GateParty(
-  val id: PartyId,
-  val eDeliveryUrl: URI,
-  val eDeliveryCert: String,
-  val tlsCert: String?
-)
 
 data class ResqlParams(
   val limit: Int = 9999,
@@ -24,7 +18,7 @@ class ResqlClient(
   private val jsonMapper: JsonMapper,
 ) {
   private inline fun <reified T> fetch(path: String) =
-    jsonMapper.parse<List<T>>(http.post(Config.resqlUrl.resolve(path), jsonMapper.render(ResqlParams())).body())
+    jsonMapper.parse<List<T>>(http.post(URI(Config["RESQL_URL"]).resolve(path), jsonMapper.render(ResqlParams())).body())
 
   fun getParties(): Map<PartyId, EDeliveryParty> {
     val parties = fetch<GateParty>("/efti/get_gates").map {

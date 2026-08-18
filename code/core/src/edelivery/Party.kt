@@ -36,3 +36,17 @@ interface PartyRegistry {
   fun onChange(listener: (Party) -> Unit)
   fun list(): List<Party>
 }
+
+data class GateParty(
+  val id: PartyId,
+  val eDeliveryUrl: URI,
+  val eDeliveryCert: String,
+  val tlsCert: String?
+)
+
+data class PlatformParty(
+  val id: PartyId,
+  val baseUrl: URI,
+  val eDeliveryCert: String?,
+  val tlsCert: String?
+)
