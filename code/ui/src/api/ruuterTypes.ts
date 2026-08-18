@@ -77,7 +77,7 @@ export interface Authority {
   name: string
   registryCode: string
   subsets: SubsetCode[]
-  isAuthorityActive: boolean
+  status: Status
   createdAt: string
 }
 
@@ -86,7 +86,7 @@ export interface AuthorityRequest {
   name: string
   registryCode: string
   subsets: SubsetCode[]
-  isAuthorityActive?: boolean
+  status?: Status
 }
 
 export interface User {

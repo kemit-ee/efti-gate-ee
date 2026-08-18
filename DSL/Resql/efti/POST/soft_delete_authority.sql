@@ -1,5 +1,5 @@
-INSERT INTO authorities (id, name, registry_code, subsets, is_active)
-SELECT id, name, registry_code, subsets, false
+INSERT INTO authorities (id, name, registry_code, subsets, status)
+SELECT id, name, registry_code, subsets, 'DELETED'::authority_status
 FROM (
   SELECT DISTINCT ON (id)
     id, name, registry_code, subsets
@@ -10,5 +10,5 @@ FROM (
 RETURNING
   row_id,
   id,
-  is_active AS is_authority_active,
+  status::text,
   created_at;

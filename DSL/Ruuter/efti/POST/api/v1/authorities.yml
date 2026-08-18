@@ -9,6 +9,7 @@ create_authority:
       name: "${incoming.body.name}"
       registryCode: "${incoming.body.registryCode}"
       subsets: "${incoming.body.subsets}"
+      status: "${incoming.body.status}"
   result: insert_result
   next: check_insert
 

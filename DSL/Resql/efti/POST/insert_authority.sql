@@ -1,9 +1,10 @@
-INSERT INTO authorities (id, name, registry_code, subsets)
+INSERT INTO authorities (id, name, registry_code, subsets, status)
 VALUES (
   :id,
   :name,
   :registryCode,
-  :subsets
+  :subsets,
+  COALESCE(:status, 'ACTIVE')::authority_status
 )
 RETURNING
   row_id,
@@ -11,5 +12,5 @@ RETURNING
   name,
   registry_code,
   subsets,
-  is_active AS is_authority_active,
+  status::text,
   created_at;

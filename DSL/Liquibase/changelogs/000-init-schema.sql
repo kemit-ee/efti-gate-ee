@@ -67,6 +67,17 @@ END$$;
 
 COMMENT ON TYPE follow_up_status IS 'Outcome of a follow-up message forwarding attempt';
 
+DO $$
+BEGIN
+  CREATE TYPE authority_status AS ENUM (
+    'ACTIVE',
+    'DELETED'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END$$;
+
+COMMENT ON TYPE authority_status IS 'Lifecycle status of a competent authority. ACTIVE — visible and operational; DELETED — soft-deleted (removed by operator, row retained for audit).';
+
 -- ============================================================================
 -- 2. HELPER — record actor (denormalised users.row_id) on each INSERT
 -- ============================================================================
@@ -172,7 +183,7 @@ CREATE TABLE IF NOT EXISTS authorities (
   name          TEXT         NOT NULL,
   registry_code TEXT         NOT NULL,
   subsets       TEXT[]       NOT NULL DEFAULT ARRAY[]::TEXT[],
-  is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
+  status        authority_status NOT NULL DEFAULT 'ACTIVE',
   created_by    UUID,
   created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
@@ -183,13 +194,13 @@ COMMENT ON COLUMN authorities.id            IS 'Logical authority identifier (e.
 COMMENT ON COLUMN authorities.name          IS 'Human-readable name (e.g. "Estonian Tax and Customs Board")';
 COMMENT ON COLUMN authorities.registry_code IS 'Estonian Business Registry code of the authority, used for access control';
 COMMENT ON COLUMN authorities.subsets       IS 'eFTI subsets this authority is permitted to request. Constrained to EU01..EU07.';
-COMMENT ON COLUMN authorities.is_active     IS 'Logical-deletion flag';
+COMMENT ON COLUMN authorities.status        IS 'Current authority status: ACTIVE — visible and operational; DELETED — soft-deleted (removed by operator, row retained for audit).';
 COMMENT ON COLUMN authorities.created_by    IS 'users.row_id of the actor that wrote this row';
 COMMENT ON COLUMN authorities.created_at    IS 'When this row was inserted';
 
 CREATE INDEX IF NOT EXISTS idx_authorities_id_latest ON authorities (id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_authorities_registry_code   ON authorities (registry_code);
-CREATE INDEX IF NOT EXISTS idx_authorities_active    ON authorities (is_active) WHERE is_active = TRUE;
+CREATE INDEX IF NOT EXISTS idx_authorities_status    ON authorities (status);
 
 -- ----------------------------------------------------------------------------
 -- 3.4 users
