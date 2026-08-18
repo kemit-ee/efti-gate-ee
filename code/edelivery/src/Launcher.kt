@@ -1,22 +1,12 @@
-import edelivery.AsyncResponseProvider
-import edelivery.EDeliveryRoutes
-import edelivery.MessageHandler
-import edelivery.PartyRegistry
-import edelivery.SingleNodeAsyncResponseProvider
+import edelivery.*
 import io.swagger.v3.oas.annotations.OpenAPIDefinition
 import io.swagger.v3.oas.annotations.info.Info
-import klite.Config
-import klite.Server
+import klite.*
 import klite.annotations.annotated
 import klite.http.httpClient
 import klite.json.JsonBody
-import klite.metrics
 import klite.openapi.openApi
-import klite.register
-import klite.require
-import java.net.URI
-
-val Config.resqlUrl get() = URI(get("RESQL_URL"))
+import resql.ResqlClient
 
 fun main() {
   Config.useEnvFile()
