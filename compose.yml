@@ -101,12 +101,5 @@ services:
       - resql
     mem_limit: 512M
 
-  datamapper:
-    build:
-      context: .
-      dockerfile: docker/datamapper/Dockerfile
-    platform: linux/amd64
-    mem_limit: 512M
-
 volumes:
   data:
