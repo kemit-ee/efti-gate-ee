@@ -19,12 +19,12 @@ jobs:
 
       - name: Build CI images
         run: |
-          docker compose -p efti_gate_ee_ci_stack -f compose.yml -f compose.override.yml -f compose.ci.yml \
+          docker compose -p efti_gate_ee_ci_stack -f compose.yml -f compose.ci.yml \
             build database liquibase resql ruuter
 
       - name: Start services
         run: |
-          docker compose -p efti_gate_ee_ci_stack -f compose.yml -f compose.override.yml -f compose.ci.yml \
+          docker compose -p efti_gate_ee_ci_stack -f compose.yml -f compose.ci.yml \
             up -d database liquibase resql ruuter
 
       - name: Wait for ruuter
@@ -62,9 +62,9 @@ jobs:
       - name: Print logs on failure
         if: failure()
         run: |
-          docker compose -p efti_gate_ee_ci_stack -f compose.yml -f compose.override.yml -f compose.ci.yml logs
+          docker compose -p efti_gate_ee_ci_stack -f compose.yml -f compose.ci.yml logs
 
       - name: Teardown
         if: always()
         run: |
-          docker compose -p efti_gate_ee_ci_stack -f compose.yml -f compose.override.yml -f compose.ci.yml down -v
+          docker compose -p efti_gate_ee_ci_stack -f compose.yml -f compose.ci.yml down -v

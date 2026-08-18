@@ -54,13 +54,13 @@ graph LR
         G4["GET /api/v1/gates/{gateId}"]
         G5["PUT /api/v1/gates/{gateId}"]
         G6["DELETE /api/v1/gates/{gateId}"]
-        G7["POST /api/v1/gates/{gateId}/ping ⚠️501"]
+        G7["POST /api/v1/gates/{gateId}/ping"]
         P1["GET /api/v1/platforms"]
         P2["POST /api/v1/platforms"]
         P3["GET /api/v1/platforms/{platformId}"]
         P4["PUT /api/v1/platforms/{platformId}"]
         P5["DELETE /api/v1/platforms/{platformId}"]
-        P6["POST /api/v1/platforms/{platformId}/ping ⚠️501"]
+        P6["POST /api/v1/platforms/{platformId}/ping"]
         A1["GET /api/v1/authorities"]
         A2["POST /api/v1/authorities"]
         A3["GET /api/v1/authorities/{authorityId}"]
@@ -369,19 +369,33 @@ DELETE /efti/api/v1/gates?gateId=eu-de01
 
 ---
 
-### `POST /efti/api/v1/gates/ping?gateId={id}` — Ping gate ⚠️ 501
+### `POST /efti/api/v1/gates/ping?gateId={id}` — Ping gate
 
 **Spec:** `POST /api/v1/gates/{gateId}/ping`
 **Ruuter DSL:** `DSL/Ruuter/efti/POST/api/v1/gates/ping.yml`
 
-eDelivery AS4 ping pole skoobis — tagastab alati `501 Not Implemented`.
+Saadab eDelivery AS4 testpäringu gate'ile, uuendab `status` (`ONLINE`/`OFFLINE`) ja `last_ping_at`.
+Voog: gate olemasolu kontroll → eDelivery ping → `update_gate_ping` SQL → verify-after-write.
+
+| Vastus | Tähendus |
+|--------|----------|
+| `200` | Ping õnnestus, tagastatakse uuendatud gate kirje |
+| `404` | Gate ei eksisteeri |
+| `502` | eDelivery ping ebaõnnestus — gate staatuseks kirjutati `OFFLINE` |
+| `500` | DB kirjutus ebaõnnestus |
 
 ```
 POST /efti/api/v1/gates/ping?gateId=eu-de01
 
-→ 501 Not Implemented
+→ 200 OK
+{ "id": "eu-de01", "status": "ONLINE", "lastPingAt": "2026-08-18T10:00:00Z", ... }
+
+→ 502 Bad Gateway
 {
-  "response": "{\"error\": \"Not Implemented\"}"
+  "type": "https://api.efti.ee/errors/bad-gateway",
+  "title": "Bad Gateway",
+  "status": 502,
+  "detail": "Gate ping failed — eDelivery unreachable, status set to OFFLINE"
 }
 ```
 
@@ -539,14 +553,33 @@ DELETE /efti/api/v1/platforms?platformId=plt-cargo-ee-001
 
 ---
 
-### `POST /efti/api/v1/platforms/ping?platformId={id}` — Ping platform ⚠️ 501
+### `POST /efti/api/v1/platforms/ping?platformId={id}` — Ping platform
 
 **Ruuter DSL:** `DSL/Ruuter/efti/POST/api/v1/platforms/ping.yml`
+
+Saadab eDelivery AS4 testpäringu platvormile, uuendab `status` (`ONLINE`/`OFFLINE`).
+Voog: platvormi olemasolu kontroll → eDelivery ping → `update_platform_ping` SQL → verify-after-write.
+
+| Vastus | Tähendus |
+|--------|----------|
+| `200` | Ping õnnestus, tagastatakse uuendatud platvormi kirje |
+| `404` | Platvorm ei eksisteeri |
+| `502` | eDelivery ping ebaõnnestus — platvormi staatuseks kirjutati `OFFLINE` |
+| `500` | DB kirjutus ebaõnnestus |
 
 ```
 POST /efti/api/v1/platforms/ping?platformId=plt-cargo-ee-001
 
-→ 501 Not Implemented
+→ 200 OK
+{ "id": "plt-cargo-ee-001", "status": "ONLINE", ... }
+
+→ 502 Bad Gateway
+{
+  "type": "https://api.efti.ee/errors/bad-gateway",
+  "title": "Bad Gateway",
+  "status": 502,
+  "detail": "Platform ping failed — eDelivery unreachable, status set to OFFLINE"
+}
 ```
 
 ---
@@ -857,7 +890,7 @@ Kõik vead järgivad RFC 7807 `application/problem+json` formaati.
 | 429 | `RATE_LIMIT_EXCEEDED` | Liiga palju päringuid |
 | 500 | `INTERNAL_ERROR` | Süsteemiviga |
 | 500 | `DATABASE_ERROR` | Andmebaasiviga |
-| 501 | *(puudub)* | Pole teostatud (ping stub) |
+| 502 | `GATEWAY_UNAVAILABLE` | eDelivery ping ebaõnnestus (ka gates/platforms/ping) |
 | 502 | `GATEWAY_UNAVAILABLE` | Partner pole kättesaadav |
 | 503 | `SERVICE_UNAVAILABLE` | Teenus pole valmis |
 | 504 | `GATE_TIMEOUT` | Partner aegus |

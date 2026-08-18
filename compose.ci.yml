@@ -17,18 +17,22 @@
 #     On a fresh CI volume the schema migrations must run before ResQL can
 #     serve queries against the operational tables.
 #
-# Port selection: compose.yml uses ${EFTI_*_PORT:-<default>} interpolation.
+# Port selection: pass EFTI_*_PORT env vars to pick conflict-free host ports.
 # Pass 19xxx values to avoid conflicts with a running dev stack on the same host.
 
 services:
   database:
     container_name: efti_ci_database
+    ports:
+      - "${EFTI_DB_PORT:-54321}:5432"
 
   liquibase:
     container_name: efti_ci_liquibase
 
   resql:
     container_name: efti_ci_resql
+    ports:
+      - "${EFTI_RESQL_PORT:-8090}:8090"
     depends_on:
       database:
         condition: service_healthy
@@ -37,3 +41,5 @@ services:
 
   ruuter:
     container_name: efti_ci_ruuter
+    ports:
+      - "${EFTI_RUUTER_PORT:-8086}:8086"

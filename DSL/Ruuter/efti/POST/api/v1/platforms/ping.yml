@@ -1,4 +1,104 @@
-respond:
-  return: '{"error": "Not Implemented"}'
-  status: 501
+get_platform:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/get_platform_by_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.params.platformId}"
+  result: platform_result
+  next: check_platform_exists
+
+check_platform_exists:
+  switch:
+    - condition: ${platform_result.response.body == null || platform_result.response.body.length == 0}
+      next: platform_not_found
+  next: ping_edelivery
+
+ping_edelivery:
+  call: http.post
+  args:
+    url: "http://edelivery:8081/ping/${incoming.params.platformId}"
+    headers:
+      Content-Type: "application/json"
+    body: {}
+  result: ping_result
+  next: check_ping
+
+check_ping:
+  switch:
+    - condition: ${ping_result.response.statusCode != 200}
+      next: update_offline
+  next: update_online
+
+update_online:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/update_platform_ping"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.params.platformId}"
+      status: "ONLINE"
+  result: online_result
+  next: check_online_update
+
+check_online_update:
+  switch:
+    - condition: ${online_result.response.body == null || online_result.response.body.length == 0}
+      next: update_failed
+  next: verify_online
+
+verify_online:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/get_platform_by_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.params.platformId}"
+  result: verify_result
+  next: check_verify
+
+check_verify:
+  switch:
+    - condition: ${verify_result.response.body == null || verify_result.response.body.length == 0}
+      next: update_failed
+  next: respond_ok
+
+respond_ok:
+  return: ${verify_result.response.body}
+  next: end
+
+update_offline:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/update_platform_ping"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.params.platformId}"
+      status: "OFFLINE"
+  result: offline_result
+  next: check_offline_update
+
+check_offline_update:
+  switch:
+    - condition: ${offline_result.response.body == null || offline_result.response.body.length == 0}
+      next: update_failed
+  next: gateway_unavailable
+
+gateway_unavailable:
+  return: '{"type":"https://api.efti.ee/errors/bad-gateway","title":"Bad Gateway","status":502,"detail":"Platform ping failed — eDelivery unreachable, status set to OFFLINE"}'
+  status: 502
+  next: end
+
+platform_not_found:
+  return: '{"type":"https://api.efti.ee/errors/platform-not-found","title":"Platform Not Found","status":404,"detail":"Platform not found"}'
+  status: 404
+  next: end
+
+update_failed:
+  return: '{"type":"https://api.efti.ee/errors/internal-server-error","title":"Internal Server Error","status":500,"detail":"Failed to update platform ping status"}'
+  status: 500
   next: end
