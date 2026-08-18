@@ -39,6 +39,19 @@ Content-Type: application/json
   })
 %}
 
+### GET consignments list from Ruuter
+GET {{ruuterUrl}}/consignments
+Content-Type: application/json
+
+> {%
+  client.test("Find consignment", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.length === 1)
+    client.assert(response.body[0].datasetId === "550e8400-e29b-41d4-a716-446655440000")
+  })
+%}
+
+
 ### Delete consignment
 POST {{resqlUrl}}/soft_delete_consignment
 Content-Type: application/json
