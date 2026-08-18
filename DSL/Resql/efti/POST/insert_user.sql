@@ -6,7 +6,7 @@ VALUES (
   :name,
   COALESCE(:isAdmin::text, 'false')::boolean,
   COALESCE(:roles::jsonb, '{}'::jsonb),
-  ARRAY(SELECT jsonb_array_elements_text(:subsets))
+  :subsets
 )
 RETURNING
   row_id,
