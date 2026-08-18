@@ -23,26 +23,25 @@ INSERT INTO consignments (
   used_equipment_seq,
   carried_equipment_ids,
   carried_equipment_categories,
-  carried_equipment_seq,
-  created_by
+  carried_equipment_seq
 ) VALUES (
-  :datasetId,
+  :datasetId::uuid,
   :platformId,
   :gateId,
   :xml,
   COALESCE(:status, 'ACTIVE')::consignment_status,
   :transportMode,
-  :acceptanceDate,
+  :acceptanceDate::timestamptz,
   :acceptanceCountry,
-  :deliveryDate,
+  :deliveryDate::timestamptz,
   :deliveryCountry,
   :dangerousGoods,
   :mainTransportId,
   :mainTransportType,
   :transportRegCountry,
-  :loadingDate,
+  :loadingDate::timestamptz,
   :loadingCountry,
-  :unloadingDate,
+  :unloadingDate::timestamptz,
   :unloadingCountry,
   :usedEquipmentIds,
   :usedEquipmentCategories,
@@ -50,8 +49,7 @@ INSERT INTO consignments (
   :usedEquipmentSeq,
   :carriedEquipmentIds,
   :carriedEquipmentCategories,
-  :carriedEquipmentSeq,
-  :createdBy
+  :carriedEquipmentSeq
 )
 RETURNING
   row_id,

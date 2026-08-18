@@ -1,0 +1,36 @@
+declaration:
+  description: "Accept XML and forward to services"
+  allowed_body: [xml]
+
+consignment_xml:
+  call: http.post
+  args:
+    url: "http://xml-mapper:8082/api/v1/upload/request-to-json"
+    body:
+      text: "${incoming.body.xml}"
+    content_type: plaintext
+    headers:
+      Content-Type: "text/xml"
+  result: consignment_json
+  next: log_response
+
+log_response:
+  log: "First service response: ${consignment_json.response.body}"
+  next: upsert_consignment
+
+upsert_consignment:
+  call: http.post
+  args:
+      url: "http://resql:8090/efti/upsert_consignment"
+      headers:
+        Content-Type: "application/json"
+      body: ${consignment_json.response.body}
+  result: upsert_result
+  next: respond
+
+# TODO: verify?
+
+respond:
+  return: ${upsert_result.response.body}
+  status: 201
+  next: end

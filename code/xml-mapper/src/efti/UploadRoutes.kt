@@ -23,7 +23,7 @@ class UploadRoutes(val requestIdHandler: RequestIdHandler) {
       requestIdHandler.send(e, req.document.queryId)
       req.content
     } else xmlParser.parse<UniqueIDSetUIL>(xml)
-    return (content.uil.toJsonValues() + content.criteria.toJsonValues()).mapKeys { it.key.name } + ("xml" to xml)
+    return (content.uil.toJsonValues() + content.criteria.toJsonValues()).mapKeys { it.key.name } + mapOf("xml" to xml, "status" to null)
   }
 
   @Operation(description = "Map UIL as JSON to FTI029UploadIdentifierResponse as XML.")
