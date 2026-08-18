@@ -1,4 +1,104 @@
-respond:
-  return: '{"error": "Not Implemented"}'
-  status: 501
+get_gate:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/get_gate_by_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.params.gateId}"
+  result: gate_result
+  next: check_gate_exists
+
+check_gate_exists:
+  switch:
+    - condition: ${gate_result.response.body == null || gate_result.response.body.length == 0}
+      next: gate_not_found
+  next: ping_edelivery
+
+ping_edelivery:
+  call: http.post
+  args:
+    url: "http://edelivery:8081/ping/${incoming.params.gateId}"
+    headers:
+      Content-Type: "application/json"
+    body: {}
+  result: ping_result
+  next: check_ping
+
+check_ping:
+  switch:
+    - condition: ${ping_result.response.statusCode != 200}
+      next: update_offline
+  next: update_online
+
+update_online:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/update_gate_ping"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.params.gateId}"
+      status: "ONLINE"
+  result: online_result
+  next: check_online_update
+
+check_online_update:
+  switch:
+    - condition: ${online_result.response.body == null || online_result.response.body.length == 0}
+      next: update_failed
+  next: verify_online
+
+verify_online:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/get_gate_by_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.params.gateId}"
+  result: verify_result
+  next: check_verify
+
+check_verify:
+  switch:
+    - condition: ${verify_result.response.body == null || verify_result.response.body.length == 0}
+      next: update_failed
+  next: respond_ok
+
+respond_ok:
+  return: ${verify_result.response.body}
+  next: end
+
+update_offline:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/update_gate_ping"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.params.gateId}"
+      status: "OFFLINE"
+  result: offline_result
+  next: check_offline_update
+
+check_offline_update:
+  switch:
+    - condition: ${offline_result.response.body == null || offline_result.response.body.length == 0}
+      next: update_failed
+  next: gateway_unavailable
+
+gateway_unavailable:
+  return: '{"type":"https://api.efti.ee/errors/bad-gateway","title":"Bad Gateway","status":502,"detail":"Gate ping failed — eDelivery unreachable, status set to OFFLINE"}'
+  status: 502
+  next: end
+
+gate_not_found:
+  return: '{"type":"https://api.efti.ee/errors/gate-not-found","title":"Gate Not Found","status":404,"detail":"Gate not found"}'
+  status: 404
+  next: end
+
+update_failed:
+  return: '{"type":"https://api.efti.ee/errors/internal-server-error","title":"Internal Server Error","status":500,"detail":"Failed to update gate ping status"}'
+  status: 500
   next: end
