@@ -23,3 +23,10 @@ Content-Type: application/json
   },
   "limit": 10, "offset": 0
 }
+
+### Delete consignment
+
+POST {{resqlUrl}}/soft_delete_consignment
+Content-Type: application/json
+
+{"datasetId": "550e8400-e29b-41d4-a716-446655440000"}

@@ -25,14 +25,14 @@ SELECT
   carried_equipment_ids,
   carried_equipment_categories,
   carried_equipment_seq,
-  created_by,
   created_at
 FROM (
   SELECT DISTINCT ON (platform_id, dataset_id) *
   FROM consignments
   ORDER BY platform_id, dataset_id, created_at DESC
 ) latest
-WHERE (:criteria->'transportMode' IS NULL
+WHERE status != 'DELETED'
+  AND (:criteria->'transportMode' IS NULL
        OR :criteria->'transportMode'->>'operator' = 'EQ' AND transport_mode = :criteria->'transportMode'->>'mode'
        OR :criteria->'transportMode'->>'operator' = 'NE' AND transport_mode != :criteria->'transportMode'->>'mode'
   )

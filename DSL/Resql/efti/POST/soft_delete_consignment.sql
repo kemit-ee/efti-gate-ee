@@ -23,8 +23,7 @@ INSERT INTO consignments (
   used_equipment_seq,
   carried_equipment_ids,
   carried_equipment_categories,
-  carried_equipment_seq,
-  created_by
+  carried_equipment_seq
 )
 SELECT
   dataset_id,
@@ -51,13 +50,12 @@ SELECT
   used_equipment_seq,
   carried_equipment_ids,
   carried_equipment_categories,
-  carried_equipment_seq,
-  created_by
+  carried_equipment_seq
 FROM (
   SELECT DISTINCT ON (dataset_id)
     *
   FROM consignments
-  WHERE dataset_id = :datasetId
+  WHERE dataset_id = :datasetId::uuid
   ORDER BY dataset_id, created_at DESC
 ) latest
 RETURNING
