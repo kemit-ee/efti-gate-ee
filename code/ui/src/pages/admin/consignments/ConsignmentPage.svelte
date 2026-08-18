@@ -21,7 +21,7 @@
     if (loading || !hasMore) return
     loading = true
     try {
-      const page = await api.post<Consignment[]>(`v1/consignments/search`, {criteria: {}})
+      const page = await api.post<Consignment[]>(`v1/consignments/search`, {criteria: {}, offset: 0, limit: 1000})
       consignments = [...consignments ?? [], ...page]
       hasMore = page.length === pageSize
     } finally {
