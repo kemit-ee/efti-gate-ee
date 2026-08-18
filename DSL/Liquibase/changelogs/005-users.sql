@@ -10,7 +10,7 @@ CREATE TABLE users (
   secret_hash       TEXT,
   token_revoked_at  TIMESTAMPTZ,
   is_active         BOOLEAN      NOT NULL DEFAULT TRUE,
-  created_by        UUID,
+  created_by        UUID        DEFAULT get_app_user(),
   created_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 

@@ -16,7 +16,7 @@ CREATE TABLE authorities (
   registry_code TEXT         NOT NULL,
   subsets       TEXT[]       NOT NULL DEFAULT ARRAY[]::TEXT[],
   status        authority_status NOT NULL DEFAULT 'ACTIVE',
-  created_by    UUID,
+  created_by    UUID        DEFAULT get_app_user(),
   created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 

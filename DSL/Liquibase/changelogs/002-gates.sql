@@ -20,7 +20,7 @@ CREATE TABLE gates (
   tls_cert        TEXT,
   status          gate_status  NOT NULL,
   last_ping_at    TIMESTAMPTZ,
-  created_by      UUID,
+  created_by      UUID        DEFAULT get_app_user(),
   created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
   CONSTRAINT gates_country_format CHECK (country_code ~ '^[A-Z]{2}$')

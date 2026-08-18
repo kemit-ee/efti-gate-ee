@@ -12,7 +12,7 @@ CREATE TABLE platforms (
   cert_subject    TEXT,
   cert_serial     TEXT,
   status          gate_status  NOT NULL DEFAULT 'ONLINE',
-  created_by      UUID,
+  created_by      UUID        DEFAULT get_app_user(),
   created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
