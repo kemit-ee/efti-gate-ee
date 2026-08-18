@@ -21,5 +21,7 @@ POST {{resqlUrl}}/find_consignments
 Content-Type: application/json
 
 {
-  "criteria": {}
+  "criteria": {
+
+  }
 }
