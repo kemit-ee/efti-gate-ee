@@ -9,6 +9,7 @@ import efti.domain.PlatformId
 import efti.domain.UIL
 import efti.subsets.CountryCode.DE
 import efti.xml.fti.FTI029UploadIdentifierResponse
+import efti.xml.fti.extractParameterIDSetCriteria
 import efti.xml.fti.xmlParser
 import io.mockk.verify
 import klite.uuid
@@ -30,6 +31,7 @@ class UploadRoutesTest: BaseMocks() {
     expect(result["platformId"]).toEqual(uil.platformId)
     expect(result["acceptanceCountry"]).toEqual(DE)
     expect(result["transportMode"]).toEqual(MARINE)
+    expect(result["xml"]).toEqual(xml.extractParameterIDSetCriteria())
   }
 
   @Test fun responseToXml() {
