@@ -59,12 +59,12 @@ class Api {
     }
     const apiVersion = response.headers?.get('x-api-version')
     if (response.status < 200 || response.status >= 400) {
-      data.message = JSON.parse(data.response).error
+      data.message = data.error
       throw data
     } else if (apiVersion && apiVersion != window.apiVersion) {
       location.reload()
     }
-    return data.response
+    return data
   }
 
   private handleFetchFailure(error: any) {

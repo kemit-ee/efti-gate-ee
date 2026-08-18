@@ -39,6 +39,7 @@ fetch_list:
 
 respond_list:
   return: ${list_result.response.body}
+  wrapper: false
   next: end
 
 not_found:
