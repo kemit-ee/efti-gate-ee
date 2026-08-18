@@ -1,9 +1,14 @@
-import efti.*
+import efti.DatasetRoutes
+import efti.FollowupRoutes
+import efti.SearchRoutes
+import efti.UploadRoutes
+import efti.xml.fti.DateTimeString
 import io.swagger.v3.oas.annotations.OpenAPIDefinition
 import io.swagger.v3.oas.annotations.info.Info
 import klite.*
 import klite.annotations.annotated
 import klite.json.JsonBody
+import klite.json.JsonMapper
 import klite.openapi.openApi
 
 fun main() {
@@ -31,10 +36,15 @@ fun main() {
   }
 }
 
-class JsonOrXmlBody: JsonBody() {
+val jsonMapper = JsonMapper(renderNulls = true, values = object: ValueConverter<Any?>() {
+  override fun to(o: Any?) =
+    if (o is DateTimeString) o.instant.toString()
+    else super.to(o)
+})
+
+class JsonOrXmlBody: JsonBody(jsonMapper) {
   override fun render(e: HttpExchange, code: StatusCode, value: Any?) {
     if (value is String) e.send(code, value, MimeTypes.xml)
     else super.render(e, code, value)
   }
 }
-

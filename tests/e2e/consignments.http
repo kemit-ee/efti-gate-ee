@@ -1,0 +1,27 @@
+@ruuterUrl=http://localhost:8086/efti/api/v1
+@resqlUrl=http://localhost:8090/efti
+
+### Platform uploads a new consignment over REST (TODO: auth)
+
+POST {{ruuterUrl}}/consignments
+Content-Type: text/xml
+
+< ../../code/xml-mapper/xsd/Normalized/FTI004/sample.xml
+
+### List consignments
+
+POST {{resqlUrl}}/get_consignments
+Content-Type: application/json
+
+{"limit": 10, "offset": 0}
+
+### Find consignments
+
+POST {{resqlUrl}}/find_consignments
+Content-Type: application/json
+
+{
+  "criteria": {
+
+  }
+}
