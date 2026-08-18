@@ -4,12 +4,27 @@
   import {activePath,Link} from 'src/router'
   import type {NavRoute} from 'src/shared/Mode'
   import Icon from "src/icons/Icon.svelte";
+  import {onMount} from 'svelte';
 
   export let routes: NavRoute[]
 
-  const isMobile = innerWidth < 640
-  let menuOpen = !isMobile
+  let isMobile = false
+  let menuOpen = true
   let selectedLang = lang
+
+  onMount(() => {
+    const mediaQuery = window.matchMedia('(max-width: 639px)')
+    isMobile = mediaQuery.matches
+    menuOpen = !isMobile
+
+    const handleChange = (e: MediaQueryListEvent) => {
+      isMobile = e.matches
+      menuOpen = !isMobile
+    }
+
+    mediaQuery.addEventListener('change', handleChange)
+    return () => mediaQuery.removeEventListener('change', handleChange)
+  })
 
   $: if (selectedLang !== lang) changeLang(selectedLang)
 
