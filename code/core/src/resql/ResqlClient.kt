@@ -22,8 +22,10 @@ class ResqlClient(
   private val http: HttpClient,
   private val jsonMapper: JsonMapper,
 ) {
+  private val prefix = "/efti"
+
   private inline fun <reified T> fetch(path: String) =
-    jsonMapper.parse<List<T>>(http.post(baseUrl + path, jsonMapper.render(ResqlParams())).body())
+    jsonMapper.parse<List<T>>(http.post(baseUrl + prefix + path, jsonMapper.render(ResqlParams())).body())
 
   fun getGates() = fetch<GateParty>("/get_gates").map {
     EDeliveryParty(it.id, it.eDeliveryUrl, it.eDeliveryCert, it.tlsCert)
