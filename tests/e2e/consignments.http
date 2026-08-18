@@ -8,9 +8,18 @@ Content-Type: text/xml
 
 < ../../code/xml-mapper/xsd/Normalized/FTI004/sample.xml
 
-### Verify consignments
+### List consignments
 
 POST {{resqlUrl}}/get_consignments
 Content-Type: application/json
 
 {"limit": 10, "offset": 0}
+
+### Find consignments
+
+POST {{resqlUrl}}/find_consignments
+Content-Type: application/json
+
+{
+  "criteria": {}
+}

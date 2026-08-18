@@ -12,10 +12,6 @@ consignment_xml:
     headers:
       Content-Type: "text/xml"
   result: consignment_json
-  next: log_response
-
-log_response:
-  log: "First service response: ${consignment_json.response.body}"
   next: upsert_consignment
 
 upsert_consignment:
