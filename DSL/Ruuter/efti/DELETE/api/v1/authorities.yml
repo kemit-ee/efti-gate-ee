@@ -1,7 +1,7 @@
 delete_authority:
   call: http.post
   args:
-    url: "http://resql:8090/efti/soft_delete_authority"
+    url: "[#RESQL_URL]/efti/soft_delete_authority"
     headers:
       Content-Type: "application/json"
     body:
@@ -18,7 +18,7 @@ check_delete:
 verify_authority:
   call: http.post
   args:
-    url: "http://resql:8090/efti/get_authority_by_id"
+    url: "[#RESQL_URL]/efti/get_authority_by_id"
     headers:
       Content-Type: "application/json"
     body:

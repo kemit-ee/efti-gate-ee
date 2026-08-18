@@ -1,7 +1,7 @@
 fetch_own_gate:
   call: http.post
   args:
-    url: "http://resql:8090/efti/get_gate_by_id"
+    url: "[#RESQL_URL]/efti/get_gate_by_id"
     headers:
       Content-Type: "application/json"
     body:

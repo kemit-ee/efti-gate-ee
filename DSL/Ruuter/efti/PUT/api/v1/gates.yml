@@ -1,7 +1,7 @@
 update_gate:
   call: http.post
   args:
-    url: "http://resql:8090/efti/update_gate"
+    url: "[#RESQL_URL]/efti/update_gate"
     headers:
       Content-Type: "application/json"
     body:
@@ -23,7 +23,7 @@ check_update:
 verify_gate:
   call: http.post
   args:
-    url: "http://resql:8090/efti/get_gate_by_id"
+    url: "[#RESQL_URL]/efti/get_gate_by_id"
     headers:
       Content-Type: "application/json"
     body:

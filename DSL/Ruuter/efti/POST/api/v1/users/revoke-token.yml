@@ -1,7 +1,7 @@
 check_exists:
   call: http.post
   args:
-    url: "http://resql:8090/efti/get_user_by_id"
+    url: "[#RESQL_URL]/efti/get_user_by_id"
     headers:
       Content-Type: "application/json"
     body:
@@ -18,7 +18,7 @@ check_found:
 revoke_token:
   call: http.post
   args:
-    url: "http://resql:8090/efti/revoke_user_token"
+    url: "[#RESQL_URL]/efti/revoke_user_token"
     headers:
       Content-Type: "application/json"
     body:
@@ -35,7 +35,7 @@ check_revoke:
 verify_user:
   call: http.post
   args:
-    url: "http://resql:8090/efti/get_user_by_id"
+    url: "[#RESQL_URL]/efti/get_user_by_id"
     headers:
       Content-Type: "application/json"
     body:

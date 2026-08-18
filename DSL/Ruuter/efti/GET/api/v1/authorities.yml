@@ -7,7 +7,7 @@ route:
 fetch_single:
   call: http.post
   args:
-    url: "http://resql:8090/efti/get_authority_by_id"
+    url: "[#RESQL_URL]/efti/get_authority_by_id"
     headers:
       Content-Type: "application/json"
     body:
@@ -28,7 +28,7 @@ respond_single:
 fetch_list:
   call: http.post
   args:
-    url: "http://resql:8090/efti/get_authorities"
+    url: "[#RESQL_URL]/efti/get_authorities"
     headers:
       Content-Type: "application/json"
     body:

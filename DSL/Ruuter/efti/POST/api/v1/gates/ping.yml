@@ -1,7 +1,7 @@
 get_gate:
   call: http.post
   args:
-    url: "http://resql:8090/efti/get_gate_by_id"
+    url: "[#RESQL_URL]/efti/get_gate_by_id"
     headers:
       Content-Type: "application/json"
     body:
@@ -34,7 +34,7 @@ check_ping:
 update_online:
   call: http.post
   args:
-    url: "http://resql:8090/efti/update_gate_ping"
+    url: "[#RESQL_URL]/efti/update_gate_ping"
     headers:
       Content-Type: "application/json"
     body:
@@ -52,7 +52,7 @@ check_online_update:
 verify_online:
   call: http.post
   args:
-    url: "http://resql:8090/efti/get_gate_by_id"
+    url: "[#RESQL_URL]/efti/get_gate_by_id"
     headers:
       Content-Type: "application/json"
     body:
@@ -73,7 +73,7 @@ respond_ok:
 update_offline:
   call: http.post
   args:
-    url: "http://resql:8090/efti/update_gate_ping"
+    url: "[#RESQL_URL]/efti/update_gate_ping"
     headers:
       Content-Type: "application/json"
     body:

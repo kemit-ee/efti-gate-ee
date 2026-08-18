@@ -1,7 +1,7 @@
 check_exists:
   call: http.post
   args:
-    url: "http://resql:8090/efti/get_user_by_id"
+    url: "[#RESQL_URL]/efti/get_user_by_id"
     headers:
       Content-Type: "application/json"
     body:
@@ -18,7 +18,7 @@ check_found:
 update_user:
   call: http.post
   args:
-    url: "http://resql:8090/efti/update_user"
+    url: "[#RESQL_URL]/efti/update_user"
     headers:
       Content-Type: "application/json"
     body:
@@ -37,7 +37,7 @@ check_update:
 verify_user:
   call: http.post
   args:
-    url: "http://resql:8090/efti/get_user_by_id"
+    url: "[#RESQL_URL]/efti/get_user_by_id"
     headers:
       Content-Type: "application/json"
     body:

@@ -21,7 +21,7 @@
 delete_user:
   call: http.post
   args:
-    url: "http://resql:8090/efti/soft_delete_user"
+    url: "[#RESQL_URL]/efti/soft_delete_user"
     headers:
       Content-Type: "application/json"
     body:
@@ -38,7 +38,7 @@ check_delete:
 verify_user:
   call: http.post
   args:
-    url: "http://resql:8090/efti/get_user_by_id"
+    url: "[#RESQL_URL]/efti/get_user_by_id"
     headers:
       Content-Type: "application/json"
     body:

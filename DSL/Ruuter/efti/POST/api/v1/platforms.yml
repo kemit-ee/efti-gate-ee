@@ -1,7 +1,7 @@
 create_platform:
   call: http.post
   args:
-    url: "http://resql:8090/efti/insert_platform"
+    url: "[#RESQL_URL]/efti/insert_platform"
     headers:
       Content-Type: "application/json"
     body:
@@ -25,7 +25,7 @@ check_insert:
 verify_platform:
   call: http.post
   args:
-    url: "http://resql:8090/efti/get_platform_by_id"
+    url: "[#RESQL_URL]/efti/get_platform_by_id"
     headers:
       Content-Type: "application/json"
     body:

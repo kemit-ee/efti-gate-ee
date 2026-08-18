@@ -1,7 +1,7 @@
 delete_gate:
   call: http.post
   args:
-    url: "http://resql:8090/efti/soft_delete_gate"
+    url: "[#RESQL_URL]/efti/soft_delete_gate"
     headers:
       Content-Type: "application/json"
     body:
@@ -18,7 +18,7 @@ check_delete:
 verify_gate:
   call: http.post
   args:
-    url: "http://resql:8090/efti/get_gate_by_id"
+    url: "[#RESQL_URL]/efti/get_gate_by_id"
     headers:
       Content-Type: "application/json"
     body:

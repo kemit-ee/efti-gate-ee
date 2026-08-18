@@ -1,7 +1,7 @@
 delete_platform:
   call: http.post
   args:
-    url: "http://resql:8090/efti/soft_delete_platform"
+    url: "[#RESQL_URL]/efti/soft_delete_platform"
     headers:
       Content-Type: "application/json"
     body:
@@ -18,7 +18,7 @@ check_delete:
 verify_platform:
   call: http.post
   args:
-    url: "http://resql:8090/efti/get_platform_by_id"
+    url: "[#RESQL_URL]/efti/get_platform_by_id"
     headers:
       Content-Type: "application/json"
     body:

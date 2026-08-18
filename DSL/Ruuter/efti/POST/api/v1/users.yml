@@ -23,7 +23,7 @@
 # resolve_caller:
 #   call: http.post
 #   args:
-#     url: "http://resql:8090/efti/get_user_by_tara_sub"
+#     url: "[#RESQL_URL]/efti/get_user_by_tara_sub"
 #     headers:
 #       Content-Type: "application/json"
 #     body:
@@ -66,7 +66,7 @@
 check_duplicate:
   call: http.post
   args:
-    url: "http://resql:8090/efti/check_tara_sub_exists"
+    url: "[#RESQL_URL]/efti/check_tara_sub_exists"
     headers:
       Content-Type: "application/json"
     body:
@@ -83,7 +83,7 @@ check_dup_result:
 create_user:
   call: http.post
   args:
-    url: "http://resql:8090/efti/insert_user"
+    url: "[#RESQL_URL]/efti/insert_user"
     headers:
       Content-Type: "application/json"
     body:
@@ -101,7 +101,7 @@ check_insert:
 verify_user:
   call: http.post
   args:
-    url: "http://resql:8090/efti/get_user_by_id"
+    url: "[#RESQL_URL]/efti/get_user_by_id"
     headers:
       Content-Type: "application/json"
     body:

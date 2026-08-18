@@ -1,7 +1,7 @@
 check_db:
   call: http.post
   args:
-    url: "http://resql:8090/efti/get_db_status"
+    url: "[#RESQL_URL]/efti/get_db_status"
     headers:
       Content-Type: "application/json"
     body: {}

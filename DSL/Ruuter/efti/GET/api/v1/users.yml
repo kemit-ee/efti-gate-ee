@@ -7,7 +7,7 @@ route:
 fetch_single:
   call: http.post
   args:
-    url: "http://resql:8090/efti/get_user_by_id"
+    url: "[#RESQL_URL]/efti/get_user_by_id"
     headers:
       Content-Type: "application/json"
     body:
@@ -29,7 +29,7 @@ respond_single:
 fetch_list:
   call: http.post
   args:
-    url: "http://resql:8090/efti/get_users"
+    url: "[#RESQL_URL]/efti/get_users"
     headers:
       Content-Type: "application/json"
     body:

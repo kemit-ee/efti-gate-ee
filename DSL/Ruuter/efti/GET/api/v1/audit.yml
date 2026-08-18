@@ -1,7 +1,7 @@
 fetch_audit_log:
   call: http.post
   args:
-    url: "http://resql:8090/efti/get_audit_log"
+    url: "[#RESQL_URL]/efti/get_audit_log"
     headers:
       Content-Type: "application/json"
     body:
