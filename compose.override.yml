@@ -33,6 +33,3 @@ services:
   ui:
     ports:
       - 8000:80
-  datamapper:
-    ports:
-      - 3000:3000

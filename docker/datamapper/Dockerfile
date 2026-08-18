@@ -1,1 +1,0 @@
-FROM turnerrainer/datamapper:alpha
