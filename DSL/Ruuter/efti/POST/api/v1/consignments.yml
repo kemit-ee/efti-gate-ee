@@ -1,11 +1,11 @@
 declaration:
-  description: "Accept consignment XML from Platforms"
+  description: "Accept consignment XML from Platforms (External API)"
   allowed_body: [xml]
 
 consignment_xml:
   call: http.post
   args:
-    url: "http://xml-mapper:8082/api/v1/upload/request-to-json"
+    url: "[#XML_MAPPER_URL]/api/v1/upload/request-to-json"
     body:
       text: "${incoming.body.xml}"
     content_type: plaintext
@@ -17,7 +17,7 @@ consignment_xml:
 insert_consignment:
   call: http.post
   args:
-      url: "http://resql:8090/efti/insert_consignment"
+      url: "[#RESQL_URL]/efti/insert_consignment"
       headers:
         Content-Type: "application/json"
       body: ${consignment_json.response.body}
