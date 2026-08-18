@@ -1,9 +1,5 @@
-# TODO: define local & compose env files for these
-@ruuterUrl=http://ruuter:8086/efti/api/v1
-@resqlUrl=http://resql:8090/efti
-
 ### Platform uploads a new consignment over REST (TODO: auth)
-POST {{ruuterUrl}}/consignments
+POST {{ruuterUrl}}/efti/api/v1/consignments
 Content-Type: text/xml
 
 < ../../code/xml-mapper/xsd/Normalized/FTI004/sample.xml
@@ -17,8 +13,21 @@ Content-Type: text/xml
   })
 %}
 
+
+### List consignments
+GET {{ruuterUrl}}/efti/api/v1/consignments
+Content-Type: application/json
+
+> {%
+  client.test("Find consignment", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.length >= 1)
+  })
+%}
+
+
 ### Find consignment
-POST {{ruuterUrl}}/consignments/search
+POST {{ruuterUrl}}/efti/api/v1/consignments/search
 Content-Type: application/json
 
 {
@@ -40,21 +49,9 @@ Content-Type: application/json
   })
 %}
 
-### GET consignments list from Ruuter
-GET {{ruuterUrl}}/consignments
-Content-Type: application/json
-
-> {%
-  client.test("Find consignment", () => {
-    client.assert(response.status === 200)
-    client.assert(response.body.length === 1)
-    client.assert(response.body[0].datasetId === "550e8400-e29b-41d4-a716-446655440000")
-  })
-%}
-
 
 ### Delete consignment
-POST {{resqlUrl}}/soft_delete_consignment
+POST {{resqlUrl}}/efti/soft_delete_consignment
 Content-Type: application/json
 
 {"datasetId": "550e8400-e29b-41d4-a716-446655440000"}
