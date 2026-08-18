@@ -1,10 +1,118 @@
 databaseChangeLog:
   - changeSet:
-      id: 000-init-schema
+      id: 000-extensions
       author: efti
       changes:
         - sqlFile:
-            path: changelogs/000-init-schema.sql
+            path: changelogs/000-extensions.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            encoding: UTF-8
+  - changeSet:
+      id: 001-functions
+      author: efti
+      changes:
+        - sqlFile:
+            path: changelogs/001-functions.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            encoding: UTF-8
+  - changeSet:
+      id: 002-gates
+      author: efti
+      changes:
+        - sqlFile:
+            path: changelogs/002-gates.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            encoding: UTF-8
+  - changeSet:
+      id: 003-platforms
+      author: efti
+      changes:
+        - sqlFile:
+            path: changelogs/003-platforms.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            encoding: UTF-8
+  - changeSet:
+      id: 004-authorities
+      author: efti
+      changes:
+        - sqlFile:
+            path: changelogs/004-authorities.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            encoding: UTF-8
+  - changeSet:
+      id: 005-users
+      author: efti
+      changes:
+        - sqlFile:
+            path: changelogs/005-users.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            encoding: UTF-8
+  - changeSet:
+      id: 006-consignments
+      author: efti
+      changes:
+        - sqlFile:
+            path: changelogs/006-consignments.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            encoding: UTF-8
+  - changeSet:
+      id: 007-request-id-cache
+      author: efti
+      changes:
+        - sqlFile:
+            path: changelogs/007-request-id-cache.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            encoding: UTF-8
+  - changeSet:
+      id: 008-sessions
+      author: efti
+      changes:
+        - sqlFile:
+            path: changelogs/008-sessions.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            encoding: UTF-8
+  - changeSet:
+      id: 009-jobs-execution-log
+      author: efti
+      changes:
+        - sqlFile:
+            path: changelogs/009-jobs-execution-log.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            encoding: UTF-8
+  - changeSet:
+      id: 010-follow-up-log
+      author: efti
+      changes:
+        - sqlFile:
+            path: changelogs/010-follow-up-log.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            encoding: UTF-8
+  - changeSet:
+      id: 011-audit-log
+      author: efti
+      changes:
+        - sqlFile:
+            path: changelogs/011-audit-log.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            encoding: UTF-8
+  - changeSet:
+      id: 012-async-responses
+      author: efti
+      changes:
+        - sqlFile:
+            path: changelogs/012-async-responses.sql
             relativeToChangelogFile: true
             splitStatements: false
             encoding: UTF-8
