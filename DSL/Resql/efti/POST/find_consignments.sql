@@ -152,4 +152,5 @@ WHERE (:criteria->'transportMode' IS NULL
        OR :criteria->'unloadingDate'->1->>'operator' = 'GT' AND unloading_date > (:criteria->'unloadingDate'->1->>'date')::timestamptz
        OR :criteria->'unloadingDate'->1->>'operator' = 'GE' AND unloading_date >= (:criteria->'unloadingDate'->1->>'date')::timestamptz
   )
-ORDER BY platform_id, dataset_id, created_at DESC;
+ORDER BY platform_id, dataset_id, created_at DESC
+LIMIT COALESCE(:limit, 20) OFFSET COALESCE(:offset, 0);
