@@ -8,6 +8,15 @@ Content-Type: text/xml
 
 < ../../code/xml-mapper/xsd/Normalized/FTI004/sample.xml
 
+> {%
+  client.test("Consignment saved", () => {
+    client.assert(response.status === 201)
+    client.assert(response.body.response[0].gateId === "POC")
+    client.assert(response.body.response[0].platformId === "demo")
+    client.assert(response.body.response[0].datasetId === "550e8400-e29b-41d4-a716-446655440000")
+  })
+%}
+
 ### Find consignments
 
 POST {{resqlUrl}}/get_consignments
