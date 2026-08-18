@@ -2,7 +2,8 @@
   "statuses": {
     "ONLINE": "ONLINE",
     "OFFLINE": "OFFLINE",
-    "DISABLED": "DISABLED"
+    "DISABLED": "DISABLED",
+    "DELETED": "DELETED"
   },
   "xsdSupport": {
     "V0_9": "v0.9",
@@ -69,6 +70,8 @@
     "id": "Authority ID",
     "name": "Authority name",
     "authority": "Authority",
+    "registryCode": "Registry code",
+    "description": "Description",
     "subsets": "Allowed subsets",
     "added": "Authority registered successfully"
   },
@@ -76,8 +79,8 @@
     "title": "Users",
     "user": "User",
     "name": "Name",
-    "email": "Email",
-    "isAdmin": "Admin",
+    "taraSub": "TARA Sub",
+    "secretHash": "Secret hash",
     "generateSecret": "Generate new password or token",
     "copyPastePassword": "Copy user's password (you won't see it again)",
     "copyPasteToken": "Copy user's bearer token (you won't see it again)",

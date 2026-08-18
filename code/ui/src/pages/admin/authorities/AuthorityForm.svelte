@@ -5,9 +5,8 @@
   import Button from 'src/components/Button.svelte'
   import FormField from 'src/forms/FormField.svelte'
   import {showToast} from 'src/stores/toasts'
-  import CountrySelect from 'src/pages/admin/CountrySelect.svelte'
   import SubsetsEditor from 'src/pages/admin/SubsetsEditor.svelte'
-  import type {Authority, AuthorityRequest} from "src/api/ruuterTypes";
+  import type {Authority, AuthorityRequest} from 'src/api/ruuterTypes'
 
   export let authority: Authority
   export let onSaved = () => {}
@@ -17,8 +16,9 @@
   async function submit() {
     const request: AuthorityRequest = {
       id: authority.id,
-      countryCode: authority.countryCode,
       name: authority.name,
+      registryCode: authority.registryCode,
+      description: authority.description,
       subsets: authority.subsets,
     }
 
@@ -33,8 +33,9 @@
 <Form {submit}>
   <FormField label={t.authorities.id} bind:value={authority.id} disabled={isEdit}/>
   <FormField label={t.authorities.name} bind:value={authority.name}/>
-  <CountrySelect bind:countryCode={authority.countryCode}/>
-  <SubsetsEditor countryCode={authority.countryCode} bind:subsets={authority.subsets}/>
+  <FormField label={t.authorities.registryCode} bind:value={authority.registryCode}/>
+  <FormField label={t.authorities.description} bind:value={authority.description}/>
+  <SubsetsEditor bind:subsets={authority.subsets}/>
 
   <Button type="submit" label={t.general.save} class="primary"/>
 </Form>

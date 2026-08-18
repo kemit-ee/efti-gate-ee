@@ -6,10 +6,10 @@ create_authority:
       Content-Type: "application/json"
     body:
       id: "${incoming.body.id}"
-      countryCode: "${incoming.body.countryCode}"
       name: "${incoming.body.name}"
+      registryCode: "${incoming.body.registryCode}"
+      description: "${incoming.body.description}"
       subsets: "${incoming.body.subsets}"
-      isAuthorityActive: "${incoming.body.isAuthorityActive}"
   result: insert_result
   next: check_insert
 

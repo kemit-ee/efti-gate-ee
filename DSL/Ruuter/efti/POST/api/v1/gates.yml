@@ -11,7 +11,6 @@ create_gate:
       eDeliveryCert: "${incoming.body.eDeliveryCert}"
       tlsCert: "${incoming.body.tlsCert}"
       status: "${incoming.body.status}"
-      isGateActive: "${incoming.body.isGateActive}"
   result: insert_result
   next: check_insert
 

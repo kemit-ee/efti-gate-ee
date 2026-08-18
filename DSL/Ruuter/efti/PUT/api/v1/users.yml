@@ -24,11 +24,7 @@ update_user:
     body:
       userId: "${incoming.params.userId}"
       taraSub: "${incoming.body.taraSub}"
-      email: "${incoming.body.email}"
       name: "${incoming.body.name}"
-      isAdmin: "${incoming.body.isAdmin}"
-      roles: "${incoming.body.roles}"
-      subsets: "${incoming.body.subsets}"
   result: update_result
   next: check_update
 

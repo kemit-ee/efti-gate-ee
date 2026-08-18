@@ -34,8 +34,6 @@ fetch_list:
     body:
       limit: "${incoming.params.limit}"
       offset: "${incoming.params.offset}"
-      gateId: "${incoming.params.gateId}"
-      authorityId: "${incoming.params.authorityId}"
   result: list_result
   next: respond_list
 

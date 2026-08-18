@@ -88,11 +88,7 @@ create_user:
       Content-Type: "application/json"
     body:
       taraSub: "${incoming.body.taraSub}"
-      email: "${incoming.body.email}"
       name: "${incoming.body.name}"
-      isAdmin: "${incoming.body.isAdmin}"
-      roles: "${incoming.body.roles}"
-      subsets: "${incoming.body.subsets}"
   result: insert_result
   next: check_insert
 

@@ -4,9 +4,8 @@
   import FormField from 'src/forms/FormField.svelte'
   import CheckboxField from 'src/forms/CheckboxField.svelte'
   import {tick} from 'svelte'
-  import type {CountryCode, Subset} from "src/api/ruuterTypes";
+  import type {Subset} from 'src/api/ruuterTypes'
 
-  export let countryCode: CountryCode
   export let subsets: Subset[]
 
   let full = !!subsets.find(s => s === 'full')
@@ -33,7 +32,7 @@
   {#if !full}
     {#each subsets as subset, i}
       <div class="flex gap-2">
-        <FormField bind:value={subset} pattern="[A-Z][A-Z][0-9][0-9][a-z]?" maxlength={5} placeholder="{countryCode}01" class="subset"/>
+        <FormField bind:value={subset} pattern="[A-Z][A-Z][0-9][0-9][a-z]?" maxlength={5} placeholder="EU01" class="subset"/>
         <Button label="×" onclick={() => remove(i)} title={t.general.remove} class="danger"/>
       </div>
     {/each}

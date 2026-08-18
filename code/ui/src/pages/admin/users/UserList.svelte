@@ -4,7 +4,7 @@
   import SortableTable from 'src/components/SortableTable.svelte'
   import Button from 'src/components/Button.svelte'
   import {showToast} from 'src/stores/toasts'
-  import type {User} from "src/api/ruuterTypes";
+  import type {User} from 'src/api/ruuterTypes'
 
   export let users: User[]
   export let onEdit: (user: User) => void
@@ -18,12 +18,11 @@
   }
 </script>
 
-<SortableTable items={users} labels={t.users} columns={['id', 'name', 'taraSub', 'roles', 'isActive', '']} let:item={u}>
+<SortableTable items={users} labels={t.users} columns={['id', 'name', 'taraSub', 'isActive', '']} let:item={u}>
   <tr>
     <td>{u.id}</td>
     <td>{u.name}</td>
     <td>{u.taraSub}</td>
-    <td>{JSON.stringify(u.roles)}</td>
     <td>{u.isActive ? 'Yes' : 'No'}</td>
     <td>
       <Button label={t.general.edit} onclick={() => onEdit(u)} size="sm"/>

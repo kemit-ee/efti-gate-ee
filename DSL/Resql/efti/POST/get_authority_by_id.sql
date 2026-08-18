@@ -1,8 +1,9 @@
 SELECT DISTINCT ON (id)
   row_id,
   id,
-  country_code,
   name,
+  registry_code,
+  description,
   subsets,
   is_active AS is_authority_active,
   created_at

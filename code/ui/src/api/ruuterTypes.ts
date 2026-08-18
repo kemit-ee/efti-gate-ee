@@ -1,7 +1,8 @@
 export enum Status {
   ONLINE = 'ONLINE',
   OFFLINE = 'OFFLINE',
-  DISABLED = 'DISABLED'
+  DISABLED = 'DISABLED',
+  DELETED = 'DELETED'
 }
 export enum SubsetCode {
   EU01 = 'EU01',
@@ -37,7 +38,6 @@ export interface Gate {
   tlsCert: string | null
   status: Status
   lastPingAt: string | null
-  isGateActive: boolean
   createdAt: string
 }
 export interface GateRequest {
@@ -47,7 +47,6 @@ export interface GateRequest {
   eDeliveryCert?: string | null
   tlsCert?: string | null
   status?: Status
-  isGateActive?: boolean
 }
 
 export interface Platform {
@@ -58,8 +57,7 @@ export interface Platform {
   tlsCert: string | null
   certSubject: string | null
   certSerial: string | null
-  isPlatformActive: boolean
-  status?: Status
+  status: Status
   createdAt: string
 }
 
@@ -71,13 +69,14 @@ export interface PlatformRequest {
   tlsCert?: string | null
   certSubject?: string | null
   certSerial?: string | null
-  isGateActive?: boolean
+  status?: Status
 }
 
 export interface Authority {
   id: string
-  countryCode: CountryCode
   name: string
+  registryCode: string
+  description?: string
   subsets: SubsetCode[]
   isAuthorityActive: boolean
   createdAt: string
@@ -85,8 +84,9 @@ export interface Authority {
 
 export interface AuthorityRequest {
   id: string
-  countryCode: string
   name: string
+  registryCode: string
+  description?: string
   subsets: SubsetCode[]
   isAuthorityActive?: boolean
 }
@@ -95,31 +95,18 @@ export interface User {
   id: string
   taraSub: string
   name: string
-  email: string
-  isAdmin: boolean
-  subsets: string[]
-  roles: Roles
+  isActive: boolean
   createdAt: string
 }
 
 export interface CreateUserRequest {
   taraSub: string
   name: string
-  email: string
-  isAdmin: boolean
-  subsets: string[]
-  roles: Roles
 }
 
 export interface UpdateUserRequest {
   name?: string
-  roles?: Roles
   isActive?: boolean
-}
-
-export interface Roles {
-  AUTHORITY?: string[]
-  ADMIN?: string[]
 }
 
 export interface UserIdParam {

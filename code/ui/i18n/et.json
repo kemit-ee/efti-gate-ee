@@ -2,7 +2,8 @@
   "statuses": {
     "ONLINE": "ONLINE",
     "OFFLINE": "OFFLINE",
-    "DISABLED": "KEELATUD"
+    "DISABLED": "KEELATUD",
+    "DELETED": "KUSTUTATUD"
   },
   "xsdSupport": {
     "V0_9": "v0.9",
@@ -69,6 +70,8 @@
     "id": "Asutuse ID",
     "name": "Asutuse nimi",
     "authority": "Asutus",
+    "registryCode": "Registrikood",
+    "description": "Kirjeldus",
     "subsets": "Lubatud alamhulgad",
     "added": "Asutus edukalt registreeritud"
   },
@@ -76,8 +79,8 @@
     "title": "Kasutajad",
     "user": "Kasutaja",
     "name": "Nimi",
-    "email": "E-post",
-    "isAdmin": "Admin",
+    "taraSub": "Isikukood",
+    "secretHash": "Salasõna räsi",
     "generateSecret": "Loo uus parool või token",
     "copyPastePassword": "Kopeeri kasutaja parool (te ei näe seda enam)",
     "copyPasteToken": "Kopeeri kasutaja bearer token (te ei näe seda enam)",
