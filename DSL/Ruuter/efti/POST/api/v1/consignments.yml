@@ -1,5 +1,5 @@
 declaration:
-  description: "Accept XML and forward to services"
+  description: "Accept consignment XML from Platforms"
   allowed_body: [xml]
 
 consignment_xml:
@@ -12,21 +12,21 @@ consignment_xml:
     headers:
       Content-Type: "text/xml"
   result: consignment_json
-  next: upsert_consignment
+  next: insert_consignment
 
-upsert_consignment:
+insert_consignment:
   call: http.post
   args:
-      url: "http://resql:8090/efti/upsert_consignment"
+      url: "http://resql:8090/efti/insert_consignment"
       headers:
         Content-Type: "application/json"
       body: ${consignment_json.response.body}
-  result: upsert_result
+  result: insert_result
   next: respond
 
 # TODO: verify?
 
 respond:
-  return: ${upsert_result.response.body}
+  return: ${insert_result.response.body}
   status: 201
   next: end

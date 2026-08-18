@@ -8,16 +8,9 @@ Content-Type: text/xml
 
 < ../../code/xml-mapper/xsd/Normalized/FTI004/sample.xml
 
-### List consignments
-
-POST {{resqlUrl}}/get_consignments
-Content-Type: application/json
-
-{"limit": 10, "offset": 0}
-
 ### Find consignments
 
-POST {{resqlUrl}}/find_consignments
+POST {{resqlUrl}}/get_consignments
 Content-Type: application/json
 
 {
@@ -27,5 +20,6 @@ Content-Type: application/json
     "carriedEquipmentIds": {"operator": "EQ", "id": "TE-004"},
     "deliveryCountry": {"operator": "EQ", "country": "EE"},
     "deliveryDate": [{"operator": "GT", "date": "2025-06-01"}]
-  }
+  },
+  "limit": 10, "offset": 0
 }
