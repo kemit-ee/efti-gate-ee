@@ -132,9 +132,12 @@ export interface Consignment {
   platformId: string
   gateId: string
   status: ConsignmentStatus
-  mode: TransportMode
-  dangerousGoods: boolean
+  xml: string
+  dangerousGoods: string
   createdAt: string
+  usedEquipmentIds: string[]
+  carriedEquipmentIds: string[]
+  mainTransportId: string
 }
 
 export interface ConsignmentListParams extends PaginationParams {

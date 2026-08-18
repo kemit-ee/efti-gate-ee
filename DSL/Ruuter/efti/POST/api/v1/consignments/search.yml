@@ -1,0 +1,16 @@
+search_consignments:
+  call: http.post
+  args:
+    url: "http://resql:8090/efti/get_consignments"
+    headers:
+      Content-Type: "application/json"
+    body:
+      criteria: "${incoming.body.criteria}"
+      limit: "${incoming.body.limit}"
+      offset: "${incoming.body.offset}"
+  result: search_result
+  next: respond
+
+respond:
+  return: ${search_result.response.body}
+  next: end

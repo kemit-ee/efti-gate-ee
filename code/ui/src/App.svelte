@@ -8,13 +8,14 @@
   import AuthoritiesPage from 'src/pages/admin/authorities/AuthoritiesPage.svelte'
   import UsersPage from 'src/pages/admin/users/UsersPage.svelte'
   import {Role} from "src/api/ruuterTypes";
+  import ConsignmentPage from "src/pages/admin/consignments/ConsignmentPage.svelte";
 
   const routes = [
     {name: t.gates.title, path: '/gates', component: GatesPage, role: Role.GATE},
     {name: t.platforms.title, path: '/platforms', component: PlatformsPage, role: Role.PLATFORM},
     {name: t.authorities.title, path: '/authorities', component: AuthoritiesPage, role: Role.AUTHORITY},
     {name: t.users.title, path: '/users', component: UsersPage},
-    //{name: t.consignments.title, path: '/consignments', component: ConsignmentPage, role: Role.PLATFORM},
+    {name: t.consignments.title, path: '/consignments', component: ConsignmentPage, role: Role.PLATFORM},
   ]
 
   function navigateToFirstPage() {
