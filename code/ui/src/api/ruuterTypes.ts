@@ -129,11 +129,9 @@ export interface UserIdParam {
 }
 
 export enum ConsignmentStatus {
-  DRAFT = 'DRAFT',
-  REGISTERED = 'REGISTERED',
-  IN_TRANSIT = 'IN_TRANSIT',
-  DELIVERED = 'DELIVERED',
-  CANCELLED = 'CANCELLED'
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  DELETED = 'DELETED',
 }
 
 export enum TransportMode {
