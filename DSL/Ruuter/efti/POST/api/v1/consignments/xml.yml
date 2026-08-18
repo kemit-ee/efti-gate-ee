@@ -1,0 +1,30 @@
+declaration:
+  description: "Accept consignment XML from Platform through eDelivery"
+  allowed_body: [xml]
+
+call_consignment:
+  template: api/v1/consignments
+  request_type: "POST"
+  body:
+    xml: ${incoming.body.xml}
+  result: consignment_response
+  next: to_xml
+
+to_xml:
+  call: http.post
+  args:
+    url: "[#XML_MAPPER_URL]/api/v1/upload/response-to-xml"
+    headers:
+      Content-Type: "application/json"
+    body: ${consignment_response}
+  result: xml_response
+  next: respond
+
+# TODO: This returns XML as string (XML is wrapped in "")
+respond:
+  return: ${xml_response.response.body.xml}
+  headers:
+    Content-Type: "text/xml"
+  wrapper: false
+  status: 201
+  next: end
