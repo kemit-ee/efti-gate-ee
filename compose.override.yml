@@ -41,4 +41,4 @@ services:
       - xml-mapper
     volumes:
       - ./:/workdir
-    command: --env-file tests/http/http-client.env.json -e docker tests/http/consignments.http
+    command: -L VERBOSE --env-file tests/http/http-client.env.json -e docker tests/http/consignments.http
