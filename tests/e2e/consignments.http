@@ -10,7 +10,7 @@ Content-Type: text/xml
 
 ### Find consignments
 
-POST {{resqlUrl}}/find_consignments
+POST {{resqlUrl}}/get_consignments
 Content-Type: application/json
 
 {
