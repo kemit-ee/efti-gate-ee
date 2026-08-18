@@ -8,10 +8,9 @@ import klite.Config
 import klite.http.post
 import klite.json.JsonMapper
 import klite.json.parse
+import klite.plus
 import java.net.URI
 import java.net.http.HttpClient
-
-val Config.resqlUrl: URI get() = URI(get("RESQL_URL"))
 
 data class ResqlParams(
   val limit: Int = 9999,
@@ -19,17 +18,18 @@ data class ResqlParams(
 )
 
 class ResqlClient(
+  private val baseUrl: URI = URI(Config["RESQL_URL"]),
   private val http: HttpClient,
   private val jsonMapper: JsonMapper,
 ) {
   private inline fun <reified T> fetch(path: String) =
-    jsonMapper.parse<List<T>>(http.post(Config.resqlUrl.resolve(path), jsonMapper.render(ResqlParams())).body())
+    jsonMapper.parse<List<T>>(http.post(baseUrl + path, jsonMapper.render(ResqlParams())).body())
 
-  fun getGates() = fetch<GateParty>("/efti/get_gates").map {
+  fun getGates() = fetch<GateParty>("/get_gates").map {
     EDeliveryParty(it.id, it.eDeliveryUrl, it.eDeliveryCert, it.tlsCert)
   }
 
-  fun getPlatforms() = fetch<PlatformParty>("/efti/get_platforms").mapNotNull { p ->
+  fun getPlatforms() = fetch<PlatformParty>("/get_platforms").mapNotNull { p ->
     p.eDeliveryCert?.let { EDeliveryParty(p.id, p.baseUrl, it, p.tlsCert) }
   }
 
