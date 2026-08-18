@@ -250,17 +250,17 @@ CREATE TABLE IF NOT EXISTS consignments (
   xml                           TEXT                NOT NULL,
   status                        consignment_status  NOT NULL DEFAULT 'ACTIVE',
   transport_mode                CHAR(1),
-  acceptance_date               TIMESTAMP,
+  acceptance_date               TIMESTAMPTZ,
   acceptance_country            CHAR(2),
-  delivery_date                 TIMESTAMP,
+  delivery_date                 TIMESTAMPTZ,
   delivery_country              CHAR(2),
   dangerous_goods               VARCHAR(2),
   main_transport_id             TEXT,
   main_transport_type           TEXT,
   transport_reg_country         CHAR(2),
-  loading_date                  TIMESTAMP,
+  loading_date                  TIMESTAMPTZ,
   loading_country               CHAR(2),
-  unloading_date                TIMESTAMP,
+  unloading_date                TIMESTAMPTZ,
   unloading_country             CHAR(2),
   used_equipment_ids            TEXT[],
   used_equipment_categories     TEXT[],
@@ -269,7 +269,6 @@ CREATE TABLE IF NOT EXISTS consignments (
   carried_equipment_ids         TEXT[],
   carried_equipment_categories  TEXT[],
   carried_equipment_seq         TEXT[],
-  created_by                    UUID,
   created_at                    TIMESTAMPTZ         NOT NULL DEFAULT NOW(),
 
   CONSTRAINT consignments_acceptance_country_fmt    CHECK (acceptance_country    IS NULL OR acceptance_country    ~ '^[A-Z]{2}$'),
@@ -306,7 +305,6 @@ COMMENT ON COLUMN consignments.used_equipment_seq            IS 'Used transport 
 COMMENT ON COLUMN consignments.carried_equipment_ids         IS 'Carried transport equipment IDs from XML';
 COMMENT ON COLUMN consignments.carried_equipment_categories  IS 'Carried transport equipment category codes from XML';
 COMMENT ON COLUMN consignments.carried_equipment_seq         IS 'Carried transport equipment sequence numbers from XML';
-COMMENT ON COLUMN consignments.created_by                    IS 'users.row_id of the actor that wrote this row';
 COMMENT ON COLUMN consignments.created_at                    IS 'When this row was inserted';
 
 CREATE INDEX IF NOT EXISTS idx_consignments_dataset_latest    ON consignments (dataset_id, platform_id, created_at DESC);
