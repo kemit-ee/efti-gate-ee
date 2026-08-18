@@ -2,7 +2,6 @@
 @resqlUrl=http://localhost:8090/efti
 
 ### Platform uploads a new consignment over REST (TODO: auth)
-
 POST {{ruuterUrl}}/consignments
 Content-Type: text/xml
 
@@ -11,15 +10,14 @@ Content-Type: text/xml
 > {%
   client.test("Consignment saved", () => {
     client.assert(response.status === 201)
-    client.assert(response.body.response[0].gateId === "POC")
-    client.assert(response.body.response[0].platformId === "demo")
-    client.assert(response.body.response[0].datasetId === "550e8400-e29b-41d4-a716-446655440000")
+    client.assert(response.body.gateId === "POC")
+    client.assert(response.body.platformId === "demo")
+    client.assert(response.body.datasetId === "550e8400-e29b-41d4-a716-446655440000")
   })
 %}
 
-### Find consignments
-
-POST {{resqlUrl}}/get_consignments
+### Find consignment
+POST {{ruuterUrl}}/consignments/search
 Content-Type: application/json
 
 {
@@ -33,9 +31,24 @@ Content-Type: application/json
   "limit": 10, "offset": 0
 }
 
-### Delete consignment
+> {%
+  client.test("Find consignment", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.length === 1)
+    client.assert(response.body[0].datasetId === "550e8400-e29b-41d4-a716-446655440000")
+  })
+%}
 
+### Delete consignment
 POST {{resqlUrl}}/soft_delete_consignment
 Content-Type: application/json
 
 {"datasetId": "550e8400-e29b-41d4-a716-446655440000"}
+
+> {%
+  client.test("Find consignment", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body[0].datasetId === "550e8400-e29b-41d4-a716-446655440000")
+    client.assert(response.body[0].status === "DELETED")
+  })
+%}

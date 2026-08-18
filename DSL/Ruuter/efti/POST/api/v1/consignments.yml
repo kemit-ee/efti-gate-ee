@@ -27,6 +27,7 @@ insert_consignment:
 # TODO: verify?
 
 respond:
-  return: ${insert_result.response.body}
+  return: ${insert_result.response.body[0]}
+  wrapper: false
   status: 201
   next: end
