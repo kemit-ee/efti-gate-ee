@@ -1,0 +1,26 @@
+# Add more config for localhost development, e.g. port bindings
+services:
+  database:
+    ports:
+      - "${EFTI_DB_PORT:-54321}:5432"
+  resql:
+    ports:
+      - "${EFTI_RESQL_PORT:-8090}:8090"
+  ruuter:
+    ports:
+      - "${EFTI_RUUTER_PORT:-8086}:8086"
+  edelivery:
+    ports:
+      - 8081:8081
+  xml-mapper:
+    ports:
+      - 8082:8082
+  multiplexer:
+    ports:
+      - 8083:8083
+  ui:
+    ports:
+      - 8000:80
+  datamapper:
+    ports:
+      - 3000:3000

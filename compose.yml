@@ -8,11 +8,9 @@ services:
     - POSTGRES_USER=efti
     - POSTGRES_PASSWORD=01234
     - POSTGRES_DB=efti
-    ports:
-    - "${EFTI_DB_PORT:-54321}:5432"
     volumes:
     - data:/var/lib/postgresql
-    - ./DSL/Liquibase/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    - ./DSL/Liquibase/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     healthcheck:
       test:
       - CMD-SHELL
@@ -21,6 +19,7 @@ services:
       timeout: 5s
       retries: 20
       start_period: 10s
+
   liquibase:
     container_name: efti_liquibase
     build:
@@ -30,10 +29,11 @@ services:
       database:
         condition: service_healthy
     volumes:
-    - ./DSL/Liquibase:/liquibase/changelog
+    - ./DSL/Liquibase:/liquibase/changelog:ro
     environment:
     - AUDIT_SALT=${AUDIT_SALT:-dev-local-audit-salt-change-me-32chars}
     command: --defaultsFile=/liquibase/changelog/liquibase.properties update -DAUDIT_SALT=${AUDIT_SALT:-dev-local-audit-salt-change-me-32chars}
+
   resql:
     container_name: efti_resql
     build:
@@ -45,8 +45,7 @@ services:
         condition: service_healthy
       liquibase:
         condition: service_completed_successfully
-    ports:
-    - "${EFTI_RESQL_PORT:-8090}:8090"
+
   ruuter:
     container_name: efti_ruuter
     build:
@@ -56,23 +55,21 @@ services:
     environment:
     - RUST_LOG=debug
     volumes:
-    - ./DSL/Ruuter:/app/DSL
-    - ./constants.ini:/app/constants.ini
-    - ./ruuter.yaml:/app/ruuter.yaml
-    ports:
-    - "${EFTI_RUUTER_PORT:-8086}:8086"
+    - ./DSL/Ruuter:/app/DSL:ro
+    - ./constants.ini:/app/constants.ini:ro
+    - ./ruuter.yaml:/app/ruuter.yaml:ro
     cpus: '0.5'
     depends_on:
       - resql
     mem_limit: 512M
+
   ui:
     build:
       context: .
       dockerfile: docker/ui/Dockerfile
-    ports:
-      - 8000:80
     depends_on:
       - ruuter
+
   edelivery:
     environment:
       - OWN_PARTY_ID=eu-ee01
@@ -85,9 +82,8 @@ services:
       - PORT=8081
     depends_on:
       - resql
-    ports:
-    - 8081:8081
     mem_limit: 512M
+
   xml-mapper:
     build:
       context: code
@@ -95,9 +91,8 @@ services:
       args:
       - PROJECT=xml-mapper
       - PORT=8082
-    ports:
-    - 8082:8082
     mem_limit: 512M
+
   multiplexer:
     environment:
       - RESQL_URL=http://resql:8090
@@ -110,16 +105,14 @@ services:
       - PORT=8083
     depends_on:
       - resql
-    ports:
-    - 8083:8083
     mem_limit: 512M
+
   datamapper:
     build:
       context: .
       dockerfile: docker/datamapper/Dockerfile
     platform: linux/amd64
-    ports:
-    - 3000:3000
     mem_limit: 512M
+
 volumes:
-  data: null
+  data:
