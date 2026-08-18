@@ -6,9 +6,21 @@ services:
   resql:
     ports:
       - "${EFTI_RESQL_PORT:-8090}:8090"
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./DSL/Resql
+          target: /app/sql
+          initial_sync: true
   ruuter:
     ports:
       - "${EFTI_RUUTER_PORT:-8086}:8086"
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./DSL/Ruuter
+          target: /app/DSL
+          initial_sync: true
   edelivery:
     ports:
       - 8081:8081
