@@ -9,9 +9,11 @@ Content-Type: text/xml
 < ../../code/xml-mapper/xsd/Normalized/FTI004/sample.xml
 
 > {%
-  client.test("Test status code", () => {
-    client.assert(response.status === 200, "Response status is not 200")
-    client.assert(response.body.gateId === "POC", "Gate ID is not POC")
+  client.test("Consignment saved", () => {
+    client.assert(response.status === 201)
+    client.assert(response.body.response[0].gateId === "POC")
+    client.assert(response.body.response[0].platformId === "demo")
+    client.assert(response.body.response[0].datasetId === "550e8400-e29b-41d4-a716-446655440000")
   })
 %}
 
