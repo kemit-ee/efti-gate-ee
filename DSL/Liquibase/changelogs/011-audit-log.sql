@@ -2,7 +2,7 @@
 -- 4.5 audit_log
 -- ----------------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS audit_log (
+CREATE TABLE audit_log (
   row_id      UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id     UUID,
   action      VARCHAR(64)  NOT NULL,
@@ -25,10 +25,10 @@ COMMENT ON COLUMN audit_log.details     IS 'Structured context (search filters, 
 COMMENT ON COLUMN audit_log.recorded_at IS 'When the action happened';
 COMMENT ON COLUMN audit_log.created_at  IS 'When this row was inserted';
 
-CREATE INDEX IF NOT EXISTS idx_audit_log_user_recorded ON audit_log (user_id, recorded_at DESC);
-CREATE INDEX IF NOT EXISTS idx_audit_log_action        ON audit_log (action, recorded_at DESC);
-CREATE INDEX IF NOT EXISTS idx_audit_log_resource      ON audit_log (resource, resource_id);
-CREATE INDEX IF NOT EXISTS idx_audit_log_recorded      ON audit_log (recorded_at DESC);
+CREATE INDEX idx_audit_log_user_recorded ON audit_log (user_id, recorded_at DESC);
+CREATE INDEX idx_audit_log_action        ON audit_log (action, recorded_at DESC);
+CREATE INDEX idx_audit_log_resource      ON audit_log (resource, resource_id);
+CREATE INDEX idx_audit_log_recorded      ON audit_log (recorded_at DESC);
 
 GRANT SELECT, INSERT ON audit_log TO app;
 GRANT SELECT ON audit_log TO db_archiver;

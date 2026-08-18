@@ -2,18 +2,14 @@
 -- 4.4 follow_up_log
 -- ----------------------------------------------------------------------------
 
-DO $$
-BEGIN
-  CREATE TYPE follow_up_status AS ENUM (
-    'DELIVERED',
-    'FAILED'
-  );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END$$;
+CREATE TYPE follow_up_status AS ENUM (
+  'DELIVERED',
+  'FAILED'
+);
 
 COMMENT ON TYPE follow_up_status IS 'Outcome of a follow-up message forwarding attempt';
 
-CREATE TABLE IF NOT EXISTS follow_up_log (
+CREATE TABLE follow_up_log (
   row_id                  UUID             PRIMARY KEY DEFAULT uuid_generate_v4(),
   follow_up_id            UUID             NOT NULL,
   requesting_gate_id      CITEXT           NOT NULL,
@@ -42,9 +38,9 @@ COMMENT ON COLUMN follow_up_log.failure_reason          IS 'Error description wh
 COMMENT ON COLUMN follow_up_log.received_at             IS 'Mandatory per Art 6(2)(c): when the follow-up was received by the AAP';
 COMMENT ON COLUMN follow_up_log.created_at              IS 'When this row was inserted';
 
-CREATE INDEX IF NOT EXISTS idx_follow_up_log_received   ON follow_up_log (received_at DESC);
-CREATE INDEX IF NOT EXISTS idx_follow_up_log_dataset    ON follow_up_log (dataset_request_id);
-CREATE INDEX IF NOT EXISTS idx_follow_up_log_requesting ON follow_up_log (requesting_gate_id, received_at DESC);
+CREATE INDEX idx_follow_up_log_received   ON follow_up_log (received_at DESC);
+CREATE INDEX idx_follow_up_log_dataset    ON follow_up_log (dataset_request_id);
+CREATE INDEX idx_follow_up_log_requesting ON follow_up_log (requesting_gate_id, received_at DESC);
 
 GRANT SELECT, INSERT ON follow_up_log TO app;
 GRANT SELECT, DELETE ON follow_up_log TO db_archiver;

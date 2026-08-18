@@ -2,18 +2,14 @@
 -- 3.3 authorities
 -- ----------------------------------------------------------------------------
 
-DO $$
-BEGIN
-  CREATE TYPE authority_status AS ENUM (
-    'ACTIVE',
-    'DELETED'
-  );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END$$;
+CREATE TYPE authority_status AS ENUM (
+  'ACTIVE',
+  'DELETED'
+);
 
 COMMENT ON TYPE authority_status IS 'Lifecycle status of a competent authority. ACTIVE — visible and operational; DELETED — soft-deleted (removed by operator, row retained for audit).';
 
-CREATE TABLE IF NOT EXISTS authorities (
+CREATE TABLE authorities (
   row_id        UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
   id            CITEXT       NOT NULL,
   name          TEXT         NOT NULL,
@@ -34,9 +30,9 @@ COMMENT ON COLUMN authorities.status        IS 'Current authority status: ACTIVE
 COMMENT ON COLUMN authorities.created_by    IS 'users.row_id of the actor that wrote this row';
 COMMENT ON COLUMN authorities.created_at    IS 'When this row was inserted';
 
-CREATE INDEX IF NOT EXISTS idx_authorities_id_latest ON authorities (id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_authorities_registry_code   ON authorities (registry_code);
-CREATE INDEX IF NOT EXISTS idx_authorities_status    ON authorities (status);
+CREATE INDEX idx_authorities_id_latest       ON authorities (id, created_at DESC);
+CREATE INDEX idx_authorities_registry_code   ON authorities (registry_code);
+CREATE INDEX idx_authorities_status          ON authorities (status);
 
 GRANT SELECT, INSERT ON authorities TO app;
 GRANT SELECT, DELETE ON authorities TO db_archiver;

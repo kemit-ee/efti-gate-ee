@@ -2,22 +2,13 @@
 -- 0. EXTENSIONS + ROLES
 -- ============================================================================
 
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "citext";
-CREATE EXTENSION IF NOT EXISTS "pg_trgm";
-CREATE EXTENSION IF NOT EXISTS "btree_gin";
+CREATE EXTENSION "uuid-ossp";
+CREATE EXTENSION "citext";
+CREATE EXTENSION "pg_trgm";
+CREATE EXTENSION "btree_gin";
 
--- Database roles (must exist before any grants)
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'app') THEN
-    CREATE USER app WITH PASSWORD 'app-secret';
-  END IF;
-  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'db_archiver') THEN
-    CREATE USER db_archiver WITH PASSWORD 'archiver-secret';
-  END IF;
-END;
-$$;
+CREATE USER app WITH PASSWORD 'app-secret';
+CREATE USER db_archiver WITH PASSWORD 'archiver-secret';
 
 GRANT USAGE ON SCHEMA public TO app;
 GRANT USAGE ON SCHEMA public TO db_archiver;

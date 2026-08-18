@@ -2,7 +2,7 @@
 -- 3.4 users
 -- ----------------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE users (
   row_id            UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
   id                UUID         NOT NULL,
   tara_sub          TEXT         NOT NULL,
@@ -25,9 +25,9 @@ COMMENT ON COLUMN users.is_active         IS 'Logical-deletion flag';
 COMMENT ON COLUMN users.created_by        IS 'users.row_id of the actor that wrote this row.';
 COMMENT ON COLUMN users.created_at        IS 'When this row was inserted';
 
-CREATE INDEX IF NOT EXISTS idx_users_id_latest    ON users (id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_users_tara_sub     ON users (tara_sub, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_users_active       ON users (is_active) WHERE is_active = TRUE;
+CREATE INDEX idx_users_id_latest    ON users (id, created_at DESC);
+CREATE INDEX idx_users_tara_sub     ON users (tara_sub, created_at DESC);
+CREATE INDEX idx_users_active       ON users (is_active) WHERE is_active = TRUE;
 
 GRANT SELECT, INSERT ON users TO app;
 GRANT SELECT, DELETE ON users TO db_archiver;

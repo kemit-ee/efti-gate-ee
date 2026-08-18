@@ -2,7 +2,7 @@
 -- 3.2 platforms
 -- ----------------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS platforms (
+CREATE TABLE platforms (
   row_id          UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
   id              CITEXT       NOT NULL,
   base_url        TEXT,
@@ -29,9 +29,9 @@ COMMENT ON COLUMN platforms.status              IS 'Current platform operational
 COMMENT ON COLUMN platforms.created_by          IS 'users.row_id of the actor that wrote this row';
 COMMENT ON COLUMN platforms.created_at          IS 'When this row was inserted';
 
-CREATE INDEX IF NOT EXISTS idx_platforms_id_latest   ON platforms (id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_platforms_status      ON platforms (status);
-CREATE INDEX IF NOT EXISTS idx_platforms_cert_lookup ON platforms (cert_subject, cert_serial);
+CREATE INDEX idx_platforms_id_latest   ON platforms (id, created_at DESC);
+CREATE INDEX idx_platforms_status      ON platforms (status);
+CREATE INDEX idx_platforms_cert_lookup ON platforms (cert_subject, cert_serial);
 
 GRANT SELECT, INSERT ON platforms TO app;
 GRANT SELECT, DELETE ON platforms TO db_archiver;

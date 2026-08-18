@@ -2,7 +2,7 @@
 -- 4.2 sessions — JWT denylist
 -- ----------------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS sessions (
+CREATE TABLE sessions (
   row_id      UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id     UUID         NOT NULL,
   jti         VARCHAR(255) NOT NULL,
@@ -21,9 +21,9 @@ COMMENT ON COLUMN sessions.revoked_at  IS 'When the revocation event was recorde
 COMMENT ON COLUMN sessions.reason      IS 'Revocation reason: ''logout'', ''admin_revoke'', ''incident'', …';
 COMMENT ON COLUMN sessions.created_at  IS 'When this row was inserted';
 
-CREATE INDEX IF NOT EXISTS idx_sessions_jti        ON sessions (jti);
-CREATE INDEX IF NOT EXISTS idx_sessions_user_id    ON sessions (user_id);
-CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions (expires_at);
+CREATE INDEX idx_sessions_jti        ON sessions (jti);
+CREATE INDEX idx_sessions_user_id    ON sessions (user_id);
+CREATE INDEX idx_sessions_expires_at ON sessions (expires_at);
 
 GRANT SELECT, INSERT ON sessions TO app;
 GRANT SELECT, DELETE ON sessions TO db_archiver;

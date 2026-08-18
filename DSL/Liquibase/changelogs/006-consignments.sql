@@ -2,19 +2,15 @@
 -- 3.5 consignments
 -- ----------------------------------------------------------------------------
 
-DO $$
-BEGIN
-  CREATE TYPE consignment_status AS ENUM (
-    'ACTIVE',
-    'INACTIVE',
-    'DELETED'
-  );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END$$;
+CREATE TYPE consignment_status AS ENUM (
+  'ACTIVE',
+  'INACTIVE',
+  'DELETED'
+);
 
 COMMENT ON TYPE consignment_status IS 'Lifecycle status of a stored consignment record. State transitions happen by INSERTing a new consignments row with the new status; the latest row wins.';
 
-CREATE TABLE IF NOT EXISTS consignments (
+CREATE TABLE consignments (
   row_id                        UUID                PRIMARY KEY DEFAULT uuid_generate_v4(),
   dataset_id                    UUID                NOT NULL,
   platform_id                   CITEXT              NOT NULL,
@@ -79,29 +75,29 @@ COMMENT ON COLUMN consignments.carried_equipment_categories  IS 'Carried transpo
 COMMENT ON COLUMN consignments.carried_equipment_seq         IS 'Carried transport equipment sequence numbers from XML';
 COMMENT ON COLUMN consignments.created_at                    IS 'When this row was inserted';
 
-CREATE INDEX IF NOT EXISTS idx_consignments_dataset_latest    ON consignments (dataset_id, platform_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_consignments_platform          ON consignments (platform_id);
-CREATE INDEX IF NOT EXISTS idx_consignments_status_active     ON consignments (status) WHERE status = 'ACTIVE';
-CREATE INDEX IF NOT EXISTS idx_consignments_transport_mode    ON consignments (transport_mode);
-CREATE INDEX IF NOT EXISTS idx_consignments_acceptance_date   ON consignments (acceptance_date);
-CREATE INDEX IF NOT EXISTS idx_consignments_acceptance_country ON consignments (acceptance_country);
-CREATE INDEX IF NOT EXISTS idx_consignments_delivery_date     ON consignments (delivery_date);
-CREATE INDEX IF NOT EXISTS idx_consignments_delivery_country  ON consignments (delivery_country);
-CREATE INDEX IF NOT EXISTS idx_consignments_dangerous_goods   ON consignments (dangerous_goods);
-CREATE INDEX IF NOT EXISTS idx_consignments_main_transport_id ON consignments (main_transport_id);
-CREATE INDEX IF NOT EXISTS idx_consignments_main_transport_type ON consignments (main_transport_type);
-CREATE INDEX IF NOT EXISTS idx_consignments_transport_reg_country ON consignments (transport_reg_country);
-CREATE INDEX IF NOT EXISTS idx_consignments_loading_date      ON consignments (loading_date);
-CREATE INDEX IF NOT EXISTS idx_consignments_loading_country   ON consignments (loading_country);
-CREATE INDEX IF NOT EXISTS idx_consignments_unloading_date    ON consignments (unloading_date);
-CREATE INDEX IF NOT EXISTS idx_consignments_unloading_country ON consignments (unloading_country);
-CREATE INDEX IF NOT EXISTS idx_consignments_used_equip_ids    ON consignments USING gin (used_equipment_ids);
-CREATE INDEX IF NOT EXISTS idx_consignments_used_equip_cat    ON consignments USING gin (used_equipment_categories);
-CREATE INDEX IF NOT EXISTS idx_consignments_used_equip_ctry   ON consignments USING gin (used_equipment_countries);
-CREATE INDEX IF NOT EXISTS idx_consignments_used_equip_seq    ON consignments USING gin (used_equipment_seq);
-CREATE INDEX IF NOT EXISTS idx_consignments_carried_equip_ids ON consignments USING gin (carried_equipment_ids);
-CREATE INDEX IF NOT EXISTS idx_consignments_carried_equip_cat ON consignments USING gin (carried_equipment_categories);
-CREATE INDEX IF NOT EXISTS idx_consignments_carried_equip_seq ON consignments USING gin (carried_equipment_seq);
+CREATE INDEX idx_consignments_dataset_latest      ON consignments (dataset_id, platform_id, created_at DESC);
+CREATE INDEX idx_consignments_platform            ON consignments (platform_id);
+CREATE INDEX idx_consignments_status_active       ON consignments (status) WHERE status = 'ACTIVE';
+CREATE INDEX idx_consignments_transport_mode      ON consignments (transport_mode);
+CREATE INDEX idx_consignments_acceptance_date     ON consignments (acceptance_date);
+CREATE INDEX idx_consignments_acceptance_country  ON consignments (acceptance_country);
+CREATE INDEX idx_consignments_delivery_date       ON consignments (delivery_date);
+CREATE INDEX idx_consignments_delivery_country    ON consignments (delivery_country);
+CREATE INDEX idx_consignments_dangerous_goods     ON consignments (dangerous_goods);
+CREATE INDEX idx_consignments_main_transport_id   ON consignments (main_transport_id);
+CREATE INDEX idx_consignments_main_transport_type ON consignments (main_transport_type);
+CREATE INDEX idx_consignments_transport_reg_country ON consignments (transport_reg_country);
+CREATE INDEX idx_consignments_loading_date        ON consignments (loading_date);
+CREATE INDEX idx_consignments_loading_country     ON consignments (loading_country);
+CREATE INDEX idx_consignments_unloading_date      ON consignments (unloading_date);
+CREATE INDEX idx_consignments_unloading_country   ON consignments (unloading_country);
+CREATE INDEX idx_consignments_used_equip_ids      ON consignments USING gin (used_equipment_ids);
+CREATE INDEX idx_consignments_used_equip_cat      ON consignments USING gin (used_equipment_categories);
+CREATE INDEX idx_consignments_used_equip_ctry     ON consignments USING gin (used_equipment_countries);
+CREATE INDEX idx_consignments_used_equip_seq      ON consignments USING gin (used_equipment_seq);
+CREATE INDEX idx_consignments_carried_equip_ids   ON consignments USING gin (carried_equipment_ids);
+CREATE INDEX idx_consignments_carried_equip_cat   ON consignments USING gin (carried_equipment_categories);
+CREATE INDEX idx_consignments_carried_equip_seq   ON consignments USING gin (carried_equipment_seq);
 
 GRANT SELECT, INSERT ON consignments TO app;
 GRANT SELECT, DELETE ON consignments TO db_archiver;
