@@ -71,7 +71,6 @@
     "name": "Asutuse nimi",
     "authority": "Asutus",
     "registryCode": "Registrikood",
-    "description": "Kirjeldus",
     "subsets": "Lubatud alamhulgad",
     "added": "Asutus edukalt registreeritud"
   },

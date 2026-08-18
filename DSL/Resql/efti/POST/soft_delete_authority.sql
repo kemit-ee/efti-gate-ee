@@ -1,8 +1,8 @@
-INSERT INTO authorities (id, name, registry_code, description, subsets, is_active)
-SELECT id, name, registry_code, description, subsets, false
+INSERT INTO authorities (id, name, registry_code, subsets, is_active)
+SELECT id, name, registry_code, subsets, false
 FROM (
   SELECT DISTINCT ON (id)
-    id, name, registry_code, description, subsets
+    id, name, registry_code, subsets
   FROM authorities
   WHERE id = :id
   ORDER BY id, created_at DESC

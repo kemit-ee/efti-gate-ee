@@ -71,7 +71,6 @@
     "name": "Authority name",
     "authority": "Authority",
     "registryCode": "Registry code",
-    "description": "Description",
     "subsets": "Allowed subsets",
     "added": "Authority registered successfully"
   },

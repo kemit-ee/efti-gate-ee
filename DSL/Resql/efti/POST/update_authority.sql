@@ -1,9 +1,8 @@
-INSERT INTO authorities (id, name, registry_code, description, subsets, is_active)
+INSERT INTO authorities (id, name, registry_code, subsets, is_active)
 VALUES (
   :id,
   :name,
   :registryCode,
-  :description,
   :subsets,
   true
 )
@@ -12,7 +11,6 @@ RETURNING
   id,
   name,
   registry_code,
-  description,
   subsets,
   is_active,
   created_at;

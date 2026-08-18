@@ -76,7 +76,6 @@ export interface Authority {
   id: string
   name: string
   registryCode: string
-  description?: string
   subsets: SubsetCode[]
   isAuthorityActive: boolean
   createdAt: string
@@ -86,7 +85,6 @@ export interface AuthorityRequest {
   id: string
   name: string
   registryCode: string
-  description?: string
   subsets: SubsetCode[]
   isAuthorityActive?: boolean
 }

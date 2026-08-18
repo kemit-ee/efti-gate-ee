@@ -3,7 +3,6 @@ SELECT DISTINCT ON (id)
   id,
   name,
   registry_code,
-  description,
   subsets,
   is_active AS is_authority_active,
   created_at

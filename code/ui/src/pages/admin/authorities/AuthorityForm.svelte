@@ -18,7 +18,6 @@
       id: authority.id,
       name: authority.name,
       registryCode: authority.registryCode,
-      description: authority.description,
       subsets: authority.subsets,
     }
 
@@ -34,7 +33,6 @@
   <FormField label={t.authorities.id} bind:value={authority.id} disabled={isEdit}/>
   <FormField label={t.authorities.name} bind:value={authority.name}/>
   <FormField label={t.authorities.registryCode} bind:value={authority.registryCode}/>
-  <FormField label={t.authorities.description} bind:value={authority.description}/>
   <SubsetsEditor bind:subsets={authority.subsets}/>
 
   <Button type="submit" label={t.general.save} class="primary"/>

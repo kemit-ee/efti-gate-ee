@@ -171,7 +171,6 @@ CREATE TABLE IF NOT EXISTS authorities (
   id            CITEXT       NOT NULL,
   name          TEXT         NOT NULL,
   registry_code TEXT         NOT NULL,
-  description   TEXT,
   subsets       TEXT[]       NOT NULL DEFAULT ARRAY[]::TEXT[],
   is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
   created_by    UUID,
@@ -182,8 +181,7 @@ COMMENT ON TABLE  authorities IS 'Registry of competent authorities. Append-only
 COMMENT ON COLUMN authorities.row_id        IS 'Synthetic primary key, unique per row';
 COMMENT ON COLUMN authorities.id            IS 'Logical authority identifier (e.g. auth-mta). Many rows over time.';
 COMMENT ON COLUMN authorities.name          IS 'Human-readable name (e.g. "Estonian Tax and Customs Board")';
-COMMENT ON COLUMN authorities.registry_code IS 'Estonian Business Registry code of the authority, used for access control from';
-COMMENT ON COLUMN authorities.description   IS 'Free-form description; null when unset';
+COMMENT ON COLUMN authorities.registry_code IS 'Estonian Business Registry code of the authority, used for access control';
 COMMENT ON COLUMN authorities.subsets       IS 'eFTI subsets this authority is permitted to request. Constrained to EU01..EU07.';
 COMMENT ON COLUMN authorities.is_active     IS 'Logical-deletion flag';
 COMMENT ON COLUMN authorities.created_by    IS 'users.row_id of the actor that wrote this row';
