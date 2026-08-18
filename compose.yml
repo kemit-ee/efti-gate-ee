@@ -52,12 +52,6 @@ services:
       context: .
       dockerfile: docker/ruuter/Dockerfile
     platform: linux/amd64
-    environment:
-    - RUST_LOG=debug
-    volumes:
-    - ./DSL/Ruuter:/app/DSL:ro
-    - ./constants.ini:/app/constants.ini:ro
-    - ./ruuter.yaml:/app/ruuter.yaml:ro
     cpus: '0.5'
     depends_on:
       - resql
