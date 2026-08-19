@@ -48,7 +48,7 @@ Content-Type: application/json
   "criteria": {
     "mainTransportId": {"operator": "EQ", "id": "VESSEL-001"},
     "transportMode": {"operator": "EQ", "mode": "1"},
-    "carriedEquipmentIds": {"operator": "EQ", "id": "TE-004"},
+    "carriedEquipmentId": {"operator": "EQ", "id": "TE-004"},
     "deliveryCountry": {"operator": "EQ", "country": "EE"},
     "deliveryDate": [{"operator": "GT", "date": "2025-06-01"}]
   },

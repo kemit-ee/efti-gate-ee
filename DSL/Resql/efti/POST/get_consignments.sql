@@ -44,9 +44,9 @@ WHERE status != 'DELETED'
        OR :criteria->'deliveryCountry'->>'operator' = 'EQ' AND delivery_country = :criteria->'deliveryCountry'->>'country'
        OR :criteria->'deliveryCountry'->>'operator' = 'NE' AND delivery_country != :criteria->'deliveryCountry'->>'country'
   )
-  AND (:criteria->'dangerousGoods' IS NULL
-       OR :criteria->'dangerousGoods'->>'operator' = 'EQ' AND dangerous_goods = :criteria->'dangerousGoods'->>'code'
-       OR :criteria->'dangerousGoods'->>'operator' = 'NE' AND dangerous_goods != :criteria->'dangerousGoods'->>'code'
+  AND (:criteria->'dangerousGoodsCode' IS NULL
+       OR :criteria->'dangerousGoodsCode'->>'operator' = 'EQ' AND dangerous_goods = :criteria->'dangerousGoodsCode'->>'code'
+       OR :criteria->'dangerousGoodsCode'->>'operator' = 'NE' AND dangerous_goods != :criteria->'dangerousGoodsCode'->>'code'
   )
   AND (:criteria->'mainTransportId' IS NULL
        OR :criteria->'mainTransportId'->>'operator' = 'EQ' AND main_transport_id = :criteria->'mainTransportId'->>'id'
@@ -68,29 +68,29 @@ WHERE status != 'DELETED'
        OR :criteria->'unloadingCountry'->>'operator' = 'EQ' AND unloading_country = :criteria->'unloadingCountry'->>'country'
        OR :criteria->'unloadingCountry'->>'operator' = 'NE' AND unloading_country != :criteria->'unloadingCountry'->>'country'
   )
-  AND (:criteria->'usedEquipmentIds' IS NULL
-       OR :criteria->'usedEquipmentIds'->>'operator' = 'EQ' AND :criteria->'usedEquipmentIds'->>'id' = any(used_equipment_ids)
-       OR :criteria->'usedEquipmentIds'->>'operator' = 'NE' AND :criteria->'usedEquipmentIds'->>'id' != any(used_equipment_ids)
+  AND (:criteria->'usedEquipmentId' IS NULL
+       OR :criteria->'usedEquipmentId'->>'operator' = 'EQ' AND :criteria->'usedEquipmentId'->>'id' = any(used_equipment_ids)
+       OR :criteria->'usedEquipmentId'->>'operator' = 'NE' AND :criteria->'usedEquipmentId'->>'id' != any(used_equipment_ids)
   )
-  AND (:criteria->'usedEquipmentCategories' IS NULL
-       OR :criteria->'usedEquipmentCategories'->>'operator' = 'EQ' AND :criteria->'usedEquipmentCategories'->>'code' = any(used_equipment_categories)
-       OR :criteria->'usedEquipmentCategories'->>'operator' = 'NE' AND :criteria->'usedEquipmentCategories'->>'code' != any(used_equipment_categories)
+  AND (:criteria->'usedEquipmentCategory' IS NULL
+       OR :criteria->'usedEquipmentCategory'->>'operator' = 'EQ' AND :criteria->'usedEquipmentCategory'->>'code' = any(used_equipment_categories)
+       OR :criteria->'usedEquipmentCategory'->>'operator' = 'NE' AND :criteria->'usedEquipmentCategory'->>'code' != any(used_equipment_categories)
   )
-  AND (:criteria->'usedEquipmentCountries' IS NULL
-       OR :criteria->'usedEquipmentCountries'->>'operator' = 'EQ' AND :criteria->'usedEquipmentCountries'->>'country' = any(used_equipment_countries)
-       OR :criteria->'usedEquipmentCountries'->>'operator' = 'NE' AND :criteria->'usedEquipmentCountries'->>'country' != any(used_equipment_countries)
+  AND (:criteria->'usedEquipmentCountry' IS NULL
+       OR :criteria->'usedEquipmentCountry'->>'operator' = 'EQ' AND :criteria->'usedEquipmentCountry'->>'country' = any(used_equipment_countries)
+       OR :criteria->'usedEquipmentCountry'->>'operator' = 'NE' AND :criteria->'usedEquipmentCountry'->>'country' != any(used_equipment_countries)
   )
   AND (:criteria->'usedEquipmentSeq' IS NULL
        OR :criteria->'usedEquipmentSeq'->>'operator' = 'EQ' AND :criteria->'usedEquipmentSeq'->>'sequence' = any(used_equipment_seq)
        OR :criteria->'usedEquipmentSeq'->>'operator' = 'NE' AND :criteria->'usedEquipmentSeq'->>'sequence' != any(used_equipment_seq)
   )
-  AND (:criteria->'carriedEquipmentIds' IS NULL
-       OR :criteria->'carriedEquipmentIds'->>'operator' = 'EQ' AND :criteria->'carriedEquipmentIds'->>'id' = any(carried_equipment_ids)
-       OR :criteria->'carriedEquipmentIds'->>'operator' = 'NE' AND :criteria->'carriedEquipmentIds'->>'id' != any(carried_equipment_ids)
+  AND (:criteria->'carriedEquipmentId' IS NULL
+       OR :criteria->'carriedEquipmentId'->>'operator' = 'EQ' AND :criteria->'carriedEquipmentId'->>'id' = any(carried_equipment_ids)
+       OR :criteria->'carriedEquipmentId'->>'operator' = 'NE' AND :criteria->'carriedEquipmentId'->>'id' != any(carried_equipment_ids)
   )
-  AND (:criteria->'carriedEquipmentCategories' IS NULL
-       OR :criteria->'carriedEquipmentCategories'->>'operator' = 'EQ' AND :criteria->'carriedEquipmentCategories'->>'code' = any(carried_equipment_categories)
-       OR :criteria->'carriedEquipmentCategories'->>'operator' = 'NE' AND :criteria->'carriedEquipmentCategories'->>'code' != any(carried_equipment_categories)
+  AND (:criteria->'carriedEquipmentCategory' IS NULL
+       OR :criteria->'carriedEquipmentCategory'->>'operator' = 'EQ' AND :criteria->'carriedEquipmentCategory'->>'code' = any(carried_equipment_categories)
+       OR :criteria->'carriedEquipmentCategory'->>'operator' = 'NE' AND :criteria->'carriedEquipmentCategory'->>'code' != any(carried_equipment_categories)
   )
   AND (:criteria->'carriedEquipmentSeq' IS NULL
        OR :criteria->'carriedEquipmentSeq'->>'operator' = 'EQ' AND :criteria->'carriedEquipmentSeq'->>'sequence' = any(carried_equipment_seq)
