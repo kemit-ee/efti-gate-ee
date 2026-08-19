@@ -14,7 +14,7 @@ Content-Type: text/xml
 %}
 
 ### Platform uploads a new consignment over eDelivery
-POST {{RUUTER_URL}}/efti/api/v1/consignments/xml
+POST {{RUUTER_URL}}/efti/api/v1/consignments-xml
 Content-Type: text/xml
 
 < ../../code/xml-mapper/xsd/Normalized/FTI004/sample.xml
