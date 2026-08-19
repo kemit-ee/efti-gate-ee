@@ -38,7 +38,7 @@
       <CarrierAcceptanceDateParameterScope>
         <SubtypeCode>EQ</SubtypeCode>
         <SpecifiedDateTime>
-          <udt:DateTimeString format="2021-09-24">2021-09-24</udt:DateTimeString>
+          <udt:DateTimeString format="102">20210924</udt:DateTimeString>
         </SpecifiedDateTime>
       </CarrierAcceptanceDateParameterScope>
       <CarrierAcceptanceCountryParameterScope>
