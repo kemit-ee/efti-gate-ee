@@ -1,6 +1,7 @@
 package efti
 
 import RequestIdHandler
+import efti.xml.RuuterXmlWrapper
 import efti.xml.fti.*
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -31,7 +32,7 @@ class SearchRoutes(val requestIdHandler: RequestIdHandler) {
   }
 
   @Operation(description = "Map UniqueIDSetUIL as JSON to FTI021SearchIdentifierResponse as XML. Meant for other Gate request.")
-  @POST("/response-to-xml") fun responseToXml(consignments: List<UniqueIDSetUIL>, e: HttpExchange): String =
     // TODO: maybe create a more convenient class that corresponds to the consignments table as input
-    FTI021SearchIdentifierResponse(ExchangedDocument("021", e.requestId.uuid), consignments).render()
+  @POST("/response-to-xml") fun responseToXml(consignments: List<UniqueIDSetUIL>, e: HttpExchange): RuuterXmlWrapper =
+    RuuterXmlWrapper(FTI021SearchIdentifierResponse(ExchangedDocument("021", e.requestId.uuid), consignments).render())
 }
