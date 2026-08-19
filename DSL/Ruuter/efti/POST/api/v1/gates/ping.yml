@@ -68,6 +68,7 @@ check_verify:
 
 respond_ok:
   return: ${verify_result.response.body}
+  wrapper: false
   next: end
 
 update_offline:
