@@ -1,0 +1,44 @@
+declaration:
+  description: "Search consignments through eDelivery"
+  allowed_body: [xml]
+
+to_json:
+  call: http.post
+  args:
+    url: "[#XML_MAPPER_URL]/api/v1/search/request-to-json"
+    headers:
+      Content-Type: "text/xml"
+    content_type: plaintext
+    body:
+      text: ${incoming.body.xml}
+  result: criteria_json
+  next: call_search
+
+call_search:
+  template: api/v1/consignments/search
+  request_type: "POST"
+  body:
+    criteria: ${criteria_json.response.body}
+    limit: 10 # TODO: Do not hardcode
+    offset: 0 # TODO: Do not hardcode
+  result: search_response
+  next: to_xml
+
+to_xml:
+  call: http.post
+  args:
+    url: "[#XML_MAPPER_URL]/api/v1/search/response-to-xml"
+    headers:
+      Content-Type: "application/json"
+    body: ${search_response}
+  result: xml_response
+  next: respond
+
+## TODO: This returns XML as string (XML is wrapped in "")
+respond:
+  return: ${search_response}
+  headers:
+    Content-Type: "text/xml"
+  wrapper: false
+  status: 201
+  next: end

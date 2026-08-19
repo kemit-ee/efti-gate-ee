@@ -63,6 +63,11 @@ Content-Type: application/json
   })
 %}
 
+### Find consignment over eDelivery
+POST {{RUUTER_URL}}/efti/api/v1/consignments/search-xml
+Content-Type: text/xml
+
+< ../../code/xml-mapper/xsd/Normalized/FTI019/sample.xml
 
 ### Delete consignment
 POST {{RESQL_URL}}/efti/soft_delete_consignment
