@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import klite.HttpExchange
 import klite.annotations.POST
 import klite.uuid
+import java.time.Instant
 
 @Tag(
   name = "Identifiers search",
@@ -32,7 +33,35 @@ class SearchRoutes(val requestIdHandler: RequestIdHandler) {
   }
 
   @Operation(description = "Map UniqueIDSetUIL as JSON to FTI021SearchIdentifierResponse as XML. Meant for other Gate request.")
-    // TODO: maybe create a more convenient class that corresponds to the consignments table as input
   @POST("/response-to-xml") fun responseToXml(consignments: List<UniqueIDSetUIL>, e: HttpExchange): RuuterXmlWrapper =
+    // TODO: use List<ConsignmentRow> as input and map it to List<UniqueIDSetUIL>
     RuuterXmlWrapper(FTI021SearchIdentifierResponse(ExchangedDocument("021", e.requestId.uuid), consignments).render())
 }
+
+data class ConsignmentRow(
+  val datasetId: String,
+  val platformId: String,
+  val gateId: String,
+  val xml: String,
+  val status: String,
+  val transportMode: String?,
+  val acceptanceDate: Instant?,
+  val acceptanceCountry: String?,
+  val deliveryDate: Instant?,
+  val deliveryCountry: String?,
+  val dangerousGoods: String?,
+  val mainTransportId: String?,
+  val mainTransportType: String?,
+  val transportRegCountry: String?,
+  val loadingDate: Instant?,
+  val loadingCountry: String?,
+  val unloadingDate: Instant?,
+  val unloadingCountry: String?,
+  val usedEquipmentIds: List<String>?,
+  val usedEquipmentCategories: List<String>?,
+  val usedEquipmentCountries: List<String>?,
+  val usedEquipmentSeq: List<String>?,
+  val carriedEquipmentIds: List<String>?,
+  val carriedEquipmentCategories: List<String>?,
+  val carriedEquipmentSeq: List<String>?,
+)
