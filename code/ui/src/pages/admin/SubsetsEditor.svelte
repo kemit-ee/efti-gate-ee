@@ -2,45 +2,58 @@
   import {t} from 'i18n'
   import Button from 'src/components/Button.svelte'
   import FormField from 'src/forms/FormField.svelte'
-  import CheckboxField from 'src/forms/CheckboxField.svelte'
   import {tick} from 'svelte'
   import type {Subset} from 'src/api/ruuterTypes'
 
   export let subsets: Subset[]
 
-  let full = !!subsets.find(s => s === 'full')
+  $: subsets, validate()
+
+  async function validate() {
+    await tick()
+    const inputs = document.querySelectorAll('.subset input') as NodeListOf<HTMLInputElement>
+    inputs.forEach(input => {
+      input.setCustomValidity((input.value ? subsets.filter(s => s === input.value).length > 1 : false) ? t.errors.duplicate : '')
+    })
+  }
 
   async function add() {
     subsets = [...subsets, '']
-    await tick();
-    ([...document.querySelectorAll('.subset input')] as HTMLInputElement[]).last()?.focus()
+    await tick()
+    const inputs = Array.from(document.querySelectorAll('.subset input')) as HTMLInputElement[]
+    inputs.pop()?.focus()
   }
 
   function remove(i: number) {
     subsets.splice(i, 1)
     subsets = subsets
   }
-
-  function fullChange() {
-    if (full) subsets = ['full']
-    else subsets = ['']
-  }
 </script>
 
 <div class="flex flex-col gap-2">
-  <label>{t.authorities.subsets}</label>
-  {#if !full}
-    {#each subsets as subset, i}
-      <div class="flex gap-2">
-        <FormField bind:value={subset} pattern="[A-Z][A-Z][0-9][0-9][a-z]?" maxlength={5} placeholder="EU01" class="subset"/>
-        <Button label="×" onclick={() => remove(i)} title={t.general.remove} class="danger"/>
-      </div>
-    {/each}
-  {/if}
+  <span>{t.authorities.subsets}</span>
+  {#each subsets as subset, i}
+    <div class="flex gap-2 subset">
+      <FormField maxlength={5} list="estonia-subsets" bind:value={subset}/>
+      <datalist id="estonia-subsets">
+        <option value="EE01"></option>
+        <option value="EE02"></option>
+        <option value="EE04"></option>
+        <option value="EE05a"></option>
+        <option value="EE05c"></option>
+        <option value="EE05d"></option>
+        <option value="EU01"></option>
+        <option value="EU02"></option>
+        <option value="EU03"></option>
+        <option value="EU04"></option>
+        <option value="EU05"></option>
+        <option value="EU06"></option>
+        <option value="EU07"></option>
+      </datalist>
+      <Button label="×" onclick={() => remove(i)} title={t.general.remove} class="danger"/>
+    </div>
+  {/each}
   <div class="flex gap-6 items-center">
-    {#if !full}
-      <Button label="+" onclick={add} title={t.general.add}/>
-    {/if}
-    <CheckboxField label="Full" bind:checked={full} onchange={fullChange}/>
+    <Button label="+" onclick={add} title={t.general.add}/>
   </div>
 </div>

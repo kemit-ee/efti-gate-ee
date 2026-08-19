@@ -107,6 +107,7 @@
   "errors": {
     "technical": "Tehniline viga, palun proovige uuesti",
     "tooLong": "Väärtus on liiga pikk",
+    "duplicate": "Väärtused ei tohi korduda",
     "invalidCert": "Vigane PEM sertifikaat, peab sisaldama BEGIN CERTIFICATE"
   },
   "identifiers": {

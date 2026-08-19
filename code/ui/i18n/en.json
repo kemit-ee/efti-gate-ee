@@ -107,6 +107,7 @@
   "errors": {
     "technical": "Technical error, please try again",
     "tooLong": "Value is too long",
+    "duplicate": "No duplicate values allowed",
     "invalidCert": "Invalid PEM certificate, should include BEGIN CERTIFICATE"
   },
   "identifiers": {
