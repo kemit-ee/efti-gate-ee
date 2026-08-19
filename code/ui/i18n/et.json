@@ -82,6 +82,7 @@
     "name": "Nimi",
     "taraSub": "Isikukood",
     "secretHash": "Salasõna räsi",
+    "tokenRevokedAt": "Token tühistatud",
     "generateSecret": "Loo uus parool või token",
     "copyPastePassword": "Kopeeri kasutaja parool (te ei näe seda enam)",
     "copyPasteToken": "Kopeeri kasutaja bearer token (te ei näe seda enam)",
