@@ -11,11 +11,10 @@ class RuuterClient(
   private val baseUrl: URI = URI(Config["RUUTER_URL"]),
 ) {
   fun saveConsignment(xml: String /* FTI004UploadIdentifierRequest */) =
-    http.post(baseUrl + "/consignments/xml", xml) { header("Content-Type", "text/xml") }.checkBody()
+    http.sendXml(baseUrl + "/consignments-xml", xml)
 
-  fun searchConsignments(xml: String /* FTI019SearchIdentifierRequest */): String {
-    TODO()
-  }
+  fun searchConsignments(xml: String /* FTI019SearchIdentifierRequest */) =
+    http.sendXml(baseUrl + "/consignments/search-xml", xml)
 
   fun getDataset(xml: String /* FTI009GetCmdsRequest */): String {
     TODO()
@@ -25,7 +24,10 @@ class RuuterClient(
     TODO()
   }
 
-  fun HttpResponse<String>.checkBody(): String {
+  private fun HttpClient.sendXml(url: URI, xml: String) =
+    post(url, xml) { header("Content-Type", "text/xml") }.checkBody()
+
+  private fun HttpResponse<String>.checkBody(): String {
     if (statusCode() >= 300) error("Failed with ${statusCode()}")
     return body()
   }
