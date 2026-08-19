@@ -18,7 +18,7 @@ check_gate_exists:
 ping_edelivery:
   call: http.post
   args:
-    url: "http://edelivery:8081/ping/${incoming.params.gateId}"
+    url: "[#EDELIVERY_URL]/api/v1/ping/${incoming.params.gateId}"
     headers:
       Content-Type: "application/json"
     body: {}
@@ -27,7 +27,7 @@ ping_edelivery:
 
 check_ping:
   switch:
-    - condition: ${ping_result.response.statusCode != 200}
+    - condition: ${ping_result.response.status != 204}
       next: update_offline
   next: update_online
 
