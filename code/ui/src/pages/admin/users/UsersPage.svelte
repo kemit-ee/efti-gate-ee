@@ -18,7 +18,7 @@
   }
 
   function add() {
-    editUser = {roles: {}} as User
+    editUser = {} as User
   }
 
   function onSaved() {
@@ -32,7 +32,7 @@
   <Button label={t.general.add} onclick={add} class="primary"/>
 </h1>
 
-<UserList {users} onEdit={u => editUser = u} onDeleted={load}/>
+<UserList {users} onEdit={u => editUser = u} {load}/>
 
 <Modal bind:show={editUser} title={t.users.user}>
   {#if editUser}

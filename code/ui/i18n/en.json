@@ -14,6 +14,7 @@
     "systemManagerName": "KEMIT",
     "language": "Language",
     "menu": "Menu",
+    "revokeToken": "Revoke token",
     "lastPingedAt": "Last pinged at: ",
     "save": "Save",
     "admin": "Admin",

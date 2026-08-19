@@ -88,8 +88,8 @@ export interface User {
   id: string
   taraSub: string
   name: string
-  isActive: boolean
   createdAt: string
+  tokenRevokedAt: string | null
 }
 
 export interface CreateUserRequest {
