@@ -49,6 +49,20 @@
         <SubtypeCode>EQ</SubtypeCode>
         <TransportModeCodeType>1</TransportModeCodeType>
       </MainCarriageModeCodeParameterScope>
+      <DeliveryCountryParameterScope>
+        <SubtypeCode>EQ</SubtypeCode>
+        <CountryID>EE</CountryID>
+      </DeliveryCountryParameterScope>
+      <DeliveryDateParameterScope>
+        <SubtypeCode>GT</SubtypeCode>
+        <SpecifiedDateTime>
+          <udt:DateTimeString format="102">20250601</udt:DateTimeString>
+        </SpecifiedDateTime>
+      </DeliveryDateParameterScope>
+      <CarriedTransportEquipmentIDParameterScope>
+        <SubtypeCode>EQ</SubtypeCode>
+        <ID>TE-004</ID>
+      </CarriedTransportEquipmentIDParameterScope>
     </ParameterSearchCriteria>
   </rsm:EFTIIDInformation>
 
