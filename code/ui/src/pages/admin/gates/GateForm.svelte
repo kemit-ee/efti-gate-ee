@@ -30,7 +30,7 @@
     }
     if (isEdit) await api.put(`v1/gates/update?gateId=${request.id}`, request)
     else await api.post('v1/gates', request)
-    if (gate.status !== Status.DISABLED) api.post(`gates/${gate.id}/ping`).catch(() => {})
+    if (gate.status !== Status.DISABLED) await api.post(`v1/gates/ping?gateId=${gate.id}`).catch(() => {})
     showToast(isEdit ? t.general.saved : `${t.gates.added}: ${gate.id}`)
     onSaved()
   }

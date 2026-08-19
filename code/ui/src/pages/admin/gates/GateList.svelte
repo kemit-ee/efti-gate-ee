@@ -2,7 +2,7 @@
   import api from 'src/api/api'
   import SortableTable from 'src/components/SortableTable.svelte'
   import {showToast} from 'src/stores/toasts'
-  import {t} from 'i18n'
+  import {formatDateTime, t} from 'i18n'
   import Button from 'src/components/Button.svelte'
   import {type Gate, Status} from "src/api/ruuterTypes";
 
@@ -12,8 +12,9 @@
 
   async function ping(gate: Gate) {
     try {
-      await api.post(`v1/gates/ping?gateId=${gate.id}`)
+      const newGate = (await api.post<Gate[]>(`v1/gates/ping?gateId=${gate.id}`))[0]
       showToast(gate.id + ' ' + t.general.pinged)
+      gates = [...gates.filter(g => g.id !== gate.id), newGate]
     } catch (e: any) {
       if (gate.status !== Status.DISABLED) gates = gates.map(g => g.id === gate.id ? { ...g, status: Status.OFFLINE } : g)
       throw e
@@ -34,7 +35,7 @@
     <td>{g.countryCode}</td>
     <td><a href={g.eDeliveryUrl} target="_blank">{g.eDeliveryUrl}</a></td>
     <td>
-      <div class="flex items-center gap-2">
+      <div title={t.general.lastPingedAt + formatDateTime(g.lastPingAt)} class="flex items-center gap-2">
         <div class="h-4 w-4 rounded-full {g.status === Status.ONLINE ? 'bg-success-500' : g.status === Status.DISABLED ? 'bg-warning-500' :  'bg-danger-500'}" ></div>
         <span>{t.statuses[g.status]}</span>
       </div>
