@@ -2,6 +2,11 @@
 
 ## Changes
 
+- **v1.1** — Reconciled with the implementation. §1.1 inverted: the database, not the JWT,
+  is the authorisation snapshot, and the caller is resolved on every request. §1.2 no longer
+  claims a self-contained stateless Resource Server. §1.3 revocation is immediate rather
+  than refresh-denial. §1.4 channel table now names TIM as the issuer and validator. §4's
+  rationale was already stated this way and is now consistent with §1.
 - _Initial state. Change tracking begins at v1.0.0._
 
 > Theme-wide architectural rules. Every epic under this theme — and every Acceptance Criterion (AC) it carries — must derive from or at minimum **not conflict with** the rules stated here. AC live in the corresponding epic files under [`docs/cfr/`](../../cfr/); this document describes the *contract those AC implement*.
@@ -20,33 +25,55 @@
 
 These are the cross-cutting invariants that every epic in this theme derives from. AC bullets in the epic files specialise these rules to verifiable conditions on specific endpoints, error codes, or DB state.
 
-### 1.1 The JWT is the authorisation snapshot
+### 1.1 The database is the authorisation snapshot, not the JWT
 
-When a JWT is issued by the gate, it carries the user's permission state at that moment (`tara_sub`, `roles`, `subsets`, `scopes`, plus standard claims). The gate validates the JWT and trusts its claims for the entire validity window — **no DB lookup for identity or permissions on the hot path by default**. When a JWT expires or needs refreshing, the gate re-resolves the user from `users` and mints a new JWT carrying the current snapshot.
+> **Changed v1.1.** This rule previously said the opposite — that the gate minted a JWT
+> carrying `roles`/`subsets`/`scopes` and trusted those claims for the token's whole validity
+> window, with no hot-path DB lookup. See [authentication.md §2.1](authentication.md) for why
+> that was reversed.
 
-The same logic holds across all TTLs:
+The token proves **identity and freshness only**. It carries `sub` / `personalCode`, `iat`,
+`exp` and `jti`; it does **not** carry roles, subsets or scopes, and the gate would not trust
+them if it did. On every request the gate resolves the caller to a `users` row and reads the
+permission set from there.
 
-- **Long-lived JWTs** (e.g. multi-hour admin sessions): efficient — rare refresh cycles, no per-request DB load.
-- **Short-lived JWTs** (e.g. minutes): faster permission propagation — a DB-side change reaches every caller within one TTL window.
-- **Extremely short-lived / one-shot JWTs** (e.g. step-up auth for a single sensitive operation): strongest binding between JWT and intent — the token cannot outlive the operation it was issued for.
+The consequence that matters: the authorisation snapshot cannot drift from the database. A
+role change, a subset change, a soft-delete, an identifier correction or a revocation all
+take effect on the very next request, with no TTL to wait out.
 
-The TTL is the *granularity of permission propagation*. Pick long where permissions are stable and request volume is high; pick short (or one-shot) where revocation latency matters more than request overhead. The validation pipeline is identical regardless of TTL.
+The TTL therefore is *not* the granularity of permission propagation — it only bounds how
+long an otherwise-valid session lasts before the user logs in again.
 
-Note that the JWT here is the **gate-issued access token**, not the upstream TARA OIDC ID token. TARA proves identity at login; the gate exchanges the TARA ID token (one DB lookup at exchange time) for its own JWT carrying identity + permissions. Refresh re-mints from the current DB state.
+### 1.2 No server-side session state in the gate
 
-### 1.2 The gate is a stateless OAuth 2.0 Resource Server
+For Authority and Admin traffic: **no server-side session and no `session_id` cookie in the
+gate**. Ruuter holds nothing between requests, so multi-node deployment needs no session
+affinity — any node can serve any request.
 
-For Authority and Admin traffic: **no server-side session, no `session_id` cookie, no per-request DB lookup**. The JWT *is* the session and carries everything the gate needs to authorise the request. Multi-node deployment requires no session affinity or shared cache: any node can validate any gate-issued JWT against the gate's own signing key.
+The gate is not, however, a self-contained Resource Server: validating a request means asking
+TIM about the token and reading one `users` row. Both are shared, external state, so a node
+is stateless while the *system* is not. That is the deliberate trade in §1.1.
 
-### 1.3 Revocation = refresh denial (default profile)
+### 1.3 Revocation is immediate
 
-A revocation primitive marks the user as no-refresh in `users`. The currently-held JWT continues to validate until its `exp` claim — there is **no per-request denylist lookup** in the default profile. Latency between a revoke action and its taking effect is bounded by the JWT TTL; operators pick a short TTL for scopes where rapid revocation matters.
+> **Changed v1.1.** Previously *refresh denial* — the in-flight JWT was honoured to its `exp`
+> and only the next refresh was blocked, giving one TTL window of latency. Because §1.1 now
+> resolves the caller per request, revocation lands on the next request instead.
 
-- **Logout** (`POST /api/v1/auth/logout`): marks the calling user (or specific token, by `jti`) as no-refresh. The currently-held JWT lives until `exp`. Subsequent refresh attempts for the same token / user fail.
-- **Admin revoke** (`POST /api/v1/users/{userId}/revoke-token`): INSERTs a new `users` row with `token_revoked_at = NOW()` (append-only). The currently-held JWT for that user lives until `exp`; subsequent refresh attempts fail because the refresh pipeline checks `users.token_revoked_at`.
-- **Break-glass JWT**: hard-coded 600 s TTL (`BREAK_GLASS_JWT_TTL_SECONDS`) provides naturally bounded revocation latency without any explicit revoke action.
+- **Logout** (`POST /api/v1/auth/logout`): blacklists the token in TIM, then appends a
+  `sessions` row (`jti`, `expires_at`, `reason='logout'`) as the audit record. Enforcement
+  first, audit second, so a failed INSERT cannot block a revocation. Idempotent.
+- **Admin revoke** (`POST /api/v1/users/{userId}/revoke-token`): INSERTs a new `users` row
+  with `token_revoked_at = NOW()` (append-only). Every token that user holds is rejected from
+  the next request onward, because the identity query compares the presented token's issuance
+  time against that column.
+- **Soft-delete** (`is_active = FALSE` on the latest row) and a **corrected `tara_sub`** are
+  rejected by the same query, with the same immediacy.
+- **Break-glass JWT**: hard-coded 600 s TTL (`BREAK_GLASS_JWT_TTL_SECONDS`).
 
-> **Future mode (opt-in, not in the default profile):** environments where TTL-bounded revocation latency is unacceptable can enable a **per-request denylist check** against `sessions` (per-token `jti`) and `users.token_revoked_at` (per-user `jwt.iat` comparison). This adds two DB lookups per request and reintroduces hot-path DB load — the trade is hard immediate revocation versus the default's stateless throughput. The schema (`sessions` table, `users.token_revoked_at`) already supports this mode; the toggle is a runtime configuration item.
+The cost of immediacy is one indexed single-table read per request. Environments that would
+rather trade revocation latency for throughput can move the permission set into the token and
+drop the lookup; the schema supports either shape unchanged.
 
 ### 1.4 Channel routing
 
@@ -54,8 +81,8 @@ The gate has exactly four authentication channels, each with one credential type
 
 | Channel | Credential on the wire | Validated against | Hot-path DB lookup |
 |---|---|---|---|
-| Authority / Admin API | Gate-issued RS256 JWT | Gate signing key (cached) — JWT carries `tara_sub`, `roles`, `subsets`, `scopes` | none (default profile) |
-| Authority / Admin login (one-time) | TARA OIDC RS256 ID token | Cached TARA JWKS | `users` by `tara_sub` (at JWT exchange / refresh only) |
+| Authority / Admin API | TIM-issued RS256 JWT, as `Authorization: Bearer` | TIM `GET /jwt/userinfo` (signature + blacklist), then the resolved `users` row for permissions | `users` by `tara_sub`, every request |
+| Authority / Admin login (one-time) | TARA OIDC RS256 ID token | TIM performs the code exchange and validates against the TARA JWKS | none — TIM owns this hop; Ruuter is not involved |
 | Platform API | mTLS X.509 client cert | Reverse proxy + cert chain | `platforms` by `(cert_subject, cert_serial)` |
 | CronManager admin endpoints | Static Bearer | Literal compare against `ARCHIVE_OPS_TOKEN` env var | none |
 | Gate-to-gate (G2G) | mTLS at AS4 access point | EU Trust Service trust list, OCSP/CRL fail-closed | none (peer gate cert) |
@@ -75,7 +102,7 @@ The single decision tree that every request runs through, regardless of which ch
 ```mermaid
 flowchart TD
     Req[Incoming request] --> Cred{Credential type?}
-    Cred -- "Bearer JWT (Authority/Admin)" --> JWT[Validate JWT;<br/>resolve users row by tara_sub;<br/>check denylist + token_revoked_at]
+    Cred -- "Bearer JWT (Authority/Admin)" --> JWT[Validate token at TIM<br/>resolve latest users row<br/>by tara_sub<br/>check is_active and<br/>token_revoked_at]
     Cred -- "mTLS (Platform)" --> MTLS[Resolve active platforms<br/>by cert subject + serial]
     Cred -- "Static opsToken (CronManager)" --> OPS[Literal compare against env var]
     JWT -- invalid --> R401[401 TOKEN_INVALID]

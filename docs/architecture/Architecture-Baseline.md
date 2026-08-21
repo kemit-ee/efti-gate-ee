@@ -43,6 +43,47 @@ WHERE uil = :uil
 
 **Called from Ruuter as:** `POST http://resql:8080/query/dataset-by-uil` with body `{"uil": "..."}`
 
+### TIM (Token & Identity Manager)
+
+Bürokratt TIM owns the whole token lifecycle for the Authority and Admin surfaces. **Ruuter
+mints nothing** — it only presents a token to TIM for validation.
+
+**How it works:**
+- The browser starts the login at TIM directly: `GET /oauth2/authorization/tara?callback_url=…`
+- TIM redirects to TARA, receives the authorization code back at its own `/authenticate`
+  callback, and performs the back-channel code exchange. TIM holds the TARA `client_secret`;
+  the gate's REST surface never does.
+- On success TIM mints its **own** RS256 JWT (claims: `personalCode`, `sub`, `firstName`,
+  `lastName`, `authenticatedAs`, `iss`, `iat`, `exp`, `jti`, `hash`) and returns it as the
+  `customJwtCookie` cookie.
+- Validation: `GET /jwt/userinfo` with the token. Revocation: `POST /jwt/blacklist`.
+- TIM answers `/jwt/*` only to callers named in `SECURITY_ALLOWLIST_JWT`.
+
+**Auth paths carry no `/v1` prefix** — they are TIM's own surface, not part of the versioned
+eFTI contract. See `docs/planning/rest-api-disainijuhend.md` §5.
+
+**TIM owns token expiry**, not TARA: `legacy-portal-integration.sessionTimeoutMinutes`
+(default 30) is applied in `JwtUtils.createSignedJwt()` on every OIDC login.
+
+TIM keeps its own PostgreSQL instance (`tim-postgresql`) for sessions and the token
+blacklist. This is the single documented exception to "all DB access goes through ReSQL" —
+TIM stores no eFTI data.
+
+**Called from Ruuter as:** `GET http://tim:8085/jwt/userinfo` with header
+`cookie: customJwtCookie=<token>`.
+
+### TARA-Mock (development only)
+
+A local stand-in for `tara.ria.ee`, vendored as the `e-gov/TARA-Mock` git submodule. Serves
+the OIDC discovery, authorize, token and JWKS endpoints over HTTPS using a CA it generates on
+first boot into a volume shared with TIM. `?autologin=<isikukood>` skips the identity-picker
+page, which is what makes headless scripted login possible.
+
+Switching to real TARA is pure configuration — three TIM environment variables
+(`user-authorization-uri`, `access-token-uri`, `jwk.key-set-uri`) plus real client
+credentials. There is no code branch and no compose profile; the `tara-mock` service is
+simply not deployed.
+
 ### eFTI specific components
 Handles eFTI/eDelivery protocol specifics that Ruuter cannot do:
 
@@ -89,7 +130,12 @@ Client → Ruuter → edelivery (parse XML) → Ruuter → ReSql → DB
 All admin operations are pure REST-to-DB through Ruuter:
 - Logical CRUD operations for gates, platforms, certificates (CR in DB)
 - Each endpoint is a Ruuter DSL that calls ReSql for DB operations
-- Auth via TIM/TARA with role-based access control
+- Auth via TIM/TARA with role-based access control. Concretely: a `.guard` file at the
+  method/version directory level runs before the endpoint DSL and proves *authentication*;
+  the endpoint itself decides *authorisation*, because the required role differs per route.
+  Both go through the shared `TEMPLATES/check-user-authority` template, which validates the
+  token at TIM and then resolves the caller to a `users` row via ReSql. Roles and scopes are
+  read from that row, never from the token's claims.
 
 **Config change notification:** After DB write
 CronManager iga päev (vms) genereerib constants.ini uuesti ja toimub redeploy
