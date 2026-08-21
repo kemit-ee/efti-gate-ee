@@ -1,0 +1,41 @@
+declaration:
+  call: declare
+  version: 0.1
+  description: "Current user profile. Open to any authenticated caller, scoped to their own row — docs/specs/permissions-matrix.md:163, openapi.yaml operation getCurrentUser."
+  method: get
+  accepts: json
+  returns: json
+  namespace: service
+  allowlist:
+    headers:
+      - field: authorization
+        type: string
+        description: "Bearer <gate JWT>"
+
+# The guard has already proven the caller is authenticated. Re-resolving here is how we
+# get the caller's row (guards return only a pass/fail, not data) — the same
+# second-layer pattern the LJVIS reference stack uses.
+get_user_context:
+  template: "[#EFTI_PROJECT_LAYER]/check-user-authority"
+  requestType: templates
+  headers:
+    authorization: ${incoming.headers.authorization}
+  result: auth_user
+  next: check_user_context
+
+check_user_context:
+  switch:
+    - condition: ${auth_user !== "false"}
+      next: return_user
+  next: token_invalid
+
+return_user:
+  return: ${auth_user}
+  wrapper: false
+  next: end
+
+token_invalid:
+  status: 401
+  return: '{"type":"https://api.efti.ee/errors/token-invalid","code":"TOKEN_INVALID","title":"Invalid Token","status":401,"detail":"The presented token is expired, revoked, or does not resolve to an active gate user.","instance":"/api/v1/user"}'
+  wrapper: false
+  next: end

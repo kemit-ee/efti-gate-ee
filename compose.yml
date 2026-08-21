@@ -1,7 +1,10 @@
 services:
   database:
     container_name: database
-    image: postgres:18
+    # Pinned to 17, NOT 18: ReSQL v1.3.4 and TIM pre-apha-2.7.1 both bundle the
+    # PostgreSQL JDBC driver 42.3.9, which officially supports servers up to 15.
+    # 17 is the tested calculated risk — see docs/planning/known-issues.md KI-001.
+    image: postgres:17
     environment:
       - POSTGRES_USER=efti
       - POSTGRES_PASSWORD=01234
@@ -30,7 +33,9 @@ services:
       - ./DSL/Liquibase:/liquibase/changelog
     environment:
       - AUDIT_SALT=${AUDIT_SALT:-dev-local-audit-salt-change-me-32chars}
-    command: --defaultsFile=/liquibase/changelog/liquibase.properties update -DAUDIT_SALT=${AUDIT_SALT:-dev-local-audit-salt-change-me-32chars}
+    # --contexts=dev applies the dev-only user fixtures in changelog/20260813-auth-seed.sql.
+    # Override with LIQUIBASE_CONTEXTS= (empty) to migrate schema without seeding.
+    command: --defaultsFile=/liquibase/changelog/liquibase.properties update -DAUDIT_SALT=${AUDIT_SALT:-dev-local-audit-salt-change-me-32chars} --contexts=${LIQUIBASE_CONTEXTS-dev}
 
   resql:
     build:
@@ -59,15 +64,118 @@ services:
       dockerfile: docker/ruuter/Dockerfile
     platform: linux/amd64
     environment:
-      - RUST_LOG=debug
+      - server.port=8086
+      # 401 and 403 MUST be listed — Ruuter drops any status not on this list, so
+      # the .guard denial would surface as 500 instead of the spec'd code.
+      - application.httpCodesAllowList=200,201,202,204,400,401,403,404,500
+      - application.cors.allowedOrigins=http://localhost:8086
+      - application.incomingRequests.allowedMethodTypes=POST,GET,PUT,DELETE
+      - application.internalRequests.allowedIPs=127.0.0.1
+      - application.internalRequests.disabled=true
+      # Body logging is OFF by default: it dumps whole request/response payloads at INFO,
+      # which on the auth path means the Estonian personal code, name and email of every
+      # caller land in the logs unredacted (logging-spec.md §5 forbids logging credentials;
+      # PII belongs in structured audit fields, not raw payload dumps).
+      #
+      # NB: the two application.logging.* flags are NOT sufficient on their own — Ruuter
+      # v2.2.1 logs every outgoing call's body from HttpHelper at INFO regardless of them,
+      # so the logger itself has to be raised to WARN. Verified: with only the flags set to
+      # false, `REQUEST BODY: {tara_sub=…}` still appeared in the log.
+      #
+      # For debugging: RUUTER_LOG_BODIES=true RUUTER_HTTP_LOG_LEVEL=INFO docker compose up -d ruuter
+      - application.logging.displayRequestContent=${RUUTER_LOG_BODIES:-false}
+      - application.logging.displayResponseContent=${RUUTER_LOG_BODIES:-false}
+      - logging.level.ee.buerokratt.ruuter.helper.HttpHelper=${RUUTER_HTTP_LOG_LEVEL:-WARN}
+      - application.logging.printStackTrace=true
     volumes:
-      - ./DSL/Ruuter:/app/DSL
+      - ./DSL/Ruuter:/DSL
       - ./constants.ini:/app/constants.ini
-      - ./ruuter.yaml:/app/ruuter.yaml
     ports:
       - 8086:8086
+    depends_on:
+      - resql
+      - tim
     cpus: "0.5"
     mem_limit: "512M"
+
+  # ── Authentication: mocked TARA + Bürokratt TIM ──────────────────────────────
+  # tara-mock stands in for https://tara.ria.ee. It serves HTTPS with a self-signed
+  # CA it generates on first boot into the shared `tara-mock-vault` volume; TIM must
+  # trust that CA before it can do the back-channel token/JWKS calls.
+  tara-mock:
+    container_name: tara-mock
+    build:
+      context: .
+      dockerfile: docker/tara-mock/Dockerfile
+    volumes:
+      - tara-mock-vault:/service/vault
+      - ./docker/tara-mock/identities.json:/service/identities.json:ro
+    ports:
+      - 8888:8080
+
+  # TIM's own session store. Deliberately NOT port-published: nothing outside the compose
+  # network needs it, and `trust` auth below means a published port would be an
+  # unauthenticated database. Reach it with `docker exec tim-postgresql psql -U tim`.
+  tim-postgresql:
+    container_name: tim-postgresql
+    image: postgres:17
+    environment:
+      - POSTGRES_USER=tim
+      - POSTGRES_PASSWORD=${TIM_DB_PASSWORD:-123}
+      - POSTGRES_DB=tim
+      # TIM pre-apha-2.7.1 does not let us supply datasource credentials, so the DB has to
+      # accept it unauthenticated. Acceptable only because the port is unpublished.
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    volumes:
+      - tim-data:/var/lib/postgresql/data
+
+  tim:
+    container_name: tim
+    image: ghcr.io/buerokratt/tim:pre-apha-2.7.1
+    platform: linux/amd64
+    depends_on:
+      - tim-postgresql
+      - tara-mock
+    # Waits for tara-mock's CA, imports it into the JVM truststore, then boots TIM.
+    # user-authorization-uri  → browser-reachable (localhost:8888, port-mapped)
+    # access-token-uri / jwks → container-internal Docker DNS (tara-mock:8080)
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        until [ -f /tara-mock-vault/rootCA.pem ]; do sleep 1; done
+        CACERTS=$$(find /opt/java /usr/lib/jvm -name cacerts -path '*/security/cacerts' 2>/dev/null | head -1)
+        keytool -import -trustcacerts -noprompt -alias tara-mock-ca \
+          -file /tara-mock-vault/rootCA.pem -keystore "$$CACERTS" -storepass changeit
+        exec ./generate-keystore.sh
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://tim-postgresql:5432/tim
+      # TIM only answers /jwt/* to callers on this list — `ruuter` is the one that matters.
+      # Note this is hostname/IP-based, so it is only meaningful because the compose
+      # network is not routable from outside.
+      - SECURITY_ALLOWLIST_JWT=ruuter,resql,tim,tim-postgresql,127.0.0.1,::1
+      # Dev defaults. Every one of these is a secret in a real deployment and must come
+      # from a Kubernetes Secret / Vault, never from a config file — see
+      # docs/cfr/security-and-compliance/security.md:32-33 and
+      # docs/architecture/identity-and-access/README.md §1.5.
+      - JWT_INTEGRATION_SIGNATURE_KEY_STORE_PASSWORD=${TIM_KEYSTORE_PASSWORD:-defaultpassword}
+      - security.oauth2.client.client-id=${TARA_CLIENT_ID:-efti}
+      - security.oauth2.client.client-secret=${TARA_CLIENT_SECRET:-efti-secret}
+      - security.oauth2.client.scope=openid
+      # No frontend proxy in this stack, so TIM's callback is hit directly.
+      - security.oauth2.client.registered-redirect-uri=http://localhost:8085/authenticate
+      - security.oauth2.client.user-authorization-uri=https://localhost:8888/oidc/authorize
+      - security.oauth2.client.access-token-uri=https://tara-mock:8080/oidc/token
+      - security.oauth2.resource.jwk.key-set-uri=https://tara-mock:8080/oidc/jwks
+      - frontpage.redirect.url=http://localhost:8086
+      - auth.success.redirect.whitelist=http://localhost:8086
+      - jwt-integration.signature.cookieName=customJwtCookie
+      - jwt-integration.signature.secureCookie=false
+      - server.servlet.session.cookie.same-site=lax
+    volumes:
+      - tara-mock-vault:/tara-mock-vault:ro
+    ports:
+      - 8085:8085
+  # ────────────────────────────────────────────────────────────────────────────
 
   edelivery:
     build:
@@ -76,6 +184,10 @@ services:
       args:
         - PROJECT=edelivery
         - PORT=8081
+    environment:
+      - OWN_PARTY_ID=${OWN_PARTY_ID:-eu-ee01}
+    depends_on:
+      - resql
     ports:
       - 8081:8081
     mem_limit: "512M"
@@ -98,9 +210,15 @@ services:
       args:
         - PROJECT=multiplexer
         - PORT=8083
+    environment:
+      - OWN_PARTY_ID=${OWN_PARTY_ID:-eu-ee01}
+    depends_on:
+      - resql
     ports:
-      - 8083:8083
+      - ${MULTIPLEXER_PORT:-8083}:8083
     mem_limit: "512M"
 
 volumes:
   data:
+  tim-data:
+  tara-mock-vault:

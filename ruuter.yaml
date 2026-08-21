@@ -1,4 +1,0 @@
-port: 8086
-
-internal_requests:
-  block_private_networks: false

@@ -1,4 +1,12 @@
 databaseChangeLog:
+  # Auth surface — users + sessions, then dev-only fixtures (context: dev).
+  - include:
+      file: changelog/20260813-auth-schema.sql
+      relativeToChangelogFile: false
+  - include:
+      file: changelog/20260813-auth-seed.sql
+      relativeToChangelogFile: false
+
   - changeSet:
       id: 001-create-testandmestik
       author: devin

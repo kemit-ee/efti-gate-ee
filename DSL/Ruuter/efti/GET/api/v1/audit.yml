@@ -1,0 +1,58 @@
+declaration:
+  call: declare
+  version: 0.1
+  description: "Immutable audit log. Super Admin only — docs/specs/permissions-matrix.md:177. Body is a stub until Epic 26 lands; this route exists to prove the authorisation check."
+  method: get
+  accepts: json
+  returns: json
+  namespace: service
+  allowlist:
+    headers:
+      - field: authorization
+        type: string
+        description: "Bearer <gate JWT>"
+
+# Authorisation lives in the endpoint, not the .guard, because the required role differs
+# per route under /api/v1/ — the guard proves authentication only.
+get_user_context:
+  template: "[#EFTI_PROJECT_LAYER]/check-user-authority"
+  requestType: templates
+  headers:
+    authorization: ${incoming.headers.authorization}
+  result: auth_user
+  next: check_user_context
+
+check_user_context:
+  switch:
+    - condition: ${auth_user !== "false"}
+      next: check_super_admin
+  next: token_invalid
+
+# is_super_admin is computed by get_user_by_tara_sub.sql as (is_admin AND roles = '{}').
+# A Regular Admin carries roles={"ADMIN":[...]} and is scoped, so it fails here too —
+# docs/specs/permissions-matrix.md:70-71.
+# NB: ReSQL camelCases column names on the way out, so the field is isSuperAdmin.
+check_super_admin:
+  switch:
+    - condition: ${auth_user.isSuperAdmin == true}
+      next: return_audit_log
+  next: forbidden
+
+# Stub payload — the real audit query arrives with Epic 26.
+return_audit_log:
+  status: 200
+  return: '{"content":[],"totalElements":0}'
+  wrapper: false
+  next: end
+
+forbidden:
+  status: 403
+  return: '{"type":"https://api.efti.ee/errors/forbidden","code":"FORBIDDEN","title":"Forbidden","status":403,"detail":"GET /api/v1/audit requires Super Admin (is_admin = TRUE with no scoped roles).","instance":"/api/v1/audit"}'
+  wrapper: false
+  next: end
+
+token_invalid:
+  status: 401
+  return: '{"type":"https://api.efti.ee/errors/token-invalid","code":"TOKEN_INVALID","title":"Invalid Token","status":401,"detail":"The presented token is expired, revoked, or does not resolve to an active gate user.","instance":"/api/v1/audit"}'
+  wrapper: false
+  next: end

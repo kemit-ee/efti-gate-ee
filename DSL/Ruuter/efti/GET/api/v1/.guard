@@ -1,0 +1,47 @@
+# Authentication guard for every GET under /efti/api/v1/. Ruuter runs it before the
+# endpoint file; a non-200 here aborts the request and the endpoint never executes.
+# Authorisation (role / scope / subset) is NOT decided here — that is per-endpoint,
+# because the required role differs per route (docs/specs/permissions-matrix.md §3.3).
+#
+# NB: `return:` is typed as String in Ruuter v2.2.1, so an RFC 7807 body has to be
+# built with `assign` and returned as an expression, not written as a YAML map.
+
+check_for_bearer:
+  switch:
+    - condition: ${incoming.headers == null || incoming.headers.authorization == null}
+      next: no_credentials
+  next: authenticate
+
+authenticate:
+  template: "[#EFTI_PROJECT_LAYER]/check-user-authority"
+  requestType: templates
+  headers:
+    authorization: ${incoming.headers.authorization}
+  result: authority_result
+
+check_authority_result:
+  switch:
+    - condition: ${authority_result !== "false"}
+      next: guard_success
+  next: token_invalid
+
+guard_success:
+  return: "success"
+  status: 200
+  next: end
+
+# No Authorization header at all → 401 with no error code
+# (docs/specs/permissions-matrix.md:261).
+no_credentials:
+  status: 401
+  return: '{"type":"https://api.efti.ee/errors/unauthorized","title":"Authentication Required","status":401,"detail":"Authentication required. Provide a gate-issued JWT via Authorization: Bearer <jwt>."}'
+  wrapper: false
+  next: end
+
+# A token was presented but did not resolve to an active user → 401 TOKEN_INVALID
+# (docs/specs/permissions-matrix.md:262, docs/specs/errors.json TOKEN_INVALID).
+token_invalid:
+  status: 401
+  return: '{"type":"https://api.efti.ee/errors/token-invalid","code":"TOKEN_INVALID","title":"Invalid Token","status":401,"detail":"The presented token is expired, revoked, or does not resolve to an active gate user."}'
+  wrapper: false
+  next: end

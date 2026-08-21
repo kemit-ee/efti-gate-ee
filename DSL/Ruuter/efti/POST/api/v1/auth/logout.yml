@@ -1,0 +1,85 @@
+declaration:
+  call: declare
+  version: 0.1
+  description: "Revoke the presented JWT — blacklist it in TIM and record the revocation in the sessions denylist. Idempotent. docs/specs/openapi.yaml operation logout (204)."
+  method: post
+  accepts: json
+  returns: json
+  namespace: service
+  allowlist:
+    headers:
+      - field: authorization
+        type: string
+        description: "Bearer <gate JWT>"
+
+check_for_bearer:
+  switch:
+    - condition: ${incoming.headers == null || incoming.headers.authorization == null || !incoming.headers.authorization.toLowerCase().startsWith("bearer ")}
+      next: no_credentials
+  next: extract_token
+
+extract_token:
+  assign:
+    token: ${incoming.headers.authorization.substring(7)}
+    # Only the payload segment is handed to the database below. The payload alone is not a
+    # usable credential (no signature), so the DB layer — and anything that logs its
+    # traffic — never sees a token that could be replayed.
+    token_payload: ${incoming.headers.authorization.substring(7).split(".")[1]}
+  next: get_user_context
+
+# Resolve the caller so the denylist row can carry the logical users.id.
+get_user_context:
+  template: "[#EFTI_PROJECT_LAYER]/check-user-authority"
+  requestType: templates
+  headers:
+    authorization: ${incoming.headers.authorization}
+  result: auth_user
+  next: check_user_context
+
+# Already-revoked tokens no longer resolve. Logout is specified as idempotent
+# (docs/specs/openapi.yaml:153), so that is a 204, not a 401.
+check_user_context:
+  switch:
+    - condition: ${auth_user !== "false"}
+      next: revoke_in_tim
+  next: revoked
+
+# Enforcement first, audit second — deliberately in that order. Once blacklisted, TIM's
+# /jwt/userinfo rejects this token, so every subsequent gate request fails
+# authentication. If the denylist INSERT then failed, the token would already be dead;
+# the reverse order would let a failed INSERT block the revocation itself.
+revoke_in_tim:
+  call: http.post
+  args:
+    url: "[#EFTI_TIM]/jwt/blacklist"
+    headers:
+      cookie: "customJwtCookie=${token}"
+  result: revoke_result
+  next: record_revocation
+
+# The durable audit record (docs/specs/permissions-matrix.md:244). jti and exp are
+# decoded from the token inside the query, because TIM's /jwt/userinfo exposes neither.
+record_revocation:
+  call: http.post
+  args:
+    url: "[#EFTI_RESQL]/insert_session_revocation"
+    headers:
+      type: json
+    body:
+      user_id: ${auth_user.id}
+      jwt_payload: ${token_payload}
+      reason: "logout"
+  result: session_row
+  next: revoked
+
+revoked:
+  status: 204
+  return: ""
+  wrapper: false
+  next: end
+
+no_credentials:
+  status: 401
+  return: '{"type":"https://api.efti.ee/errors/unauthorized","title":"Authentication Required","status":401,"detail":"Authentication required. Provide a gate-issued JWT via Authorization: Bearer <jwt>.","instance":"/api/v1/auth/logout"}'
+  wrapper: false
+  next: end

@@ -1,0 +1,108 @@
+declaration:
+  call: declare
+  version: 0.1
+  description: "Resolve the caller from an 'Authorization: Bearer <jwt>' header — validate the token with TIM, then load the users row by tara_sub. Returns the users row, or the string \"false\" on any failure."
+  method: post
+  accepts: json
+  returns: json
+  namespace: service
+  allowlist:
+    headers:
+      - field: authorization
+        type: string
+        description: "Bearer <gate JWT>"
+
+# Single sentinel for every failure mode: the literal string "false". Callers
+# (.guard files and endpoints) only ever compare against that, so a new failure
+# branch here never needs a matching change at every call site.
+
+check_for_bearer:
+  switch:
+    - condition: ${incoming.headers == null || incoming.headers.authorization == null || !incoming.headers.authorization.toLowerCase().startsWith("bearer ")}
+      next: return_false
+  next: extract_token
+
+extract_token:
+  assign:
+    token: ${incoming.headers.authorization.substring(7)}
+  next: check_token
+
+check_token:
+  switch:
+    - condition: ${token != null && token != ''}
+      next: validate_token
+  next: return_false
+
+validate_token:
+  call: http.get
+  args:
+    url: "[#EFTI_TIM]/jwt/userinfo"
+    headers:
+      # TIM reads the token only from its own cookie. Re-frame the Bearer value here so
+      # the gate's wire contract stays Bearer-only, per
+      # docs/architecture/user-interfaces/README.md:30-32 (no cookie, no CSRF token).
+      cookie: "customJwtCookie=${token}"
+  result: token_info
+  next: check_token_info
+
+check_token_info:
+  switch:
+    - condition: ${200 <= token_info.response.statusCodeValue && token_info.response.statusCodeValue < 300}
+      next: extract_tara_sub
+  next: return_false
+
+extract_tara_sub:
+  assign:
+    tara_sub: ${token_info.response.body.personalCode ?? ''}
+  next: extract_issued_at
+
+# loggedInDate is TIM's issuance timestamp in epoch milliseconds — the equivalent of the
+# token's `iat` claim, which TIM's /jwt/userinfo does not expose. It is compared against
+# users.token_revoked_at inside the query below. Defaulting to 0 fails closed: if the
+# issuance time is unknown, any broadcast revocation rejects the token.
+extract_issued_at:
+  assign:
+    issued_at_ms: ${token_info.response.body.loggedInDate ?? 0}
+  next: check_tara_sub
+
+check_tara_sub:
+  switch:
+    - condition: ${tara_sub != null && tara_sub != ''}
+      next: lookup_user
+  next: return_false
+
+# The one DB lookup on the authentication path (docs/specs/permissions-matrix.md:247).
+# Authorisation state is read from this row, never from the token's claims — the gate's
+# snapshot can change after a token was minted, so DB-side state wins (:61-62). The query
+# also enforces the soft-delete and per-user revocation checks, so 0 rows means "reject"
+# for any of those reasons.
+lookup_user:
+  call: http.post
+  args:
+    url: "[#EFTI_RESQL]/get_user_by_tara_sub"
+    headers:
+      type: json
+    body:
+      tara_sub: ${tara_sub}
+      issued_at_ms: ${issued_at_ms}
+  result: user_res
+  next: check_user_found
+
+check_user_found:
+  switch:
+    - condition: ${user_res.response.body.length > 0}
+      next: return_user
+  next: return_false
+
+return_user:
+  return: ${user_res.response.body[0]}
+  next: end
+
+# Covers: no/!Bearer header, empty token, TIM rejected the token, no personalCode claim,
+# a valid TARA identity with no users row (the gate does not auto-provision —
+# docs/architecture/identity-and-access/authentication.md:35), a soft-deleted user, a
+# superseded tara_sub, and a token predating users.token_revoked_at.
+return_false:
+  status: 401
+  return: "false"
+  next: end
