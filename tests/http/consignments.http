@@ -70,15 +70,22 @@ Content-Type: text/xml
 < ../../code/xml-mapper/xsd/Normalized/FTI019/sample.xml
 
 ### Delete consignment
-POST {{RESQL_URL}}/efti/soft_delete_consignment
+DELETE {{RUUTER_URL}}/efti/api/v1/consignments?consignmentId=550e8400-e29b-41d4-a716-446655440000
 Content-Type: application/json
 
-{"datasetId": "550e8400-e29b-41d4-a716-446655440000"}
+> {%
+  client.test("No content success", () => {
+    client.assert(response.status === 204)
+  })
+%}
+
+### List contains no consignments after deletion
+GET {{RUUTER_URL}}/efti/api/v1/consignments
+Content-Type: application/json
 
 > {%
-  client.test("Find consignment", () => {
+  client.test("No consignments in list after deletion", () => {
     client.assert(response.status === 200)
-    client.assert(response.body[0].datasetId === "550e8400-e29b-41d4-a716-446655440000")
-    client.assert(response.body[0].status === "DELETED")
+    client.assert(response.body.length <= 0)
   })
 %}

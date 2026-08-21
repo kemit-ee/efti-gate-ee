@@ -21,7 +21,7 @@
   async function onDelete(c: Consignment) {
     const id = c.datasetId
     if (!confirm(t.general.deleteConfirm + ' ' + id + '?')) return
-    await api.delete(`consignments/${id}`)
+    await api.delete(`v1/consignments?consignmentId=${id}`)
     showToast(t.general.deleted + ': ' + id)
     onDeleted(c)
   }
