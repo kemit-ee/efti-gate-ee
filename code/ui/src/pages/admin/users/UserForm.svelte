@@ -15,6 +15,7 @@
   async function submit() {
     if (isEdit) {
       const request: UpdateUserRequest = {
+        taraSub: user.taraSub,
         name: user.name,
       }
       await api.put(`v1/users?userId=${user.id}`, request)

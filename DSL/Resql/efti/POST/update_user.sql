@@ -1,9 +1,8 @@
-INSERT INTO users (id, tara_sub, name, is_active)
+INSERT INTO users (id, tara_sub, name)
 VALUES (
-  :userId::uuid,
+  :id::uuid,
   :taraSub,
-  :name,
-  :isActive
+  :name
 )
 RETURNING
   row_id,

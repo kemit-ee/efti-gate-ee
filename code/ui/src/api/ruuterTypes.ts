@@ -98,8 +98,8 @@ export interface CreateUserRequest {
 }
 
 export interface UpdateUserRequest {
-  name?: string
-  isActive?: boolean
+  name: string
+  taraSub: string
 }
 
 export interface UserIdParam {
