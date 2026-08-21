@@ -24,10 +24,9 @@ class DatasetRoutes(val requestIdHandler: RequestIdHandler) {
   }
 
   @Operation(description = "Map FTI010GetCmdsResponse or SpecifiedSupplyChainConsignment as XML to FTI010GetCmdsResponse as XML.")
-  @POST("/response-to-xml") fun responseToXml(xml: String, e: HttpExchange): String {
-    if (xml.contains("FTI010")) return xml
-    // return FTI010GetCmdsResponse(ExchangedDocument("010", e.requestId.uuid)).render()
-    TODO("where to get UIL?")
+  @POST("/response-to-xml") fun responseToXml(req: DatasetResponseRequest, e: HttpExchange): String {
+    if (req.xml.contains("FTI010")) return req.xml
+    return FTI010GetCmdsResponse(ExchangedDocument("010", e.requestId.uuid), req.subsets, req.uil).render(req.xml)
   }
 
   @Operation(description = "Map FTI010GetCmdsResponse or SpecifiedSupplyChainConsignment as XML to SpecifiedSupplyChainConsignment as JSON.")
@@ -37,3 +36,5 @@ class DatasetRoutes(val requestIdHandler: RequestIdHandler) {
 }
 
 data class DatasetQueryRequest(val uil: UIL, val subsets: List<Subset>)
+
+data class DatasetResponseRequest(val uil: UIL, val xml: String, val subsets: List<Subset> = emptyList())

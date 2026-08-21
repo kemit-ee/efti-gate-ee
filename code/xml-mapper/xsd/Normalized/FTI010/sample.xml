@@ -26,7 +26,7 @@
   </rsm:ExchangedDocument>
 
   <rsm:MessageInformation>
-    <SubsetID schemeID="RFC 9562-4">EE05b</SubsetID>
+    <SubsetID>EE05b</SubsetID>
   </rsm:MessageInformation>
 
   <rsm:EFTIIDInformation>
