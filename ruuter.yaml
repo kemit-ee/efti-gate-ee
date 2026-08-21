@@ -1,4 +1,33 @@
 port: 8086
 
+# Statuses a DSL is allowed to return. 401/403/204 must be listed or the auth
+# guards' denials and logout's 204 are replaced with a generic error.
+http_codes_allow_list: [200, 201, 202, 204, 400, 401, 403, 404, 500]
+
+dsl:
+  project: efti
+
+guards:
+  # Which methods run the .guard file that sits at (or above) the route's directory.
+  # GET and POST are the only ones with routes today; PUT/DELETE are listed so that
+  # adding an admin write route cannot accidentally land unguarded.
+  enforce_on_methods: [GET, POST, PUT, DELETE]
+
+incoming_requests:
+  allowed_method_types: [GET, POST, PUT, DELETE]
+
 internal_requests:
+  # The auth DSLs call TIM and ReSQL by compose service name, and the shared
+  # check-user-authority DSL is reached over Ruuter's own loopback.
   block_private_networks: false
+
+# The engine always halts a run on step error; setting this false is not honoured, and
+# leaving it unset makes it warn on every boot.
+stop_in_case_of_exception: true
+
+logging:
+  # Deliberately off: these dump whole request/response bodies at INFO, which on the
+  # auth path means the caller's personal code, name and email land in the logs
+  # unredacted. Turn on per-session for debugging only.
+  display_request_content: false
+  display_response_content: false

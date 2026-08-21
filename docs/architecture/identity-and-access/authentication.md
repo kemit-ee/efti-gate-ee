@@ -2,9 +2,13 @@
 
 ## Changes
 
+- **v1.1** — Reconciled with the implementation. Bürokratt **TIM** owns the TARA code
+  exchange and mints the session JWT (§2); the gate no longer mints its own. Revocation is
+  **immediate** rather than refresh-denial (§7), because the caller is resolved against the
+  database on every request. Rationale for keeping that lookup on the hot path is in §2.1.
 - _Initial state. Change tracking begins at v1.0.0._
 
-> Sub-architecture for the authentication surface. For overarching rules (DB-backed authorisation snapshot, stateless Resource Server, append-only revocation, channel routing, secret loading) see [theme README](README.md). AC are in [`docs/cfr/identity-and-access/authentication.md`](../../cfr/identity-and-access/authentication.md).
+> Sub-architecture for the authentication surface. For overarching rules (DB-backed authorisation snapshot, append-only revocation, channel routing, secret loading) see [theme README](README.md). AC are in [`docs/cfr/identity-and-access/authentication.md`](../../cfr/identity-and-access/authentication.md).
 
 ## 1. Authentication channels — detailed view
 
@@ -25,17 +29,59 @@ flowchart TD
     BG --> Resource
 ```
 
-## 2. TARA OIDC pipeline (login + gate-JWT exchange)
+## 2. TARA OIDC pipeline (login via TIM)
 
-This pipeline runs at **login and refresh**, not on every request. Hot-path requests are validated against the gate-issued JWT only (no DB lookup) — see [theme README §1.1](README.md).
+> **Changed v1.1.** An earlier draft of this section had the admin UI run the OIDC code
+> exchange and the gate mint its own JWT, validated locally with no hot-path DB lookup. That
+> design is **superseded**: Bürokratt **TIM** owns the exchange and the token, and the gate
+> resolves the caller against the database on every request. The rationale is in §2.1.
 
-- **Issuer:** discovered from `TARA_OIDC_DISCOVERY_URL`; the gate is registered as an OAuth client with `TARA_CLIENT_ID` / `TARA_CLIENT_SECRET`.
-- **Code exchange happens in the admin UI**, not in the gate. The gate receives the resulting TARA OIDC ID token from the UI.
-- **TARA ID-token validation:** RS256, JWKS fetched from the discovered URL, cached for `TARA_JWKS_CACHE_SECONDS`. Required claims: `iss`, `aud`, `exp`, `sub` (Estonian PIC), `jti`. Clock-skew tolerance ±60 s.
-- **Identity resolution (one DB lookup at exchange/refresh time):** `users` row by `tara_sub = jwt.sub` AND `is_active = TRUE`. If no row exists, the exchange is rejected — the gate **does not auto-provision** on first inbound JWT; an admin must `POST /api/v1/users` first.
-- **Refresh denial check:** if the latest `users` row carries `token_revoked_at` such that `token_revoked_at > tara_id_token.iat`, the exchange is rejected (refresh denied).
-- **Gate-JWT mint:** the gate mints its own RS256 JWT signed with the gate's signing key, carrying `tara_sub`, the resolved `roles`, `subsets`, scope-IDs, plus standard claims (`iat`, `exp`, `jti`). TTL is configurable per use case (long-lived admin session vs. short-lived API call vs. one-shot step-up).
-- **Subsequent requests:** the UI sends the gate-JWT as `Authorization: Bearer ...`. Validation is local (signature + claims); no DB query in the default profile.
+Login is a browser ↔ TIM ↔ TARA conversation that Ruuter never sees. Ruuter's involvement
+begins once the caller holds a token.
+
+- **Issuer:** TIM is the registered OAuth client (`TARA_CLIENT_ID` / `TARA_CLIENT_SECRET`).
+  The endpoints come from `TARA_OIDC_DISCOVERY_URL`; in development they point at the local
+  TARA-Mock instead.
+- **Code exchange happens in TIM**, not in the UI and not in Ruuter. The browser hits
+  `GET /oauth2/authorization/tara?callback_url=…`, TARA redirects back to TIM's
+  `/authenticate` with the code, and TIM performs the back-channel exchange. The
+  `client_secret` therefore lives in exactly one place.
+- **TARA ID-token validation:** RS256 against the JWKS from the discovered URL. Performed by
+  TIM, not by the gate.
+- **Session-token mint:** TIM mints its **own** RS256 JWT carrying `personalCode`, `sub`,
+  `firstName`, `lastName`, `authenticatedAs`, `iss`, `iat`, `exp`, `jti` and `hash`. It is
+  returned as the `customJwtCookie` cookie — that is TIM's only delivery mechanism.
+  **TTL is TIM's** `legacy-portal-integration.sessionTimeoutMinutes` (default 30), applied in
+  `JwtUtils.createSignedJwt()`.
+- **Subsequent requests use `Authorization: Bearer <token>`**, per
+  [user-interfaces README §1.3](../user-interfaces/README.md). The client reads the token out
+  of the login response and sends it as a Bearer header; the gate's own API never accepts a
+  cookie. Because TIM validates only via its cookie, the shared
+  `TEMPLATES/check-user-authority` re-frames the Bearer value as
+  `cookie: customJwtCookie=<token>` on that one internal hop.
+- **Per-request validation (two steps, one DB lookup):** the template calls TIM
+  `GET /jwt/userinfo` to prove the token is valid and unrevoked, then resolves the caller
+  against the database — the latest `users` row per logical id, rejected unless it is active,
+  still carries the presented `tara_sub`, and has no `token_revoked_at` later than the
+  token's issuance time. Roles, subsets and scope-IDs come from that row.
+- **No auto-provisioning:** a valid TARA identity with no `users` row is rejected. An admin
+  must `POST /api/v1/users` first.
+
+### 2.1 Why the DB lookup stays on the hot path
+
+The superseded design bought statelessness by trusting the token's claims for its whole
+lifetime, which made revocation latency equal to the TTL. Keeping one indexed lookup per
+request buys three properties that matter more at this scale:
+
+- **Immediate revocation.** Logout and `POST /api/v1/users/{userId}/revoke-token` take effect
+  on the next request, not within one TTL window.
+- **Immediate permission changes.** A role or subset edit applies at once, so the
+  authorisation snapshot cannot drift from the database.
+- **Soft-delete and identifier correction take effect at once** — a deactivated user or a
+  corrected `tara_sub` stops authenticating immediately.
+
+The cost is one indexed single-table read per request. Revisit if measurements ever justify
+it; the schema still supports the stateless profile unchanged.
 
 ## 3. Platform mTLS pipeline
 
@@ -58,17 +104,38 @@ Default-disabled (`LOCAL_ADMIN_FALLBACK_ENABLED=false`). The reserved `users` ro
 
 The issued JWT then **follows the TARA path** — the gate's `tara_sub` lookup resolves the `local-admin` row identically to how it would resolve any other user. This is why break-glass is not a fifth channel: it's a recoverable backdoor onto channel 1.
 
-## 7. Revocation model — refresh denial (default profile)
+## 7. Revocation model — immediate
 
-The default profile honours the in-flight JWT to its `exp` (see [theme README §1.3](README.md)). Revocation acts on the refresh path, not on individual requests.
+> **Changed v1.1.** Previously specified as *refresh denial*: the in-flight JWT was honoured
+> to its `exp` and revocation only blocked the next refresh, giving a latency of one TTL
+> window. Revocation is now **immediate on both paths**, which is what §2's per-request
+> resolution buys.
 
-- **`POST /api/v1/auth/logout`**: marks the calling user (or specific token `jti`) as no-refresh. Implementation: INSERT a row into `sessions` carrying `(jti, revoked_at, reason='logout')` — the row is **not** consulted on the hot path in the default profile, but it is consulted by the refresh pipeline (a `jti` that appears in `sessions` cannot be exchanged for a new gate-JWT). The currently-held gate-JWT lives until its `exp`. Idempotent.
-- **`POST /api/v1/users/{userId}/revoke-token`**: INSERTs a new `users` row with `token_revoked_at = NOW()` (append-only; the previous row is unchanged). The refresh pipeline (see §2 above) rejects any TARA ID token with `iat < users.token_revoked_at`. The currently-held gate-JWT for that user lives until its `exp`; rapid revocation requires a short TTL.
-- **Break-glass JWT**: hard 600 s TTL (`BREAK_GLASS_JWT_TTL_SECONDS`) — no explicit revocation primitive needed at that timescale.
+- **`POST /api/v1/auth/logout`** — two steps, in this order. First TIM
+  `POST /jwt/blacklist` revokes the token: TIM's `/jwt/userinfo` rejects it from then on, so
+  the very next gate request fails authentication. Then a `sessions` row is appended
+  carrying `(user_id, jti, expires_at, reason='logout')` as the durable audit record.
+  Enforcement precedes audit deliberately — a failed INSERT must never block a revocation.
+  Idempotent: a second logout on a dead token is still 204.
+- **`POST /api/v1/users/{userId}/revoke-token`** — INSERTs a new `users` row with
+  `token_revoked_at = NOW()` (append-only; the previous row is untouched). Every subsequent
+  request by that user is rejected, because the identity query compares the presented token's
+  issuance time against the resolved row's `token_revoked_at`. No TTL wait.
+- **Soft-delete** (`is_active = FALSE` on the latest row) and a **corrected `tara_sub`** have
+  the same immediate effect, through the same query.
+- **Break-glass JWT**: hard 600 s TTL (`BREAK_GLASS_JWT_TTL_SECONDS`) — no explicit
+  revocation primitive needed at that timescale.
 
-**Latency contract:** revocation takes effect within one JWT TTL window. For scopes where TTL-bounded latency is too long, mint short-lived or one-shot JWTs.
+**Latency contract:** revocation takes effect on the next request. JWT TTL is therefore no
+longer the revocation-latency knob; it only bounds how long an *unrevoked* session lasts.
 
-**Future opt-in mode** (per theme README §1.3): a per-request denylist check against `sessions` (by `jti`) and `users.token_revoked_at` (by `jwt.iat`) can be enabled. This restores immediate revocation at the cost of two hot-path DB queries per request. The schema already supports this; the toggle is a runtime config item.
+**`jti` provenance.** TIM's `/jwt/userinfo` exposes neither `jti` nor `exp` — it returns
+`loggedInDate` / `loginExpireDate` and no token id. The denylist row's `jti` is therefore
+decoded from the token's own payload segment. Only that segment reaches the database, never
+the signature, so the DB layer never holds a replayable credential.
+
+**Retention:** a `sessions` row remains effective until the underlying token's `exp`; expired
+entries are archived per the standard append-only retention (see Epic 26).
 
 **Retention:** a `sessions` row remains effective until the underlying token's `exp`; expired entries are archived per the standard append-only retention (see Epic 26).
 

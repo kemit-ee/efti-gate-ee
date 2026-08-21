@@ -17,7 +17,7 @@ info:
 
     ## Authentication
 
-    See `permissions-matrix.md` §6. Per-route security: TARA OIDC JWT (Authority + Admin), mTLS X.509 (Platform), static `ARCHIVE_OPS_TOKEN` Bearer (CronManager admin endpoints), HTTP Basic + bcrypt (break-glass `/api/v1/auth/local-token`, default-disabled). `/health/*` is public.
+    See `permissions-matrix.md` §6. Per-route security: TIM-issued Bearer JWT obtained through TARA OIDC login (Authority + Admin), mTLS X.509 (Platform), static `ARCHIVE_OPS_TOKEN` Bearer (CronManager admin endpoints), HTTP Basic + bcrypt (break-glass `/api/v1/auth/local-token`, default-disabled). `/health/*` is public. The login hop itself is TIM's own surface and is deliberately absent from this contract — see the `taraJwt` scheme description.
 
     ## EU Regulation Compliance
 
@@ -73,6 +73,9 @@ security:
   - taraJwt: []
 
 # Authentication summary (per API surface):
+#   Login          (`/oauth2/authorization/tara`, `/authenticate`)     → TIM, NOT in this spec
+#                  Browser ↔ TIM ↔ TARA. Not routed through Ruuter, no `/v1` prefix; TIM
+#                  mints the Bearer token that every surface below is authenticated with.
 #   Platform API   (`/v1/identifiers/{datasetId}` POST/DELETE)         → platformMtls
 #   Authority API  (`/v1/identifiers/{identifier}`, `/v1/dataset/...`,
 #                   `/v1/follow-up/...`)                               → taraJwt
@@ -2011,36 +2014,50 @@ components:
   # ============================================================================
   securitySchemes:
     taraJwt:
-      type: openIdConnect
-      openIdConnectUrl: https://tara.ria.ee/.well-known/openid-configuration
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
       description: |
-        OIDC ID Token issued by **TARA** (Estonian state authentication broker, RIA).
-        Validated as an OAuth 2.0 Resource Server JWT — RS256, JWKS fetched from the
-        OIDC discovery endpoint and cached. Used for **Authority** and **Admin** APIs.
+        RS256 JWT issued by **TIM** (Bürokratt Token & Identity Manager) after the user
+        authenticates with **TARA** (Estonian state authentication broker, RIA). Presented as
+        `Authorization: Bearer <token>` on **Authority** and **Admin** APIs. There is no
+        cookie and no CSRF token on the gate's own API.
 
-        **Required claims** (validated on every request):
-        - `iss` — must equal `https://tara.ria.ee` (or operator's TARA test issuer).
-        - `aud` — must include the gate's TARA client_id.
-        - `exp` — must be in the future. (TARA owns expiry policy; the gate does not extend.)
-        - `sub` — the auth identifier the gate matches against `users.tara_sub`. For
-          TARA-issued JWTs this is the Estonian PIC. For break-glass JWTs issued by
-          the gate it is the reserved literal `local-admin`.
-        - `iat` — required because the per-user broadcast revocation marker
-          (`users.token_revoked_at`) is compared against it.
+        **The login hop is not part of this contract.** The browser talks to TIM directly at
+        `GET /oauth2/authorization/tara?callback_url=...`, TARA redirects back to TIM's
+        `/authenticate`, and TIM performs the back-channel code exchange and mints the token.
+        Auth paths carry no `/v1` prefix because they are TIM's own surface, not the gate's —
+        see `docs/planning/rest-api-disainijuhend.md` §5. TIM holds the TARA `client_id` /
+        `client_secret`; the gate's REST surface never handles OIDC codes.
 
-        **Authorisation claims** (informational; the gate reads the canonical
-        permission set from the resolved `users` row):
-        - `resource_access.efti-gate.roles` — `ADMIN` and/or `AUTHORITY`.
-        - `subsets` — array of subset codes (`EU01..EU07`).
-        - `efti.scope` — gate ids for ADMIN role; authority ids for AUTHORITY role.
+        **Validation on every request** — two steps:
+        1. The gate calls TIM `GET /jwt/userinfo` with the token, which checks the signature
+           and TIM's blacklist.
+        2. The gate resolves the caller to a `users` row and reads the permission set from it.
+           The query takes the **latest** row per logical id and only then applies its
+           filters: the row must be `is_active`, must still carry the presented `tara_sub`,
+           and must not have a `token_revoked_at` later than the token's issuance time.
 
-        **Revocation** has two surfaces:
-        - **Per-token** (`POST /api/v1/auth/logout`): the JWT's `jti` is added to the
-          `sessions` denylist; subsequent presentations of the same JWT return 401.
-        - **Per-user broadcast** (`POST /api/v1/users/{userId}/revoke-token`): the
-          gate writes a new `users` row with `token_revoked_at = NOW()`; on JWT
-          validation, any JWT whose `iat` predates the resolved user's latest
-          `token_revoked_at` returns 401.
+        **Token claims** — identity and freshness only:
+        - `sub` / `personalCode` — the value matched against `users.tara_sub`. The Estonian
+          PIC for TARA logins; the reserved literal `local-admin` for break-glass tokens.
+        - `iat` — compared against the per-user revocation marker `users.token_revoked_at`.
+        - `exp` — token lifetime, owned by TIM (`JWT_TTL_MINUTES`, default 30 minutes).
+        - `jti` — token id, recorded in the `sessions` denylist on logout.
+
+        The token carries **no** role, subset or scope claims. Authorisation is read from the
+        resolved `users` row on every request, so a permission change takes effect
+        immediately rather than at the next token refresh. An earlier draft of this document
+        listed `resource_access.efti-gate.roles`, `subsets` and `efti.scope` as informational
+        claims; TARA does not issue them and the gate does not read them.
+
+        **Revocation** has two surfaces, both effective on the next request:
+        - **Per-token** (`POST /api/v1/auth/logout`): the token is blacklisted at TIM, and its
+          `jti` is appended to the `sessions` denylist as the audit record. Subsequent
+          presentations return 401.
+        - **Per-user broadcast** (`POST /api/v1/users/{userId}/revoke-token`): the gate writes
+          a new `users` row with `token_revoked_at = NOW()`; any token issued before that
+          moment returns 401.
 
         **Break-glass local admin.** When TARA is unreachable (incident response,
         initial bootstrap), a single bcrypt-hashed local-admin credential in `users`

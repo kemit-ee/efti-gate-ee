@@ -1,0 +1,3 @@
+[submodule "tara-mock"]
+	path = tara-mock
+	url = https://github.com/e-gov/TARA-Mock
