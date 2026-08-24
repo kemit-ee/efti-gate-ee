@@ -16,35 +16,36 @@ import klite.uuid
   description = "These routes are for mapping requests and responses for consignment uploads."
 )
 class UploadRoutes(val requestIdHandler: RequestIdHandler) {
-  @Operation(description = "Map FTI004UploadIdentifierRequest or UniqueIDSetUIL as XML to a flat consignment json suitable for DB insertion.")
+  @Operation(description = "Map FTI004UploadIdentifierRequest or UniqueIDSetUniqueIDSet as XML to a flat consignment json suitable for DB insertion.")
   @POST("/request-to-json") fun requestToJson(xml: String, e: HttpExchange): ConsignmentRow {
     val content = if (xml.contains("FTI004UploadIdentifierRequest")) {
       val req = xmlParser.parse<FTI004UploadIdentifierRequest>(xml)
       requestIdHandler.send(e, req.document.queryId)
       req.content
-    } else xmlParser.parse<UniqueIDSetUIL>(xml)
+    } else xmlParser.parse<UniqueIDSetUniqueIDSet>(xml)
+    val criteria = content.criteria!!
     return ConsignmentRow(content.uil.datasetId, content.uil.platformId, content.uil.gateId,
       xml.extractParameterIDSetCriteria(),
-      content.criteria.transportMode,
-      content.criteria.acceptanceDate?.instant,
-      content.criteria.acceptanceCountry,
-      content.criteria.deliveryDate?.instant,
-      content.criteria.deliveryCountry,
-      content.criteria.dangerousGoods,
-      content.criteria.mainTransportId,
-      content.criteria.mainTransportType,
-      content.criteria.transportRegCountry,
-      content.criteria.loadingDate?.instant,
-      content.criteria.loadingCountry,
-      content.criteria.unloadingDate?.instant,
-      content.criteria.unloadingCountry,
-      content.criteria.usedEquipmentIds,
-      content.criteria.usedEquipmentCategories,
-      content.criteria.usedEquipmentCountries,
-      content.criteria.usedEquipmentSeq,
-      content.criteria.carriedEquipmentIds,
-      content.criteria.carriedEquipmentCategories,
-      content.criteria.carriedEquipmentSeq,
+      criteria.transportMode,
+      criteria.acceptanceDate?.instant,
+      criteria.acceptanceCountry,
+      criteria.deliveryDate?.instant,
+      criteria.deliveryCountry,
+      criteria.dangerousGoods,
+      criteria.mainTransportId,
+      criteria.mainTransportType,
+      criteria.transportRegCountry,
+      criteria.loadingDate?.instant,
+      criteria.loadingCountry,
+      criteria.unloadingDate?.instant,
+      criteria.unloadingCountry,
+      criteria.usedEquipmentIds,
+      criteria.usedEquipmentCategories,
+      criteria.usedEquipmentCountries,
+      criteria.usedEquipmentSeq,
+      criteria.carriedEquipmentIds,
+      criteria.carriedEquipmentCategories,
+      criteria.carriedEquipmentSeq,
     )
   }
 

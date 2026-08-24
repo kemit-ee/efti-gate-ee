@@ -1,7 +1,8 @@
 package efti.xml.fti
 
-import efti.subsets.CountryCode
+import efti.domain.DangerousGoods
 import efti.domain.Mode
+import efti.subsets.CountryCode
 import klite.xml.XmlPath
 import org.intellij.lang.annotations.Language
 
@@ -28,13 +29,13 @@ data class ParameterSearchCriteria(
   @XmlPath("CarriedTransportEquipmentCategoryCodeParameterScope") val carriedEquipmentCategory: EquipmentCategoryScope? = null,
   @XmlPath("CarriedTransportEquipmentSequenceNumberParameterScope") val carriedEquipmentSeq: SequenceScope? = null,
 ) {
-  enum class DateSearchOperator {
-    EQ, GE, GT, LE, LT, NE
+  enum class DateSearchOperator(val sql: String) {
+    EQ("="), GE(">="), GT(">"), LE("<="), LT("<"), NE("!=")
   }
 
   /** XSD: CodeType, XML: SubtypeCode */
-  enum class SearchOperator {
-    EQ, NE
+  enum class SearchOperator(val sql: String) {
+    EQ("="), NE("!=")
   }
 
   data class IDScope(
@@ -80,20 +81,21 @@ data class ParameterSearchCriteria(
   }
 
   data class TransportModeScope(
-    @XmlPath("TransportModeCodeType") val mode: Mode,
+    @XmlPath("TransportModeParameterCode") val mode: Mode,
     @XmlPath("SubtypeCode") val operator: SearchOperator = SearchOperator.EQ,
   ) {
-    @Language("xml") fun render(tag: String) = "<$tag><SubtypeCode>$operator</SubtypeCode><TransportModeCodeType>$mode</TransportModeCodeType></$tag>"
+    @Language("xml") fun render(tag: String) = "<$tag><SubtypeCode>$operator</SubtypeCode><TransportModeParameterCode>$mode</TransportModeParameterCode></$tag>"
   }
 
   data class DangerousGoodsScope(
-    @XmlPath("DangerousGoodsIndicationParameterCode") val code: String,
+    @XmlPath("DangerousGoodsIndicationParameterCode") val code: DangerousGoods,
     @XmlPath("SubtypeCode") val operator: SearchOperator = SearchOperator.EQ,
   ) {
     @Language("xml") fun render(tag: String) = "<$tag><SubtypeCode>$operator</SubtypeCode><DangerousGoodsIndicationParameterCode>$code</DangerousGoodsIndicationParameterCode></$tag>"
   }
 
-  @Language("xml") fun render() = "<ParameterSearchCriteria>" + buildString {
+  @Language("xml") fun render() = buildString {
+    append("<ParameterSearchCriteria>")
     acceptanceDate.forEach { append(it.render("CarrierAcceptanceDateParameterScope")) }
     acceptanceCountry?.let { append(it.render("CarrierAcceptanceCountryParameterScope")) }
     deliveryDate.forEach { append(it.render("DeliveryDateParameterScope")) }
@@ -114,5 +116,6 @@ data class ParameterSearchCriteria(
     carriedEquipmentId?.let { append(it.render("CarriedTransportEquipmentIDParameterScope")) }
     carriedEquipmentCategory?.let { append(it.render("CarriedTransportEquipmentCategoryCodeParameterScope")) }
     carriedEquipmentSeq?.let { append(it.render("CarriedTransportEquipmentSequenceNumberParameterScope")) }
-  } + "</ParameterSearchCriteria>"
+    append("</ParameterSearchCriteria>")
+  }
 }

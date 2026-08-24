@@ -5,11 +5,17 @@ import efti.domain.Mode
 import efti.domain.UIL
 import efti.subsets.CountryCode
 import klite.xml.XmlPath
+import org.intellij.lang.annotations.Language
 
-data class UniqueIDSetUIL(
+data class UniqueIDSetUniqueIDSet(
   @XmlPath("") val uil: UIL,
-  @XmlPath("ParameterIDSetCriteria") val criteria: ParameterIDSetCriteria = ParameterIDSetCriteria()
-)
+  @XmlPath("ParameterIDSetCriteria") val criteria: ParameterIDSetCriteria? = null
+) {
+  @Language("xml") fun render(): String {
+    val criteriaXml = ParameterIDSetCriteria.render(criteria)
+    return """<UniqueIDSetUniqueIDSet><GateID>${uil.gateId}</GateID><PlatformID>${uil.platformId}</PlatformID><DatasetID schemeID="RFC 9562-4">${uil.datasetId}</DatasetID>${if (criteriaXml.isNotEmpty()) "<ParameterIDSetCriteria>$criteriaXml</ParameterIDSetCriteria>" else ""}</UniqueIDSetUniqueIDSet>"""
+  }
+}
 
 /** Upload data */
 data class ParameterIDSetCriteria(
@@ -61,11 +67,11 @@ data class ParameterIDSetCriteria(
         criteria.dangerousGoods?.let {
           append("<DangerousGoodsIndicationCodeParameterScope><DangerousGoodsIndicationParameterCode>$it</DangerousGoodsIndicationParameterCode></DangerousGoodsIndicationCodeParameterScope>")
         }
-        criteria.transportMode?.let {
-          append("<MainCarriageModeCodeParameterScope><TransportModeParameterCode>$it</TransportModeParameterCode></MainCarriageModeCodeParameterScope>")
-        }
         criteria.mainTransportId?.let {
           append("<MainCarriageTransportMeansIDParameterScope><ID>$it</ID></MainCarriageTransportMeansIDParameterScope>")
+        }
+        criteria.transportMode?.let {
+          append("<MainCarriageModeCodeParameterScope><TransportModeParameterCode>$it</TransportModeParameterCode></MainCarriageModeCodeParameterScope>")
         }
         criteria.mainTransportType?.let {
           append("<MainCarriageTransportMeansTypeCodeParameterScope><TransportMeansParameterCode>$it</TransportMeansParameterCode></MainCarriageTransportMeansTypeCodeParameterScope>")

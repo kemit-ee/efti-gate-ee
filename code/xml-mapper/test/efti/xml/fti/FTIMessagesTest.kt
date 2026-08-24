@@ -15,18 +15,33 @@ import klite.uuid
 import klite.xml.XmlParser
 import org.junit.jupiter.api.Test
 import java.io.File
+import java.io.StringReader
+import javax.xml.transform.stream.StreamSource
+import javax.xml.validation.SchemaFactory
 
 class FTIMessagesTest {
-  val samplesDir = File("xsd/Normalized")
+  val xsdDir = File("xsd")
   val parser = XmlParser(keys = FtiCapitalize)
+
+  val xsdValidators = listOf("FTI004", "FTI009", "FTI010", "FTI019", "FTI021", "FTI025", "FTI029", "FTI030").associateWith { type ->
+    SchemaFactory.newInstance("http://www.w3.org/2001/XMLSchema").newSchema(
+      StreamSource(File(xsdDir, "$type/${type}s.xsd"))
+    ).newValidator()
+  }
 
   val docId = "0f6c30b4-89b5-11f1-a20a-3c9c0f2eb459".uuid
   val queryId = "17022113-89b5-11f1-bec0-3c9c0f2eb459".uuid
   val context = ExchangedDocumentContext()
   val document = ExchangedDocument("004", id = docId, queryId = queryId, issueDateTime = DateTimeString(value = "202109240850+0000"))
 
+  private fun validateXsd(type: String, xml: String) {
+    xsdValidators[type]!!.validate(StreamSource(StringReader(xml)))
+  }
+
   @Test fun parseFTI004() {
-    val xml = File(samplesDir, "FTI004/sample.xml").readText()
+    val xml = File(xsdDir, "FTI004/sample.xml").readText()
+    validateXsd("FTI004", xml)
+
     val req = parser.parse<FTI004UploadIdentifierRequest>(xml)
 
     expect(req.context).toEqual(context)
@@ -34,14 +49,17 @@ class FTIMessagesTest {
     expect(req.content.uil.gateId).toEqual(GateId("POC"))
     expect(req.content.uil.platformId).toEqual(PlatformId("demo"))
     expect(req.content.uil.datasetId).toEqual("550e8400-e29b-41d4-a716-446655440000".uuid)
-    expect(req.content.criteria.acceptanceCountry).toEqual(DE)
-    expect(req.content.criteria.transportMode).toEqual(Mode("1"))
+    expect(req.content.criteria?.acceptanceCountry).toEqual(DE)
+    expect(req.content.criteria?.transportMode).toEqual(Mode("1"))
 
-    expect(parser.parse<FTI004UploadIdentifierRequest>(req.render())).toEqual(req)
+    val rendered = req.render()
+    expect(parser.parse<FTI004UploadIdentifierRequest>(rendered)).toEqual(req)
+    validateXsd("FTI004", rendered)
   }
 
   @Test fun parseFTI009() {
-    val xml = File(samplesDir, "FTI009/sample.xml").readText()
+    val xml = File(xsdDir, "FTI009/sample.xml").readText()
+    validateXsd("FTI009", xml)
     val req = parser.parse<FTI009GetCmdsRequest>(xml)
 
     expect(req.context).toEqual(context)
@@ -51,11 +69,14 @@ class FTIMessagesTest {
     expect(req.uil.platformId).toEqual(PlatformId("Platform-001"))
     expect(req.uil.datasetId).toEqual("550e8400-e29b-41d4-a716-446655440000".uuid)
 
-    expect(parser.parse<FTI009GetCmdsRequest>(req.render())).toEqual(req)
+    val rendered = req.render()
+    expect(parser.parse<FTI009GetCmdsRequest>(rendered)).toEqual(req)
+    validateXsd("FTI009", rendered)
   }
 
   @Test fun parseFTI019() {
-    val xml = File(samplesDir, "FTI019/sample.xml").readText()
+    val xml = File(xsdDir, "FTI019/sample.xml").readText()
+    validateXsd("FTI019", xml)
     val req = parser.parse<FTI019SearchIdentifierRequest>(xml)
 
     expect(req.context).toEqual(context)
@@ -63,25 +84,31 @@ class FTIMessagesTest {
     expect(req.searchCriteria.acceptanceCountry?.country).toEqual(DE)
     expect(req.searchCriteria.transportMode?.mode).toEqual(Mode("1"))
 
-    expect(parser.parse<FTI019SearchIdentifierRequest>(req.render())).toEqual(req)
+    val rendered = req.render()
+    expect(parser.parse<FTI019SearchIdentifierRequest>(rendered)).toEqual(req)
+    validateXsd("FTI019", rendered)
   }
 
   @Test fun parseFTI025() {
-    val xml = File(samplesDir, "FTI025/sample.xml").readText()
+    val xml = File(xsdDir, "FTI025/sample.xml").readText()
+    validateXsd("FTI025", xml)
     val req = parser.parse<FTI025LodgeFollowUpCommRequest>(xml)
 
     expect(req.context).toEqual(context)
-    expect(req.document).toEqual(document.copy(typeCode = "025", requesterCountry = DE, disposition = "Additional information regarding shipment"))
+    expect(req.document).toEqual(document.copy(typeCode = "025", requesterCountry = DE, referencedId = listOf("158a5343-9fb4-11f1-ba2a-3c9c0f2eb459".uuid)))
     expect(req.followUp).toEqual("Follow-up: correction of consignee address")
     expect(req.uil.gateId).toEqual(GateId("Gate-001"))
     expect(req.uil.platformId).toEqual(PlatformId("Platform-001"))
     expect(req.uil.datasetId).toEqual("550e8400-e29b-41d4-a716-446655440000".uuid)
 
-    expect(parser.parse<FTI025LodgeFollowUpCommRequest>(req.render())).toEqual(req)
+    val rendered = req.render()
+    expect(parser.parse<FTI025LodgeFollowUpCommRequest>(rendered)).toEqual(req)
+    validateXsd("FTI025", rendered)
   }
 
   @Test fun parseFTI010() {
-    val xml = File(samplesDir, "FTI010/sample.xml").readText()
+    val xml = File(xsdDir, "FTI010/sample.xml").readText()
+    validateXsd("FTI010", xml)
     val resp = parser.parse<FTI010GetCmdsResponse>(xml)
 
     expect(resp.context).toEqual(context)
@@ -90,40 +117,51 @@ class FTIMessagesTest {
     expect(resp.uil.gateId).toEqual(GateId("POC"))
     expect(resp.consignment!!["grossWeightMeasure"]).toEqual("15000.00")
 
-    expect(parser.parse<FTI010GetCmdsResponse>(resp.render(xml.extractSpecifiedSupplyChainConsignment()))).toEqual(resp)
+    val rendered = resp.render(xml.extractSpecifiedSupplyChainConsignment())
+    expect(parser.parse<FTI010GetCmdsResponse>(rendered)).toEqual(resp)
+    validateXsd("FTI010", rendered)
   }
 
   @Test fun parseFTI021() {
-    val xml = File(samplesDir, "FTI021/sample.xml").readText()
+    val xml = File(xsdDir, "FTI021/sample.xml").readText()
+    validateXsd("FTI021", xml)
     val resp = parser.parse<FTI021SearchIdentifierResponse>(xml)
 
     expect(resp.context).toEqual(context)
     expect(resp.document).toEqual(document.copy(typeCode = "021", responseCode = Completed))
     expect(resp.content!!.first().uil.gateId).toEqual(GateId("Gate-001"))
 
-    expect(parser.parse<FTI021SearchIdentifierResponse>(resp.render())).toEqual(resp)
+    val rendered = resp.render()
+    expect(parser.parse<FTI021SearchIdentifierResponse>(rendered)).toEqual(resp)
+    validateXsd("FTI021", rendered)
   }
 
   @Test fun parseFTI029() {
-    val xml = File(samplesDir, "FTI029/sample.xml").readText()
+    val xml = File(xsdDir, "FTI029/sample.xml").readText()
+    validateXsd("FTI029", xml)
     val resp = parser.parse<FTI029UploadIdentifierResponse>(xml)
 
     expect(resp.context).toEqual(context)
     expect(resp.document).toEqual(document.copy(typeCode = "029", responseCode = Completed))
     expect(resp.uil.gateId).toEqual(GateId("Gate-001"))
 
-    expect(parser.parse<FTI029UploadIdentifierResponse>(resp.render())).toEqual(resp)
+    val rendered = resp.render()
+    expect(parser.parse<FTI029UploadIdentifierResponse>(rendered)).toEqual(resp)
+    validateXsd("FTI029", rendered)
   }
 
   @Test fun parseFTI030() {
-    val xml = File(samplesDir, "FTI030/sample.xml").readText()
+    val xml = File(xsdDir, "FTI030/sample.xml").readText()
+    validateXsd("FTI030", xml)
     val resp = parser.parse<FTI030LodgeFollowUpCommResponse>(xml)
 
     expect(resp.context).toEqual(context)
     expect(resp.document).toEqual(document.copy(typeCode = "030", responseCode = Completed))
     expect(resp.uil.gateId).toEqual(GateId("Gate-001"))
 
-    expect(parser.parse<FTI030LodgeFollowUpCommResponse>(resp.render())).toEqual(resp)
+    val rendered = resp.render()
+    expect(parser.parse<FTI030LodgeFollowUpCommResponse>(rendered)).toEqual(resp)
+    validateXsd("FTI030", rendered)
   }
 
   @Test fun renderNullParameterIDSetCriteria() {
@@ -152,7 +190,7 @@ class FTIMessagesTest {
       usedEquipmentIds = listOf("TE-001", "TE-002"),
       usedEquipmentCategories = listOf("T10", "T10"),
       usedEquipmentCountries = listOf(DE, DE),
-      usedEquipmentSeq =  listOf(1, 2),
+      usedEquipmentSeq = listOf(1, 2),
       carriedEquipmentIds = listOf("TE-003", "TE-004"),
       carriedEquipmentCategories = listOf("BPR", "BPR"),
       carriedEquipmentSeq = listOf(3, 4)
