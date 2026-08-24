@@ -28,8 +28,7 @@ class SearchRoutes(val requestIdHandler: RequestIdHandler) {
 
   @Operation(description = "Map one or more FTI021SearchIdentifierResponse as XML with delimiter to multiple UniqueIDSetUIL as JSON. Coming from multiplexer, meant for Authority request.")
   @POST("/response-to-json") fun responseToJson(xml: String): List<UniqueIDSetUIL> {
-    val regex = "<([^:>]+:|)FTI021SearchIdentifierResponse(?:\\s[^>]*)?>.*?</\\1FTI021SearchIdentifierResponse>".toRegex(RegexOption.DOT_MATCHES_ALL)
-    return regex.findAll(xml).flatMap { xmlParser.parse<FTI021SearchIdentifierResponse>(it.value).content }.toList()
+    return xml.split("⦀").flatMap { xmlParser.parse<FTI021SearchIdentifierResponse>(it).content }.toList()
   }
 
   @Operation(description = "Map UniqueIDSetUIL as JSON to FTI021SearchIdentifierResponse as XML. Meant for other Gate request.")
