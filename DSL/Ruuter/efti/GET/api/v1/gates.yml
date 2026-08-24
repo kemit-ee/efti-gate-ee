@@ -23,6 +23,7 @@ check_single:
 
 respond_single:
   return: ${single_result.response.body}
+  wrapper: false
   next: end
 
 fetch_list:

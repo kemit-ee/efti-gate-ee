@@ -1,6 +1,7 @@
 package efti
 
 import RequestIdHandler
+import efti.domain.ConsignmentRow
 import efti.domain.UIL
 import efti.xml.RuuterXmlWrapper
 import efti.xml.fti.*
@@ -8,8 +9,6 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import klite.HttpExchange
 import klite.annotations.POST
-import klite.json.toJsonValues
-import klite.nodes.Node
 import klite.uuid
 
 @Tag(
@@ -17,14 +16,37 @@ import klite.uuid
   description = "These routes are for mapping requests and responses for consignment uploads."
 )
 class UploadRoutes(val requestIdHandler: RequestIdHandler) {
-  @Operation(description = "Map FTI004UploadIdentifierRequest or UniqueIDSetUIL as XML to a flat consignment json suitable for DB insertion.")
-  @POST("/request-to-json") fun requestToJson(xml: String, e: HttpExchange): Node {
+  @Operation(description = "Map FTI004UploadIdentifierRequest or UniqueIDSetUniqueIDSet as XML to a flat consignment json suitable for DB insertion.")
+  @POST("/request-to-json") fun requestToJson(xml: String, e: HttpExchange): ConsignmentRow {
     val content = if (xml.contains("FTI004UploadIdentifierRequest")) {
       val req = xmlParser.parse<FTI004UploadIdentifierRequest>(xml)
       requestIdHandler.send(e, req.document.queryId)
       req.content
-    } else xmlParser.parse<UniqueIDSetUIL>(xml)
-    return (content.uil.toJsonValues() + content.criteria.toJsonValues()).mapKeys { it.key.name } + mapOf("xml" to xml.extractParameterIDSetCriteria(), "status" to null)
+    } else xmlParser.parse<UniqueIDSetUniqueIDSet>(xml)
+    val criteria = content.criteria!!
+    return ConsignmentRow(content.uil.datasetId, content.uil.platformId, content.uil.gateId,
+      xml.extractParameterIDSetCriteria(),
+      criteria.transportMode,
+      criteria.acceptanceDate?.instant,
+      criteria.acceptanceCountry,
+      criteria.deliveryDate?.instant,
+      criteria.deliveryCountry,
+      criteria.dangerousGoods,
+      criteria.mainTransportId,
+      criteria.mainTransportType,
+      criteria.transportRegCountry,
+      criteria.loadingDate?.instant,
+      criteria.loadingCountry,
+      criteria.unloadingDate?.instant,
+      criteria.unloadingCountry,
+      criteria.usedEquipmentIds,
+      criteria.usedEquipmentCategories,
+      criteria.usedEquipmentCountries,
+      criteria.usedEquipmentSeq,
+      criteria.carriedEquipmentIds,
+      criteria.carriedEquipmentCategories,
+      criteria.carriedEquipmentSeq,
+    )
   }
 
   @Operation(description = "Map UIL as JSON to FTI029UploadIdentifierResponse as XML.")

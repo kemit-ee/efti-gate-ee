@@ -3,9 +3,13 @@
 Dokument kirjeldab kõiki `openapi.yaml` spetsifitseeritud endpointe:
 mis on **teostatud**, mis on **puudu** ja millised on näidisissendid/väljundid.
 
-> **Ruuter URL-konventsioon:** Kuna Ruuter (Rust) ei toeta natiivset tee-parameetrit `{gateId}`,
-> kasutatakse workaround: `GET /api/v1/gates?gateId=eu-xx01` asemel `GET /api/v1/gates/{gateId}`.
-> Spec-i URI-d ja tegelikud Ruuter URI-d erinevad — vt iga endpoindi juures märkus.
+> **Ruuter URL-konventsioon:** Kuna Ruuter (Rust) ei toeta natiivset tee-parameetrit (`{gateId}`),
+> kasutatakse dünaamiline identifikaator query-parameetrina: `GET /api/v1/gates?gateId=eu-xx01`
+> asemel spec-i `GET /api/v1/gates/{gateId}`. Tegelikes DSL-failides **ei kasutata** eraldi
+> `/get`, `/update` ega `/delete` staatilisi segmente — nimekirja- ja üksiku kirje päring
+> käivitatakse samal teel, eristades `?gateId` (või `?platformId`, `?authorityId`, `?userId`)
+> olemasolu. URI-s ei kasutata CRUD-verbe (`/get`, `/update`, `/delete`)
+> — HTTP meetod ise tähistab toimingut. Spec-i URI-d ja tegelikud Ruuter URI-d erinevad — vt iga endpoindi juures märkus.
 
 ---
 
@@ -17,10 +21,11 @@ mis on **teostatud**, mis on **puudu** ja millised on näidisissendid/väljundid
 4. [Admin — Gates](#4-admin--gates)
 5. [Admin — Platforms](#5-admin--platforms)
 6. [Admin — Authorities](#6-admin--authorities)
-7. [Admin — Audit](#7-admin--audit)
-8. [Puuduvad endpointid](#8-puuduvad-endpointid)
-9. [Veaformaat](#9-veaformaat)
-10. [Ühised skeemid](#10-ühised-skeemid)
+7. [Admin — Users](#7-admin--users)
+8. [Admin — Audit](#8-admin--audit)
+9. [Puuduvad endpointid](#9-puuduvad-endpointid)
+10. [Veaformaat](#10-veaformaat)
+11. [Ühised skeemid](#11-ühised-skeemid)
 
 ---
 
@@ -37,7 +42,7 @@ mis on **teostatud**, mis on **puudu** ja millised on näidisissendid/väljundid
 | **`X-Request-ID`** | UUID päis kõigil muteerivaatel (POST/PUT/DELETE); duplikaat 10 min jooksul → 409 |
 | **Paginatsioon** | `?limit=100&offset=0`; kogus `X-Total-Count` päises |
 | **Kirjutused** | Append-only INSERT — pole UPDATE/DELETE. Viimane rida `created_at` järgi on kehtiv seis |
-| **Pehme kustutus** | Kirjutab uue rea `status = 'DELETED'` (gates, platforms); `is_active = FALSE` (authorities, users) |
+| **Pehme kustutus** | Kirjutab uue rea `is_*_active = FALSE` |
 
 ---
 
@@ -51,52 +56,65 @@ graph LR
         G1["GET /api/v1/gates"]
         G2["POST /api/v1/gates"]
         G3["GET /api/v1/gates/own"]
-        G4["GET /api/v1/gates/{gateId}"]
-        G5["PUT /api/v1/gates/{gateId}"]
-        G6["DELETE /api/v1/gates/{gateId}"]
-        G7["POST /api/v1/gates/{gateId}/ping"]
+        G4["GET /api/v1/gates?gateId={id}"]
+        G5["PUT /api/v1/gates?gateId={id}"]
+        G6["DELETE /api/v1/gates?gateId={id}"]
+        G7["POST /api/v1/gates/ping ⚠️501"]
         P1["GET /api/v1/platforms"]
         P2["POST /api/v1/platforms"]
-        P3["GET /api/v1/platforms/{platformId}"]
-        P4["PUT /api/v1/platforms/{platformId}"]
-        P5["DELETE /api/v1/platforms/{platformId}"]
-        P6["POST /api/v1/platforms/{platformId}/ping"]
+        P3["GET /api/v1/platforms?platformId={id}"]
+        P4["PUT /api/v1/platforms?platformId={id}"]
+        P5["DELETE /api/v1/platforms?platformId={id}"]
+        P6["POST /api/v1/platforms/ping ⚠️501"]
         A1["GET /api/v1/authorities"]
         A2["POST /api/v1/authorities"]
-        A3["GET /api/v1/authorities/{authorityId}"]
-        A4["PUT /api/v1/authorities/{authorityId}"]
-        A5["DELETE /api/v1/authorities/{authorityId}"]
+        A3["GET /api/v1/authorities?authorityId={id}"]
+        A4["PUT /api/v1/authorities?authorityId={id}"]
+        A5["DELETE /api/v1/authorities?authorityId={id}"]
+        U1["GET /api/v1/users"]
+        U2["POST /api/v1/users"]
+        U3["GET /api/v1/users?userId={id}"]
+        U4["PUT /api/v1/users?userId={id}"]
+        U5["DELETE /api/v1/users?userId={id}"]
+        U6["POST /api/v1/users/revoke-token?userId={id}"]
         AU["GET /api/v1/audit"]
     end
 
+    subgraph "✅ Teostatud (uued)"
+        C1["GET /api/v1/consignments (filtriga)"]
+        C2["DELETE /api/v1/consignments?consignmentId={id}"]
+        PL1["GET /api/v1/status?datasetId={id}"]
+        PL2["POST /api/v1/ping"]
+        PL3["GET /api/v1/follow-up?datasetId={id}"]
+        PL4["GET /api/v1/datasets?datasetId={id}"]
+        AU1["GET /api/v1/identifiers?identifier={id}"]
+        AU2["POST /api/v1/dataset"]
+        AU3["POST /api/v1/follow-up"]
+    end
+
     subgraph "❌ Puudub"
-        M1["POST /api/v1/auth/*"]
-        M2["GET/POST/PUT/DELETE /api/v1/users/*"]
-        M3["GET/DELETE /api/v1/consignments/*"]
+        M1["GET /api/v1/user"]
+        M2["POST /api/v1/auth/*"]
         M4["POST /api/v1/admin/*"]
-        M5["Platform API — /v1/identifiers/*"]
-        M6["Authority API — /v1/identifiers/{id} GET"]
-        M7["Authority API — /v1/dataset/*"]
-        M8["Authority API — /v1/follow-up/*"]
     end
 ```
 
 **Kokkuvõte:**
 
 | Kategooria | Kokku specs-is | Teostatud | Puudub |
-|---|---|---|---|
+|---|---|---:|---:|
 | Health | 2 | **2** | 0 |
-| Admin — Gates | 6 | **6** | 0 |
+| Admin — Gates | 7 | **7** | 0 |
 | Admin — Platforms | 6 | **6** | 0 |
 | Admin — Authorities | 5 | **5** | 0 |
 | Admin — Audit | 1 | **1** | 0 |
-| Admin — Users | 7 | 0 | **7** |
-| Admin — Consignments | 2 | 0 | **2** |
+| Admin — Users | 7 | **6** | **1** |
+| Admin — Consignments | 2 | **2** | 0 |
 | Admin — Cron | 3 | 0 | **3** |
 | Auth | 2 | 0 | **2** |
-| Platform API | 6 | 0 | **6** |
-| Authority API | 3 | 0 | **3** |
-| **Kokku** | **43** | **21** | **22** |
+| Platform API | 6 | **6** | 0 |
+| Authority API | 3 | **3** | 0 |
+| **Kokku** | **44** | **38** | **6** |
 
 ---
 
@@ -199,6 +217,7 @@ GET /efti/api/v1/gates?limit=2&offset=0
       "tlsCert": null,
       "status": "ONLINE",
       "lastPingAt": "2026-04-23T10:00:00Z",
+      "isGateActive": true,
       "createdAt": "2026-01-15T09:00:00Z"
     }
   ]
@@ -224,7 +243,8 @@ GET /efti/api/v1/gates?limit=2&offset=0
 | `eDeliveryUrl` | string (uri) | ✅ | AS4 MSH endpoint |
 | `eDeliveryCert` | string\|null | ❌ | PEM-sertifikaat |
 | `tlsCert` | string\|null | ❌ | mTLS sertifikaat |
-| `status` | `ONLINE`\|`OFFLINE`\|`DISABLED`\|`DELETED` | ❌ | Vaikimisi `OFFLINE` |
+| `status` | `ONLINE`\|`OFFLINE`\|`DISABLED` | ❌ | Vaikimisi `OFFLINE` |
+| `isGateActive` | boolean | ❌ | Vaikimisi `true` |
 
 ```json
 // Päring
@@ -247,13 +267,14 @@ Content-Type: application/json
       "countryCode": "DE",
       "eDeliveryUrl": "https://efti-peer.bkg.bund.de/services/msh",
       "status": "OFFLINE",
+      "isGateActive": true,
       "createdAt": "2026-04-23T11:00:00Z"
     }
   ]
 }
 ```
 
-> ⚠️ **Puudu spec-ist:** 409 Conflict kui `id` juba eksisteerib pole veel teostatud — teine INSERT lisatakse uue reana.
+> ⚠️ **Puudu spec-ist:** 409 Conflict kui `id` juba eksisteerib pole veel teostatud — duplikaat lisatakse uue reana.
 
 ---
 
@@ -275,6 +296,7 @@ GET /efti/api/v1/gates/own
       "countryCode": "EE",
       "eDeliveryUrl": "https://efti.ria.ee/services/msh",
       "status": "ONLINE",
+      "isGateActive": true
     }
   ]
 }
@@ -294,7 +316,7 @@ GET /efti/api/v1/gates/own
 
 > ℹ️ **Ruuter workaround:** Spec-i tee-parameeter `{gateId}` on asendatud query-parameetriga `?gateId=`.
 
-Tagastab viimase rea `DISTINCT ON (id) ORDER BY created_at DESC` — sealhulgas soft-kustutatud gate (`status: DELETED`).
+Tagastab viimase rea `DISTINCT ON (id) ORDER BY created_at DESC` — sealhulgas soft-kustutatud gate (`isGateActive: false`).
 
 ```
 GET /efti/api/v1/gates?gateId=eu-de01
@@ -306,6 +328,7 @@ GET /efti/api/v1/gates?gateId=eu-de01
       "id": "eu-de01",
       "countryCode": "DE",
       "status": "ONLINE",
+      "isGateActive": true,
       "createdAt": "2026-04-23T11:00:00Z"
     }
   ]
@@ -336,6 +359,7 @@ Content-Type: application/json
   "countryCode": "DE",
   "eDeliveryUrl": "https://efti-peer-new.bkg.bund.de/services/msh",
   "status": "ONLINE",
+  "isGateActive": true
 }
 
 // Vastus 200 OK
@@ -345,6 +369,7 @@ Content-Type: application/json
       "id": "eu-de01",
       "eDeliveryUrl": "https://efti-peer-new.bkg.bund.de/services/msh",
       "status": "ONLINE",
+      "isGateActive": true
     }
   ]
 }
@@ -356,7 +381,7 @@ Content-Type: application/json
 
 **Spec:** `DELETE /api/v1/gates/{gateId}`
 **Ruuter DSL:** `DSL/Ruuter/efti/DELETE/api/v1/gates.yml`
-**Voog:** INSERT rida `status='DELETED'` → verify GET (`status == 'DELETED'`) → 204
+**Voog:** INSERT rida `is_gate_active=false` → verify GET (`isGateActive == false`) → 204
 
 ```
 DELETE /efti/api/v1/gates?gateId=eu-de01
@@ -369,33 +394,19 @@ DELETE /efti/api/v1/gates?gateId=eu-de01
 
 ---
 
-### `POST /efti/api/v1/gates/ping?gateId={id}` — Ping gate
+### `POST /efti/api/v1/gates/ping?gateId={id}` — Ping gate ⚠️ 501
 
 **Spec:** `POST /api/v1/gates/{gateId}/ping`
 **Ruuter DSL:** `DSL/Ruuter/efti/POST/api/v1/gates/ping.yml`
 
-Saadab eDelivery AS4 testpäringu gate'ile, uuendab `status` (`ONLINE`/`OFFLINE`) ja `last_ping_at`.
-Voog: gate olemasolu kontroll → eDelivery ping → `update_gate_ping` SQL → verify-after-write.
-
-| Vastus | Tähendus |
-|--------|----------|
-| `200` | Ping õnnestus, tagastatakse uuendatud gate kirje |
-| `404` | Gate ei eksisteeri |
-| `502` | eDelivery ping ebaõnnestus — gate staatuseks kirjutati `OFFLINE` |
-| `500` | DB kirjutus ebaõnnestus |
+eDelivery AS4 ping pole skoobis — tagastab alati `501 Not Implemented` (parameetrit ignoreeritakse).
 
 ```
 POST /efti/api/v1/gates/ping?gateId=eu-de01
 
-→ 200 OK
-{ "id": "eu-de01", "status": "ONLINE", "lastPingAt": "2026-08-18T10:00:00Z", ... }
-
-→ 502 Bad Gateway
+→ 501 Not Implemented
 {
-  "type": "https://api.efti.ee/errors/bad-gateway",
-  "title": "Bad Gateway",
-  "status": 502,
-  "detail": "Gate ping failed — eDelivery unreachable, status set to OFFLINE"
+  "response": "{\"error\": \"Not Implemented\"}"
 }
 ```
 
@@ -443,7 +454,8 @@ GET /efti/api/v1/platforms
     {
       "id": "plt-cargo-ee-001",
       "baseUrl": "https://api.cargo-ee.com/efti/v1",
-      "status": "ONLINE",
+      "supportsSubsetting": true,
+      "isPlatformActive": true,
       "createdAt": "2026-03-01T08:00:00Z"
     }
   ]
@@ -462,12 +474,13 @@ GET /efti/api/v1/platforms
 |---|---|---|---|
 | `id` | string | ✅ | Platvormi identifikaator |
 | `baseUrl` | string (uri) | ✅ | REST API baas-URL |
+| `supportsSubsetting` | boolean | ❌ | Vaikimisi `true` |
 | `headers` | object | ❌ | Lisapäised (nt API võtmed) |
 | `eDeliveryCert` | string\|null | ❌ | AS4 sertifikaat PEM |
 | `tlsCert` | string\|null | ❌ | mTLS sertifikaat PEM |
 | `certSubject` | string\|null | ❌ | mTLS lahendamiseks vajalik tootmises |
 | `certSerial` | string\|null | ❌ | Sama sertifikaadi seeria |
-| `status` | `ONLINE`\|`OFFLINE`\|`DISABLED`\|`DELETED` | ❌ | Vaikimisi `ONLINE` |
+| `isPlatformActive` | boolean | ❌ | Vaikimisi `true` |
 
 ```json
 // Päring
@@ -477,7 +490,7 @@ Content-Type: application/json
 {
   "id": "plt-cargo-ee-001",
   "baseUrl": "https://api.cargo-ee.com/efti/v1",
-  "status": "ONLINE",
+  "supportsSubsetting": true,
   "headers": { "X-Api-Key": "secret-key-abc123" },
   "certSubject": "CN=eDelivery-Platform, O=Cargo EE OÜ, C=EE",
   "certSerial": "0123456789ABCDEF"
@@ -489,7 +502,8 @@ Content-Type: application/json
     {
       "id": "plt-cargo-ee-001",
       "baseUrl": "https://api.cargo-ee.com/efti/v1",
-      "status": "ONLINE",
+      "supportsSubsetting": true,
+      "isPlatformActive": true,
       "createdAt": "2026-04-23T11:05:00Z"
     }
   ]
@@ -512,7 +526,8 @@ GET /efti/api/v1/platforms?platformId=plt-cargo-ee-001
       "id": "plt-cargo-ee-001",
       "baseUrl": "https://api.cargo-ee.com/efti/v1",
       "certSubject": "CN=eDelivery-Platform, O=Cargo EE OÜ, C=EE",
-      "status": "ONLINE"
+      "supportsSubsetting": true,
+      "isPlatformActive": true
     }
   ]
 }
@@ -533,7 +548,7 @@ Päringu keha sama mis POST. Voog: INSERT → verify → 200.
     {
       "id": "plt-cargo-ee-001",
       "baseUrl": "https://api.cargo-ee-v2.com/efti/v1",
-      "status": "ONLINE"
+      "isPlatformActive": true
     }
   ]
 }
@@ -553,33 +568,14 @@ DELETE /efti/api/v1/platforms?platformId=plt-cargo-ee-001
 
 ---
 
-### `POST /efti/api/v1/platforms/ping?platformId={id}` — Ping platform
+### `POST /efti/api/v1/platforms/ping?platformId={id}` — Ping platform ⚠️ 501
 
 **Ruuter DSL:** `DSL/Ruuter/efti/POST/api/v1/platforms/ping.yml`
-
-Saadab eDelivery AS4 testpäringu platvormile, uuendab `status` (`ONLINE`/`OFFLINE`).
-Voog: platvormi olemasolu kontroll → eDelivery ping → `update_platform_ping` SQL → verify-after-write.
-
-| Vastus | Tähendus |
-|--------|----------|
-| `200` | Ping õnnestus, tagastatakse uuendatud platvormi kirje |
-| `404` | Platvorm ei eksisteeri |
-| `502` | eDelivery ping ebaõnnestus — platvormi staatuseks kirjutati `OFFLINE` |
-| `500` | DB kirjutus ebaõnnestus |
 
 ```
 POST /efti/api/v1/platforms/ping?platformId=plt-cargo-ee-001
 
-→ 200 OK
-{ "id": "plt-cargo-ee-001", "status": "ONLINE", ... }
-
-→ 502 Bad Gateway
-{
-  "type": "https://api.efti.ee/errors/bad-gateway",
-  "title": "Bad Gateway",
-  "status": 502,
-  "detail": "Platform ping failed — eDelivery unreachable, status set to OFFLINE"
-}
+→ 501 Not Implemented
 ```
 
 ---
@@ -628,7 +624,7 @@ GET /efti/api/v1/authorities
       "countryCode": "EE",
       "name": "Maksu- ja Tolliamet",
       "subsets": ["EU01", "EU02", "EU05"],
-      "isActive": true
+      "isAuthorityActive": true
     }
   ]
 }
@@ -648,7 +644,7 @@ GET /efti/api/v1/authorities
 | `countryCode` | string | ✅ | ISO 3166-1 alpha-2 |
 | `name` | string | ✅ | Asutuse nimi |
 | `subsets` | string[] | ✅ | Min 1; lubatud `EU01`–`EU07` |
-| `isActive` | boolean | ❌ | Vaikimisi `true` |
+| `isAuthorityActive` | boolean | ❌ | Vaikimisi `true` |
 
 ```json
 // Päring
@@ -670,7 +666,7 @@ Content-Type: application/json
       "countryCode": "EE",
       "name": "Maksu- ja Tolliamet",
       "subsets": ["EU01", "EU02", "EU05"],
-      "isActive": true,
+      "isAuthorityActive": true,
       "createdAt": "2026-04-23T11:10:00Z"
     }
   ]
@@ -697,7 +693,7 @@ GET /efti/api/v1/authorities?authorityId=auth-mta
       "countryCode": "EE",
       "name": "Maksu- ja Tolliamet",
       "subsets": ["EU01", "EU02", "EU05"],
-      "isActive": true
+      "isAuthorityActive": true
     }
   ]
 }
@@ -719,7 +715,7 @@ Päringu keha sama mis POST. Voog: INSERT → verify → 200.
       "id": "auth-mta",
       "name": "Maksu- ja Tolliamet (uuendatud)",
       "subsets": ["EU01", "EU02", "EU03", "EU05"],
-      "isActive": true
+      "isAuthorityActive": true
     }
   ]
 }
@@ -739,7 +735,212 @@ DELETE /efti/api/v1/authorities?authorityId=auth-mta
 
 ---
 
-## 7. Admin — Audit
+## 7. Admin — Users
+
+Admin kasutajate haldus. Kasutaja seotakse `taraSub`-ga, määratakse `roles` JSON-objekt ja
+`subsets` alamhulkade loend. Kõik kirjutused on append-only.
+
+---
+
+### `GET /efti/api/v1/users` — Loetle users
+
+**Spec:** `GET /api/v1/users`
+**Ruuter DSL:** `DSL/Ruuter/efti/GET/api/v1/users.yml`
+
+**Query parameetrid:**
+
+| Parameeter | Tüüp | Vaikimisi | Märkus |
+|---|---|---|---|
+| `limit` | int | 20 | |
+| `offset` | int | 0 | |
+| `gateId` | string | — | Otsib rolli `roles->'ADMIN' ? :gateId` |
+| `authorityId` | string | — | Otsib rolli `roles->'AUTHORITY' ? :authorityId` |
+
+```
+GET /efti/api/v1/users?limit=2&offset=0
+
+→ 200 OK
+{
+  "response": [
+    {
+      "rowId": "01923a8c-4f7c-7a1b-9c2e-fd0d9b0a4e11",
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "taraSub": "EE12345678901",
+      "email": "admin@ria.ee",
+      "name": "Mari Mets",
+      "isUserAdmin": true,
+      "roles": { "ADMIN": ["eu-ee01"] },
+      "subsets": ["EU01", "EU05"],
+      "tokenRevokedAt": null,
+      "isUserActive": true,
+      "createdAt": "2026-04-23T11:15:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### `POST /efti/api/v1/users` — Loo user
+
+**Spec:** `POST /api/v1/users`
+**Ruuter DSL:** `DSL/Ruuter/efti/POST/api/v1/users.yml`
+**Voog:** INSERT → verify GET → 201
+
+**Päringu keha:**
+
+| Väli | Tüüp | Kohustuslik | Märkus |
+|---|---|---|---|
+| `taraSub` | string | ✅ | TARA `sub` väätus |
+| `email` | string | ✅ | |
+| `name` | string | ✅ | |
+| `isAdmin` | boolean | ❌ | Vaikimisi `false` |
+| `roles` | object | ❌ | Nt `{ "ADMIN": ["eu-ee01"], "AUTHORITY": ["auth-mta"] }` |
+| `subsets` | string[] | ❌ | Lubatud `EU01`–`EU07` |
+
+```json
+// Päring
+POST /efti/api/v1/users
+Content-Type: application/json
+
+{
+  "taraSub": "EE12345678901",
+  "email": "admin@ria.ee",
+  "name": "Mari Mets",
+  "isAdmin": true,
+  "roles": { "ADMIN": ["eu-ee01"], "AUTHORITY": ["auth-mta"] },
+  "subsets": ["EU01", "EU05"]
+}
+
+// Vastus 201 Created
+{
+  "response": [
+    {
+      "rowId": "01923a8c-4f7c-7a1b-9c2e-fd0d9b0a4e11",
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "taraSub": "EE12345678901",
+      "email": "admin@ria.ee",
+      "name": "Mari Mets",
+      "isUserAdmin": true,
+      "roles": { "ADMIN": ["eu-ee01"], "AUTHORITY": ["auth-mta"] },
+      "subsets": ["EU01", "EU05"],
+      "tokenRevokedAt": null,
+      "isUserActive": true,
+      "createdAt": "2026-04-23T11:15:00Z"
+    }
+  ]
+}
+```
+
+> ℹ️ **Tähelepanu:** duplicate `taraSub` korral tagastab `409 Conflict`.
+
+---
+
+### `GET /efti/api/v1/users?userId={id}` — Üks user
+
+**Spec:** `GET /api/v1/users/{userId}`
+**Ruuter DSL:** `DSL/Ruuter/efti/GET/api/v1/users.yml`
+
+> ℹ️ **Ruuter workaround:** Spec-i tee-parameeter `{userId}` on asendatud query-parameetriga `?userId=`.
+
+```
+GET /efti/api/v1/users?userId=550e8400-e29b-41d4-a716-446655440000
+
+→ 200 OK
+{
+  "response": [
+    {
+      "rowId": "01923a8c-4f7c-7a1b-9c2e-fd0d9b0a4e11",
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "taraSub": "EE12345678901",
+      "email": "admin@ria.ee",
+      "name": "Mari Mets",
+      "isUserAdmin": true,
+      "roles": { "ADMIN": ["eu-ee01"] },
+      "subsets": ["EU01", "EU05"],
+      "tokenRevokedAt": null,
+      "isUserActive": true,
+      "createdAt": "2026-04-23T11:15:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### `PUT /efti/api/v1/users?userId={id}` — Uuenda user
+
+**Spec:** `PUT /api/v1/users/{userId}`
+**Ruuter DSL:** `DSL/Ruuter/efti/PUT/api/v1/users.yml`
+**Voog:** INSERT uus rida → verify GET → 200
+
+Päringu keha sama mis `POST /users`.
+
+```json
+// Päring
+PUT /efti/api/v1/users?userId=550e8400-e29b-41d4-a716-446655440000
+Content-Type: application/json
+
+{
+  "email": "admin@newdomain.ee",
+  "name": "Mari Mets-Uuendatud",
+  "roles": { "ADMIN": ["eu-ee01", "eu-de01"] },
+  "subsets": ["EU01", "EU05", "EU07"]
+}
+
+// Vastus 200 OK
+{
+  "response": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "email": "admin@newdomain.ee",
+      "name": "Mari Mets-Uuendatud",
+      "isUserAdmin": true,
+      "roles": { "ADMIN": ["eu-ee01", "eu-de01"] },
+      "subsets": ["EU01", "EU05", "EU07"],
+      "isUserActive": true
+    }
+  ]
+}
+```
+
+---
+
+### `DELETE /efti/api/v1/users?userId={id}` — Kustuta user
+
+**Spec:** `DELETE /api/v1/users/{userId}`
+**Ruuter DSL:** `DSL/Ruuter/efti/DELETE/api/v1/users.yml`
+**Voog:** INSERT rida `is_user_active=false` → verify GET → 204
+
+> ⚠️ **Praegu puudub auth-blokk** — enne tootmist tuleb lisada JWT valideerimine ja
+> kontroll, et admin ei kustuta enda enda kontot.
+
+```
+DELETE /efti/api/v1/users?userId=550e8400-e29b-41d4-a716-446655440000
+
+→ 204 No Content   (keha puudub)
+
+→ 404 Not Found    (userId ei eksisteeri)
+→ 500              (kustutus õnnestus aga verify ebaõnnestus)
+```
+
+---
+
+### `POST /efti/api/v1/users/revoke-token?userId={id}` — Tühista kasutaja token
+
+**Spec:** `POST /api/v1/users/{userId}/revoke-token`
+**Ruuter DSL:** `DSL/Ruuter/efti/POST/api/v1/users/revoke-token.yml`
+**Voog:** revoke → verify GET (`tokenRevokedAt != null`) → 204
+
+```
+POST /efti/api/v1/users/revoke-token?userId=550e8400-e29b-41d4-a716-446655440000
+
+→ 204 No Content
+```
+
+---
+
+## 8. Admin — Audit
 
 Auditilogi on append-only, andmeid ei muudeta. Säilitatakse vähemalt 7 aastat (GDPR art 30).
 
@@ -784,9 +985,9 @@ GET /efti/api/v1/audit?resource=gates&limit=2
 
 ---
 
-## 8. Puuduvad endpointid
+## 9. Lisaendpointid ja staatused
 
-### 8.1 Auth
+### 9.1 Auth
 
 | Meetod | Spec path | Kirjeldus |
 |---|---|---|
@@ -795,30 +996,39 @@ GET /efti/api/v1/audit?resource=gates&limit=2
 
 ---
 
-### 8.2 Users (Admin)
+### 9.2 Users (Admin)
 
 | Meetod | Spec path | Kirjeldus |
 |---|---|---|
-| `GET` | `/api/v1/users` | Kasutajate nimekiri (filter: `gateId`, `platformId`, `authorityId`) |
-| `POST` | `/api/v1/users` | Loo kasutaja (`taraSub`, `name`, `roles` kohustuslikud) |
-| `GET` | `/api/v1/users/{userId}` | Üks kasutaja UUID järgi |
-| `PUT` | `/api/v1/users/{userId}` | Uuenda kasutaja (append-only) |
-| `DELETE` | `/api/v1/users/{userId}` | Kustuta kasutaja (ise ennast kustutada ei saa) |
-| `POST` | `/api/v1/users/{userId}/revoke-token` | Tühista kõik kasutaja tokenid |
 | `GET` | `/api/v1/user` | Praeguse sisseloginud kasutaja profiil |
 
+> ℹ️ Ülejäänud `users` endpointid (`GET/POST/PUT/DELETE`, `revoke-token`) on juba teostatud (vt [Admin — Users](#7-admin--users)).
+
 ---
 
-### 8.3 Consignments (Admin)
+### 9.3 Consignments (Admin) ✅
 
-| Meetod | Spec path | Kirjeldus |
+| Meetod | Ruuter DSL | Kirjeldus |
 |---|---|---|
-| `GET` | `/api/v1/consignments` | Saadetiste nimekiri (filter: `status`, `platformId`, `mode`, `dangerousGoods`, kuupäevad) |
-| `DELETE` | `/api/v1/consignments/{datasetId}` | Sunnikustutus (ainult SUPER_ADMIN) |
+| `GET` | `DSL/Ruuter/efti/GET/api/v1/consignments.yml` | Saadetiste nimekiri (filter: `status`, `platformId`, `transportMode`, `dangerousGoods`) |
+| `DELETE` | `DSL/Ruuter/efti/DELETE/api/v1/consignments.yml` | Pehme kustutus (append-only `status=DELETED`) |
+
+> ℹ️ **Ruuter workaround:** `{datasetId}` path param on asendatud `?consignmentId=` query-parameetriga.
+
+**GET filtrid:**
+
+| Parameeter | Tüüp | Kirjeldus |
+|---|---|---|
+| `status` | string | `ACTIVE`, `DELETED` — vaikimisi kõik |
+| `platformId` | string | Platvormi ID filter |
+| `transportMode` | string | Transpordirežiim (nt `1`) |
+| `dangerousGoods` | string | Ohtlike kaupade kood |
+| `limit` | int | Vaikimisi 20 |
+| `offset` | int | Vaikimisi 0 |
 
 ---
 
-### 8.4 Cron Admin
+### 9.4 Cron Admin
 
 Autentimine: staatiline `ARCHIVE_OPS_TOKEN` bearer token.
 
@@ -830,30 +1040,38 @@ Autentimine: staatiline `ARCHIVE_OPS_TOKEN` bearer token.
 
 ---
 
-### 8.5 Platform API (mTLS)
+### 9.5 Platform API (mTLS) ✅
 
-| Meetod | Spec path | Kirjeldus |
-|---|---|---|
-| `POST` | `/v1/identifiers/{datasetId}` | Registreeri saadetise identifikaator XML-ina |
-| `DELETE` | `/v1/identifiers/{datasetId}` | Platvormi algatatud saadetise kustutus |
-| `GET` | `/v1/status/{datasetId}` | Saadetise registreerimise staatuse kontroll |
-| `POST` | `/v1/ping` | Platvormi kättesaadavuse kontroll (gate → platform) |
-| `GET` | `/v1/follow-up/{datasetId}/{requestId}` | Platform saab asutuse järelkontrolli sõnumid |
-| `GET` | `/v1/datasets/{datasetId}` | Platform toob oma andmestiku (alamhulga test) |
+Auth: mTLS X.509 — reversproxy edastab `X-Client-Cert-Subject` + `X-Client-Cert-Serial` (praegu `allow-all`).
 
----
+| Meetod | Ruuter DSL | Ruuter tee | Kirjeldus |
+|---|---|---|---|
+| `POST` | `DSL/Ruuter/efti/POST/api/v1/consignments.yml` | `POST /efti/api/v1/consignments` | FTI004 XML upload → INSERT (verify-after-write) → JSON vastus |
+| `DELETE` | `DSL/Ruuter/efti/DELETE/api/v1/consignments.yml` | `DELETE /efti/api/v1/consignments?consignmentId={id}` | Pehme kustutus + verify |
+| `GET` | `DSL/Ruuter/efti/GET/api/v1/status.yml` | `GET /efti/api/v1/status?datasetId={id}` | Saadetise staatus |
+| `POST` | `DSL/Ruuter/efti/POST/api/v1/ping.yml` | `POST /efti/api/v1/ping` | Kättesaadavuse kontroll — tagastab 204 |
+| `GET` | `DSL/Ruuter/efti/GET/api/v1/follow-up.yml` | `GET /efti/api/v1/follow-up?datasetId={id}&requestId={id}` | Järelkontrolli sõnumid platformile |
+| `GET` | `DSL/Ruuter/efti/GET/api/v1/datasets.yml` | `GET /efti/api/v1/datasets?datasetId={id}` | Andmestiku XML (raw) |
 
-### 8.6 Authority API (TARA JWT)
-
-| Meetod | Spec path | Kirjeldus |
-|---|---|---|
-| `GET` | `/v1/identifiers/{identifier}` | Otsing sõiduki registreerimisnumbri/konteineri järgi; JSON või SSE stream |
-| `GET` | `/v1/dataset/{gateId}/{platformId}/{datasetId}` | Täieliku saadetise andmestik XML filtreerituna `subsetId[]` järgi |
-| `POST` | `/v1/follow-up/{gateId}/{platformId}/{datasetId}/{datasetRequestId}` | Asutuse järelkontrolli sõnum platformile (max 2000 märki) |
+> ℹ️ **Ruuter workaround:** Kõik `{id}` path parameetrid on asendatud query-parameetritega.
 
 ---
 
-## 9. Veaformaat
+### 9.6 Authority API (TARA JWT) ✅
+
+Auth: TARA JWT `sub` → kasutaja `tara_sub` (praegu `allow-all`).
+
+| Meetod | Ruuter DSL | Ruuter tee | Kirjeldus |
+|---|---|---|---|
+| `GET` | `DSL/Ruuter/efti/GET/api/v1/identifiers.yml` | `GET /efti/api/v1/identifiers?identifier={id}` | Otsing `mainTransportId` / `usedEquipmentIds` järgi |
+| `POST` | `DSL/Ruuter/efti/POST/api/v1/dataset.yml` | `POST /efti/api/v1/dataset` | FTI010 XML andmestik, filtreerituna `subsets[]` järgi |
+| `POST` | `DSL/Ruuter/efti/POST/api/v1/follow-up.yml` | `POST /efti/api/v1/follow-up` | FTI025 XML sisend → log → FTI030 XML vastus |
+
+> ℹ️ **Body:** `{ "gateId": "...", "platformId": "...", "datasetId": "...", "subsets": ["EU01", "EU02"] }` — `subsets: []` tagastab kogu andmestiku.
+
+---
+
+## 10. Veaformaat
 
 Kõik vead järgivad RFC 7807 `application/problem+json` formaati.
 
@@ -885,19 +1103,20 @@ Kõik vead järgivad RFC 7807 `application/problem+json` formaati.
 | 404 | `GATE_NOT_FOUND` | Gate ei eksisteeri |
 | 404 | `PLATFORM_NOT_FOUND` | Platform ei eksisteeri |
 | 404 | `AUTHORITY_NOT_FOUND` | Authority ei eksisteeri |
+| 404 | `USER_NOT_FOUND` | User ei eksisteeri |
 | 409 | `DUPLICATE_REQUEST_ID` | `X-Request-ID` juba kasutatud 10 min jooksul |
 | 409 | `CONFLICT` | Kirje juba eksisteerib |
 | 429 | `RATE_LIMIT_EXCEEDED` | Liiga palju päringuid |
 | 500 | `INTERNAL_ERROR` | Süsteemiviga |
 | 500 | `DATABASE_ERROR` | Andmebaasiviga |
-| 502 | `GATEWAY_UNAVAILABLE` | eDelivery ping ebaõnnestus (ka gates/platforms/ping) |
+| 501 | *(puudub)* | Pole teostatud (ping stub) |
 | 502 | `GATEWAY_UNAVAILABLE` | Partner pole kättesaadav |
 | 503 | `SERVICE_UNAVAILABLE` | Teenus pole valmis |
 | 504 | `GATE_TIMEOUT` | Partner aegus |
 
 ---
 
-## 10. Ühised skeemid
+## 11. Ühised skeemid
 
 ### `Gate` (lugemine)
 
@@ -908,8 +1127,9 @@ Kõik vead järgivad RFC 7807 `application/problem+json` formaati.
 | `eDeliveryUrl` | string | AS4 MSH endpoint |
 | `eDeliveryCert` | string\|null | PEM |
 | `tlsCert` | string\|null | PEM |
-| `status` | `ONLINE`\|`OFFLINE`\|`DISABLED`\|`DELETED` | Viimase pingi tulemus / pehme kustutus |
+| `status` | `ONLINE`\|`OFFLINE`\|`DISABLED` | Viimase pingi tulemus |
 | `lastPingAt` | datetime\|null | Viimane edukas ping |
+| `isGateActive` | boolean | `false` = pehme kustutus |
 | `createdAt` | datetime | Selle rea INSERT aeg |
 
 ### `Platform` (lugemine)
@@ -923,7 +1143,8 @@ Kõik vead järgivad RFC 7807 `application/problem+json` formaati.
 | `tlsCert` | string\|null | |
 | `certSubject` | string\|null | mTLS lahendamiseks |
 | `certSerial` | string\|null | |
-| `status` | `ONLINE`\|`OFFLINE`\|`DISABLED`\|`DELETED` | pehme kustutus = DELETED |
+| `supportsSubsetting` | boolean | |
+| `isPlatformActive` | boolean | |
 | `createdAt` | datetime | |
 
 ### `Authority` (lugemine)
@@ -934,7 +1155,23 @@ Kõik vead järgivad RFC 7807 `application/problem+json` formaati.
 | `countryCode` | string | |
 | `name` | string | |
 | `subsets` | string[] | `EU01`–`EU07` |
-| `isActive` | boolean | |
+| `isAuthorityActive` | boolean | |
+| `createdAt` | datetime | |
+
+### `User` (lugemine)
+
+| Väli | Tüüp | Märkus |
+|---|---|---|
+| `rowId` | string | UUID, unikaalne rea identifikaator |
+| `id` | string | UUID |
+| `taraSub` | string | TARA autentimise sub |
+| `email` | string | |
+| `name` | string | |
+| `isUserAdmin` | boolean | Globaalne admin |
+| `roles` | object | `{ "ADMIN": [...], "AUTHORITY": [...] }` |
+| `subsets` | string[] | `EU01`–`EU07` |
+| `tokenRevokedAt` | datetime\|null | Tokeni tühistamise aeg |
+| `isUserActive` | boolean | `false` = pehme kustutus |
 | `createdAt` | datetime | |
 
 ### `Subset` enum
@@ -966,4 +1203,4 @@ Kõik Ruuteri vastused on mähitud `{"response": ...}` keebi:
 
 ---
 
-*Genereeritud `feature/admin-api` harust. Viimati uuendatud: 2026-08-12.*
+*Uuendatud `feature/admin-api` harust. Viimati uuendatud: 2026-08-17.*

@@ -55,9 +55,9 @@
               "    pm.expect(row.name).to.equal('Test Authority');",
               "});",
               "",
-              "pm.test('Created authority is active', function () {",
+              "pm.test('Created authority is ACTIVE', function () {",
               "    const row = pm.response.json().response[0];",
-              "    pm.expect(row.isAuthorityActive).to.equal(true);",
+              "    pm.expect(row.status).to.equal('ACTIVE');",
               "});"
             ]
           }
@@ -65,15 +65,27 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"id\": \"{{authority_id}}\",\n  \"countryCode\": \"EE\",\n  \"name\": \"Test Authority\",\n  \"subsets\": [\"EU01\", \"EU02\"],\n  \"isAuthorityActive\": true\n}"
+          "raw": "{\n  \"id\": \"{{authority_id}}\",\n  \"name\": \"Test Authority\",\n  \"registryCode\": \"12345678\",\n  \"subsets\": [\"EU01\", \"EU02\"],\n  \"status\": \"ACTIVE\"\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/authorities",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "authorities"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "authorities"
+          ]
         }
       }
     },
@@ -89,15 +101,14 @@
               "    pm.response.to.have.status(200);",
               "});",
               "",
-              "pm.test('Response has array under .response', function () {",
+              "pm.test('Response is an array', function () {",
               "    const body = pm.response.json();",
-              "    pm.expect(body).to.have.property('response');",
-              "    pm.expect(body.response).to.be.an('array');",
+              "    pm.expect(body).to.be.an('array');",
               "});",
               "",
               "pm.test('Created authority is in the list', function () {",
               "    const authorityId = pm.collectionVariables.get('authority_id');",
-              "    const authorities = pm.response.json().response;",
+              "    const authorities = pm.response.json();",
               "    const found = authorities.some(a => a.id === authorityId);",
               "    pm.expect(found, authorityId + ' should be in authority list').to.be.true;",
               "});"
@@ -110,8 +121,15 @@
         "header": [],
         "url": {
           "raw": "{{base_url}}/efti/api/v1/authorities",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "authorities"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "authorities"
+          ]
         }
       }
     },
@@ -127,14 +145,13 @@
               "    pm.response.to.have.status(200);",
               "});",
               "",
-              "pm.test('Response has array under .response', function () {",
+              "pm.test('Response is an array', function () {",
               "    const body = pm.response.json();",
-              "    pm.expect(body).to.have.property('response');",
-              "    pm.expect(body.response).to.be.an('array').with.length.above(0);",
+              "    pm.expect(body).to.be.an('array').with.length.above(0);",
               "});",
               "",
               "pm.test('Authority id matches', function () {",
-              "    const row = pm.response.json().response[0];",
+              "    const row = pm.response.json()[0];",
               "    pm.expect(row.id).to.equal(pm.collectionVariables.get('authority_id'));",
               "});"
             ]
@@ -146,9 +163,21 @@
         "header": [],
         "url": {
           "raw": "{{base_url}}/efti/api/v1/authorities?authorityId={{authority_id}}",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "authorities"],
-          "query": [{ "key": "authorityId", "value": "{{authority_id}}" }]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "authorities"
+          ],
+          "query": [
+            {
+              "key": "authorityId",
+              "value": "{{authority_id}}"
+            }
+          ]
         }
       }
     },
@@ -180,16 +209,29 @@
       ],
       "request": {
         "method": "PUT",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"countryCode\": \"EE\",\n  \"name\": \"Test Authority Updated\",\n  \"subsets\": [\"EU01\", \"EU02\", \"EU03\"],\n  \"isAuthorityActive\": true\n}"
+          "raw": "{\n  \"name\": \"Test Authority Updated\",\n  \"registryCode\": \"12345678\",\n  \"subsets\": [\"EU01\", \"EU02\", \"EU03\"],\n  \"status\": \"ACTIVE\"\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/authorities?authorityId={{authority_id}}",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "authorities"],
-          "query": [{ "key": "authorityId", "value": "{{authority_id}}" }]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "authorities",
+            "{{authority_id}}"
+          ],
+          "query": []
         }
       }
     },
@@ -213,9 +255,17 @@
         "header": [],
         "url": {
           "raw": "{{base_url}}/efti/api/v1/authorities?authorityId={{authority_id}}",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "authorities"],
-          "query": [{ "key": "authorityId", "value": "{{authority_id}}" }]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "authorities",
+            "{{authority_id}}"
+          ],
+          "query": []
         }
       }
     },
@@ -231,9 +281,9 @@
               "    pm.response.to.have.status(200);",
               "});",
               "",
-              "pm.test('Authority is inactive (is_active=false)', function () {",
-              "    const row = pm.response.json().response[0];",
-              "    pm.expect(row.isAuthorityActive).to.equal(false);",
+              "pm.test('Authority status is DELETED after soft-delete', function () {",
+              "    const row = pm.response.json()[0];",
+              "    pm.expect(row.status).to.equal('DELETED');",
               "});"
             ]
           }
@@ -244,9 +294,21 @@
         "header": [],
         "url": {
           "raw": "{{base_url}}/efti/api/v1/authorities?authorityId={{authority_id}}",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "authorities"],
-          "query": [{ "key": "authorityId", "value": "{{authority_id}}" }]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "authorities"
+          ],
+          "query": [
+            {
+              "key": "authorityId",
+              "value": "{{authority_id}}"
+            }
+          ]
         }
       }
     }

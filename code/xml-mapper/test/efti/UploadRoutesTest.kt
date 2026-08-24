@@ -26,12 +26,12 @@ class UploadRoutesTest: BaseMocks() {
 
     verify { requestIdHandler.send(exchange, "17022113-89b5-11f1-bec0-3c9c0f2eb459".uuid) }
 
-    expect(result["datasetId"]).toEqual(uil.datasetId)
-    expect(result["gateId"]).toEqual(uil.gateId)
-    expect(result["platformId"]).toEqual(uil.platformId)
-    expect(result["acceptanceCountry"]).toEqual(DE)
-    expect(result["transportMode"]).toEqual(MARINE)
-    expect(result["xml"]).toEqual(xml.extractParameterIDSetCriteria())
+    expect(result.datasetId).toEqual(uil.datasetId)
+    expect(result.gateId).toEqual(uil.gateId)
+    expect(result.platformId).toEqual(uil.platformId)
+    expect(result.acceptanceCountry).toEqual(DE)
+    expect(result.transportMode).toEqual(MARINE)
+    expect(result.xml).toEqual(xml.extractParameterIDSetCriteria())
   }
 
   @Test fun responseToXml() {
