@@ -30,7 +30,8 @@ FROM (
   FROM consignments
   ORDER BY platform_id, dataset_id, created_at DESC
 ) latest
-WHERE (:status IS NULL OR :status = '' OR status::text = :status)
+WHERE (NOT status::text = 'DELETED')
+  AND (:status IS NULL OR :status = '' OR status::text = :status)
   AND (:platformId IS NULL OR :platformId = '' OR platform_id = :platformId)
   AND (:transportMode IS NULL OR :transportMode = '' OR transport_mode = :transportMode)
   AND (:dangerousGoods IS NULL OR :dangerousGoods = '' OR dangerous_goods = :dangerousGoods)

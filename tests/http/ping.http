@@ -10,7 +10,7 @@ Content-Type: application/json
 }
 
 
-### Ping working edelivery endpoint (eFTI4ALL testbed)
+### Ping working edelivery endpoint (eFTI4ALL testbed) TODO(only works when user has restarted the edelivery module after inserting the gate details)
 POST {{RUUTER_URL}}/efti/api/v1/gates/ping/eu-ee32
 Content-Type: application/json
 

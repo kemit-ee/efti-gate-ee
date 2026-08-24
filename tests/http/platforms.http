@@ -44,7 +44,7 @@ Content-Type: application/json
 > {%
   client.test("Single platform found", () => {
     client.assert(response.status === 200)
-    client.assert(response.body.response[0].id === "demo")
+    client.assert(response.body[0].id === "demo")
   })
 %}
 
@@ -86,6 +86,6 @@ Content-Type: application/json
 > {%
   client.test("Platform deleted", () => {
     client.assert(response.status === 200)
-    client.assert(response.body.response[0].status === "DELETED")
+    client.assert(response.body[0].status === "DELETED")
   })
 %}

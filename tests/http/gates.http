@@ -42,7 +42,7 @@ Content-Type: application/json
 > {%
   client.test("Single gate found", () => {
     client.assert(response.status === 200)
-    client.assert(response.body.response[0].id === "POC")
+    client.assert(response.body[0].id === "POC")
   })
 %}
 
@@ -82,6 +82,6 @@ Content-Type: application/json
 > {%
   client.test("Gate deleted", () => {
     client.assert(response.status === 200)
-    client.assert(response.body.response[0].status === "DELETED")
+    client.assert(response.body[0].status === "DELETED")
   })
 %}

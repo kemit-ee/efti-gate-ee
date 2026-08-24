@@ -52,6 +52,7 @@ check_verify:
   next: respond
 
 respond:
+  wrapper: false
   return: ${verify_result.response.body}
   next: end
 

@@ -42,7 +42,7 @@ Content-Type: application/json
 > {%
   client.test("Single authority found", () => {
     client.assert(response.status === 200)
-    client.assert(response.body.response[0].id === "auth-mta")
+    client.assert(response.body[0].id === "auth-mta")
   })
 %}
 
@@ -81,6 +81,6 @@ Content-Type: application/json
 > {%
   client.test("Authority deleted", () => {
     client.assert(response.status === 200)
-    client.assert(response.body.response[0].status === "DELETED")
+    client.assert(response.body[0].status === "DELETED")
   })
 %}
