@@ -19,14 +19,13 @@ Content-Type: text/xml
 
 < ../../code/xml-mapper/xsd/Normalized/FTI004/sample.xml
 
-#> {%
-#  client.test("Consignment saved", () => {
-#    client.assert(response.status === 201)
-#    client.assert(response.body.gateId === "POC")
-#    client.assert(response.body.platformId === "demo")
-#    client.assert(response.body.datasetId === "550e8400-e29b-41d4-a716-446655440000")
-#  })
-#%}
+> {%
+  client.test("Consignment saved", () => {
+    client.assert(response.status === 201)
+    // TODO: Ruuter returns text/xml as json string
+    // client.assert(response.body.includes("POC"))
+  })
+%}
 
 ### List consignments
 GET {{RUUTER_URL}}/efti/api/v1/consignments
@@ -69,8 +68,16 @@ Content-Type: text/xml
 
 < ../../code/xml-mapper/xsd/Normalized/FTI019/sample.xml
 
+> {%
+  client.test("Find consignment", () => {
+    client.assert(response.status === 200)
+    // client.assert(response.body.length === 1)
+    // client.assert(response.body[0].datasetId === "550e8400-e29b-41d4-a716-446655440000")
+  })
+%}
+
 ### Delete consignment
-DELETE {{RUUTER_URL}}/efti/api/v1/consignments?consignmentId=550e8400-e29b-41d4-a716-446655440000
+DELETE {{RUUTER_URL}}/efti/api/v1/consignments/550e8400-e29b-41d4-a716-446655440000
 Content-Type: application/json
 
 > {%

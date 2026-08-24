@@ -14,7 +14,7 @@
   onMount(load)
 
   async function load() {
-    authorities = await api.get('v1/authorities')
+    authorities = await api.get('authorities')
   }
 
   function add() {

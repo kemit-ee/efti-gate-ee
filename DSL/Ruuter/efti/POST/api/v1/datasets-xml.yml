@@ -1,0 +1,66 @@
+declaration:
+  description: "Retrieve dataset from local platform via eDelivery"
+  allowed_body: [xml]
+
+parse_request:
+  call: http.post
+  args:
+    url: "[#XML_MAPPER_URL]/api/v1/dataset/request-to-json"
+    headers:
+      Content-Type: "text/xml"
+    content_type: plaintext
+    body:
+      text: ${incoming.body.xml}
+  result: request_json
+  next: get_platform
+
+get_platform:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/get_platform_by_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${request_json.response.body.uil.platformId}"
+  result: platform_result
+  next: check_platform
+
+check_platform:
+  switch:
+    - condition: ${platform_result.response.body == null || platform_result.response.body.length == 0}
+      next: platform_not_found
+  next: fetch_dataset
+
+fetch_dataset:
+  call: http.get
+  args:
+    url: "${platform_result.response.body.base_url}/datasets/${request_json.response.body.uil.datasetId}"
+    params:
+      subsetId: "${request_json.response.body.subsets}"
+  result: dataset_response
+  next: wrap_response
+
+wrap_response:
+  call: http.post
+  args:
+    url: "[#XML_MAPPER_URL]/api/v1/dataset/response-to-xml"
+    headers:
+      Content-Type: "application/json"
+    body:
+      uil: ${request_json.response.body.uil}
+      xml: ${dataset_response.response.body}
+      subsets: ${request_json.response.body.subsets}
+  result: xml_response
+  next: respond
+
+respond:
+  return: ${xml_response.response.body}
+  headers:
+    Content-Type: "text/xml"
+  wrapper: false
+  next: end
+
+platform_not_found:
+  return: '{"type":"https://api.efti.ee/errors/platform-not-found","title":"Platform Not Found","status":404,"detail":"Platform not found"}'
+  status: 404
+  next: end

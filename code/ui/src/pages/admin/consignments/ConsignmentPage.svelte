@@ -21,7 +21,7 @@
     if (loading || !hasMore) return
     loading = true
     try {
-      const page = await api.get<Consignment[]>(`v1/consignments`)
+      const page = await api.get<Consignment[]>(`consignments`)
       consignments = [...consignments ?? [], ...page]
       hasMore = page.length === pageSize
     } finally {

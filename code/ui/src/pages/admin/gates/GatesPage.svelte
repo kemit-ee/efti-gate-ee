@@ -14,7 +14,7 @@
   onMount(load)
 
   async function load() {
-    gates = await api.get<Gate[]>('v1/gates')
+    gates = await api.get<Gate[]>('gates')
   }
 
   function add() {

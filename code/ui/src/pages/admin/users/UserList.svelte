@@ -12,14 +12,14 @@
 
   async function onDelete(user: User) {
     if (!confirm(t.general.deleteConfirm + ' ' + user.id + '?')) return
-    await api.delete(`v1/users/${user.id}`)
+    await api.delete(`users/${user.id}`)
     showToast(t.general.deleted + ': ' + user.id)
     load()
   }
 
   async function onRevokeToken(user: User) {
     if (!confirm(t.general.revokeToken + ' ' + user.id + '?')) return
-    await api.post(`v1/users/revoke-token/${user.id}`)
+    await api.post(`users/revoke-token/${user.id}`)
     showToast(t.general.revokeToken + ': ' + user.id)
     load()
   }

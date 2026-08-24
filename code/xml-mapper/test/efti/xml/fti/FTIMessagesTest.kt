@@ -4,7 +4,10 @@ import ch.tutteli.atrium.api.fluent.en_GB.notToContain
 import ch.tutteli.atrium.api.fluent.en_GB.toContain
 import ch.tutteli.atrium.api.fluent.en_GB.toEqual
 import ch.tutteli.atrium.api.verbs.expect
-import efti.domain.*
+import efti.domain.DangerousGoods
+import efti.domain.GateId
+import efti.domain.Mode
+import efti.domain.PlatformId
 import efti.subsets.CountryCode.*
 import efti.subsets.Subset
 import efti.xml.fti.FTIResponseCode.Completed
@@ -96,7 +99,7 @@ class FTIMessagesTest {
 
     expect(resp.context).toEqual(context)
     expect(resp.document).toEqual(document.copy(typeCode = "021", responseCode = Completed))
-    expect(resp.content.first().uil.gateId).toEqual(GateId("Gate-001"))
+    expect(resp.content!!.first().uil.gateId).toEqual(GateId("Gate-001"))
 
     expect(parser.parse<FTI021SearchIdentifierResponse>(resp.render())).toEqual(resp)
   }

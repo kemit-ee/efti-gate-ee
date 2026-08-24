@@ -18,13 +18,13 @@
         taraSub: user.taraSub,
         name: user.name,
       }
-      await api.put(`v1/users/${user.id}`, request)
+      await api.put(`users/${user.id}`, request)
     } else {
       const request: CreateUserRequest = {
         taraSub: user.taraSub,
         name: user.name,
       }
-      await api.post('v1/users', request)
+      await api.post('users', request)
     }
 
     showToast(isEdit ? t.general.saved : `${t.users.user} added`)

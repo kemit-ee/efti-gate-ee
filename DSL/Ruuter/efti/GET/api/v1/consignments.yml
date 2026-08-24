@@ -9,8 +9,9 @@ consignments:
       platformId: "${incoming.params.platformId}"
       transportMode: "${incoming.params.transportMode}"
       dangerousGoods: "${incoming.params.dangerousGoods}"
-      limit: "${incoming.params.limit}"
-      offset: "${incoming.params.offset}"
+      criteria: {}
+      limit: ${incoming.params.limit ?? 11}
+      offset: ${incoming.params.offset ?? 0}
   result: search_result
   next: respond
 
