@@ -1,14 +1,11 @@
-consignments:
+search_consignments:
   call: http.post
   args:
-    url: "[#RESQL_URL]/efti/get_consignments_admin"
+    url: "[#RESQL_URL]/efti/get_consignments_by_identifier"
     headers:
       Content-Type: "application/json"
     body:
-      status: "${incoming.params.status}"
-      platformId: "${incoming.params.platformId}"
-      transportMode: "${incoming.params.transportMode}"
-      dangerousGoods: "${incoming.params.dangerousGoods}"
+      identifier: "${incoming.params.identifier}"
       limit: "${incoming.params.limit}"
       offset: "${incoming.params.offset}"
   result: search_result

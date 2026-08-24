@@ -1,0 +1,46 @@
+get_consignment:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/get_consignment_xml"
+    headers:
+      Content-Type: "application/json"
+    body:
+      datasetId: "${incoming.params.datasetId}"
+      platformId: "${incoming.params.platformId}"
+      gateId: "${incoming.params.gateId}"
+  result: consignment_result
+  next: check_found
+
+check_found:
+  switch:
+    - condition: ${consignment_result.response.body == null || consignment_result.response.body.length == 0}
+      next: not_found
+  next: build_xml_response
+
+build_xml_response:
+  call: http.post
+  args:
+    url: "[#XML_MAPPER_URL]/api/v1/dataset/response-to-xml"
+    headers:
+      Content-Type: "application/json"
+    body:
+      uil:
+        gateId: "${incoming.params.gateId}"
+        platformId: "${incoming.params.platformId}"
+        datasetId: "${incoming.params.datasetId}"
+      xml: "${consignment_result.response.body[0].xml}"
+      subsets: []
+  result: xml_response
+  next: respond
+
+respond:
+  return: ${xml_response.response.body}
+  headers:
+    Content-Type: "text/xml"
+  wrapper: false
+  next: end
+
+not_found:
+  return: '{"error": "Not Found"}'
+  status: 404
+  next: end

@@ -1,0 +1,79 @@
+declaration:
+  description: "Register consignment identifier from Platform (mTLS)"
+  allowed_body: [xml]
+
+parse_xml:
+  call: http.post
+  args:
+    url: "[#XML_MAPPER_URL]/api/v1/upload/request-to-json"
+    headers:
+      Content-Type: "text/xml"
+    content_type: plaintext
+    body:
+      text: "${incoming.body.xml}"
+  result: consignment_json
+  next: insert_consignment
+
+insert_consignment:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_consignment"
+    headers:
+      Content-Type: "application/json"
+    body: ${consignment_json.response.body}
+  result: insert_result
+  next: check_insert
+
+check_insert:
+  switch:
+    - condition: ${insert_result.response.body == null || insert_result.response.body.length == 0}
+      next: insert_failed
+  next: verify_consignment
+
+verify_consignment:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/get_consignment_by_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      datasetId: "${insert_result.response.body[0].datasetId}"
+  result: verify_result
+  next: check_verify
+
+check_verify:
+  switch:
+    - condition: ${verify_result.response.body == null || verify_result.response.body.length == 0}
+      next: verify_failed
+  next: build_xml_response
+
+build_xml_response:
+  call: http.post
+  args:
+    url: "[#XML_MAPPER_URL]/api/v1/upload/response-to-xml"
+    headers:
+      Content-Type: "application/json"
+    body:
+      gateId: "${verify_result.response.body[0].gateId}"
+      platformId: "${verify_result.response.body[0].platformId}"
+      datasetId: "${verify_result.response.body[0].datasetId}"
+  result: xml_response
+  next: respond
+
+respond:
+  return: ${xml_response.response.body.xml}
+  headers:
+    Content-Type: "text/xml"
+  wrapper: false
+  status: 201
+  next: end
+
+insert_failed:
+  return: '{"error": "Failed to insert consignment"}'
+  status: 500
+  next: end
+
+verify_failed:
+  return: '{"error": "Consignment inserted but could not be verified"}'
+  status: 500
+  next: end

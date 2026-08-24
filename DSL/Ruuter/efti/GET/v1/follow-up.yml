@@ -1,0 +1,18 @@
+get_follow_up:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/get_follow_up_messages"
+    headers:
+      Content-Type: "application/json"
+    body:
+      datasetId: "${incoming.params.datasetId}"
+      followUpId: "${incoming.params.requestId}"
+      limit: "${incoming.params.limit}"
+      offset: "${incoming.params.offset}"
+  result: follow_up_result
+  next: respond
+
+respond:
+  return: ${follow_up_result.response.body}
+  wrapper: false
+  next: end

@@ -1,0 +1,26 @@
+get_consignment:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/get_consignment_by_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      datasetId: "${incoming.params.datasetId}"
+  result: consignment_result
+  next: check_found
+
+check_found:
+  switch:
+    - condition: ${consignment_result.response.body == null || consignment_result.response.body.length == 0}
+      next: not_found
+  next: respond
+
+respond:
+  return: ${consignment_result.response.body}
+  wrapper: false
+  next: end
+
+not_found:
+  return: '{"error": "Not Found"}'
+  status: 404
+  next: end
