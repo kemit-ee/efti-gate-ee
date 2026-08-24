@@ -1,6 +1,7 @@
 package efti
 
 import RequestIdHandler
+import efti.domain.ConsignmentRow
 import efti.xml.RuuterXmlWrapper
 import efti.xml.fti.*
 import io.swagger.v3.oas.annotations.Operation
@@ -8,7 +9,6 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import klite.HttpExchange
 import klite.annotations.POST
 import klite.uuid
-import java.time.Instant
 
 @Tag(
   name = "Identifiers search",
@@ -35,31 +35,3 @@ class SearchRoutes(val requestIdHandler: RequestIdHandler) {
   @POST("/response-to-xml") fun responseToXml(consignments: List<ConsignmentRow>, e: HttpExchange): RuuterXmlWrapper =
     RuuterXmlWrapper(FTI021SearchIdentifierResponse(ExchangedDocument("021", e.requestId.uuid)).render(consignments.map { it.xml }))
 }
-
-data class ConsignmentRow(
-  val datasetId: String,
-  val platformId: String,
-  val gateId: String,
-  val xml: String,
-  val status: String,
-  val transportMode: String?,
-  val acceptanceDate: Instant?,
-  val acceptanceCountry: String?,
-  val deliveryDate: Instant?,
-  val deliveryCountry: String?,
-  val dangerousGoods: String?,
-  val mainTransportId: String?,
-  val mainTransportType: String?,
-  val transportRegCountry: String?,
-  val loadingDate: Instant?,
-  val loadingCountry: String?,
-  val unloadingDate: Instant?,
-  val unloadingCountry: String?,
-  val usedEquipmentIds: List<String>?,
-  val usedEquipmentCategories: List<String>?,
-  val usedEquipmentCountries: List<String>?,
-  val usedEquipmentSeq: List<String>?,
-  val carriedEquipmentIds: List<String>?,
-  val carriedEquipmentCategories: List<String>?,
-  val carriedEquipmentSeq: List<String>?,
-)
