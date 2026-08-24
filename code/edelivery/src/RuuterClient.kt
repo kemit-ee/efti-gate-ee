@@ -1,4 +1,6 @@
 import klite.Config
+import klite.StatusCode
+import klite.http.HttpException
 import klite.http.post
 import klite.plus
 import java.net.URI
@@ -16,9 +18,8 @@ class RuuterClient(
   fun searchConsignments(xml: String /* FTI019SearchIdentifierRequest */) =
     http.sendXml(baseUrl + "/consignments/search-xml", xml)
 
-  fun getDataset(xml: String /* FTI009GetCmdsRequest */): String {
-    TODO()
-  }
+  fun getDataset(xml: String /* FTI009GetCmdsRequest */) =
+    http.sendXml(baseUrl + "/datasets-xml", xml)
 
   fun followUp(xml: String /* FTI025LodgeFollowUpCommRequest */): String {
     TODO()
@@ -28,7 +29,7 @@ class RuuterClient(
     post(url, xml) { header("Content-Type", "text/xml") }.checkBody()
 
   private fun HttpResponse<String>.checkBody(): String {
-    if (statusCode() >= 300) error("Failed with ${statusCode()}")
+    if (statusCode() >= 300) throw HttpException(StatusCode(statusCode()), body())
     return body()
   }
 }
