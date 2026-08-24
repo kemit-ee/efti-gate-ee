@@ -28,13 +28,12 @@ class SearchRoutes(val requestIdHandler: RequestIdHandler) {
 
   @Operation(description = "Map one or more FTI021SearchIdentifierResponse as XML with delimiter to multiple UniqueIDSetUIL as JSON. Coming from multiplexer, meant for Authority request.")
   @POST("/response-to-json") fun responseToJson(xml: String): List<UniqueIDSetUIL> {
-    return xml.split("⦀").flatMap { xmlParser.parse<FTI021SearchIdentifierResponse>(it).content }.toList()
+    return xml.split("⦀").flatMap { xmlParser.parse<FTI021SearchIdentifierResponse>(it).content ?: emptyList() }.toList()
   }
 
   @Operation(description = "Map UniqueIDSetUIL as JSON to FTI021SearchIdentifierResponse as XML. Meant for other Gate request.")
-  @POST("/response-to-xml") fun responseToXml(consignments: List<UniqueIDSetUIL>, e: HttpExchange): RuuterXmlWrapper =
-    // TODO: use List<ConsignmentRow> as input and map it to List<UniqueIDSetUIL>
-    RuuterXmlWrapper(FTI021SearchIdentifierResponse(ExchangedDocument("021", e.requestId.uuid), consignments).render())
+  @POST("/response-to-xml") fun responseToXml(consignments: List<ConsignmentRow>, e: HttpExchange): RuuterXmlWrapper =
+    RuuterXmlWrapper(FTI021SearchIdentifierResponse(ExchangedDocument("021", e.requestId.uuid)).render(consignments.map { it.xml }))
 }
 
 data class ConsignmentRow(
