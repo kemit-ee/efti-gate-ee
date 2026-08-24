@@ -5,7 +5,7 @@ delete_gate:
     headers:
       Content-Type: "application/json"
     body:
-      id: "${incoming.params.gateId}"
+      id: "${incoming.params.pathParams[0]}"
   result: delete_result
   next: check_delete
 
@@ -22,7 +22,7 @@ verify_gate:
     headers:
       Content-Type: "application/json"
     body:
-      id: "${incoming.params.gateId}"
+      id: "${incoming.params.pathParams[0]}"
   result: verify_result
   next: check_verify
 

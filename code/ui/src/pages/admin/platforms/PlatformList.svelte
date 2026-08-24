@@ -13,14 +13,14 @@
 
   async function onDelete(platform: Platform) {
     if (!confirm(t.general.deleteConfirm + ' ' + platform.id + '?')) return
-    await api.delete(`v1/platforms/delete?platformId=${platform.id}`)
+    await api.delete(`v1/platforms/${platform.id}`)
     showToast(t.general.deleted + ': ' + platform.id)
     onDeleted(platform)
   }
 
   async function ping(platform: Platform) {
     try{
-      await api.post(`v1/platforms/ping?platformId=${platform.id}`)
+      await api.post(`v1/platforms/ping/${platform.id}`)
       showToast(platform.id + ' pinged successfully')
     } catch (e: any) {
       if (platform.status !== Status.DISABLED) platforms = platforms.map(g => g.id === platform.id ? { ...g, status: Status.OFFLINE } : g)

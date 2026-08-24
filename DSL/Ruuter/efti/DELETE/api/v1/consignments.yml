@@ -5,7 +5,7 @@ delete_consignment:
     headers:
       Content-Type: "application/json"
     body:
-      datasetId: "${incoming.params.consignmentId}"
+      datasetId: "${incoming.params.pathParams[0]}"
   result: delete_result
   next: check_delete
 
@@ -22,7 +22,7 @@ verify_consignment:
     headers:
       Content-Type: "application/json"
     body:
-      datasetId: "${incoming.params.consignmentId}"
+      datasetId: "${incoming.params.pathParams[0]}"
   result: verify_result
   next: check_verify
 

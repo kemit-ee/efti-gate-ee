@@ -5,7 +5,7 @@ check_exists:
     headers:
       Content-Type: "application/json"
     body:
-      userId: "${incoming.params.userId}"
+      userId: "${incoming.params.pathParams[0]}"
   result: exists_result
   next: check_found
 
@@ -22,7 +22,7 @@ update_user:
     headers:
       Content-Type: "application/json"
     body:
-      id: "${incoming.params.userId}"
+      id: "${incoming.params.pathParams[0]}"
       taraSub: "${incoming.body.taraSub}"
       name: "${incoming.body.name}"
   result: update_result
@@ -41,7 +41,7 @@ verify_user:
     headers:
       Content-Type: "application/json"
     body:
-      userId: "${incoming.params.userId}"
+      userId: "${incoming.params.pathParams[0]}"
   result: verify_result
   next: check_verify
 

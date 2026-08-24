@@ -21,7 +21,7 @@
       subsets: authority.subsets,
     }
 
-    if (isEdit) await api.put(`v1/authorities/update?authorityId=${request.id}`, request)
+    if (isEdit) await api.put(`v1/authorities/${request.id}`, request)
     else await api.post('v1/authorities', request)
 
     showToast(isEdit ? t.general.saved : `${t.authorities.added}: ${authority.id}`)

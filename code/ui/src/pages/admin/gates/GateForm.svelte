@@ -28,9 +28,9 @@
       tlsCert: gate.tlsCert,
       status: gate.status
     }
-    if (isEdit) await api.put(`v1/gates/update?gateId=${request.id}`, request)
+    if (isEdit) await api.put(`v1/gates/${request.id}`, request)
     else await api.post('v1/gates', request)
-    if (gate.status !== Status.DISABLED) await api.post(`v1/gates/ping?gateId=${gate.id}`).catch(() => {})
+    if (gate.status !== Status.DISABLED) await api.post(`v1/gates/ping/${gate.id}`).catch(() => {})
     showToast(isEdit ? t.general.saved : `${t.gates.added}: ${gate.id}`)
     onSaved()
   }

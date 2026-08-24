@@ -40,7 +40,7 @@
       certSubject: platform.certSubject,
       certSerial: platform.certSerial,
     }
-    if (isEdit) await api.put(`v1/platforms/update?platformId=${request.id}`, request)
+    if (isEdit) await api.put(`v1/platforms/${request.id}`, request)
     else await api.post('v1/platforms', request)
     showToast(isEdit ? t.general.saved : `${t.platforms.added}: ${platform.id}`)
     onSaved()

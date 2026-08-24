@@ -12,7 +12,7 @@
 
   async function ping(gate: Gate) {
     try {
-      const newGate = (await api.post<Gate[]>(`v1/gates/ping?gateId=${gate.id}`))[0]
+      const newGate = (await api.post<Gate[]>(`v1/gates/ping/${gate.id}`))[0]
       showToast(gate.id + ' ' + t.general.pinged)
       gates = [...gates.filter(g => g.id !== gate.id), newGate]
     } catch (e: any) {
@@ -23,7 +23,7 @@
 
   async function onDelete(gate: Gate) {
     if (!confirm(t.general.deleteConfirm + ' ' + gate.id + '?')) return
-    await api.delete(`v1/gates/delete?gateId=${gate.id}`)
+    await api.delete(`v1/gates/${gate.id}`)
     showToast(t.general.deleted + ': ' + gate.id)
     onDeleted(gate)
   }

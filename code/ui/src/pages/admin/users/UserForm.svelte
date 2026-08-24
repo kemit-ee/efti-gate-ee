@@ -18,7 +18,7 @@
         taraSub: user.taraSub,
         name: user.name,
       }
-      await api.put(`v1/users?userId=${user.id}`, request)
+      await api.put(`v1/users/${user.id}`, request)
     } else {
       const request: CreateUserRequest = {
         taraSub: user.taraSub,

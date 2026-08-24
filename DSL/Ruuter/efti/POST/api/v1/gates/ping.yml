@@ -5,7 +5,7 @@ get_gate:
     headers:
       Content-Type: "application/json"
     body:
-      id: "${incoming.params.gateId}"
+      id: "${incoming.params.pathParams[0]}"
   result: gate_result
   next: check_gate_exists
 
@@ -18,7 +18,7 @@ check_gate_exists:
 ping_edelivery:
   call: http.post
   args:
-    url: "[#EDELIVERY_URL]/api/v1/ping/${incoming.params.gateId}"
+    url: "[#EDELIVERY_URL]/api/v1/ping/${incoming.params.pathParams[0]}"
     headers:
       Content-Type: "application/json"
     body: {}
@@ -38,7 +38,7 @@ update_online:
     headers:
       Content-Type: "application/json"
     body:
-      id: "${incoming.params.gateId}"
+      id: "${incoming.params.pathParams[0]}"
       status: "ONLINE"
   result: online_result
   next: check_online_update
@@ -56,7 +56,7 @@ verify_online:
     headers:
       Content-Type: "application/json"
     body:
-      id: "${incoming.params.gateId}"
+      id: "${incoming.params.pathParams[0]}"
   result: verify_result
   next: check_verify
 
@@ -78,7 +78,7 @@ update_offline:
     headers:
       Content-Type: "application/json"
     body:
-      id: "${incoming.params.gateId}"
+      id: "${incoming.params.pathParams[0]}"
       status: "OFFLINE"
   result: offline_result
   next: check_offline_update

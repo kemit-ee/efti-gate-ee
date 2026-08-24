@@ -19,7 +19,7 @@
 
   async function onRevokeToken(user: User) {
     if (!confirm(t.general.revokeToken + ' ' + user.id + '?')) return
-    await api.post(`v1/users/revoke-token?userId=${user.id}`)
+    await api.post(`v1/users/revoke-token/${user.id}`)
     showToast(t.general.revokeToken + ': ' + user.id)
     load()
   }

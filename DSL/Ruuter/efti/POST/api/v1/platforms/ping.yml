@@ -5,7 +5,7 @@ get_platform:
     headers:
       Content-Type: "application/json"
     body:
-      id: "${incoming.params.platformId}"
+      id: "${incoming.params.pathParams[0]}"
   result: platform_result
   next: check_platform_exists
 
@@ -18,7 +18,7 @@ check_platform_exists:
 ping_edelivery:
   call: http.post
   args:
-    url: "http://edelivery:8081/ping/${incoming.params.platformId}"
+    url: "http://edelivery:8081/ping/${incoming.params.pathParams[0]}"
     headers:
       Content-Type: "application/json"
     body: {}
@@ -38,7 +38,7 @@ update_online:
     headers:
       Content-Type: "application/json"
     body:
-      id: "${incoming.params.platformId}"
+      id: "${incoming.params.pathParams[0]}"
       status: "ONLINE"
   result: online_result
   next: check_online_update
@@ -56,7 +56,7 @@ verify_online:
     headers:
       Content-Type: "application/json"
     body:
-      id: "${incoming.params.platformId}"
+      id: "${incoming.params.pathParams[0]}"
   result: verify_result
   next: check_verify
 
@@ -77,7 +77,7 @@ update_offline:
     headers:
       Content-Type: "application/json"
     body:
-      id: "${incoming.params.platformId}"
+      id: "${incoming.params.pathParams[0]}"
       status: "OFFLINE"
   result: offline_result
   next: check_offline_update
