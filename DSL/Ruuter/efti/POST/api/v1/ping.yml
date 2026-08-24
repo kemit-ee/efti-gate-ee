@@ -1,0 +1,7 @@
+declaration:
+  description: "Platform availability check — responds 204 to confirm gate is reachable"
+
+respond:
+  return: ""
+  status: 204
+  next: end

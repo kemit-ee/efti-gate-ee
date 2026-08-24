@@ -1,0 +1,61 @@
+declaration:
+  description: "Authority sends a follow-up message to a Platform via the gate (TARA JWT)"
+  allowed_body: [xml]
+
+parse_xml:
+  call: http.post
+  args:
+    url: "[#XML_MAPPER_URL]/api/v1/followup/request-to-json"
+    headers:
+      Content-Type: "text/xml"
+    content_type: plaintext
+    body:
+      text: "${incoming.body.xml}"
+  result: followup_json
+  next: insert_log
+
+insert_log:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_follow_up_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      requestingGateId: "${env.OWN_GATE_ID}"
+      requestingUserId: ""
+      datasetRequestId: "${followup_json.response.body.uil.datasetId}"
+      destinationGateId: "${followup_json.response.body.uil.gateId}"
+      destinationPlatformId: "${followup_json.response.body.uil.platformId}"
+      payload: "${followup_json.response.body.message}"
+      status: "DELIVERED"
+  result: log_result
+  next: check_insert
+
+check_insert:
+  switch:
+    - condition: ${log_result.response.body == null || log_result.response.body.length == 0}
+      next: insert_failed
+  next: build_xml_response
+
+build_xml_response:
+  call: http.post
+  args:
+    url: "[#XML_MAPPER_URL]/api/v1/followup/response-to-xml"
+    headers:
+      Content-Type: "application/json"
+    body: ${followup_json.response.body.uil}
+  result: xml_response
+  next: respond
+
+respond:
+  return: ${xml_response.response.body}
+  headers:
+    Content-Type: "text/xml"
+  wrapper: false
+  status: 201
+  next: end
+
+insert_failed:
+  return: '{"error": "Failed to log follow-up message"}'
+  status: 500
+  next: end

@@ -1,0 +1,50 @@
+declaration:
+  description: "Authority API — get full consignment dataset XML filtered by subsets"
+  allowed_body: [json]
+
+get_consignment:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/get_consignment_xml"
+    headers:
+      Content-Type: "application/json"
+    body:
+      datasetId: "${incoming.body.datasetId}"
+      platformId: "${incoming.body.platformId}"
+      gateId: "${incoming.body.gateId}"
+  result: consignment_result
+  next: check_found
+
+check_found:
+  switch:
+    - condition: ${consignment_result.response.body == null || consignment_result.response.body.length == 0}
+      next: not_found
+  next: build_xml_response
+
+build_xml_response:
+  call: http.post
+  args:
+    url: "[#XML_MAPPER_URL]/api/v1/dataset/response-to-xml"
+    headers:
+      Content-Type: "application/json"
+    body:
+      uil:
+        gateId: "${incoming.body.gateId}"
+        platformId: "${incoming.body.platformId}"
+        datasetId: "${incoming.body.datasetId}"
+      xml: "${consignment_result.response.body[0].xml}"
+      subsets: ${incoming.body.subsets}
+  result: xml_response
+  next: respond
+
+respond:
+  return: ${xml_response.response.body}
+  headers:
+    Content-Type: "text/xml"
+  wrapper: false
+  next: end
+
+not_found:
+  return: '{"error": "Not Found"}'
+  status: 404
+  next: end
