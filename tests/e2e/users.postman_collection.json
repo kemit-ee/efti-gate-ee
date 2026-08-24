@@ -152,15 +152,14 @@
               "    pm.response.to.have.status(200);",
               "});",
               "",
-              "pm.test('Response has array under .response', function () {",
+              "pm.test('Response is an array', function () {",
               "    const body = pm.response.json();",
-              "    pm.expect(body).to.have.property('response');",
-              "    pm.expect(body.response).to.be.an('array');",
+              "    pm.expect(body).to.be.an('array');",
               "});",
               "",
               "pm.test('Created user is in the list', function () {",
               "    const userId = pm.collectionVariables.get('user_id');",
-              "    const users = pm.response.json().response;",
+              "    const users = pm.response.json();",
               "    const found = users.some(u => u.id === userId);",
               "    pm.expect(found, userId + ' should be in user list').to.be.true;",
               "});"
@@ -197,14 +196,13 @@
               "    pm.response.to.have.status(200);",
               "});",
               "",
-              "pm.test('Response has array under .response', function () {",
+              "pm.test('Response is an array', function () {",
               "    const body = pm.response.json();",
-              "    pm.expect(body).to.have.property('response');",
-              "    pm.expect(body.response).to.be.an('array').with.length.above(0);",
+              "    pm.expect(body).to.be.an('array').with.length.above(0);",
               "});",
               "",
               "pm.test('User id matches', function () {",
-              "    const row = pm.response.json().response[0];",
+              "    const row = pm.response.json()[0];",
               "    pm.expect(row.id).to.equal(pm.collectionVariables.get('user_id'));",
               "});"
             ]
@@ -273,7 +271,7 @@
           "raw": "{\n  \"taraSub\": \"{{tara_sub}}\",\n  \"email\": \"test-{{tara_sub}}@example.com\",\n  \"name\": \"Test User Updated\",\n  \"isAdmin\": false,\n  \"roles\": {\"AUTHORITY\": [\"auth-test\", \"auth-test2\"]},\n  \"subsets\": [\"EU01\", \"EU02\", \"EU03\"]\n}"
         },
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/users/{{user_id}}",
+          "raw": "{{base_url}}/efti/api/v1/users?userId={{user_id}}",
           "host": [
             "{{base_url}}"
           ],
@@ -281,14 +279,10 @@
             "efti",
             "api",
             "v1",
-            "users"
+            "users",
+            "{{user_id}}"
           ],
-          "query": [
-            {
-              "key": "userId",
-              "value": "{{user_id}}"
-            }
-          ]
+          "query": []
         }
       }
     },
@@ -311,7 +305,7 @@
         "method": "POST",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/users/revoke-token/{{user_id}}",
+          "raw": "{{base_url}}/efti/api/v1/users/revoke-token?userId={{user_id}}",
           "host": [
             "{{base_url}}"
           ],
@@ -320,14 +314,10 @@
             "api",
             "v1",
             "users",
-            "revoke-token"
+            "revoke-token",
+            "{{user_id}}"
           ],
-          "query": [
-            {
-              "key": "userId",
-              "value": "{{user_id}}"
-            }
-          ]
+          "query": []
         }
       }
     },
@@ -344,7 +334,7 @@
               "});",
               "",
               "pm.test('tokenRevokedAt is set after revoke', function () {",
-              "    const row = pm.response.json().response[0];",
+              "    const row = pm.response.json()[0];",
               "    pm.expect(row.tokenRevokedAt).to.not.equal(null);",
               "    pm.expect(row.tokenRevokedAt).to.be.a('string');",
               "});"
@@ -394,7 +384,7 @@
         "method": "DELETE",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/users/{{user_id}}",
+          "raw": "{{base_url}}/efti/api/v1/users?userId={{user_id}}",
           "host": [
             "{{base_url}}"
           ],
@@ -402,14 +392,10 @@
             "efti",
             "api",
             "v1",
-            "users"
+            "users",
+            "{{user_id}}"
           ],
-          "query": [
-            {
-              "key": "userId",
-              "value": "{{user_id}}"
-            }
-          ]
+          "query": []
         }
       }
     },
@@ -426,7 +412,7 @@
               "});",
               "",
               "pm.test('User is inactive (isUserActive=false)', function () {",
-              "    const row = pm.response.json().response[0];",
+              "    const row = pm.response.json()[0];",
               "    pm.expect(row.isUserActive).to.equal(false);",
               "});"
             ]
