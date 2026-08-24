@@ -5,7 +5,7 @@ get_consignment:
     headers:
       Content-Type: "application/json"
     body:
-      datasetId: "${incoming.params.datasetId}"
+      datasetId: "${incoming.params.pathParams[0]}"
   result: consignment_result
   next: check_found
 

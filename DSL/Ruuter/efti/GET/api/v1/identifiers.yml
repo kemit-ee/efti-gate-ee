@@ -5,7 +5,7 @@ search_consignments:
     headers:
       Content-Type: "application/json"
     body:
-      identifier: "${incoming.params.identifier}"
+      identifier: "${incoming.params.pathParams[0]}"
       limit: "${incoming.params.limit}"
       offset: "${incoming.params.offset}"
   result: search_result

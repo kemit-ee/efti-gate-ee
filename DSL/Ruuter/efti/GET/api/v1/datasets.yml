@@ -5,7 +5,7 @@ get_consignment:
     headers:
       Content-Type: "application/json"
     body:
-      datasetId: "${incoming.params.datasetId}"
+      datasetId: "${incoming.params.pathParams[0]}"
       platformId: "${incoming.params.platformId}"
       gateId: ""
   result: consignment_result

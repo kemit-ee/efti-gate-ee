@@ -5,7 +5,7 @@ get_follow_up:
     headers:
       Content-Type: "application/json"
     body:
-      datasetId: "${incoming.params.datasetId}"
+      datasetId: "${incoming.params.pathParams[0]}"
       followUpId: "${incoming.params.requestId}"
       limit: "${incoming.params.limit}"
       offset: "${incoming.params.offset}"
