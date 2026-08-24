@@ -244,14 +244,13 @@
               "    pm.response.to.have.status(200);",
               "});",
               "",
-              "pm.test('Response has array under .response', function () {",
+              "pm.test('Response is an array', function () {",
               "    const body = pm.response.json();",
-              "    pm.expect(body).to.have.property('response');",
-              "    pm.expect(body.response).to.be.an('array').with.length.above(0);",
+              "    pm.expect(body).to.be.an('array').with.length.above(0);",
               "});",
               "",
               "pm.test('Updated name is reflected', function () {",
-              "    const row = pm.response.json().response[0];",
+              "    const row = pm.response.json()[0];",
               "    pm.expect(row.name).to.equal('Test User Updated');",
               "});"
             ]
