@@ -1,0 +1,87 @@
+### Cleanup: delete existing test gate if present
+DELETE {{RUUTER_URL}}/efti/api/v1/gates/POC
+Content-Type: application/json
+
+### Create gate
+POST {{RUUTER_URL}}/efti/api/v1/gates
+Content-Type: application/json
+
+{
+  "id": "POC",
+  "countryCode": "EE",
+  "eDeliveryUrl": "https://poc-gate.example.com/services/msh",
+  "eDeliveryCert": "-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----",
+  "tlsCert": "-----BEGIN CERTIFICATE-----\ntest-tls-cert\n-----END CERTIFICATE-----",
+  "status": "ONLINE"
+}
+
+> {%
+  client.test("Gate created", () => {
+    client.assert(response.status === 201)
+    client.assert(response.body.response[0].id === "POC")
+    client.assert(response.body.response[0].countryCode === "EE")
+    client.assert(response.body.response[0].status === "ONLINE")
+  })
+%}
+
+### List gates
+GET {{RUUTER_URL}}/efti/api/v1/gates
+Content-Type: application/json
+
+> {%
+  client.test("Gates listed", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.length >= 1)
+  })
+%}
+
+### Get single gate
+GET {{RUUTER_URL}}/efti/api/v1/gates?gateId=POC
+Content-Type: application/json
+
+> {%
+  client.test("Single gate found", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.response[0].id === "POC")
+  })
+%}
+
+### Update gate
+PUT {{RUUTER_URL}}/efti/api/v1/gates/POC
+Content-Type: application/json
+
+{
+  "countryCode": "EE",
+  "eDeliveryUrl": "https://poc-gate.example.com/services/msh/v2",
+  "eDeliveryCert": "-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----",
+  "tlsCert": "-----BEGIN CERTIFICATE-----\ntest-tls-cert\n-----END CERTIFICATE-----",
+  "status": "ONLINE"
+}
+
+> {%
+  client.test("Gate updated", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.response[0].eDeliveryUrl === "https://poc-gate.example.com/services/msh/v2")
+  })
+%}
+
+### Delete gate
+DELETE {{RUUTER_URL}}/efti/api/v1/gates/POC
+Content-Type: application/json
+
+> {%
+  client.test("Gate deleted", () => {
+    client.assert(response.status === 204)
+  })
+%}
+
+### Verify gate deleted
+GET {{RUUTER_URL}}/efti/api/v1/gates?gateId=POC
+Content-Type: application/json
+
+> {%
+  client.test("Gate deleted", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.response[0].status === "DELETED")
+  })
+%}

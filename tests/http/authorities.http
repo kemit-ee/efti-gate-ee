@@ -1,0 +1,86 @@
+### Cleanup: delete existing test authority if present
+DELETE {{RUUTER_URL}}/efti/api/v1/authorities/auth-mta
+Content-Type: application/json
+
+### Create authority
+POST {{RUUTER_URL}}/efti/api/v1/authorities
+Content-Type: application/json
+
+{
+  "id": "auth-mta",
+  "name": "Estonian Tax and Customs Board",
+  "registryCode": "70000001",
+  "subsets": ["EU01", "EU02", "EU03"],
+  "status": "ACTIVE"
+}
+
+> {%
+  client.test("Authority created", () => {
+    client.assert(response.status === 201)
+    client.assert(response.body.response[0].id === "auth-mta")
+    client.assert(response.body.response[0].name === "Estonian Tax and Customs Board")
+    client.assert(response.body.response[0].registryCode === "70000001")
+    client.assert(response.body.response[0].status === "ACTIVE")
+  })
+%}
+
+### List authorities
+GET {{RUUTER_URL}}/efti/api/v1/authorities
+Content-Type: application/json
+
+> {%
+  client.test("Authorities listed", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.length >= 1)
+  })
+%}
+
+### Get single authority
+GET {{RUUTER_URL}}/efti/api/v1/authorities?authorityId=auth-mta
+Content-Type: application/json
+
+> {%
+  client.test("Single authority found", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.response[0].id === "auth-mta")
+  })
+%}
+
+### Update authority
+PUT {{RUUTER_URL}}/efti/api/v1/authorities/auth-mta
+Content-Type: application/json
+
+{
+  "name": "Estonian Tax and Customs Board",
+  "registryCode": "70000001",
+  "subsets": ["EU01", "EU02", "EU03", "EU04"],
+  "status": "ACTIVE"
+}
+
+> {%
+  client.test("Authority updated", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.response[0].subsets.length === 4)
+  })
+%}
+
+### Delete authority
+DELETE {{RUUTER_URL}}/efti/api/v1/authorities/auth-mta
+Content-Type: application/json
+
+> {%
+  client.test("Authority deleted", () => {
+    client.assert(response.status === 204)
+  })
+%}
+
+### Verify authority deleted
+GET {{RUUTER_URL}}/efti/api/v1/authorities?authorityId=auth-mta
+Content-Type: application/json
+
+> {%
+  client.test("Authority deleted", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.response[0].status === "DELETED")
+  })
+%}

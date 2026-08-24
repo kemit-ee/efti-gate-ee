@@ -1,0 +1,91 @@
+### Cleanup: delete existing test platform if present
+DELETE {{RUUTER_URL}}/efti/api/v1/platforms/demo
+Content-Type: application/json
+
+### Create platform
+POST {{RUUTER_URL}}/efti/api/v1/platforms
+Content-Type: application/json
+
+{
+  "id": "demo",
+  "baseUrl": "https://demo-platform.example.com/api",
+  "headers": {"X-Api-Key": "test-key-123"},
+  "eDeliveryCert": "-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----",
+  "tlsCert": "-----BEGIN CERTIFICATE-----\ntest-tls-cert\n-----END CERTIFICATE-----",
+  "certSubject": "CN=demo-platform.example.com",
+  "certSerial": "ABCDEF1234567890",
+  "status": "ONLINE"
+}
+
+> {%
+  client.test("Platform created", () => {
+    client.assert(response.status === 201)
+    client.assert(response.body.response[0].id === "demo")
+    client.assert(response.body.response[0].baseUrl === "https://demo-platform.example.com/api")
+    client.assert(response.body.response[0].status === "ONLINE")
+  })
+%}
+
+### List platforms
+GET {{RUUTER_URL}}/efti/api/v1/platforms
+Content-Type: application/json
+
+> {%
+  client.test("Platforms listed", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.length >= 1)
+  })
+%}
+
+### Get single platform
+GET {{RUUTER_URL}}/efti/api/v1/platforms?platformId=demo
+Content-Type: application/json
+
+> {%
+  client.test("Single platform found", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.response[0].id === "demo")
+  })
+%}
+
+### Update platform
+PUT {{RUUTER_URL}}/efti/api/v1/platforms/demo
+Content-Type: application/json
+
+{
+  "baseUrl": "https://demo-platform.example.com/api/v2",
+  "headers": {"X-Api-Key": "updated-key-456"},
+  "eDeliveryCert": "-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----",
+  "tlsCert": "-----BEGIN CERTIFICATE-----\ntest-tls-cert\n-----END CERTIFICATE-----",
+  "certSubject": "CN=demo-platform.example.com",
+  "certSerial": "ABCDEF1234567890",
+  "status": "ONLINE"
+}
+
+> {%
+  client.test("Platform updated", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.response[0].baseUrl === "https://demo-platform.example.com/api/v2")
+  })
+%}
+
+### Delete platform
+DELETE {{RUUTER_URL}}/efti/api/v1/platforms/demo
+Content-Type: application/json
+
+> {%
+  client.test("Platform deleted", () => {
+    client.assert(response.status === 204)
+  })
+%}
+
+### Verify platform deleted
+GET {{RUUTER_URL}}/efti/api/v1/platforms?platformId=demo
+Content-Type: application/json
+
+> {%
+  client.test("Platform deleted", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.response[0].status === "DELETED")
+  })
+%}
