@@ -2,7 +2,7 @@
 POST {{RUUTER_URL}}/efti/api/v1/consignments
 Content-Type: text/xml
 
-< ../../code/xml-mapper/xsd/Normalized/FTI004/sample.xml
+< ../../code/xml-mapper/xsd/FTI004/sample.xml
 
 > {%
   client.test("Consignment saved", () => {
@@ -17,7 +17,7 @@ Content-Type: text/xml
 POST {{RUUTER_URL}}/efti/api/v1/consignments-xml
 Content-Type: text/xml
 
-< ../../code/xml-mapper/xsd/Normalized/FTI004/sample.xml
+< ../../code/xml-mapper/xsd/FTI004/sample.xml
 
 > {%
   client.test("Consignment saved", () => {
@@ -66,7 +66,7 @@ Content-Type: application/json
 POST {{RUUTER_URL}}/efti/api/v1/consignments/search-xml
 Content-Type: text/xml
 
-< ../../code/xml-mapper/xsd/Normalized/FTI019/sample.xml
+< ../../code/xml-mapper/xsd/FTI019/sample.xml
 
 > {%
   client.test("Find consignment", () => {

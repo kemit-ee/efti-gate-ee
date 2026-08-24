@@ -15,7 +15,7 @@ class FollowupRoutesTest : BaseMocks() {
   val routes = FollowupRoutes(requestIdHandler)
 
   @Test fun requestToJson() {
-    val xml = File("xsd/Normalized/FTI025/sample.xml").readText()
+    val xml = File("xsd/FTI025/sample.xml").readText()
     val result = routes.requestToJson(xml, exchange)
 
     verify { requestIdHandler.send(exchange, "17022113-89b5-11f1-bec0-3c9c0f2eb459".uuid) }
@@ -53,7 +53,7 @@ class FollowupRoutesTest : BaseMocks() {
   }
 
   @Test fun responseToJson() {
-    val xml = File("xsd/Normalized/FTI030/sample.xml").readText()
+    val xml = File("xsd/FTI030/sample.xml").readText()
     val result = routes.responseToJson(xml, exchange)
 
     verify { requestIdHandler.send(exchange, "17022113-89b5-11f1-bec0-3c9c0f2eb459".uuid) }

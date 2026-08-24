@@ -26,7 +26,7 @@ class SearchRoutesTest : BaseMocks() {
   )
 
   @Test fun requestToJson() {
-    val xml = File("xsd/Normalized/FTI019/sample.xml").readText()
+    val xml = File("xsd/FTI019/sample.xml").readText()
     val result = routes.requestToJson(xml, exchange)
 
     verify { requestIdHandler.send(exchange, "17022113-89b5-11f1-bec0-3c9c0f2eb459".uuid) }
@@ -43,7 +43,7 @@ class SearchRoutesTest : BaseMocks() {
     expect(xml).toContain("<CarrierAcceptanceCountryParameterScope>")
     expect(xml).toContain("<CountryID>DE</CountryID>")
     expect(xml).toContain("<MainCarriageModeCodeParameterScope>")
-    expect(xml).toContain("<TransportModeCodeType>1</TransportModeCodeType>")
+    expect(xml).toContain("<TransportModeParameterCode>1</TransportModeParameterCode>")
     expect(xml).toContain("<MainCarriageTransportMeansIDParameterScope>")
     expect(xml).toContain("<ID>VESSEL-001</ID>")
     expect(xml).toContain("<CarrierAcceptanceDateParameterScope>")
@@ -62,7 +62,7 @@ class SearchRoutesTest : BaseMocks() {
   }
 
   @Test fun responseToJson() {
-    val xml = File("xsd/Normalized/FTI021/sample.xml").readText()
+    val xml = File("xsd/FTI021/sample.xml").readText()
     val result = routes.responseToJson(xml)
 
     expect(result.size).toEqual(1)
@@ -72,7 +72,7 @@ class SearchRoutesTest : BaseMocks() {
   }
 
   @Test fun responseToJsonMultiple() {
-    val xml = File("xsd/Normalized/FTI021/sample.xml").readText()
+    val xml = File("xsd/FTI021/sample.xml").readText()
     val combined = "$xml⦀$xml"
     val result = routes.responseToJson(combined)
 

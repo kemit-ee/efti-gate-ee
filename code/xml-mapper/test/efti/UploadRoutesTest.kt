@@ -21,7 +21,7 @@ class UploadRoutesTest: BaseMocks() {
   val uil = UIL(PlatformId("demo"), "550e8400-e29b-41d4-a716-446655440000".uuid, GateId("POC"))
 
   @Test fun requestToJson() {
-    val xml = File("xsd/Normalized/FTI004/sample.xml").readText()
+    val xml = File("xsd/FTI004/sample.xml").readText()
     val result = routes.requestToJson(xml, exchange)
 
     verify { requestIdHandler.send(exchange, "17022113-89b5-11f1-bec0-3c9c0f2eb459".uuid) }

@@ -2,6 +2,7 @@ declaration:
   description: "Authority API — get full consignment dataset XML filtered by subsets"
   allowed_body: [json]
 
+# TODO: this is wrong, full dataset should come from the platform, we don't have it in the DB
 get_consignment:
   call: http.post
   args:

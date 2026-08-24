@@ -17,7 +17,7 @@ class DatasetRoutesTest : BaseMocks() {
   val routes = DatasetRoutes(requestIdHandler)
 
   @Test fun requestToJson() {
-    val xml = File("xsd/Normalized/FTI009/sample.xml").readText()
+    val xml = File("xsd/FTI009/sample.xml").readText()
     val result = routes.requestToJson(xml, exchange)
 
     verify { requestIdHandler.send(exchange, "17022113-89b5-11f1-bec0-3c9c0f2eb459".uuid) }
@@ -55,7 +55,7 @@ class DatasetRoutesTest : BaseMocks() {
   }
 
   @Test fun responseToJsonFromFTI010() {
-    val xml = File("xsd/Normalized/FTI010/sample.xml").readText()
+    val xml = File("xsd/FTI010/sample.xml").readText()
     val result = routes.responseToJson(xml)
 
     expect(result["grossWeightMeasure"]).toEqual("15000.00")
@@ -63,7 +63,7 @@ class DatasetRoutesTest : BaseMocks() {
   }
 
   @Test fun responseToXmlPassThrough() {
-    val xml = File("xsd/Normalized/FTI010/sample.xml").readText()
+    val xml = File("xsd/FTI010/sample.xml").readText()
     val uil = UIL(PlatformId("demo"), "550e8400-e29b-41d4-a716-446655440000".uuid, GateId("POC"))
     val result = routes.responseToXml(DatasetResponseRequest(uil, xml), exchange)
 
@@ -72,20 +72,20 @@ class DatasetRoutesTest : BaseMocks() {
   }
 
   @Test fun responseToXmlConstructFTI10() {
-    val xml = File("xsd/Normalized/FTI010/sample.xml").readText().extractSpecifiedSupplyChainConsignment()
+    val xml = File("xsd/FTI010/sample.xml").readText().extractSpecifiedSupplyChainConsignment()
     val uil = UIL(PlatformId("demo"), "550e8400-e29b-41d4-a716-446655440000".uuid, GateId("POC"))
     val result = routes.responseToXml(DatasetResponseRequest(uil, xml), exchange)
 
     expect(result).toContain("FTI010GetCmdsResponse")
     expect(result).toContain("<GrossWeightMeasure")
-    expect(result).toContain("UniqueIDSetUIL")
+    expect(result).toContain("UniqueIDSetUniqueIDSet")
     expect(result).toContain("POC")
     expect(result).toContain("demo")
     expect(result).toContain("550e8400-e29b-41d4-a716-446655440000")
   }
 
   @Test fun responseToXmlWithSubsets() {
-    val xml = File("xsd/Normalized/FTI010/sample.xml").readText().extractSpecifiedSupplyChainConsignment()
+    val xml = File("xsd/FTI010/sample.xml").readText().extractSpecifiedSupplyChainConsignment()
     val uil = UIL(PlatformId("demo"), "550e8400-e29b-41d4-a716-446655440000".uuid, GateId("POC"))
     val result = routes.responseToXml(DatasetResponseRequest(uil, xml, listOf(Subset("EU01"), Subset("EU02"))), exchange)
 

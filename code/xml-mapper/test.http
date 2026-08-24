@@ -7,7 +7,7 @@ GET http://localhost:8080/health
 POST {{baseUrl}}/dataset/request-to-json
 Content-Type: text/xml
 
-< xsd/Normalized/FTI009/sample.xml
+< xsd/FTI009/sample.xml
 
 ### Dataset - request-to-xml (JSON → FTI009 XML)
 POST {{baseUrl}}/dataset/request-to-xml
@@ -26,19 +26,19 @@ Content-Type: application/json
 POST {{baseUrl}}/dataset/response-to-json
 Content-Type: text/xml
 
-< xsd/Normalized/FTI010/sample.xml
+< xsd/FTI010/sample.xml
 
 ### Dataset - response-to-xml (XML → FTI010 XML)
 POST {{baseUrl}}/dataset/response-to-xml
 Content-Type: text/xml
 
-< xsd/Normalized/FTI010/sample.xml
+< xsd/FTI010/sample.xml
 
 ### Upload - request-to-json (FTI004 XML → JSON)
 POST {{baseUrl}}/upload/request-to-json
 Content-Type: text/xml
 
-< xsd/Normalized/FTI004/sample.xml
+< xsd/FTI004/sample.xml
 
 ### Upload - response-to-xml (JSON → FTI029 XML)
 POST {{baseUrl}}/upload/response-to-xml
@@ -54,7 +54,7 @@ Content-Type: application/json
 POST {{baseUrl}}/search/request-to-json
 Content-Type: text/xml
 
-< xsd/Normalized/FTI019/sample.xml
+< xsd/FTI019/sample.xml
 
 ### Search - request-to-xml (JSON → FTI019 XML)
 POST {{baseUrl}}/search/request-to-xml
@@ -69,7 +69,7 @@ Content-Type: application/json
 POST {{baseUrl}}/search/response-to-json
 Content-Type: text/xml
 
-< xsd/Normalized/FTI021/sample.xml
+< xsd/FTI021/sample.xml
 
 ### Search - response-to-xml (JSON → FTI021 XML)
 POST {{baseUrl}}/search/response-to-xml
@@ -87,7 +87,7 @@ Content-Type: application/json
 POST {{baseUrl}}/followup/request-to-json
 Content-Type: text/xml
 
-< xsd/Normalized/FTI025/sample.xml
+< xsd/FTI025/sample.xml
 
 ### Followup - request-to-xml (JSON → FTI025 XML)
 POST {{baseUrl}}/followup/request-to-xml
@@ -106,7 +106,7 @@ Content-Type: application/json
 POST {{baseUrl}}/followup/response-to-json
 Content-Type: text/xml
 
-< xsd/Normalized/FTI030/sample.xml
+< xsd/FTI030/sample.xml
 
 ### Followup - response-to-xml (JSON → FTI030 XML)
 POST {{baseUrl}}/followup/response-to-xml
