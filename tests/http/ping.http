@@ -11,7 +11,7 @@ Content-Type: application/json
 
 
 ### Ping working edelivery endpoint (eFTI4ALL testbed)
-POST {{RUUTER_URL}}/efti/api/v1/gates/ping?gateId=eu-ee32
+POST {{RUUTER_URL}}/efti/api/v1/gates/ping/eu-ee32
 Content-Type: application/json
 
 > {%
