@@ -23,7 +23,6 @@ check_single:
 
 respond_single:
   return: ${single_result.response.body}
-  wrapper: false
   next: end
 
 fetch_list:
@@ -40,7 +39,6 @@ fetch_list:
 
 respond_list:
   return: ${list_result.response.body}
-  wrapper: false
   next: end
 
 not_found:

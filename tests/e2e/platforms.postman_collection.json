@@ -244,7 +244,7 @@
           "raw": "{\n  \"baseUrl\": \"https://test-platform-updated.example.com/efti/v1\",\n  \"status\": \"OFFLINE\"\n}"
         },
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/platforms?platformId={{platform_id}}",
+          "raw": "{{base_url}}/efti/api/v1/platforms/{{platform_id}}",
           "host": [
             "{{base_url}}"
           ],
@@ -282,7 +282,7 @@
         "method": "DELETE",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/platforms?platformId={{platform_id}}",
+          "raw": "{{base_url}}/efti/api/v1/platforms/{{platform_id}}",
           "host": [
             "{{base_url}}"
           ],
@@ -608,7 +608,7 @@
         "method": "DELETE",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/platforms?platformId=plt-bulk-3-{{bulk_ts}}",
+          "raw": "{{base_url}}/efti/api/v1/platforms/plt-bulk-3-{{bulk_ts}}",
           "host": [
             "{{base_url}}"
           ],
@@ -644,7 +644,7 @@
         "method": "DELETE",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/platforms?platformId=plt-bulk-4-{{bulk_ts}}",
+          "raw": "{{base_url}}/efti/api/v1/platforms/plt-bulk-4-{{bulk_ts}}",
           "host": [
             "{{base_url}}"
           ],
@@ -680,7 +680,7 @@
         "method": "DELETE",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/platforms?platformId=plt-bulk-5-{{bulk_ts}}",
+          "raw": "{{base_url}}/efti/api/v1/platforms/plt-bulk-5-{{bulk_ts}}",
           "host": [
             "{{base_url}}"
           ],

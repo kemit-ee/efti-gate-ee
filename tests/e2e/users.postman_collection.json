@@ -75,15 +75,27 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"taraSub\": \"{{tara_sub}}\",\n  \"email\": \"test-{{tara_sub}}@example.com\",\n  \"name\": \"Test User\",\n  \"isAdmin\": false,\n  \"roles\": {\"AUTHORITY\": [\"auth-test\"]},\n  \"subsets\": [\"EU01\", \"EU02\"]\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/users",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "users"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "users"
+          ]
         }
       }
     },
@@ -104,15 +116,27 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"taraSub\": \"{{tara_sub}}\",\n  \"email\": \"test2-{{tara_sub}}@example.com\",\n  \"name\": \"Duplicate User\",\n  \"isAdmin\": false,\n  \"roles\": {},\n  \"subsets\": []\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/users",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "users"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "users"
+          ]
         }
       }
     },
@@ -149,8 +173,15 @@
         "header": [],
         "url": {
           "raw": "{{base_url}}/efti/api/v1/users",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "users"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "users"
+          ]
         }
       }
     },
@@ -185,9 +216,21 @@
         "header": [],
         "url": {
           "raw": "{{base_url}}/efti/api/v1/users?userId={{user_id}}",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "users"],
-          "query": [{ "key": "userId", "value": "{{user_id}}" }]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "users"
+          ],
+          "query": [
+            {
+              "key": "userId",
+              "value": "{{user_id}}"
+            }
+          ]
         }
       }
     },
@@ -219,16 +262,33 @@
       ],
       "request": {
         "method": "PUT",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"taraSub\": \"{{tara_sub}}\",\n  \"email\": \"test-{{tara_sub}}@example.com\",\n  \"name\": \"Test User Updated\",\n  \"isAdmin\": false,\n  \"roles\": {\"AUTHORITY\": [\"auth-test\", \"auth-test2\"]},\n  \"subsets\": [\"EU01\", \"EU02\", \"EU03\"]\n}"
         },
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/users?userId={{user_id}}",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "users"],
-          "query": [{ "key": "userId", "value": "{{user_id}}" }]
+          "raw": "{{base_url}}/efti/api/v1/users/{{user_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "users"
+          ],
+          "query": [
+            {
+              "key": "userId",
+              "value": "{{user_id}}"
+            }
+          ]
         }
       }
     },
@@ -251,10 +311,23 @@
         "method": "POST",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/users/revoke-token?userId={{user_id}}",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "users", "revoke-token"],
-          "query": [{ "key": "userId", "value": "{{user_id}}" }]
+          "raw": "{{base_url}}/efti/api/v1/users/revoke-token/{{user_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "users",
+            "revoke-token"
+          ],
+          "query": [
+            {
+              "key": "userId",
+              "value": "{{user_id}}"
+            }
+          ]
         }
       }
     },
@@ -284,9 +357,21 @@
         "header": [],
         "url": {
           "raw": "{{base_url}}/efti/api/v1/users?userId={{user_id}}",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "users"],
-          "query": [{ "key": "userId", "value": "{{user_id}}" }]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "users"
+          ],
+          "query": [
+            {
+              "key": "userId",
+              "value": "{{user_id}}"
+            }
+          ]
         }
       }
     },
@@ -309,10 +394,22 @@
         "method": "DELETE",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/users?userId={{user_id}}",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "users"],
-          "query": [{ "key": "userId", "value": "{{user_id}}" }]
+          "raw": "{{base_url}}/efti/api/v1/users/{{user_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "users"
+          ],
+          "query": [
+            {
+              "key": "userId",
+              "value": "{{user_id}}"
+            }
+          ]
         }
       }
     },
@@ -341,9 +438,21 @@
         "header": [],
         "url": {
           "raw": "{{base_url}}/efti/api/v1/users?userId={{user_id}}",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "users"],
-          "query": [{ "key": "userId", "value": "{{user_id}}" }]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "users"
+          ],
+          "query": [
+            {
+              "key": "userId",
+              "value": "{{user_id}}"
+            }
+          ]
         }
       }
     }

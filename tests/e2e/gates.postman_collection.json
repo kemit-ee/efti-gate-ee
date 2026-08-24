@@ -72,15 +72,27 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"id\": \"{{gate_id}}\",\n  \"countryCode\": \"EE\",\n  \"eDeliveryUrl\": \"https://test-gate.efti.ee/services/msh\",\n  \"status\": \"OFFLINE\"\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/gates",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "gates"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "gates"
+          ]
         }
       }
     },
@@ -117,8 +129,15 @@
         "header": [],
         "url": {
           "raw": "{{base_url}}/efti/api/v1/gates",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "gates"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "gates"
+          ]
         }
       }
     },
@@ -153,9 +172,21 @@
         "header": [],
         "url": {
           "raw": "{{base_url}}/efti/api/v1/gates?gateId={{gate_id}}",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "gates"],
-          "query": [{ "key": "gateId", "value": "{{gate_id}}" }]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "gates"
+          ],
+          "query": [
+            {
+              "key": "gateId",
+              "value": "{{gate_id}}"
+            }
+          ]
         }
       }
     },
@@ -188,16 +219,33 @@
       ],
       "request": {
         "method": "PUT",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"countryCode\": \"EE\",\n  \"eDeliveryUrl\": \"https://test-gate-updated.efti.ee/services/msh\",\n  \"status\": \"OFFLINE\"\n}"
         },
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/gates?gateId={{gate_id}}",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "gates"],
-          "query": [{ "key": "gateId", "value": "{{gate_id}}" }]
+          "raw": "{{base_url}}/efti/api/v1/gates/{{gate_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "gates"
+          ],
+          "query": [
+            {
+              "key": "gateId",
+              "value": "{{gate_id}}"
+            }
+          ]
         }
       }
     },
@@ -220,10 +268,22 @@
         "method": "DELETE",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/gates?gateId={{gate_id}}",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "gates"],
-          "query": [{ "key": "gateId", "value": "{{gate_id}}" }]
+          "raw": "{{base_url}}/efti/api/v1/gates/{{gate_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "gates"
+          ],
+          "query": [
+            {
+              "key": "gateId",
+              "value": "{{gate_id}}"
+            }
+          ]
         }
       }
     },
@@ -252,9 +312,21 @@
         "header": [],
         "url": {
           "raw": "{{base_url}}/efti/api/v1/gates?gateId={{gate_id}}",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "gates"],
-          "query": [{ "key": "gateId", "value": "{{gate_id}}" }]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "gates"
+          ],
+          "query": [
+            {
+              "key": "gateId",
+              "value": "{{gate_id}}"
+            }
+          ]
         }
       }
     },
@@ -282,15 +354,27 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"id\": \"eu-b1{{bulk_ts}}\",\n  \"countryCode\": \"EE\",\n  \"eDeliveryUrl\": \"https://bulk1.efti.ee/msh\",\n  \"status\": \"ONLINE\"\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/gates",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "gates"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "gates"
+          ]
         }
       }
     },
@@ -309,15 +393,27 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"id\": \"eu-b2{{bulk_ts}}\",\n  \"countryCode\": \"EE\",\n  \"eDeliveryUrl\": \"https://bulk2.efti.ee/msh\",\n  \"status\": \"ONLINE\"\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/gates",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "gates"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "gates"
+          ]
         }
       }
     },
@@ -336,15 +432,27 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"id\": \"eu-b3{{bulk_ts}}\",\n  \"countryCode\": \"EE\",\n  \"eDeliveryUrl\": \"https://bulk3.efti.ee/msh\",\n  \"status\": \"ONLINE\"\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/gates",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "gates"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "gates"
+          ]
         }
       }
     },
@@ -363,15 +471,27 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"id\": \"eu-b4{{bulk_ts}}\",\n  \"countryCode\": \"EE\",\n  \"eDeliveryUrl\": \"https://bulk4.efti.ee/msh\",\n  \"status\": \"ONLINE\"\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/gates",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "gates"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "gates"
+          ]
         }
       }
     },
@@ -390,15 +510,27 @@
       ],
       "request": {
         "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": "{\n  \"id\": \"eu-b5{{bulk_ts}}\",\n  \"countryCode\": \"EE\",\n  \"eDeliveryUrl\": \"https://bulk5.efti.ee/msh\",\n  \"status\": \"ONLINE\"\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/gates",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "gates"]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "gates"
+          ]
         }
       }
     },
@@ -427,9 +559,21 @@
         "header": [],
         "url": {
           "raw": "{{base_url}}/efti/api/v1/gates?limit=200",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "gates"],
-          "query": [{ "key": "limit", "value": "200" }]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "gates"
+          ],
+          "query": [
+            {
+              "key": "limit",
+              "value": "200"
+            }
+          ]
         }
       }
     },
@@ -450,10 +594,22 @@
         "method": "DELETE",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/gates?gateId=eu-b3{{bulk_ts}}",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "gates"],
-          "query": [{ "key": "gateId", "value": "eu-b3{{bulk_ts}}" }]
+          "raw": "{{base_url}}/efti/api/v1/gates/eu-b3{{bulk_ts}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "gates"
+          ],
+          "query": [
+            {
+              "key": "gateId",
+              "value": "eu-b3{{bulk_ts}}"
+            }
+          ]
         }
       }
     },
@@ -474,10 +630,22 @@
         "method": "DELETE",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/gates?gateId=eu-b4{{bulk_ts}}",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "gates"],
-          "query": [{ "key": "gateId", "value": "eu-b4{{bulk_ts}}" }]
+          "raw": "{{base_url}}/efti/api/v1/gates/eu-b4{{bulk_ts}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "gates"
+          ],
+          "query": [
+            {
+              "key": "gateId",
+              "value": "eu-b4{{bulk_ts}}"
+            }
+          ]
         }
       }
     },
@@ -498,10 +666,22 @@
         "method": "DELETE",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/gates?gateId=eu-b5{{bulk_ts}}",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "gates"],
-          "query": [{ "key": "gateId", "value": "eu-b5{{bulk_ts}}" }]
+          "raw": "{{base_url}}/efti/api/v1/gates/eu-b5{{bulk_ts}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "gates"
+          ],
+          "query": [
+            {
+              "key": "gateId",
+              "value": "eu-b5{{bulk_ts}}"
+            }
+          ]
         }
       }
     },
@@ -530,9 +710,21 @@
         "header": [],
         "url": {
           "raw": "{{base_url}}/efti/api/v1/gates?limit=200",
-          "host": ["{{base_url}}"],
-          "path": ["efti", "api", "v1", "gates"],
-          "query": [{ "key": "limit", "value": "200" }]
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "efti",
+            "api",
+            "v1",
+            "gates"
+          ],
+          "query": [
+            {
+              "key": "limit",
+              "value": "200"
+            }
+          ]
         }
       }
     }
