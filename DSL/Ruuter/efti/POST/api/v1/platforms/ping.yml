@@ -13,21 +13,39 @@ check_platform_exists:
   switch:
     - condition: ${platform_result.response.body == null || platform_result.response.body.length == 0}
       next: platform_not_found
+    - condition: ${platform_result.response.body[0].eDeliveryCert == null || platform_result.response.body[0].eDeliveryCert == ""}
+      next: ping_rest
   next: ping_edelivery
 
-ping_edelivery:
+ping_rest:
   call: http.post
   args:
-    url: "http://edelivery:8081/ping/${incoming.params.pathParams[0]}"
+    url: "${platform_result.response.body[0].baseUrl}"
     headers:
       Content-Type: "application/json"
     body: {}
   result: ping_result
-  next: check_ping
+  next: check_rest_ping
 
-check_ping:
+check_rest_ping:
   switch:
-    - condition: ${ping_result.response.statusCode != 200}
+    - condition: ${ping_result.response.status != 200}
+      next: update_offline
+  next: update_online
+
+ping_edelivery:
+  call: http.post
+  args:
+    url: "[#EDELIVERY_URL]/api/v1/ping/${incoming.params.pathParams[0]}"
+    headers:
+      Content-Type: "application/json"
+    body: {}
+  result: ping_result
+  next: check_edelivery_ping
+
+check_edelivery_ping:
+  switch:
+    - condition: ${ping_result.response.status != 204}
       next: update_offline
   next: update_online
 
