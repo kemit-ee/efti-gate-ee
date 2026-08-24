@@ -88,7 +88,7 @@ graph LR
         PL3["GET /api/v1/follow-up?datasetId={id}"]
         PL4["GET /api/v1/datasets?datasetId={id}"]
         AU1["GET /api/v1/identifiers?identifier={id}"]
-        AU2["GET /api/v1/dataset?gateId={g}&platformId={p}&datasetId={d}"]
+        AU2["POST /api/v1/dataset"]
         AU3["POST /api/v1/follow-up"]
     end
 
@@ -1064,10 +1064,10 @@ Auth: TARA JWT `sub` → kasutaja `tara_sub` (praegu `allow-all`).
 | Meetod | Ruuter DSL | Ruuter tee | Kirjeldus |
 |---|---|---|---|
 | `GET` | `DSL/Ruuter/efti/GET/api/v1/identifiers.yml` | `GET /efti/api/v1/identifiers?identifier={id}` | Otsing `mainTransportId` / `usedEquipmentIds` järgi |
-| `GET` | `DSL/Ruuter/efti/GET/api/v1/dataset.yml` | `GET /efti/api/v1/dataset?gateId={g}&platformId={p}&datasetId={d}` | FTI010 XML andmestik (subsets: praegu `[]`) |
+| `POST` | `DSL/Ruuter/efti/POST/api/v1/dataset.yml` | `POST /efti/api/v1/dataset` | FTI010 XML andmestik, filtreerituna `subsets[]` järgi |
 | `POST` | `DSL/Ruuter/efti/POST/api/v1/follow-up.yml` | `POST /efti/api/v1/follow-up` | FTI025 XML sisend → log → FTI030 XML vastus |
 
-> ⚠️ **TODO:** Subsets filtreerimine `GET /api/v1/dataset` jaoks — praegu tagastatakse kogu XML.
+> ℹ️ **Body:** `{ "gateId": "...", "platformId": "...", "datasetId": "...", "subsets": ["EU01", "EU02"] }` — `subsets: []` tagastab kogu andmestiku.
 
 ---
 

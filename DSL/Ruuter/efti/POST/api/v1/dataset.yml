@@ -1,3 +1,7 @@
+declaration:
+  description: "Authority API — get full consignment dataset XML filtered by subsets"
+  allowed_body: [json]
+
 get_consignment:
   call: http.post
   args:
@@ -5,9 +9,9 @@ get_consignment:
     headers:
       Content-Type: "application/json"
     body:
-      datasetId: "${incoming.params.datasetId}"
-      platformId: "${incoming.params.platformId}"
-      gateId: "${incoming.params.gateId}"
+      datasetId: "${incoming.body.datasetId}"
+      platformId: "${incoming.body.platformId}"
+      gateId: "${incoming.body.gateId}"
   result: consignment_result
   next: check_found
 
@@ -25,11 +29,11 @@ build_xml_response:
       Content-Type: "application/json"
     body:
       uil:
-        gateId: "${incoming.params.gateId}"
-        platformId: "${incoming.params.platformId}"
-        datasetId: "${incoming.params.datasetId}"
+        gateId: "${incoming.body.gateId}"
+        platformId: "${incoming.body.platformId}"
+        datasetId: "${incoming.body.datasetId}"
       xml: "${consignment_result.response.body[0].xml}"
-      subsets: []
+      subsets: ${incoming.body.subsets}
   result: xml_response
   next: respond
 
