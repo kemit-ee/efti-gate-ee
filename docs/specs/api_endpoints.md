@@ -83,15 +83,13 @@ graph LR
     subgraph "✅ Teostatud (uued)"
         C1["GET /api/v1/consignments (filtriga)"]
         C2["DELETE /api/v1/consignments?consignmentId={id}"]
-        PL1["POST /v1/identifiers"]
-        PL2["DELETE /v1/identifiers?datasetId={id}"]
-        PL3["GET /v1/status?datasetId={id}"]
-        PL4["POST /v1/ping"]
-        PL5["GET /v1/follow-up?datasetId={id}"]
-        PL6["GET /v1/datasets?datasetId={id}"]
-        AU1["GET /v1/identifiers?identifier={id}"]
-        AU2["GET /v1/dataset?gateId={g}&platformId={p}&datasetId={d}"]
-        AU3["POST /v1/follow-up"]
+        PL1["GET /api/v1/status?datasetId={id}"]
+        PL2["POST /api/v1/ping"]
+        PL3["GET /api/v1/follow-up?datasetId={id}"]
+        PL4["GET /api/v1/datasets?datasetId={id}"]
+        AU1["GET /api/v1/identifiers?identifier={id}"]
+        AU2["GET /api/v1/dataset?gateId={g}&platformId={p}&datasetId={d}"]
+        AU3["POST /api/v1/follow-up"]
     end
 
     subgraph "❌ Puudub"
@@ -1048,12 +1046,12 @@ Auth: mTLS X.509 — reversproxy edastab `X-Client-Cert-Subject` + `X-Client-Cer
 
 | Meetod | Ruuter DSL | Ruuter tee | Kirjeldus |
 |---|---|---|---|
-| `POST` | `DSL/Ruuter/efti/POST/v1/identifiers.yml` | `POST /efti/v1/identifiers` | FTI004 XML upload → INSERT → FTI029 XML vastus |
-| `DELETE` | `DSL/Ruuter/efti/DELETE/v1/identifiers.yml` | `DELETE /efti/v1/identifiers?datasetId={id}` | Pehme kustutus + verify |
-| `GET` | `DSL/Ruuter/efti/GET/v1/status.yml` | `GET /efti/v1/status?datasetId={id}` | Saadetise staatus |
-| `POST` | `DSL/Ruuter/efti/POST/v1/ping.yml` | `POST /efti/v1/ping` | Kättesaadavuse kontroll — tagastab 204 |
-| `GET` | `DSL/Ruuter/efti/GET/v1/follow-up.yml` | `GET /efti/v1/follow-up?datasetId={id}&requestId={id}` | Järelkontrolli sõnumid platformile |
-| `GET` | `DSL/Ruuter/efti/GET/v1/datasets.yml` | `GET /efti/v1/datasets?datasetId={id}` | Andmestiku XML (raw) |
+| `POST` | `DSL/Ruuter/efti/POST/api/v1/consignments.yml` | `POST /efti/api/v1/consignments` | FTI004 XML upload → INSERT (verify-after-write) → JSON vastus |
+| `DELETE` | `DSL/Ruuter/efti/DELETE/api/v1/consignments.yml` | `DELETE /efti/api/v1/consignments?consignmentId={id}` | Pehme kustutus + verify |
+| `GET` | `DSL/Ruuter/efti/GET/api/v1/status.yml` | `GET /efti/api/v1/status?datasetId={id}` | Saadetise staatus |
+| `POST` | `DSL/Ruuter/efti/POST/api/v1/ping.yml` | `POST /efti/api/v1/ping` | Kättesaadavuse kontroll — tagastab 204 |
+| `GET` | `DSL/Ruuter/efti/GET/api/v1/follow-up.yml` | `GET /efti/api/v1/follow-up?datasetId={id}&requestId={id}` | Järelkontrolli sõnumid platformile |
+| `GET` | `DSL/Ruuter/efti/GET/api/v1/datasets.yml` | `GET /efti/api/v1/datasets?datasetId={id}` | Andmestiku XML (raw) |
 
 > ℹ️ **Ruuter workaround:** Kõik `{id}` path parameetrid on asendatud query-parameetritega.
 
@@ -1065,11 +1063,11 @@ Auth: TARA JWT `sub` → kasutaja `tara_sub` (praegu `allow-all`).
 
 | Meetod | Ruuter DSL | Ruuter tee | Kirjeldus |
 |---|---|---|---|
-| `GET` | `DSL/Ruuter/efti/GET/v1/identifiers.yml` | `GET /efti/v1/identifiers?identifier={id}` | Otsing `mainTransportId` / `usedEquipmentIds` järgi |
-| `GET` | `DSL/Ruuter/efti/GET/v1/dataset.yml` | `GET /efti/v1/dataset?gateId={g}&platformId={p}&datasetId={d}` | FTI010 XML andmestik (subsets: praegu `[]`) |
-| `POST` | `DSL/Ruuter/efti/POST/v1/follow-up.yml` | `POST /efti/v1/follow-up` | FTI025 XML sisend → log → FTI030 XML vastus |
+| `GET` | `DSL/Ruuter/efti/GET/api/v1/identifiers.yml` | `GET /efti/api/v1/identifiers?identifier={id}` | Otsing `mainTransportId` / `usedEquipmentIds` järgi |
+| `GET` | `DSL/Ruuter/efti/GET/api/v1/dataset.yml` | `GET /efti/api/v1/dataset?gateId={g}&platformId={p}&datasetId={d}` | FTI010 XML andmestik (subsets: praegu `[]`) |
+| `POST` | `DSL/Ruuter/efti/POST/api/v1/follow-up.yml` | `POST /efti/api/v1/follow-up` | FTI025 XML sisend → log → FTI030 XML vastus |
 
-> ⚠️ **TODO:** Subsets filtreerimine `GET /v1/dataset` jaoks — praegu tagastatakse kogu XML.
+> ⚠️ **TODO:** Subsets filtreerimine `GET /api/v1/dataset` jaoks — praegu tagastatakse kogu XML.
 
 ---
 
