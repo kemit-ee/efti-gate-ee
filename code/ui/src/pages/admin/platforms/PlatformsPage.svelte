@@ -14,7 +14,7 @@
   onMount(load)
 
   async function load() {
-    platforms = await api.get<Platform[]>('v1/platforms')
+    platforms = await api.get<Platform[]>('platforms')
   }
 
   function add() {

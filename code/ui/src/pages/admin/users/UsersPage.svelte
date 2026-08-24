@@ -14,7 +14,7 @@
   onMount(load)
 
   async function load() {
-    users = await api.get('v1/users')
+    users = await api.get('users')
   }
 
   function add() {

@@ -15,7 +15,7 @@
 </script>
 
 <div>
-  <label class="-mb-4">{t.platforms.headers}</label>
+  <span class="-mb-4">{t.platforms.headers}</span>
 </div>
 <div class="flex flex-col gap-4">
   {#each headers as h, i}
