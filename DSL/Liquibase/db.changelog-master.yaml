@@ -1,12 +1,4 @@
 databaseChangeLog:
-  # Auth surface — users + sessions, then dev-only fixtures (context: dev).
-  - include:
-      file: changelog/20260813-auth-schema.sql
-      relativeToChangelogFile: false
-  - include:
-      file: changelog/20260813-auth-seed.sql
-      relativeToChangelogFile: false
-
   - changeSet:
       id: 000-extensions
       author: efti
@@ -124,3 +116,9 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: false
             encoding: UTF-8
+
+  # Auth surface — dev-only seed fixtures (context:dev guard is in the SQL file itself).
+  # Schema (users, sessions) lives in 005-users and 008-sessions above.
+  - include:
+      file: changelog/20260813-auth-seed.sql
+      relativeToChangelogFile: false

@@ -1,0 +1,29 @@
+### List all audit entries
+GET {{RUUTER_URL}}/efti/api/v1/audit
+Content-Type: application/json
+
+> {%
+  client.test("Audit log returned", () => {
+    client.assert(response.status === 200)
+  })
+%}
+
+### Filter audit by resource type
+GET {{RUUTER_URL}}/efti/api/v1/audit?resource=consignment
+Content-Type: application/json
+
+> {%
+  client.test("Audit filtered by resource", () => {
+    client.assert(response.status === 200)
+  })
+%}
+
+### Filter audit with pagination
+GET {{RUUTER_URL}}/efti/api/v1/audit?limit=10&offset=0
+Content-Type: application/json
+
+> {%
+  client.test("Audit pagination works", () => {
+    client.assert(response.status === 200)
+  })
+%}

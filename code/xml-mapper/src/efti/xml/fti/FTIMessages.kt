@@ -1,11 +1,11 @@
 package efti.xml.fti
 
-import efti.xml.dropXmlRoot
-import efti.xml.extractXmlTag
 import efti.domain.UIL
 import efti.subsets.CountryCode
 import efti.subsets.Subset
+import efti.xml.dropXmlRoot
 import efti.xml.edifactDateTimeFormats
+import efti.xml.extractXmlTag
 import klite.Capitalize
 import klite.Converter
 import klite.KeyConverter
@@ -192,11 +192,11 @@ data class FTI010GetCmdsResponse(
 
 data class FTI021SearchIdentifierResponse(
   @XmlPath("ExchangedDocument") override val document: ExchangedDocument,
-  @XmlPath("EFTIIDInformation/UniqueIDSetUIL") val content: List<UniqueIDSetUIL>,
+  @XmlPath("EFTIIDInformation/UniqueIDSetUIL") val content: List<UniqueIDSetUIL>? = null,
   @XmlPath("ExchangedDocumentContext") override val context: ExchangedDocumentContext = ExchangedDocumentContext(),
 ): FTIMessage {
-  @Language("xml") fun render() = renderWith("""
-    <rsm:EFTIIDInformation>${content.joinToString("") { it.render() }}</rsm:EFTIIDInformation>
+  @Language("xml") fun render(xmls: List<String>? = null) = renderWith("""
+    <rsm:EFTIIDInformation>${xmls?.joinToString("") ?: content?.joinToString("") { it.render() }}</rsm:EFTIIDInformation>
   """)
 }
 

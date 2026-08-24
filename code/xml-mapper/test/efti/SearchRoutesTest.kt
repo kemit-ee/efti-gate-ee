@@ -73,7 +73,7 @@ class SearchRoutesTest : BaseMocks() {
 
   @Test fun responseToJsonMultiple() {
     val xml = File("xsd/Normalized/FTI021/sample.xml").readText()
-    val combined = xml + xml
+    val combined = "$xml⦀$xml"
     val result = routes.responseToJson(combined)
 
     expect(result.size).toEqual(2)

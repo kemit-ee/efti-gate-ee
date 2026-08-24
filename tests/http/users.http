@@ -1,0 +1,87 @@
+### Create user
+POST {{RUUTER_URL}}/efti/api/v1/users
+Content-Type: application/json
+
+{
+  "taraSub": "test-{{$timestamp}}",
+  "name": "Test User"
+}
+
+> {%
+  client.test("User created", () => {
+    client.assert(response.status === 201)
+    client.assert(response.body.response[0].name === "Test User")
+    client.assert(response.body.response[0].isUserActive === true)
+    client.global.set("userId", response.body.response[0].id)
+    client.global.set("userTaraSub", response.body.response[0].taraSub)
+  })
+%}
+
+### List users
+GET {{RUUTER_URL}}/efti/api/v1/users
+Content-Type: application/json
+
+> {%
+  client.test("Users listed", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.length >= 1)
+  })
+%}
+
+### Get single user
+GET {{RUUTER_URL}}/efti/api/v1/users?userId={{userId}}
+Content-Type: application/json
+
+> {%
+  client.test("Single user found", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body[0].name === "Test User")
+  })
+%}
+
+### Update user
+PUT {{RUUTER_URL}}/efti/api/v1/users/{{userId}}
+Content-Type: application/json
+
+{
+  "taraSub": "{{userTaraSub}}",
+  "name": "Updated Test User"
+}
+
+> {%
+  client.test("User updated", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body[0].name === "Updated Test User")
+  })
+%}
+
+### Revoke user token
+POST {{RUUTER_URL}}/efti/api/v1/users/revoke-token/{{userId}}
+Content-Type: application/json
+
+> {%
+  client.test("Token revoked", () => {
+    client.assert(response.status === 204)
+  })
+%}
+
+### Delete user
+DELETE {{RUUTER_URL}}/efti/api/v1/users/{{userId}}
+Content-Type: application/json
+
+> {%
+  client.test("User deleted", () => {
+    client.assert(response.status === 204)
+  })
+%}
+
+### Verify user deleted
+GET {{RUUTER_URL}}/efti/api/v1/users?userId={{userId}}
+Content-Type: application/json
+
+> {%
+  client.test("User deleted", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body[0].isUserActive === false)
+  })
+%}
