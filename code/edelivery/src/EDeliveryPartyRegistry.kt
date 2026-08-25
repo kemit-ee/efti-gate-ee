@@ -12,9 +12,13 @@ class EDeliveryPartyRegistry(private val resqlClient: ResqlClient): PartyRegistr
     thread {
       while (!Thread.currentThread().isInterrupted) {
         sleep(30.minutes)
-        parties = resqlClient.getParties()
+        reload()
       }
     }
+  }
+
+  fun reload() {
+    parties = resqlClient.getParties()
   }
 
   override operator fun get(id: PartyId): Party = parties[id] ?: error("Unknown party: $id")

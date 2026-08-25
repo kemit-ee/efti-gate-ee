@@ -21,6 +21,7 @@ class InternalRoutes(
 
   @Operation(description = "Ping eDelivery party to verify connectivity.")
   @POST("/ping/:partyId") fun ping(@PathParam partyId: PartyId) {
+    partyRegistry.reload()
     val party = partyRegistry[partyId]
     eDeliveryClient.ping(party)
   }
