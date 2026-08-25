@@ -4,7 +4,7 @@ import klite.Config
 import klite.StringValue
 import java.net.URI
 
-val Config.partyId: PartyId get() = PartyId(required("OWN_PARTY_ID"))
+val Config.partyId: PartyId get() = PartyId(required("OWN_GATE_ID"))
 
 open class PartyId(id: String): StringValue(id) {
   override fun toString() = value

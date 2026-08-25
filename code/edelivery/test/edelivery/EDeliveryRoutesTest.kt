@@ -10,10 +10,6 @@ import java.io.File
 import java.net.URI
 
 class EDeliveryRoutesTest {
-  init {
-    Config["KEYSTORE_DIR"] = "../gate/certs"
-  }
-
   val party = EDeliveryParty(PartyId("fi-tst"), URI("http://ee"), "")
   val partyRegistry = mockk<PartyRegistry>(relaxUnitFun = true) {
     every { get(party.id) } returns party

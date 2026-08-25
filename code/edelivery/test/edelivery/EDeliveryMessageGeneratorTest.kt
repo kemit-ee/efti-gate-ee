@@ -11,10 +11,6 @@ import javax.xml.transform.stream.StreamSource
 import javax.xml.validation.SchemaFactory
 
 class EDeliveryMessageGeneratorTest {
-  init {
-    Config["KEYSTORE_DIR"] = "../gate/certs"
-  }
-
   val partyId = PartyId("receiver")
   val cert = javaClass.getResourceAsStream("test-cert.pem")!!.reader().use { it.readText() }
   val party = mockk<Party> {

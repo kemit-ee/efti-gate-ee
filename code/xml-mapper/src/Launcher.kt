@@ -13,6 +13,8 @@ import klite.openapi.openApi
 
 fun main() {
   Config.useEnvFile()
+  if (Config.optional("PORT") == null) Config["PORT"] = "8082"
+
   Server(requestIdGenerator = RequestIdHandler()).apply {
     context("/health") {
       get { "OK" }

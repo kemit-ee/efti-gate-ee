@@ -14,10 +14,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 class EDeliveryClientTest {
-  init {
-    Config["KEYSTORE_DIR"] = "../gate/certs"
-  }
-
   val keyManager = mockk<KeyManager>(relaxed = true)
   val eDeliveryClient =
     EDeliveryClient(mockk(relaxed = true), keyManager, mockk(relaxed = true), msInSec = 10L)

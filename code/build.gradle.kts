@@ -55,7 +55,7 @@ subprojects {
   tasks.test {
     workingDir(projectDir)
     useJUnitPlatform()
-    jvmArgs("-DENV=test", "-DOWN_PARTY_ID=TEST", "-XX:-OmitStackTraceInFastThrow")
+    jvmArgs("-DENV=test", "-DOWN_GATE_ID=TEST", "-XX:-OmitStackTraceInFastThrow")
   }
 
   tasks.withType<KotlinCompile> {
@@ -86,7 +86,6 @@ subprojects {
   }
 
   tasks.register<JavaExec>("run") {
-    workingDir = projectDir
     jvmArgs("--add-opens=java.base/sun.security.x509=ALL-UNNAMED")
     mainClass.set(mainClassName)
     classpath = sourceSets.main.get().runtimeClasspath

@@ -11,6 +11,7 @@ import klite.register
 
 fun main() {
   Config.useEnvFile()
+  if (Config.optional("PORT") == null) Config["PORT"] = "8083"
 
   Server().apply {
     use<JsonBody>()

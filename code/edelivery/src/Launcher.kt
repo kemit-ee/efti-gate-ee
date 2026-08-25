@@ -10,6 +10,7 @@ import java.util.concurrent.TimeoutException
 
 fun main() {
   Config.useEnvFile()
+  if (Config.optional("PORT") == null) Config["PORT"] = "8081"
 
   Server(requestIdGenerator = RequestIdHandler()).apply {
     use<JsonBody>()
