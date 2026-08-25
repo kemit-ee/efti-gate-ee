@@ -102,5 +102,46 @@ services:
       - resql
     mem_limit: 512M
 
+  tara-mock:
+    container_name: efti_tara_mock
+    build:
+      context: .
+      dockerfile: docker/tara-mock/Dockerfile
+    volumes:
+      - tara-mock-vault:/service/vault
+      - ./docker/tara-mock/identities.json:/service/identities.json:ro
+      - ./docker/tara-mock/config.json:/service/config.json:ro
+
+  tim-database:
+    container_name: efti_tim_database
+    image: postgres:18
+    environment:
+      - POSTGRES_USER=tim
+      - POSTGRES_PASSWORD=tim-secret
+      - POSTGRES_DB=tim
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    volumes:
+      - tim-data:/var/lib/postgresql
+
+  tim:
+    container_name: efti_tim
+    build:
+      context: .
+      dockerfile: docker/tim/Dockerfile
+    depends_on:
+      - tim-database
+      - tara-mock
+    environment:
+      - TIM_DATABASE_URL=postgres://tim:tim-secret@tim-database:5432/tim
+      - TIM_ADMIN_TOKEN=dev-tim-admin-token
+      - TIM_TARA_CLIENT_ID=efti
+      - TIM_TARA_CLIENT_SECRET=efti-secret
+    volumes:
+      - tara-mock-vault:/tara-mock-vault:ro
+      - tim-jwt-key:/opt/tim/keys
+
 volumes:
   data:
+  tara-mock-vault:
+  tim-jwt-key:
+  tim-data:

@@ -1,0 +1,40 @@
+declaration:
+  version: "1.0"
+  description: >
+    Public test endpoint — accessible to everyone.
+    If a valid eftiJwtCookie is present, returns the JWT claims from TIM.
+    If no cookie (or invalid), returns an anonymous response with status 200.
+  method: get
+  accepts: json
+  returns: json
+
+check_for_cookie:
+  switch:
+    - condition: ${incoming.headers == null || incoming.headers.cookie == null}
+      next: return_anonymous
+  next: get_jwt_info
+
+get_jwt_info:
+  call: http.get
+  args:
+    url: "[#TIM_URL]/jwt/userinfo"
+    headers:
+      cookie: ${incoming.headers.cookie}
+  result: tim_result
+  next: check_response
+
+check_response:
+  switch:
+    - condition: ${200 <= tim_result.response.status && tim_result.response.status < 300}
+      next: return_token_info
+  next: return_anonymous
+
+return_token_info:
+  return: ${tim_result.response.body}
+  status: 200
+  next: end
+
+return_anonymous:
+  return: '{"authenticated":false,"message":"Sessioon puudub"}'
+  status: 200
+  next: end

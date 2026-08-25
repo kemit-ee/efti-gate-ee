@@ -1,0 +1,40 @@
+declaration:
+  version: "1.0"
+  description: >
+    Restricted test endpoint — requires an active JWT session.
+    Returns 401 if the cookie is missing or TIM rejects it.
+    On success, returns the JWT claims from TIM.
+  method: get
+  accepts: json
+  returns: json
+
+check_for_cookie:
+  switch:
+    - condition: ${incoming.headers == null || incoming.headers.cookie == null}
+      next: unauthorized
+  next: validate_jwt
+
+validate_jwt:
+  call: http.get
+  args:
+    url: "[#TIM_URL]/jwt/userinfo"
+    headers:
+      cookie: ${incoming.headers.cookie}
+  result: tim_result
+  next: check_response
+
+check_response:
+  switch:
+    - condition: ${200 <= tim_result.response.status && tim_result.response.status < 300}
+      next: return_token_info
+  next: unauthorized
+
+return_token_info:
+  return: ${tim_result.response.body}
+  status: 200
+  next: end
+
+unauthorized:
+  return: '{"type":"https://api.efti.ee/errors/unauthorized","title":"Unauthorized","status":401}'
+  status: 401
+  next: end

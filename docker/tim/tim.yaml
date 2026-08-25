@@ -1,0 +1,50 @@
+server:
+  bind: "0.0.0.0"
+  port: 8085
+  request_timeout_seconds: 30
+  # Browser-facing base URL (via nginx reverse proxy on port 8000).
+  # TIM computes its OIDC callback as {public_base_url}/auth/callback/{provider}.
+  public_base_url: "http://localhost:8000/tim"
+
+database:
+  url_env: "TIM_DATABASE_URL"
+  min_connections: 2
+  max_connections: 10
+  auto_migrate: true
+  acquire_timeout_seconds: 30
+
+jwt:
+  private_key_path: "/opt/tim/keys/jwt-private.pem"
+  key_id: "efti-rs-1"
+  issuer: "TIM"
+  # Cookie name must match what the browser and DSL set / read.
+  cookie_name: "eftiJwtCookie"
+  audience:
+    validation_enabled: false
+
+security:
+  admin_token_env: "TIM_ADMIN_TOKEN"
+  require_admin_token: true
+  cors_allowed_origins: []
+
+oauth2:
+  session_store: "memory"
+  session_ttl_seconds: 86400
+  providers:
+    tara:
+      name: "TARA"
+      # Docker-internal hostname; entrypoint imports the self-signed CA
+      # so TLS verification succeeds.
+      discovery_url: "https://tara-mock:8080/oidc/.well-known/openid-configuration"
+      client_id_env: "TIM_TARA_CLIENT_ID"
+      client_secret_env: "TIM_TARA_CLIENT_SECRET"
+      scopes: ["openid"]
+      claim_mappings:
+        first_name: "profile_attributes.given_name"
+        last_name: "profile_attributes.family_name"
+        email: ""
+      token_validation:
+        clock_skew_seconds: 60
+        cache_ttl_seconds: 3600
+      allowed_redirect_uris:
+        - "http://localhost:8000/auth/callback"

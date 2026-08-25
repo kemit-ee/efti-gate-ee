@@ -3,6 +3,7 @@
   import Navbar from 'src/components/Navbar.svelte'
   import Toasts from 'src/components/Toasts.svelte'
   import {navigate, Route, Router} from 'src/router'
+  import AuthCallbackPage from 'src/pages/auth/AuthCallbackPage.svelte'
   import GatesPage from 'src/pages/admin/gates/GatesPage.svelte'
   import PlatformsPage from 'src/pages/admin/platforms/PlatformsPage.svelte'
   import AuthoritiesPage from 'src/pages/admin/authorities/AuthoritiesPage.svelte'
@@ -31,6 +32,7 @@
 <Toasts/>
 
 <Router>
+  <Route path="/auth/callback" component={AuthCallbackPage}/>
   <Navbar {routes}/>
   <main class="min-h-screen p-4 md:p-6 !pt-24">
     {#each routes as r}
