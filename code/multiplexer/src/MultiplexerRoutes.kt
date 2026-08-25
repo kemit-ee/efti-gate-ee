@@ -24,9 +24,9 @@ class MultiplexerRoutes(private val registry: GateRegistry, private val http: Ht
     pending[searchId] = responses
 
     AppScope.async {
-      val futures = registry.gates.map { (id, _) ->
+      val futures = registry.gates.keys.map { gateId ->
         AppScope.async {
-          val response = http.post(eDeliveryUrl + "/send/$id", xml) {
+          val response = http.post(eDeliveryUrl + "/api/v1/send/$gateId", xml) {
             header("x-request-id", searchId.toString())
             timeout(1.minutes)
           }

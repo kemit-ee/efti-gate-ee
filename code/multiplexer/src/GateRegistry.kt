@@ -4,12 +4,12 @@ import kotlin.concurrent.thread
 import kotlin.time.Duration.Companion.minutes
 
 class GateRegistry(resqlClient: ResqlClient) {
-  var gates = resqlClient.getGates().associateBy { it.id }
+  var gates = resqlClient.getGates()
   init {
     thread {
       while (!Thread.currentThread().isInterrupted) {
         sleep(30.minutes)
-        gates = resqlClient.getGates().associateBy { it.id }
+        gates = resqlClient.getGates()
       }
     }
   }

@@ -1,12 +1,14 @@
 import edelivery.*
 import io.swagger.v3.oas.annotations.OpenAPIDefinition
 import io.swagger.v3.oas.annotations.info.Info
-import klite.*
+import klite.Config
+import klite.Server
 import klite.annotations.annotated
 import klite.http.httpClient
 import klite.json.JsonBody
+import klite.metrics
 import klite.openapi.openApi
-import resql.ResqlClient
+import klite.register
 
 fun main() {
   Config.useEnvFile()
@@ -14,11 +16,7 @@ fun main() {
   Server(requestIdGenerator = RequestIdHandler()).apply {
     use<JsonBody>()
     register(httpClient())
-    require<ResqlClient>().apply {
-      val partyRegistry = require<EDeliveryPartyRegistry>()
-      partyRegistry.load(getParties())
-      register<PartyRegistry>(partyRegistry)
-    }
+    register<PartyRegistry>(EDeliveryPartyRegistry::class)
     register<AsyncResponseProvider>(SingleNodeAsyncResponseProvider::class)
     register<MessageHandler>(EftiMessageHandler::class)
     metrics()
