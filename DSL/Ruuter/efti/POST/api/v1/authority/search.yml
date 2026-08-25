@@ -1,0 +1,3 @@
+# Input body: json ParameterSearchCriteria
+# 1. Do a local search first /api/v1/consignments/search
+# 2. If no results, forward the search to other gates via multiplexer

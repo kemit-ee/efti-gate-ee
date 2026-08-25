@@ -1,0 +1,3 @@
+# Path params: /:gateId/:platformId/:datasetId
+# If gateId is ours, then query local platform (over rest or over edelivery)
+# If gate not ours, forward query to other gate (over edelivery)
