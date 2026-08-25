@@ -4,6 +4,7 @@
   import Toasts from 'src/components/Toasts.svelte'
   import {navigate, Route, Router} from 'src/router'
   import AuthCallbackPage from 'src/pages/auth/AuthCallbackPage.svelte'
+  import LoginPage from 'src/pages/auth/LoginPage.svelte'
   import GatesPage from 'src/pages/admin/gates/GatesPage.svelte'
   import PlatformsPage from 'src/pages/admin/platforms/PlatformsPage.svelte'
   import AuthoritiesPage from 'src/pages/admin/authorities/AuthoritiesPage.svelte'
@@ -18,11 +19,7 @@
     {name: t.consignments.title, path: '/consignments', component: ConsignmentPage},
   ]
 
-  function navigateToFirstPage() {
-    navigate(routes.first()!.path)
-  }
-
-  $: if (location.pathname === '/') navigateToFirstPage()
+  $: if (location.pathname === '/') navigate('/login')
 </script>
 
 <svelte:head>
@@ -32,6 +29,8 @@
 <Toasts/>
 
 <Router>
+  <Route path="/login" component={LoginPage}/>
+  <Route path="/auth/callback" component={AuthCallbackPage}/>
   <Navbar {routes}/>
   <main class="min-h-screen p-4 md:p-6 !pt-24">
     {#each routes as r}
