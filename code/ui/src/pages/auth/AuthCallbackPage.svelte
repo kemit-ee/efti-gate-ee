@@ -2,6 +2,7 @@
   import {onMount} from 'svelte'
   import {navigate} from 'src/router'
   import api from 'src/api/api'
+  import {t} from "i18n";
 
   let error = $state<string | null>(null)
   let loading = $state(true)
@@ -12,7 +13,7 @@
     const state = params.get('state')
 
     if (!code || !state) {
-      error = 'Puudub code või state parameeter'
+      error = t.auth.missingCodeOrState
       loading = false
       return
     }
@@ -23,15 +24,15 @@
       sessionStorage.removeItem('authRedirectTo')
       navigate(redirectTo, {replace: true})
     } catch (e: any) {
-      error = e?.message ?? 'Autentimine ebaõnnestus'
+      error = e?.message ?? t.auth.unsuccessful
       loading = false
     }
   })
 </script>
 
 {#if loading && !error}
-  <p>Autentimine käib...</p>
+  <p>{t.auth.authenticating}...</p>
 {:else if error}
-  <p>Viga: {error}</p>
-  <a href="/">Tagasi</a>
+  <p>{t.general.error}: {error}</p>
+  <a href="/">{t.general.back}</a>
 {/if}

@@ -36,7 +36,9 @@
     "running": "Running",
     "failed": "Failed",
     "success": "Success",
-    "runTests": "Run tests"
+    "runTests": "Run tests",
+    "error": "Error",
+    "back": "Back"
   },
   "gates": {
     "title": "Gates",
@@ -123,5 +125,10 @@
     "showCabotage": "Show only cabotage",
     "viewQrCode": "View QR Code",
     "uilQrCode": "UIL QR Code"
+  },
+  "auth": {
+    "authenticating": "Authenticating",
+    "missingCodeOrState": "Missing code or state parameter",
+    "unsuccessful": "Unsuccessful authentication"
   }
 }

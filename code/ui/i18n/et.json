@@ -36,7 +36,9 @@
     "running": "Käib",
     "failed": "Ebaõnnestus",
     "success": "Õnnestus",
-    "runTests": "Käivita testid"
+    "runTests": "Käivita testid",
+    "error": "Viga",
+    "back": "Tagasi"
   },
   "gates": {
     "title": "Väravad",
@@ -123,5 +125,10 @@
     "showCabotage": "Näita ainult kabotaaži",
     "viewQrCode": "Vaata QR-koodi",
     "uilQrCode": "UIL QR-kood"
+  },
+  "auth": {
+    "authenticating": "Autentimine käib",
+    "missingCodeOrState": "Puudub code või state parameeter",
+    "unsuccessful": "Autentimine ebaõnnestus"
   }
 }
