@@ -1,0 +1,101 @@
+declaration:
+  version: "1.0"
+  description: >
+    OIDC callback handler. Receives the authorization code from the frontend
+    AuthCallbackPage, exchanges it via TIM's session-based callback, then sets
+    a JWT cookie for the browser.
+  method: post
+  accepts: json
+  returns: json
+  allowlist:
+    body:
+      - field: code
+        type: string
+        description: "Authorization code from TARA-Mock"
+      - field: state
+        type: string
+        description: "OAuth2 state parameter"
+
+validate_input:
+  switch:
+    - condition: ${incoming.body == null || incoming.body.code == null || incoming.body.state == null}
+      next: missing_params
+  next: call_tim_callback
+
+# Step 1: Exchange code via TIM's callback endpoint.
+# TIM validates state (single-use), exchanges code for tokens at TARA-Mock's
+# token_endpoint, verifies the ID token, creates a session, and returns
+# JSON with session_id and user_profile.
+call_tim_callback:
+  call: http.get
+  args:
+    url: "[#TIM_URL]/auth/callback/tara"
+    query:
+      code: ${incoming.body.code}
+      state: ${incoming.body.state}
+  result: callback_result
+  next: check_callback
+
+check_callback:
+  switch:
+    - condition: ${200 <= callback_result.response.status && callback_result.response.status < 300}
+      next: normalize_personal_code
+  next: callback_error
+
+# Step 2a: Strip the "EE" country prefix that TARA adds to the sub claim.
+# TARA returns user_id as "EE60001019906" (OIDC sub), but our DB stores
+# personal codes as plain numeric strings ("60001019906").
+normalize_personal_code:
+  assign:
+    raw_user_id: ${callback_result.response.body.user_profile.user_id}
+    personal_code: "${raw_user_id.startsWith('EE') ? raw_user_id.substring(2) : raw_user_id}"
+  next: generate_jwt
+
+# Step 2b: Generate a custom JWT with the user's profile claims.
+generate_jwt:
+  call: http.post
+  args:
+    url: "[#TIM_URL]/jwt/custom/generate"
+    headers:
+      type: json
+      X-TIM-Admin-Token: "[#TIM_ADMIN_TOKEN]"
+    body:
+      content:
+        sub: ${raw_user_id}
+        personalCode: ${personal_code}
+        firstName: ${callback_result.response.body.user_profile.first_name}
+        lastName: ${callback_result.response.body.user_profile.last_name}
+      expirationInMinutes: 480
+      JWTName: "eftiJwtCookie"
+  result: jwt_result
+  next: check_jwt
+
+check_jwt:
+  switch:
+    - condition: ${200 <= jwt_result.response.status && jwt_result.response.status < 300}
+      next: return_token
+  next: jwt_error
+
+# Step 3: Return OK with Set-Cookie header.
+# The JWT is set as an HttpOnly cookie so the browser sends it automatically
+# on subsequent requests to Ruuter.
+return_token:
+  headers:
+    Set-Cookie: "eftiJwtCookie=${jwt_result.response.body.token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=28800"
+  return: "ok"
+  next: end
+
+callback_error:
+  status: 401
+  return: "Authentication failed"
+  next: end
+
+jwt_error:
+  status: 500
+  return: "JWT generation failed"
+  next: end
+
+missing_params:
+  status: 400
+  return: "code and state are required"
+  next: end

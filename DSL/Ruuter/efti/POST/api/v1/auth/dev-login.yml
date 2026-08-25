@@ -1,0 +1,65 @@
+declaration:
+  version: "1.0"
+  description: >
+    Dev/CI login — mint a JWT directly without a TARA OIDC redirect.
+    For local development and automated tests only; not for production use.
+  method: post
+  accepts: json
+  returns: json
+  allowlist:
+    body:
+      - field: personalCode
+        type: string
+        description: "Estonian personal code, e.g. 60001019906"
+      - field: firstName
+        type: string
+        description: "Given name"
+      - field: lastName
+        type: string
+        description: "Family name"
+
+validate_input:
+  switch:
+    - condition: ${incoming.body == null || incoming.body.personalCode == null}
+      next: missing_params
+  next: generate_jwt
+
+generate_jwt:
+  call: http.post
+  args:
+    url: "[#TIM_URL]/jwt/custom/generate"
+    headers:
+      type: json
+      X-TIM-Admin-Token: "[#TIM_ADMIN_TOKEN]"
+    body:
+      content:
+        sub: "EE${incoming.body.personalCode}"
+        personalCode: ${incoming.body.personalCode}
+        firstName: ${incoming.body.firstName}
+        lastName: ${incoming.body.lastName}
+      expirationInMinutes: 60
+      JWTName: "eftiJwtCookie"
+  result: jwt_result
+  next: check_jwt
+
+check_jwt:
+  switch:
+    - condition: ${200 <= jwt_result.response.status && jwt_result.response.status < 300}
+      next: return_token
+  next: jwt_error
+
+return_token:
+  headers:
+    Set-Cookie: "eftiJwtCookie=${jwt_result.response.body.token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=3600"
+  return: "ok"
+  next: end
+
+jwt_error:
+  status: 500
+  return: "JWT generation failed"
+  next: end
+
+missing_params:
+  status: 400
+  return: "personalCode is required"
+  next: end

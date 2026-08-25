@@ -34,6 +34,18 @@ services:
     ports:
       - 8000:80
 
+  tara-mock:
+    ports:
+      - "8888:8080"
+
+  tim:
+    ports:
+      - "8085:8085"
+
+  tim-database:
+    ports:
+      - "19433:5432"
+
   http-tests:
     image: jetbrains/intellij-http-client
     depends_on:

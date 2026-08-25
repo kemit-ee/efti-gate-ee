@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>eFTI auth demo</title>
+  <style>
+    body { font-family: sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }
+    h2 { margin-bottom: 8px; }
+    button { cursor: pointer; font-size: 1rem; padding: 6px 14px; margin: 4px 0; }
+    pre { background: #f4f4f4; padding: 10px; overflow-x: auto; font-size: .82rem; white-space: pre-wrap; }
+    .ok { color: green; font-weight: bold; }
+    .err { color: red; font-weight: bold; }
+    hr { margin: 24px 0; }
+    #session { display: none; }
+    .endpoint { margin: 12px 0; }
+  </style>
+</head>
+<body>
+
+<h2>eFTI auth demo</h2>
+
+<!-- Sisselogimata vaade -->
+<div id="no-session">
+  <p>Sisselogimata.</p>
+  <button onclick="login()">Logi sisse (TARA-Mock)</button>
+</div>
+
+<!-- Sisselogitud vaade -->
+<div id="session">
+  <p><b>Nimi:</b> <span id="s-name"></span></p>
+  <p><b>Isikukood:</b> <code id="s-code"></code></p>
+  <button onclick="logout()">Logi välja</button>
+</div>
+
+<hr>
+
+<h2>Otspunktid</h2>
+
+<div class="endpoint">
+  <b>GET /api/v1/test/lubatud</b> — <span class="ok">lubatud kõigile</span><br>
+  <button onclick="call('/efti/api/v1/test/lubatud', 'r-lubatud')">Päri</button>
+  <pre id="r-lubatud" style="display:none"></pre>
+</div>
+
+<div class="endpoint">
+  <b>GET /api/v1/test/piiratud</b> — <span class="err">nõuab sessiooni</span><br>
+  <button onclick="call('/efti/api/v1/test/piiratud', 'r-piiratud')">Päri</button>
+  <pre id="r-piiratud" style="display:none"></pre>
+</div>
+
+<script>
+async function init() {
+  try {
+    const res = await fetch('/efti/api/v1/test/lubatud')
+    const data = await res.json()
+    if (data?.userinfo?.subject) {
+      const claims = data.userinfo.claims || {}
+      document.getElementById('s-name').textContent =
+        [claims.firstName, claims.lastName].filter(Boolean).join(' ') || data.userinfo.subject
+      document.getElementById('s-code').textContent = claims.personalCode || data.userinfo.subject
+      document.getElementById('no-session').style.display = 'none'
+      document.getElementById('session').style.display = ''
+    }
+  } catch (e) { /* ei tee midagi — näitab sisselogimata vaadet */ }
+}
+
+async function login() {
+  sessionStorage.setItem('authRedirectTo', window.location.href)
+  try {
+    const redirectUri = window.location.origin + '/auth/callback'
+    const res = await fetch('/tim/auth/init/tara?redirect_uri=' + encodeURIComponent(redirectUri))
+    if (!res.ok) throw new Error('TIM init failed: ' + res.status)
+    const data = await res.json()
+    const url = data.authorizeUrl || data.authorize_url || data.url
+    if (!url) throw new Error('TIM ei tagastanud authorizeUrl-i: ' + JSON.stringify(data))
+    window.location.href = url
+  } catch (e) {
+    alert('Sisselogimisviga: ' + e.message)
+  }
+}
+
+async function logout() {
+  await fetch('/efti/api/v1/auth/logout', {method: 'POST'}).catch(() => {})
+  document.getElementById('session').style.display = 'none'
+  document.getElementById('no-session').style.display = ''
+}
+
+async function call(path, elId) {
+  const el = document.getElementById(elId)
+  el.style.display = ''
+  el.textContent = 'Pärin...'
+  try {
+    const res = await fetch(path)
+    const body = await res.text()
+    let pretty = body
+    try { pretty = JSON.stringify(JSON.parse(body), null, 2) } catch (_) {}
+    el.textContent = res.status + ' ' + res.statusText + '\n\n' + pretty
+  } catch (e) {
+    el.textContent = 'Viga: ' + e.message
+  }
+}
+
+init()
+</script>
+</body>
+</html>

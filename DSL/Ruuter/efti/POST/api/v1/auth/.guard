@@ -1,29 +1,4 @@
-declaration:
-  call: declare
-  version: "0.1"
-  description: "Authentication guard for every POST under /efti/api/v1/."
-  method: post
-  accepts: json
-  returns: json
-  namespace: guard
-  allowlist:
-    header:
-      - field: authorization
-        type: string
-        description: "Bearer <gate JWT>"
-
-# Deliberately allow-all, and it must stay that way.
-#
-# POST /api/v1/auth/logout is specified as idempotent — "already-revoked tokens still
-# return 204" (docs/specs/openapi.yaml:153). Putting it behind the authentication guard
-# would turn a second logout into a 401, because the first one revoked the token. The
-# endpoint does its own credential check and returns 401 only when no token was
-# presented at all.
-#
-# When POST admin routes arrive, put the authentication guard at their own directory
-# level (POST/api/v1/<resource>/.guard) rather than at POST/api/v1/, so this exemption
-# is not accidentally overridden.
-guard_allow_all:
+guard_success:
   return: "success"
   status: 200
   next: end

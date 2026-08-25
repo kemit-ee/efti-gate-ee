@@ -3,12 +3,11 @@ set -e
 
 VAULT=/service/vault
 
-# Generate the self-signed CA, the HTTPS cert and the id_token signing pair on first
-# start (and again after `docker compose down -v`). On later starts the named volume
-# already holds them, so skip — regenerating would invalidate TIM's imported CA.
+# Generate keys on first start (or after `docker compose down -v`).
+# On subsequent starts the named volume already contains the keys — skip.
 if [ ! -f "${VAULT}/https.crt" ]; then
     echo "[tara-mock] Generating cryptographic keys..."
-    mkdir -p "${VAULT}"
+    mkdir -p "${VAULT}" /client/vault
     cd /genkeys && sh genkeys.sh
 fi
 
