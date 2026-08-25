@@ -134,7 +134,7 @@
       }
     },
     {
-      "name": "GET /api/v1/authorities?authorityId={{authority_id}} — get single authority",
+      "name": "GET /api/v1/authorities/{{authority_id}} — get single authority",
       "event": [
         {
           "listen": "test",
@@ -162,7 +162,7 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/authorities?authorityId={{authority_id}}",
+          "raw": "{{base_url}}/efti/api/v1/authorities/{{authority_id}}",
           "host": [
             "{{base_url}}"
           ],
@@ -170,19 +170,15 @@
             "efti",
             "api",
             "v1",
-            "authorities"
+            "authorities",
+            "{{authority_id}}"
           ],
-          "query": [
-            {
-              "key": "authorityId",
-              "value": "{{authority_id}}"
-            }
-          ]
+          "query": []
         }
       }
     },
     {
-      "name": "PUT /api/v1/authorities?authorityId={{authority_id}} — update authority",
+      "name": "PUT /api/v1/authorities/{{authority_id}} — update authority",
       "event": [
         {
           "listen": "test",
@@ -220,7 +216,7 @@
           "raw": "{\n  \"name\": \"Test Authority Updated\",\n  \"registryCode\": \"12345678\",\n  \"subsets\": [\"EU01\", \"EU02\", \"EU03\"],\n  \"status\": \"ACTIVE\"\n}"
         },
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/authorities?authorityId={{authority_id}}",
+          "raw": "{{base_url}}/efti/api/v1/authorities/{{authority_id}}",
           "host": [
             "{{base_url}}"
           ],
@@ -236,7 +232,7 @@
       }
     },
     {
-      "name": "DELETE /api/v1/authorities?authorityId={{authority_id}} — soft-delete authority",
+      "name": "DELETE /api/v1/authorities/{{authority_id}} — soft-delete authority",
       "event": [
         {
           "listen": "test",
@@ -254,7 +250,7 @@
         "method": "DELETE",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/authorities?authorityId={{authority_id}}",
+          "raw": "{{base_url}}/efti/api/v1/authorities/{{authority_id}}",
           "host": [
             "{{base_url}}"
           ],
@@ -268,9 +264,13 @@
           "query": []
         }
       }
+    }
+  ]
+}
+      }
     },
     {
-      "name": "GET /api/v1/authorities?authorityId={{authority_id}} — authority is inactive after delete",
+      "name": "GET /api/v1/authorities/{{authority_id}} — authority is inactive after delete",
       "event": [
         {
           "listen": "test",
@@ -293,7 +293,7 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/authorities?authorityId={{authority_id}}",
+          "raw": "{{base_url}}/efti/api/v1/authorities/{{authority_id}}",
           "host": [
             "{{base_url}}"
           ],
@@ -301,14 +301,10 @@
             "efti",
             "api",
             "v1",
-            "authorities"
+            "authorities",
+            "{{authority_id}}"
           ],
-          "query": [
-            {
-              "key": "authorityId",
-              "value": "{{authority_id}}"
-            }
-          ]
+          "query": []
         }
       }
     }

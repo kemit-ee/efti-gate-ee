@@ -185,7 +185,7 @@
       }
     },
     {
-      "name": "GET /api/v1/users?userId={{user_id}} — get single user",
+      "name": "GET /api/v1/users/{{user_id}} — get single user",
       "event": [
         {
           "listen": "test",
@@ -213,7 +213,7 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/users?userId={{user_id}}",
+          "raw": "{{base_url}}/efti/api/v1/users/{{user_id}}",
           "host": [
             "{{base_url}}"
           ],
@@ -221,19 +221,15 @@
             "efti",
             "api",
             "v1",
-            "users"
+            "users",
+            "{{user_id}}"
           ],
-          "query": [
-            {
-              "key": "userId",
-              "value": "{{user_id}}"
-            }
-          ]
+          "query": []
         }
       }
     },
     {
-      "name": "PUT /api/v1/users?userId={{user_id}} — update user",
+      "name": "PUT /api/v1/users/{{user_id}} — update user",
       "event": [
         {
           "listen": "test",
@@ -270,7 +266,7 @@
           "raw": "{\n  \"taraSub\": \"{{tara_sub}}\",\n  \"name\": \"Test User Updated\"\n}"
         },
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/users?userId={{user_id}}",
+          "raw": "{{base_url}}/efti/api/v1/users/{{user_id}}",
           "host": [
             "{{base_url}}"
           ],
@@ -286,7 +282,7 @@
       }
     },
     {
-      "name": "POST /api/v1/users/revoke-token?userId={{user_id}} — revoke tokens",
+      "name": "POST /api/v1/users/revoke-token/{{user_id}} — revoke tokens",
       "event": [
         {
           "listen": "test",
@@ -304,7 +300,7 @@
         "method": "POST",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/users/revoke-token?userId={{user_id}}",
+          "raw": "{{base_url}}/efti/api/v1/users/revoke-token/{{user_id}}",
           "host": [
             "{{base_url}}"
           ],
@@ -321,7 +317,7 @@
       }
     },
     {
-      "name": "GET /api/v1/users?userId={{user_id}} — tokenRevokedAt is set after revoke",
+      "name": "GET /api/v1/users/{{user_id}} — tokenRevokedAt is set after revoke",
       "event": [
         {
           "listen": "test",
@@ -345,7 +341,7 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/users?userId={{user_id}}",
+          "raw": "{{base_url}}/efti/api/v1/users/{{user_id}}",
           "host": [
             "{{base_url}}"
           ],
@@ -353,19 +349,15 @@
             "efti",
             "api",
             "v1",
-            "users"
+            "users",
+            "{{user_id}}"
           ],
-          "query": [
-            {
-              "key": "userId",
-              "value": "{{user_id}}"
-            }
-          ]
+          "query": []
         }
       }
     },
     {
-      "name": "DELETE /api/v1/users?userId={{user_id}} — soft-delete user",
+      "name": "DELETE /api/v1/users/{{user_id}} — soft-delete user",
       "event": [
         {
           "listen": "test",
@@ -383,7 +375,7 @@
         "method": "DELETE",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/users?userId={{user_id}}",
+          "raw": "{{base_url}}/efti/api/v1/users/{{user_id}}",
           "host": [
             "{{base_url}}"
           ],
@@ -399,7 +391,7 @@
       }
     },
     {
-      "name": "GET /api/v1/users?userId={{user_id}} — user is inactive after delete",
+      "name": "GET /api/v1/users/{{user_id}} — user is inactive after delete",
       "event": [
         {
           "listen": "test",
@@ -422,7 +414,7 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/users?userId={{user_id}}",
+          "raw": "{{base_url}}/efti/api/v1/users/{{user_id}}",
           "host": [
             "{{base_url}}"
           ],
@@ -430,14 +422,10 @@
             "efti",
             "api",
             "v1",
-            "users"
+            "users",
+            "{{user_id}}"
           ],
-          "query": [
-            {
-              "key": "userId",
-              "value": "{{user_id}}"
-            }
-          ]
+          "query": []
         }
       }
     }

@@ -145,7 +145,7 @@
       }
     },
     {
-      "name": "GET /api/v1/platforms?platformId={{platform_id}} — get single platform",
+      "name": "GET /api/v1/platforms/{{platform_id}} — get single platform",
       "event": [
         {
           "listen": "test",
@@ -178,7 +178,7 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/platforms?platformId={{platform_id}}",
+          "raw": "{{base_url}}/efti/api/v1/platforms/{{platform_id}}",
           "host": [
             "{{base_url}}"
           ],
@@ -186,19 +186,15 @@
             "efti",
             "api",
             "v1",
-            "platforms"
+            "platforms",
+            "{{platform_id}}"
           ],
-          "query": [
-            {
-              "key": "platformId",
-              "value": "{{platform_id}}"
-            }
-          ]
+          "query": []
         }
       }
     },
     {
-      "name": "PUT /api/v1/platforms?platformId={{platform_id}} — update platform",
+      "name": "PUT /api/v1/platforms/{{platform_id}} — update platform",
       "event": [
         {
           "listen": "test",
@@ -258,7 +254,7 @@
       }
     },
     {
-      "name": "DELETE /api/v1/platforms?platformId={{platform_id}} — soft-delete platform",
+      "name": "DELETE /api/v1/platforms/{{platform_id}} — soft-delete platform",
       "event": [
         {
           "listen": "test",
@@ -292,7 +288,7 @@
       }
     },
     {
-      "name": "GET /api/v1/platforms?platformId={{platform_id}} — platform is DELETED after soft-delete",
+      "name": "GET /api/v1/platforms/{{platform_id}} — platform is DELETED after soft-delete",
       "event": [
         {
           "listen": "test",
@@ -315,7 +311,7 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/platforms?platformId={{platform_id}}",
+          "raw": "{{base_url}}/efti/api/v1/platforms/{{platform_id}}",
           "host": [
             "{{base_url}}"
           ],
@@ -323,14 +319,10 @@
             "efti",
             "api",
             "v1",
-            "platforms"
+            "platforms",
+            "{{platform_id}}"
           ],
-          "query": [
-            {
-              "key": "platformId",
-              "value": "{{platform_id}}"
-            }
-          ]
+          "query": []
         }
       }
     },
