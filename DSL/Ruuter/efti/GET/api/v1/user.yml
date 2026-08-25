@@ -17,7 +17,7 @@ declaration:
 get_user_context:
   call: http.post
   args:
-    url: "[#EFTI_RUUTER]/internal/check-user-authority"
+    url: "[#RUUTER_URL]/efti/internal/check-user-authority"
     headers:
       Content-Type: application/json
       authorization: ${incoming.headers.authorization}

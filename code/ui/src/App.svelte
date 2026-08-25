@@ -10,6 +10,8 @@
   import AuthoritiesPage from 'src/pages/admin/authorities/AuthoritiesPage.svelte'
   import UsersPage from 'src/pages/admin/users/UsersPage.svelte'
   import ConsignmentPage from "src/pages/admin/consignments/ConsignmentPage.svelte";
+  import {onMount} from "svelte";
+  import api from "src/api/api";
 
   const routes = [
     {name: t.gates.title, path: '/gates', component: GatesPage},
@@ -20,6 +22,10 @@
   ]
 
   $: if (location.pathname === '/') navigate('/login')
+
+  onMount(async () => {
+    await api.get('user')
+  })
 </script>
 
 <svelte:head>

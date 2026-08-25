@@ -46,38 +46,24 @@ check_token:
 validate_token:
   call: http.get
   args:
-    url: "[#EFTI_TIM]/jwt/userinfo"
+    url: "[#TIM_URL]/jwt/userinfo"
     headers:
       # TIM reads the token only from its own cookie. Re-frame the Bearer value here so
       # the gate's wire contract stays Bearer-only, per
       # docs/architecture/user-interfaces/README.md (no cookie, no CSRF token).
-      cookie: "customJwtCookie=${token}"
+      cookie: "eftiJwtCookie=${token}"
   result: token_info
   next: check_token_info
 
 check_token_info:
   switch:
     - condition: ${token_info.response.status >= 200 && token_info.response.status < 300}
-      next: extract_tara_sub
+      next: check_tara_sub
   next: return_false
-
-extract_tara_sub:
-  assign:
-    tara_sub: ${token_info.response.body.personalCode ?? ''}
-  next: extract_issued_at
-
-# loggedInDate is TIM's issuance timestamp in epoch milliseconds — the equivalent of the
-# token's `iat` claim, which TIM's /jwt/userinfo does not expose. It is compared against
-# users.token_revoked_at inside the query below. Defaulting to 0 fails closed: if the
-# issuance time is unknown, any broadcast revocation rejects the token.
-extract_issued_at:
-  assign:
-    issued_at_ms: ${token_info.response.body.loggedInDate ?? 0}
-  next: check_tara_sub
 
 check_tara_sub:
   switch:
-    - condition: ${tara_sub != null && tara_sub != ''}
+    - condition: ${token_info.response.body.userinfo.claims.personalCode != '' && token_info.response.body.userinfo.claims.personalCode != null}
       next: lookup_user
   next: return_false
 
@@ -89,12 +75,11 @@ check_tara_sub:
 lookup_user:
   call: http.post
   args:
-    url: "[#EFTI_RESQL]/get_user_by_tara_sub"
+    url: "[#RESQL_URL]/efti/get_user_by_tara_sub"
     headers:
       Content-Type: application/json
     body:
-      tara_sub: ${tara_sub}
-      issued_at_ms: ${issued_at_ms}
+      tara_sub: ${token_info.response.body.userinfo.claims.personalCode}
   result: user_res
   next: check_user_found
 
