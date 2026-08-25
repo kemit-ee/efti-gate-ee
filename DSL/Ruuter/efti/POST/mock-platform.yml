@@ -1,0 +1,23 @@
+declaration:
+  description: "Mock platform endpoint for testing follow-up messages"
+
+check_api_key:
+  switch:
+    - condition: ${incoming.headers['x-api-key'] != 'mock-secret-key'}
+      next: unauthorized
+  next: log_request
+
+log_request:
+  log: "Follow-up request: ${incoming.body}"
+  next: respond
+
+respond:
+  return: ${incoming.body}
+  wrapper: false
+  status: 201
+  next: end
+
+unauthorized:
+  return: '{"error": "Unauthorized"}'
+  status: 401
+  next: end
