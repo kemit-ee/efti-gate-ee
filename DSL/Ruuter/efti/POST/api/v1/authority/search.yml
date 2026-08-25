@@ -48,7 +48,7 @@ forward_to_gates:
     body: ${criteria_xml.response.body.xml}
     content_type: plaintext
   result: gates_result
-  next: return
+  next: xml-to-json
 
 xml-to-json:
   call: http.post
