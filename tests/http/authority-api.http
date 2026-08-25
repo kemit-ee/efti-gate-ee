@@ -1,0 +1,13 @@
+POST {{RUUTER_URL}}/efti/api/v1/follow-up
+Content-Type: application/json
+
+{
+  "uil": {
+    "gateId": "EU-EE",
+    "platformId": "mock",
+    "datasetId": "b24ebf37-a068-11f1-b8f0-3c9c0f2eb459"
+  },
+  "referenceIds": ["9aca84c8-a071-11f1-931e-3c9c0f2eb459"],
+  "message": "Follow-up message for the consignment",
+  "files": [{"fileName": "document.pdf", "fileContent": "base64-encoded-content"}]
+}

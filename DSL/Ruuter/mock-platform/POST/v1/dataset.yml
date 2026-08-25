@@ -26,11 +26,15 @@ respond:
   next: end
 
 unauthorized:
-  return: '{"error": "Unauthorized"}'
+  return:
+    error: "Unauthorized"
+  wrapper: false
   status: 401
   next: end
 
 not_found:
-  return: '{"error": "Not Found"}'
+  return:
+    error: "Not Found"
+  wrapper: false
   status: 404
   next: end

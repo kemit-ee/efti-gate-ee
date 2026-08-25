@@ -5,7 +5,7 @@ fetch_own_gate:
     headers:
       Content-Type: "application/json"
     body:
-      id: "${env.OWN_GATE_ID}"
+      id: "[#OWN_GATE_ID]"
   result: result
   next: check_found
 
