@@ -10,6 +10,7 @@ import io.mockk.verify
 import klite.uuid
 import org.junit.jupiter.api.Test
 import java.io.File
+import java.util.*
 
 class FollowupRoutesTest : BaseMocks() {
   val routes = FollowupRoutes(requestIdHandler)
@@ -28,7 +29,7 @@ class FollowupRoutesTest : BaseMocks() {
 
   @Test fun requestToXml() {
     val uil = UIL(PlatformId("Platform-001"), "550e8400-e29b-41d4-a716-446655440000".uuid, GateId("Gate-001"))
-    val request = FollowupRequest(uil, "Follow-up: correction of consignee address")
+    val request = FollowupRequest(uil, listOf(UUID.randomUUID()), "Follow-up: correction of consignee address")
     val xml = routes.requestToXml(request, exchange)
 
     expect(xml).toContain("<TypeCode>025</TypeCode>")
@@ -40,7 +41,7 @@ class FollowupRoutesTest : BaseMocks() {
 
   @Test fun requestToXmlRoundtrip() {
     val uil = UIL(PlatformId("Platform-001"), "550e8400-e29b-41d4-a716-446655440000".uuid, GateId("Gate-001"))
-    val request = FollowupRequest(uil, "Follow-up: correction of consignee address")
+    val request = FollowupRequest(uil, listOf(UUID.randomUUID()), "Follow-up: correction of consignee address")
     val xml = routes.requestToXml(request, exchange)
     val parsed = routes.requestToJson(xml, exchange)
 

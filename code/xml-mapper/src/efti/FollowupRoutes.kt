@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import klite.HttpExchange
 import klite.annotations.POST
 import klite.uuid
+import java.util.*
 
 @Tag(
   name = "Follow-up request",
@@ -16,13 +17,13 @@ import klite.uuid
 class FollowupRoutes(val requestIdHandler: RequestIdHandler) {
   @Operation(description = "Map UIL and Message as JSON to FTI025LodgeFollowUpCommRequest as XML.")
   @POST("/request-to-xml") fun requestToXml(req: FollowupRequest, e: HttpExchange): String =
-    FTI025LodgeFollowUpCommRequest(ExchangedDocument("025", e.requestId.uuid), req.message, req.files, req.uil).render()
+    FTI025LodgeFollowUpCommRequest(ExchangedDocument("025", e.requestId.uuid, referencedIds = req.referenceIds), FollowUp(req.message, req.files), req.uil).render()
 
   @Operation(description = "Map FTI025LodgeFollowUpCommRequest as XML to UIL and Message as JSON.")
   @POST("/request-to-json") fun requestToJson(xml: String, e: HttpExchange): FollowupRequest {
     val req = xmlParser.parse<FTI025LodgeFollowUpCommRequest>(xml)
     requestIdHandler.send(e, req.document.queryId)
-    return FollowupRequest(req.uil, req.followUp ?: "", req.files)
+    return FollowupRequest(req.uil, req.document.referencedIds ?: emptyList(), req.followUp.message ?: "", req.followUp.files)
   }
 
   @Operation(description = "Map FTI030LodgeFollowUpCommResponse as XML to UIL as JSON.")
@@ -37,4 +38,4 @@ class FollowupRoutes(val requestIdHandler: RequestIdHandler) {
     FTI030LodgeFollowUpCommResponse(ExchangedDocument("030", e.requestId.uuid), uil).render()
 }
 
-data class FollowupRequest(val uil: UIL, val message: String, val files: List<BinaryFile> = emptyList())
+data class FollowupRequest(val uil: UIL, val referenceIds: List<UUID>, val message: String, val files: List<BinaryFile> = emptyList())
