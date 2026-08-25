@@ -5,6 +5,8 @@
   import type {NavRoute} from 'src/shared/Mode'
   import Icon from "src/icons/Icon.svelte";
   import {onMount} from 'svelte';
+  import api from 'src/api/api';
+  import {clearToken} from 'src/api/api';
 
   export let routes: NavRoute[]
 
@@ -39,6 +41,12 @@
   function handleLinkClick() {
     if (isMobile) menuOpen = false
   }
+
+  async function logout() {
+    await api.post('auth/logout').catch(() => {})
+    clearToken()
+    window.location.href = '/'
+  }
 </script>
 
 <header class="w-full shadow-md z-40 bg-white">
@@ -65,6 +73,9 @@
           {/each}
         </select>
       </div>
+      <button class="text-sm text-primary-700 font-medium hover:text-primary-900 transition-colors" onclick={logout}>
+        {t.auth.logout}
+      </button>
     </div>
   </div>
 

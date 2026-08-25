@@ -2,6 +2,7 @@
   import {onMount} from 'svelte'
   import {navigate} from 'src/router'
   import api from 'src/api/api'
+  import {setToken} from 'src/api/api'
   import {t} from "i18n";
 
   let error = $state<string | null>(null)
@@ -19,7 +20,8 @@
     }
 
     try {
-      await api.post('auth/callback', {code, state})
+      const data = await api.post<{token: string}>('auth/callback', {code, state})
+      setToken(data.token)
       const redirectTo = sessionStorage.getItem('authRedirectTo') || '/gates'
       sessionStorage.removeItem('authRedirectTo')
       navigate(redirectTo, {replace: true})

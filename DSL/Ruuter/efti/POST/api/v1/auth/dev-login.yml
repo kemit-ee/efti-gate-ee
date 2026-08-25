@@ -2,6 +2,7 @@ declaration:
   version: "1.0"
   description: >
     Dev/CI login — mint a JWT directly without a TARA OIDC redirect.
+    Returns the JWT in the response body for the frontend to store in sessionStorage.
     For local development and automated tests only; not for production use.
   method: post
   accepts: json
@@ -49,9 +50,8 @@ check_jwt:
   next: jwt_error
 
 return_token:
-  headers:
-    Set-Cookie: "eftiJwtCookie=${jwt_result.response.body.token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=3600"
-  return: "ok"
+  return: ${JSON.parse('{"token":"' + jwt_result.response.body.token + '"}')}
+  wrapper: false
   next: end
 
 jwt_error:

@@ -129,6 +129,7 @@
   "auth": {
     "authenticating": "Authenticating",
     "missingCodeOrState": "Missing code or state parameter",
-    "unsuccessful": "Unsuccessful authentication"
+    "unsuccessful": "Unsuccessful authentication",
+    "logout": "Log out"
   }
 }

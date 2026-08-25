@@ -129,6 +129,7 @@
   "auth": {
     "authenticating": "Autentimine käib",
     "missingCodeOrState": "Puudub code või state parameeter",
-    "unsuccessful": "Autentimine ebaõnnestus"
+    "unsuccessful": "Autentimine ebaõnnestus",
+    "logout": "Logi välja"
   }
 }

@@ -1,4 +1,4 @@
-import api, {headers} from './api'
+import api, {headers, setToken, clearToken} from './api'
 import type {MockInstance} from 'vitest'
 
 const successfulResponse = {status: 200, headers: {get: () => undefined}, json: () => 'data'} as any
@@ -8,14 +8,30 @@ describe('api', () => {
 
   beforeEach(() => {
     fetch = vi.spyOn(window, 'fetch').mockResolvedValue(successfulResponse)
+    clearToken()
   })
 
   it('extracts json', async () => {
     const promise = api.requestJson('path', {body: {data: 'data'}})
     expect(document.documentElement.classList.contains('loading')).to.equal(true)
-    expect(fetch).toHaveBeenCalledWith('/api/path', {headers, body: '{"data":"data"}'})
+    expect(fetch).toHaveBeenCalledWith('/efti/api/v1/path', {headers: {...headers}, body: '{"data":"data"}'})
     expect(await promise).to.equal('data')
     expect(document.documentElement.classList.contains('loading')).to.equal(false)
+  })
+
+  it('sends Authorization header when token is set', async () => {
+    setToken('test-jwt')
+    await api.requestJson('path', {body: {data: 'data'}})
+    expect(fetch).toHaveBeenCalledWith('/efti/api/v1/path', {
+      headers: {...headers, 'Authorization': 'Bearer test-jwt'},
+      body: '{"data":"data"}'
+    })
+  })
+
+  it('does not send Authorization header when no token', async () => {
+    await api.requestJson('path', {body: {data: 'data'}})
+    const callHeaders = fetch.mock.calls[0][1].headers
+    expect(callHeaders).to.not.have.property('Authorization')
   })
 
   it('refreshes on next navigate if version mismatch', async () => {

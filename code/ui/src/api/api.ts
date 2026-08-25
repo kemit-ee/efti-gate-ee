@@ -2,10 +2,29 @@ import {t} from 'i18n'
 
 export const headers = {'Content-Type': 'application/json; charset=UTF-8', 'Accept': 'application/json'} as HeadersInit
 
+const TOKEN_KEY = 'eftiJwt'
+
+export function getToken(): string | null {
+  return sessionStorage.getItem(TOKEN_KEY)
+}
+
+export function setToken(token: string) {
+  sessionStorage.setItem(TOKEN_KEY, token)
+}
+
+export function clearToken() {
+  sessionStorage.removeItem(TOKEN_KEY)
+}
+
 type Body = object|string|FormData|File
 
 class Api {
   constructor(public prefix = '/efti/api/v1/') {}
+
+  private authHeaders(): Record<string, string> {
+    const token = getToken()
+    return token ? {'Authorization': 'Bearer ' + token} : {}
+  }
 
   request(path: string, init?: RequestInit | {body?: Body, headers?: HeadersInit}): Promise<Response> {
     if (path.startsWith('/')) throw new Error('Invalid path: ' + path)
@@ -14,10 +33,11 @@ class Api {
     const disabledButtons = this.disableSubmitButtons((init as RequestInit)?.method)
 
     const body = init?.body
+    const mergedHeaders = {...headers, ...this.authHeaders(), ...(init?.headers ?? {})}
     return fetch(path, {
       ...init,
       body: body instanceof File || body instanceof FormData || typeof body == 'string' ? body : body && JSON.stringify(body),
-      headers: init?.headers ?? headers
+      headers: mergedHeaders
     })
     .catch(this.handleFetchFailure)
     .finally(() => {

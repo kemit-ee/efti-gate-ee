@@ -1,19 +1,24 @@
 declaration:
   version: "1.0"
-  description: "Logout — blacklist JWT via TIM and clear the browser cookie."
+  description: "Logout — blacklist JWT via TIM. The frontend drops its sessionStorage copy."
   method: post
   accepts: json
   returns: json
   allowlist:
-    headers:
-      - field: cookie
+    header:
+      - field: authorization
         type: string
-        description: "Cookie field"
+        description: "Bearer <gate JWT>"
 
-check_cookie:
+check_bearer:
   switch:
-    - condition: ${incoming.headers == null || incoming.headers.cookie == null}
-      next: clear_cookie
+    - condition: ${incoming.headers == null || incoming.headers.authorization == null || !incoming.headers.authorization.toLowerCase().startsWith("bearer ")}
+      next: return_ok
+  next: extract_token
+
+extract_token:
+  assign:
+    token: ${incoming.headers.authorization.substring(7)}
   next: expire_tim_session
 
 expire_tim_session:
@@ -21,13 +26,11 @@ expire_tim_session:
   args:
     url: "[#TIM_URL]/jwt/blacklist"
     headers:
-      cookie: ${incoming.headers.cookie}
+      cookie: "customJwtCookie=${token}"
       X-TIM-Admin-Token: "[#TIM_ADMIN_TOKEN]"
   result: expire_result
-  next: clear_cookie
+  next: return_ok
 
-clear_cookie:
-  headers:
-    Set-Cookie: "eftiJwtCookie=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
+return_ok:
   return: "logged out"
   next: end
