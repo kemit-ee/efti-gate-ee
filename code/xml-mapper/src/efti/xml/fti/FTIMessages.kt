@@ -93,7 +93,7 @@ data class ExchangedDocument(
   val id: UUID = UUID.randomUUID(),
   val issueDateTime: DateTimeString = DateTimeString(),
   @XmlPath("RequesterTradeParty/PostalTradeAddress/CountryID") val requesterCountry: CountryCode? = null,
-  val referencedId: List<UUID>? = null,
+  val referencedIds: List<UUID>? = null,
   @XmlPath("StatusCode") val responseCode: FTIResponseCode? = null,
   val includedNote: IncludedNote? = null,
 ) {
@@ -104,20 +104,11 @@ data class ExchangedDocument(
     responseCode?.let { append("<StatusCode>$it</StatusCode>") }
     append("<IssueDateTime>${issueDateTime.render()}</IssueDateTime>")
     includedNote?.let { append("<IncludedNote>${it.render()}</IncludedNote>") }
-    referencedId?.forEach { append("<ReferencedID schemeVersionID=\"RFC 9562-4\">$it</ReferencedID>") }
+    referencedIds?.forEach { append("<ReferencedID schemeVersionID=\"RFC 9562-4\">$it</ReferencedID>") }
     append("<RequestedSpecifiedQuery>${queryId.render()}</RequestedSpecifiedQuery>")
     requesterCountry?.let { append("<RequesterTradeParty><PostalTradeAddress><CountryID>$it</CountryID></PostalTradeAddress></RequesterTradeParty>") }
     append("</rsm:ExchangedDocument>")
   }
-}
-
-data class BinaryFile(
-  @XmlPath("FileName") val fileName: String,
-  @XmlPath("MIMECode") val mimeType: String,
-  @XmlPath("IncludedBinaryObject") val base64Content: String,
-) {
-  @Language("xml") fun render() =
-    """<AttachedSpecifiedBinaryFile><FileName>$fileName</FileName><MIMECode>$mimeType</MIMECode><IncludedBinaryObject format="base64Binary">$base64Content</IncludedBinaryObject></AttachedSpecifiedBinaryFile>"""
 }
 
 // --- Request message classes ---
@@ -161,15 +152,33 @@ data class FTI019SearchIdentifierRequest(
 
 data class FTI025LodgeFollowUpCommRequest(
   @XmlPath("ExchangedDocument") override val document: ExchangedDocument,
-  @XmlPath("MessageInformation/FollowUp") val followUp: String? = null,
-  @XmlPath("MessageInformation/AttachedSpecifiedBinaryFile") val files: List<BinaryFile> = emptyList(),
+  @XmlPath("MessageInformation") val followUp: FollowUp,
   @XmlPath("EFTIIDInformation/UniqueIDSetUniqueIDSet") val uil: UIL,
   @XmlPath("ExchangedDocumentContext") override val context: ExchangedDocumentContext = ExchangedDocumentContext(),
 ): FTIMessage {
   @Language("xml") fun render() = renderWith("""
-    <rsm:MessageInformation>${followUp?.let { "<FollowUp languageID=\"en\">$it</FollowUp>" } ?: ""}${files.joinToString("") { it.render() }}</rsm:MessageInformation>
+    <rsm:MessageInformation>${followUp.render()}</rsm:MessageInformation>
     <rsm:EFTIIDInformation>${uil.render()}</rsm:EFTIIDInformation>
   """)
+}
+
+data class FollowUp(
+  @XmlPath("FollowUp") val message: String? = null,
+  @XmlPath("AttachedSpecifiedBinaryFile") val files: List<BinaryFile> = emptyList(),
+) {
+  @Language("xml") fun render() = buildString {
+    message?.let { append("<FollowUp languageID=\"en\">$it</FollowUp>") }
+    files.forEach { append(it.render()) }
+  }
+}
+
+data class BinaryFile(
+  @XmlPath("FileName") val fileName: String,
+  @XmlPath("MIMECode") val mimeType: String,
+  @XmlPath("IncludedBinaryObject") val base64Content: String,
+) {
+  @Language("xml") fun render() =
+    """<AttachedSpecifiedBinaryFile><FileName>$fileName</FileName><MIMECode>$mimeType</MIMECode><IncludedBinaryObject format="base64Binary">$base64Content</IncludedBinaryObject></AttachedSpecifiedBinaryFile>"""
 }
 
 // --- Response message classes (outgoing from gate) ---
