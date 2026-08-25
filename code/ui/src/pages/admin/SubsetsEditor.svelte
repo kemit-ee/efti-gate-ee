@@ -6,6 +6,7 @@
   import type {Subset} from 'src/api/ruuterTypes'
 
   export let subsets: Subset[]
+  $: if (subsets.length < 1) add()
 
   $: subsets, validate()
 
@@ -25,6 +26,7 @@
   }
 
   function remove(i: number) {
+    if (subsets.length <= 1) return
     subsets.splice(i, 1)
     subsets = subsets
   }
@@ -50,7 +52,9 @@
         <option value="EU06"></option>
         <option value="EU07"></option>
       </datalist>
-      <Button label="×" onclick={() => remove(i)} title={t.general.remove} class="danger"/>
+      {#if subsets.length > 1}
+        <Button label="×" onclick={() => remove(i)} title={t.general.remove} class="danger"/>
+      {/if}
     </div>
   {/each}
   <div class="flex gap-6 items-center">
