@@ -87,7 +87,7 @@ simply not deployed.
 ### eFTI specific components
 Handles eFTI/eDelivery protocol specifics that Ruuter cannot do:
 
-XML-MAPPER:
+xml-mapper:
 | **XML/XSD parsing** | Parses incoming eFTI XML requests (by default only new XSD schemas), extracts data into JSON for Ruuter/ReSql                   |
 | **XML generation** | Builds eFTI XML responses from JSON data returned by ReSql                                                                      |
 

@@ -1,0 +1,19 @@
+declaration:
+  description: "Follow-up message through eDelivery"
+  allowed_body: [xml]
+
+call_follow_up:
+  template: api/v1/follow-up
+  request_type: "POST"
+  body:
+    xml: ${incoming.body.xml}
+  result: followup_response
+  next: respond
+
+respond:
+  return: ${followup_response}
+  headers:
+    Content-Type: "text/xml"
+  wrapper: false
+  status: 201
+  next: end
