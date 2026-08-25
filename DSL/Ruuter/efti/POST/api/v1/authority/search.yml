@@ -1,3 +1,74 @@
-# Input body: json ParameterSearchCriteria
-# 1. Do a local search first /api/v1/consignments/search
-# 2. If no results, forward the search to other gates via multiplexer
+declaration:
+  description: "Authority search for consignments — local first, then forward to other gates"
+
+setup:
+  assign:
+    requestId: ${incoming.headers['x-request-id']}
+  next:  local_search
+
+local_search:
+  template: api/v1/consignments/search
+  request_type: POST
+  body:
+    criteria: ${incoming.body}
+    limit: 100
+    offset: 0
+  result: local_result
+  next: check_local
+
+check_local:
+  switch:
+    - condition: ${local_result.length > 0}
+      next: respond_local
+  next: criteria-to-xml
+
+respond_local:
+  return: ${local_result}
+  wrapper: false
+  next: end
+
+criteria-to-xml:
+  call: http.post
+  args:
+    url: "[#XML_MAPPER_URL]/api/v1/search/request-to-xml"
+    headers:
+      content-type: "application/json"
+    body: ${incoming.body}
+  result: criteria_xml
+  next: forward_to_gates
+
+forward_to_gates:
+  call: http.post
+  timeout: 65000
+  args:
+    url: "[#MULTIPLEXER_URL]/api/v1/first/${requestId}"
+    headers:
+      content-type: "text/xml"
+      x-request-id: ${requestId}
+    body: ${criteria_xml.response.body.xml}
+    content_type: plaintext
+  result: gates_result
+  next: return
+
+xml-to-json:
+  call: http.post
+  args:
+    url: "[#XML_MAPPER_URL]/api/v1/search/response-to-json"
+    headers:
+      content-type: "text/xml"
+    body: ${gates_result.response.body}
+  result: first_result
+  next: respond_first
+
+respond_first:
+  return: ${first_result}
+  headers:
+    content-type: "application/json"
+    x-poll-more: true # TODO: let authority ask for the rest of the results
+  wrapper: false
+  next: end
+
+respond_empty:
+  return: []
+  wrapper: false
+  next: end

@@ -23,30 +23,7 @@ class UploadRoutes(val requestIdHandler: RequestIdHandler) {
       requestIdHandler.send(e, req.document.queryId)
       req.content
     } else xmlParser.parse<UniqueIDSetUniqueIDSet>(xml)
-    val criteria = content.criteria!!
-    return ConsignmentRow(content.uil.datasetId, content.uil.platformId, content.uil.gateId,
-      xml.extractParameterIDSetCriteria(),
-      criteria.transportMode,
-      criteria.acceptanceDate?.instant,
-      criteria.acceptanceCountry,
-      criteria.deliveryDate?.instant,
-      criteria.deliveryCountry,
-      criteria.dangerousGoods,
-      criteria.mainTransportId,
-      criteria.mainTransportType,
-      criteria.transportRegCountry,
-      criteria.loadingDate?.instant,
-      criteria.loadingCountry,
-      criteria.unloadingDate?.instant,
-      criteria.unloadingCountry,
-      criteria.usedEquipmentIds,
-      criteria.usedEquipmentCategories,
-      criteria.usedEquipmentCountries,
-      criteria.usedEquipmentSeq,
-      criteria.carriedEquipmentIds,
-      criteria.carriedEquipmentCategories,
-      criteria.carriedEquipmentSeq,
-    )
+    return ConsignmentRow(content, xml)
   }
 
   @Operation(description = "Map UIL as JSON to FTI029UploadIdentifierResponse as XML.")

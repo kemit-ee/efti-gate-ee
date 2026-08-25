@@ -52,6 +52,7 @@ forward_to_platform:
   args:
     url: "${platform_result.response.body[0].baseUrl}/v1/dataset/${incoming.body.uil.datasetId}/follow-up"
     headers:
+      # TODO: merge headers when Ruuter is fixed: https://github.com/turnerrainer/Ruuter/issues/25
       "*": ${platform_result.response.body[0].headers}
       "Content-Type": "application/json"
       "X-Dataset-Request-ID": ${incoming.body.referenceIds[0]}
