@@ -86,7 +86,7 @@ subprojects {
   }
 
   tasks.register<JavaExec>("run") {
-    workingDir(projectDir)
+    workingDir = projectDir
     jvmArgs("--add-opens=java.base/sun.security.x509=ALL-UNNAMED")
     mainClass.set(mainClassName)
     classpath = sourceSets.main.get().runtimeClasspath

@@ -16,8 +16,8 @@ import klite.uuid
 )
 class SearchRoutes(val requestIdHandler: RequestIdHandler) {
   @Operation(description = "Map ParameterSearchCriteria as JSON to Fti019SearchIdentifierRequest as XML.")
-  @POST("/request-to-xml") fun requestToXml(criteria: ParameterSearchCriteria, e: HttpExchange): String =
-    FTI019SearchIdentifierRequest(ExchangedDocument("019", e.requestId.uuid), criteria).render()
+  @POST("/request-to-xml") fun requestToXml(criteria: ParameterSearchCriteria, e: HttpExchange): RuuterXmlWrapper =
+    RuuterXmlWrapper(FTI019SearchIdentifierRequest(ExchangedDocument("019", e.requestId.uuid), criteria).render())
 
   @Operation(description = "Map FTI019SearchIdentifierRequest as XML to ParameterSearchCriteria as JSON.")
   @POST("/request-to-json") fun requestToJson(xml: String, e: HttpExchange): ParameterSearchCriteria {
@@ -26,10 +26,9 @@ class SearchRoutes(val requestIdHandler: RequestIdHandler) {
     return req.searchCriteria
   }
 
-  @Operation(description = "Map one or more FTI021SearchIdentifierResponse as XML with delimiter to multiple UniqueIDSetUniqueIDSet as JSON. Coming from multiplexer, meant for Authority request.")
-  @POST("/response-to-json") fun responseToJson(xml: String): List<UniqueIDSetUniqueIDSet> {
-    return xml.split("⦀").flatMap { xmlParser.parse<FTI021SearchIdentifierResponse>(it).content ?: emptyList() }.toList()
-  }
+  @Operation(description = "Map one or more FTI021SearchIdentifierResponse as XML with delimiter to multiple ConsignmentRow as JSON. Coming from multiplexer, meant for Authority request.")
+  @POST("/response-to-json") fun responseToJson(xml: String): List<ConsignmentRow> =
+    xml.split("⦀").flatMap { xml -> xmlParser.parse<FTI021SearchIdentifierResponse>(xml).content?.map { r -> ConsignmentRow(r, xml) } ?: emptyList() }
 
   @Operation(description = "Map ConsignmentRow as JSON to FTI021SearchIdentifierResponse as XML. Meant for other Gate request.")
   @POST("/response-to-xml") fun responseToXml(consignments: List<ConsignmentRow>, e: HttpExchange): RuuterXmlWrapper =

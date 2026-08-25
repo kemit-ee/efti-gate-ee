@@ -1,5 +1,26 @@
+### Authority searches for local consignments
+POST {{RUUTER_URL}}/efti/api/v1/authority/search
+Content-Type: application/json
+X-Request-ID: 073b32bc-a081-11f1-8d67-3c9c0f2eb459
+
+{
+  "mainTransportId": {"operator": "EQ", "id": "VESSEL-001"}
+}
+
+### Authority searches for remote consignments
+# @timeout 70
+POST {{RUUTER_URL}}/efti/api/v1/authority/search
+Content-Type: application/json
+X-Request-ID: 073b32bc-a081-11f1-8d67-3c9c0f2eb459
+
+{
+  "mainTransportId": {"operator": "EQ", "id": "065EST"}
+}
+
+### Authority sends a follow-up message for a consignment
 POST {{RUUTER_URL}}/efti/api/v1/follow-up
 Content-Type: application/json
+X-Request-ID: 327b4aea-a081-11f1-a87b-3c9c0f2eb459
 
 {
   "uil": {
@@ -7,7 +28,7 @@ Content-Type: application/json
     "platformId": "mock",
     "datasetId": "b24ebf37-a068-11f1-b8f0-3c9c0f2eb459"
   },
-  "referenceIds": ["9aca84c8-a071-11f1-931e-3c9c0f2eb459"],
+  "referenceIds": ["073b32bc-a081-11f1-8d67-3c9c0f2eb459"],
   "message": "Follow-up message for the consignment",
   "files": [{"fileName": "document.pdf", "fileContent": "base64-encoded-content"}]
 }

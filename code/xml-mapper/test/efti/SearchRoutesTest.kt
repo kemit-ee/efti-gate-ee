@@ -37,7 +37,7 @@ class SearchRoutesTest : BaseMocks() {
   }
 
   @Test fun requestToXml() {
-    val xml = routes.requestToXml(criteria, exchange)
+    val xml = routes.requestToXml(criteria, exchange).xml
 
     expect(xml).toContain("<TypeCode>019</TypeCode>")
     expect(xml).toContain("<CarrierAcceptanceCountryParameterScope>")
@@ -50,7 +50,7 @@ class SearchRoutesTest : BaseMocks() {
   }
 
   @Test fun requestToXmlRoundtrip() {
-    val xml = routes.requestToXml(criteria, exchange)
+    val xml = routes.requestToXml(criteria, exchange).xml
     val parsed = routes.requestToJson(xml, exchange)
 
     verify { requestIdHandler.send(exchange, "00000000-0000-0000-0000-000000000001".uuid) }
@@ -66,9 +66,9 @@ class SearchRoutesTest : BaseMocks() {
     val result = routes.responseToJson(xml)
 
     expect(result.size).toEqual(1)
-    expect(result.first().uil.gateId).toEqual(GateId("Gate-001"))
-    expect(result.first().uil.platformId).toEqual(PlatformId("Platform-001"))
-    expect(result.first().uil.datasetId).toEqual("550e8400-e29b-41d4-a716-446655440000".uuid)
+    expect(result.first().gateId).toEqual(GateId("Gate-001"))
+    expect(result.first().platformId).toEqual(PlatformId("Platform-001"))
+    expect(result.first().datasetId).toEqual("550e8400-e29b-41d4-a716-446655440000".uuid)
   }
 
   @Test fun responseToJsonMultiple() {
@@ -77,7 +77,7 @@ class SearchRoutesTest : BaseMocks() {
     val result = routes.responseToJson(combined)
 
     expect(result.size).toEqual(2)
-    expect(result[0].uil.gateId).toEqual(GateId("Gate-001"))
-    expect(result[1].uil.gateId).toEqual(GateId("Gate-001"))
+    expect(result[0].gateId).toEqual(GateId("Gate-001"))
+    expect(result[1].gateId).toEqual(GateId("Gate-001"))
   }
 }

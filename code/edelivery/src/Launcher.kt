@@ -6,7 +6,7 @@ import klite.annotations.annotated
 import klite.http.httpClient
 import klite.json.JsonBody
 import klite.openapi.openApi
-import resql.ResqlClient
+import java.util.concurrent.TimeoutException
 
 fun main() {
   Config.useEnvFile()
@@ -14,13 +14,12 @@ fun main() {
   Server(requestIdGenerator = RequestIdHandler()).apply {
     use<JsonBody>()
     register(httpClient())
-    require<ResqlClient>().apply {
-      val partyRegistry = require<EDeliveryPartyRegistry>()
-      partyRegistry.load(getParties())
-      register<PartyRegistry>(partyRegistry)
-    }
+    register<PartyRegistry>(EDeliveryPartyRegistry::class)
     register<AsyncResponseProvider>(SingleNodeAsyncResponseProvider::class)
     register<MessageHandler>(EftiMessageHandler::class)
+
+    errors.on<TimeoutException>(StatusCode.GatewayTimeout)
+
     metrics()
 
     context("/health") {

@@ -10,11 +10,10 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.util.*
 import java.util.concurrent.ArrayBlockingQueue
-import java.util.concurrent.TimeUnit.MINUTES
-import kotlin.time.Duration.Companion.minutes
+import java.util.concurrent.TimeUnit.SECONDS
 import kotlin.time.Duration.Companion.seconds
 
-class MultiplexerRoutes(private val registry: PartyRegistry, private val http: HttpClient) {
+class MultiplexerRoutes(private val registry: GateRegistry, private val http: HttpClient) {
   private val eDeliveryUrl = URI(Config["EDELIVERY_URL"])
   private val pending = Cache<UUID, PartyResponses>(90.seconds)
 
@@ -24,11 +23,11 @@ class MultiplexerRoutes(private val registry: PartyRegistry, private val http: H
     pending[searchId] = responses
 
     AppScope.async {
-      val futures = registry.parties.map { (id, _) ->
+      val futures = registry.gates.keys.map { gateId ->
         AppScope.async {
-          val response = http.post(eDeliveryUrl + "/send/$id", xml) {
+          val response = http.post(eDeliveryUrl + "/api/v1/send/$gateId", xml) {
             header("x-request-id", searchId.toString())
-            timeout(1.minutes)
+            timeout(62.seconds)
           }
           if (response.statusCode() == 200) responses.xmls.add(response.body())
         }
@@ -37,7 +36,7 @@ class MultiplexerRoutes(private val registry: PartyRegistry, private val http: H
       responses.complete = true
     }
 
-    return responses.xmls.poll(1, MINUTES) ?: throw StatusCodeException(GatewayTimeout)
+    return responses.xmls.poll(63, SECONDS) ?: throw StatusCodeException(GatewayTimeout)
   }
 
   @Operation(description = "Returns rest of the received responses as XMLs with string delimiter '⦀'. Can be polled.")
