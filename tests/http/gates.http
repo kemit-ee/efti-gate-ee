@@ -36,7 +36,7 @@ Content-Type: application/json
 %}
 
 ### Get single gate
-GET {{RUUTER_URL}}/efti/api/v1/gates?gateId=POC
+GET {{RUUTER_URL}}/efti/api/v1/gates/POC
 Content-Type: application/json
 
 > {%
@@ -76,7 +76,7 @@ Content-Type: application/json
 %}
 
 ### Verify gate deleted
-GET {{RUUTER_URL}}/efti/api/v1/gates?gateId=POC
+GET {{RUUTER_URL}}/efti/api/v1/gates/POC
 Content-Type: application/json
 
 > {%

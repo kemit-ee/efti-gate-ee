@@ -29,7 +29,7 @@ Content-Type: application/json
 %}
 
 ### Get single user
-GET {{RUUTER_URL}}/efti/api/v1/users?userId={{userId}}
+GET {{RUUTER_URL}}/efti/api/v1/users/{{userId}}
 Content-Type: application/json
 
 > {%
@@ -76,7 +76,7 @@ Content-Type: application/json
 %}
 
 ### Verify user deleted
-GET {{RUUTER_URL}}/efti/api/v1/users?userId={{userId}}
+GET {{RUUTER_URL}}/efti/api/v1/users/{{userId}}
 Content-Type: application/json
 
 > {%

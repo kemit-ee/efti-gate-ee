@@ -1,6 +1,6 @@
 route:
   switch:
-    - condition: ${incoming.params.platformId != null}
+    - condition: ${incoming.params.pathParams[0] != null}
       next: fetch_single
   next: fetch_list
 
@@ -11,7 +11,7 @@ fetch_single:
     headers:
       Content-Type: "application/json"
     body:
-      id: "${incoming.params.platformId}"
+      id: "${incoming.params.pathParams[0]}"
   result: single_result
   next: check_single
 

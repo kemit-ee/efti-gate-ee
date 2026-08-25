@@ -36,7 +36,7 @@ Content-Type: application/json
 %}
 
 ### Get single authority
-GET {{RUUTER_URL}}/efti/api/v1/authorities?authorityId=auth-mta
+GET {{RUUTER_URL}}/efti/api/v1/authorities/auth-mta
 Content-Type: application/json
 
 > {%
@@ -75,7 +75,7 @@ Content-Type: application/json
 %}
 
 ### Verify authority deleted
-GET {{RUUTER_URL}}/efti/api/v1/authorities?authorityId=auth-mta
+GET {{RUUTER_URL}}/efti/api/v1/authorities/auth-mta
 Content-Type: application/json
 
 > {%

@@ -38,7 +38,7 @@ Content-Type: application/json
 %}
 
 ### Get single platform
-GET {{RUUTER_URL}}/efti/api/v1/platforms?platformId=demo
+GET {{RUUTER_URL}}/efti/api/v1/platforms/demo
 Content-Type: application/json
 
 > {%
@@ -80,7 +80,7 @@ Content-Type: application/json
 %}
 
 ### Verify platform deleted
-GET {{RUUTER_URL}}/efti/api/v1/platforms?platformId=demo
+GET {{RUUTER_URL}}/efti/api/v1/platforms/demo
 Content-Type: application/json
 
 > {%
