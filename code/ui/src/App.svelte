@@ -32,11 +32,11 @@
 <Toasts/>
 
 <Router>
-  <Route path="/auth/callback" component={AuthCallbackPage}/>
   <Navbar {routes}/>
   <main class="min-h-screen p-4 md:p-6 !pt-24">
     {#each routes as r}
       <Route {...r}/>
     {/each}
+    <Route path="/auth/callback" component={AuthCallbackPage}/>
   </main>
 </Router>
