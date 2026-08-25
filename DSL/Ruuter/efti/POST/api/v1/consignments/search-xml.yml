@@ -36,7 +36,7 @@ to_xml:
 
 ## TODO: This returns XML as string (XML is wrapped in "")
 respond:
-  return: ${search_response}
+  return: ${xml_response.response.body.xml}
   headers:
     Content-Type: "text/xml"
   wrapper: false

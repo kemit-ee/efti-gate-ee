@@ -10,7 +10,7 @@ import java.net.http.HttpResponse
 /** Forwards raw EFTI XMLs to Ruuter for further conversion */
 class RuuterClient(
   private val http: HttpClient,
-  private val baseUrl: URI = URI(Config["RUUTER_URL"]),
+  private val baseUrl: URI = URI(Config["RUUTER_URL"] + "/efti/api/v1"),
 ) {
   fun saveConsignment(xml: String /* FTI004UploadIdentifierRequest */) =
     http.sendXml(baseUrl + "/consignments-xml", xml)
