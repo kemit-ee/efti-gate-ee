@@ -55,7 +55,7 @@ The numbers below adopt the **EU-wide-passthrough scenario** because (a) it dime
 
 - **Two nodes minimum** in production (active/active behind a Layer-7 load balancer). One node alone leaves zero error budget for rolling upgrade or single-host failure.
 - **Two pods minimum**, scheduled across at least two Kubernetes nodes (topology spread); a single-host failure must not kill all gate replicas. "Two nodes" in shorthand means "two pods on distinct hosts" — not two pods on the same host.
-- **One PostgreSQL primary** plus a streaming-replica standby for DR. PostgreSQL 14+; same major version on primary and standby.
+- **One PostgreSQL primary** plus a streaming-replica standby for DR. PostgreSQL 14–17 (see the version-floor table in §4 for why 18 is excluded); same major version on primary and standby.
 - **Layer-7 load balancer** (operator's choice — nginx, HAProxy, AWS ALB, etc.) using **least-connections** distribution. Health check: `GET /health/ready`, 5 s interval, 2 consecutive failures = unhealthy, 1 success = healthy. **No sticky sessions** (the JWT is stateless).
 - **LISTEN/NOTIFY** (PostgreSQL's built-in transactional pub/sub mechanism — writers publish with `NOTIFY channel, 'payload'`, subscribers receive after writer commit via `LISTEN channel`) for in-cluster registry sync. The application emits the `NOTIFY` from the same transaction that INSERTs the registry row — no DB-side trigger; subscribers receive it on transaction commit. **Channel naming**: `registry_change_gates`, `registry_change_platforms`, `registry_change_authorities` — one channel per registry table, payload is the affected logical id. Documented in `arch-01-multi-node-deployment.mmd` and `seq-15-gate-registry-sync.mmd`.
 - **Reverse proxy** (e.g. Caddy / Traefik / nginx) terminates both TLS and inbound mTLS for the Platform API; the proxy validates the platform cert chain against the EU Trust Service trust list and forwards `X-Client-Cert-Subject` / `X-Client-Cert-Serial` headers. Gate processes do not handle TLS or mTLS directly. Trust-list refresh: every 24 h from `EU_TRUST_LIST_URL`; OCSP / CRL checks **fail closed** (cert is treated as invalid if the revocation lookup fails or times out — see §4.1 `OCSP_TIMEOUT_MS`, `CRL_REFRESH_HOURS`).
@@ -91,7 +91,7 @@ The gate runtime is **stateless** — no in-memory request state, no sticky sess
 
 | Concern | Pinned contract | Notes |
 |---|---|---|
-| **PostgreSQL** | 14+ (tested 14.10 / 15.5 / 16.1) | Required extensions: `uuid-ossp`, `citext`, `pg_trgm`, `btree_gin`. Append-only role grants per `db/README.md`. |
+| **PostgreSQL** | 14 – **17** (tested 14.10 / 15.5 / 16.1 / 17) | Required extensions: `uuid-ossp`, `citext`, `pg_trgm`, `btree_gin`. Append-only role grants per `db/README.md`. **Upper bound is real:** ReSQL `v1.3.4` and TIM `pre-apha-2.7.1` both bundle the PostgreSQL JDBC driver 42.3.9, which officially supports servers to 15; 17 is a tested calculated risk and **18 must not be used**. Lift the ceiling only once both images ship JDBC ≥ 42.6 — see `docs/planning/known-issues.md` KI-001. |
 | **XML processing** | Must validate every inbound eFTI payload against the XSDs in `docs/efti-analysis/xsd/`; must emit AS4 SOAP envelopes per the eDelivery 1.15 conformance profile. Streaming preferred (10 MB body limit, §6). | Library is the implementer's choice. |
 | **Cryptography (eDelivery)** | AES-128-GCM for symmetric encryption; RSA-OAEP for key transport; XML Signature SHA-256. | Per the EU eDelivery AS4 1.15 conformance profile. |
 | **JWT validation** | RS256 only. JWKS fetched from `taraJwt` discovery and cached per `TARA_JWKS_CACHE_SECONDS`; on `kid` cache-miss the validator force-refreshes JWKS once before failing. **Clock-skew tolerance: ±60 s** for `exp`, `iat`, `nbf`. | Any RS256-capable JWT library satisfies the contract. |
@@ -106,8 +106,12 @@ The gate runtime is **stateless** — no in-memory request state, no sticky sess
 |---|---|---|
 | `TARA_OIDC_DISCOVERY_URL` | Where the gate fetches JWKS, `iss`, supported algorithms. | `https://tara.ria.ee/.well-known/openid-configuration` (test issuer for non-prod) |
 | `TARA_CLIENT_ID` | The gate's TARA `aud` claim. | required, no default |
-| `TARA_CLIENT_SECRET` | Required only for the OIDC code-exchange flow consumed by the admin/authority browser UI. The gate's REST API itself only validates JWTs; it does not exchange codes. | optional |
-| `TARA_JWKS_CACHE_SECONDS` | TTL for the JWKS cache. | 3600 |
+| `TARA_CLIENT_SECRET` | Consumed by **TIM**, which performs the OIDC code exchange. The gate's REST API never handles OIDC codes and never holds this secret. | required by TIM, no default |
+| `TARA_JWKS_CACHE_SECONDS` | TTL for the JWKS cache. Applies to TIM, which is the component that validates TARA ID tokens. | 3600 |
+| `TIM_KEYSTORE_PASSWORD` | Password for the keystore holding TIM's JWT signing key (`JWT_INTEGRATION_SIGNATURE_KEY_STORE_PASSWORD`). Provisioned via Kubernetes Secret. | required, no default |
+| `TIM_DB_PASSWORD` | Password for TIM's own PostgreSQL instance (sessions and token blacklist). Not the eFTI database. | required, no default |
+| `JWT_TTL_MINUTES` | Session-token lifetime, applied by TIM as `legacy-portal-integration.sessionTimeoutMinutes`. Bounds how long an unrevoked session lasts; it is **not** the revocation-latency knob, since revocation is immediate (`permissions-matrix.md` §6). | 30 (TIM's own default) |
+| `SECURITY_ALLOWLIST_JWT` | Comma-separated hostnames/IPs TIM will answer `/jwt/*` for. Must include `ruuter`. Hostname-based, so it is only meaningful on a non-routable internal network. | required, no default |
 | `ARCHIVE_OPS_TOKEN` | The static Bearer secret accepted on `/api/v1/admin/archive`, `/expire-identifiers`, `/ping-gates`. 256-bit random; provisioned via Kubernetes Secret. | required, no default |
 | `LOCAL_ADMIN_FALLBACK_ENABLED` | If `true`, `POST /api/v1/auth/local-token` returns 200 with a gate-signed JWT instead of 503. | `false` |
 | `BREAK_GLASS_JWT_SIGNING_KEY` | PEM-encoded RSA private key the gate uses to sign break-glass JWTs (only consulted when `LOCAL_ADMIN_FALLBACK_ENABLED=true`). | optional |
@@ -124,7 +128,14 @@ The gate runtime is **stateless** — no in-memory request state, no sticky sess
 | `AUTHORITY_QUERY_AUDIT` | When `enabled` (default), every authority access produces a 7-year-retained `audit_log` row per `logging-spec.md` §5. When `disabled`, audit rows are skipped — operationally permitted only in non-production environments to control the live-DB growth rate. Disabling in production violates GDPR Art 30 retention. | enabled |
 | `TARA_OIDC_DISCOVERY_REFRESH_HOURS` | The OIDC discovery document (`/.well-known/openid-configuration`) is re-fetched at this cadence. The JWKS cache TTL (`TARA_JWKS_CACHE_SECONDS`) is independent and shorter. | 24 |
 
-There is **no** `JWT_EXPIRY_SECONDS` env var on the primary auth path — TARA owns expiry policy. The earlier draft of the spec referenced these variables; they are removed. The break-glass path's TTL is hardcoded to 600 s and operator-shortenable via `BREAK_GLASS_JWT_TTL_SECONDS`.
+**Expiry ownership.** An earlier draft stated that TARA owns expiry policy on the primary
+auth path and that no expiry variable exists. That is not the case: the session token is
+minted by **TIM**, so TIM owns its lifetime, via `JWT_TTL_MINUTES` above (TIM property
+`legacy-portal-integration.sessionTimeoutMinutes`, applied in `JwtUtils.createSignedJwt()`
+whenever the caller supplies no explicit expiry — which is every OIDC login). TARA's own ID
+token is short-lived and is consumed once, by TIM, at code exchange; it never reaches the
+gate's REST surface. The break-glass path's TTL remains hardcoded to 600 s and
+operator-shortenable via `BREAK_GLASS_JWT_TTL_SECONDS`.
 
 ### 4.2 Pinned implementation choices (load-bearing decisions)
 

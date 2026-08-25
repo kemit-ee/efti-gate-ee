@@ -88,6 +88,7 @@ create_user:
       Content-Type: "application/json"
     body:
       taraSub: "${incoming.body.taraSub}"
+      email: "${incoming.body.email}"
       name: "${incoming.body.name}"
   result: insert_result
   next: check_insert

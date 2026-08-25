@@ -1,8 +1,8 @@
-INSERT INTO users (id, tara_sub, name, token_revoked_at, is_active)
-SELECT id, tara_sub, name, NOW(), is_active
+INSERT INTO users (id, tara_sub, email, name, token_revoked_at, is_active)
+SELECT id, tara_sub, email, name, NOW(), is_active
 FROM (
   SELECT DISTINCT ON (id)
-    id, tara_sub, name, is_active
+    id, tara_sub, email, name, is_active
   FROM users
   WHERE id = :userId::uuid
   ORDER BY id, created_at DESC

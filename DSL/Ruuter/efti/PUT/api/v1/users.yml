@@ -24,6 +24,7 @@ update_user:
     body:
       id: "${incoming.params.pathParams[0]}"
       taraSub: "${incoming.body.taraSub}"
+      email: "${incoming.body.email}"
       name: "${incoming.body.name}"
   result: update_result
   next: check_update

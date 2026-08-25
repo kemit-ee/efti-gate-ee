@@ -2,10 +2,10 @@
 -- 0. EXTENSIONS + ROLES
 -- ============================================================================
 
-CREATE EXTENSION "uuid-ossp";
-CREATE EXTENSION "citext";
-CREATE EXTENSION "pg_trgm";
-CREATE EXTENSION "btree_gin";
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "citext";
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+CREATE EXTENSION IF NOT EXISTS "btree_gin";
 
 CREATE USER app WITH PASSWORD 'app-secret';
 CREATE USER db_archiver WITH PASSWORD 'archiver-secret';
