@@ -34,10 +34,6 @@ class EDeliveryRoutes(
   private val xmlParser = XmlParser()
   private val log = logger()
 
-  // TODO: drop regexps
-  private val requestIdRegex = """requestId="([^"]+)"""".toRegex()
-  private val ftiRequestIdRegex = """<ExchangedDocument>\s*<ID>([^<]+)</ID>""".toRegex()
-
   @GET("/msh") fun mshInfo() = "eDelivery MSH endpoint is up, please send POST requests"
 
   @POST("/msh")
@@ -58,15 +54,13 @@ class EDeliveryRoutes(
         ?: body.values.toList().getOrNull(1) as ByteArray
       val payloadXml = decryptPayload(header, keyManager.ownPrivateKey, encryptedPayload, encryptedSymmetricKey)
 
-      val thread = currentThread()
-      val extRequestId = requestIdRegex.from(payloadXml) ?: ftiRequestIdRegex.from(payloadXml)
-      if (extRequestId != null) thread.name = "${e.requestId}/$extRequestId"
+      currentThread().name = "${e.requestId}/${header.conversationId}"
 
       val responseXml = eDeliveryMessageGenerator.responseMessage(header)
       e.send(OK, responseXml, soap)
 
       AppScope.async {
-        val responseKey = RequestKey(header.senderId, extRequestId ?: e.requestId, header.receiverId)
+        val responseKey = RequestKey(header.senderId, header.conversationId, header.receiverId)
         val party = partyRegistry[responseKey.receiverId]
         val result = messageHandler.response(responseKey, payloadXml)
         if (result != null)
