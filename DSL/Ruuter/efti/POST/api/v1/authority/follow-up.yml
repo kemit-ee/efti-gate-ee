@@ -1,4 +1,4 @@
-# Path params: /:gateId/:platformId/:datasetId/:referencedRequestId
-# Input body: FollowUp, files are optional
-# If local gate, then query local platform (over rest or over edelivery)
-# If remote gate, forward query to other gate (over edelivery)
+declaration:
+  description: "Authority sends a follow-up message to a Platform via the gate (TARA JWT)"
+
+# Input body: FollowUpRequest, files are optional

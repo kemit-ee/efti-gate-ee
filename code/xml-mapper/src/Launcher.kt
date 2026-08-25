@@ -1,5 +1,5 @@
 import efti.DatasetRoutes
-import efti.FollowupRoutes
+import efti.FollowUpRoutes
 import efti.SearchRoutes
 import efti.UploadRoutes
 import efti.xml.fti.DateTimeString
@@ -25,7 +25,7 @@ fun main() {
       annotated<UploadRoutes>("/upload")
       annotated<SearchRoutes>("/search")
       annotated<DatasetRoutes>("/dataset")
-      annotated<FollowupRoutes>("/followup")
+      annotated<FollowUpRoutes>("/followup")
 
       openApi(annotations = listOf(
         OpenAPIDefinition(info = Info(title = "XML-Mapper", version = "1.0")),

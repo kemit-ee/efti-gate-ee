@@ -14,16 +14,16 @@ import java.util.*
   name = "Follow-up request",
   description = "These routes are for mapping requests and responses for follow-up request."
 )
-class FollowupRoutes(val requestIdHandler: RequestIdHandler) {
+class FollowUpRoutes(val requestIdHandler: RequestIdHandler) {
   @Operation(description = "Map UIL and Message as JSON to FTI025LodgeFollowUpCommRequest as XML.")
-  @POST("/request-to-xml") fun requestToXml(req: FollowupRequest, e: HttpExchange): String =
+  @POST("/request-to-xml") fun requestToXml(req: FollowUpRequest, e: HttpExchange): String =
     FTI025LodgeFollowUpCommRequest(ExchangedDocument("025", e.requestId.uuid, referencedIds = req.referenceIds), FollowUp(req.message, req.files), req.uil).render()
 
   @Operation(description = "Map FTI025LodgeFollowUpCommRequest as XML to UIL and Message as JSON.")
-  @POST("/request-to-json") fun requestToJson(xml: String, e: HttpExchange): FollowupRequest {
+  @POST("/request-to-json") fun requestToJson(xml: String, e: HttpExchange): FollowUpRequest {
     val req = xmlParser.parse<FTI025LodgeFollowUpCommRequest>(xml)
     requestIdHandler.send(e, req.document.queryId)
-    return FollowupRequest(req.uil, req.document.referencedIds ?: emptyList(), req.followUp.message ?: "", req.followUp.files)
+    return FollowUpRequest(req.uil, req.document.referencedIds ?: emptyList(), req.followUp.message ?: "", req.followUp.files)
   }
 
   @Operation(description = "Map FTI030LodgeFollowUpCommResponse as XML to UIL as JSON.")
@@ -38,4 +38,4 @@ class FollowupRoutes(val requestIdHandler: RequestIdHandler) {
     FTI030LodgeFollowUpCommResponse(ExchangedDocument("030", e.requestId.uuid), uil).render()
 }
 
-data class FollowupRequest(val uil: UIL, val referenceIds: List<UUID>, val message: String, val files: List<BinaryFile> = emptyList())
+data class FollowUpRequest(val uil: UIL, val referenceIds: List<UUID>, val message: String, val files: List<BinaryFile> = emptyList())

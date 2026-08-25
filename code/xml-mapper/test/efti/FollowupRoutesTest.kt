@@ -13,7 +13,7 @@ import java.io.File
 import java.util.*
 
 class FollowupRoutesTest : BaseMocks() {
-  val routes = FollowupRoutes(requestIdHandler)
+  val routes = FollowUpRoutes(requestIdHandler)
 
   @Test fun requestToJson() {
     val xml = File("xsd/FTI025/sample.xml").readText()
@@ -29,7 +29,7 @@ class FollowupRoutesTest : BaseMocks() {
 
   @Test fun requestToXml() {
     val uil = UIL(PlatformId("Platform-001"), "550e8400-e29b-41d4-a716-446655440000".uuid, GateId("Gate-001"))
-    val request = FollowupRequest(uil, listOf(UUID.randomUUID()), "Follow-up: correction of consignee address")
+    val request = FollowUpRequest(uil, listOf(UUID.randomUUID()), "Follow-up: correction of consignee address")
     val xml = routes.requestToXml(request, exchange)
 
     expect(xml).toContain("<TypeCode>025</TypeCode>")
@@ -41,7 +41,7 @@ class FollowupRoutesTest : BaseMocks() {
 
   @Test fun requestToXmlRoundtrip() {
     val uil = UIL(PlatformId("Platform-001"), "550e8400-e29b-41d4-a716-446655440000".uuid, GateId("Gate-001"))
-    val request = FollowupRequest(uil, listOf(UUID.randomUUID()), "Follow-up: correction of consignee address")
+    val request = FollowUpRequest(uil, listOf(UUID.randomUUID()), "Follow-up: correction of consignee address")
     val xml = routes.requestToXml(request, exchange)
     val parsed = routes.requestToJson(xml, exchange)
 
