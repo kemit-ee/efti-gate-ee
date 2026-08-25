@@ -38,4 +38,4 @@ class FollowUpRoutes(val requestIdHandler: RequestIdHandler) {
     FTI030LodgeFollowUpCommResponse(ExchangedDocument("030", e.requestId.uuid), uil).render()
 }
 
-data class FollowUpRequest(val uil: UIL, val referenceIds: List<UUID>, val message: String, val files: List<BinaryFile> = emptyList())
+data class FollowUpRequest(val uil: UIL, val referenceIds: List<UUID> = emptyList(), val message: String, val files: List<BinaryFile> = emptyList())
