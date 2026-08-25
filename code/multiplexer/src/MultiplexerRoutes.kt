@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit.MINUTES
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
-class MultiplexerRoutes(private val registry: PartyRegistry, private val http: HttpClient) {
+class MultiplexerRoutes(private val registry: GateRegistry, private val http: HttpClient) {
   private val eDeliveryUrl = URI(Config["EDELIVERY_URL"])
   private val pending = Cache<UUID, PartyResponses>(90.seconds)
 
@@ -24,7 +24,7 @@ class MultiplexerRoutes(private val registry: PartyRegistry, private val http: H
     pending[searchId] = responses
 
     AppScope.async {
-      val futures = registry.parties.map { (id, _) ->
+      val futures = registry.gates.map { (id, _) ->
         AppScope.async {
           val response = http.post(eDeliveryUrl + "/send/$id", xml) {
             header("x-request-id", searchId.toString())
