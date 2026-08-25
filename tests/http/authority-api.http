@@ -1,0 +1,8 @@
+POST {{RUUTER_URL}}/mock-platform/v1/dataset/b24ebf37-a068-11f1-b8f0-3c9c0f2eb459/follow-up
+Content-Type: application/json
+X-Api-Key: mock-secret-key
+
+{
+  "message": "Follow-up message for the consignment",
+  "files": [{"fileName": "document.pdf", "fileContent": "base64-encoded-content"}]
+}
