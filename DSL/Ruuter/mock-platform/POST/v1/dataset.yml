@@ -18,7 +18,9 @@ log_request:
   next: respond
 
 respond:
-  return: ${incoming.body}
+  return:
+    datasetId: ${incoming.params.pathParams[0]}
+    message: ${incoming.body.message}
   wrapper: false
   status: 201
   next: end
