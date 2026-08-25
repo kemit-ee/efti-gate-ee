@@ -4,7 +4,7 @@ databaseChangeLog:
       author: efti
       changes:
         - sqlFile:
-            path: changelogs/000-extensions.sql
+            path: initial/000-extensions.sql
             relativeToChangelogFile: true
             splitStatements: false
             encoding: UTF-8
@@ -13,7 +13,7 @@ databaseChangeLog:
       author: efti
       changes:
         - sqlFile:
-            path: changelogs/001-functions.sql
+            path: initial/001-functions.sql
             relativeToChangelogFile: true
             splitStatements: false
             encoding: UTF-8
@@ -22,7 +22,7 @@ databaseChangeLog:
       author: efti
       changes:
         - sqlFile:
-            path: changelogs/002-gates.sql
+            path: initial/002-gates.sql
             relativeToChangelogFile: true
             splitStatements: false
             encoding: UTF-8
@@ -31,7 +31,7 @@ databaseChangeLog:
       author: efti
       changes:
         - sqlFile:
-            path: changelogs/003-platforms.sql
+            path: initial/003-platforms.sql
             relativeToChangelogFile: true
             splitStatements: false
             encoding: UTF-8
@@ -40,7 +40,7 @@ databaseChangeLog:
       author: efti
       changes:
         - sqlFile:
-            path: changelogs/004-authorities.sql
+            path: initial/004-authorities.sql
             relativeToChangelogFile: true
             splitStatements: false
             encoding: UTF-8
@@ -49,7 +49,7 @@ databaseChangeLog:
       author: efti
       changes:
         - sqlFile:
-            path: changelogs/005-users.sql
+            path: initial/005-users.sql
             relativeToChangelogFile: true
             splitStatements: false
             encoding: UTF-8
@@ -58,7 +58,7 @@ databaseChangeLog:
       author: efti
       changes:
         - sqlFile:
-            path: changelogs/006-consignments.sql
+            path: initial/006-consignments.sql
             relativeToChangelogFile: true
             splitStatements: false
             encoding: UTF-8
@@ -67,7 +67,7 @@ databaseChangeLog:
       author: efti
       changes:
         - sqlFile:
-            path: changelogs/007-request-id-cache.sql
+            path: initial/007-request-id-cache.sql
             relativeToChangelogFile: true
             splitStatements: false
             encoding: UTF-8
@@ -76,7 +76,7 @@ databaseChangeLog:
       author: efti
       changes:
         - sqlFile:
-            path: changelogs/008-sessions.sql
+            path: initial/008-sessions.sql
             relativeToChangelogFile: true
             splitStatements: false
             encoding: UTF-8
@@ -85,7 +85,7 @@ databaseChangeLog:
       author: efti
       changes:
         - sqlFile:
-            path: changelogs/009-jobs-execution-log.sql
+            path: initial/009-jobs-execution-log.sql
             relativeToChangelogFile: true
             splitStatements: false
             encoding: UTF-8
@@ -94,7 +94,7 @@ databaseChangeLog:
       author: efti
       changes:
         - sqlFile:
-            path: changelogs/010-follow-up-log.sql
+            path: initial/010-follow-up-log.sql
             relativeToChangelogFile: true
             splitStatements: false
             encoding: UTF-8
@@ -103,7 +103,7 @@ databaseChangeLog:
       author: efti
       changes:
         - sqlFile:
-            path: changelogs/011-audit-log.sql
+            path: initial/011-audit-log.sql
             relativeToChangelogFile: true
             splitStatements: false
             encoding: UTF-8
@@ -112,13 +112,11 @@ databaseChangeLog:
       author: efti
       changes:
         - sqlFile:
-            path: changelogs/012-async-responses.sql
+            path: initial/012-async-responses.sql
             relativeToChangelogFile: true
             splitStatements: false
             encoding: UTF-8
 
-  # Auth surface — dev-only seed fixtures (context:dev guard is in the SQL file itself).
-  # Schema (users, sessions) lives in 005-users and 008-sessions above.
-  - include:
-      file: changelog/20260813-auth-seed.sql
-      relativeToChangelogFile: false
+  - includeAll:
+      path: changelog/
+      relativeToChangelogFile: true
