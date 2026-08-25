@@ -1,6 +1,13 @@
+@apiKey=mock-secret-key
+
+### Get full dataset
+GET {{RUUTER_URL}}/mock-platform/v1/dataset/b24ebf37-a068-11f1-b8f0-3c9c0f2eb459
+X-Api-Key: {{apiKey}}
+
+### Follow-up
 POST {{RUUTER_URL}}/mock-platform/v1/dataset/b24ebf37-a068-11f1-b8f0-3c9c0f2eb459/follow-up
 Content-Type: application/json
-X-Api-Key: mock-secret-key
+X-Api-Key: {{apiKey}}
 
 {
   "message": "Follow-up message for the consignment",
