@@ -93,7 +93,7 @@ data class ExchangedDocument(
   val id: UUID = UUID.randomUUID(),
   val issueDateTime: DateTimeString = DateTimeString(),
   @XmlPath("RequesterTradeParty/PostalTradeAddress/CountryID") val requesterCountry: CountryCode? = null,
-  val referencedIds: List<UUID>? = null,
+  @XmlPath("ReferencedID") val referencedIds: List<UUID>? = null,
   @XmlPath("StatusCode") val responseCode: FTIResponseCode? = null,
   val includedNote: IncludedNote? = null,
 ) {
