@@ -1,6 +1,5 @@
 declaration:
   description: "Authority sends a follow-up message to a Platform via the gate (TARA JWT)"
-  allowed_body: [json]
 
 insert_log:
   call: http.post
@@ -9,7 +8,7 @@ insert_log:
     headers:
       Content-Type: "application/json"
     body:
-      requestingGateId: "${env.OWN_GATE_ID}"
+      requestingGateId: "${incoming.body.uil.gateId}"
       requestingUserId: ""
       datasetRequestId: "${incoming.body.uil.datasetId}"
       destinationGateId: "${incoming.body.uil.gateId}"
@@ -27,7 +26,7 @@ check_insert:
 
 check_gate:
   switch:
-    - condition: ${incoming.body.uil.gateId != env.OWN_GATE_ID}
+    - condition: ${incoming.body.uil.gateId != '[#OWN_GATE_ID]'}
       next: forward_to_remote_gate
   next: get_platform
 
@@ -51,35 +50,36 @@ check_platform:
 forward_to_platform:
   call: http.post
   args:
-    url: "${platform_result.response.body.baseUrl}/${incoming.body.uil.datasetId}/follow-up"
-    headers:
-      Content-Type: "application/json"
-      X-Dataset-Request-ID: "${incoming.body.referenceIds[0]}"
-    body:
-      uil: ${incoming.body.uil}
-      message: ${incoming.body.message}
-      files: ${incoming.body.files}
+    url: "${platform_result.response.body[0].baseUrl}/v1/dataset/${incoming.body.uil.datasetId}/follow-up"
+    headers: "${platform_result.response.body[0].headers, 'Content-Type': 'application/json', 'X-Dataset-Request-ID': incoming.body.referenceIds[0]}}"
+    body: ${incoming.body}
   result: platform_response
   next: respond
 
 respond:
-  return: ${incoming.body.uil}
+  return: ${platform_response.response.body}
   wrapper: false
-  status: 201
+  status: ${platform_response.response.status}
   next: end
 
 forward_to_remote_gate:
   # TODO: Forward to remote gate over eDelivery
-  return: '{"error": "Remote gate follow-up not yet implemented"}'
+  return:
+    error: "Remote gate follow-up not yet implemented"
+  wrapper: false
   status: 501
   next: end
 
 platform_not_found:
-  return: '{"type":"https://api.efti.ee/errors/platform-not-found","title":"Platform Not Found","status":404,"detail":"Platform not found"}'
+  return:
+    error: "Platform Not Found"
+  wrapper: false
   status: 404
   next: end
 
 insert_failed:
-  return: '{"error": "Failed to log follow-up message"}'
+  return:
+    error: "Failed to log follow-up message"
+  wrapper: false
   status: 500
   next: end

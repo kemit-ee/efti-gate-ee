@@ -82,6 +82,8 @@ respond:
   next: end
 
 unauthorized:
-  return: '{"error": "Unauthorized"}'
+  return:
+    error: "Unauthorized"
   status: 401
+  wrapper: false
   next: end
