@@ -2,8 +2,8 @@ declaration:
   version: "1.0"
   description: >
     OIDC callback handler. Receives the authorization code from the frontend
-    AuthCallbackPage, exchanges it via TIM's session-based callback, then sets
-    a JWT cookie for the browser.
+    AuthCallbackPage, exchanges it via TIM's session-based callback, then returns
+    the JWT in the response body for the frontend to store in sessionStorage.
   method: post
   accepts: json
   returns: json
@@ -48,7 +48,7 @@ check_callback:
 normalize_personal_code:
   assign:
     raw_user_id: ${callback_result.response.body.user_profile.user_id}
-    personal_code: "${raw_user_id.startsWith('EE') ? raw_user_id.substring(2) : raw_user_id}"
+    personal_code: "${callback_result.response.body.user_profile.user_id.startsWith('EE') ? callback_result.response.body.user_profile.user_id.substring(2) : callback_result.response.body.user_profile.user_id}"
   next: generate_jwt
 
 # Step 2b: Generate a custom JWT with the user's profile claims.
@@ -76,13 +76,13 @@ check_jwt:
       next: return_token
   next: jwt_error
 
-# Step 3: Return OK with Set-Cookie header.
-# The JWT is set as an HttpOnly cookie so the browser sends it automatically
-# on subsequent requests to Ruuter.
+# Step 3: Return the JWT in the response body.
+# The frontend stores it in sessionStorage and sends it as Authorization: Bearer
+# on every API call. No cookie, no CSRF token — per
+# docs/architecture/user-interfaces/README.md §1.3.
 return_token:
-  headers:
-    Set-Cookie: "eftiJwtCookie=${jwt_result.response.body.token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=28800"
-  return: "ok"
+  return: ${JSON.parse('{"token":"' + jwt_result.response.body.token + '"}')}
+  wrapper: false
   next: end
 
 callback_error:
