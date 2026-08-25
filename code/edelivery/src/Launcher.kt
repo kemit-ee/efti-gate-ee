@@ -1,14 +1,12 @@
 import edelivery.*
 import io.swagger.v3.oas.annotations.OpenAPIDefinition
 import io.swagger.v3.oas.annotations.info.Info
-import klite.Config
-import klite.Server
+import klite.*
 import klite.annotations.annotated
 import klite.http.httpClient
 import klite.json.JsonBody
-import klite.metrics
 import klite.openapi.openApi
-import klite.register
+import java.util.concurrent.TimeoutException
 
 fun main() {
   Config.useEnvFile()
@@ -19,6 +17,9 @@ fun main() {
     register<PartyRegistry>(EDeliveryPartyRegistry::class)
     register<AsyncResponseProvider>(SingleNodeAsyncResponseProvider::class)
     register<MessageHandler>(EftiMessageHandler::class)
+
+    errors.on<TimeoutException>(StatusCode.GatewayTimeout)
+
     metrics()
 
     context("/health") {
