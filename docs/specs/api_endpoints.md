@@ -737,8 +737,7 @@ DELETE /efti/api/v1/authorities?authorityId=auth-mta
 
 ## 7. Admin — Users
 
-Admin kasutajate haldus. Kasutaja seotakse `taraSub`-ga, määratakse `roles` JSON-objekt ja
-`subsets` alamhulkade loend. Kõik kirjutused on append-only.
+Admin kasutajate haldus. Kasutaja seotakse `taraSub`-ga. Kõik kirjutused on append-only.
 
 ---
 
@@ -753,8 +752,6 @@ Admin kasutajate haldus. Kasutaja seotakse `taraSub`-ga, määratakse `roles` JS
 |---|---|---|---|
 | `limit` | int | 20 | |
 | `offset` | int | 0 | |
-| `gateId` | string | — | Otsib rolli `roles->'ADMIN' ? :gateId` |
-| `authorityId` | string | — | Otsib rolli `roles->'AUTHORITY' ? :authorityId` |
 
 ```
 GET /efti/api/v1/users?limit=2&offset=0
@@ -766,11 +763,7 @@ GET /efti/api/v1/users?limit=2&offset=0
       "rowId": "01923a8c-4f7c-7a1b-9c2e-fd0d9b0a4e11",
       "id": "550e8400-e29b-41d4-a716-446655440000",
       "taraSub": "EE12345678901",
-      "email": "admin@ria.ee",
       "name": "Mari Mets",
-      "isUserAdmin": true,
-      "roles": { "ADMIN": ["eu-ee01"] },
-      "subsets": ["EU01", "EU05"],
       "tokenRevokedAt": null,
       "isUserActive": true,
       "createdAt": "2026-04-23T11:15:00Z"
@@ -792,11 +785,7 @@ GET /efti/api/v1/users?limit=2&offset=0
 | Väli | Tüüp | Kohustuslik | Märkus |
 |---|---|---|---|
 | `taraSub` | string | ✅ | TARA `sub` väätus |
-| `email` | string | ✅ | |
 | `name` | string | ✅ | |
-| `isAdmin` | boolean | ❌ | Vaikimisi `false` |
-| `roles` | object | ❌ | Nt `{ "ADMIN": ["eu-ee01"], "AUTHORITY": ["auth-mta"] }` |
-| `subsets` | string[] | ❌ | Lubatud `EU01`–`EU07` |
 
 ```json
 // Päring
@@ -805,11 +794,7 @@ Content-Type: application/json
 
 {
   "taraSub": "EE12345678901",
-  "email": "admin@ria.ee",
-  "name": "Mari Mets",
-  "isAdmin": true,
-  "roles": { "ADMIN": ["eu-ee01"], "AUTHORITY": ["auth-mta"] },
-  "subsets": ["EU01", "EU05"]
+  "name": "Mari Mets"
 }
 
 // Vastus 201 Created
@@ -819,11 +804,7 @@ Content-Type: application/json
       "rowId": "01923a8c-4f7c-7a1b-9c2e-fd0d9b0a4e11",
       "id": "550e8400-e29b-41d4-a716-446655440000",
       "taraSub": "EE12345678901",
-      "email": "admin@ria.ee",
       "name": "Mari Mets",
-      "isUserAdmin": true,
-      "roles": { "ADMIN": ["eu-ee01"], "AUTHORITY": ["auth-mta"] },
-      "subsets": ["EU01", "EU05"],
       "tokenRevokedAt": null,
       "isUserActive": true,
       "createdAt": "2026-04-23T11:15:00Z"
@@ -853,11 +834,7 @@ GET /efti/api/v1/users?userId=550e8400-e29b-41d4-a716-446655440000
       "rowId": "01923a8c-4f7c-7a1b-9c2e-fd0d9b0a4e11",
       "id": "550e8400-e29b-41d4-a716-446655440000",
       "taraSub": "EE12345678901",
-      "email": "admin@ria.ee",
       "name": "Mari Mets",
-      "isUserAdmin": true,
-      "roles": { "ADMIN": ["eu-ee01"] },
-      "subsets": ["EU01", "EU05"],
       "tokenRevokedAt": null,
       "isUserActive": true,
       "createdAt": "2026-04-23T11:15:00Z"
@@ -882,10 +859,7 @@ PUT /efti/api/v1/users?userId=550e8400-e29b-41d4-a716-446655440000
 Content-Type: application/json
 
 {
-  "email": "admin@newdomain.ee",
-  "name": "Mari Mets-Uuendatud",
-  "roles": { "ADMIN": ["eu-ee01", "eu-de01"] },
-  "subsets": ["EU01", "EU05", "EU07"]
+  "name": "Mari Mets-Uuendatud"
 }
 
 // Vastus 200 OK
@@ -893,11 +867,7 @@ Content-Type: application/json
   "response": [
     {
       "id": "550e8400-e29b-41d4-a716-446655440000",
-      "email": "admin@newdomain.ee",
       "name": "Mari Mets-Uuendatud",
-      "isUserAdmin": true,
-      "roles": { "ADMIN": ["eu-ee01", "eu-de01"] },
-      "subsets": ["EU01", "EU05", "EU07"],
       "isUserActive": true
     }
   ]
@@ -1165,11 +1135,7 @@ Kõik vead järgivad RFC 7807 `application/problem+json` formaati.
 | `rowId` | string | UUID, unikaalne rea identifikaator |
 | `id` | string | UUID |
 | `taraSub` | string | TARA autentimise sub |
-| `email` | string | |
 | `name` | string | |
-| `isUserAdmin` | boolean | Globaalne admin |
-| `roles` | object | `{ "ADMIN": [...], "AUTHORITY": [...] }` |
-| `subsets` | string[] | `EU01`–`EU07` |
 | `tokenRevokedAt` | datetime\|null | Tokeni tühistamise aeg |
 | `isUserActive` | boolean | `false` = pehme kustutus |
 | `createdAt` | datetime | |

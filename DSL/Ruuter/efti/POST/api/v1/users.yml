@@ -35,16 +35,6 @@
 #   switch:
 #     - condition: ${caller_result.response.body == null || caller_result.response.body.length == 0}
 #       next: unauthorized
-#     - condition: ${caller_result.response.body[0].isUserAdmin != true}
-#       next: forbidden
-#   next: check_write_access
-#
-# check_write_access:
-#   # checkWriteAccess: entityId must be in caller's roles.ADMIN scope (unless super admin)
-#   # Super admin: isUserAdmin == true AND roles == {} (empty object)
-#   switch:
-#     - condition: ${caller_result.response.body[0].roles != '{}' && ...}
-#       next: forbidden_write_access
 #   next: check_duplicate
 #
 # unauthorized:
@@ -54,11 +44,6 @@
 #
 # forbidden:
 #   return: '{"error": "Forbidden"}'
-#   status: 403
-#   next: end
-#
-# forbidden_write_access:
-#   return: '{"error": "Forbidden", "detail": "FORBIDDEN_WRITE_ACCESS"}'
 #   status: 403
 #   next: end
 # ============================================================================
@@ -88,7 +73,6 @@ create_user:
       Content-Type: "application/json"
     body:
       taraSub: "${incoming.body.taraSub}"
-      email: "${incoming.body.email}"
       name: "${incoming.body.name}"
   result: insert_result
   next: check_insert

@@ -21,7 +21,7 @@
 | | `POST /api/v1/auth/logout` |
 | | `POST /api/v1/auth/local-token` |
 | | Full request / response / error shapes: [`openapi.yaml`](../../specs/openapi.yaml) |
-| **Schema** | `users` (`tara_sub`, `roles JSONB` restricted to `AUTHORITY` / `ADMIN`, `subsets TEXT[]`, `secret_hash TEXT NULL`, `token_revoked_at TIMESTAMPTZ`) |
+| **Schema** | `users` (`tara_sub`, `name`, `secret_hash TEXT NULL`, `token_revoked_at TIMESTAMPTZ`) |
 | | `sessions` (JWT denylist) |
 | | Partial index `(tara_sub, created_at DESC) WHERE tara_sub IS NOT NULL` |
 | | Full schema: [`db/schema.sql`](../../specs/db/schema.sql) |
@@ -41,11 +41,9 @@
 ### Role management
 
 **Business rules:**
-- [ ] A new user inherits **only** the creator's roles. Exception: the Super Admin role can be granted only by an existing Super Admin.
-- [ ] Listing users: Super Admin sees all; regular admin sees only users whose roles intersect their own.
-- [ ] Deleting a user requires the target to be visible to the admin (same scope as listing).
-- [ ] A user may be assigned multiple roles, and multiple Party IDs (`scope-IDs`) under a single role.
-- [ ] An authority user's `subsets` must be a subset of the parent authority's `subsets`.
+- [ ] A new user is created with `tara_sub` and `name`.
+- [ ] Listing users: all users are visible to authenticated admins.
+- [ ] Deleting a user requires the target to be visible to the admin.
 - [ ] An admin cannot delete their own account.
 - [ ] `taraSub` is unique across **active** rows: creating a user with an already-active `taraSub` is rejected.
 
@@ -56,14 +54,12 @@
 
 **Path → role mapping** (canonical table in [`permissions-matrix.md`](../../specs/permissions-matrix.md) §1; summary here):
 
-- [ ] `/api/v1/...` (Admin API) — caller's resolved `users.roles` must contain `ADMIN`.
-- [ ] `/v1/identifiers/{identifier}`, `/v1/dataset/...`, `/v1/follow-up/{gateId}/...` (Authority API) — caller's resolved `users.roles` must contain `AUTHORITY`.
+- [ ] `/api/v1/...` (Admin API) — caller must be authenticated with a valid TARA JWT that resolves to an active `users` row.
+- [ ] `/v1/identifiers/{identifier}`, `/v1/dataset/...`, `/v1/follow-up/{gateId}/...` (Authority API) — caller must be authenticated with a valid TARA JWT that resolves to an active `users` row.
 - [ ] `/v1/identifiers/{datasetId}` and the other Platform-API routes — mTLS-only; the cert subject DN + serial must resolve to exactly one active `platforms` row.
-- [ ] Admin write operations check **both** that the caller has `ADMIN` AND that the target entity id is in the caller's `users.roles[ADMIN]` scope-IDs.
 
 **Denial scenarios** (status codes and `efti.error.code` values in [`errors.json`](../../specs/errors.json)):
 
-- [ ] Authority-role JWT calling an Admin endpoint (claims `roles` lacks `ADMIN`).
 - [ ] Missing `Authorization` header on a JWT-protected route.
 - [ ] Expired gate-JWT (`exp` past).
 - [ ] Tampered JWT signature — no internal detail leaked to the caller.

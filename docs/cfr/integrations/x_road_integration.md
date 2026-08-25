@@ -45,10 +45,8 @@
 
 **Business rules:**
 - [ ] Each authority picks its preferred channel — eDelivery AS4 **or** X-Road. Both are supported.
-- [ ] Subset access enforcement is per-authority (per `users.subsets`): an authority that is not entitled to a given subset is denied even if the route would otherwise permit it.
 
 **Denial scenarios:**
-- [ ] X-Road client (e.g. TRAM) querying a subset not in their `users.subsets` → 403-class SOAP fault.
 
 ### ANTS integration (high-throughput existence check)
 

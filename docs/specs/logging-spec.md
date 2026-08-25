@@ -74,7 +74,6 @@ All log entries **must** be valid JSON on a single line. Format follows [Elastic
 | `http.request.body.bytes` | int | Request body size (bytes) — never log body content at INFO+ |
 | `http.response.status_code` | int | HTTP response status |
 | `user.id` | UUID string | `users.id` of the authenticated user |
-| `user.roles` | string[] | Assigned gate roles from the resolved `users` row (`["AUTHORITY"]` / `["ADMIN"]`). Platform identity is mTLS-only (no `users.roles` entry); `user.roles` is empty `[]` for Platform calls. CronManager opsToken calls log `user.id=null` and `user.roles=[]` (no resolved user; the `event.action` is `archive.run` / `identifier.expire` / `gate.ping` and identifies the caller). |
 | `error.type` | string | Exception class name |
 | `error.message` | string | Exception message |
 | `error.stack_trace` | string | First 10 stack frames (ERROR level only) |
@@ -388,7 +387,6 @@ Logs cross trust boundaries — apply the redaction rules below at every log sit
 | `eDeliveryCert` / `tlsCert` (private parts) | **Never log** | Certificate material from `gates`/`platforms` tables. |
 | Full XML dataset content (`consignments.xml`, AS4 payload bodies) | **Redact at INFO+** | TRACE-only, gated by `LOG_DATASET_CONTENT=true`. **Never** enable in production. |
 | Full HTTP request/response bodies | **Redact at INFO+** | Log size only — `http.request.body.bytes`, `http.response.body.bytes`. |
-| `users.email` | **Redact** | Log `user.id` (UUID) instead. |
 | Vehicle plate (audit contexts) | **Partial: `"123***"`** | Show first 3 chars only when GDPR-sensitive. Full plate stays in operational INFO logs. |
 | SQL bind parameter values | **Redact at INFO+** | Log query template / `query_hash` only at WARN/INFO. Bind values allowed at DEBUG. |
 

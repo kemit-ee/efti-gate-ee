@@ -7,7 +7,7 @@ sequenceDiagram
     participant DB as PostgreSQL
     participant Route as Business Route
 
-    Note over Officer,TARA: Step 1 — TARA OIDC login<br/>(out-of-band of the gate).<br/>Officer auths via eID /<br/>Mobile-ID / Smart-ID.<br/>TARA returns ID Token<br/>(RS256 JWT) with iss,<br/>aud, sub=PIC, roles,<br/>subsets, exp, jti.
+    Note over Officer,TARA: Step 1 — TARA OIDC login<br/>(out-of-band of the gate).<br/>Officer auths via eID /<br/>Mobile-ID / Smart-ID.<br/>TARA returns ID Token<br/>(RS256 JWT) with iss,<br/>aud, sub=PIC, exp, jti.
 
     Officer->>+TARA: OIDC authorize / authenticate
     TARA-->>-Officer: ID Token (JWT)
@@ -23,16 +23,14 @@ sequenceDiagram
     Auth->>+DB: Check sessions denylist for the JWT's jti
     DB-->>-Auth: not revoked
     Auth->>+DB: Resolve the latest active users row by tara_sub = jwt.sub,<br/>verify jwt.iat ≥ users.token_revoked_at
-    DB-->>-Auth: User{id='d2e3f4a5-…', is_active=TRUE, roles={'AUTHORITY':['aut-xxx-001']}, subsets=['EU07'], token_revoked_at=NULL}
+    DB-->>-Auth: User{id='d2e3f4a5-…', is_active=TRUE, token_revoked_at=NULL}
 
     Note over Auth: Permission claims come<br/>from the resolved users<br/>row — NOT from the JWT.<br/>JWT carries identity<br/>(sub) + freshness (iat,<br/>jti). Gate owns the<br/>authorisation state.<br/>--<br/>No matching active row<br/>→ 401 TOKEN_INVALID<br/>("no provisioned user").<br/>--<br/>jwt.iat < token_revoked_at<br/>→ 401 ("token revoked").
 
-    Auth-->>-Gate: AuthenticatedUser{<br/>userId="d2e3f4a5-…", roles=["AUTHORITY"],<br/>scope=["aut-xxx-001"], subsets=["EU07"], jti="abc..." }
+    Auth-->>-Gate: AuthenticatedUser{<br/>userId="d2e3f4a5-…", jti="abc..." }
 
     Gate->>+Route: handle(exchange, user)
-    Note over Route: @Access(AUTHORITY) —<br/>user.roles ∋ AUTHORITY<br/>→ OK
-    Route->>Route: authorityId = user.scope.first() = "aut-xxx-001"
-    Route->>Route: subsetCheck: requested ⊆ user.subsets → OK
+    Note over Route: User authenticated<br/>→ OK
     Route->>Route: Execute identifier search (latest-row resolution per dataset_id)
     Route-->>-Gate: result
     Gate-->>-UI: 200 OK (SSE stream)
@@ -65,14 +63,7 @@ sequenceDiagram
 
     alt Valid JWT but wrong role
         Officer->>Gate: GET /api/v1/gates (admin endpoint)<br/>Authorization: Bearer authority-only-jwt
-        Gate->>Auth: authenticate → AuthenticatedUser{roles=["AUTHORITY"]}
-        Gate->>Route: @Access(ADMIN) — user.roles ∌ ADMIN → fails
+        Gate->>Auth: authenticate → AuthenticatedUser
+        Gate->>Route: @Access(ADMIN) → fails
         Gate-->>Officer: 403 Forbidden<br/>{"code":"FORBIDDEN"}
-    end
-
-    alt Authority requests subset outside scope
-        Officer->>Gate: GET /v1/dataset/...?subsetId=EU03 (user.subsets=["EU07"])
-        Gate->>Auth: authenticate → ok
-        Gate->>Route: subsetCheck: ["EU03"] ⊄ ["EU07"] → fails
-        Gate-->>Officer: 403 Forbidden<br/>{"code":"FORBIDDEN_SUBSET"}
     end

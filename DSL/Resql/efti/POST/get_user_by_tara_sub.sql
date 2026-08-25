@@ -36,22 +36,11 @@ latest AS (
    WHERE u.id IN (SELECT id FROM candidate)
    ORDER BY u.id, u.created_at DESC, u.row_id ASC
 )
--- citext and jsonb are cast to text: ReSQL otherwise serialises them as
--- {"type":"citext","value":…} wrappers instead of plain values. Returning `roles` as a
--- real JSON object needs ReSQL-side jsonb support — see the spec follow-up notes.
 SELECT l.id,
        l.tara_sub,
-       l.email::text AS email,
        l.name,
-       l.is_admin,
-       l.roles::text AS roles,
-       l.subsets,
        l.token_revoked_at,
-       -- Derived here rather than in the DSL: Ruuter's expression language has no
-       -- reliable way to test "empty JSONB map", and the role model belongs in one place.
-       -- Super Admin = is_admin TRUE with no scoped roles
-       -- (docs/specs/permissions-matrix.md:70).
-       (l.is_admin = TRUE AND l.roles = '{}'::jsonb) AS is_super_admin
+       l.is_active
   FROM latest l, q
  WHERE l.is_active = TRUE
    AND l.tara_sub = q.tara_sub

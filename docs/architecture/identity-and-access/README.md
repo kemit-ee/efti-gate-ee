@@ -108,13 +108,7 @@ flowchart TD
     JWT -- invalid --> R401[401 TOKEN_INVALID]
     MTLS -- 0 / >1 --> R403P[403 FORBIDDEN_NO_PLATFORM<br/>or FORBIDDEN_MULTI_PLATFORM]
     OPS -- mismatch --> R403O[403 FORBIDDEN]
-    JWT -- valid --> RoleCheck{Resolved users.roles<br/>contains required role?}
-    RoleCheck -- no --> R403[403 FORBIDDEN]
-    RoleCheck -- yes --> Subset{Authority subset request<br/>⊆ users.subsets?}
-    Subset -- no --> R403S[403 FORBIDDEN_SUBSET]
-    Subset -- yes --> Scope{"Admin write target<br/>∈ users.roles[ADMIN]?"}
-    Scope -- no --> R403WA[403 FORBIDDEN_WRITE_ACCESS]
-    Scope -- yes --> Allow[200 OK / 201 Created]
+    JWT -- valid --> Allow[200 OK / 201 Created]
     MTLS -- 1 active --> Allow
     OPS -- match --> Allow
 ```

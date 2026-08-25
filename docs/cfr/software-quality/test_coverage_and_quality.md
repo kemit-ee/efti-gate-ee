@@ -37,9 +37,8 @@
 - [ ] **Local-vs-remote routing.** Authority `GET /v1/identifiers/{identifier}` with a local hit doesn't broadcast; with zero local hits, does.
 - [ ] **Broadcast-only-when-empty.** Verifies broadcast is **not** triggered when local results > 0 unless `forceBroadcast=true`.
 - [ ] **Broadcast parallelism + partial failure.** Some peers return, some time out → caller gets a `200` with `failures[]` populated, not a 5xx.
-- [ ] **Access control matrix.** Every cell of role × endpoint from `permissions-matrix.md`: ADMIN-only routes reject AUTHORITY, Authority routes reject ADMIN-only-scoped users, mTLS routes reject JWT, etc.
-- [ ] **Write-access scope.** Admin attempting to write to an entity outside `users.roles[ADMIN]` scope-IDs → `FORBIDDEN_WRITE_ACCESS`.
-- [ ] **User-management edges.** Super-Admin-only role grant; self-delete refused; subset-of-authority enforcement; `taraSub` uniqueness conflict.
+- [ ] **Access control matrix.** Every cell of role × endpoint from `permissions-matrix.md`: Admin routes reject unauthenticated, mTLS routes reject JWT, etc.
+- [ ] **User-management edges.** Self-delete refused; `taraSub` uniqueness conflict.
 - [ ] **`X-Request-ID` dedup.** Replay within `request_id_cache` TTL → `DUPLICATE_REQUEST_ID`. Same id at two nodes within 1 ms → exactly one succeeds.
 - [ ] **eDelivery parser.** All inbound `eb:Action` types; unknown `Action` returns AS4 fault; unknown `CompressionType` returns fault; invalid signature rejected.
 - [ ] **Multi-platform user.** mTLS cert resolving to >1 active platforms row → `FORBIDDEN_MULTI_PLATFORM`; resolving to 0 → `FORBIDDEN_NO_PLATFORM`.

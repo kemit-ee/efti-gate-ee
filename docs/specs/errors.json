@@ -231,21 +231,9 @@
       "code": "FORBIDDEN",
       "httpStatus": 403,
       "title": "Forbidden",
-      "description": "The authenticated caller is identified but not permitted on this surface \u2014 JWT roles do not include the role required by the route, the static opsToken does not match, or the authenticated user is calling an endpoint reserved for a different identity type.",
+      "description": "The authenticated caller is identified but not permitted on this surface \u2014 the static opsToken does not match, or the authenticated user is calling an endpoint reserved for a different identity type.",
       "type": "https://api.efti.ee/errors/forbidden",
       "examples": [
-        {
-          "scenario": "AUTHORITY-only TARA JWT calls an Admin endpoint",
-          "request": "GET /api/v1/gates with TARA JWT carrying resource_access.efti-gate.roles=['AUTHORITY']",
-          "response": {
-            "type": "https://api.efti.ee/errors/forbidden",
-            "code": "FORBIDDEN",
-            "title": "Forbidden",
-            "status": 403,
-            "detail": "Endpoint requires roles \u220b ADMIN; resolved users.roles = {'AUTHORITY':['auth-mta']}",
-            "instance": "/api/v1/gates"
-          }
-        },
         {
           "scenario": "CronManager admin endpoint called with a TARA JWT instead of the static opsToken",
           "request": "POST /api/v1/admin/archive with Authorization: Bearer <TARA-JWT>",
@@ -312,7 +300,7 @@
       "code": "FORBIDDEN_SUBSET",
       "httpStatus": 403,
       "title": "Subset Access Denied",
-      "description": "The authority user requested a dataset subset not in their resolved `users.subsets` (which itself must be a subset of the parent authority's `authorities.subsets`).",
+      "description": "The authority user requested a dataset subset not in the authority's permitted subsets.",
       "type": "https://api.efti.ee/errors/forbidden-subset",
       "examples": [
         {
@@ -334,18 +322,18 @@
       "code": "FORBIDDEN_WRITE_ACCESS",
       "httpStatus": 403,
       "title": "Write Access Denied",
-      "description": "The admin caller's `users.roles[ADMIN]` scope-IDs do not include the gate that owns the target entity. Regular admins are scoped to specific gate IDs; super admins (`is_admin=TRUE` AND `roles={}`) bypass this check.",
+      "description": "The admin caller does not have write access to the target entity.",
       "type": "https://api.efti.ee/errors/forbidden-write-access",
       "examples": [
         {
-          "scenario": "Admin scoped to gate 'eu-xx01' tries to update a platform owned by gate 'eu-zz01'",
-          "request": "PUT /api/v1/platforms/plt-zzz-002 (TARA JWT for an admin whose resolved users.roles[ADMIN] is ['eu-xx01'])",
+          "scenario": "Admin tries to update a platform owned by a different gate",
+          "request": "PUT /api/v1/platforms/plt-zzz-002",
           "response": {
             "type": "https://api.efti.ee/errors/forbidden-write-access",
             "code": "FORBIDDEN_WRITE_ACCESS",
             "title": "Write Access Denied",
             "status": 403,
-            "detail": "Admin scope ['eu-xx01'] does not include gate 'eu-zz01' which owns platform 'plt-zzz-002'.",
+            "detail": "Admin does not have write access to platform 'plt-zzz-002'.",
             "instance": "/api/v1/platforms/plt-zzz-002"
           }
         }

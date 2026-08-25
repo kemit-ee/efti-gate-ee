@@ -66,19 +66,12 @@ Two kinds of caller identity, modelled in two different ways. The legacy "single
 
 | Surface | Identity source | Where the identity lives | Authorisation source |
 |---|---|---|---|
-| **Authority API** | TIM-issued JWT `sub` / `personalCode` (Estonian PIC), originating from TARA OIDC | A `users` row with matching `tara_sub` | **Resolved `users` row's** `roles` (must include `AUTHORITY`), `subsets` (∈ `EU01..EU07`), `roles.AUTHORITY` scope-IDs. The token carries identity only; the gate's authorisation snapshot can change after a token is minted, so DB-side state wins. |
-| **Admin API** | TIM-issued JWT `sub` / `personalCode` | A `users` row with matching `tara_sub` | **Resolved `users` row's** `roles` (must include `ADMIN`), `roles.ADMIN` scope-IDs (gate IDs). The token carries identity only. |
+| **Authority API** | TIM-issued JWT `sub` / `personalCode` (Estonian PIC), originating from TARA OIDC | A `users` row with matching `tara_sub` | **Resolved `users` row's** `tara_sub` match. The token carries identity only; the gate's authorisation snapshot can change after a token is minted, so DB-side state wins. |
+| **Admin API** | TIM-issued JWT `sub` / `personalCode` | A `users` row with matching `tara_sub` | **Resolved `users` row's** `tara_sub` match. The token carries identity only. |
 | **Platform API** | mTLS X.509 client cert | A `platforms` row whose `cert_subject` + `cert_serial` match | None — cert subject = platform identity. |
 | **CronManager admin endpoints** | Static `Authorization: Bearer <ARCHIVE_OPS_TOKEN>` | Env var; **no DB row** | None — token comparison is the whole authorisation. |
 | **G2G (gate ↔ gate)** | mTLS at the AS4 access point (Member-State-issued cert) | A `gates` row whose `e_delivery_cert` matches | None — gate identity is the cert subject; trust is established by the cert chain rooted at the EU Trust Service. |
 | **Break-glass local admin** | HTTP Basic + bcrypt | A single `users` row with `secret_hash != NULL` | The same resolved-`users`-row source as TARA path; the break-glass JWT issued by `/api/v1/auth/local-token` is a transport vehicle, not the source of truth. Default-disabled (`LOCAL_ADMIN_FALLBACK_ENABLED=false`). |
-
-**`users.roles`** is a JSONB map carrying *only* `AUTHORITY` and `ADMIN` entries (e.g. `{"AUTHORITY":["auth-mta"]}` or `{"ADMIN":["<gateId>"]}`). There is **no** `PLATFORM` or `GATE` entry — those identities don't have user records.
-
-**Super Admin** = `is_admin=TRUE` AND `roles={}` — unrestricted.
-**Regular Admin** = `is_admin=TRUE` AND `roles={"ADMIN":["<gate-id>"]}` — scoped to that gate's resources by `checkWriteAccess(entityId)`.
-
-**`users.subsets`** carries the permitted eFTI subset list (`EU01..EU07`) for AUTHORITY users; must satisfy `users.subsets ⊆ authorities.subsets` of every authority listed in `roles.AUTHORITY`.
 
 **`users.tara_sub`** carries the value the gate matches against the inbound JWT's `sub` claim. For TARA-issued JWTs this is the Estonian PIC. For the single break-glass local-admin row this is the reserved literal `local-admin` (lower-case; never collides with a PIC). Always non-null — the resolution path is uniform across TARA and break-glass JWTs.
 
@@ -130,7 +123,7 @@ flowchart TD
 
 ### 3.2 Authority API
 
-Authenticated by the **TIM-issued JWT** obtained through TARA OIDC login. The gate validates the token at TIM, then resolves it to a `users` row via `tara_sub = jwt.sub`; `roles` (must include `AUTHORITY` or `ADMIN`), `subsets` and scope are read from the resolved row. The token itself carries **no** role claim — an earlier draft referenced `resource_access.efti-gate.roles`, a Keycloak-shaped claim that TARA does not issue and the gate does not read.
+Authenticated by the **TIM-issued JWT** obtained through TARA OIDC login. The gate validates the token at TIM, then resolves it to a `users` row via `tara_sub = jwt.sub`. The token itself carries **no** role claim — an earlier draft referenced `resource_access.efti-gate.roles`, a Keycloak-shaped claim that TARA does not issue and the gate does not read.
 
 | Endpoint | Method | TARA JWT (AUTHORITY or ADMIN) | mTLS Platform | Unauth |
 |---|---|---|---|---|
@@ -157,12 +150,11 @@ flowchart TD
     FU --> AUD3[Audit log: followup.send]
 ```
 
-**Authority subset rule**: `subsetId[]` query params must each be a member of the authenticated user's `users.subsets` array. Subset values are `EU01`..`EU07`.
 **`identifierCountryOfOrigin`** in search results is set to this gate's configured `countryCode` so authorities can see which gate returned each row.
 
 ### 3.3 Admin API
 
-Admin endpoints require a valid TARA-issued JWT whose resolved `users.roles` includes `ADMIN`. Path prefix `/api/v1/`. The CronManager endpoints (`/api/v1/admin/*`) are the exception: they accept only the static `opsToken` Bearer (literal `ARCHIVE_OPS_TOKEN` env-var compare); JWTs are rejected on those routes. See §6 for the credential matrix.
+Admin endpoints require a valid TARA-issued JWT whose resolved `users` row matches. Path prefix `/api/v1/`. The CronManager endpoints (`/api/v1/admin/*`) are the exception: they accept only the static `opsToken` Bearer (literal `ARCHIVE_OPS_TOKEN` env-var compare); JWTs are rejected on those routes. See §6 for the credential matrix.
 
 | Endpoint | Method | ADMIN | Other roles | Unauth |
 |---|---|---|---|---|
@@ -191,19 +183,12 @@ Admin endpoints require a valid TARA-issued JWT whose resolved `users.roles` inc
 flowchart TD
     REQ[Admin API request] --> A{Auth valid?}
     A --No--> R401[401 Unauthorized]
-    A --Yes--> SA{isAdmin?}
+    A --Yes--> SA{User resolved?}
     SA --No--> R403[403 FORBIDDEN]
-    SA --Yes--> SUPER{"Super Admin?<br/>roles == empty"}
-    SUPER --Yes--> ALL[All records visible/writable]
-    SUPER --No--> SCOPE[Regular Admin:<br/>scoped to roles ADMIN gateIds]
-    SCOPE --> OP{Operation?}
-    OP -->|Read| FILTER[List filtered to gate scope]
-    OP -->|Write| WC{checkWriteAccess<br/>entityId in roles values?}
-    WC --No--> R403W[403 FORBIDDEN_WRITE_ACCESS]
-    WC --Yes--> SELFD{DELETE user where<br/>userId == current?}
-    SELFD --Yes--> R400[400 BAD_REQUEST_GENERAL<br/>Admin cannot delete self]
-    SELFD --No--> APPLY[Apply change<br/>+ audit log]
-    ALL --> APPLY
+    SA --Yes--> ALL[All records visible/writable]
+    ALL --> OP{Operation?}
+    OP -->|Read| FILTER[List records]
+    OP -->|Write| APPLY[Apply change<br/>+ audit log]
     FILTER --> RESP[Response]
     APPLY --> RESP
 ```
@@ -240,8 +225,8 @@ Three mechanisms, one per surface, mirroring the EFTI4EU reference implementatio
 
 | Surface | Mechanism | Detail |
 |---|---|---|
-| **Authority API** (`/v1/identifiers/{identifier}`, `/v1/dataset/...`, `/v1/follow-up/...`) | **RS256 JWT issued by TIM** after TARA OIDC login | Presented as `Authorization: Bearer`. TIM (Bürokratt Token & Identity Manager) runs the TARA code exchange and mints the session token; the gate validates it by calling TIM `GET /jwt/userinfo`, which also enforces TIM's blacklist. Token claims: `sub` / `personalCode` (Estonian PIC), `iat`, `exp`, `jti`. The gate reads the canonical permission set from the resolved `users` row, **not** the token — the token carries identity and freshness only; roles / subsets / scope come from the DB. |
-| **Admin API** (`/api/v1/...`, except the three CronManager endpoints) | **Same TIM-issued JWT**, same validator as Authority API; differentiated by the resolved `users.roles` having `ADMIN`. | Same validation path. |
+| **Authority API** (`/v1/identifiers/{identifier}`, `/v1/dataset/...`, `/v1/follow-up/...`) | **RS256 JWT issued by TIM** after TARA OIDC login | Presented as `Authorization: Bearer`. TIM (Bürokratt Token & Identity Manager) runs the TARA code exchange and mints the session token; the gate validates it by calling TIM `GET /jwt/userinfo`, which also enforces TIM's blacklist. Token claims: `sub` / `personalCode` (Estonian PIC), `iat`, `exp`, `jti`. The gate reads the canonical permission set from the resolved `users` row, **not** the token — the token carries identity and freshness only. |
+| **Admin API** (`/api/v1/...`, except the three CronManager endpoints) | **Same TIM-issued JWT**, same validator as Authority API; differentiated by the resolved `users` row match. | Same validation path. |
 | **Login** (`/oauth2/authorization/tara`, `/authenticate`) | **TARA OIDC**, brokered by TIM | Not part of the versioned eFTI contract and not routed through Ruuter — the browser talks to TIM directly, and auth paths carry no `/v1` prefix (`docs/planning/rest-api-disainijuhend.md` §5). TIM holds `TARA_CLIENT_ID` / `TARA_CLIENT_SECRET` and performs the back-channel code exchange, so the gate's REST surface never handles OIDC codes or the client secret. |
 | **Platform API** (`/v1/identifiers/{datasetId}`, `/v1/datasets/...`, `/v1/status/...`, `/v1/follow-up/{datasetId}/...`, `/v1/ping`) | **mTLS with the platform's eDelivery AP certificate** (the same Member-State-issued X.509 cert mandated by Impl Reg 2024/1942 Art 11). | Reverse proxy terminates mTLS; forwards `X-Client-Cert-Subject` and `X-Client-Cert-Serial` headers; gate looks them up in `platforms.cert_subject` / `platforms.cert_serial`. No second credential — the cert is already mandatory. |
 | **CronManager admin endpoints** (`POST /api/v1/admin/archive`, `…/expire-identifiers`, `…/ping-gates`) | **Static Bearer token** | `Authorization: Bearer <ARCHIVE_OPS_TOKEN>`. Operator provisions a 256-bit random secret into a Kubernetes Secret; CronManager injects it as `BEARER_OPS_TOKEN`. Gate compares the literal value against the `ARCHIVE_OPS_TOKEN` env var. No DB lookup, no JWT verification, no user record. Mismatch → 403 `FORBIDDEN`. Intentionally a non-human credential — TARA models people, not scheduled jobs. |
@@ -274,8 +259,8 @@ All errors share the schema `{type, code, title, status, detail, instance}` per 
 | 403 | `FORBIDDEN` | `forbidden` | Authenticated, but `roles` claim does not include any role permitted on this surface (e.g. AUTHORITY-only JWT calling Admin endpoint), **or** `Authorization: Bearer …` value does not match `ARCHIVE_OPS_TOKEN` on a CronManager admin endpoint. |
 | 403 | `FORBIDDEN_NO_PLATFORM` | `forbidden-no-platform` | mTLS cert presented but `platforms.cert_subject` lookup yields no active platform, or matched a `is_active=FALSE` row. |
 | 403 | `FORBIDDEN_MULTI_PLATFORM` | `forbidden-multi-platform` | mTLS cert subject resolves to more than one active `platforms` row (configuration error). Always 403 — never 401, 400. |
-| 403 | `FORBIDDEN_WRITE_ACCESS` | `forbidden-write-access` | `checkWriteAccess(entityId)` — the target entity id is not in the **resolved `users` row's** `roles.ADMIN` scope-IDs. |
-| 403 | `FORBIDDEN_SUBSET` | `forbidden-subset` | Authority requested a subset not in the **resolved `users` row's** `subsets`. |
+| 403 | `FORBIDDEN_WRITE_ACCESS` | `forbidden-write-access` | `checkWriteAccess(entityId)` — the target entity id is not in the **resolved `users` row's** scope. |
+| 403 | `FORBIDDEN_SUBSET` | `forbidden-subset` | Authority requested a subset not in the **resolved `users` row's** permitted subsets. |
 | 400 | `BAD_REQUEST_GENERAL` | `bad-request` | Admin tried to delete themselves (`userId == currentUser.id`). |
 
 ---
@@ -284,7 +269,7 @@ All errors share the schema `{type, code, title, status, detail, instance}` per 
 
 This spec is the contract — the implementation lives elsewhere. Do **not** redefine the schema or copy SQL / implementation code into this document.
 
-- **Database schema** for `users`, `platforms`, `authorities`, `gates` (including `roles JSONB`, `subsets text[]`, `secretHash`, `isAdmin`, `gates.status`): `docs/specs/db/schema.sql` — every column carries `COMMENT ON …`. Append-only enforcement is by GRANT (the runtime `app` role has `SELECT, INSERT` only; no UPDATE, no DELETE on any table); state transitions are INSERTs of new rows sharing the same logical id, and the latest row by `created_at` is the current state. There are no `_history` companion tables — the operational table itself is its own change log.
+- **Database schema** for `users`, `platforms`, `authorities`, `gates` (including `secretHash`, `gates.status`): `docs/specs/db/schema.sql` — every column carries `COMMENT ON …`. Append-only enforcement is by GRANT (the runtime `app` role has `SELECT, INSERT` only; no UPDATE, no DELETE on any table); state transitions are INSERTs of new rows sharing the same logical id, and the latest row by `created_at` is the current state. There are no `_history` companion tables — the operational table itself is its own change log.
 - **Endpoint definitions** with `@Access` annotations and request/response schemas: `docs/specs/openapi.yaml`.
 - **Error catalog** (full payloads, all 36 codes): `docs/specs/errors.json`.
 - **Access-check, route, and repository code** lives in the implementation, not this document. The pseudocode below in §8.1 names the *behavioural* steps — request-time access-check entry point, platform resolution from mTLS, JWT validation, write-access scope check, user lookup by `tara_sub`, session-denylist check — and the spec captures the **what / when / fail-mode** of each. Module layout, class names, and error-wrapping idioms are the implementer's call.
@@ -298,7 +283,7 @@ The authorization gate routes a request to exactly one of the four credential ty
 - **No DB lookup** on the opsToken path — the env-var compare is the entire authorisation. **One call to TIM plus one DB lookup** on the JWT path — `GET /jwt/userinfo` covers signature and blacklist, and a single query resolves the `users` row and enforces `is_active`, the current `tara_sub` and `token_revoked_at` together. **One DB lookup** on the mTLS path — the active `platforms` row whose cert subject + serial match. **One DB lookup** on the break-glass path — the local-admin `users` row.
 - **Append-only** semantics throughout: every "active row" check considers only the latest row per logical id, ignoring soft-deleted (`is_active=FALSE` on the latest row) entries.
 
-Per-route handlers add row-level checks once authentication has resolved the caller: Authority dataset routes intersect requested subsets against the resolved user's `subsets`; Admin write routes verify the target entity is in the resolved user's `roles[ADMIN]` scope-IDs; Platform-API write routes bind `consignments.platform_id` to the cert-resolved id and reject any client-supplied override. The mechanics of the JWT validator, the JWKS cache, and the cert-subject lookup are implementation choices for the build phase (the spec only commits to the outcomes above and the schema columns referenced in §2).
+Per-route handlers add row-level checks once authentication has resolved the caller: Platform-API write routes bind `consignments.platform_id` to the cert-resolved id and reject any client-supplied override. The mechanics of the JWT validator, the JWKS cache, and the cert-subject lookup are implementation choices for the build phase (the spec only commits to the outcomes above and the schema columns referenced in §2).
 
 ---
 

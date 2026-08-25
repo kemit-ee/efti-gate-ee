@@ -24,7 +24,7 @@
 | **Schema** | `gates` (append-only; logical id = `gates.id` CITEXT; latest row by `created_at` wins; `is_active=FALSE` on latest = logical delete; columns: `country_code`, `e_delivery_url`, `e_delivery_cert`, `tls_cert`, `status`, `last_ping_at`) |
 | | `gate_status` enum: `ONLINE`, `OFFLINE`, `DISABLED` |
 | | Full schema: [`db/schema.sql`](../../specs/db/schema.sql) |
-| **Access-check rules** | Admin write scope-ID check (target gate must be in `users.roles[ADMIN]`): [`permissions-matrix.md`](../../specs/permissions-matrix.md) §8.1 |
+| **Access-check rules** | Admin write scope-ID check: [`permissions-matrix.md`](../../specs/permissions-matrix.md) §8.1 |
 | **Error codes** | `BAD_REQUEST_GENERAL` |
 | | `FORBIDDEN_WRITE_ACCESS` |
 | | `GATEWAY_UNAVAILABLE` |
@@ -44,7 +44,7 @@
 ### CRUD
 
 **Business rules:**
-- [ ] Listing: Super Admin sees all gates; a regular Admin sees only gates whose id is in their `users.roles[ADMIN]` scope-IDs.
+- [ ] Listing: all gates are visible to authenticated admins.
 - [ ] All writes (create / update / delete) are INSERTs of a new `gates` row sharing the same logical `id`. Latest row wins.
 - [ ] Delete is **soft**: the latest row carries `is_active=FALSE`. The previous row remains in place (append-only).
 - [ ] An admin cannot delete their own gate.
@@ -52,7 +52,6 @@
 **Denial scenarios:**
 - [ ] `POST` with an `id` whose latest row is active → conflict.
 - [ ] `PUT` / `DELETE` on a logical id that doesn't exist (or whose latest row is already `is_active=FALSE`) → not found.
-- [ ] Write targets a gate not in the caller's `users.roles[ADMIN]` scope-IDs → `FORBIDDEN_WRITE_ACCESS`.
 
 ### Ping
 

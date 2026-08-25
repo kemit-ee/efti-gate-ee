@@ -339,7 +339,7 @@ The Gate **does not** parse, validate, or transform dataset XML — it is byte-f
 | Local platform | `GET {platform.baseUrl}/v1/datasets/{datasetId}?subsetId=EU01[&subsetId=EU07…]` with `X-Request-ID` and `{platform.headers}` (e.g. `X-Api-Key`) | Gate echoes platform's exact HTTP status + body; `Content-Type: application/xml`; `X-Request-ID` echoed on response. |
 | Remote gate | AS4 `<uilQuery>` per §3.3.2 | Response is unwrapped from `<uilResponse>` — extract `@status` attribute and inner content; pair `(StatusCode, body)` returned to the route handler. |
 
-Subset values on the wire are always the canonical `EU01`..`EU07` codes from `users.subsets` / `authorities.subsets`.
+Subset values on the wire are always the canonical `EU01`..`EU07` codes from `authorities.subsets`.
 
 ### 3.5 Subset XSLT mapping (gate-side permission enforcement)
 
@@ -425,7 +425,7 @@ The names below are the spec-level contract for the gate's eDelivery helpers; fu
 |---|---|---|---|
 | mTLS cert subject DN + serial resolves to >1 active `platforms` row (config error) | Platform-resolution step on mTLS | `FORBIDDEN_MULTI_PLATFORM` | 403 |
 | mTLS cert subject DN + serial resolves to 0 active `platforms` rows | Platform-resolution step on mTLS | `FORBIDDEN_NO_PLATFORM` | 403 |
-| Authority requested subsets ⊆ `users.subsets` | `AuthorityRoutes.getDataset()` | `FORBIDDEN_SUBSET` | 403 |
+| Authority requested subsets ⊆ `authorities.subsets` | `AuthorityRoutes.getDataset()` | `FORBIDDEN_SUBSET` | 403 |
 | Follow-up `gateId` equals this gate's `gateId` | the follow-up handler | `FOLLOW_UP_GATE_MISMATCH` | 400 |
 | Target gate is ONLINE | the gate-availability check | `GATEWAY_UNAVAILABLE` | 502 |
 

@@ -7,16 +7,12 @@
 -- below) exercises.
 
 --changeset efti:005-seed-dev-users context:dev
-INSERT INTO users (id, tara_sub, email, name, is_admin, roles, subsets) VALUES
-  -- Super Admin: is_admin = TRUE AND roles = {} — unrestricted
-  -- (docs/specs/permissions-matrix.md:70). Reaches GET /api/v1/audit.
-  ('11111111-1111-1111-1111-111111111111', '60001019906', 'super.admin@efti.test', 'Super Admin',
-   TRUE,  '{}'::jsonb, ARRAY[]::TEXT[]),
-  -- Authority officer: no ADMIN role, so GET /api/v1/audit must return 403 FORBIDDEN
-  -- (docs/specs/permissions-matrix.md:177) while GET /api/v1/user still returns 200 (:163).
-  ('22222222-2222-2222-2222-222222222222', '60001017869', 'mari.tamm@efti.test', 'Mari Tamm',
-   FALSE, '{"AUTHORITY":["auth-mta"]}'::jsonb, ARRAY['EU07']::TEXT[]);
+INSERT INTO users (id, tara_sub, name) VALUES
+  -- Super Admin
+  ('11111111-1111-1111-1111-111111111111', '60001019906', 'Super Admin'),
+  -- Authority officer
+  ('22222222-2222-2222-2222-222222222222', '60001017869', 'Mari Tamm');
 
 -- Rollback is a soft-delete, not a DELETE: append-only forbids removing rows, so
 -- "undo" means inserting a newer row whose is_active = FALSE (docs/specs/db/README.md).
---rollback INSERT INTO users (id, tara_sub, email, name, is_admin, roles, subsets, is_active) SELECT id, tara_sub, email, name, is_admin, roles, subsets, FALSE FROM users WHERE tara_sub IN ('60001019906', '60001017869');
+--rollback INSERT INTO users (id, tara_sub, name, is_active) SELECT id, tara_sub, name, FALSE FROM users WHERE tara_sub IN ('60001019906', '60001017869');

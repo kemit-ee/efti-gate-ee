@@ -23,21 +23,11 @@ flowchart TD
     UserFound -->|No| Ret401NoUser[401 TOKEN_INVALID<br/>no provisioned user]
     UserFound -->|Yes| BroadcastCheck{jwt.iat ≥<br/>users.token_revoked_at?}
     BroadcastCheck -->|No| Ret401Bcast[401 TOKEN_INVALID<br/>broadcast revocation]
-    BroadcastCheck -->|Yes| ExtractClaims["Read users.roles, users.subsets,<br/>users.roles[ADMIN] scope-IDs<br/>as the authorisation source"]
+    BroadcastCheck -->|Yes| ExtractClaims["Read users row<br/>as the authorisation source"]
 
-    ExtractClaims --> RouteType{Required role on route?}
-    RouteType -->|AUTHORITY| CheckAuth{roles ∋ AUTHORITY?}
-    RouteType -->|ADMIN| CheckAdmin{roles ∋ ADMIN?}
-
-    CheckAuth -->|No| Ret403[403 FORBIDDEN]
-    CheckAuth -->|Yes| AuthorityAccess["Set authorityId from users.roles[AUTHORITY]<br/>subsetCheck against requested subsets<br/>Proceed to authority route"]
-
-    CheckAdmin -->|No| Ret403
-    CheckAdmin -->|Yes| AdminWrite{Mutating endpoint<br/>with entityId param?}
-    AdminWrite -->|Yes| CheckScope{"entityId ∈ users.roles[ADMIN]?"}
-    AdminWrite -->|No| AdminAccess[Proceed to admin route]
-    CheckScope -->|No| Ret403WA[403 FORBIDDEN_WRITE_ACCESS]
-    CheckScope -->|Yes| AdminAccess
+    ExtractClaims --> RouteType{Route type?}
+    RouteType -->|Authority| AuthorityAccess["Proceed to authority route"]
+    RouteType -->|Admin| AdminAccess[Proceed to admin route]
 
     OpsCompare --> OpsMatch{Tokens equal?}
     OpsMatch -->|No| Ret403Ops[403 FORBIDDEN]

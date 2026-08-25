@@ -29,7 +29,7 @@
 
 **Business rules:**
 - [ ] Browser auth: TARA OIDC (ID-card, Mobile-ID, Smart-ID). The UI runs the OIDC code-exchange and attaches the resulting JWT to gate API calls.
-- [ ] The TARA personal identification code (`sub`) is resolved against `users.tara_sub` to obtain the authority-user account and its permitted subsets.
+- [ ] The TARA personal identification code (`sub`) is resolved against `users.tara_sub` to obtain the authority-user account.
 - [ ] M2M access uses Bearer JWT (TARA-issued) — same backend route, no OIDC handshake.
 - [ ] Logout invalidates the JWT via `POST /api/v1/auth/logout` (adds `jti` to `sessions` denylist) and triggers the TARA-side logout endpoint.
 - [ ] Idle-timeout policy is configurable.
@@ -43,7 +43,7 @@
 - [ ] Search view supports identifier entry by typed plate, scanned QR, or NFC read; filters include `modeCode`, `registrationCountryCode`, `dangerousGoodsIndicator`, optional `dateFrom`/`dateTo`.
 - [ ] Results stream over SSE — partial results appear as peer gates respond.
 - [ ] Multiple UILs displayed when present; the officer selects the relevant one.
-- [ ] Dataset retrieval requires `subsetId` selection from the user's permitted subsets only (UI gates the picker by `users.subsets`).
+- [ ] Dataset retrieval requires `subsetId` selection.
 - [ ] Dataset rendering: XML is presented as a structured table (human-readable). On malformed XML from the platform: show the raw XML + warning, do **not** crash the UI.
 - [ ] Follow-up messages can be composed and sent against a returned UIL.
 - [ ] Search results are paginated per the OpenAPI pagination contract.

@@ -35,7 +35,7 @@
 ## Acceptance Criteria
 
 **Business rules:**
-- [ ] Listing: Super Admin sees all platforms; a regular Admin sees only platforms whose owning gate is in their `users.roles[ADMIN]` scope-IDs.
+- [ ] Listing: all platforms are visible to authenticated admins.
 - [ ] All writes (create / update / delete) are INSERTs of a new `platforms` row sharing the same logical `id`. Latest row wins.
 - [ ] Delete is **always** soft (`status='DELETED'` on the latest row). There is no force-delete and no purge. Identifiers previously registered by the platform remain queryable.
 - [ ] A platform with `eDeliveryCert` set is callable via both REST and eDelivery AS4. Without it, REST only.
@@ -46,7 +46,6 @@
 - [ ] `POST` with an `id` whose latest row is active → conflict.
 - [ ] `PUT` / `DELETE` on a logical id that doesn't exist → not found.
 - [ ] Manual ping: platform unreachable within timeout → `502`-class.
-- [ ] Admin writes to a platform whose owning gate is **not** in the caller's `users.roles[ADMIN]` scope-IDs → `FORBIDDEN_WRITE_ACCESS`.
 
 ## Cluster-sync contract
 

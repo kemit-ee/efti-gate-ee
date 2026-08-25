@@ -35,17 +35,15 @@
 ## Acceptance Criteria
 
 **Business rules:**
-- [ ] Listing: Super Admin sees all authorities; a regular Admin sees only authorities whose owning gate is in their `users.roles[ADMIN]` scope-IDs.
+- [ ] Listing: all authorities are visible to authenticated admins.
 - [ ] All writes (create / update / delete) are INSERTs of a new `authorities` row sharing the same logical `id`. Latest row wins.
 - [ ] Delete is **always** soft (`is_active=FALSE` on the latest row). User rows referencing the authority remain queryable. There is no purge.
 - [ ] Subset assignment: every value in `authorities.subsets[]` must be a valid subset code (`EU01`–`EU07`).
-- [ ] If a `PUT` removes a subset from `authorities.subsets`, every existing authority user whose `users.subsets` is no longer a subset of the parent's becomes immediately denied on their next request (per the `FORBIDDEN_SUBSET` rule). The admin must follow up with `PUT /api/v1/users/{userId}` to trim those users' subsets.
 
 **Denial scenarios:**
 - [ ] `POST` with an `id` whose latest row is active → conflict.
 - [ ] `PUT` / `DELETE` on a logical id that doesn't exist → not found.
 - [ ] `POST` / `PUT` carries a subset value outside the canonical set → `INVALID_SUBSET`.
-- [ ] Admin writes to an authority whose owning gate is **not** in the caller's `users.roles[ADMIN]` scope-IDs → `FORBIDDEN_WRITE_ACCESS`.
 
 ## Cluster-sync contract
 

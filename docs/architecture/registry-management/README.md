@@ -23,19 +23,19 @@ These are the cross-cutting invariants every sub-area in this theme derives from
 
 ### 1.1 Admin API is the only mutation path into registries
 
-`gates`, `platforms`, `authorities`, and `consignments` (as admin-visible registry entities) are mutated **only** through admin-API write endpoints. There are no internal admin-bypass paths, no SQL migrations that inject business data, no "seeder" jobs that bypass the access-check pipeline. Every registry mutation flows through the same `users.roles[ADMIN]` + scope-ID check (see [Identity & Access §1.1 RBAC](../identity-and-access/user_management_and_rbac.md)).
+`gates`, `platforms`, `authorities`, and `consignments` (as admin-visible registry entities) are mutated **only** through admin-API write endpoints. There are no internal admin-bypass paths, no SQL migrations that inject business data, no "seeder" jobs that bypass the access-check pipeline. Every registry mutation flows through the same authentication check (see [Identity & Access §1.1 RBAC](../identity-and-access/user_management_and_rbac.md)).
 
-### 1.2 Two-gate check on every admin write
+### 1.2 Authentication check on every admin write
 
-Admin write operations check **both**: (a) caller's `users.roles` contains `ADMIN`, AND (b) target entity's id is in `users.roles[ADMIN]` scope-IDs. (a) fails → `403 FORBIDDEN`; (b) fails → `403 FORBIDDEN_WRITE_ACCESS`. The two errors are distinguishable on the wire so operator misconfiguration (admin without the right scope-ID) is debuggable separately from a wrong-role attempt.
+Admin write operations require the caller to be authenticated with a valid TARA-issued JWT that resolves to an active `users` row.
 
 ### 1.3 Append-only across all registry tables
 
 Every registry table (`gates`, `platforms`, `authorities`, `consignments`) is INSERT-only. Editing a registry entity means INSERTing a new row sharing the same logical identifier. Reads use the latest-row-by-`created_at` projection. The runtime `app` PostgreSQL role has `SELECT, INSERT` only — no UPDATE/DELETE grants. CronManager-driven archival (Theme 5) moves non-latest rows to cold storage on schedule.
 
-### 1.4 Listing scope by role intersection
+### 1.4 Listing scope
 
-A caller listing registry entities sees the slice their roles intersect. Super Admin sees all rows. Regular admin sees rows whose scope-IDs overlap with the caller's `users.roles[ADMIN]` scope-IDs. The intersection check happens at the application layer; no row-level security (RLS) policy is required for registry tables.
+A caller listing registry entities sees all rows. The intersection check happens at the application layer; no row-level security (RLS) policy is required for registry tables.
 
 ### 1.5 Logical deletion via status flip
 

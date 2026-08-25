@@ -44,12 +44,11 @@
 ### Viewing and deletion
 
 **Business rules:**
-- [ ] Listing: Super Admin sees all consignments; a regular Admin sees only consignments owned by gates in their `users.roles[ADMIN]` scope-IDs.
+- [ ] Listing: all consignments are visible to authenticated admins.
 - [ ] List response returns the **latest** row per `dataset_id`, ordered by `created_at DESC`.
-- [ ] `DELETE` is **Super Admin only**. It INSERTs a new `consignments` row carrying `status='deleted'` — the previous row remains in place (append-only).
+- [ ] `DELETE` is INSERTs a new `consignments` row carrying `status='deleted'` — the previous row remains in place (append-only).
 
 **Denial scenarios:**
-- [ ] Regular Admin attempts `DELETE` → forbidden.
 - [ ] `DELETE` on a `dataset_id` whose latest row is already `deleted` → not found.
 
 ### Identifier-status lifecycle (Reg 2025/2243)

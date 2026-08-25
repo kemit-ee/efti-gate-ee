@@ -53,7 +53,6 @@
 
 **Denial scenarios:**
 - [ ] No `subsetId` parameter.
-- [ ] Caller's `users.subsets` does not include the requested `subsetId`.
 - [ ] Routed gate is `OFFLINE` (checked **before** the outbound request) — short-circuit `502`-class failure.
 - [ ] Platform-client returns non-2xx — `502`-class; the gate does not retry beyond the SLO budget.
 

@@ -87,8 +87,6 @@
     "copyPastePassword": "Copy user's password (you won't see it again)",
     "copyPasteToken": "Copy user's bearer token (you won't see it again)",
     "createForAdmin": "Success! Now create a technical user to get access token or an administrative user",
-    "subsets": "Allowed subsets",
-    "subsetsNone": "Select none to allow all",
     "addGate": "Add Gate",
     "addGates": "Add gates",
     "addPlatform": "Add Platform",
@@ -97,8 +95,7 @@
     "addAuthorities": "Add authorities",
     "selectGate": "Select Gate...",
     "selectPlatform": "Select Platform...",
-    "selectAuthority": "Select Authority...",
-    "roles": "Roles"
+    "selectAuthority": "Select Authority..."
   },
   "datasets": {
     "datasetId": "Dataset ID",

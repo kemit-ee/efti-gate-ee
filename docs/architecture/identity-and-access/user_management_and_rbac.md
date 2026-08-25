@@ -8,35 +8,28 @@
 
 ## 1. Role and scope model
 
-Two role types, one subset axis, one scope-ID axis:
+The user entity is identified by `tara_sub` (the TARA OIDC `sub` claim). The gate resolves the caller by matching the JWT's `sub` claim against `users.tara_sub`.
 
 | Concept | Storage | Purpose |
 |---|---|---|
-| **Role** | `users.roles JSONB`, restricted to `AUTHORITY` or `ADMIN` (plus the reserved Super Admin marker) | What kinds of endpoints the user may call. |
-| **Subset** | `users.subsets TEXT[]` | Which slice of authority data the user may read — must be a subset of the *parent* authority's subsets. |
-| **Scope-ID** | inside `users.roles[ADMIN]` | Which entities (gates) an admin may write to. |
+| **User identity** | `users.tara_sub` | The TARA personal identification code (Estonian PIC) that identifies the user. |
 | **Platform binding** | `platforms.cert_subject`, `platforms.cert_serial` | Which platform an mTLS caller is, resolved entirely from the cert. No `platforms` reference in `users`. |
 
-A user can hold multiple roles and multiple Party IDs under one role. The platform identity is *not* a `users` row — it is a `platforms` row resolved from the client certificate.
+The platform identity is *not* a `users` row — it is a `platforms` row resolved from the client certificate.
 
-## 2. Admin write-access — the two-gate check
+## 2. Admin write-access
 
-Admin write operations require **two** checks, both must pass:
-
-1. The caller's resolved `users.roles` must contain `ADMIN`. (Role-type check.)
-2. The target entity's id must appear in the caller's `users.roles[ADMIN]` scope-IDs. (Scope check.)
-
-Failing (1) → `403 FORBIDDEN`. Failing (2) → `403 FORBIDDEN_WRITE_ACCESS`. The two error codes are distinguishable on the wire so an operator misconfiguration (admin without the right scope-ID) is debuggable separately from a wrong-role attempt.
+Admin write operations require the caller to be authenticated with a valid TARA-issued JWT that resolves to an active `users` row.
 
 An admin **cannot delete their own account**. The check is enforced at the application layer, not at the DB layer, to keep the schema generic.
 
-## 3. New-user role inheritance
+## 3. New-user creation
 
-A new user inherits **only** the creator's roles. Exception: Super Admin can be granted only by an existing Super Admin. This rule prevents privilege escalation by horizontal compromise — a regular admin cannot mint a Super Admin.
+A new user is created with `tara_sub` and `name`. The user is identified by their TARA personal identification code.
 
-## 4. Authority subset constraint
+## 4. User identification
 
-An authority user's `subsets` must be a subset (set inclusion) of the parent authority's `subsets`. Enforced at write time on `POST /api/v1/users`; verified at every read of the user's permission set. The check is "request subset ⊆ user subsets ⊆ parent authority subsets" — chained at request time.
+The user is identified by their `tara_sub` (TARA personal identification code). The gate resolves the caller by matching the JWT's `sub` claim against `users.tara_sub`. Only active users (`is_active = TRUE`) can authenticate.
 
 ## 5. Audit invariant
 

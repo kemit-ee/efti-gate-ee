@@ -83,7 +83,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"taraSub\": \"{{tara_sub}}\",\n  \"email\": \"test-{{tara_sub}}@example.com\",\n  \"name\": \"Test User\",\n  \"isAdmin\": false,\n  \"roles\": {\"AUTHORITY\": [\"auth-test\"]},\n  \"subsets\": [\"EU01\", \"EU02\"]\n}"
+          "raw": "{\n  \"taraSub\": \"{{tara_sub}}\",\n  \"name\": \"Test User\"\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/users",
@@ -124,7 +124,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"taraSub\": \"{{tara_sub}}\",\n  \"email\": \"test2-{{tara_sub}}@example.com\",\n  \"name\": \"Duplicate User\",\n  \"isAdmin\": false,\n  \"roles\": {},\n  \"subsets\": []\n}"
+          "raw": "{\n  \"taraSub\": \"{{tara_sub}}\",\n  \"name\": \"Duplicate User\"\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/users",
@@ -267,7 +267,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"taraSub\": \"{{tara_sub}}\",\n  \"email\": \"test-{{tara_sub}}@example.com\",\n  \"name\": \"Test User Updated\",\n  \"isAdmin\": false,\n  \"roles\": {\"AUTHORITY\": [\"auth-test\", \"auth-test2\"]},\n  \"subsets\": [\"EU01\", \"EU02\", \"EU03\"]\n}"
+          "raw": "{\n  \"taraSub\": \"{{tara_sub}}\",\n  \"name\": \"Test User Updated\"\n}"
         },
         "url": {
           "raw": "{{base_url}}/efti/api/v1/users?userId={{user_id}}",

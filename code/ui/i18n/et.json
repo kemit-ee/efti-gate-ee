@@ -87,8 +87,6 @@
     "copyPastePassword": "Kopeeri kasutaja parool (te ei näe seda enam)",
     "copyPasteToken": "Kopeeri kasutaja bearer token (te ei näe seda enam)",
     "createForAdmin": "Õnnestus! Nüüd looge tehniline kasutaja juurdepääsutokeni või administratiivse kasutaja saamiseks",
-    "subsets": "Lubatud alamhulgad",
-    "subsetsNone": "Valige mitte midagi, et lubada kõik",
     "addGate": "Lisa värav",
     "addGates": "Lisa väravad",
     "addPlatform": "Lisa platvorm",
@@ -97,8 +95,7 @@
     "addAuthorities": "Lisa asutused",
     "selectGate": "Vali värav...",
     "selectPlatform": "Vali platvorm...",
-    "selectAuthority": "Vali asutus...",
-    "roles": "Rollid"
+    "selectAuthority": "Vali asutus..."
   },
   "datasets": {
     "datasetId": "Andmekogu ID",
