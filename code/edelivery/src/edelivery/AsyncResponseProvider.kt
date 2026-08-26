@@ -1,6 +1,8 @@
 package edelivery
 
 import klite.Config
+import klite.uuid
+import java.util.*
 import java.util.UUID.randomUUID
 
 interface AsyncResponseProvider {
@@ -9,7 +11,7 @@ interface AsyncResponseProvider {
   fun provideResponse(key: RequestKey, payload: String): Boolean
 }
 
-data class RequestKey(val receiverId: PartyId, val requestId: String = randomUUID().toString(), val senderId: PartyId = Config.partyId) {
-  constructor(s: String): this(PartyId(s.substringBefore(':')), s.substringAfter(':'))
+data class RequestKey(val receiverId: PartyId, val requestId: UUID = randomUUID(), val senderId: PartyId = Config.partyId) {
+  constructor(s: String): this(PartyId(s.substringBefore(':')), s.substringAfter(':').uuid)
   override fun toString() = "$receiverId:$requestId"
 }

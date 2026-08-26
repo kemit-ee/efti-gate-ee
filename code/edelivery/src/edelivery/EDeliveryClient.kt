@@ -77,7 +77,7 @@ class EDeliveryClient(
     val response = send(party.eDeliveryUrl, params, pingMessage)
     val regex = Regex("<[^:]*:?RefToMessageId>(.*?)</[^:]*:?RefToMessageId>")
     val refToMessageId = regex.find(response)?.groupValues?.get(1)
-    val returnedRequestId = refToMessageId?.split("@")?.first()
+    val returnedRequestId = refToMessageId?.split("@")?.first()?.uuid
     require(returnedRequestId == requestKey.requestId) { "Returned wrong requestId. Expected ${requestKey.requestId}, got $returnedRequestId. Response content: $response" }
   }
 

@@ -2,7 +2,6 @@ package edelivery
 
 import io.mockk.every
 import io.mockk.mockk
-import klite.Config
 import klite.xml.XmlParser
 import org.junit.jupiter.api.Test
 import java.io.File
@@ -28,12 +27,12 @@ class EDeliveryMessageGeneratorTest {
   ).newValidator()
 
   @Test fun requestMessage() {
-    val req = generator.requestMessage(UserMessageParams(RequestKey(partyId, "req-id-123")), "<payload/>")
+    val req = generator.requestMessage(UserMessageParams(RequestKey(partyId)), "<payload/>")
     validateXsd(req.first)
   }
 
   @Test fun responseMessage() {
-    val req = generator.requestMessage(UserMessageParams(RequestKey(partyId, "req-id-123")), "<payload/>")
+    val req = generator.requestMessage(UserMessageParams(RequestKey(partyId)), "<payload/>")
     val header = xmlParser.parse<MessageHeader>(req.first)
     val res = generator.responseMessage(header)
     validateXsd(res)
