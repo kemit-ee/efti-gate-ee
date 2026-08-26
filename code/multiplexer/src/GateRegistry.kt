@@ -6,7 +6,7 @@ import kotlin.time.Duration.Companion.minutes
 class GateRegistry(resqlClient: ResqlClient) {
   var gates = resqlClient.getGates()
   init {
-    thread {
+    thread(name = javaClass.simpleName, isDaemon = true) {
       while (!Thread.currentThread().isInterrupted) {
         sleep(30.minutes)
         gates = resqlClient.getGates()

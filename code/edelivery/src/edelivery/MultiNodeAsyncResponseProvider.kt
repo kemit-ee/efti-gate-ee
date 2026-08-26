@@ -1,12 +1,7 @@
 package edelivery
 
 import klite.info
-import klite.jdbc.Transaction
-import klite.jdbc.consumeNotifications
-import klite.jdbc.delete
-import klite.jdbc.insert
-import klite.jdbc.notify
-import klite.jdbc.select
+import klite.jdbc.*
 import klite.toValuesSkipping
 import javax.sql.DataSource
 import kotlin.concurrent.thread
@@ -14,7 +9,7 @@ import kotlin.concurrent.thread
 class MultiNodeAsyncResponseProvider(private val db: DataSource): SingleNodeAsyncResponseProvider() {
   private val table = "async_responses"
   init {
-    thread(name = this::class.simpleName, isDaemon = true) {
+    thread(name = javaClass.simpleName, isDaemon = true) {
       db.consumeNotifications(listOf(table)) {
         if (it.name == table) pendingResponses[RequestKey(it.parameter)]?.offer("")
       }

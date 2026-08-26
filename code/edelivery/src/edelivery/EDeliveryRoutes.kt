@@ -54,7 +54,7 @@ class EDeliveryRoutes(
         ?: body.values.toList().getOrNull(1) as ByteArray
       val payloadXml = decryptPayload(header, keyManager.ownPrivateKey, encryptedPayload, encryptedSymmetricKey)
 
-      currentThread().name = "${e.requestId}/${header.conversationId}"
+      currentThread().name = header.conversationId.toString()
 
       val responseXml = eDeliveryMessageGenerator.responseMessage(header)
       e.send(OK, responseXml, soap)

@@ -9,7 +9,7 @@ import kotlin.time.Duration.Companion.minutes
 class EDeliveryPartyRegistry(private val resqlClient: ResqlClient): PartyRegistry {
   var parties = resqlClient.getParties()
   init {
-    thread {
+    thread(name = javaClass.simpleName, isDaemon = true) {
       while (!Thread.currentThread().isInterrupted) {
         sleep(30.minutes)
         reload()
