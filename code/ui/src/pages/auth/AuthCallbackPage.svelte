@@ -5,8 +5,8 @@
   import {setToken} from 'src/api/api'
   import {t} from "i18n";
 
-  let error = $state<string | null>(null)
-  let loading = $state(true)
+  let error: string | null = null
+  let loading = true
 
   onMount(async () => {
     const params = new URLSearchParams(window.location.search)
@@ -22,9 +22,7 @@
     try {
       const data = await api.post<{token: string}>('auth/callback', {code, state})
       setToken(data.token)
-      const redirectTo = sessionStorage.getItem('authRedirectTo') || '/gates'
-      sessionStorage.removeItem('authRedirectTo')
-      navigate(redirectTo, {replace: true})
+      navigate('/gates', {replace: true})
     } catch (e: any) {
       error = e?.message ?? t.auth.unsuccessful
       loading = false

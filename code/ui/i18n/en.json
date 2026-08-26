@@ -82,7 +82,7 @@
     "title": "Users",
     "user": "User",
     "name": "Name",
-    "taraSub": "TARA Sub",
+    "taraSub": "Personal code",
     "tokenRevokedAt": "Token revoked at",
     "secretHash": "Secret hash",
     "generateSecret": "Generate new password or token",
