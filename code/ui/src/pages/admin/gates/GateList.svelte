@@ -4,7 +4,7 @@
   import {showToast} from 'src/stores/toasts'
   import {formatDateTime, t} from 'i18n'
   import Button from 'src/components/Button.svelte'
-  import {type Gate, Status} from "src/api/ruuterTypes";
+  import {type Gate, Status} from 'src/api/ruuterTypes'
 
   export let gates: Gate[]
   export let onEdit: (gate: Gate) => void
@@ -12,7 +12,7 @@
 
   async function ping(gate: Gate) {
     try {
-      const newGate = (await api.post<Gate[]>(`gates/ping/${gate.id}`))[0]
+      const newGate = await api.post<Gate>(`gates/ping/${gate.id}`)
       showToast(gate.id + ' ' + t.general.pinged)
       gates = [...gates.filter(g => g.id !== gate.id), newGate]
     } catch (e: any) {

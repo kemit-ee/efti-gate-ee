@@ -38,15 +38,18 @@ check_verify:
   next: respond
 
 respond:
-  return: ${verify_result.response.body}
+  return: ${verify_result.response.body[0]}
+  wrapper: false
   next: end
 
 update_failed:
-  return: '{"error": "Failed to update gate"}'
+  return: {"error": "Failed to update gate"}
   status: 500
+  wrapper: false
   next: end
 
 verify_failed:
-  return: '{"error": "Gate updated but could not be verified"}'
+  return: {"error": "Gate updated but could not be verified"}
   status: 500
+  wrapper: false
   next: end

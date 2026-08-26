@@ -20,9 +20,9 @@ Content-Type: application/json
 > {%
   client.test("Platform created", () => {
     client.assert(response.status === 201)
-    client.assert(response.body.response[0].id === "demo")
-    client.assert(response.body.response[0].baseUrl === "https://demo-platform.example.com/api")
-    client.assert(response.body.response[0].status === "ONLINE")
+    client.assert(response.body.id === "demo")
+    client.assert(response.body.baseUrl === "https://demo-platform.example.com/api")
+    client.assert(response.body.status === "ONLINE")
   })
 %}
 
@@ -44,7 +44,7 @@ Content-Type: application/json
 > {%
   client.test("Single platform found", () => {
     client.assert(response.status === 200)
-    client.assert(response.body[0].id === "demo")
+    client.assert(response.body.id === "demo")
   })
 %}
 
@@ -65,7 +65,7 @@ Content-Type: application/json
 > {%
   client.test("Platform updated", () => {
     client.assert(response.status === 200)
-    client.assert(response.body.response[0].baseUrl === "https://demo-platform.example.com/api/v2")
+    client.assert(response.body.baseUrl === "https://demo-platform.example.com/api/v2")
   })
 %}
 
@@ -86,6 +86,6 @@ Content-Type: application/json
 > {%
   client.test("Platform deleted", () => {
     client.assert(response.status === 200)
-    client.assert(response.body[0].status === "DELETED")
+    client.assert(response.body.status === "DELETED")
   })
 %}

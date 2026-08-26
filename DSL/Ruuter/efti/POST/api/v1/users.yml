@@ -101,21 +101,25 @@ check_verify:
   next: respond
 
 respond:
-  return: ${verify_result.response.body}
+  return: ${verify_result.response.body[0]}
   status: 201
+  wrapper: false
   next: end
 
 conflict:
-  return: '{"error": "Conflict", "detail": "tara_sub already exists on an active user"}'
+  return: {"error": "Conflict", "detail": "tara_sub already exists on an active user"}
   status: 409
+  wrapper: false
   next: end
 
 insert_failed:
-  return: '{"error": "Failed to create user"}'
+  return: {"error": "Failed to create user"}
   status: 500
+  wrapper: false
   next: end
 
 verify_failed:
-  return: '{"error": "User created but could not be verified"}'
+  return: {"error": "User created but could not be verified"}
   status: 500
+  wrapper: false
   next: end

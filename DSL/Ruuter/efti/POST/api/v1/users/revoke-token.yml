@@ -54,19 +54,23 @@ check_verify:
 respond:
   return: ""
   status: 204
+  wrapper: false
   next: end
 
 not_found:
-  return: '{"error": "Not Found"}'
+  return: {"error": "Not Found"}
   status: 404
+  wrapper: false
   next: end
 
 revoke_failed:
-  return: '{"error": "Failed to revoke user token"}'
+  return: {"error": "Failed to revoke user token"}
   status: 500
+  wrapper: false
   next: end
 
 verify_failed:
-  return: '{"error": "Token revocation could not be verified"}'
+  return: {"error": "Token revocation could not be verified"}
   status: 500
+  wrapper: false
   next: end

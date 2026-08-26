@@ -54,11 +54,13 @@ respond:
   next: end
 
 insert_failed:
-  return: '{"error": "Failed to insert consignment"}'
+  return: {"error": "Failed to insert consignment"}
   status: 500
+  wrapper: false
   next: end
 
 verify_failed:
-  return: '{"error": "Consignment inserted but could not be verified"}'
+  return: {"error": "Consignment inserted but could not be verified"}
   status: 500
+  wrapper: false
   next: end

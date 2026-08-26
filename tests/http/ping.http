@@ -16,6 +16,6 @@ Content-Type: application/json
 
 > {%
   client.test("Gate pinged successfully", () => {
-    client.assert(response.body[0].status === "ONLINE")
+    client.assert(response.body.status === "ONLINE")
   })
 %}

@@ -16,10 +16,12 @@ check_found:
   next: respond
 
 respond:
-  return: ${result.response.body}
+  return: ${result.response.body[0]}
+  wrapper: false
   next: end
 
 not_found:
-  return: '{"error": "Not Found"}'
+  return: {"error": "Not Found"}
   status: 404
+  wrapper: false
   next: end
