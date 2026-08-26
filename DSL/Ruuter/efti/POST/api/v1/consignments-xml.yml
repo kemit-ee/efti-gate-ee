@@ -21,7 +21,7 @@ to_xml:
   next: respond
 
 respond:
-  return: ${xml_response.response.body.xml}
+  return: ${xml_response.response.body}
   headers:
     Content-Type: "text/xml"
   wrapper: false

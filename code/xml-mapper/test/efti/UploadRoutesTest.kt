@@ -35,7 +35,7 @@ class UploadRoutesTest: BaseMocks() {
   }
 
   @Test fun responseToXml() {
-    val xml = routes.responseToXml(uil, exchange).xml
+    val xml = routes.responseToXml(uil, exchange)
 
     expect(xml).toContain("<TypeCode>029</TypeCode>")
     expect(xml).toContain("<GateID>POC</GateID>")
@@ -44,7 +44,7 @@ class UploadRoutesTest: BaseMocks() {
   }
 
   @Test fun responseToXmlRoundtrip() {
-    val xml = routes.responseToXml(uil, exchange).xml
+    val xml = routes.responseToXml(uil, exchange)
     val parsed = xmlParser.parse<FTI029UploadIdentifierResponse>(xml)
 
     expect(parsed.uil).toEqual(uil)

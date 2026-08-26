@@ -37,7 +37,7 @@ class SearchRoutesTest : BaseMocks() {
   }
 
   @Test fun requestToXml() {
-    val xml = routes.requestToXml(criteria, exchange).xml
+    val xml = routes.requestToXml(criteria, exchange)
 
     expect(xml).toContain("<TypeCode>019</TypeCode>")
     expect(xml).toContain("<CarrierAcceptanceCountryParameterScope>")
@@ -50,7 +50,7 @@ class SearchRoutesTest : BaseMocks() {
   }
 
   @Test fun requestToXmlRoundtrip() {
-    val xml = routes.requestToXml(criteria, exchange).xml
+    val xml = routes.requestToXml(criteria, exchange)
     val parsed = routes.requestToJson(xml, exchange)
 
     verify { requestIdHandler.send(exchange, "00000000-0000-0000-0000-000000000001".uuid) }
