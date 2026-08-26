@@ -264,10 +264,6 @@
           "query": []
         }
       }
-    }
-  ]
-}
-      }
     },
     {
       "name": "GET /api/v1/authorities/{{authority_id}} — authority is inactive after delete",

@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "efti-gate-ee Admin — Platforms CRUD",
-    "description": "End-to-end CRUD cycle for the Admin Platforms API: create → list → get → update → delete → bulk lifecycle.",
+    "name": "efti-gate-ee Admin \u2014 Platforms CRUD",
+    "description": "End-to-end CRUD cycle for the Admin Platforms API: create \u2192 list \u2192 get \u2192 update \u2192 delete \u2192 bulk lifecycle.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -13,7 +13,7 @@
     {
       "key": "platform_id",
       "value": "",
-      "description": "Test platform logical ID — set by the pre-request script to a unique value each run."
+      "description": "Test platform logical ID \u2014 set by the pre-request script to a unique value each run."
     },
     {
       "key": "bulk_ts",
@@ -23,7 +23,7 @@
   ],
   "item": [
     {
-      "name": "POST /api/v1/platforms — create platform",
+      "name": "POST /api/v1/platforms \u2014 create platform",
       "event": [
         {
           "listen": "prerequest",
@@ -96,7 +96,7 @@
       }
     },
     {
-      "name": "GET /api/v1/platforms — list platforms (includes created)",
+      "name": "GET /api/v1/platforms \u2014 list platforms (includes created)",
       "event": [
         {
           "listen": "test",
@@ -131,7 +131,7 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/platforms",
+          "raw": "{{base_url}}/efti/api/v1/platforms?limit=200",
           "host": [
             "{{base_url}}"
           ],
@@ -140,12 +140,18 @@
             "api",
             "v1",
             "platforms"
+          ],
+          "query": [
+            {
+              "key": "limit",
+              "value": "200"
+            }
           ]
         }
       }
     },
     {
-      "name": "GET /api/v1/platforms/{{platform_id}} — get single platform",
+      "name": "GET /api/v1/platforms/{{platform_id}} \u2014 get single platform",
       "event": [
         {
           "listen": "test",
@@ -194,7 +200,7 @@
       }
     },
     {
-      "name": "PUT /api/v1/platforms/{{platform_id}} — update platform",
+      "name": "PUT /api/v1/platforms/{{platform_id}} \u2014 update platform",
       "event": [
         {
           "listen": "test",
@@ -254,7 +260,7 @@
       }
     },
     {
-      "name": "DELETE /api/v1/platforms/{{platform_id}} — soft-delete platform",
+      "name": "DELETE /api/v1/platforms/{{platform_id}} \u2014 soft-delete platform",
       "event": [
         {
           "listen": "test",
@@ -288,7 +294,7 @@
       }
     },
     {
-      "name": "GET /api/v1/platforms/{{platform_id}} — platform is DELETED after soft-delete",
+      "name": "GET /api/v1/platforms/{{platform_id}} \u2014 platform is DELETED after soft-delete",
       "event": [
         {
           "listen": "test",
@@ -327,7 +333,7 @@
       }
     },
     {
-      "name": "BULK — POST platform-bulk-1 (setup)",
+      "name": "BULK \u2014 POST platform-bulk-1 (setup)",
       "event": [
         {
           "listen": "prerequest",
@@ -375,7 +381,7 @@
       }
     },
     {
-      "name": "BULK — POST platform-bulk-2",
+      "name": "BULK \u2014 POST platform-bulk-2",
       "event": [
         {
           "listen": "test",
@@ -414,7 +420,7 @@
       }
     },
     {
-      "name": "BULK — POST platform-bulk-3",
+      "name": "BULK \u2014 POST platform-bulk-3",
       "event": [
         {
           "listen": "test",
@@ -453,7 +459,7 @@
       }
     },
     {
-      "name": "BULK — POST platform-bulk-4",
+      "name": "BULK \u2014 POST platform-bulk-4",
       "event": [
         {
           "listen": "test",
@@ -492,7 +498,7 @@
       }
     },
     {
-      "name": "BULK — POST platform-bulk-5",
+      "name": "BULK \u2014 POST platform-bulk-5",
       "event": [
         {
           "listen": "test",
@@ -531,7 +537,7 @@
       }
     },
     {
-      "name": "BULK — GET list — verify 5 bulk platforms present",
+      "name": "BULK \u2014 GET list \u2014 verify 5 bulk platforms present",
       "event": [
         {
           "listen": "test",
@@ -574,7 +580,7 @@
       }
     },
     {
-      "name": "BULK — DELETE platform-bulk-3",
+      "name": "BULK \u2014 DELETE platform-bulk-3",
       "event": [
         {
           "listen": "test",
@@ -606,7 +612,7 @@
       }
     },
     {
-      "name": "BULK — DELETE platform-bulk-4",
+      "name": "BULK \u2014 DELETE platform-bulk-4",
       "event": [
         {
           "listen": "test",
@@ -638,7 +644,7 @@
       }
     },
     {
-      "name": "BULK — DELETE platform-bulk-5",
+      "name": "BULK \u2014 DELETE platform-bulk-5",
       "event": [
         {
           "listen": "test",
@@ -670,7 +676,7 @@
       }
     },
     {
-      "name": "BULK — GET list — verify only 2 bulk platforms remain (status != DELETED)",
+      "name": "BULK \u2014 GET list \u2014 verify only 2 bulk platforms remain (status != DELETED)",
       "event": [
         {
           "listen": "test",

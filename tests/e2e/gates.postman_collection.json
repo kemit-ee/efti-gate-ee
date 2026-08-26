@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "efti-gate-ee Admin — Gates CRUD",
-    "description": "End-to-end CRUD cycle for the Admin Gates API: create → list → get → update → delete → bulk lifecycle.",
+    "name": "efti-gate-ee Admin \u2014 Gates CRUD",
+    "description": "End-to-end CRUD cycle for the Admin Gates API: create \u2192 list \u2192 get \u2192 update \u2192 delete \u2192 bulk lifecycle.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -13,7 +13,7 @@
     {
       "key": "gate_id",
       "value": "",
-      "description": "Test gate logical ID — set by the pre-request script to a unique value each run."
+      "description": "Test gate logical ID \u2014 set by the pre-request script to a unique value each run."
     },
     {
       "key": "bulk_ts",
@@ -23,7 +23,7 @@
   ],
   "item": [
     {
-      "name": "POST /api/v1/gates — create gate",
+      "name": "POST /api/v1/gates \u2014 create gate",
       "event": [
         {
           "listen": "prerequest",
@@ -97,7 +97,7 @@
       }
     },
     {
-      "name": "GET /api/v1/gates — list gates (includes created)",
+      "name": "GET /api/v1/gates \u2014 list gates (includes created)",
       "event": [
         {
           "listen": "test",
@@ -127,7 +127,7 @@
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{base_url}}/efti/api/v1/gates",
+          "raw": "{{base_url}}/efti/api/v1/gates?limit=200",
           "host": [
             "{{base_url}}"
           ],
@@ -136,12 +136,18 @@
             "api",
             "v1",
             "gates"
+          ],
+          "query": [
+            {
+              "key": "limit",
+              "value": "200"
+            }
           ]
         }
       }
     },
     {
-      "name": "GET /api/v1/gates/{{gate_id}} — get single gate",
+      "name": "GET /api/v1/gates/{{gate_id}} \u2014 get single gate",
       "event": [
         {
           "listen": "test",
@@ -185,7 +191,7 @@
       }
     },
     {
-      "name": "PUT /api/v1/gates/{{gate_id}} — update gate",
+      "name": "PUT /api/v1/gates/{{gate_id}} \u2014 update gate",
       "event": [
         {
           "listen": "test",
@@ -240,7 +246,7 @@
       }
     },
     {
-      "name": "DELETE /api/v1/gates/{{gate_id}} — soft-delete gate",
+      "name": "DELETE /api/v1/gates/{{gate_id}} \u2014 soft-delete gate",
       "event": [
         {
           "listen": "test",
@@ -274,7 +280,7 @@
       }
     },
     {
-      "name": "GET /api/v1/gates/{{gate_id}} — gate is DELETED after soft-delete",
+      "name": "GET /api/v1/gates/{{gate_id}} \u2014 gate is DELETED after soft-delete",
       "event": [
         {
           "listen": "test",
@@ -313,7 +319,7 @@
       }
     },
     {
-      "name": "BULK — POST gate-bulk-1 (setup)",
+      "name": "BULK \u2014 POST gate-bulk-1 (setup)",
       "event": [
         {
           "listen": "prerequest",
@@ -361,7 +367,7 @@
       }
     },
     {
-      "name": "BULK — POST gate-bulk-2",
+      "name": "BULK \u2014 POST gate-bulk-2",
       "event": [
         {
           "listen": "test",
@@ -400,7 +406,7 @@
       }
     },
     {
-      "name": "BULK — POST gate-bulk-3",
+      "name": "BULK \u2014 POST gate-bulk-3",
       "event": [
         {
           "listen": "test",
@@ -439,7 +445,7 @@
       }
     },
     {
-      "name": "BULK — POST gate-bulk-4",
+      "name": "BULK \u2014 POST gate-bulk-4",
       "event": [
         {
           "listen": "test",
@@ -478,7 +484,7 @@
       }
     },
     {
-      "name": "BULK — POST gate-bulk-5",
+      "name": "BULK \u2014 POST gate-bulk-5",
       "event": [
         {
           "listen": "test",
@@ -517,7 +523,7 @@
       }
     },
     {
-      "name": "BULK — GET list — verify 5 bulk gates present",
+      "name": "BULK \u2014 GET list \u2014 verify 5 bulk gates present",
       "event": [
         {
           "listen": "test",
@@ -560,7 +566,7 @@
       }
     },
     {
-      "name": "BULK — DELETE gate-bulk-3",
+      "name": "BULK \u2014 DELETE gate-bulk-3",
       "event": [
         {
           "listen": "test",
@@ -592,7 +598,7 @@
       }
     },
     {
-      "name": "BULK — DELETE gate-bulk-4",
+      "name": "BULK \u2014 DELETE gate-bulk-4",
       "event": [
         {
           "listen": "test",
@@ -624,7 +630,7 @@
       }
     },
     {
-      "name": "BULK — DELETE gate-bulk-5",
+      "name": "BULK \u2014 DELETE gate-bulk-5",
       "event": [
         {
           "listen": "test",
@@ -656,7 +662,7 @@
       }
     },
     {
-      "name": "BULK — GET list — verify only 2 bulk gates remain (status != DELETED)",
+      "name": "BULK \u2014 GET list \u2014 verify only 2 bulk gates remain (status != DELETED)",
       "event": [
         {
           "listen": "test",

@@ -10,14 +10,16 @@ params:
   status:
     type: string
   subsets:
-    type: string
+    type: array
+    items:
+      type: string
 */
 INSERT INTO authorities (id, name, registry_code, subsets, status)
 VALUES (
   :id,
   :name,
   :registryCode,
-  :subsets,
+  :subsets::text[],
   COALESCE(:status, 'ACTIVE')::authority_status
 )
 RETURNING
