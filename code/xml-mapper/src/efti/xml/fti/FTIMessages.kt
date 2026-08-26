@@ -76,7 +76,7 @@ data class ExchangedDocumentContext(
 internal fun UUID.render() = "<ID schemeID=\"RFC 9562-4\">$this</ID>"
 
 fun String.extractFTITag(tagName: String) = extractXmlTag(tagName, setOf(udtNs))
-fun String.extractParameterIDSetCriteria() = extractFTITag("ParameterIDSetCriteria")
+fun String.extractUniqueIDSetUniqueIDSet() = extractFTITag("UniqueIDSetUniqueIDSet")
 fun String.extractSpecifiedSupplyChainConsignment() = extractFTITag("SpecifiedSupplyChainConsignment")
 
 data class IncludedNote(

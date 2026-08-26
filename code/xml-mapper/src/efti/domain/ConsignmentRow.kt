@@ -2,7 +2,7 @@ package efti.domain
 
 import efti.subsets.CountryCode
 import efti.xml.fti.UniqueIDSetUniqueIDSet
-import efti.xml.fti.extractParameterIDSetCriteria
+import efti.xml.fti.extractUniqueIDSetUniqueIDSet
 import java.time.Instant
 import java.util.*
 
@@ -35,7 +35,7 @@ data class ConsignmentRow(
 ) {
   constructor(content: UniqueIDSetUniqueIDSet, xml: String): this(
     content.uil.datasetId, content.uil.platformId, content.uil.gateId,
-    xml.extractParameterIDSetCriteria(),
+    xml.extractUniqueIDSetUniqueIDSet(),
     content.criteria!!.transportMode,
     content.criteria.acceptanceDate?.instant,
     content.criteria.acceptanceCountry,
