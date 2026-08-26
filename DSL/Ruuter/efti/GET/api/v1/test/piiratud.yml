@@ -5,8 +5,6 @@ declaration:
     Returns 401 if the cookie is missing or TIM rejects it.
     On success, returns the JWT claims from TIM.
   method: get
-  accepts: json
-  returns: json
 
 check_for_cookie:
   switch:

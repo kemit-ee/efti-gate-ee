@@ -1,3 +1,57 @@
+/*
+description: insert consignment
+params:
+  acceptanceCountry:
+    type: string
+  acceptanceDate:
+    type: string
+  carriedEquipmentCategories:
+    type: string
+  carriedEquipmentIds:
+    type: string
+  carriedEquipmentSeq:
+    type: string
+  dangerousGoods:
+    type: string
+  datasetId:
+    type: string
+  deliveryCountry:
+    type: string
+  deliveryDate:
+    type: string
+  gateId:
+    type: string
+  loadingCountry:
+    type: string
+  loadingDate:
+    type: string
+  mainTransportId:
+    type: string
+  mainTransportType:
+    type: string
+  platformId:
+    type: string
+  status:
+    type: string
+  transportMode:
+    type: string
+  transportRegCountry:
+    type: string
+  unloadingCountry:
+    type: string
+  unloadingDate:
+    type: string
+  usedEquipmentCategories:
+    type: string
+  usedEquipmentCountries:
+    type: string
+  usedEquipmentIds:
+    type: string
+  usedEquipmentSeq:
+    type: string
+  xml:
+    type: string
+*/
 INSERT INTO consignments (
   dataset_id,
   platform_id,

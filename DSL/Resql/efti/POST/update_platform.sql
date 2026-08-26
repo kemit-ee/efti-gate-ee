@@ -1,3 +1,23 @@
+/*
+description: update platform
+params:
+  baseUrl:
+    type: string
+  certSerial:
+    type: string
+  certSubject:
+    type: string
+  eDeliveryCert:
+    type: string
+  headers:
+    type: string
+  id:
+    type: string
+  status:
+    type: string
+  tlsCert:
+    type: string
+*/
 INSERT INTO platforms (
   id,
   base_url,

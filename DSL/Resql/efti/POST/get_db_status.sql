@@ -1,3 +1,7 @@
+/*
+description: get db status
+params: {}
+*/
 SELECT
   version()                                    AS pg_version,
   pg_postmaster_start_time()                   AS started_at,

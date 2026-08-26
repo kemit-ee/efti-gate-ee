@@ -1,3 +1,9 @@
+/*
+description: get authority by id
+params:
+  id:
+    type: string
+*/
 SELECT DISTINCT ON (id)
   row_id,
   id,

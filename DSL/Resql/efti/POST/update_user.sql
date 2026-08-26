@@ -1,3 +1,13 @@
+/*
+description: update user
+params:
+  id:
+    type: string
+  name:
+    type: string
+  taraSub:
+    type: string
+*/
 INSERT INTO users (id, tara_sub, name)
 VALUES (
   :id::uuid,

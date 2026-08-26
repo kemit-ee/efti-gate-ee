@@ -5,8 +5,6 @@ declaration:
     AuthCallbackPage, exchanges it via TIM's session-based callback, then returns
     the JWT in the response body for the frontend to store in sessionStorage.
   method: post
-  accepts: json
-  returns: json
   allowlist:
     body:
       - field: code

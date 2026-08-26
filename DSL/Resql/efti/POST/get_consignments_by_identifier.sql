@@ -1,3 +1,13 @@
+/*
+description: get consignments by identifier
+params:
+  identifier:
+    type: string
+  limit:
+    type: string
+  offset:
+    type: string
+*/
 SELECT
   row_id,
   dataset_id,

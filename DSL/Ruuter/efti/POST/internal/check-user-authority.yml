@@ -3,8 +3,6 @@ declaration:
   version: "0.1"
   description: "Resolve the caller from an 'Authorization: Bearer <jwt>' header — validate the token with TIM, then load the users row by tara_sub. Returns the users row, or the string \"false\" on any failure."
   method: post
-  accepts: json
-  returns: json
   namespace: internal
   allowlist:
     header:
