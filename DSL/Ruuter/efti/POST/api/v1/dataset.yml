@@ -1,52 +1,55 @@
-declaration:
-  description: "Authority API — get full consignment dataset XML filtered by subsets"
-  allowed_body: [json]
+# description: "Authority API — get full consignment dataset XML filtered by subsets"
+# body: DatasetQueryRequest
 
-# TODO: this is wrong, full dataset should come from the platform, we don't have it in the DB
-get_consignment:
-  call: http.post
-  args:
-    url: "[#RESQL_URL]/efti/get_consignment_xml"
-    headers:
-      Content-Type: "application/json"
-    body:
-      datasetId: "${incoming.body.datasetId}"
-      platformId: "${incoming.body.platformId}"
-      gateId: "${incoming.body.gateId}"
-  result: consignment_result
-  next: check_found
-
-check_found:
+check_gate:
   switch:
-    - condition: ${consignment_result.response.body == null || consignment_result.response.body.length == 0}
-      next: not_found
-  next: build_xml_response
+    - condition: ${incoming.body.uil.gateId != '[#OWN_GATE_ID]'}
+      next: forward_to_remote_gate
+  next: get_platform
 
-build_xml_response:
+get_platform:
   call: http.post
   args:
-    url: "[#XML_MAPPER_URL]/api/v1/dataset/response-to-xml"
+    url: "[#RESQL_URL]/efti/get_platform_by_id"
     headers:
       Content-Type: "application/json"
     body:
-      uil:
-        gateId: "${incoming.body.gateId}"
-        platformId: "${incoming.body.platformId}"
-        datasetId: "${incoming.body.datasetId}"
-      xml: "${consignment_result.response.body[0].xml}"
-      subsets: ${incoming.body.subsets}
-  result: xml_response
+      id: "${incoming.body.uil.platformId}"
+  result: platform_result
+  next: check_platform
+
+check_platform:
+  switch:
+    - condition: ${platform_result.response.body == null || platform_result.response.body.length == 0}
+      next: platform_not_found
+  next: forward_to_platform
+
+forward_to_platform:
+  call: http.get
+  args:
+    url: "${platform_result.response.body[0].baseUrl}/v1/dataset/${incoming.body.uil.datasetId}?subsetId=${incoming.body.subsets.join(',')}"
+    headers: "${Object.assign(platform_result.response.body[0].headers, {'x-request-id': incoming.headers['x-request-id']})}"
+    body: ${incoming.body}
+  result: platform_response
   next: respond
 
 respond:
-  return: ${xml_response.response.body}
-  headers:
-    Content-Type: "text/xml"
+  return: ${platform_response.response.body}
   wrapper: false
+  status: ${platform_response.response.status}
   next: end
 
-not_found:
-  return: {"error": "Not Found"}
-  status: 404
+forward_to_remote_gate:
+  # TODO: Forward to remote gate over eDelivery
+  return:
+    error: "Remote gate follow-up not yet implemented"
   wrapper: false
+  status: 501
+  next: end
+
+platform_not_found:
+  return:
+    error: "Platform Not Found"
+  wrapper: false
+  status: 404
   next: end

@@ -1,33 +1,33 @@
 declaration:
-  description: "Follow-up message through eDelivery"
+  description: "Retrieve dataset from local platform via eDelivery"
   allowed_body: [xml]
 
-parse_xml:
+parse_request:
   call: http.post
   args:
-    url: "[#XML_MAPPER_URL]/api/v1/followup/request-to-json"
+    url: "[#XML_MAPPER_URL]/api/v1/dataset/request-to-json"
     headers:
       Content-Type: "text/xml"
     content_type: plaintext
     body:
-      text: "${incoming.body.xml}"
-  result: followup_json
-  next: call_follow_up
+      text: ${incoming.body.xml}
+  result: request_json
+  next: get_platform
 
-call_follow_up:
-  template: api/v1/follow-up
+call_dataset:
+  template: api/v1/dataset
   request_type: "POST"
-  body: ${followup_json.response.body}
-  result: followup_response
+  body: ${request_json.response.body}
+  result: dataset_response
   next: to_xml
 
 to_xml:
   call: http.post
   args:
-    url: "[#XML_MAPPER_URL]/api/v1/followup/response-to-xml"
+    url: "[#XML_MAPPER_URL]/api/v1/dataset/response-to-xml"
     headers:
       Content-Type: "application/json"
-    body: ${followup_response}
+    body: ${dataset_response}
   result: xml_response
   next: respond
 
@@ -36,5 +36,4 @@ respond:
   headers:
     Content-Type: "text/xml"
   wrapper: false
-  status: 201
   next: end

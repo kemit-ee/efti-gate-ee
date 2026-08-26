@@ -19,7 +19,7 @@ class RuuterClient(
     http.sendXml(baseUrl + "/consignments/search-xml", xml)
 
   fun getDataset(xml: String /* FTI009GetCmdsRequest */) =
-    http.sendXml(baseUrl + "/datasets-xml", xml)
+    http.sendXml(baseUrl + "/dataset-xml", xml)
 
   fun followUp(xml: String /* FTI025LodgeFollowUpCommRequest */) =
     http.sendXml(baseUrl + "/follow-up-xml", xml)
