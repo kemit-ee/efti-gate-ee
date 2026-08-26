@@ -1,3 +1,13 @@
+/*
+description: insert session revocation
+params:
+  jwt_payload:
+    type: string
+  reason:
+    type: string
+  user_id:
+    type: string
+*/
 -- Append-only INSERT into the JWT denylist (docs/specs/db/schema.sql §4.2).
 -- Duplicates on jti are deliberately tolerated: a second logout on the same token is a
 -- no-op insert, not a conflict, because the read pattern is

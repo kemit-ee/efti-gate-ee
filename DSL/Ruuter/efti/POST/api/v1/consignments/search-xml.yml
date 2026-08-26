@@ -34,7 +34,6 @@ to_xml:
   result: xml_response
   next: respond
 
-## TODO: This returns XML as string (XML is wrapped in "")
 respond:
   return: ${xml_response.response.body.xml}
   headers:

@@ -1,3 +1,17 @@
+/*
+description: insert authority
+params:
+  id:
+    type: string
+  name:
+    type: string
+  registryCode:
+    type: string
+  status:
+    type: string
+  subsets:
+    type: string
+*/
 INSERT INTO authorities (id, name, registry_code, subsets, status)
 VALUES (
   :id,

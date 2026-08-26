@@ -1,3 +1,15 @@
+/*
+description: get follow up messages
+params:
+  datasetId:
+    type: string
+  followUpId:
+    type: string
+  limit:
+    type: string
+  offset:
+    type: string
+*/
 SELECT
   row_id,
   follow_up_id,

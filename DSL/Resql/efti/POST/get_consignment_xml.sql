@@ -1,3 +1,13 @@
+/*
+description: get consignment xml
+params:
+  datasetId:
+    type: string
+  gateId:
+    type: string
+  platformId:
+    type: string
+*/
 SELECT DISTINCT ON (dataset_id)
   row_id,
   dataset_id,

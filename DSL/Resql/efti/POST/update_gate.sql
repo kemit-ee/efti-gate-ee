@@ -1,3 +1,19 @@
+/*
+description: update gate
+params:
+  countryCode:
+    type: string
+  eDeliveryCert:
+    type: string
+  eDeliveryUrl:
+    type: string
+  id:
+    type: string
+  status:
+    type: string
+  tlsCert:
+    type: string
+*/
 INSERT INTO gates (id, country_code, e_delivery_url, e_delivery_cert, tls_cert, status)
 VALUES (
   :id,

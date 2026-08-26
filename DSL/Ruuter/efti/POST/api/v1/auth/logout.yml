@@ -2,8 +2,6 @@ declaration:
   version: "1.0"
   description: "Logout — blacklist JWT via TIM. The frontend drops its sessionStorage copy."
   method: post
-  accepts: json
-  returns: json
   allowlist:
     header:
       - field: authorization

@@ -1,3 +1,9 @@
+/*
+description: soft delete consignment
+params:
+  datasetId:
+    type: string
+*/
 INSERT INTO consignments (
   dataset_id,
   platform_id,

@@ -1,3 +1,23 @@
+/*
+description: insert follow up log
+params:
+  datasetRequestId:
+    type: string
+  destinationGateId:
+    type: string
+  destinationPlatformId:
+    type: string
+  followUpId:
+    type: string
+  payload:
+    type: string
+  requestingGateId:
+    type: string
+  requestingUserId:
+    type: string
+  status:
+    type: string
+*/
 INSERT INTO follow_up_log (
   follow_up_id,
   requesting_gate_id,

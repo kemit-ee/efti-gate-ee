@@ -1,3 +1,9 @@
+/*
+description: check tara sub exists
+params:
+  taraSub:
+    type: string
+*/
 SELECT id
 FROM users
 WHERE tara_sub = :taraSub

@@ -5,8 +5,6 @@ declaration:
     If a valid eftiJwtCookie is present, returns the JWT claims from TIM.
     If no cookie (or invalid), returns an anonymous response with status 200.
   method: get
-  accepts: json
-  returns: json
 
 check_for_cookie:
   switch:

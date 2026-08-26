@@ -1,3 +1,11 @@
+/*
+description: get platforms
+params:
+  limit:
+    type: string
+  offset:
+    type: string
+*/
 SELECT * FROM (
   SELECT DISTINCT ON (id)
     row_id,

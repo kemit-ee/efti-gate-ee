@@ -1,3 +1,9 @@
+/*
+description: get user by tara sub
+params:
+  tara_sub:
+    type: string
+*/
 SELECT DISTINCT ON (id)
   row_id,
   id,

@@ -1,3 +1,9 @@
+/*
+description: soft delete gate
+params:
+  id:
+    type: string
+*/
 INSERT INTO gates (id, country_code, e_delivery_url, e_delivery_cert, tls_cert, status)
 SELECT id, country_code, e_delivery_url, e_delivery_cert, tls_cert, 'DELETED'::gate_status
 FROM (

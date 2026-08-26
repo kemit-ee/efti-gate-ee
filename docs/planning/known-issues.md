@@ -124,9 +124,73 @@ Eemaldatud `ARRAY(SELECT jsonb_array_elements_text(... ::jsonb))` konstruktsioon
 - `DSL/Resql/efti/POST/insert_user.sql` — array workaround (alpha.2)
 - `DSL/Resql/efti/POST/update_user.sql` — array workaround (alpha.2)
 
+### Alpha.4 — kõik SQL-failid peavad algama `/* */` deklaratsioonikommentaariga
+
+ResQL 0.1.0-alpha.4 nõuab, et iga SQL-fail algaks `/* ... */` blokk-kommentaariga, mis sisaldab vähemalt `description` ja `params` välju. Ilma selleta keeldub ResQL käivitumast:
+
+```
+Invalid declaration in './sql/efti/POST/check_tara_sub_exists.sql': file must open with a /* … */ block-comment declaration
+```
+
+Samuti valideeritakse parameetri tüübid päringus. `type: integer` kasutamine `limit`/`offset` parameetritele koos `::int` cast-iga SQL-is põhjustab vea `invalid byte sequence for encoding "UTF8": 0x00`. **Workaround:** deklareeri `limit`/`offset` tüübiga `type: string` — SQL-i `COALESCE(:limit::int, 20)` teeb type cast ise.
+
+Minimaalne deklaratsiooni formaat:
+```sql
+/*
+description: lühikirjeldus
+params:
+  paramName:
+    type: string   # string | integer | object
+*/
+SELECT ...
+```
+
+### Lahendus (alpha.4)
+
+Lisatud `/* */` deklaratsioonid kõigile 36 SQL-failile. Pakett `docker/resql/Dockerfile` uuendatud `turnerrainer/resql:0.1.0-alpha.2` → `turnerrainer/resql:alpha`.
+
 ### Järgmine samm
 
-Jälgi ResQL release'e (praegu alpha.2 = viimane). Kui alpha.3+ ilmub, kontrolli kas JSON array ja boolean type mapping on stabiliseerunud. Hetkel kasuta `docker/resql/Dockerfile` versiooni `0.1.0-alpha.2`.
+Jälgi ResQL release'e. Hetkel kasuta `docker/resql/Dockerfile` versiooni `turnerrainer/resql:alpha` (praegu 0.1.0-alpha.4).
+
+---
+
+## KI-005 · Ruuter — XML tagastamine mähituna JSON jutumärkidesse
+
+**Staatus:** 🟢 Resolved (Ruuter 0.9.0-rc.1, 2026-08-26)
+**Mõjutatud komponendid:** `DSL/Ruuter/efti/POST/api/v1/consignments-xml.yml`, `DSL/Ruuter/efti/POST/api/v1/consignments/search-xml.yml`
+
+### Kirjeldus
+
+Ruuter versioonides enne 0.9.0-rc.1: kui `return:` samm tagastas stringi muutuja (sh XML-teksti), serialiseeris Ruuter selle JSON-stringina — klient sai `"<xml>...</xml>"` (jutumärkidega) asemel puhta `<xml>...</xml>`.
+
+```yaml
+# Enne 0.9.0-rc.1 — tagastas: "<FTI021...>...</FTI021...>" (jutumärkidega!)
+respond:
+  return: ${xml_response.response.body.xml}
+  headers:
+    Content-Type: "text/xml"
+  wrapper: false
+```
+
+Workaround oli mähkida XML `RuuterXmlWrapper(val xml: String)` JSON-objekti (`{"xml": "..."}`) xml-mapper'is ning võtta `.xml` väli Ruuteri DSL-is — kuid see ei lahendanud jutumärkide probleemi, ainult peitis selle.
+
+### Lahendus
+
+Ruuter 0.9.0-rc.1 tagastab `return: ${xml_string}` koos `wrapper: false` ja `Content-Type: text/xml` nüüd puhta XML-i ilma jutumärkideta. `RuuterXmlWrapper` muster töötab edasi — lihtsalt `.xml` väli jõuab nüüd kliendini õigesti.
+
+```yaml
+# 0.9.0-rc.1+ — tagastab: <FTI021...>...</FTI021...> (korrektne)
+respond:
+  return: ${xml_response.response.body.xml}
+  headers:
+    Content-Type: "text/xml"
+  wrapper: false
+```
+
+### Viited
+
+- `docker/ruuter/Dockerfile` — `FROM turnerrainer/ruuter:rc` (praegu 0.9.0-rc.1)
 
 ---
 

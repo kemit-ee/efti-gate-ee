@@ -3,8 +3,6 @@ declaration:
   version: "0.1"
   description: "Current user profile. Open to any authenticated caller, scoped to their own row — docs/specs/permissions-matrix.md:163, openapi.yaml operation getCurrentUser."
   method: get
-  accepts: json
-  returns: json
   namespace: service
   allowlist:
     header:

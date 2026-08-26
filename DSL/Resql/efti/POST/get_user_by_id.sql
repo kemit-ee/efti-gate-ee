@@ -1,3 +1,9 @@
+/*
+description: get user by id
+params:
+  userId:
+    type: string
+*/
 SELECT DISTINCT ON (id)
   row_id,
   id,

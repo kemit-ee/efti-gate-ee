@@ -1,3 +1,9 @@
+/*
+description: get consignment by id
+params:
+  datasetId:
+    type: string
+*/
 SELECT DISTINCT ON (dataset_id)
   row_id,
   dataset_id,
