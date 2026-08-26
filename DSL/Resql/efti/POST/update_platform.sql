@@ -5,7 +5,7 @@ params:
   certSerial: { type: string }
   certSubject: { type: string }
   eDeliveryCert: { type: string }
-  headers: { type: string }
+  headers: { type: object, default: {} }
   id: { type: string, required: true }
   status: { type: string }
   tlsCert: { type: string }
