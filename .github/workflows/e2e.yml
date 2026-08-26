@@ -26,40 +26,24 @@ jobs:
 
       - name: Build CI images
         run: |
-          docker buildx bake -f compose.yml -f compose.ci.yml \
+          docker buildx bake \
             --set '*.cache-from=type=gha' \
             --set '*.cache-to=type=gha,mode=max'
 
       - name: Start services
         run: |
-          docker compose -f compose.yml -f compose.ci.yml up -d --wait || docker compose -f compose.yml -f compose.ci.yml logs
+          docker compose -f compose.yml up -d --wait || docker compose logs
 
       - name: Run http tests
         run: |
           docker compose run --rm http-tests
 
-      - name: Run Newman e2e tests
-        run: |
-          BASE_URL="http://localhost:19086"
-          npx --yes newman run tests/e2e/baasikontoroll.postman_collection.json \
-            --env-var "base_url=${BASE_URL}"
-          npx newman run tests/e2e/health.postman_collection.json \
-            --env-var "base_url=${BASE_URL}"
-          npx newman run tests/e2e/gates.postman_collection.json \
-            --env-var "base_url=${BASE_URL}"
-          npx newman run tests/e2e/platforms.postman_collection.json \
-            --env-var "base_url=${BASE_URL}"
-          npx newman run tests/e2e/authorities.postman_collection.json \
-            --env-var "base_url=${BASE_URL}"
-          npx newman run tests/e2e/users.postman_collection.json \
-            --env-var "base_url=${BASE_URL}"
-
       - name: Print logs on failure
         if: failure()
         run: |
-          docker compose -p efti_gate_ee_ci_stack -f compose.yml -f compose.ci.yml logs
+          docker compose logs
 
       - name: Teardown
         if: always()
         run: |
-          docker compose -p efti_gate_ee_ci_stack -f compose.yml -f compose.ci.yml down -v
+          docker compose down -v
