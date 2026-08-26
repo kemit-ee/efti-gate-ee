@@ -2,9 +2,8 @@
   import {t} from 'i18n'
   import Navbar from 'src/components/Navbar.svelte'
   import Toasts from 'src/components/Toasts.svelte'
-  import {activePath, navigate, Route, Router} from 'src/router'
+  import {activePath, Route, Router} from 'src/router'
   import AuthCallbackPage from 'src/pages/auth/AuthCallbackPage.svelte'
-  import LoginPage from 'src/pages/auth/LoginPage.svelte'
   import GatesPage from 'src/pages/admin/gates/GatesPage.svelte'
   import PlatformsPage from 'src/pages/admin/platforms/PlatformsPage.svelte'
   import AuthoritiesPage from 'src/pages/admin/authorities/AuthoritiesPage.svelte'
@@ -22,19 +21,26 @@
   ]
 
   let user: User | undefined
-  $: if (!user && !['/auth/callback', '/login'].includes($activePath)) getUser()
+  $: if (!user && !['/auth/callback'].includes($activePath)) getUser()
 
   async function getUser() {
     if (!getToken()) {
-      navigate('/login')
+      await redirectToTara()
       return
     }
 
     try {
       user = await api.get<User>('user')
     } catch {
-      navigate('/login')
+      await redirectToTara()
     }
+  }
+
+  async function redirectToTara() {
+    const res = await fetch('/tim/auth/login/tara')
+    const data = await res.json()
+    // TODO the authorization_url should be used without replacements. in local dockerized dev the url is modified to route correctly in browser
+    window.location.href = data.authorization_url.replace('https://tara-mock:8080', '/tara')
   }
 </script>
 
@@ -50,7 +56,6 @@
     {#each routes as r}
       <Route {...r}/>
     {/each}
-    <Route path="/login" component={LoginPage}/>
     <Route path="/auth/callback" component={AuthCallbackPage}/>
   </main>
 </Router>
