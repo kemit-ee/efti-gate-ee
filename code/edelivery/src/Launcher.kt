@@ -12,7 +12,13 @@ fun main() {
   Config.useEnvFile()
   if (Config.optional("PORT") == null) Config["PORT"] = "8081"
 
-  Server(requestIdGenerator = RequestIdHandler()).apply {
+  val registry = DependencyInjectingRegistry().apply {
+    register<RequestLogger>(RequestLogger { ms ->
+      "<" + attr<String?>("client") + "> " + defaultRequestLogFormatter(ms)
+    })
+  }
+
+  Server(requestIdGenerator = RequestIdHandler(), registry = registry).apply {
     use<JsonBody>()
     register(httpClient())
     register<PartyRegistry>(EDeliveryPartyRegistry::class)
