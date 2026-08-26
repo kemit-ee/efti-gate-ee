@@ -1,54 +1,55 @@
 <script lang="ts">
-  import { fade } from "svelte/transition";
-  import type { Snippet } from "svelte";
+  import { fade } from 'svelte/transition'
+  import type { Snippet } from 'svelte'
 
   interface Props {
-    open?: boolean;
-    class?: string;
-    wrapperClass?: string;
-    openerClass?: string;
-    children: Snippet;
-    menu: Snippet<[() => void]>;
+    open?: boolean
+    class?: string
+    wrapperClass?: string
+    openerClass?: string
+    children: Snippet
+    menu: Snippet<[() => void]>
   }
 
   let {
     open = $bindable(false),
-    class: dropdownClass = "",
-    wrapperClass = "shrink-0 relative md:inline-block",
-    openerClass = "",
+    class: dropdownClass = '',
+    wrapperClass = 'shrink-0 relative md:inline-block',
+    openerClass = '',
     children,
-    menu,
-  }: Props = $props();
+    menu
+  }: Props = $props()
 
-  let wrapper: HTMLElement;
+  let wrapper: HTMLElement
 
   function handleOutsideClick(e: Event) {
-    if (open && !wrapper.contains(e.target as HTMLElement)) {
-      open = false;
+    if (open && wrapper && !wrapper.contains(e.target as HTMLElement)) {
+      open = false
     }
   }
 
   function handleEscape(e: KeyboardEvent) {
-    if (open && e.key === "Escape") {
-      open = false;
+    if (open && e.key === 'Escape') {
+      open = false
     }
   }
 
-  function handleSpace(e: KeyboardEvent) {
-    if (e.key === " ") {
-      open = !open;
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault()
+      open = !open
     }
   }
 
   export function close() {
-    open = false;
+    open = false
   }
 </script>
 
-<svelte:body on:click={handleOutsideClick} on:keyup={handleEscape} />
+<svelte:body onclick={handleOutsideClick} onkeydown={handleEscape}/>
 
 <div class={wrapperClass} bind:this={wrapper}>
-  <div onclick={() => (open = !open)} onkeyup={handleSpace} role="menu" tabindex="0" class={openerClass}>
+  <div onclick={() => open = !open} onkeydown={handleKeydown} role='button' aria-haspopup='menu' aria-expanded={open} tabindex='0' class={openerClass}>
     {@render children()}
   </div>
 

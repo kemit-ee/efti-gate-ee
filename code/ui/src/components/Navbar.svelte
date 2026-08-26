@@ -52,7 +52,7 @@
 </script>
 
 {#snippet menu()}
-  <button class="text-sm text-primary-700 font-medium hover:text-primary-900 transition-colors" onclick={logout}>
+  <button class='w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 transition-colors'>
     {t.auth.logout}
   </button>
 {/snippet}
@@ -88,7 +88,7 @@
       {/if}
       <div class="flex flex-row sm:flex-col items-center sm:items-start gap-2 sm:gap-0">
         <span class="hidden sm:block text-sm text-neutral-700">{t.general.language}</span>
-        <select class="text-primary-600 font-medium bg-transparent border-none p-0 pr-8 focus:ring-0 cursor-pointer uppercase appearance-none" bind:value={selectedLang}>
+        <select class="text-primary-600 font-medium bg-transparent border-none p-0 pr-8 cursor-pointer uppercase appearance-none" bind:value={selectedLang}>
           {#each langs as l}
             <option value={l}>{l}</option>
           {/each}
