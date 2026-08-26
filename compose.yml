@@ -61,6 +61,8 @@ services:
     build:
       context: .
       dockerfile: docker/ui/Dockerfile
+      args:
+        - VITE_USE_PROD_TARA_URL=true
     depends_on:
       - ruuter
 

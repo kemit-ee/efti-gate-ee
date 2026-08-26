@@ -10,7 +10,7 @@
   import UsersPage from 'src/pages/admin/users/UsersPage.svelte'
   import ConsignmentPage from "src/pages/admin/consignments/ConsignmentPage.svelte"
   import api, {getToken} from "src/api/api"
-  import type {User} from "src/api/ruuterTypes"
+  import type {TaraLoginResponse, User} from "src/api/ruuterTypes"
 
   const routes = [
     {name: t.gates.title, path: '/gates', component: GatesPage},
@@ -21,7 +21,7 @@
   ]
 
   let user: User | undefined
-  $: if (!user && !['/auth/callback'].includes($activePath)) getUser()
+  $: if (!user && '/auth/callback' !== $activePath) getUser()
 
   async function getUser() {
     if (!getToken()) {
@@ -38,9 +38,10 @@
 
   async function redirectToTara() {
     const res = await fetch('/tim/auth/login/tara')
-    const data = await res.json()
-    // TODO the authorization_url should be used without replacements. in local dockerized dev the url is modified to route correctly in browser
-    window.location.href = data.authorization_url.replace('https://tara-mock:8080', '/tara')
+    const data: TaraLoginResponse = await res.json()
+    window.location.href = import.meta.env.VITE_USE_PROD_TARA_URL === 'true'
+      ? data.authorization_url
+      : data.authorization_url.replace('https://tara-mock:8080', '/tara')
   }
 </script>
 

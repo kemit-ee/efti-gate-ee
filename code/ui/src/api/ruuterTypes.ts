@@ -16,14 +16,6 @@ export enum SubsetCode {
 export enum CountryCode {EU = 'EU', AL = 'AL', AD = 'AD', AT = 'AT', BY = 'BY', BE = 'BE', BA = 'BA', BG = 'BG', HR = 'HR', CY = 'CY', CZ = 'CZ', DK = 'DK', EE = 'EE', FI = 'FI', FR = 'FR', DE = 'DE', EL = 'EL', HU = 'HU', IS = 'IS', IE = 'IE', IT = 'IT', LV = 'LV', LI = 'LI', LT = 'LT', LU = 'LU', MT = 'MT', MD = 'MD', MC = 'MC', ME = 'ME', NL = 'NL', MK = 'MK', NO = 'NO', PL = 'PL', PT = 'PT', RO = 'RO', RU = 'RU', SM = 'SM', RS = 'RS', SK = 'SK', SI = 'SI', ES = 'ES', SE = 'SE', CH = 'CH', UA = 'UA', GB = 'GB', VA = 'VA', DO = 'DO', AF = 'AF', AX = 'AX', DZ = 'DZ', AS = 'AS', AO = 'AO', AI = 'AI', AQ = 'AQ', AG = 'AG', AR = 'AR', AM = 'AM', AW = 'AW', AU = 'AU', AZ = 'AZ', BS = 'BS', BH = 'BH', BD = 'BD', BB = 'BB', BZ = 'BZ', BJ = 'BJ', BM = 'BM', BT = 'BT', BO = 'BO', BQ = 'BQ', BW = 'BW', BV = 'BV', BR = 'BR', IO = 'IO', BN = 'BN', BF = 'BF', BI = 'BI', CV = 'CV', KH = 'KH', CM = 'CM', CA = 'CA', KY = 'KY', CF = 'CF', TD = 'TD', CL = 'CL', CN = 'CN', CX = 'CX', CC = 'CC', CO = 'CO', KM = 'KM', CD = 'CD', CG = 'CG', CK = 'CK', CR = 'CR', CI = 'CI', CU = 'CU', CW = 'CW', DJ = 'DJ', DM = 'DM', EC = 'EC', EG = 'EG', SV = 'SV', GQ = 'GQ', ER = 'ER', SZ = 'SZ', ET = 'ET', FK = 'FK', FO = 'FO', FJ = 'FJ', GF = 'GF', PF = 'PF', TF = 'TF', GA = 'GA', GM = 'GM', GE = 'GE', GH = 'GH', GI = 'GI', GR = 'GR', GL = 'GL', GD = 'GD', GP = 'GP', GU = 'GU', GT = 'GT', GG = 'GG', GN = 'GN', GW = 'GW', GY = 'GY', HT = 'HT', HM = 'HM', HN = 'HN', HK = 'HK', IN = 'IN', ID = 'ID', IR = 'IR', IQ = 'IQ', IM = 'IM', IL = 'IL', JM = 'JM', JP = 'JP', JE = 'JE', JO = 'JO', KZ = 'KZ', KE = 'KE', KI = 'KI', KP = 'KP', KR = 'KR', KW = 'KW', KG = 'KG', LA = 'LA', LB = 'LB', LS = 'LS', LR = 'LR', LY = 'LY', MO = 'MO', MG = 'MG', MW = 'MW', MY = 'MY', MV = 'MV', ML = 'ML', MH = 'MH', MQ = 'MQ', MR = 'MR', MU = 'MU', YT = 'YT', MX = 'MX', FM = 'FM', MN = 'MN', MS = 'MS', MA = 'MA', MZ = 'MZ', MM = 'MM', NA = 'NA', NR = 'NR', NP = 'NP', NC = 'NC', NZ = 'NZ', NI = 'NI', NE = 'NE', NG = 'NG', NU = 'NU', NF = 'NF', MP = 'MP', OM = 'OM', PK = 'PK', PW = 'PW', PS = 'PS', PA = 'PA', PG = 'PG', PY = 'PY', PE = 'PE', PH = 'PH', PN = 'PN', PR = 'PR', QA = 'QA', RE = 'RE', RW = 'RW', BL = 'BL', SH = 'SH', KN = 'KN', LC = 'LC', MF = 'MF', PM = 'PM', VC = 'VC', WS = 'WS', ST = 'ST', SA = 'SA', SN = 'SN', SC = 'SC', SL = 'SL', SG = 'SG', SX = 'SX', SB = 'SB', SO = 'SO', ZA = 'ZA', GS = 'GS', SS = 'SS', LK = 'LK', SD = 'SD', SR = 'SR', SJ = 'SJ', SY = 'SY', TW = 'TW', TJ = 'TJ', TZ = 'TZ', TH = 'TH', TL = 'TL', TG = 'TG', TK = 'TK', TO = 'TO', TT = 'TT', TN = 'TN', TR = 'TR', TM = 'TM', TC = 'TC', TV = 'TV', UG = 'UG', AE = 'AE', UM = 'UM', US = 'US', UY = 'UY', UZ = 'UZ', VU = 'VU', VE = 'VE', VN = 'VN', VG = 'VG', VI = 'VI', WF = 'WF', EH = 'EH', YE = 'YE', ZM = 'ZM', ZW = 'ZW'}
 export type Subset = string
 
-export interface PaginationParams {
-  limit?: number
-  offset?: number
-}
-export interface RuuterResponse<T> {
-  response: T
-}
-
 export interface Gate {
   id: string
   rowId: string
@@ -102,22 +94,10 @@ export interface UpdateUserRequest {
   taraSub: string
 }
 
-export interface UserIdParam {
-  userId: string
-}
-
 export enum ConsignmentStatus {
   ACTIVE = 'ACTIVE',
   INACTIVE = 'INACTIVE',
   DELETED = 'DELETED',
-}
-
-export enum TransportMode {
-  ROAD = 'ROAD',
-  RAIL = 'RAIL',
-  INLAND_WATERWAY = 'INLAND_WATERWAY',
-  SEA = 'SEA',
-  AIR = 'AIR'
 }
 
 export interface Consignment {
@@ -133,15 +113,8 @@ export interface Consignment {
   mainTransportId: string
 }
 
-export interface ConsignmentListParams extends PaginationParams {
-  status?: ConsignmentStatus
-  platformId?: string
-  mode?: TransportMode
-  dangerousGoods?: boolean
-  from?: string
-  to?: string
-}
-
-export interface DatasetIdParam {
-  datasetId: string
+export interface TaraLoginResponse {
+  authorization_url: string
+  provider: string
+  state: string
 }

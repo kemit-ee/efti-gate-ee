@@ -33,6 +33,9 @@ services:
   ui:
     ports:
       - 8000:80
+    build:
+      args:
+        - VITE_USE_PROD_TARA_URL=false
 
   tara-mock:
     ports:
