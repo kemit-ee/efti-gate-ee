@@ -1,56 +1,31 @@
 /*
 description: insert consignment
 params:
-  acceptanceCountry:
-    type: string
-  acceptanceDate:
-    type: string
-  carriedEquipmentCategories:
-    type: string
-  carriedEquipmentIds:
-    type: string
-  carriedEquipmentSeq:
-    type: string
-  dangerousGoods:
-    type: string
-  datasetId:
-    type: string
-  deliveryCountry:
-    type: string
-  deliveryDate:
-    type: string
-  gateId:
-    type: string
-  loadingCountry:
-    type: string
-  loadingDate:
-    type: string
-  mainTransportId:
-    type: string
-  mainTransportType:
-    type: string
-  platformId:
-    type: string
-  status:
-    type: string
-  transportMode:
-    type: string
-  transportRegCountry:
-    type: string
-  unloadingCountry:
-    type: string
-  unloadingDate:
-    type: string
-  usedEquipmentCategories:
-    type: string
-  usedEquipmentCountries:
-    type: string
-  usedEquipmentIds:
-    type: string
-  usedEquipmentSeq:
-    type: string
-  xml:
-    type: string
+  acceptanceCountry: { type: string }
+  acceptanceDate: { type: datetime }
+  carriedEquipmentCategories: { type: array, items: { type: string } }
+  carriedEquipmentIds: { type: array, items: { type: string } }
+  carriedEquipmentSeq: { type: array, items: { type: integer } }
+  dangerousGoods: { type: string }
+  datasetId: { type: uuid, required: true }
+  deliveryCountry: { type: string }
+  deliveryDate: { type: datetime }
+  gateId: { type: string }
+  loadingCountry: { type: string }
+  loadingDate: { type: datetime }
+  mainTransportId: { type: string }
+  mainTransportType: { type: string }
+  platformId: { type: string }
+  status: { type: string, default: "ACTIVE" }
+  transportMode: { type: string }
+  transportRegCountry: { type: string }
+  unloadingCountry: { type: string }
+  unloadingDate: { type: datetime }
+  usedEquipmentCategories: { type: array, items: { type: string } }
+  usedEquipmentCountries: { type: array, items: { type: string } }
+  usedEquipmentIds: { type: array, items: { type: string } }
+  usedEquipmentSeq: { type: array, items: { type: integer } }
+  xml: { type: string }
 */
 INSERT INTO consignments (
   dataset_id,
