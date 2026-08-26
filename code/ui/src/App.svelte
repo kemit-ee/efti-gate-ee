@@ -10,9 +10,8 @@
   import AuthoritiesPage from 'src/pages/admin/authorities/AuthoritiesPage.svelte'
   import UsersPage from 'src/pages/admin/users/UsersPage.svelte'
   import ConsignmentPage from "src/pages/admin/consignments/ConsignmentPage.svelte"
-  import api from "src/api/api";
-  import type {User} from "src/api/ruuterTypes";
-  import {onMount} from "svelte";
+  import api, {getToken} from "src/api/api"
+  import type {User} from "src/api/ruuterTypes"
 
   const routes = [
     {name: t.gates.title, path: '/gates', component: GatesPage},
@@ -23,9 +22,14 @@
   ]
 
   let user: User | undefined
-  $: if (!user && $activePath !== '/auth/callback') getUser()
+  $: if (!user && !['/auth/callback', '/login'].includes($activePath)) getUser()
 
   async function getUser() {
+    if (!getToken()) {
+      navigate('/login')
+      return
+    }
+
     try {
       user = await api.get<User>('user')
     } catch {
