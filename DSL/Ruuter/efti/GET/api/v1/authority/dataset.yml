@@ -1,3 +1,64 @@
-# Path params: /:gateId/:platformId/:datasetId
-# If gateId is ours, then query local platform (over rest or over edelivery)
-# If gate not ours, forward query to other gate (over edelivery)
+declaration:
+  description: "Authority requests a dataset from a Platform via the gate (TARA JWT)"
+  # Path params: /:gateId/:platformId/:datasetId
+
+check_gate:
+  switch:
+    - condition: ${incoming.params.pathParams[0] != '[#OWN_GATE_ID]'}
+      next: forward_to_remote_gate
+  next: get_platform
+
+get_platform:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/get_platform_by_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.params.pathParams[1]}"
+  result: platform_result
+  next: check_platform
+
+check_platform:
+  switch:
+    - condition: ${!platform_result.response.body?.length}
+      next: platform_not_found
+  next: forward_to_platform
+
+forward_to_platform:
+  call: http.get
+  args:
+    url: "${platform_result.response.body[0].baseUrl}/v1/dataset/${incoming.params.pathParams[2]}"
+    headers: "${Object.assign(platform_result.response.body[0].headers, {'x-request-id': incoming.headers['x-request-id']})}"
+  result: platform_response
+  next: respond
+
+respond:
+  return: ${platform_response.response.body}
+  wrapper: false
+  status: ${platform_response.response.status}
+  headers:
+    content-type: text/xml
+  next: end
+
+forward_to_remote_gate:
+  # TODO: Forward to remote gate over eDelivery
+  return:
+    error: "Remote gate dataset request not yet implemented"
+  wrapper: false
+  status: 501
+  next: end
+
+platform_not_found:
+  return:
+    error: "Platform Not Found"
+  wrapper: false
+  status: 404
+  next: end
+
+insert_failed:
+  return:
+    error: "Failed to log dataset request"
+  wrapper: false
+  status: 500
+  next: end

@@ -7,15 +7,34 @@ X-Request-ID: 073b32bc-a081-11f1-8d67-3c9c0f2eb459
   "mainTransportId": {"operator": "EQ", "id": "VESSEL-001"}
 }
 
+> {%
+  client.test("Local consignment", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body[0].mainTransportId === "VESSEL-001")
+    client.assert(response.body[0].acceptanceCountry === "DE")
+  })
+%}
+
 ### Authority searches for remote consignments
 # @timeout 70
-POST {{RUUTER_URL}}/efti/api/v1/authority/search
-Content-Type: application/json
-X-Request-ID: 073b32bc-a081-11f1-8d67-3c9c0f2eb459
+#POST {{RUUTER_URL}}/efti/api/v1/authority/search
+#Content-Type: application/json
+#X-Request-ID: 073b32bc-a081-11f1-8d67-3c9c0f2eb459
+#
+#{
+#  "mainTransportId": {"operator": "EQ", "id": "065EST"}
+#}
 
-{
-  "mainTransportId": {"operator": "EQ", "id": "065EST"}
-}
+### Authority retrieves a full dataset of a consignment (local platform)
+GET {{RUUTER_URL}}/efti/api/v1/authority/dataset/EU-EE/mock/b24ebf37-a068-11f1-b8f0-3c9c0f2eb459
+X-Request-ID: 327b4aea-a081-11f1-a87b-3c9c0f2eb459
+
+> {%
+  client.test("Local platform dataset", () => {
+    client.assert(response.status === 200)
+    // client.assert(response.headers['content-type'] === 'text/xml')
+  })
+%}
 
 ### Authority sends a follow-up message for a consignment
 POST {{RUUTER_URL}}/efti/api/v1/follow-up
@@ -32,3 +51,10 @@ X-Request-ID: 327b4aea-a081-11f1-a87b-3c9c0f2eb459
   "message": "Follow-up message for the consignment",
   "files": [{"fileName": "document.pdf", "fileContent": "base64-encoded-content"}]
 }
+
+> {%
+  client.test("Follow-up to a local platform", () => {
+    client.assert(response.status === 201)
+    client.assert(response.body.datasetId === "b24ebf37-a068-11f1-b8f0-3c9c0f2eb459")
+  })
+%}

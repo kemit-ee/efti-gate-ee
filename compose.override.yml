@@ -61,3 +61,5 @@ services:
       tests/http/platforms.http
       tests/http/authorities.http
       tests/http/users.http
+      tests/http/mock-platform.http
+      tests/http/authority-api.http
