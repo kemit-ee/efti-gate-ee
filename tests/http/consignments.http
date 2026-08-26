@@ -95,6 +95,6 @@ Content-Type: application/json
 > {%
   client.test("No consignments in list after deletion", () => {
     client.assert(response.status === 200)
-    client.assert(response.body.length <= 0)
+    client.assert(response.body.length === 0)
   })
 %}
