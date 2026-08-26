@@ -46,22 +46,23 @@ class EDeliveryRoutes(
       val encryptedPayload = body.values.last() as ByteArray
 
       val header = xmlParser.parse<MessageHeader>(xml)
+      currentThread().name = header.conversationId.toString()
+
       if (header.receiverId != Config.partyId) log.warn("Unknown receiver: ${header.receiverId}")
-      e.attr("client", header.senderId)
+      val party = partyRegistry[header.senderId]
+      e.attr("client", party.id)
 
       val encryptedSymmetricKey = header.cipherValue?.trim()
         ?.takeIf { it.isNotBlank() }?.base64Decode()
         ?: body.values.toList().getOrNull(1) as ByteArray
       val payloadXml = decryptPayload(header, keyManager.ownPrivateKey, encryptedPayload, encryptedSymmetricKey)
 
-      currentThread().name = header.conversationId.toString()
 
       val responseXml = eDeliveryMessageGenerator.responseMessage(header)
       e.send(OK, responseXml, soap)
 
       AppScope.async {
         val responseKey = RequestKey(header.senderId, header.conversationId, header.receiverId)
-        val party = partyRegistry[responseKey.receiverId]
         val result = messageHandler.response(responseKey, payloadXml)
         if (result != null)
           eDeliveryClient.send(party.eDeliveryUrl, UserMessageParams(responseKey), result)
