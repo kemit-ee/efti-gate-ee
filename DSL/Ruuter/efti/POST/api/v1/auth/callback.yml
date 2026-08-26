@@ -85,15 +85,18 @@ return_token:
 
 callback_error:
   status: 401
-  return: "Authentication failed"
+  return: {"error": "Authentication failed"}
+  wrapper: false
   next: end
 
 jwt_error:
   status: 500
-  return: "JWT generation failed"
+  return: {"error": "JWT generation failed"}
+  wrapper: false
   next: end
 
 missing_params:
   status: 400
-  return: "code and state are required"
+  return: {"error": "code and state are required"}
+  wrapper: false
   next: end

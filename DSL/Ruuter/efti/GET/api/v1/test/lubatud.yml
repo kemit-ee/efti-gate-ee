@@ -30,9 +30,11 @@ check_response:
 return_token_info:
   return: ${tim_result.response.body}
   status: 200
+  wrapper: false
   next: end
 
 return_anonymous:
-  return: '{"authenticated":false,"message":"Sessioon puudub"}'
+  return: {"authenticated": false, "message": "Sessioon puudub"}
   status: 200
+  wrapper: false
   next: end

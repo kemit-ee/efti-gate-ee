@@ -30,5 +30,6 @@ expire_tim_session:
   next: return_ok
 
 return_ok:
-  return: "logged out"
+  return: {"message": "logged out"}
+  wrapper: false
   next: end

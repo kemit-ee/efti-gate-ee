@@ -54,10 +54,12 @@ return_token:
 
 jwt_error:
   status: 500
-  return: "JWT generation failed"
+  return: {"error": "JWT generation failed"}
+  wrapper: false
   next: end
 
 missing_params:
   status: 400
-  return: "personalCode is required"
+  return: {"error": "personalCode is required"}
+  wrapper: false
   next: end

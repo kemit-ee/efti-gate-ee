@@ -61,6 +61,7 @@ respond:
   next: end
 
 platform_not_found:
-  return: '{"type":"https://api.efti.ee/errors/platform-not-found","title":"Platform Not Found","status":404,"detail":"Platform not found"}'
+  return: {"type": "https://api.efti.ee/errors/platform-not-found", "title": "Platform Not Found", "status": 404, "detail": "Platform not found"}
   status: 404
+  wrapper: false
   next: end

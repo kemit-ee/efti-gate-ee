@@ -17,10 +17,10 @@ Content-Type: application/json
 > {%
   client.test("Authority created", () => {
     client.assert(response.status === 201)
-    client.assert(response.body.response[0].id === "auth-mta")
-    client.assert(response.body.response[0].name === "Estonian Tax and Customs Board")
-    client.assert(response.body.response[0].registryCode === "70000001")
-    client.assert(response.body.response[0].status === "ACTIVE")
+    client.assert(response.body.id === "auth-mta")
+    client.assert(response.body.name === "Estonian Tax and Customs Board")
+    client.assert(response.body.registryCode === "70000001")
+    client.assert(response.body.status === "ACTIVE")
   })
 %}
 
@@ -42,7 +42,7 @@ Content-Type: application/json
 > {%
   client.test("Single authority found", () => {
     client.assert(response.status === 200)
-    client.assert(response.body[0].id === "auth-mta")
+    client.assert(response.body.id === "auth-mta")
   })
 %}
 
@@ -60,7 +60,7 @@ Content-Type: application/json
 > {%
   client.test("Authority updated", () => {
     client.assert(response.status === 200)
-    client.assert(response.body.response[0].subsets.length === 4)
+    client.assert(response.body.subsets.length === 4)
   })
 %}
 
@@ -81,6 +81,6 @@ Content-Type: application/json
 > {%
   client.test("Authority deleted", () => {
     client.assert(response.status === 200)
-    client.assert(response.body[0].status === "DELETED")
+    client.assert(response.body.status === "DELETED")
   })
 %}

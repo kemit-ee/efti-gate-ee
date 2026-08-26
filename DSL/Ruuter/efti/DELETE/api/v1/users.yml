@@ -57,19 +57,23 @@ check_verify:
 respond:
   return: ""
   status: 204
+  wrapper: false
   next: end
 
 delete_failed:
-  return: '{"error": "Failed to delete user"}'
+  return: {"error": "Failed to delete user"}
   status: 500
+  wrapper: false
   next: end
 
 not_found:
-  return: '{"error": "Not Found"}'
+  return: {"error": "Not Found"}
   status: 404
+  wrapper: false
   next: end
 
 verify_failed:
-  return: '{"error": "User deletion could not be verified"}'
+  return: {"error": "User deletion could not be verified"}
   status: 500
+  wrapper: false
   next: end

@@ -22,7 +22,7 @@ check_single:
   next: respond_single
 
 respond_single:
-  return: ${single_result.response.body}
+  return: ${single_result.response.body[0]}
   wrapper: false
   next: end
 
@@ -44,6 +44,7 @@ respond_list:
   next: end
 
 not_found:
-  return: '{"error": "Not Found"}'
+  return: {"error": "Not Found"}
   status: 404
+  wrapper: false
   next: end

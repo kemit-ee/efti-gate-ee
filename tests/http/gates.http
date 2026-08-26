@@ -18,9 +18,9 @@ Content-Type: application/json
 > {%
   client.test("Gate created", () => {
     client.assert(response.status === 201)
-    client.assert(response.body.response[0].id === "POC")
-    client.assert(response.body.response[0].countryCode === "EE")
-    client.assert(response.body.response[0].status === "ONLINE")
+    client.assert(response.body.id === "POC")
+    client.assert(response.body.countryCode === "EE")
+    client.assert(response.body.status === "ONLINE")
   })
 %}
 
@@ -42,7 +42,7 @@ Content-Type: application/json
 > {%
   client.test("Single gate found", () => {
     client.assert(response.status === 200)
-    client.assert(response.body[0].id === "POC")
+    client.assert(response.body.id === "POC")
   })
 %}
 
@@ -61,7 +61,7 @@ Content-Type: application/json
 > {%
   client.test("Gate updated", () => {
     client.assert(response.status === 200)
-    client.assert(response.body.response[0].eDeliveryUrl === "https://poc-gate.example.com/services/msh/v2")
+    client.assert(response.body.eDeliveryUrl === "https://poc-gate.example.com/services/msh/v2")
   })
 %}
 
@@ -82,6 +82,6 @@ Content-Type: application/json
 > {%
   client.test("Gate deleted", () => {
     client.assert(response.status === 200)
-    client.assert(response.body[0].status === "DELETED")
+    client.assert(response.body.status === "DELETED")
   })
 %}

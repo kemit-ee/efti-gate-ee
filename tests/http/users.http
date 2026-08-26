@@ -10,10 +10,10 @@ Content-Type: application/json
 > {%
   client.test("User created", () => {
     client.assert(response.status === 201)
-    client.assert(response.body.response[0].name === "Test User")
-    client.assert(response.body.response[0].isUserActive === true)
-    client.global.set("userId", response.body.response[0].id)
-    client.global.set("userTaraSub", response.body.response[0].taraSub)
+    client.assert(response.body.name === "Test User")
+    client.assert(response.body.isUserActive === true)
+    client.global.set("userId", response.body.id)
+    client.global.set("userTaraSub", response.body.taraSub)
   })
 %}
 
@@ -35,7 +35,7 @@ Content-Type: application/json
 > {%
   client.test("Single user found", () => {
     client.assert(response.status === 200)
-    client.assert(response.body[0].name === "Test User")
+    client.assert(response.body.name === "Test User")
   })
 %}
 
@@ -51,7 +51,7 @@ Content-Type: application/json
 > {%
   client.test("User updated", () => {
     client.assert(response.status === 200)
-    client.assert(response.body[0].name === "Updated Test User")
+    client.assert(response.body.name === "Updated Test User")
   })
 %}
 
@@ -82,6 +82,6 @@ Content-Type: application/json
 > {%
   client.test("User deleted", () => {
     client.assert(response.status === 200)
-    client.assert(response.body[0].isUserActive === false)
+    client.assert(response.body.isUserActive === false)
   })
 %}

@@ -30,9 +30,11 @@ check_response:
 return_token_info:
   return: ${tim_result.response.body}
   status: 200
+  wrapper: false
   next: end
 
 unauthorized:
-  return: '{"type":"https://api.efti.ee/errors/unauthorized","title":"Unauthorized","status":401}'
+  return: {"type": "https://api.efti.ee/errors/unauthorized", "title": "Unauthorized", "status": 401}
   status: 401
+  wrapper: false
   next: end

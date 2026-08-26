@@ -38,16 +38,19 @@ check_verify:
   next: respond
 
 respond:
-  return: ${verify_result.response.body}
+  return: ${verify_result.response.body[0]}
   status: 201
+  wrapper: false
   next: end
 
 insert_failed:
-  return: '{"error": "Failed to create gate"}'
+  return: {"error": "Failed to create gate"}
   status: 500
+  wrapper: false
   next: end
 
 verify_failed:
-  return: '{"error": "Gate created but could not be verified"}'
+  return: {"error": "Gate created but could not be verified"}
   status: 500
+  wrapper: false
   next: end

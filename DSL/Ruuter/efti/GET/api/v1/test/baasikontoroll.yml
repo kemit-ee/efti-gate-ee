@@ -10,4 +10,5 @@ check_db:
 
 respond:
   return: ${db_status.response.body}
+  wrapper: false
   next: end

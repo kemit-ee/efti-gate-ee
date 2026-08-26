@@ -40,16 +40,19 @@ check_verify:
   next: respond
 
 respond:
-  return: ${verify_result.response.body}
+  return: ${verify_result.response.body[0]}
   status: 201
+  wrapper: false
   next: end
 
 insert_failed:
-  return: '{"error": "Failed to create platform"}'
+  return: {"error": "Failed to create platform"}
   status: 500
+  wrapper: false
   next: end
 
 verify_failed:
-  return: '{"error": "Platform created but could not be verified"}'
+  return: {"error": "Platform created but could not be verified"}
   status: 500
+  wrapper: false
   next: end

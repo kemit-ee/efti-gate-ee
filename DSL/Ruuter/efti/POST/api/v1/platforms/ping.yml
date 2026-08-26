@@ -85,7 +85,8 @@ check_verify:
   next: respond_ok
 
 respond_ok:
-  return: ${verify_result.response.body}
+  return: ${verify_result.response.body[0]}
+  wrapper: false
   next: end
 
 update_offline:
@@ -107,16 +108,19 @@ check_offline_update:
   next: gateway_unavailable
 
 gateway_unavailable:
-  return: '{"type":"https://api.efti.ee/errors/bad-gateway","title":"Bad Gateway","status":502,"detail":"Platform ping failed — eDelivery unreachable, status set to OFFLINE"}'
+  return: {"type": "https://api.efti.ee/errors/bad-gateway", "title": "Bad Gateway", "status": 502, "detail": "Platform ping failed — eDelivery unreachable, status set to OFFLINE"}
   status: 502
+  wrapper: false
   next: end
 
 platform_not_found:
-  return: '{"type":"https://api.efti.ee/errors/platform-not-found","title":"Platform Not Found","status":404,"detail":"Platform not found"}'
+  return: {"type": "https://api.efti.ee/errors/platform-not-found", "title": "Platform Not Found", "status": 404, "detail": "Platform not found"}
   status: 404
+  wrapper: false
   next: end
 
 update_failed:
-  return: '{"type":"https://api.efti.ee/errors/internal-server-error","title":"Internal Server Error","status":500,"detail":"Failed to update platform ping status"}'
+  return: {"type": "https://api.efti.ee/errors/internal-server-error", "title": "Internal Server Error", "status": 500, "detail": "Failed to update platform ping status"}
   status: 500
+  wrapper: false
   next: end

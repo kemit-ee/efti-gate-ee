@@ -1,4 +1,5 @@
 respond:
   return: "OK"
   status: 200
+  wrapper: false
   next: end
