@@ -15,33 +15,21 @@ jobs:
       EFTI_RUUTER_PORT: 19086
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
 
       - name: Build CI images
         run: |
-          docker compose -p efti_gate_ee_ci_stack -f compose.yml -f compose.ci.yml \
-            build database liquibase resql ruuter
+          docker compose -f compose.yml -f compose.ci.yml build 
 
       - name: Start services
         run: |
-          docker compose -p efti_gate_ee_ci_stack -f compose.yml -f compose.ci.yml \
-            up -d database liquibase resql ruuter
+          docker compose -f compose.yml -f compose.ci.yml up -d --wait
 
-      - name: Wait for ruuter
+      - name: Run http tests
         run: |
-          echo "Waiting for ruuter to become ready (max 120s)..."
-          for i in $(seq 1 40); do
-            if curl -sf http://localhost:19086/efti/api/v1/test/baasikontoroll > /dev/null; then
-              echo "Ruuter is ready after ~$((i * 3))s"
-              break
-            fi
-            echo "  attempt $i/40 — sleeping 3s"
-            sleep 3
-            if [ $i -eq 40 ]; then
-              echo "Ruuter did not become ready within 120s"
-              exit 1
-            fi
-          done
+          docker compose run --rm http-tests
 
       - name: Run Newman e2e tests
         run: |

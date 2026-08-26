@@ -2,7 +2,6 @@ package efti
 
 import RequestIdHandler
 import efti.domain.ConsignmentRow
-import efti.xml.RuuterXmlWrapper
 import efti.xml.fti.*
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -16,8 +15,8 @@ import klite.uuid
 )
 class SearchRoutes(val requestIdHandler: RequestIdHandler) {
   @Operation(description = "Map ParameterSearchCriteria as JSON to Fti019SearchIdentifierRequest as XML.")
-  @POST("/request-to-xml") fun requestToXml(criteria: ParameterSearchCriteria, e: HttpExchange): RuuterXmlWrapper =
-    RuuterXmlWrapper(FTI019SearchIdentifierRequest(ExchangedDocument("019", e.requestId.uuid), criteria).render())
+  @POST("/request-to-xml") fun requestToXml(criteria: ParameterSearchCriteria, e: HttpExchange): String =
+    FTI019SearchIdentifierRequest(ExchangedDocument("019", e.requestId.uuid), criteria).render()
 
   @Operation(description = "Map FTI019SearchIdentifierRequest as XML to ParameterSearchCriteria as JSON.")
   @POST("/request-to-json") fun requestToJson(xml: String, e: HttpExchange): ParameterSearchCriteria {
@@ -31,6 +30,6 @@ class SearchRoutes(val requestIdHandler: RequestIdHandler) {
     xml.split("⦀").flatMap { xml -> xmlParser.parse<FTI021SearchIdentifierResponse>(xml).content?.map { r -> ConsignmentRow(r, xml) } ?: emptyList() }
 
   @Operation(description = "Map ConsignmentRow as JSON to FTI021SearchIdentifierResponse as XML. Meant for other Gate request.")
-  @POST("/response-to-xml") fun responseToXml(consignments: List<ConsignmentRow>, e: HttpExchange): RuuterXmlWrapper =
-    RuuterXmlWrapper(FTI021SearchIdentifierResponse(ExchangedDocument("021", e.requestId.uuid)).render(consignments.map { it.xml }))
+  @POST("/response-to-xml") fun responseToXml(consignments: List<ConsignmentRow>, e: HttpExchange): String =
+    FTI021SearchIdentifierResponse(ExchangedDocument("021", e.requestId.uuid)).render(consignments.map { it.xml })
 }

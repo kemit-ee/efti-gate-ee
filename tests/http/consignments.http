@@ -22,8 +22,9 @@ Content-Type: text/xml
 > {%
   client.test("Consignment saved", () => {
     client.assert(response.status === 201)
-    // TODO: Ruuter returns text/xml as json string
-    // client.assert(response.body.includes("POC"))
+    client.assert(response.body.includes("POC"))
+    client.assert(response.body.includes("demo"))
+    client.assert(response.body.includes("550e8400-e29b-41d4-a716-446655440000"))
   })
 %}
 
@@ -71,7 +72,6 @@ Content-Type: text/xml
 > {%
   client.test("Find consignment", () => {
     client.assert(response.status === 200)
-    // client.assert(response.body.length === 1)
     // client.assert(response.body[0].datasetId === "550e8400-e29b-41d4-a716-446655440000")
   })
 %}
