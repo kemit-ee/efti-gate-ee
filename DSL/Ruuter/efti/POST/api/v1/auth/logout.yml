@@ -24,7 +24,7 @@ expire_tim_session:
   args:
     url: "[#TIM_URL]/jwt/blacklist"
     headers:
-      cookie: "customJwtCookie=${token}"
+      cookie: "eftiJwtCookie=${token}"
       X-TIM-Admin-Token: "[#TIM_ADMIN_TOKEN]"
   result: expire_result
   next: return_ok

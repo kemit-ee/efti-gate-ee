@@ -2,7 +2,7 @@ port: 8086
 
 # Statuses a DSL is allowed to return. 401/403/204 must be listed or the auth
 # guards' denials and logout's 204 are replaced with a generic error.
-http_codes_allow_list: [200, 201, 202, 204, 400, 401, 403, 404, 422, 500, 504]
+http_codes_allow_list: [200, 201, 202, 204, 400, 401, 403, 404, 409, 422, 500, 504]
 
 dsl:
   project: efti
