@@ -32,7 +32,7 @@ jobs:
 
       - name: Start services
         run: |
-          docker compose -f compose.yml -f compose.ci.yml up -d --wait
+          docker compose -f compose.yml -f compose.ci.yml up -d --wait || docker compose logs resql
 
       - name: Run http tests
         run: |
