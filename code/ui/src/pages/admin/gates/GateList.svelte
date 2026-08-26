@@ -14,7 +14,7 @@
     try {
       const newGate = await api.post<Gate>(`gates/ping/${gate.id}`)
       showToast(gate.id + ' ' + t.general.pinged)
-      gates = [...gates.filter(g => g.id !== gate.id), newGate]
+      gates = gates.replaceById(newGate)
     } catch (e: any) {
       if (gate.status !== Status.DISABLED) gates = gates.map(g => g.id === gate.id ? { ...g, status: Status.OFFLINE } : g)
       throw e
