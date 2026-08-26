@@ -11,7 +11,6 @@ services:
         - action: sync+restart
           path: ./DSL/Resql
           target: /app/sql
-          initial_sync: true
   ruuter:
     ports:
       - "${EFTI_RUUTER_PORT:-8086}:8086"
@@ -20,7 +19,6 @@ services:
         - action: sync+restart
           path: ./DSL/Ruuter
           target: /app/DSL
-          initial_sync: true
   edelivery:
     ports:
       - 8081:8081
@@ -56,4 +54,10 @@ services:
       - xml-mapper
     volumes:
       - ./:/workdir
-    command: -L VERBOSE --env-file tests/http/http-client.env.json -e docker tests/http/consignments.http
+    command: |
+      -L VERBOSE --env-file tests/http/http-client.env.json -e docker
+      tests/http/consignments.http
+      tests/http/gates.http
+      tests/http/platforms.http
+      tests/http/authorities.http
+      tests/http/users.http
