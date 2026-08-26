@@ -1,8 +1,7 @@
 /*
 description: get user by tara sub
 params:
-  tara_sub:
-    type: string
+  tara_sub: { type: string, required: true }
 */
 SELECT DISTINCT ON (id)
   row_id,

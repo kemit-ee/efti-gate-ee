@@ -2,8 +2,8 @@
 description: get consignments
 params:
   criteria: { type: object }
-  limit: { type: string }
-  offset: { type: string }
+  limit: { type: number, default: 20 }
+  offset: { type: number, default: 0 }
 */
 SELECT
   row_id,

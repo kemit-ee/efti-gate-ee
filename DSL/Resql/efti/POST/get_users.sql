@@ -1,10 +1,8 @@
 /*
 description: get users
 params:
-  limit:
-    type: string
-  offset:
-    type: string
+  limit: { type: number, default: 20 }
+  offset: { type: number, default: 0 }
 */
 SELECT * FROM (
   SELECT DISTINCT ON (id)

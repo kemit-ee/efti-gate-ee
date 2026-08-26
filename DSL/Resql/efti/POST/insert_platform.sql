@@ -1,22 +1,14 @@
 /*
 description: insert platform
 params:
-  baseUrl:
-    type: string
-  certSerial:
-    type: string
-  certSubject:
-    type: string
-  eDeliveryCert:
-    type: string
-  headers:
-    type: object
-  id:
-    type: string
-  status:
-    type: string
-  tlsCert:
-    type: string
+  id: { type: string, required: true }
+  baseUrl: { type: string, required: true }
+  certSerial: { type: string }
+  certSubject: { type: string }
+  eDeliveryCert: { type: string }
+  headers: { type: object, default: {} }
+  status: { type: string, default: "ONLINE" }
+  tlsCert: { type: string }
 */
 INSERT INTO platforms (
   id,

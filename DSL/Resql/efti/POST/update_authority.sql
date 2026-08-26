@@ -1,18 +1,11 @@
 /*
 description: update authority
 params:
-  id:
-    type: string
-  name:
-    type: string
-  registryCode:
-    type: string
-  status:
-    type: string
-  subsets:
-    type: array
-    items:
-      type: string
+  id: { type: string, required: true }
+  name: { type: string, required: true }
+  registryCode: { type: string, required: true }
+  status: { type: string, default: "ACTIVE" }
+  subsets: { type: array, items: { type: string }, required: true }
 */
 INSERT INTO authorities (id, name, registry_code, subsets, status)
 VALUES (

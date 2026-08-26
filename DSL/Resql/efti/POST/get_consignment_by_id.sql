@@ -1,8 +1,7 @@
 /*
 description: get consignment by id
 params:
-  datasetId:
-    type: string
+  datasetId: { type: string, required: true }
 */
 SELECT DISTINCT ON (dataset_id)
   row_id,

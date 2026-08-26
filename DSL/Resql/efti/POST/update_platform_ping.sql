@@ -1,10 +1,8 @@
 /*
 description: update platform ping
 params:
-  id:
-    type: string
-  status:
-    type: string
+  id: { type: string, required: true }
+  status: { type: string, required: true }
 */
 INSERT INTO platforms (id, base_url, headers, e_delivery_cert, tls_cert, cert_subject, cert_serial, status)
 SELECT id, base_url, headers, e_delivery_cert, tls_cert, cert_subject, cert_serial, :status::gate_status

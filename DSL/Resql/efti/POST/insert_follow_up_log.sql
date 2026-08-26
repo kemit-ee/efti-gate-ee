@@ -1,22 +1,14 @@
 /*
 description: insert follow up log
 params:
-  datasetRequestId:
-    type: string
-  destinationGateId:
-    type: string
-  destinationPlatformId:
-    type: string
-  followUpId:
-    type: string
-  payload:
-    type: string
-  requestingGateId:
-    type: string
-  requestingUserId:
-    type: string
-  status:
-    type: string
+  datasetRequestId: { type: string, required: true }
+  destinationGateId: { type: string, required: true }
+  destinationPlatformId: { type: string, required: true }
+  followUpId: { type: string }
+  payload: { type: string, required: true }
+  requestingGateId: { type: string, required: true }
+  requestingUserId: { type: string, required: true }
+  status: { type: string, default: "DELIVERED" }
 */
 INSERT INTO follow_up_log (
   follow_up_id,

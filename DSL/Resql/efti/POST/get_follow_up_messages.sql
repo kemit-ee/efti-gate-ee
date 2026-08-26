@@ -1,14 +1,10 @@
 /*
 description: get follow up messages
 params:
-  datasetId:
-    type: string
-  followUpId:
-    type: string
-  limit:
-    type: string
-  offset:
-    type: string
+  datasetId: { type: string, required: true }
+  followUpId: { type: string }
+  limit: { type: number, default: 20 }
+  offset: { type: number, default: 0 }
 */
 SELECT
   row_id,
