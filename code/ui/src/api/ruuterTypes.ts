@@ -29,29 +29,29 @@ export interface Gate {
   rowId: string
   countryCode: CountryCode
   eDeliveryUrl: string
-  eDeliveryCert: string | null
-  tlsCert: string | null
+  eDeliveryCert?: string
+  tlsCert?: string
   status: Status
-  lastPingAt: string | null
+  lastPingAt?: string
   createdAt: string
 }
 export interface GateRequest {
   id: string
   countryCode: string
   eDeliveryUrl: string
-  eDeliveryCert?: string | null
-  tlsCert?: string | null
+  eDeliveryCert?: string
+  tlsCert?: string
   status?: Status
 }
 
 export interface Platform {
   id: string
   baseUrl: string
-  headers: Record<string, string> | null
-  eDeliveryCert: string | null
-  tlsCert: string | null
-  certSubject: string | null
-  certSerial: string | null
+  headers?: Record<string, string>
+  eDeliveryCert?: string
+  tlsCert?: string
+  certSubject?: string
+  certSerial?: string
   status: Status
   createdAt: string
 }
@@ -60,10 +60,10 @@ export interface PlatformRequest {
   id: string
   baseUrl: string
   headers?: Record<string, string>
-  eDeliveryCert?: string | null
-  tlsCert?: string | null
-  certSubject?: string | null
-  certSerial?: string | null
+  eDeliveryCert?: string
+  tlsCert?: string
+  certSubject?: string
+  certSerial?: string
   status?: Status
 }
 
@@ -89,7 +89,7 @@ export interface User {
   taraSub: string
   name: string
   createdAt: string
-  tokenRevokedAt: string | null
+  tokenRevokedAt?: string
 }
 
 export interface CreateUserRequest {

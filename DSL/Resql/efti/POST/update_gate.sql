@@ -1,18 +1,12 @@
 /*
 description: update gate
 params:
-  countryCode:
-    type: string
-  eDeliveryCert:
-    type: string
-  eDeliveryUrl:
-    type: string
-  id:
-    type: string
-  status:
-    type: string
-  tlsCert:
-    type: string
+  countryCode: { type: string, required: true }
+  eDeliveryCert: { type: string }
+  eDeliveryUrl: { type: string, required: true }
+  id: { type: string, required: true }
+  status: { type: string, default: "OFFLINE" }
+  tlsCert: { type: string }
 */
 INSERT INTO gates (id, country_code, e_delivery_url, e_delivery_cert, tls_cert, status)
 VALUES (

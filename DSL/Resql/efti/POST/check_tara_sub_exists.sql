@@ -1,8 +1,7 @@
 /*
 description: check tara sub exists
 params:
-  taraSub:
-    type: string
+  taraSub: { type: string, required: true }
 */
 SELECT id
 FROM users

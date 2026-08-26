@@ -1,12 +1,9 @@
 /*
 description: insert session revocation
 params:
-  jwt_payload:
-    type: string
-  reason:
-    type: string
-  user_id:
-    type: string
+  jwt_payload: { type: string, required: true }
+  reason: { type: string, required: true }
+  user_id: { type: string, required: true }
 */
 -- Append-only INSERT into the JWT denylist (docs/specs/db/schema.sql §4.2).
 -- Duplicates on jti are deliberately tolerated: a second logout on the same token is a

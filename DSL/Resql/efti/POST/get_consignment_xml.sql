@@ -1,12 +1,9 @@
 /*
 description: get consignment xml
 params:
-  datasetId:
-    type: string
-  gateId:
-    type: string
-  platformId:
-    type: string
+  datasetId: { type: string, required: true }
+  gateId: { type: string }
+  platformId: { type: string }
 */
 SELECT DISTINCT ON (dataset_id)
   row_id,

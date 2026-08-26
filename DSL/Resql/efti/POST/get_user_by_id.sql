@@ -1,8 +1,7 @@
 /*
 description: get user by id
 params:
-  userId:
-    type: string
+  userId: { type: string, required: true }
 */
 SELECT DISTINCT ON (id)
   row_id,

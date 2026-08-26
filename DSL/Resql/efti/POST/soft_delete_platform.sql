@@ -1,8 +1,7 @@
 /*
 description: soft delete platform
 params:
-  id:
-    type: string
+  id: { type: string, required: true }
 */
 INSERT INTO platforms (id, base_url, headers, e_delivery_cert, tls_cert, cert_subject, cert_serial, status)
 SELECT id, base_url, headers, e_delivery_cert, tls_cert, cert_subject, cert_serial, 'DELETED'::gate_status

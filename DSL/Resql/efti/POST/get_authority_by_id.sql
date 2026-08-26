@@ -1,8 +1,7 @@
 /*
 description: get authority by id
 params:
-  id:
-    type: string
+  id: { type: string, required: true }
 */
 SELECT DISTINCT ON (id)
   row_id,

@@ -1,8 +1,7 @@
 /*
 description: soft delete authority
 params:
-  id:
-    type: string
+  id: { type: string, required: true }
 */
 INSERT INTO authorities (id, name, registry_code, subsets, status)
 SELECT id, name, registry_code, subsets, 'DELETED'::authority_status

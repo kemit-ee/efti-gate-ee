@@ -1,20 +1,13 @@
 /*
 description: get audit log
 params:
-  from:
-    type: string
-  limit:
-    type: string
-  offset:
-    type: string
-  resource:
-    type: string
-  resourceId:
-    type: string
-  to:
-    type: string
-  userId:
-    type: string
+  from: { type: string }
+  limit: { type: number, default: 20 }
+  offset: { type: number, default: 0 }
+  resource: { type: string }
+  resourceId: { type: string }
+  to: { type: string }
+  userId: { type: string }
 */
 SELECT
   row_id,

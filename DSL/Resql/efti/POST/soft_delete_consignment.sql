@@ -1,8 +1,7 @@
 /*
 description: soft delete consignment
 params:
-  datasetId:
-    type: string
+  datasetId: { type: string, required: true }
 */
 INSERT INTO consignments (
   dataset_id,

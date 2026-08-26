@@ -1,10 +1,8 @@
 /*
 description: insert user
 params:
-  name:
-    type: string
-  taraSub:
-    type: string
+  name: { type: string, required: true }
+  taraSub: { type: string, required: true }
 */
 INSERT INTO users (id, tara_sub, name)
 VALUES (
