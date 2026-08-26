@@ -38,7 +38,7 @@ class UploadRoutesTest: BaseMocks() {
     val xml = routes.responseToXml(uil, exchange)
 
     expect(xml).toContain("<TypeCode>029</TypeCode>")
-    expect(xml).toContain("<GateID>POC</GateID>")
+    expect(xml).toContain("<GateID>EU-EE</GateID>")
     expect(xml).toContain("<PlatformID>demo</PlatformID>")
     expect(xml).toContain("550e8400-e29b-41d4-a716-446655440000")
   }
