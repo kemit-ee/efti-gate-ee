@@ -46,7 +46,7 @@ class FTIMessagesTest {
 
     expect(req.context).toEqual(context)
     expect(req.document).toEqual(document)
-    expect(req.content.uil.gateId).toEqual(GateId("POC"))
+    expect(req.content.uil.gateId).toEqual(GateId("EU-EE"))
     expect(req.content.uil.platformId).toEqual(PlatformId("demo"))
     expect(req.content.uil.datasetId).toEqual("550e8400-e29b-41d4-a716-446655440000".uuid)
     expect(req.content.criteria?.acceptanceCountry).toEqual(DE)
@@ -114,7 +114,7 @@ class FTIMessagesTest {
     expect(resp.context).toEqual(context)
     expect(resp.document).toEqual(document.copy(typeCode = "010", responseCode = Completed))
     expect(resp.subsets).toEqual(listOf(Subset("EE05b")))
-    expect(resp.uil.gateId).toEqual(GateId("POC"))
+    expect(resp.uil.gateId).toEqual(GateId("EU-EE"))
     expect(resp.consignment!!["grossWeightMeasure"]).toEqual("15000.00")
 
     val rendered = resp.render(xml.extractSpecifiedSupplyChainConsignment())
