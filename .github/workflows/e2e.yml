@@ -15,8 +15,9 @@ jobs:
       EFTI_RUUTER_PORT: 19086
 
     steps:
-      - uses: actions/checkout@v4
-        submodules: true
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
 
       - name: Build CI images
         run: |
