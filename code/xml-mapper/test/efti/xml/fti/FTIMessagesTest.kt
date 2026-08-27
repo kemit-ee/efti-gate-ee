@@ -47,7 +47,7 @@ class FTIMessagesTest {
     expect(req.context).toEqual(context)
     expect(req.document).toEqual(document)
     expect(req.content.uil.gateId).toEqual(GateId("EU-EE"))
-    expect(req.content.uil.platformId).toEqual(PlatformId("demo"))
+    expect(req.content.uil.platformId).toEqual(PlatformId("mock"))
     expect(req.content.uil.datasetId).toEqual("550e8400-e29b-41d4-a716-446655440000".uuid)
     expect(req.content.criteria?.acceptanceCountry).toEqual(DE)
     expect(req.content.criteria?.transportMode).toEqual(Mode("1"))

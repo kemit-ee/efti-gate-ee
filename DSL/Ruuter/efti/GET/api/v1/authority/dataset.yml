@@ -28,7 +28,7 @@ check_platform:
 forward_to_platform:
   call: http.get
   args:
-    url: "${platform_result.response.body[0].baseUrl}/v1/dataset/${incoming.params.pathParams[2]}"
+    url: "${platform_result.response.body[0].baseUrl}/v1/dataset/${incoming.params.pathParams[2]}?subsetId=${incoming.params?.subsets?.join(',')}"
     headers: "${Object.assign(platform_result.response.body[0].headers, {'x-request-id': incoming.headers['x-request-id']})}"
   result: platform_response
   next: respond
@@ -54,11 +54,4 @@ platform_not_found:
     error: "Platform Not Found"
   wrapper: false
   status: 404
-  next: end
-
-insert_failed:
-  return:
-    error: "Failed to log dataset request"
-  wrapper: false
-  status: 500
   next: end

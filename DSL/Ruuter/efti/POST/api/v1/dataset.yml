@@ -20,7 +20,7 @@ get_platform:
 
 check_platform:
   switch:
-    - condition: ${platform_result.response.body == null || platform_result.response.body.length == 0}
+    - condition: ${!platform_result.response.body?.length}
       next: platform_not_found
   next: forward_to_platform
 
@@ -29,7 +29,6 @@ forward_to_platform:
   args:
     url: "${platform_result.response.body[0].baseUrl}/v1/dataset/${incoming.body.uil.datasetId}?subsetId=${incoming.body.subsets.join(',')}"
     headers: "${Object.assign(platform_result.response.body[0].headers, {'x-request-id': incoming.headers['x-request-id']})}"
-    body: ${incoming.body}
   result: platform_response
   next: respond
 
@@ -37,12 +36,14 @@ respond:
   return: ${platform_response.response.body}
   wrapper: false
   status: ${platform_response.response.status}
+  headers:
+    content-type: text/xml
   next: end
 
 forward_to_remote_gate:
   # TODO: Forward to remote gate over eDelivery
   return:
-    error: "Remote gate follow-up not yet implemented"
+    error: "Remote gate dataset request not yet implemented"
   wrapper: false
   status: 501
   next: end
