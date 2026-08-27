@@ -20,22 +20,12 @@ call_dataset:
   body: # TODO: ${request_json.response.body}
     uil: ${request_json.response.body.uil}
     subsets: ${request_json.response.body.subsets}
-  result: dataset_response
-  next: to_xml
-
-to_xml:
-  call: http.post
-  args:
-    url: "[#XML_MAPPER_URL]/api/v1/dataset/response-to-xml"
-    headers:
-      Content-Type: "application/json"
-    body: ${dataset_response}
-  result: xml_response
+  result: dataset_response # TODO how to get xml response from a template call? (currently it returns empty json)
   next: respond
 
 respond:
-  return: ${xml_response.response.body}
+  return: ${dataset_response}
+  wrapper: false
   headers:
     Content-Type: "text/xml"
-  wrapper: false
   next: end
