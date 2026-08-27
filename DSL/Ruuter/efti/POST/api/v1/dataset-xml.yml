@@ -12,7 +12,7 @@ parse_request:
     body:
       text: ${incoming.body.xml}
   result: request_json
-  next: get_platform
+  next: call_dataset
 
 call_dataset:
   template: api/v1/dataset
@@ -20,7 +20,7 @@ call_dataset:
   body: # TODO: ${request_json.response.body}
     uil: ${request_json.response.body.uil}
     subsets: ${request_json.response.body.subsets}
-  result: dataset_response # TODO how to get xml response from a template call? (currently it returns empty json)
+  result: dataset_response
   next: respond
 
 respond:
