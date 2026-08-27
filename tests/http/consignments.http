@@ -8,7 +8,7 @@ Content-Type: text/xml
   client.test("Consignment saved", () => {
     client.assert(response.status === 201)
     client.assert(response.body.gateId === "EU-EE")
-    client.assert(response.body.platformId === "demo")
+    client.assert(response.body.platformId === "mock")
     client.assert(response.body.datasetId === "550e8400-e29b-41d4-a716-446655440000")
   })
 %}
