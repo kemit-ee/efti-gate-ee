@@ -1,16 +1,34 @@
-call_check:
+check_for_header:
+  switch:
+    - condition: ${incoming.headers == null || incoming.headers['x-road-client'] == null || incoming.headers['x-road-client'] == ''}
+      next: guard_fail
+  next: parse_parts
+
+parse_parts:
+  assign:
+    xroad_parts: ${incoming.headers['x-road-client'].split('/')}
+  next: validate_format
+
+validate_format:
+  switch:
+    - condition: ${xroad_parts.length === 4 && xroad_parts[2] != null && xroad_parts[2] != ''}
+      next: lookup_authority
+  next: guard_fail
+
+lookup_authority:
   call: http.post
   args:
-    url: "[#RUUTER_XROAD_URL]/xroad/internal/check-xroad-client"
+    url: "[#RESQL_URL]/efti/get_authority_by_registry_code"
     headers:
-      x-road-client: "${incoming.headers['x-road-client'] ?? ''}"
-      x-road-id: "${incoming.headers['x-road-id'] ?? ''}"
-  result: check_result
-  next: evaluate
+      Content-Type: application/json
+    body:
+      registry_code: "${xroad_parts[2]}"
+  result: authority_res
+  next: check_found
 
-evaluate:
+check_found:
   switch:
-    - condition: ${check_result.response.status === 200 && check_result.response.body !== "false"}
+    - condition: ${authority_res.response.body != null && authority_res.response.body.length > 0}
       next: guard_success
   next: guard_fail
 
