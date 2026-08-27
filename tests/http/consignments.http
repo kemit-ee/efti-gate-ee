@@ -72,7 +72,7 @@ Content-Type: text/xml
 > {%
   client.test("Find consignment", () => {
     client.assert(response.status === 200)
-    client.assert(xpath(response.body, '//GateID')[0].textContent === "EU-EE")
+    client.assert(xpath(response.body, '//GateID')[0].textContent === "POC")
     client.assert(xpath(response.body, '//PlatformID')[0].textContent === "demo")
     client.assert(xpath(response.body, '//DatasetID')[0].textContent === "550e8400-e29b-41d4-a716-446655440000")
   })
