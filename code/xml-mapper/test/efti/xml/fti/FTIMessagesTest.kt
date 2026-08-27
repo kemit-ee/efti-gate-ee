@@ -65,8 +65,8 @@ class FTIMessagesTest {
     expect(req.context).toEqual(context)
     expect(req.document).toEqual(document.copy(typeCode = "009", requesterCountry = DE))
     expect(req.subsets).toEqual(listOf(Subset("EE05b")))
-    expect(req.uil.gateId).toEqual(GateId("Gate-001"))
-    expect(req.uil.platformId).toEqual(PlatformId("Platform-001"))
+    expect(req.uil.gateId).toEqual(GateId("EU-EE"))
+    expect(req.uil.platformId).toEqual(PlatformId("mock"))
     expect(req.uil.datasetId).toEqual("550e8400-e29b-41d4-a716-446655440000".uuid)
 
     val rendered = req.render()

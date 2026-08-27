@@ -22,8 +22,8 @@ class DatasetRoutesTest : BaseMocks() {
 
     verify { requestIdHandler.send(exchange, "17022113-89b5-11f1-bec0-3c9c0f2eb459".uuid) }
 
-    expect(result.uil.gateId).toEqual(GateId("Gate-001"))
-    expect(result.uil.platformId).toEqual(PlatformId("Platform-001"))
+    expect(result.uil.gateId).toEqual(GateId("EU-EE"))
+    expect(result.uil.platformId).toEqual(PlatformId("mock"))
     expect(result.uil.datasetId).toEqual("550e8400-e29b-41d4-a716-446655440000".uuid)
     expect(result.subsets).toEqual(listOf(Subset("EE05b")))
   }
