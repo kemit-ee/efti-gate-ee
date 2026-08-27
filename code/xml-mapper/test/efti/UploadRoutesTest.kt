@@ -18,7 +18,7 @@ import java.io.File
 
 class UploadRoutesTest: BaseMocks() {
   val routes = UploadRoutes(requestIdHandler)
-  val uil = UIL(PlatformId("demo"), "550e8400-e29b-41d4-a716-446655440000".uuid, GateId("EU-EE"))
+  val uil = UIL(PlatformId("mock"), "550e8400-e29b-41d4-a716-446655440000".uuid, GateId("EU-EE"))
 
   @Test fun requestToJson() {
     val xml = File("xsd/FTI004/sample.xml").readText()
@@ -39,7 +39,7 @@ class UploadRoutesTest: BaseMocks() {
 
     expect(xml).toContain("<TypeCode>029</TypeCode>")
     expect(xml).toContain("<GateID>EU-EE</GateID>")
-    expect(xml).toContain("<PlatformID>demo</PlatformID>")
+    expect(xml).toContain("<PlatformID>mock</PlatformID>")
     expect(xml).toContain("550e8400-e29b-41d4-a716-446655440000")
   }
 
