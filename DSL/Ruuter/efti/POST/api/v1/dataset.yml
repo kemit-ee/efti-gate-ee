@@ -1,5 +1,6 @@
-# description: "Authority API — get full consignment dataset XML filtered by subsets"
-# body: DatasetQueryRequest
+declaration:
+  description: "Authority API — get full consignment dataset XML filtered by subsets"
+  allowed_body: [uil, subsets]
 
 check_gate:
   switch:
