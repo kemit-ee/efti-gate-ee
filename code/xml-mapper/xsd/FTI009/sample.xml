@@ -35,8 +35,8 @@
 
   <rsm:EFTIIDInformation>
     <UniqueIDSetUniqueIDSet>
-      <GateID>Gate-001</GateID>
-      <PlatformID>Platform-001</PlatformID>
+      <GateID>EU-EE</GateID>
+      <PlatformID>mock</PlatformID>
       <DatasetID schemeID="RFC 9562-4">550e8400-e29b-41d4-a716-446655440000</DatasetID>
     </UniqueIDSetUniqueIDSet>
   </rsm:EFTIIDInformation>
