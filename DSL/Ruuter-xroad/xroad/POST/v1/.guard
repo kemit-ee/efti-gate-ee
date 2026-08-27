@@ -1,0 +1,25 @@
+call_check:
+  call: http.post
+  args:
+    url: "http://localhost:[#PORT]/xroad/internal/check-xroad-client"
+    headers:
+      x-road-client: "${incoming.headers['x-road-client'] ?? ''}"
+      x-road-id: "${incoming.headers['x-road-id'] ?? ''}"
+  result: check_result
+  next: evaluate
+
+evaluate:
+  switch:
+    - condition: ${check_result.response.status === 200 && check_result.response.body !== "false"}
+      next: guard_success
+  next: guard_fail
+
+guard_success:
+  return: "success"
+  status: 200
+  next: end
+
+guard_fail:
+  return: "unauthorized"
+  status: 403
+  next: end

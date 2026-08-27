@@ -1,0 +1,103 @@
+### Setup: ensure test authority exists
+DELETE {{RUUTER_URL}}/efti/api/v1/authorities/auth-xroad-test
+Content-Type: application/json
+
+> {%
+  // 204 (deleted) or 404 (didn't exist) — both are fine
+  client.test("Cleanup ok", () => {
+    client.assert(response.status === 204 || response.status === 404)
+  })
+%}
+
+###
+
+POST {{RUUTER_URL}}/efti/api/v1/authorities
+Content-Type: application/json
+
+{
+  "id": "auth-xroad-test",
+  "name": "X-Road Test Authority",
+  "registryCode": "70000099",
+  "subsets": ["EU01"],
+  "status": "ACTIVE"
+}
+
+> {%
+  client.test("Test authority created", () => {
+    client.assert(response.status === 201)
+    client.assert(response.body.registryCode === "70000099")
+    client.global.set("xroadTestRegistryCode", response.body.registryCode)
+  })
+%}
+
+### Echo: valid X-Road client (registry_code matches authority)
+POST {{RUUTER_XROAD_URL}}/xroad/v1/echo
+X-Road-Client: EE/GOV/70000099/testSubsystem
+X-Road-Id: test-id-xroad-001
+X-Road-UserId: EE30101010007
+Content-Type: application/json
+
+{"hello": "world"}
+
+> {%
+  client.test("Echo returns 200 for known authority", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.xRoadClient === "EE/GOV/70000099/testSubsystem")
+    client.assert(response.body.xRoadId === "test-id-xroad-001")
+    client.assert(response.body.xRoadUserId === "EE30101010007")
+    client.assert(response.body.authority.id === "auth-xroad-test")
+    client.assert(response.body.authority.registryCode === "70000099")
+    client.assert(response.body.echo.hello === "world")
+  })
+%}
+
+### Echo: missing X-Road-Client header → 403
+POST {{RUUTER_XROAD_URL}}/xroad/v1/echo
+X-Road-Id: test-id-xroad-002
+Content-Type: application/json
+
+{"hello": "world"}
+
+> {%
+  client.test("Missing X-Road-Client returns 403", () => {
+    client.assert(response.status === 403)
+  })
+%}
+
+### Echo: malformed X-Road-Client (only 2 parts) → 403
+POST {{RUUTER_XROAD_URL}}/xroad/v1/echo
+X-Road-Client: EE/GOV
+X-Road-Id: test-id-xroad-003
+Content-Type: application/json
+
+{"hello": "world"}
+
+> {%
+  client.test("Malformed X-Road-Client returns 403", () => {
+    client.assert(response.status === 403)
+  })
+%}
+
+### Echo: unknown registry_code (not in authorities) → 403
+POST {{RUUTER_XROAD_URL}}/xroad/v1/echo
+X-Road-Client: EE/GOV/99999999/unknownSubsystem
+X-Road-Id: test-id-xroad-004
+Content-Type: application/json
+
+{"hello": "world"}
+
+> {%
+  client.test("Unknown registry_code returns 403", () => {
+    client.assert(response.status === 403)
+  })
+%}
+
+### Teardown: remove test authority
+DELETE {{RUUTER_URL}}/efti/api/v1/authorities/auth-xroad-test
+Content-Type: application/json
+
+> {%
+  client.test("Teardown ok", () => {
+    client.assert(response.status === 204)
+  })
+%}
