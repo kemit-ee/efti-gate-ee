@@ -5,7 +5,7 @@ declaration:
 resolve_authority:
   call: http.post
   args:
-    url: "http://localhost:[#PORT]/xroad/internal/check-xroad-client"
+    url: "[#RUUTER_XROAD_URL]/xroad/internal/check-xroad-client"
     headers:
       x-road-client: "${incoming.headers['x-road-client'] ?? ''}"
       x-road-id: "${incoming.headers['x-road-id'] ?? ''}"
