@@ -1,14 +1,14 @@
 declaration:
   description: "Echo endpoint for X-Road connectivity testing. Validates the caller against the authorities registry and returns the X-Road headers alongside the request body."
 
-# Re-call check-xroad-client to get the authority row (guard already verified access).
 resolve_authority:
   call: http.post
   args:
-    url: "http://localhost:[#PORT]/xroad/internal/check-xroad-client"
+    url: "[#RESQL_URL]/efti/get_authority_by_registry_code"
     headers:
-      x-road-client: "${incoming.headers['x-road-client'] ?? ''}"
-      x-road-id: "${incoming.headers['x-road-id'] ?? ''}"
+      Content-Type: application/json
+    body:
+      registry_code: "${incoming.headers['x-road-client'].split('/')[2]}"
   result: authority_res
   next: respond
 
@@ -17,7 +17,7 @@ respond:
     xRoadClient: "${incoming.headers['x-road-client']}"
     xRoadId: "${incoming.headers['x-road-id']}"
     xRoadUserId: "${incoming.headers['x-road-userid']}"
-    authority: ${authority_res.response.body}
+    authority: ${authority_res.response.body[0]}
     echo: ${incoming.body}
   wrapper: false
   status: 200
