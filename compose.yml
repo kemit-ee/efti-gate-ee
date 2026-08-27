@@ -57,6 +57,17 @@ services:
       - resql
     mem_limit: 512M
 
+  ruuter-xroad:
+    container_name: efti_ruuter_xroad
+    build:
+      context: .
+      dockerfile: docker/ruuter-xroad/Dockerfile
+    platform: linux/amd64
+    cpus: '0.5'
+    depends_on:
+      - resql
+    mem_limit: 256M
+
   ui:
     build:
       context: .
