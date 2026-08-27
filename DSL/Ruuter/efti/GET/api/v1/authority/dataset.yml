@@ -2,6 +2,8 @@ declaration:
   description: "Authority requests a dataset from a Platform via the gate (TARA JWT)"
   # Path params: /:gateId/:platformId/:datasetId
 
+# TODO: parse params and call POST /api/v1/dataset
+
 check_gate:
   switch:
     - condition: ${incoming.params.pathParams[0] != '[#OWN_GATE_ID]'}
