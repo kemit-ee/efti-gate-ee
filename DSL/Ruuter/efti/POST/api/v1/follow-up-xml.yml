@@ -17,10 +17,7 @@ parse_xml:
 call_follow_up:
   template: api/v1/follow-up
   request_type: "POST"
-  body: # TODO ${followup_json.response.body}
-    uil: ${followup_json.response.body.uil}
-    message: ${followup_json.response.body.message}
-    files: ${followup_json.response.body.files}
+  body: ${followup_json.response.body}
   result: followup_response
   next: to_xml
 

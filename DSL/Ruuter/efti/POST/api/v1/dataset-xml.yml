@@ -17,9 +17,7 @@ parse_request:
 call_dataset:
   template: api/v1/dataset
   request_type: "POST"
-  body: # TODO: ${request_json.response.body}
-    uil: ${request_json.response.body.uil}
-    subsets: ${request_json.response.body.subsets}
+  body: ${request_json.response.body}
   result: dataset_response
   next: respond
 
