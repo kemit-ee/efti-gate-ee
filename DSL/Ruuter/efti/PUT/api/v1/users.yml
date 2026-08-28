@@ -41,7 +41,7 @@ check_found:
 # An admin cannot remove their own ADMIN role — that would lock them out of admin operations.
 check_self_admin_removal:
   switch:
-    - condition: ${admin_check.response.body[0].id == incoming.params.pathParams[0] && (incoming.body.roles == null || !incoming.body.roles.contains('ADMIN'))}
+    - condition: ${admin_check.response.body.id == incoming.params.pathParams[0] && (incoming.body.roles == null || !incoming.body.roles.contains('ADMIN'))}
       next: self_admin_removal_forbidden
   next: update_user
 
