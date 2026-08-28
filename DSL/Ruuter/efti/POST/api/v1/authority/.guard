@@ -1,7 +1,5 @@
-# Authority-or-admin: requires an authenticated user with ADMIN or AUTHORITY role.
-# The POST/api/v1/auth/ subdirectory has its own public .guard for login/logout endpoints.
-# Admin-only POST endpoints (users, gates, platforms, authorities, consignments) call
-# check-admin-authority internally at the start of their DSL.
+# Authority-or-admin: explicitly stated for the authority/ subdirectory (same as the parent
+# POST/api/v1/.guard, but kept here for clarity and future divergence).
 validate_auth:
   call: http.post
   args:

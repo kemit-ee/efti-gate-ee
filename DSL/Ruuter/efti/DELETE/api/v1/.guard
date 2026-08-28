@@ -1,5 +1,27 @@
+# Admin only. All DELETE operations (soft-delete gate, platform, authority, user) require ADMIN.
+validate_auth:
+  call: http.post
+  args:
+    url: "[#RUUTER_URL]/efti/internal/check-admin-authority"
+    headers:
+      Content-Type: application/json
+      authorization: ${incoming.headers.authorization}
+    body: {}
+  result: auth_result
+  next: check_result
+
+check_result:
+  switch:
+    - condition: ${auth_result.response.status == 200}
+      next: guard_success
+  next: guard_fail
+
 guard_success:
   return: "success"
   status: 200
   next: end
 
+guard_fail:
+  return: ${auth_result.response.body}
+  status: ${auth_result.response.status}
+  next: end

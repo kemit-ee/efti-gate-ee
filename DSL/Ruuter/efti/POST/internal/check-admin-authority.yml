@@ -1,9 +1,9 @@
 declaration:
   call: declare
   version: "0.1"
-  description: "Resolve the caller from an 'Authorization: Bearer <jwt>' header. Validates the
-    token with TIM, checks the user is active and the token is not broadcast-revoked, then
-    loads the users row by tara_sub. Returns 200 + user row on success, 401 on any failure."
+  description: "Like check-user-authority but additionally requires the ADMIN role.
+    Returns 200 + user row on success, 401 if not authenticated, 403 if authenticated
+    but not ADMIN."
   method: post
   namespace: internal
   allowlist:
@@ -11,14 +11,6 @@ declaration:
       - field: authorization
         type: string
         description: "Bearer <gate JWT>"
-
-# Shared authentication logic called over Ruuter's loopback by .guard files and by endpoints
-# that need the caller's row (e.g. GET /api/v1/user).
-#
-# Why an internal HTTP route rather than a `template:` step: the Rust engine
-# (ruuter-on-rust v0.8.1-rc.3) parses `template:` but cannot execute it — the step aborts
-# with "template step invoked but the engine has no DSL tree attached". Reachability is
-# governed by `internal_requests` in ruuter.yaml.
 
 check_for_bearer:
   switch:
@@ -42,8 +34,6 @@ validate_token:
   args:
     url: "[#TIM_URL]/jwt/userinfo"
     headers:
-      # TIM reads the token from its own cookie. Re-frame the Bearer value here so
-      # the gate's wire contract stays Bearer-only.
       cookie: "eftiJwtCookie=${token}"
   result: token_info
   next: check_token_info
@@ -60,8 +50,6 @@ check_tara_sub:
       next: lookup_user
   next: unauthorized
 
-# DB lookup: validates is_active, token_revoked_at (broadcast revocation), and returns
-# is_admin / is_authority flags. 0 rows → reject for any reason.
 lookup_user:
   call: http.post
   args:
@@ -77,8 +65,14 @@ lookup_user:
 check_user_found:
   switch:
     - condition: ${user_res.response.body.length > 0}
-      next: return_user
+      next: check_admin_role
   next: unauthorized
+
+check_admin_role:
+  switch:
+    - condition: ${user_res.response.body[0].is_admin == true}
+      next: return_user
+  next: forbidden
 
 return_user:
   return: ${user_res.response.body[0]}
@@ -86,11 +80,14 @@ return_user:
   wrapper: false
   next: end
 
-# Covers: no/!Bearer header, empty token, TIM rejected the token, no personalCode claim,
-# a valid TARA identity with no users row, a soft-deleted user, and a token predating
-# token_revoked_at (broadcast revocation).
 unauthorized:
   return: ${JSON.parse('{"type":"https://api.efti.ee/errors/unauthorized","title":"Unauthorized","status":401,"detail":"Token is missing, invalid, expired, or the user has no active gate account."}')}
   status: 401
+  wrapper: false
+  next: end
+
+forbidden:
+  return: ${JSON.parse('{"type":"https://api.efti.ee/errors/forbidden","title":"Forbidden","status":403,"detail":"This action requires the ADMIN role."}')}
+  status: 403
   wrapper: false
   next: end

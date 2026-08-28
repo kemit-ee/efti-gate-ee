@@ -85,6 +85,8 @@
     "taraSub": "Isikukood",
     "secretHash": "Salasõna räsi",
     "tokenRevokedAt": "Token tühistatud",
+    "roles": "Rollid",
+    "cannotRemoveOwnAdmin": "Ei saa enda ADMIN rolli eemaldada",
     "generateSecret": "Loo uus parool või token",
     "copyPastePassword": "Kopeeri kasutaja parool (te ei näe seda enam)",
     "copyPasteToken": "Kopeeri kasutaja bearer token (te ei näe seda enam)",

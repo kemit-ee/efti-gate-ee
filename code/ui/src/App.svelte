@@ -11,6 +11,7 @@
   import ConsignmentPage from "src/pages/admin/consignments/ConsignmentPage.svelte"
   import api, {getToken} from "src/api/api"
   import type {TaraLoginResponse, User} from "src/api/ruuterTypes"
+  import {currentUser} from "src/stores/session"
 
   const routes = [
     {name: t.gates.title, path: '/gates', component: GatesPage},
@@ -31,6 +32,7 @@
 
     try {
       user = await api.get<User>('user')
+      currentUser.set(user)
     } catch {
       await redirectToTara()
     }

@@ -25,11 +25,12 @@
   }
 </script>
 
-<SortableTable items={users} labels={t.users} columns={['id', 'name', 'taraSub', 'tokenRevokedAt', '']} let:item={u}>
+<SortableTable items={users} labels={t.users} columns={['id', 'name', 'taraSub', 'roles', 'tokenRevokedAt', '']} let:item={u}>
   <tr>
     <td>{u.id}</td>
     <td>{u.name}</td>
     <td>{u.taraSub}</td>
+    <td>{(u.roles ?? []).join(', ') || '—'}</td>
     <td>{formatDateTime(u.tokenRevokedAt)}</td>
     <td>
       <Button label={t.general.edit} onclick={() => onEdit(u)} size="sm"/>
