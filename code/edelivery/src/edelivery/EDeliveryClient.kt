@@ -24,16 +24,10 @@ class EDeliveryClient(
   private val eDeliveryMessageGenerator: EDeliveryMessageGenerator,
   private val msInSec: Long = 1000L
 ) {
-  private val statusRegex = """status\s*=\s*"(\d+)"""".toRegex()
   private val log = logger()
   private var http = buildHttpClient()
   private val messagesSent = AtomicLong().also {
     Metrics.register("edelivery_messages_sent") { it.get() }
-  }
-
-  fun extractStatus(response: String): StatusCode {
-    val status = statusRegex.from(response)!!.toInt()
-    return StatusCode(status)
   }
 
   private fun buildHttpClient() = httpClient { sslContext(keyManager.buildGatesTrustStore()) }.apply {
@@ -82,7 +76,7 @@ class EDeliveryClient(
   }
 
   fun send(endpoint: URI, params: UserMessageParams, payload: String): String {
-    log.info("Sending message: $payload")
+    log.info("Sending message to $endpoint: $payload")
     val message = eDeliveryMessageGenerator.requestMessage(params, payload)
 
     val body = ofByteArrays(listOf(
@@ -119,7 +113,7 @@ class EDeliveryClient(
       try {
         return http.post(url, body) {
           timeout(eDeliveryTimeout)
-          contentType("multipart/related; type=\"${soap}\"; boundary=\"$mimeBoundary\"")
+          contentType("multipart/related; type=\"$soap\"; boundary=\"$mimeBoundary\"")
         }
       } catch (e: HttpTimeoutException) {
         log.warn("Request timed out on attempt ${attempt + 1} after $eDeliveryTimeout ms")

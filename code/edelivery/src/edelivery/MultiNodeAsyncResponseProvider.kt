@@ -9,7 +9,7 @@ import kotlin.concurrent.thread
 class MultiNodeAsyncResponseProvider(private val db: DataSource): SingleNodeAsyncResponseProvider() {
   private val table = "async_responses"
   init {
-    thread(name = javaClass.simpleName, isDaemon = true) {
+    thread(name = this::class.simpleName, isDaemon = true) {
       db.consumeNotifications(listOf(table)) {
         if (it.name == table) pendingResponses[RequestKey(it.parameter)]?.offer("")
       }

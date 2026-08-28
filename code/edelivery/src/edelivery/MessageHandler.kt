@@ -1,5 +1,7 @@
 package edelivery
 
+data class MessageContext(val key: RequestKey, val xml: String)
+
 interface MessageHandler {
-  fun response(requestKey: RequestKey, xml: String): String?
+  val handlers: Map<String, (MessageContext) -> String?>
 }

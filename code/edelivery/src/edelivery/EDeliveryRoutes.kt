@@ -27,6 +27,7 @@ class EDeliveryRoutes(
   private val eDeliveryClient: EDeliveryClient,
   private val partyRegistry: PartyRegistry
 ) {
+  private val rootTagRegex = "<\\s*(?:\\w+:)?(\\w+)".toRegex()
   private val messagesReceived = AtomicLong().also {
     Metrics.register("edelivery_messages_received") { it.get() }
   }
@@ -48,7 +49,7 @@ class EDeliveryRoutes(
       val header = xmlParser.parse<MessageHeader>(xml)
       currentThread().name = header.conversationId.toString()
 
-      if (header.receiverId != Config.partyId) log.warn("Unknown receiver: ${header.receiverId}")
+      if (header.receiverId != keyManager.partyId) log.warn("Unknown receiver: ${header.receiverId}")
       val party = partyRegistry[header.senderId]
       e.attr("client", party.id)
 
@@ -57,13 +58,16 @@ class EDeliveryRoutes(
         ?: body.values.toList().getOrNull(1) as ByteArray
       val payloadXml = decryptPayload(header, keyManager.ownPrivateKey, encryptedPayload, encryptedSymmetricKey)
 
+      val rootTag = rootTagRegex.from(payloadXml)
+      val responseKey = RequestKey(header.senderId, header.conversationId, header.receiverId)
+      val handler = messageHandler.handlers[rootTag] ?: throw UnsupportedOperationException("Unknown root tag '$rootTag' from $responseKey")
+      log.info("Handling $rootTag from $responseKey")
 
       val responseXml = eDeliveryMessageGenerator.responseMessage(header)
       e.send(OK, responseXml, soap)
 
       AppScope.async {
-        val responseKey = RequestKey(header.senderId, header.conversationId, header.receiverId)
-        val result = messageHandler.response(responseKey, payloadXml)
+        val result = handler(MessageContext(responseKey, payloadXml))
         if (result != null)
           eDeliveryClient.send(party.eDeliveryUrl, UserMessageParams(responseKey), result)
       }
