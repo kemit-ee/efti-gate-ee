@@ -20,15 +20,14 @@ data class ResqlParams(
 )
 
 class ResqlClient(
-  private val baseUrl: URI = URI(Config["RESQL_URL"]),
+  private val baseUrl: URI = URI(Config["RESQL_URL"] + "/efti"),
   private val http: HttpClient,
   private val jsonMapper: JsonMapper,
 ) {
   private val log = logger()
-  private val prefix = "/efti"
 
   private inline fun <reified T> fetch(path: String) =
-    jsonMapper.parse<List<T>>(http.post(baseUrl + prefix + path, jsonMapper.render(ResqlParams())).body())
+    jsonMapper.parse<List<T>>(http.post(baseUrl + path, jsonMapper.render(ResqlParams())).body())
 
   fun getGates() = fetch<GateParty>("/get_gates").map {
     EDeliveryParty(it.id, it.eDeliveryUrl, it.eDeliveryCert, it.tlsCert)
