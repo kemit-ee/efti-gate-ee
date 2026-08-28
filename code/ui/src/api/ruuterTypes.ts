@@ -76,10 +76,18 @@ export interface AuthorityRequest {
   status?: Status
 }
 
+export enum UserRole {
+  ADMIN = 'ADMIN',
+  AUTHORITY = 'AUTHORITY',
+}
+
 export interface User {
   id: string
   taraSub: string
   name: string
+  roles: UserRole[]
+  isAdmin: boolean
+  isAuthority: boolean
   createdAt: string
   tokenRevokedAt?: string
 }
@@ -87,11 +95,13 @@ export interface User {
 export interface CreateUserRequest {
   taraSub: string
   name: string
+  roles?: UserRole[]
 }
 
 export interface UpdateUserRequest {
   name: string
   taraSub: string
+  roles?: UserRole[]
 }
 
 export enum ConsignmentStatus {

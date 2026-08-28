@@ -34,10 +34,12 @@ mis on **teostatud**, mis on **puudu** ja millised on näidisissendid/väljundid
 | Teema | Reegel |
 |---|---|
 | **Auth (Admin)** | TARA OIDC JWT — `Authorization: Bearer <jwt>` (RS256, JWKS) |
+| **Auth (Authority API)** | TARA OIDC JWT — sama mehhanism, nõuab `AUTHORITY` või `ADMIN` rolli |
 | **Auth (Platform API)** | mTLS X.509 — reversproxy edastab `X-Client-Cert-Subject` + `X-Client-Cert-Serial` |
 | **Auth (Cron)** | Staatiline `ARCHIVE_OPS_TOKEN` env-muutuja |
 | **Health** | Autentimine puudub — avalik |
-| **Praegused guard-failid** | Kõik `allow-all` (autentimine lisatakse hiljem) |
+| **Guard-failid** | `GET /api/v1/*` → autentimine nõutav; `POST/PUT/DELETE /api/v1/*` → ADMIN nõutav (v.a. `authority/*` ja `dataset`/`follow-up` → AUTHORITY-or-ADMIN); `/api/v1/auth/*` → avalik |
+| **Rollid** | `ADMIN` — kõik haldustoimingud; `AUTHORITY` — dataset/follow-up/authority-search; `'{}'` — puuduvad õigused (ainult `/api/v1/user`) |
 | **Veavastuse formaat** | RFC 7807 `application/problem+json` |
 | **`X-Request-ID`** | UUID päis kõigil muteerivaatel (POST/PUT/DELETE); duplikaat 10 min jooksul → 409 |
 | **Paginatsioon** | `?limit=100&offset=0`; kogus `X-Total-Count` päises |
@@ -92,10 +94,15 @@ graph LR
         AU3["POST /api/v1/follow-up"]
     end
 
-    subgraph "❌ Puudub"
+    subgraph "✅ Teostatud (auth)"
         M1["GET /api/v1/user"]
-        M2["POST /api/v1/auth/*"]
+        M2["POST /api/v1/auth/logout"]
+        M3["POST /api/v1/auth/dev-login (dev only)"]
+    end
+
+    subgraph "❌ Puudub"
         M4["POST /api/v1/admin/*"]
+        M5["POST /api/v1/auth/local-token"]
     end
 ```
 
@@ -108,13 +115,13 @@ graph LR
 | Admin — Platforms | 6 | **6** | 0 |
 | Admin — Authorities | 5 | **5** | 0 |
 | Admin — Audit | 1 | **1** | 0 |
-| Admin — Users | 7 | **6** | **1** |
+| Admin — Users | 7 | **7** | 0 |
 | Admin — Consignments | 2 | **2** | 0 |
 | Admin — Cron | 3 | 0 | **3** |
-| Auth | 2 | 0 | **2** |
+| Auth | 2 | **1** | **1** |
 | Platform API | 6 | **6** | 0 |
 | Authority API | 3 | **3** | 0 |
-| **Kokku** | **44** | **38** | **6** |
+| **Kokku** | **44** | **40** | **4** |
 
 ---
 
@@ -780,12 +787,15 @@ GET /efti/api/v1/users?limit=2&offset=0
 **Ruuter DSL:** `DSL/Ruuter/efti/POST/api/v1/users.yml`
 **Voog:** INSERT → verify GET → 201
 
+**Auth:** nõuab ADMIN rolli.
+
 **Päringu keha:**
 
 | Väli | Tüüp | Kohustuslik | Märkus |
 |---|---|---|---|
-| `taraSub` | string | ✅ | TARA `sub` väätus |
+| `taraSub` | string | ✅ | TARA `sub` väärtus |
 | `name` | string | ✅ | |
+| `roles` | `("ADMIN"\|"AUTHORITY")[]` | ❌ | Vaikimisi `[]` |
 
 ```json
 // Päring
@@ -794,7 +804,8 @@ Content-Type: application/json
 
 {
   "taraSub": "EE12345678901",
-  "name": "Mari Mets"
+  "name": "Mari Mets",
+  "roles": ["AUTHORITY"]
 }
 
 // Vastus 201 Created
@@ -851,7 +862,9 @@ GET /efti/api/v1/users?userId=550e8400-e29b-41d4-a716-446655440000
 **Ruuter DSL:** `DSL/Ruuter/efti/PUT/api/v1/users.yml`
 **Voog:** INSERT uus rida → verify GET → 200
 
-Päringu keha sama mis `POST /users`.
+**Auth:** nõuab ADMIN rolli. Admin ei saa endalt ADMIN rolli eemaldada (→ 403).
+
+Päringu keha sama mis `POST /users` (sh `roles`).
 
 ```json
 // Päring
@@ -859,7 +872,8 @@ PUT /efti/api/v1/users?userId=550e8400-e29b-41d4-a716-446655440000
 Content-Type: application/json
 
 {
-  "name": "Mari Mets-Uuendatud"
+  "name": "Mari Mets-Uuendatud",
+  "roles": ["AUTHORITY"]
 }
 
 // Vastus 200 OK
@@ -882,8 +896,7 @@ Content-Type: application/json
 **Ruuter DSL:** `DSL/Ruuter/efti/DELETE/api/v1/users.yml`
 **Voog:** INSERT rida `is_user_active=false` → verify GET → 204
 
-> ⚠️ **Praegu puudub auth-blokk** — enne tootmist tuleb lisada JWT valideerimine ja
-> kontroll, et admin ei kustuta enda enda kontot.
+> ⚠️ **Lahtine:** admin ei tohiks saada enda kontot kustutada — self-delete kaitse lisatakse järgmises PR-is.
 
 ```
 DELETE /efti/api/v1/users?userId=550e8400-e29b-41d4-a716-446655440000
@@ -970,9 +983,9 @@ GET /efti/api/v1/audit?resource=gates&limit=2
 
 | Meetod | Spec path | Kirjeldus |
 |---|---|---|
-| `GET` | `/api/v1/user` | Praeguse sisseloginud kasutaja profiil |
+| `GET` | `/api/v1/user` | Praeguse sisseloginud kasutaja profiil (any-auth) |
 
-> ℹ️ Ülejäänud `users` endpointid (`GET/POST/PUT/DELETE`, `revoke-token`) on juba teostatud (vt [Admin — Users](#7-admin--users)).
+> ℹ️ Ülejäänud `users` endpointid (`GET/POST/PUT/DELETE`, `revoke-token`) on teostatud (vt [Admin — Users](#7-admin--users)).
 
 ---
 
@@ -1029,13 +1042,16 @@ Auth: mTLS X.509 — reversproxy edastab `X-Client-Cert-Subject` + `X-Client-Cer
 
 ### 9.6 Authority API (TARA JWT) ✅
 
-Auth: TARA JWT `sub` → kasutaja `tara_sub` (praegu `allow-all`).
+Auth: TARA OIDC JWT — nõuab `AUTHORITY` või `ADMIN` rolli (`POST /api/v1/.guard` authority-or-admin guard).
+`GET /api/v1/identifiers` on any-auth guard all (piisab autentimisest).
 
 | Meetod | Ruuter DSL | Ruuter tee | Kirjeldus |
 |---|---|---|---|
 | `GET` | `DSL/Ruuter/efti/GET/api/v1/identifiers.yml` | `GET /efti/api/v1/identifiers?identifier={id}` | Otsing `mainTransportId` / `usedEquipmentIds` järgi |
-| `POST` | `DSL/Ruuter/efti/POST/api/v1/dataset.yml` | `POST /efti/api/v1/dataset` | FTI010 XML andmestik, filtreerituna `subsets[]` järgi |
-| `POST` | `DSL/Ruuter/efti/POST/api/v1/follow-up.yml` | `POST /efti/api/v1/follow-up` | FTI025 XML sisend → log → FTI030 XML vastus |
+| `POST` | `DSL/Ruuter/efti/POST/api/v1/dataset.yml` | `POST /efti/api/v1/dataset` | FTI010 XML andmestik, filtreerituna `subsets[]` järgi — nõuab AUTHORITY/ADMIN |
+| `POST` | `DSL/Ruuter/efti/POST/api/v1/follow-up.yml` | `POST /efti/api/v1/follow-up` | FTI025 XML sisend → log → FTI030 XML vastus — nõuab AUTHORITY/ADMIN |
+| `POST` | `DSL/Ruuter/efti/POST/api/v1/authority/search.yml` | `POST /efti/api/v1/authority/search` | Asutuste otsing — nõuab AUTHORITY/ADMIN |
+| `POST` | `DSL/Ruuter/efti/POST/api/v1/authority/follow-up.yml` | `POST /efti/api/v1/authority/follow-up` | Authority järelkontroll — nõuab AUTHORITY/ADMIN |
 
 > ℹ️ **Body:** `{ "gateId": "...", "platformId": "...", "datasetId": "...", "subsets": ["EU01", "EU02"] }` — `subsets: []` tagastab kogu andmestiku.
 
@@ -1136,6 +1152,9 @@ Kõik vead järgivad RFC 7807 `application/problem+json` formaati.
 | `id` | string | UUID |
 | `taraSub` | string | TARA autentimise sub |
 | `name` | string | |
+| `roles` | `("ADMIN"\|"AUTHORITY")[]` | Kasutajale määratud rollid |
+| `isAdmin` | boolean | `true` kui `ADMIN` ∈ roles |
+| `isAuthority` | boolean | `true` kui `AUTHORITY` ∈ roles |
 | `tokenRevokedAt` | datetime\|null | Tokeni tühistamise aeg |
 | `isUserActive` | boolean | `false` = pehme kustutus |
 | `createdAt` | datetime | |
@@ -1169,4 +1188,4 @@ Kõik Ruuteri vastused on mähitud `{"response": ...}` keebi:
 
 ---
 
-*Uuendatud `feature/admin-api` harust. Viimati uuendatud: 2026-08-17.*
+*Uuendatud `feat/guards-rbac` harust. Viimati uuendatud: 2026-08-28.*

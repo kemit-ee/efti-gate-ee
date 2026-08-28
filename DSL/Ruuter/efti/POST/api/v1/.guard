@@ -1,5 +1,12 @@
+# Public — no authentication required at this level.
+# Login/logout/callback are under POST/api/v1/auth/ (also public).
+# eDelivery G2G endpoints (dataset, follow-up) are intentionally unauthenticated here.
+# Admin-only POST endpoints (users, gates, platforms, authorities, consignments,
+# users/revoke-token) enforce admin role via an internal check-admin-authority
+# call at the start of their own DSL.
+# Authority-protected endpoints live under POST/api/v1/authority/ which has its
+# own authority-or-admin guard.
 guard_success:
   return: "success"
   status: 200
   next: end
-

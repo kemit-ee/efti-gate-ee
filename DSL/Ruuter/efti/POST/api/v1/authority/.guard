@@ -1,0 +1,35 @@
+# Authority-or-admin: explicitly stated for the authority/ subdirectory (same as the parent
+# POST/api/v1/.guard, but kept here for clarity and future divergence).
+validate_auth:
+  call: http.post
+  args:
+    url: "[#RUUTER_URL]/efti/internal/check-user-authority"
+    headers:
+      Content-Type: application/json
+      authorization: ${incoming.headers.authorization}
+    body: {}
+  result: auth_result
+  next: check_result
+
+check_result:
+  switch:
+    - condition: ${auth_result.response.status != 200}
+      next: guard_fail
+    - condition: ${auth_result.response.body.is_admin == true || auth_result.response.body.is_authority == true}
+      next: guard_success
+  next: guard_fail_forbidden
+
+guard_success:
+  return: "success"
+  status: 200
+  next: end
+
+guard_fail:
+  return: ${auth_result.response.body}
+  status: ${auth_result.response.status}
+  next: end
+
+guard_fail_forbidden:
+  return: ${JSON.parse('{"type":"https://api.efti.ee/errors/forbidden","title":"Forbidden","status":403,"detail":"This action requires the ADMIN or AUTHORITY role."}')}
+  status: 403
+  next: end

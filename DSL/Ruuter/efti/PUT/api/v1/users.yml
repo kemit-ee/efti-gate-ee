@@ -1,3 +1,26 @@
+check_admin:
+  call: http.post
+  args:
+    url: "[#RUUTER_URL]/efti/internal/check-admin-authority"
+    headers:
+      Content-Type: application/json
+      authorization: ${incoming.headers.authorization}
+    body: {}
+  result: admin_check
+  next: verify_admin
+
+verify_admin:
+  switch:
+    - condition: ${admin_check.response.status == 200}
+      next: check_exists
+  next: admin_fail
+
+admin_fail:
+  return: ${admin_check.response.body}
+  status: ${admin_check.response.status}
+  wrapper: false
+  next: end
+
 check_exists:
   call: http.post
   args:
@@ -13,6 +36,13 @@ check_found:
   switch:
     - condition: ${exists_result.response.body == null || exists_result.response.body.length == 0}
       next: not_found
+  next: check_self_admin_removal
+
+# An admin cannot remove their own ADMIN role — that would lock them out of admin operations.
+check_self_admin_removal:
+  switch:
+    - condition: ${admin_check.response.body.id == incoming.params.pathParams[0] && (incoming.body.roles == null || !incoming.body.roles.contains('ADMIN'))}
+      next: self_admin_removal_forbidden
   next: update_user
 
 update_user:
@@ -25,6 +55,7 @@ update_user:
       id: "${incoming.params.pathParams[0]}"
       taraSub: "${incoming.body.taraSub}"
       name: "${incoming.body.name}"
+      roles: "${incoming.body.roles}"
   result: update_result
   next: check_update
 
@@ -54,6 +85,12 @@ check_verify:
 respond:
   wrapper: false
   return: ${verify_result.response.body[0]}
+  next: end
+
+self_admin_removal_forbidden:
+  return: ${JSON.parse('{"type":"https://api.efti.ee/errors/forbidden","title":"Forbidden","status":403,"detail":"An admin cannot remove their own ADMIN role."}')}
+  status: 403
+  wrapper: false
   next: end
 
 not_found:

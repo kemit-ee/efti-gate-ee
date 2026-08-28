@@ -1,52 +1,25 @@
-# ============================================================================
-# TODO: AUTH REQUIRED BLOCK — uncomment when auth is implemented
-#
-# Before check_duplicate, add JWT validation and admin role resolution:
-#
-# validate_jwt:
-#   call: http.post
-#   args:
-#     url: "http://auth-service/validate"
-#     headers:
-#       Content-Type: "application/json"
-#     body:
-#       token: "${incoming.headers.Authorization}"
-#   result: jwt_result
-#   next: check_jwt
-#
-# check_jwt:
-#   switch:
-#     - condition: ${jwt_result.response.body == null || jwt_result.response.body.valid != true}
-#       next: unauthorized
-#   next: resolve_caller
-#
-# resolve_caller:
-#   call: http.post
-#   args:
-#     url: "[#RESQL_URL]/efti/get_user_by_tara_sub"
-#     headers:
-#       Content-Type: "application/json"
-#     body:
-#       taraSub: "${jwt_result.response.body.sub}"
-#   result: caller_result
-#   next: check_caller
-#
-# check_caller:
-#   switch:
-#     - condition: ${caller_result.response.body == null || caller_result.response.body.length == 0}
-#       next: unauthorized
-#   next: check_duplicate
-#
-# unauthorized:
-#   return: '{"error": "Unauthorized"}'
-#   status: 401
-#   next: end
-#
-# forbidden:
-#   return: '{"error": "Forbidden"}'
-#   status: 403
-#   next: end
-# ============================================================================
+check_admin:
+  call: http.post
+  args:
+    url: "[#RUUTER_URL]/efti/internal/check-admin-authority"
+    headers:
+      Content-Type: application/json
+      authorization: ${incoming.headers.authorization}
+    body: {}
+  result: admin_check
+  next: verify_admin
+
+verify_admin:
+  switch:
+    - condition: ${admin_check.response.status == 200}
+      next: check_duplicate
+  next: admin_fail
+
+admin_fail:
+  return: ${admin_check.response.body}
+  status: ${admin_check.response.status}
+  wrapper: false
+  next: end
 
 check_duplicate:
   call: http.post
@@ -74,6 +47,7 @@ create_user:
     body:
       taraSub: "${incoming.body.taraSub}"
       name: "${incoming.body.name}"
+      roles: "${incoming.body.roles}"
   result: insert_result
   next: check_insert
 

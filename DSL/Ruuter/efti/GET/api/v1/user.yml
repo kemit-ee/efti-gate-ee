@@ -25,7 +25,7 @@ get_user_context:
 
 check_user_context:
   switch:
-    - condition: ${auth_user.response.body !== "false"}
+    - condition: ${auth_user.response.status == 200}
       next: return_user
   next: token_invalid
 
