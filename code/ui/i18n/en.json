@@ -122,6 +122,8 @@
     "platformId": "Platform ID",
     "updatedAt": "Updated",
     "filter": "Filter...",
+    "ui": "UI",
+    "xml": "XML",
     "showCabotage": "Show only cabotage",
     "viewQrCode": "View QR Code",
     "uilQrCode": "UIL QR Code"

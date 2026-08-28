@@ -9,6 +9,8 @@
   import QrCodeViewer from "src/components/QrCodeViewer.svelte";
   import XmlViewer from "src/components/XmlViewer.svelte";
   import {combineUIL} from "src/shared/uil";
+  import DatasetViewer from "src/pages/admin/consignments/DatasetViewer.svelte";
+  import {parseXmlToJson} from "src/shared/xmlParser";
 
   export let consignments: Consignment[] | undefined
   export let onDeleted: (consignment: Consignment) => void
@@ -17,6 +19,7 @@
 
   let showConsignment: Consignment|false = false
   let showQrCode: string | false = false
+  let consignmentViewerType = 'ui'
 
   async function onDelete(c: Consignment) {
     const id = c.datasetId
@@ -57,6 +60,16 @@
 
 <Modal bind:show={showConsignment} title="{t.consignments.consignment} {showConsignment ? showConsignment.datasetId : ''}" wide>
   {#if showConsignment}
-    <XmlViewer content={showConsignment.xml}/>
+    <div class="flex gap-2 mb-4">
+      <Button label={t.consignments.ui} onclick={() => consignmentViewerType = 'ui'} class={consignmentViewerType === 'ui' ? 'primary' : 'secondary'}/>
+      <Button label={t.consignments.xml} onclick={() => consignmentViewerType = 'xml'} class={consignmentViewerType === 'xml' ? 'primary' : 'secondary'}/>
+    </div>
+    <div>
+      {#if consignmentViewerType === 'xml'}
+        <XmlViewer content={showConsignment.xml}/>
+      {:else}
+        <DatasetViewer data={parseXmlToJson(showConsignment.xml)}/>
+      {/if}
+    </div>
   {/if}
 </Modal>
