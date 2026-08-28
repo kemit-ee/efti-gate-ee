@@ -56,6 +56,12 @@ services:
     depends_on:
       - resql
     mem_limit: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8086/efti/health/ready || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
 
   ruuter-xroad:
     container_name: efti_ruuter_xroad
@@ -75,7 +81,8 @@ services:
       args:
         - VITE_USE_PROD_TARA_URL=true
     depends_on:
-      - ruuter
+      ruuter:
+        condition: service_healthy
 
   edelivery:
     environment:
