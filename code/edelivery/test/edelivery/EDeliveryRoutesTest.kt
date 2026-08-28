@@ -23,13 +23,13 @@ class EDeliveryRoutesTest {
   }
   val mockHandler = mockk<(MessageContext) -> String?>()
   val keyManager = spyk(KeyManager(partyRegistry))
-  val messageHandler = mockk<MessageHandler>()
+  val messageHandlers = mockk<MessageHandlers>()
   val realMessageGenerator = EDeliveryMessageGenerator(keyManager)
   val messageGenerator = mockk<EDeliveryMessageGenerator>(relaxed = true)
   val eDeliveryClient = mockk<EDeliveryClient>(relaxed = true)
   val exchange = mockk<HttpExchange>(relaxed = true)
 
-  val routes = EDeliveryRoutes(keyManager, messageHandler, messageGenerator, eDeliveryClient, partyRegistry)
+  val routes = EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry)
 
   fun getEnvelope(cipherValue: String): String {
     val regex = Regex("(<xenc:CipherValue\\b[^>]*>)(.*?)(</xenc:CipherValue>)", setOf(RegexOption.DOT_MATCHES_ALL))
@@ -65,7 +65,7 @@ class EDeliveryRoutesTest {
     every { exchange.requestStream } returns body.inputStream()
 
     every { mockHandler.invoke(any()) } returns "mockedResponse"
-    every { messageHandler.handlers } returns mapOf("hello" to mockHandler)
+    every { messageHandlers.rootTags } returns mapOf("hello" to mockHandler)
 
     routes.msh(exchange)
 
@@ -82,7 +82,7 @@ class EDeliveryRoutesTest {
 
     every { exchange.requestStream } returns body.inputStream()
 
-    every { messageHandler.handlers[any()] } returns null
+    every { messageHandlers.rootTags[any()] } returns null
     every { messageGenerator.soapFault(any(), any()) } returns "<SOAP-ENV:Fault/>"
 
     routes.msh(exchange)
@@ -112,7 +112,7 @@ class EDeliveryRoutesTest {
     val body = getBody(payload)
 
     every { exchange.requestStream } returns body.inputStream()
-    every { messageHandler.handlers } returns emptyMap()
+    every { messageHandlers.rootTags } returns emptyMap()
     every { messageGenerator.soapFault(any(), any()) } returns "<fault/>"
 
     routes.msh(exchange)
@@ -163,7 +163,7 @@ class EDeliveryRoutesTest {
     }
     val mockHandlersMap = mockk<Map<String, (MessageContext) -> String?>>()
     every { mockHandlersMap[any()] } returns mockHandler2
-    every { messageHandler.handlers } returns mockHandlersMap
+    every { messageHandlers.rootTags } returns mockHandlersMap
 
     mockkConstructor(MultipartParser::class)
     every { anyConstructed<MultipartParser>().parse(any()) } returns mapOf("xml" to xml, "payload" to payload)

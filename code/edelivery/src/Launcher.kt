@@ -23,7 +23,7 @@ fun main() {
     register(httpClient())
     register<PartyRegistry>(EDeliveryPartyRegistry::class)
     register<AsyncResponseProvider>(SingleNodeAsyncResponseProvider::class)
-    register<MessageHandler>(EftiMessageHandler::class)
+    register<MessageHandlers>(EftiMessageHandlers::class)
 
     errors.on<TimeoutException>(StatusCode.GatewayTimeout)
 

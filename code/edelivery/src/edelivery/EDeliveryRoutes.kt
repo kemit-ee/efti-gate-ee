@@ -22,7 +22,7 @@ const val soap = "application/soap+xml"
 
 class EDeliveryRoutes(
   private val keyManager: KeyManager,
-  private val messageHandler: MessageHandler,
+  private val messageHandlers: MessageHandlers,
   private val eDeliveryMessageGenerator: EDeliveryMessageGenerator,
   private val eDeliveryClient: EDeliveryClient,
   private val partyRegistry: PartyRegistry
@@ -60,7 +60,7 @@ class EDeliveryRoutes(
 
       val rootTag = rootTagRegex.from(payloadXml)
       val responseKey = RequestKey(header.senderId, header.conversationId, header.receiverId)
-      val handler = messageHandler.handlers[rootTag] ?: throw UnsupportedOperationException("Unknown root tag '$rootTag' from $responseKey")
+      val handler = messageHandlers.rootTags[rootTag] ?: throw UnsupportedOperationException("Unknown root tag '$rootTag' from $responseKey")
       log.info("Handling $rootTag from $responseKey")
 
       val responseXml = eDeliveryMessageGenerator.responseMessage(header)
