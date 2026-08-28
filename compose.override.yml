@@ -67,6 +67,7 @@ services:
       - ./:/workdir
     command: |
       -L VERBOSE --env-file tests/http/http-client.env.json -e docker
+      tests/http/tara-auth.http
       tests/http/consignments.http
       tests/http/gates.http
       tests/http/platforms.http

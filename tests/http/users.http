@@ -1,6 +1,7 @@
 ### Create user
 POST {{RUUTER_URL}}/efti/api/v1/users
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 {
   "taraSub": "test-{{$timestamp}}",
@@ -20,6 +21,7 @@ Content-Type: application/json
 ### List users
 GET {{RUUTER_URL}}/efti/api/v1/users
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Users listed", () => {
@@ -31,6 +33,7 @@ Content-Type: application/json
 ### Get single user
 GET {{RUUTER_URL}}/efti/api/v1/users/{{userId}}
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Single user found", () => {
@@ -42,6 +45,7 @@ Content-Type: application/json
 ### Update user
 PUT {{RUUTER_URL}}/efti/api/v1/users/{{userId}}
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 {
   "taraSub": "{{userTaraSub}}",
@@ -58,6 +62,7 @@ Content-Type: application/json
 ### Revoke user token
 POST {{RUUTER_URL}}/efti/api/v1/users/revoke-token/{{userId}}
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Token revoked", () => {
@@ -68,6 +73,7 @@ Content-Type: application/json
 ### Delete user
 DELETE {{RUUTER_URL}}/efti/api/v1/users/{{userId}}
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("User deleted", () => {
@@ -78,6 +84,7 @@ Content-Type: application/json
 ### Verify user deleted
 GET {{RUUTER_URL}}/efti/api/v1/users/{{userId}}
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("User deleted", () => {
