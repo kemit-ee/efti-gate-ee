@@ -7,9 +7,9 @@ POST {{RUUTER_URL}}/efti/api/v1/gates
 Content-Type: application/json
 
 {
-  "id": "POC",
+  "id": "TEST",
   "countryCode": "EE",
-  "eDeliveryUrl": "https://poc-gate.example.com/services/msh",
+  "eDeliveryUrl": "https://gate.example.com/services/msh",
   "eDeliveryCert": "-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----",
   "tlsCert": "-----BEGIN CERTIFICATE-----\ntest-tls-cert\n-----END CERTIFICATE-----",
   "status": "ONLINE"
@@ -18,7 +18,7 @@ Content-Type: application/json
 > {%
   client.test("Gate created", () => {
     client.assert(response.status === 201)
-    client.assert(response.body.id === "POC")
+    client.assert(response.body.id === "TEST")
     client.assert(response.body.countryCode === "EE")
     client.assert(response.body.status === "ONLINE")
   })
@@ -36,23 +36,23 @@ Content-Type: application/json
 %}
 
 ### Get single gate
-GET {{RUUTER_URL}}/efti/api/v1/gates/POC
+GET {{RUUTER_URL}}/efti/api/v1/gates/TEST
 Content-Type: application/json
 
 > {%
   client.test("Single gate found", () => {
     client.assert(response.status === 200)
-    client.assert(response.body.id === "POC")
+    client.assert(response.body.id === "TEST")
   })
 %}
 
 ### Update gate
-PUT {{RUUTER_URL}}/efti/api/v1/gates/POC
+PUT {{RUUTER_URL}}/efti/api/v1/gates/TEST
 Content-Type: application/json
 
 {
   "countryCode": "EE",
-  "eDeliveryUrl": "https://poc-gate.example.com/services/msh/v2",
+  "eDeliveryUrl": "https://gate.example.com/services/msh/v2",
   "eDeliveryCert": "-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----",
   "tlsCert": "-----BEGIN CERTIFICATE-----\ntest-tls-cert\n-----END CERTIFICATE-----",
   "status": "ONLINE"
@@ -61,12 +61,12 @@ Content-Type: application/json
 > {%
   client.test("Gate updated", () => {
     client.assert(response.status === 200)
-    client.assert(response.body.eDeliveryUrl === "https://poc-gate.example.com/services/msh/v2")
+    client.assert(response.body.eDeliveryUrl === "https://gate.example.com/services/msh/v2")
   })
 %}
 
 ### Delete gate
-DELETE {{RUUTER_URL}}/efti/api/v1/gates/POC
+DELETE {{RUUTER_URL}}/efti/api/v1/gates/TEST
 Content-Type: application/json
 
 > {%
@@ -76,7 +76,7 @@ Content-Type: application/json
 %}
 
 ### Verify gate deleted
-GET {{RUUTER_URL}}/efti/api/v1/gates/POC
+GET {{RUUTER_URL}}/efti/api/v1/gates/TEST
 Content-Type: application/json
 
 > {%
