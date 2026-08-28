@@ -1,7 +1,0 @@
-# Public — no authentication required. Overrides the parent GET/api/v1/.guard for all
-# endpoints under GET/api/v1/test/ (lubatud, piiratud, baasikontoroll handle their own
-# auth logic internally when needed).
-guard_success:
-  return: "success"
-  status: 200
-  next: end
