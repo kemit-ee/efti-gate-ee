@@ -1,5 +1,5 @@
 ### Cleanup: delete existing test gate if present
-DELETE {{RUUTER_URL}}/efti/api/v1/gates/POC
+DELETE {{RUUTER_URL}}/efti/api/v1/gates/TEST
 Content-Type: application/json
 
 ### Create gate
