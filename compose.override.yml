@@ -14,6 +14,9 @@ services:
   ruuter:
     ports:
       - "${EFTI_RUUTER_PORT:-8086}:8086"
+    healthcheck:
+      start_interval: 1s
+      interval: 60s
     develop:
       watch:
         - action: sync+restart

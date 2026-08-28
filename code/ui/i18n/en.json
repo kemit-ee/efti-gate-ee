@@ -107,6 +107,8 @@
   },
   "errors": {
     "technical": "Technical error, please try again",
+    "notJson": "Response is not JSON",
+    "networkUnavailable": "Unable to connect to the backend, please check your network connection",
     "tooLong": "Value is too long",
     "duplicate": "No duplicate values allowed",
     "invalidCert": "Invalid PEM certificate, should include BEGIN CERTIFICATE"
