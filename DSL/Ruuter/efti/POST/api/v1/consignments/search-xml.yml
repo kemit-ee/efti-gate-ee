@@ -19,8 +19,8 @@ call_search:
   request_type: "POST"
   body:
     criteria: ${criteria_json.response.body}
-    limit: 10 # TODO: Do not hardcode
-    offset: 0 # TODO: Do not hardcode
+    limit: ${incoming.params.limit ?? 100}
+    offset: ${incoming.params.offset ?? 0}
   result: search_response
   next: to_xml
 

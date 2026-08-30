@@ -4,7 +4,44 @@ declaration:
 setup:
   assign:
     requestId: ${incoming.headers['x-request-id']}
-  next:  local_search
+  next: check_poll
+
+check_poll:
+  switch:
+    - condition: ${incoming.body.poll == true && requestId}
+      next: poll_remaining
+  next: local_search
+
+poll_remaining:
+  call: http.get
+  args:
+    url: "[#MULTIPLEXER_URL]/api/v1/rest/${requestId}"
+  result: rest_result
+  next: check_rest
+
+check_rest:
+  switch:
+    - condition: ${!rest_result.response.body || rest_result.response.body == ''}
+      next: respond_empty
+  next: rest_to_json
+
+rest_to_json:
+  call: http.post
+  args:
+    url: "[#XML_MAPPER_URL]/api/v1/search/response-to-json"
+    headers:
+      content-type: "text/xml"
+    body: ${rest_result.response.body}
+  result: rest_json
+  next: respond_rest
+
+respond_rest:
+  return: ${rest_json.response.body}
+  headers:
+    content-type: "application/json"
+    x-poll-more: ${rest_result.response.headers['complete'] != 'true'}
+  wrapper: false
+  next: end
 
 local_search:
   template: api/v1/consignments/search
@@ -64,7 +101,7 @@ respond_first:
   return: ${first_result}
   headers:
     content-type: "application/json"
-    x-poll-more: true # TODO: let authority ask for the rest of the results
+    x-poll-more: true
   wrapper: false
   next: end
 

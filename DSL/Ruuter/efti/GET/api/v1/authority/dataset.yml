@@ -44,11 +44,53 @@ respond:
   next: end
 
 forward_to_remote_gate:
-  # TODO: Forward to remote gate over eDelivery
-  return:
-    error: "Remote gate dataset request not yet implemented"
+  call: http.post
+  args:
+    url: "[#XML_MAPPER_URL]/api/v1/dataset/request-to-xml"
+    headers:
+      Content-Type: "application/json"
+    body:
+      uil:
+        gateId: "${incoming.params.pathParams[0]}"
+        platformId: "${incoming.params.pathParams[1]}"
+        datasetId: "${incoming.params.pathParams[2]}"
+      subsets: "${incoming.params?.subsets ?? []}"
+  result: dataset_xml
+  next: send_via_edelivery
+
+send_via_edelivery:
+  call: http.post
+  timeout: 65000
+  args:
+    url: "[#EDELIVERY_URL]/api/v1/send/${incoming.params.pathParams[0]}"
+    headers:
+      Content-Type: "text/xml"
+      x-request-id: "${incoming.headers['x-request-id'] ?? ''}"
+    body: "${dataset_xml.response.body}"
+    content_type: plaintext
+  result: edelivery_response
+  next: check_edelivery_response
+
+check_edelivery_response:
+  switch:
+    - condition: ${edelivery_response.response.status != 200}
+      next: edelivery_error
+  next: respond_remote
+
+respond_remote:
+  return: ${edelivery_response.response.body}
   wrapper: false
-  status: 501
+  status: 200
+  headers:
+    content-type: text/xml
+  next: end
+
+edelivery_error:
+  return:
+    error: "Remote gate dataset request failed"
+    detail: "${edelivery_response.response.body}"
+  wrapper: false
+  status: ${edelivery_response.response.status}
   next: end
 
 platform_not_found:
