@@ -42,16 +42,18 @@ cd code && ./gradlew multiplexer:test
 ```
 DSL/
   Ruuter/
-    efti/               # Main API routes (served under /efti/)
-      GET/api/v1/       # Read endpoints (JWT-guarded): user, gates/own, consignments, etc.
-      POST/api/v1/      # Write endpoints (public guard): auth, dataset, follow-up, consignments
-      PUT/api/v1/       # (empty — admin CRUD moved to admin/)
-      DELETE/api/v1/    # (empty — admin CRUD moved to admin/)
+    efti/               # Internal API routes (served under /efti/)
+      POST/api/v1/      # G2G endpoints: dataset, follow-up, consignments
+      POST/internal/     # Auth helpers: check-admin-authority, check-user-authority
+      GET/api/v1/        # gates/own, consignments, status, follow-up, test
     admin/              # Admin CRUD routes (served under /admin/)
       GET/v1/           # List/get: gates, platforms, authorities, users, audit
-      POST/v1/          # Create: gates, platforms, authorities, users + ping, revoke-token
+      POST/v1/          # Create: gates, platforms, authorities, users + ping, revoke-token, js-error
       PUT/v1/           # Update: gates, platforms, authorities, users
       DELETE/v1/        # Delete: gates, platforms, authorities, users, consignments
+    auth/               # Authentication routes (served under /auth/)
+      GET/              # user (current user profile)
+      POST/             # callback, logout, dev-login
     mock-platform/      # Mock platform (served under /mock-platform/)
   Resql/efti/POST/      # SQL endpoint files (*.sql)
   Liquibase/            # DB migrations (initial/ + changelog/)
@@ -63,17 +65,32 @@ code/
 tests/http/             # IntelliJ HTTP Client test files (*.http)
 ```
 
+## Nginx proxy (UI)
+
+The UI container (`docker/ui/nginx.conf`) proxies browser requests to backend services:
+
+| Location | Backend | Purpose |
+|----------|---------|---------|
+| `/admin/` | `http://ruuter:8086` | Admin CRUD (gates, platforms, authorities, users) |
+| `/auth/` | `http://ruuter:8086` | Authentication (user, callback, logout, dev-login) |
+| `/tim/` | `http://tim:8085/` | Token & Identity Manager |
+| `/tara/` | `https://tara-mock:8080/` | TARA OIDC mock |
+| `/` | static files | SPA fallback to `index.html` |
+
+The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default prefix. Paths starting with `/` (like `/auth/callback`) are used as-is, routing to the `auth` project.
+
 ## DSL conventions (Ruuter)
 
-- Routes map 1:1 to file paths: `POST /efti/api/v1/dataset` → `DSL/Ruuter/efti/POST/api/v1/dataset.yml`
-- Admin CRUD: `POST /admin/v1/gates` → `DSL/Ruuter/admin/POST/v1/gates.yml`
+- Routes map 1:1 to file paths: `POST /admin/v1/gates` → `DSL/Ruuter/admin/POST/v1/gates.yml`
+- Auth routes: `POST /auth/callback` → `DSL/Ruuter/auth/POST/callback.yml`
+- Internal routes: `POST /efti/internal/check-admin-authority` → `DSL/Ruuter/efti/POST/internal/check-admin-authority.yml`
 - Constants from `constants.ini` referenced as `[#VARIABLE]` (e.g., `[#OWN_GATE_ID]`, `[#EDELIVERY_URL]`)
 - Request data: `incoming.body`, `incoming.headers`, `incoming.params.pathParams`
 - `allowed_body: [xml]` — wraps raw XML body as `incoming.body.xml`
 - `wrapper: false` — return raw response (not JSON-wrapped)
-- `template: api/v1/foo` — call another DSL file as subroutine
+- `template: api/v1/foo` — call another DSL file as subroutine, works only in the same top-level Ruuter project
 - `.guard` files — placed in directory hierarchy; Ruuter runs the nearest guard before the route
-- Guard hierarchy: `efti/` GET = any authenticated user; POST = public (admin check per-DSL); `admin/` GET = any authenticated user; POST/PUT/DELETE = admin-only guard
+- Guard hierarchy: `admin/` POST/PUT/DELETE = admin-only; `admin/` GET = any authenticated user; `auth/` POST = public; `auth/` GET = any authenticated user
 
 ## SQL conventions (ReSql)
 
@@ -117,6 +134,10 @@ tests/http/             # IntelliJ HTTP Client test files (*.http)
 - Env file: `tests/http/http-client.env.json` (local/docker environments)
 - Assertions: `> {% client.test("name", () => { client.assert(...) }) %}`
 - Health check: `GET /efti/api/v1/test/baasikontoroll` (public, returns DB status)
+
+## Post-change
+
+- Always `git add` new files 
 
 ## Key gotchas
 
