@@ -4,6 +4,7 @@ import RequestIdHandler
 import efti.domain.ConsignmentRow
 import efti.domain.UIL
 import efti.xml.fti.*
+import efti.xml.fti.FTIResponseCode.Completed
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import klite.HttpExchange
@@ -27,5 +28,5 @@ class UploadRoutes(val requestIdHandler: RequestIdHandler) {
 
   @Operation(description = "Map UIL as JSON to FTI029UploadIdentifierResponse as XML.")
   @POST("/response-to-xml") fun responseToXml(uil: UIL, e: HttpExchange): String =
-    FTI029UploadIdentifierResponse(ExchangedDocument("029", e.requestId.uuid), uil).render()
+    FTI029UploadIdentifierResponse(ExchangedDocument("029", e.requestId.uuid, responseCode = Completed), uil).render()
 }
