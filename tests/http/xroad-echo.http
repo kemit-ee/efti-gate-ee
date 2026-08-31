@@ -1,6 +1,7 @@
 ### Setup: ensure test authority exists
 DELETE {{RUUTER_URL}}/efti/api/v1/authorities/auth-xroad-test
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   // 204 (deleted) or 404 (didn't exist) — both are fine
@@ -13,6 +14,7 @@ Content-Type: application/json
 
 POST {{RUUTER_URL}}/efti/api/v1/authorities
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 {
   "id": "auth-xroad-test",
@@ -95,6 +97,7 @@ Content-Type: application/json
 ### Teardown: remove test authority
 DELETE {{RUUTER_URL}}/efti/api/v1/authorities/auth-xroad-test
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Teardown ok", () => {

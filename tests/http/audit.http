@@ -1,6 +1,7 @@
 ### List all audit entries
 GET {{RUUTER_URL}}/efti/api/v1/audit
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Audit log returned", () => {
@@ -11,6 +12,7 @@ Content-Type: application/json
 ### Filter audit by resource type
 GET {{RUUTER_URL}}/efti/api/v1/audit?resource=consignment
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Audit filtered by resource", () => {
@@ -21,6 +23,7 @@ Content-Type: application/json
 ### Filter audit with pagination
 GET {{RUUTER_URL}}/efti/api/v1/audit?limit=10&offset=0
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Audit pagination works", () => {
