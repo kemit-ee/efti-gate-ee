@@ -1,4 +1,21 @@
-# Any authenticated user (same as efti/GET/api/v1/.guard).
+# Any authenticated user — validates JWT via TIM + DB lookup.
+validate_auth:
+  call: http.post
+  args:
+    url: "[#RUUTER_URL]/efti/internal/check-user-authority"
+    headers:
+      Content-Type: application/json
+      authorization: ${incoming.headers.authorization}
+    body: {}
+  result: auth_result
+  next: check_result
+
+check_result:
+  switch:
+    - condition: ${auth_result.response.status == 200}
+      next: guard_success
+  next: guard_fail
+
 guard_success:
   return: "success"
   status: 200
