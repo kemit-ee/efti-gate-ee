@@ -88,7 +88,7 @@ services:
     environment:
       - OWN_GATE_ID=${OWN_GATE_ID}
       - RESQL_URL=http://resql:8090
-      - RUUTER_URL=http://ruuter:8086
+      - RUUTER_M2M_URL=http://ruuter-m2m:8087
     build:
       context: code
       dockerfile: ../docker/code/Dockerfile
@@ -97,6 +97,7 @@ services:
       - PORT=8081
     depends_on:
       - resql
+      - ruuter-m2m
     mem_limit: 512M
 
   xml-mapper:

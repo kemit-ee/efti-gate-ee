@@ -1,0 +1,45 @@
+# Platform API. Authenticated by an API key in the X-Api-Key header (ADR-004,
+# 2026-08-25). The key is hashed and resolved against the latest non-deleted
+# platforms row. 401 if missing/unknown, 403 if the same key resolves to more
+# than one active platform (registry misconfiguration).
+check_for_key:
+  switch:
+    - condition: ${incoming.headers == null || incoming.headers['x-api-key'] == null || incoming.headers['x-api-key'] == ''}
+      next: guard_unauthorized
+  next: resolve_platform
+
+resolve_platform:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/get_platform_by_api_key"
+    headers:
+      Content-Type: application/json
+    body:
+      apiKey: ${incoming.headers['x-api-key']}
+  result: platform_res
+  next: check_platform
+
+check_platform:
+  switch:
+    - condition: ${platform_res.response.body == null || platform_res.response.body.length == 0}
+      next: guard_unauthorized
+    - condition: ${platform_res.response.body.length > 1}
+      next: guard_multi
+  next: guard_success
+
+guard_success:
+  return: "success"
+  status: 200
+  next: end
+
+guard_unauthorized:
+  return: ${JSON.parse('{"type":"https://api.efti.ee/errors/unauthorized","title":"Unauthorized","status":401,"detail":"X-Api-Key header is missing or does not match a registered platform."}')}
+  status: 401
+  wrapper: false
+  next: end
+
+guard_multi:
+  return: ${JSON.parse('{"type":"https://api.efti.ee/errors/forbidden-multi-platform","title":"Forbidden","status":403,"detail":"API key resolves to more than one active platform."}')}
+  status: 403
+  wrapper: false
+  next: end

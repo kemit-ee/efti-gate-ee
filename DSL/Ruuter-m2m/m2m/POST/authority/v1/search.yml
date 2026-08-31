@@ -44,7 +44,7 @@ respond_rest:
   next: end
 
 local_search:
-  template: api/v1/consignments/search
+  template: platform/v1/consignments/search
   request_type: POST
   body:
     criteria: ${incoming.body}

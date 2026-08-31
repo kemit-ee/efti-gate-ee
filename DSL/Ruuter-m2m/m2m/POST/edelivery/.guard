@@ -1,0 +1,10 @@
+# Peer-gate G2G (eDelivery AS4). These routes are reached only from the local
+# `edelivery` service, which has already terminated and verified the AS4 / WS-Security
+# layer and the EU-Trust-Service mTLS at the access point. The m2m Ruuter is not
+# exposed outside the compose/deployment network, so the trust boundary is the
+# network perimeter plus the edelivery service — same model as the (public) POST
+# guard on the efti Ruuter. No credential is checked here.
+guard_success:
+  return: "success"
+  status: 200
+  next: end

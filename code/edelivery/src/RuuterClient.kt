@@ -10,13 +10,13 @@ import java.net.http.HttpResponse
 /** Forwards raw EFTI XMLs to Ruuter for further conversion */
 class RuuterClient(
   private val http: HttpClient,
-  private val baseUrl: URI = URI(Config["RUUTER_URL"] + "/efti/api/v1"),
+  private val baseUrl: URI = URI(Config["RUUTER_M2M_URL"] + "/m2m/edelivery/v1"),
 ) {
   fun saveConsignment(xml: String /* FTI004UploadIdentifierRequest */) =
     http.sendXml(baseUrl + "/consignments-xml", xml)
 
   fun searchConsignments(xml: String /* FTI019SearchIdentifierRequest */) =
-    http.sendXml(baseUrl + "/consignments/search-xml", xml)
+    http.sendXml(baseUrl + "/consignments-search-xml", xml)
 
   fun getDataset(xml: String /* FTI009GetCmdsRequest */) =
     http.sendXml(baseUrl + "/dataset-xml", xml)

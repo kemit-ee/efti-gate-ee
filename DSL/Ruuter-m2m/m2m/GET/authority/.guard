@@ -1,0 +1,50 @@
+# Authority API. Reached two ways (ADR-004): from Estonian authority systems over
+# X-Road, or from a peer gate over eDelivery — never from a browser.
+#   - X-Road path: the X-Road-Client header is present and its member (registry code)
+#     must resolve to a known authority.
+#   - eDelivery path: no X-Road-Client header; the call comes from the local edelivery
+#     service inside the trust perimeter (same reasoning as edelivery/.guard).
+route:
+  switch:
+    - condition: ${incoming.headers != null && incoming.headers['x-road-client'] != null && incoming.headers['x-road-client'] != ''}
+      next: validate_format
+  next: guard_success
+
+validate_format:
+  assign:
+    xroad_parts: ${incoming.headers['x-road-client'].split('/')}
+  next: check_format
+
+check_format:
+  switch:
+    - condition: ${xroad_parts.length === 4 && xroad_parts[2] != null && xroad_parts[2] != ''}
+      next: lookup_authority
+  next: guard_fail
+
+lookup_authority:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/get_authority_by_registry_code"
+    headers:
+      Content-Type: application/json
+    body:
+      registry_code: "${xroad_parts[2]}"
+  result: authority_res
+  next: check_found
+
+check_found:
+  switch:
+    - condition: ${authority_res.response.body != null && authority_res.response.body.length > 0}
+      next: guard_success
+  next: guard_fail
+
+guard_success:
+  return: "success"
+  status: 200
+  next: end
+
+guard_fail:
+  return: ${JSON.parse('{"type":"https://api.efti.ee/errors/forbidden","title":"Forbidden","status":403,"detail":"X-Road-Client header is malformed or its member is not a registered authority."}')}
+  status: 403
+  wrapper: false
+  next: end
