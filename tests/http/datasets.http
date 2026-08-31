@@ -1,7 +1,7 @@
 # TODO: handle/test error situations properly
 
 ### Query dataset from local platform
-POST {{RUUTER_URL}}/efti/api/v1/dataset
+POST {{RUUTER_M2M_URL}}/m2m/authority/v1/dataset
 Content-Type: application/json
 
 {
@@ -21,7 +21,7 @@ Content-Type: application/json
 %}
 
 ### Query dataset from local platform over eDelivery
-POST {{RUUTER_URL}}/efti/api/v1/dataset-xml
+POST {{RUUTER_M2M_URL}}/m2m/edelivery/v1/dataset-xml
 Content-Type: text/xml
 
 < ../../code/xml-mapper/xsd/FTI009/sample.xml

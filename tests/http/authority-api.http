@@ -1,10 +1,12 @@
-POST {{RUUTER_URL}}/efti/api/v1/consignments
+### Platform uploads a consignment to be searched/retrieved by authority
+POST {{RUUTER_M2M_URL}}/m2m/platform/v1/consignments
 Content-Type: text/xml
+X-Api-Key: mock-secret-key
 
 < ../../code/xml-mapper/xsd/FTI004/sample.xml
 
 ### Authority searches for local consignments
-POST {{RUUTER_URL}}/efti/api/v1/authority/search
+POST {{RUUTER_M2M_URL}}/m2m/authority/v1/search
 Content-Type: application/json
 X-Request-ID: 073b32bc-a081-11f1-8d67-3c9c0f2eb459
 
@@ -22,7 +24,7 @@ X-Request-ID: 073b32bc-a081-11f1-8d67-3c9c0f2eb459
 
 ### Authority searches for remote consignments
 # @timeout 70
-#POST {{RUUTER_URL}}/efti/api/v1/authority/search
+#POST {{RUUTER_M2M_URL}}/m2m/authority/v1/search
 #Content-Type: application/json
 #X-Request-ID: 073b32bc-a081-11f1-8d67-3c9c0f2eb459
 #
@@ -31,7 +33,7 @@ X-Request-ID: 073b32bc-a081-11f1-8d67-3c9c0f2eb459
 #}
 
 ### Authority retrieves a full dataset of a consignment (local platform)
-GET {{RUUTER_URL}}/efti/api/v1/authority/dataset/EU-EE/mock/b24ebf37-a068-11f1-b8f0-3c9c0f2eb459
+GET {{RUUTER_M2M_URL}}/m2m/authority/v1/dataset/EU-EE/mock/b24ebf37-a068-11f1-b8f0-3c9c0f2eb459
 X-Request-ID: 327b4aea-a081-11f1-a87b-3c9c0f2eb459
 
 > {%

@@ -1,6 +1,7 @@
-### Platform uploads a new consignment over REST (TODO: auth)
-POST {{RUUTER_URL}}/efti/api/v1/consignments
+### Platform uploads a new consignment over REST
+POST {{RUUTER_M2M_URL}}/m2m/platform/v1/consignments
 Content-Type: text/xml
+X-Api-Key: mock-secret-key
 
 < ../../code/xml-mapper/xsd/FTI004/sample.xml
 
@@ -14,7 +15,7 @@ Content-Type: text/xml
 %}
 
 ### Platform uploads a new consignment over eDelivery
-POST {{RUUTER_URL}}/efti/api/v1/consignments-xml
+POST {{RUUTER_M2M_URL}}/m2m/edelivery/v1/consignments-xml
 Content-Type: text/xml
 
 < ../../code/xml-mapper/xsd/FTI004/sample.xml
@@ -31,6 +32,7 @@ Content-Type: text/xml
 ### List consignments
 GET {{RUUTER_URL}}/efti/api/v1/consignments
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Find consignment", () => {
@@ -41,8 +43,9 @@ Content-Type: application/json
 
 
 ### Find consignment
-POST {{RUUTER_URL}}/efti/api/v1/consignments/search
+POST {{RUUTER_M2M_URL}}/m2m/platform/v1/consignments/search
 Content-Type: application/json
+X-Api-Key: mock-secret-key
 
 {
   "criteria": {
@@ -64,7 +67,7 @@ Content-Type: application/json
 %}
 
 ### Find consignment over eDelivery
-POST {{RUUTER_URL}}/efti/api/v1/consignments/search-xml
+POST {{RUUTER_M2M_URL}}/m2m/edelivery/v1/consignments-search-xml
 Content-Type: text/xml
 
 < ../../code/xml-mapper/xsd/FTI019/sample.xml
@@ -81,6 +84,7 @@ Content-Type: text/xml
 ### Delete consignment
 DELETE {{RUUTER_URL}}/efti/api/v1/consignments/550e8400-e29b-41d4-a716-446655440000
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("No content success", () => {
@@ -91,6 +95,7 @@ Content-Type: application/json
 ### List contains no consignments after deletion
 GET {{RUUTER_URL}}/efti/api/v1/consignments
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("No consignments in list after deletion", () => {
