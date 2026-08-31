@@ -1,22 +1,37 @@
-# ============================================================================
-# TODO: AUTH REQUIRED BLOCK — uncomment when auth is implemented
-#
-# After JWT validation and caller resolution (same as POST /users),
-# add self-delete check before soft_delete_user:
-#
-# check_not_self:
-#   switch:
-#     - condition: ${caller_result.response.body[0].id == incoming.params.userId}
-#       next: delete_self_error
-#   next: delete_user
-#
-# delete_self_error:
-#   return: '{"error": "BadRequest", "detail": "Admin cannot delete their own account"}'
-#   status: 400
-#   next: end
-#
-# caller_result is resolved from JWT sub → users row (vt POST /users auth block ülal).
-# ============================================================================
+check_admin:
+  call: http.post
+  args:
+    url: "[#RUUTER_URL]/efti/internal/check-admin-authority"
+    headers:
+      Content-Type: application/json
+      authorization: ${incoming.headers.authorization}
+    body: {}
+  result: admin_check
+  next: verify_admin
+
+verify_admin:
+  switch:
+    - condition: ${admin_check.response.status == 200}
+      next: check_not_self
+  next: admin_fail
+
+admin_fail:
+  return: ${admin_check.response.body}
+  status: ${admin_check.response.status}
+  wrapper: false
+  next: end
+
+check_not_self:
+  switch:
+    - condition: ${admin_check.response.body.id == incoming.params.pathParams[0]}
+      next: delete_self_error
+  next: delete_user
+
+delete_self_error:
+  return: '{"error": "BadRequest", "detail": "Admin cannot delete their own account"}'
+  status: 400
+  wrapper: false
+  next: end
 
 delete_user:
   call: http.post

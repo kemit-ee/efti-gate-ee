@@ -1,5 +1,5 @@
 ### Create user
-POST {{RUUTER_URL}}/efti/api/v1/users
+POST {{RUUTER_URL}}/admin/v1/users
 Content-Type: application/json
 
 {
@@ -18,7 +18,7 @@ Content-Type: application/json
 %}
 
 ### List users
-GET {{RUUTER_URL}}/efti/api/v1/users
+GET {{RUUTER_URL}}/admin/v1/users
 Content-Type: application/json
 
 > {%
@@ -29,7 +29,7 @@ Content-Type: application/json
 %}
 
 ### Get single user
-GET {{RUUTER_URL}}/efti/api/v1/users/{{userId}}
+GET {{RUUTER_URL}}/admin/v1/users/{{userId}}
 Content-Type: application/json
 
 > {%
@@ -40,7 +40,7 @@ Content-Type: application/json
 %}
 
 ### Update user
-PUT {{RUUTER_URL}}/efti/api/v1/users/{{userId}}
+PUT {{RUUTER_URL}}/admin/v1/users/{{userId}}
 Content-Type: application/json
 
 {
@@ -56,7 +56,7 @@ Content-Type: application/json
 %}
 
 ### Revoke user token
-POST {{RUUTER_URL}}/efti/api/v1/users/revoke-token/{{userId}}
+POST {{RUUTER_URL}}/admin/v1/users/revoke-token/{{userId}}
 Content-Type: application/json
 
 > {%
@@ -66,7 +66,7 @@ Content-Type: application/json
 %}
 
 ### Delete user
-DELETE {{RUUTER_URL}}/efti/api/v1/users/{{userId}}
+DELETE {{RUUTER_URL}}/admin/v1/users/{{userId}}
 Content-Type: application/json
 
 > {%
@@ -76,7 +76,7 @@ Content-Type: application/json
 %}
 
 ### Verify user deleted
-GET {{RUUTER_URL}}/efti/api/v1/users/{{userId}}
+GET {{RUUTER_URL}}/admin/v1/users/{{userId}}
 Content-Type: application/json
 
 > {%

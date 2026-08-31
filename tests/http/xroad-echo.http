@@ -1,5 +1,5 @@
 ### Setup: ensure test authority exists
-DELETE {{RUUTER_URL}}/efti/api/v1/authorities/auth-xroad-test
+DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-test
 Content-Type: application/json
 
 > {%
@@ -11,7 +11,7 @@ Content-Type: application/json
 
 ###
 
-POST {{RUUTER_URL}}/efti/api/v1/authorities
+POST {{RUUTER_URL}}/admin/v1/authorities
 Content-Type: application/json
 
 {
@@ -93,7 +93,7 @@ Content-Type: application/json
 %}
 
 ### Teardown: remove test authority
-DELETE {{RUUTER_URL}}/efti/api/v1/authorities/auth-xroad-test
+DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-test
 Content-Type: application/json
 
 > {%

@@ -41,12 +41,18 @@ cd code && ./gradlew multiplexer:test
 
 ```
 DSL/
-  Ruuter/efti/          # Main API routes (served under /efti/)
-    GET/api/v1/         # Read endpoints (JWT-guarded)
-    POST/api/v1/        # Write endpoints (public guard; admin check per-DSL)
-    PUT/api/v1/         # Update endpoints (admin-only guard)
-    DELETE/api/v1/      # Delete endpoints (admin-only guard)
-  Ruuter/mock-platform/ # Mock platform (served under /mock-platform/)
+  Ruuter/
+    efti/               # Main API routes (served under /efti/)
+      GET/api/v1/       # Read endpoints (JWT-guarded): user, gates/own, consignments, etc.
+      POST/api/v1/      # Write endpoints (public guard): auth, dataset, follow-up, consignments
+      PUT/api/v1/       # (empty — admin CRUD moved to admin/)
+      DELETE/api/v1/    # (empty — admin CRUD moved to admin/)
+    admin/              # Admin CRUD routes (served under /admin/)
+      GET/v1/           # List/get: gates, platforms, authorities, users, audit
+      POST/v1/          # Create: gates, platforms, authorities, users + ping, revoke-token
+      PUT/v1/           # Update: gates, platforms, authorities, users
+      DELETE/v1/        # Delete: gates, platforms, authorities, users, consignments
+    mock-platform/      # Mock platform (served under /mock-platform/)
   Resql/efti/POST/      # SQL endpoint files (*.sql)
   Liquibase/            # DB migrations (initial/ + changelog/)
 code/
@@ -60,13 +66,14 @@ tests/http/             # IntelliJ HTTP Client test files (*.http)
 ## DSL conventions (Ruuter)
 
 - Routes map 1:1 to file paths: `POST /efti/api/v1/dataset` → `DSL/Ruuter/efti/POST/api/v1/dataset.yml`
+- Admin CRUD: `POST /admin/v1/gates` → `DSL/Ruuter/admin/POST/v1/gates.yml`
 - Constants from `constants.ini` referenced as `[#VARIABLE]` (e.g., `[#OWN_GATE_ID]`, `[#EDELIVERY_URL]`)
 - Request data: `incoming.body`, `incoming.headers`, `incoming.params.pathParams`
 - `allowed_body: [xml]` — wraps raw XML body as `incoming.body.xml`
 - `wrapper: false` — return raw response (not JSON-wrapped)
 - `template: api/v1/foo` — call another DSL file as subroutine
 - `.guard` files — placed in directory hierarchy; Ruuter runs the nearest guard before the route
-- Guard hierarchy: GET/PUT/DELETE = auth required; POST = public (admin check per-DSL); POST/auth/ = public; POST/authority/ = authority-or-admin
+- Guard hierarchy: `efti/` GET = any authenticated user; POST = public (admin check per-DSL); `admin/` GET = any authenticated user; POST/PUT/DELETE = admin-only guard
 
 ## SQL conventions (ReSql)
 

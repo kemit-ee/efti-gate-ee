@@ -1,9 +1,9 @@
 ### Cleanup: delete existing test platform if present
-DELETE {{RUUTER_URL}}/efti/api/v1/platforms/demo
+DELETE {{RUUTER_URL}}/admin/v1/platforms/demo
 Content-Type: application/json
 
 ### Create platform
-POST {{RUUTER_URL}}/efti/api/v1/platforms
+POST {{RUUTER_URL}}/admin/v1/platforms
 Content-Type: application/json
 
 {
@@ -27,7 +27,7 @@ Content-Type: application/json
 %}
 
 ### List platforms
-GET {{RUUTER_URL}}/efti/api/v1/platforms
+GET {{RUUTER_URL}}/admin/v1/platforms
 Content-Type: application/json
 
 > {%
@@ -38,7 +38,7 @@ Content-Type: application/json
 %}
 
 ### Get single platform
-GET {{RUUTER_URL}}/efti/api/v1/platforms/demo
+GET {{RUUTER_URL}}/admin/v1/platforms/demo
 Content-Type: application/json
 
 > {%
@@ -49,7 +49,7 @@ Content-Type: application/json
 %}
 
 ### Update platform
-PUT {{RUUTER_URL}}/efti/api/v1/platforms/demo
+PUT {{RUUTER_URL}}/admin/v1/platforms/demo
 Content-Type: application/json
 
 {
@@ -70,7 +70,7 @@ Content-Type: application/json
 %}
 
 ### Delete platform
-DELETE {{RUUTER_URL}}/efti/api/v1/platforms/demo
+DELETE {{RUUTER_URL}}/admin/v1/platforms/demo
 Content-Type: application/json
 
 > {%
@@ -80,7 +80,7 @@ Content-Type: application/json
 %}
 
 ### Verify platform deleted
-GET {{RUUTER_URL}}/efti/api/v1/platforms/demo
+GET {{RUUTER_URL}}/admin/v1/platforms/demo
 Content-Type: application/json
 
 > {%

@@ -20,7 +20,7 @@ Content-Type: application/json
 %}
 
 ### Setup — create mock gate (same eDelivery URL + cert as own gate)
-POST {{RUUTER_URL}}/efti/api/v1/gates
+POST {{RUUTER_URL}}/admin/v1/gates
 Content-Type: application/json
 
 {
@@ -104,7 +104,7 @@ Content-Type: text/xml
 %}
 
 ### Cleanup — delete mock gate
-DELETE {{RUUTER_URL}}/efti/api/v1/gates/EU-MOCK
+DELETE {{RUUTER_URL}}/admin/v1/gates/EU-MOCK
 Content-Type: application/json
 
 > {%

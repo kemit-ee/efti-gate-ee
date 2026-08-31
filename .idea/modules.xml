@@ -2,7 +2,6 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/xml-mapper/code.xml-mapper.test.iml" filepath="$PROJECT_DIR$/.idea/modules/xml-mapper/code.xml-mapper.test.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/efti-gate-ee.iml" filepath="$PROJECT_DIR$/.idea/efti-gate-ee.iml" />
     </modules>
   </component>

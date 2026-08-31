@@ -1,26 +1,3 @@
-check_admin:
-  call: http.post
-  args:
-    url: "[#RUUTER_URL]/efti/internal/check-admin-authority"
-    headers:
-      Content-Type: application/json
-      authorization: ${incoming.headers.authorization}
-    body: {}
-  result: admin_check
-  next: verify_admin
-
-verify_admin:
-  switch:
-    - condition: ${admin_check.response.status == 200}
-      next: create_authority
-  next: admin_fail
-
-admin_fail:
-  return: ${admin_check.response.body}
-  status: ${admin_check.response.status}
-  wrapper: false
-  next: end
-
 create_authority:
   call: http.post
   args:
