@@ -19,7 +19,7 @@
 | **API operations** | `GET/POST/PUT/DELETE /api/v1/platforms[/{platformId}]` |
 | | `POST /api/v1/platforms/{platformId}/ping` |
 | | Full request / response / error shapes: [`openapi.yaml`](../../specs/openapi.yaml) |
-| **Schema** | `platforms` (append-only; logical id = `platforms.id`; latest row by `created_at` wins; `status='DELETED'` on latest = soft-delete; columns: `base_url`, `cert_subject`, `cert_serial`, `e_delivery_cert`) |
+| **Schema** | `platforms` (append-only; logical id = `platforms.id`; latest row by `created_at` wins; `status='DELETED'` on latest = soft-delete; columns: `base_url`, `cert_subject`, `cert_serial`, `e_delivery_cert`, `api_key_hash`/`api_key_hint`/`api_key_generated_at` for the X-Api-Key credential — ADR-004) |
 | | Full schema: [`db/schema.sql`](../../specs/db/schema.sql) |
 | **Access-check rules** | Admin write scope-ID check on the platform's owning gate: [`permissions-matrix.md`](../../specs/permissions-matrix.md) §8.1 |
 | **Error codes** | `BAD_REQUEST_GENERAL` |

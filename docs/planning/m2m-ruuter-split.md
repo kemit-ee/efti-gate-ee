@@ -78,15 +78,19 @@ m2m/POST/
   route with no ancestor `.guard` allowed or denied?
 - `digest(:apiKey,'sha256')` bytea comparison + `app` role privilege on pgcrypto.
 
-### Docs debt (prose still keyed to the old design)
+### Docs status
 
-- `permissions-matrix.md` §3.1–§3.3, §7, §8 diagrams and error tables still describe
-  mTLS/`cert_subject` — a superseding note is in place at the top of §3.1 and the
-  doc header, but the bodies want a full rewrite.
-- `openapi.yaml` paths still use the pre-split single-server layout (documented in
-  the file header + ADR-005 routing table); `platformApiKey` scheme and the
-  generate-key path are in.
-- `docs/cfr/**` AC mirror not yet touched.
+- `permissions-matrix.md` — rewritten (v1.3): §1.1/§2/§3.1–§3.3/§5/§6/§7/§8 now
+  describe `X-Api-Key` + the m2m Ruuter. Gate-to-gate AS4 mTLS (§2, §6) is
+  deliberately left as-is — ADR-004 does not touch it.
+- `api_endpoints.md`, `openapi.yaml`, `security-and-compliance/README.md`,
+  `identity-and-access/authentication.md`, `admin_ui.md` — updated.
+- `openapi.yaml` **paths** keep the idealised single-server layout the file already
+  used (it states "spec URIs ≠ Ruuter URIs"); the m2m mapping lives in the servers
+  note + ADR-005's routing table rather than fighting that convention.
+- `docs/cfr/**` — `registry-management/platform_registry.md` updated; the remaining
+  CFR epics carry incidental mTLS mentions that predate this change and are left for
+  a dedicated CFR-reconciliation pass.
 
 ## Platform API-key auth (ADR-004)
 
