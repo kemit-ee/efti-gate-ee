@@ -24,7 +24,7 @@ create_user:
     body:
       taraSub: "${incoming.body.taraSub}"
       name: "${incoming.body.name}"
-      roles: "${incoming.body.roles}"
+      roles: "${incoming.body.roles ?? []}"
   result: insert_result
   next: check_insert
 

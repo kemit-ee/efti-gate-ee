@@ -55,7 +55,7 @@ update_user:
       id: "${incoming.params.pathParams[0]}"
       taraSub: "${incoming.body.taraSub}"
       name: "${incoming.body.name}"
-      roles: "${incoming.body.roles}"
+      roles: "${incoming.body.roles ?? []}"
   result: update_result
   next: check_update
 

@@ -11,7 +11,7 @@ VALUES (
   :id::uuid,
   :taraSub,
   :name,
-  COALESCE(:roles, '{}')
+  COALESCE(ARRAY(SELECT jsonb_array_elements_text(CASE WHEN jsonb_typeof(to_jsonb(:roles)) = 'array' THEN to_jsonb(:roles) ELSE '[]'::jsonb END)), '{}')
 )
 RETURNING
   row_id,
