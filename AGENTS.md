@@ -91,10 +91,16 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - `allowed_body: [xml]` — wraps raw XML body as `incoming.body.xml`
 - `wrapper: false` — always return raw response (not JSON-wrapped)
 - `template: api/v1/foo` — call another DSL file as subroutine, works only in the same top-level Ruuter project
-- `.guard` files — placed in directory hierarchy; Ruuter runs the nearest guard before the route
-- Guard hierarchy: `admin/` POST/PUT/DELETE = admin-only; `admin/` GET = any authenticated user; `auth/` POST = public; `auth/` GET = any authenticated user
-- In this project we name directory guard files as `.guard.yml`, with extension
-- Per-route guards are `<route>.guard` (no `.yml`) next to `<route>.yml` — `<route>.guard.yml` would be loaded as a separate route, not a guard
+- Guard files — **`.guard.yml` at a directory level only**. Ruuter runs the nearest `.guard.yml` walking up from the route's directory (parent directory guards apply to child paths). Per-route guard files (`<route>.guard.yml` next to `<route>.yml`) are *loaded but never enforced* — do not rely on them. To give one route a different auth posture than its siblings, put it in its own subdirectory with its own `.guard.yml`.
+- `template:` calls invoke the target handler as an engine subroutine and **bypass guards** — a public route can `template:` into a handler that lives under a guarded directory (this is how the G2G `-xml`/`-local` wrappers reach the guarded authority handlers).
+- Guard map (see `docs/specs/permissions-matrix.md`):
+  - `admin/` GET/POST/PUT/DELETE = ADMIN (`check-admin-authority`)
+  - `auth/` POST = public; `auth/` GET = any authenticated user (`check-user-authority`)
+  - `efti/GET/api/v1/` = any authenticated user; `efti/GET/api/v1/authority/` = ADMIN or AUTHORITY
+  - `efti/POST/api/v1/` = public (gate-to-gate inbound: `dataset-xml`/`-local`, `follow-up-xml`/`-local`, `consignments/search-xml`, `ping` — all edelivery-only after AS4 mTLS)
+  - `efti/POST/api/v1/authority/` = ADMIN or AUTHORITY — holds the real authority handlers (`dataset`, `follow-up`, `consignments-search`, `search`); the G2G wrappers above `template:` into these
+  - `platforms/POST/v1/` = platform `X-Api-Key` hash (ADR-004); also covers the G2G `consignments-xml` — that route needs an internal service token once G2G inbound is revived (follow-up)
+  - `Ruuter-xroad/xroad/POST/v1/` = `x-road-client` header resolves to a known authority
 
 ## SQL conventions (ReSql)
 

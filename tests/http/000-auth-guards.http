@@ -1,0 +1,104 @@
+# Guard-layer negative tests — verify the Ruuter .guard files enforce the
+# permissions matrix (docs/specs/permissions-matrix.md). Self-contained: mints its
+# own tokens so it does not depend on other files' run order.
+
+### Login: Super Admin
+# @name guardAdminLogin
+POST {{RUUTER_URL}}/auth/dev-login
+Content-Type: application/json
+
+{"personalCode": "60001019906", "firstName": "Super", "lastName": "Admin"}
+
+> {%
+  client.global.set("guardAdminToken", response.body.token)
+%}
+
+### Login: Mari Tamm (AUTHORITY, not ADMIN)
+# @name guardAuthorityLogin
+POST {{RUUTER_URL}}/auth/dev-login
+Content-Type: application/json
+
+{"personalCode": "60001017869", "firstName": "Mari", "lastName": "Tamm"}
+
+> {%
+  client.global.set("guardAuthorityToken", response.body.token)
+%}
+
+### F5: consignment search rejects an unauthenticated caller
+POST {{RUUTER_URL}}/efti/api/v1/authority/consignments-search
+Content-Type: application/json
+
+{"criteria": {"mainTransportId": {"operator": "EQ", "id": "VESSEL-001"}}, "limit": 1, "offset": 0}
+
+> {%
+  client.test("F5 no-auth consignment search -> 401", () => {
+    client.assert(response.status === 401)
+  })
+%}
+
+### F5: consignment search accepts an AUTHORITY token
+POST {{RUUTER_URL}}/efti/api/v1/authority/consignments-search
+Content-Type: application/json
+Authorization: Bearer {{guardAuthorityToken}}
+
+{"criteria": {"mainTransportId": {"operator": "EQ", "id": "VESSEL-001"}}, "limit": 1, "offset": 0}
+
+> {%
+  client.test("F5 AUTHORITY consignment search -> not blocked", () => {
+    client.assert(response.status !== 401 && response.status !== 403)
+  })
+%}
+
+### F7: eDelivery consignment upload rejects a missing X-Api-Key
+POST {{RUUTER_URL}}/platforms/v1/consignments-xml
+Content-Type: text/xml
+
+< ../../code/xml-mapper/xsd/FTI004/sample.xml
+
+> {%
+  client.test("F7 no X-Api-Key consignments-xml -> 401", () => {
+    client.assert(response.status === 401)
+  })
+%}
+
+### F2: admin list rejects an AUTHORITY token (needs ADMIN)
+GET {{RUUTER_URL}}/admin/v1/platforms
+Authorization: Bearer {{guardAuthorityToken}}
+
+> {%
+  client.test("F2 AUTHORITY token on admin GET -> 403", () => {
+    client.assert(response.status === 403)
+  })
+%}
+
+### F2: admin list rejects an unauthenticated caller
+GET {{RUUTER_URL}}/admin/v1/platforms
+
+> {%
+  client.test("F2 no token on admin GET -> 401", () => {
+    client.assert(response.status === 401)
+  })
+%}
+
+### F2: admin list still works for an ADMIN token
+GET {{RUUTER_URL}}/admin/v1/platforms
+Authorization: Bearer {{guardAdminToken}}
+
+> {%
+  client.test("F2 ADMIN token on admin GET -> 200", () => {
+    client.assert(response.status === 200)
+  })
+%}
+
+### Regression: dataset request is reachable with an AUTHORITY token
+POST {{RUUTER_URL}}/efti/api/v1/authority/dataset
+Content-Type: application/json
+Authorization: Bearer {{guardAuthorityToken}}
+
+{"uil": {"gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440000"}, "subsets": ["EU01"]}
+
+> {%
+  client.test("AUTHORITY token passes the authority/ guard", () => {
+    client.assert(response.status !== 401 && response.status !== 403)
+  })
+%}

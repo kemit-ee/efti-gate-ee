@@ -21,8 +21,11 @@ X-Api-Key: mock-secret-key
 %}
 
 ### Platform uploads a new consignment over eDelivery
+# consignments-xml.yml is now covered by the platforms/POST/v1/.guard.yml directory
+# guard (ADR-004), so it needs the X-Api-Key too.
 POST {{RUUTER_URL}}/platforms/v1/consignments-xml
 Content-Type: text/xml
+X-Api-Key: mock-secret-key
 
 < ../../code/xml-mapper/xsd/FTI004/sample.xml
 
@@ -49,8 +52,13 @@ Authorization: Bearer {{adminToken}}
 
 
 ### Find consignment
-POST {{RUUTER_URL}}/efti/api/v1/consignments/search
+# Authority API (matrix §3.2): the local consignment search lives under
+# efti/POST/api/v1/authority/, whose directory guard requires an ADMIN-or-
+# AUTHORITY TARA JWT. search-xml stays public (edelivery-only, after AS4 mTLS)
+# and reaches the same handler via `template:`, which bypasses the guard.
+POST {{RUUTER_URL}}/efti/api/v1/authority/consignments-search
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 {
   "criteria": {

@@ -1,8 +1,15 @@
 # TODO: handle/test error situations properly
+import ../admin/auth.http
+run #auth
 
 ### Query dataset from local platform
-POST {{RUUTER_URL}}/efti/api/v1/dataset
+# Authority API (matrix §3.2): lives under efti/POST/api/v1/authority/, whose
+# directory guard requires an ADMIN-or-AUTHORITY TARA JWT. The dataset-xml /
+# dataset-local G2G wrappers stay public (edelivery-only, after AS4 mTLS) and
+# reach the same handler via `template:`, which bypasses the guard.
+POST {{RUUTER_URL}}/efti/api/v1/authority/dataset
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 {
   "uil": {
