@@ -43,17 +43,19 @@ cd code && ./gradlew multiplexer:test
 DSL/
   Ruuter/
     efti/               # Internal API routes (served under /efti/)
-      POST/api/v1/      # G2G endpoints: dataset, follow-up, consignments
+      POST/api/v1/      # G2G endpoints: dataset, follow-up, consignments-xml
       POST/internal/     # Auth helpers: check-admin-authority, check-user-authority
       GET/api/v1/        # gates/own, consignments, status, follow-up, test
     admin/              # Admin CRUD routes (served under /admin/)
-      GET/v1/           # List/get: gates, platforms, authorities, users, audit
+      GET/v1/           # List/get: gates, platforms, authorities, users, audit, consignments
       POST/v1/          # Create: gates, platforms, authorities, users + ping, revoke-token, js-error
       PUT/v1/           # Update: gates, platforms, authorities, users
       DELETE/v1/        # Delete: gates, platforms, authorities, users, consignments
     auth/               # Authentication routes (served under /auth/)
       GET/              # user (current user profile)
       POST/             # callback, logout, dev-login
+    platforms/          # Platform API routes (served under /platforms/)
+      POST/v1/          # consignments (upload consignment XML)
     mock-platform/      # Mock platform (served under /mock-platform/)
   Resql/efti/POST/      # SQL endpoint files (*.sql)
   Liquibase/            # DB migrations (initial/ + changelog/)
