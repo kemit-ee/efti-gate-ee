@@ -1,13 +1,13 @@
 --liquibase formatted sql
 
---changeset efti:seed-own-gate context:dev
+--changeset efti:seed-own-gate context:dev splitStatements:false
 -- Dev/CI only: register this gate's own row (EU-EE) pointing at the local eDelivery
 -- service, so gate-to-gate tests (mock-gate.http) and GET /gates/own have something
 -- to resolve. The cert is code/certs/own.crt (friendlyName EU-EE), the same one the
 -- edelivery service loads from own.p12.
 INSERT INTO gates (id, country_code, e_delivery_url, e_delivery_cert, status)
 SELECT 'EU-EE', 'EE', 'http://edelivery:8081',
-$cert$-----BEGIN CERTIFICATE-----
+'-----BEGIN CERTIFICATE-----
 MIIDATCCAemgAwIBAgIUB+wp45qwsgT0vhrdKm7e0LtM1SQwDQYJKoZIhvcNAQEL
 BQAwEDEOMAwGA1UEAwwFRVUtRUUwHhcNMjYwODI1MTQzMjE3WhcNMjcwODI1MTQz
 MjE3WjAQMQ4wDAYDVQQDDAVFVS1FRTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCC
@@ -25,7 +25,7 @@ JC/ZuARicSMrOtQpEGK3TcCMH8j+qJv6gLmzgf6RkFCQBM967GKo8LwArOyFFkhQ
 ZXDJ5hI34jqON91kqmfXfCgx8eGGR3XxYz5pM5MluD0Zy2JOCGu2GLBvHoKvS/6C
 /8uXBeR2cXcgGLpv6KmEmGXDvzHTXDsbccHjvOi9JVi29J0Af9C0/Cy766UEFSOC
 p2CFSAM=
------END CERTIFICATE-----$cert$,
+-----END CERTIFICATE-----'::text,
        'ONLINE'::gate_status
 WHERE NOT EXISTS (SELECT 1 FROM gates WHERE id = 'EU-EE');
 
