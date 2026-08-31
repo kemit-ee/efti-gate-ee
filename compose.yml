@@ -159,6 +159,12 @@ services:
     volumes:
       - tara-mock-vault:/tara-mock-vault:ro
       - tim-jwt-key:/opt/tim/keys
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8085/health || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+      start_period: 10s
 
 volumes:
   data:

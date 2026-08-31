@@ -12,7 +12,7 @@ delete_gate:
 check_delete:
   switch:
     - condition: ${delete_result.response.body == null || delete_result.response.body.length == 0}
-      next: delete_failed
+      next: not_found
   next: verify_gate
 
 verify_gate:
