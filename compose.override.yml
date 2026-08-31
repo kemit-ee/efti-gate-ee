@@ -65,12 +65,6 @@ services:
       - xml-mapper
     volumes:
       - ./:/workdir
-    command: |
-      -L VERBOSE --env-file tests/http/http-client.env.json -e docker
-      tests/http/consignments.http
-      tests/http/gates.http
-      tests/http/platforms.http
-      tests/http/authorities.http
-      tests/http/users.http
-      tests/http/mock-platform.http
-      tests/http/authority-api.http
+    entrypoint: [ "/bin/sh", "-c" ]
+    command:
+      - "java -cp '/intellij-http-client/*' com.intellij.httpClient.cli.HttpClientMain -L VERBOSE --env-file tests/http/http-client.env.json -e docker tests/http/*.http"
