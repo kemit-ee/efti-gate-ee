@@ -38,7 +38,9 @@
     "success": "Success",
     "runTests": "Run tests",
     "error": "Error",
-    "back": "Back"
+    "back": "Back",
+    "copy": "Copy",
+    "copied": "Copied"
   },
   "gates": {
     "title": "Gates",
@@ -67,7 +69,14 @@
     "added": "Platform registered successfully",
     "disabled": "Disabled",
     "status": "Status",
-    "consignments": "Consignments"
+    "consignments": "Consignments",
+    "apiKey": "API key",
+    "generateApiKey": "Generate API key",
+    "apiKeyGeneratedAt": "Key generated",
+    "apiKeyNone": "No key",
+    "apiKeyModalTitle": "API key generated",
+    "apiKeyModalWarning": "Copy this key now. Once you close this dialog it cannot be shown again.",
+    "apiKeyRegenerateConfirm": "Generate a new API key? The current key stops working immediately."
   },
   "authorities": {
     "title": "Authorities",

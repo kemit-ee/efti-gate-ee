@@ -36,7 +36,7 @@
   <Button label={t.general.add} onclick={add} class="primary"/>
 </h1>
 
-<PlatformList {platforms} onEdit={onEdit} onDeleted={load}/>
+<PlatformList {platforms} onEdit={onEdit} onDeleted={load} onChanged={load}/>
 
 <Modal bind:show={editPlatform} title={t.platforms.platform}>
   {#if editPlatform}
