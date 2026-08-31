@@ -1,11 +1,6 @@
 import ./auth.http
 run #auth
 
-### Cleanup: delete existing test gate if present
-DELETE {{RUUTER_URL}}/admin/v1/gates/TEST
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
 ### Create gate
 POST {{RUUTER_URL}}/admin/v1/gates
 Content-Type: application/json
