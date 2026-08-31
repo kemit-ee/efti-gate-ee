@@ -1,10 +1,30 @@
+### Auth: dev login as Super Admin
+POST {{RUUTER_URL}}/auth/dev-login
+Content-Type: application/json
+
+{
+  "personalCode": "60001019906",
+  "firstName": "Super",
+  "lastName": "Admin"
+}
+
+> {%
+  client.test("Admin JWT issued", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.token.startsWith("eyJ"))
+    client.global.set("adminToken", response.body.token)
+  })
+%}
+
 ### Cleanup: delete existing test platform if present
 DELETE {{RUUTER_URL}}/admin/v1/platforms/demo
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 ### Create platform
 POST {{RUUTER_URL}}/admin/v1/platforms
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 {
   "id": "demo",
@@ -29,6 +49,7 @@ Content-Type: application/json
 ### List platforms
 GET {{RUUTER_URL}}/admin/v1/platforms
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Platforms listed", () => {
@@ -40,6 +61,7 @@ Content-Type: application/json
 ### Get single platform
 GET {{RUUTER_URL}}/admin/v1/platforms/demo
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Single platform found", () => {
@@ -51,6 +73,7 @@ Content-Type: application/json
 ### Update platform
 PUT {{RUUTER_URL}}/admin/v1/platforms/demo
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 {
   "baseUrl": "https://demo-platform.example.com/api/v2",
@@ -72,6 +95,7 @@ Content-Type: application/json
 ### Delete platform
 DELETE {{RUUTER_URL}}/admin/v1/platforms/demo
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Platform deleted", () => {
@@ -82,6 +106,7 @@ Content-Type: application/json
 ### Verify platform deleted
 GET {{RUUTER_URL}}/admin/v1/platforms/demo
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Platform deleted", () => {
@@ -89,3 +114,34 @@ Content-Type: application/json
     client.assert(response.body.status === "DELETED")
   })
 %}
+
+### Ping platform (REST — no eDelivery cert)
+POST {{RUUTER_URL}}/admin/v1/platforms
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "id": "ping-test",
+  "baseUrl": "https://httpbin.org/status/200",
+  "status": "ONLINE"
+}
+
+> {%
+  client.test("Platform created for ping", () => {
+    client.assert(response.status === 201)
+  })
+%}
+
+POST {{RUUTER_URL}}/admin/v1/platforms/ping/ping-test
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Platform pinged (REST)", () => {
+    client.assert(response.body.status === "ONLINE")
+  })
+%}
+
+DELETE {{RUUTER_URL}}/admin/v1/platforms/ping-test
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}

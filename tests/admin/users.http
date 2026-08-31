@@ -1,6 +1,25 @@
+### Auth: dev login as Super Admin
+POST {{RUUTER_URL}}/auth/dev-login
+Content-Type: application/json
+
+{
+  "personalCode": "60001019906",
+  "firstName": "Super",
+  "lastName": "Admin"
+}
+
+> {%
+  client.test("Admin JWT issued", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.token.startsWith("eyJ"))
+    client.global.set("adminToken", response.body.token)
+  })
+%}
+
 ### Create user
 POST {{RUUTER_URL}}/admin/v1/users
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 {
   "taraSub": "test-{{$timestamp}}",
@@ -20,6 +39,7 @@ Content-Type: application/json
 ### List users
 GET {{RUUTER_URL}}/admin/v1/users
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Users listed", () => {
@@ -31,6 +51,7 @@ Content-Type: application/json
 ### Get single user
 GET {{RUUTER_URL}}/admin/v1/users/{{userId}}
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Single user found", () => {
@@ -42,6 +63,7 @@ Content-Type: application/json
 ### Update user
 PUT {{RUUTER_URL}}/admin/v1/users/{{userId}}
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 {
   "taraSub": "{{userTaraSub}}",
@@ -58,6 +80,7 @@ Content-Type: application/json
 ### Revoke user token
 POST {{RUUTER_URL}}/admin/v1/users/revoke-token/{{userId}}
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Token revoked", () => {
@@ -68,6 +91,7 @@ Content-Type: application/json
 ### Delete user
 DELETE {{RUUTER_URL}}/admin/v1/users/{{userId}}
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("User deleted", () => {
@@ -78,6 +102,7 @@ Content-Type: application/json
 ### Verify user deleted
 GET {{RUUTER_URL}}/admin/v1/users/{{userId}}
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("User deleted", () => {
