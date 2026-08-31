@@ -15,6 +15,9 @@ SELECT * FROM (
     cert_subject,
     cert_serial,
     status::text,
+    api_key_hint,
+    api_key_generated_at,
+    (api_key_hash IS NOT NULL) AS has_api_key,
     created_at
   FROM platforms
   ORDER BY id, created_at DESC

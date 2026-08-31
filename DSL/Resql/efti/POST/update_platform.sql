@@ -18,7 +18,10 @@ INSERT INTO platforms (
   tls_cert,
   cert_subject,
   cert_serial,
-  status
+  status,
+  api_key_hash,
+  api_key_hint,
+  api_key_generated_at
 )
 SELECT
   :id,
@@ -28,11 +31,15 @@ SELECT
   COALESCE(:tlsCert, latest.tls_cert),
   COALESCE(:certSubject, latest.cert_subject),
   COALESCE(:certSerial, latest.cert_serial),
-  COALESCE(:status::gate_status, latest.status)
+  COALESCE(:status::gate_status, latest.status),
+  latest.api_key_hash,
+  latest.api_key_hint,
+  latest.api_key_generated_at
 FROM (
   SELECT DISTINCT ON (id)
     base_url, headers, e_delivery_cert, tls_cert,
-    cert_subject, cert_serial, status
+    cert_subject, cert_serial, status,
+    api_key_hash, api_key_hint, api_key_generated_at
   FROM platforms
   WHERE id = :id
   ORDER BY id, created_at DESC
@@ -47,4 +54,6 @@ RETURNING
   cert_subject,
   cert_serial,
   status::text,
+  api_key_hint,
+  api_key_generated_at,
   created_at;

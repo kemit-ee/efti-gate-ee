@@ -1,0 +1,62 @@
+declaration:
+  description: "Generate a new X-Api-Key for a platform (admin). Returns the plaintext
+    key once — it is stored only as a SHA-256 hash (ADR-004)."
+  # Route: POST /api/v1/platforms/api-key/:id
+
+check_exists:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/get_platform_by_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.params.pathParams[0]}"
+  result: exists_result
+  next: check_found
+
+check_found:
+  switch:
+    - condition: ${exists_result.response.body == null || exists_result.response.body.length == 0}
+      next: not_found
+    - condition: ${exists_result.response.body[0].status == 'DELETED'}
+      next: not_found
+  next: generate_key
+
+generate_key:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/generate_platform_api_key"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.params.pathParams[0]}"
+  result: key_result
+  next: check_generated
+
+check_generated:
+  switch:
+    - condition: ${key_result.response.body == null || key_result.response.body.length == 0}
+      next: generate_failed
+  next: respond
+
+respond:
+  return:
+    id: "${key_result.response.body[0].id}"
+    apiKey: "${key_result.response.body[0].apiKey}"
+    apiKeyHint: "${key_result.response.body[0].apiKeyHint}"
+    apiKeyGeneratedAt: "${key_result.response.body[0].apiKeyGeneratedAt}"
+  status: 201
+  wrapper: false
+  next: end
+
+not_found:
+  return: {"type": "https://api.efti.ee/errors/platform-not-found", "title": "Platform Not Found", "status": 404, "detail": "Platform not found"}
+  status: 404
+  wrapper: false
+  next: end
+
+generate_failed:
+  return: {"type": "https://api.efti.ee/errors/internal-server-error", "title": "Internal Server Error", "status": 500, "detail": "Failed to generate API key"}
+  status: 500
+  wrapper: false
+  next: end
