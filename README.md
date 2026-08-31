@@ -46,6 +46,23 @@ The implementation contracts. Build the new gate against these.
 - **`docs/planning/`** — KeMIT's LLM prompts (`PROMPT-00..09`) that drove the v2 specification generation, plus the executive summary explaining v1 gaps. Background only; not authoritative input.
 - **`docs/efti-analysis/`** — surviving background material from Askend Estonia OÜ's procurement deliverable: broad project analysis (`1-analysis/`), ER diagram (`3-model/`), and the eFTI XML schemas (`xsd/`). Sections superseded by `docs/specs/` have been removed; the original full deliverable is preserved on the `kemit-ee/efti-gate-poc` repository under the `v0.2-askend-final` tag.
 
+## Development
+
+Build and start everything (including http e2e tests):
+```sh
+docker compose up --build -d
+```
+
+The Admin UI will be running on http://localhost:8000/
+
+Use `tests/http` files to send other requests.
+
+If you are working on Ruuter/ReSql DSLs, then use that to watch and auto-restart services:
+
+```sh
+docker compose up --watch ruuter resql
+```
+
 ## Open issues
 
 Honest list of what's known to be incomplete or deferred. None of these blocks an implementer from starting; they're items that vendor + KeMIT will wire up together during the implementation phase.
