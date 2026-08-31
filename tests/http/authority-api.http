@@ -2,7 +2,7 @@ import ../admin/auth.http
 run #auth
 
 ### Setup: upload a consignment to search for
-POST {{RUUTER_URL}}/efti/api/v1/consignments
+POST {{RUUTER_URL}}/platforms/v1/consignments
 Content-Type: text/xml
 
 < ../../code/xml-mapper/xsd/FTI004/sample.xml
