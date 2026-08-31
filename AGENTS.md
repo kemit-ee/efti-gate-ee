@@ -91,16 +91,14 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - `allowed_body: [xml]` — wraps raw XML body as `incoming.body.xml`
 - `wrapper: false` — always return raw response (not JSON-wrapped)
 - `template: api/v1/foo` — call another DSL file as subroutine, works only in the same top-level Ruuter project
-- `.guard` files — placed in the directory hierarchy; Ruuter 0.9.x **chains every guard on the path** (each directory `.guard.yml` plus the per-route `<route>.guard`), and they all must return 200. A permissive parent does not exempt a route whose own `<route>.guard` denies.
+- Guard files — always `.guard.yml`. A **directory** guard is `.guard.yml`; a **per-route** guard is `<route>.guard.yml` next to `<route>.yml` (e.g. `dataset.guard.yml` guards `dataset.yml` — it is not exposed as a route). Ruuter runs the directory guard on the path *and* the route's own `<route>.guard.yml`; every guard that runs must return 200, so a permissive directory guard does not exempt a route whose own guard denies.
 - Guard hierarchy (see `docs/specs/permissions-matrix.md`):
   - `admin/` POST/PUT/DELETE/GET = ADMIN (`check-admin-authority`)
   - `auth/` POST = public; `auth/` GET = any authenticated user (`check-user-authority`)
   - `efti/GET/api/v1/` = any authenticated user; `efti/GET/api/v1/authority/` = ADMIN or AUTHORITY
-  - `efti/POST/api/v1/` = public directory guard; the authority-facing routes `dataset`, `follow-up`, `consignments/search` carry a per-route `<route>.guard` requiring ADMIN or AUTHORITY. The `-xml`/`-local` variants and `ping` stay public (reached only from the `edelivery` container after AS4 mTLS).
-  - `platforms/POST/v1/` = platform `X-Api-Key` hash (ADR-004)
+  - `efti/POST/api/v1/` = public directory guard; the authority-facing routes carry a per-route `dataset.guard.yml` / `follow-up.guard.yml` / `consignments/search.guard.yml` requiring ADMIN or AUTHORITY. The `-xml`/`-local` variants and `ping` stay public (reached only from the `edelivery` container after AS4 mTLS).
+  - `platforms/POST/v1/` = platform `X-Api-Key` hash (ADR-004), directory guard covering `consignments.yml` + `consignments-xml.yml`
   - `Ruuter-xroad/xroad/POST/v1/` = `x-road-client` header resolves to a known authority
-- In this project we name directory guard files as `.guard.yml`, with extension
-- Per-route guards are `<route>.guard` (no `.yml`) next to `<route>.yml` — `<route>.guard.yml` would be loaded as a separate route, not a guard
 
 ## SQL conventions (ReSql)
 
