@@ -1,3 +1,5 @@
+# TODO: handle/test error situations properly
+
 ### Query dataset from local platform
 POST {{RUUTER_URL}}/efti/api/v1/dataset
 Content-Type: application/json
