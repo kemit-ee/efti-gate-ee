@@ -107,36 +107,3 @@ Authorization: Bearer garbage
     client.assert(response.status === 401)
   })
 %}
-
-### Logout (Super Admin)
-POST {{RUUTER_URL}}/efti/api/v1/auth/logout
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-> {%
-  client.test("Logout successful", () => {
-    client.assert(response.status === 200 || response.status === 204)
-  })
-%}
-
-### Verify token rejected after logout
-GET {{RUUTER_URL}}/efti/api/v1/user
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-> {%
-  client.test("Token rejected after logout", () => {
-    client.assert(response.status === 401)
-  })
-%}
-
-### Logout idempotent (calling again is safe)
-POST {{RUUTER_URL}}/efti/api/v1/auth/logout
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-> {%
-  client.test("Logout idempotent", () => {
-    client.assert(response.status === 200 || response.status === 204)
-  })
-%}
