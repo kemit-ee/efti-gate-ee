@@ -1,10 +1,12 @@
 ### Cleanup: delete existing test authority if present
 DELETE {{RUUTER_URL}}/efti/api/v1/authorities/auth-mta
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 ### Create authority
 POST {{RUUTER_URL}}/efti/api/v1/authorities
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 {
   "id": "auth-mta",
@@ -27,6 +29,7 @@ Content-Type: application/json
 ### List authorities
 GET {{RUUTER_URL}}/efti/api/v1/authorities
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Authorities listed", () => {
@@ -38,6 +41,7 @@ Content-Type: application/json
 ### Get single authority
 GET {{RUUTER_URL}}/efti/api/v1/authorities/auth-mta
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Single authority found", () => {
@@ -49,6 +53,7 @@ Content-Type: application/json
 ### Update authority
 PUT {{RUUTER_URL}}/efti/api/v1/authorities/auth-mta
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 {
   "name": "Estonian Tax and Customs Board",
@@ -67,6 +72,7 @@ Content-Type: application/json
 ### Delete authority
 DELETE {{RUUTER_URL}}/efti/api/v1/authorities/auth-mta
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Authority deleted", () => {
@@ -77,6 +83,7 @@ Content-Type: application/json
 ### Verify authority deleted
 GET {{RUUTER_URL}}/efti/api/v1/authorities/auth-mta
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Authority deleted", () => {
