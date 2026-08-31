@@ -132,6 +132,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 ## Testing
 
 - `tests/*/*.http` — IntelliJ HTTP Client format; run all with `docker compose run --rm http-tests`
+  - `TEST_FILES=tests/admin/gates.http` can be prefixed to run only specific tests
 - In these files, every new request starts with ### 
 - Env file: `tests/http-client.env.json` (local/docker environments)
 - Assertions: `> {% client.test("name", () => { client.assert(...) }) %}`
