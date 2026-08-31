@@ -1,7 +1,7 @@
 # TODO: handle/test error situations properly
 
 ### Authority sends a follow-up message for a consignment
-POST {{RUUTER_URL}}/efti/api/v1/follow-up
+POST {{RUUTER_M2M_URL}}/m2m/authority/v1/follow-up
 Content-Type: application/json
 X-Request-ID: 327b4aea-a081-11f1-a87b-3c9c0f2eb459
 
@@ -26,7 +26,7 @@ X-Request-ID: 327b4aea-a081-11f1-a87b-3c9c0f2eb459
 %}
 
 ### Remote authority sends a follow-up message for a consignment through eDelivery
-POST {{RUUTER_URL}}/efti/api/v1/follow-up-xml
+POST {{RUUTER_M2M_URL}}/m2m/edelivery/v1/follow-up-xml
 Content-Type: text/xml
 
 < ../../code/xml-mapper/xsd/FTI025/sample.xml
