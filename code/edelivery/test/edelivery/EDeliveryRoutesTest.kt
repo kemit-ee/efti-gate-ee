@@ -69,7 +69,9 @@ class EDeliveryRoutesTest {
 
     routes.msh(exchange)
 
-    verify {
+    // The root-tag handler runs asynchronously (see `msh success`), so poll rather
+    // than verify once — otherwise this races the handler thread and flakes.
+    verify(timeout = 2000) {
       mockHandler.invoke(match {
         it.key.receiverId == party.id && it.xml.contains(payload)
       })
