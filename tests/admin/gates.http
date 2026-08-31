@@ -1,20 +1,5 @@
-### Auth: dev login as Super Admin
-POST {{RUUTER_URL}}/auth/dev-login
-Content-Type: application/json
-
-{
-  "personalCode": "60001019906",
-  "firstName": "Super",
-  "lastName": "Admin"
-}
-
-> {%
-  client.test("Admin JWT issued", () => {
-    client.assert(response.status === 200)
-    client.assert(response.body.token.startsWith("eyJ"))
-    client.global.set("adminToken", response.body.token)
-  })
-%}
+import ./auth.http
+run #auth
 
 ### Cleanup: delete existing test gate if present
 DELETE {{RUUTER_URL}}/admin/v1/gates/TEST
