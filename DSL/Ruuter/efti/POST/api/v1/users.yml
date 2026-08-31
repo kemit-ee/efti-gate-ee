@@ -47,13 +47,13 @@ create_user:
     body:
       taraSub: "${incoming.body.taraSub}"
       name: "${incoming.body.name}"
-      roles: "${incoming.body.roles}"
+      roles: "${incoming.body.roles ?? []}"
   result: insert_result
   next: check_insert
 
 check_insert:
   switch:
-    - condition: ${insert_result.response.body == null || insert_result.response.body.length == 0}
+    - condition: ${insert_result.response.body == null || insert_result.response.body[0] == null || insert_result.response.body[0].id == null}
       next: insert_failed
   next: verify_user
 

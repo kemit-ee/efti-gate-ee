@@ -32,8 +32,8 @@ Content-Type: text/xml
 < ../../code/xml-mapper/xsd/FTI025/sample.xml
 
 > {%
-  client.test("Follow-up to a local platform", () => {
+  client.test("Follow-up through eDelivery", () => {
     client.assert(response.status === 201)
-    client.assert(response.body.datasetId === "b24ebf37-a068-11f1-b8f0-3c9c0f2eb459")
+    client.assert(xpath(response.body, '//DatasetID')[0].textContent === "550e8400-e29b-41d4-a716-446655440000")
   })
 %}
