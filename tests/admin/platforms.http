@@ -73,6 +73,10 @@ Authorization: Bearer {{adminToken}}
 %}
 
 ### Generate API key for platform (ADR-004)
+# The gate stores only digest(key,'sha256') in platforms.api_key_hash, never the
+# key itself — the plaintext is returned once here and never again. The
+# consignments.guard hashes the incoming X-Api-Key and matches it against that
+# hash (it used to compare plaintext against platforms.headers->>'X-Api-Key').
 POST {{RUUTER_URL}}/admin/v1/platforms/api-key/demo
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
