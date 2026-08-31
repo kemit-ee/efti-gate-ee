@@ -97,6 +97,8 @@ check_edelivery_response:
 
 respond_remote:
   return: ${edelivery_response.response.body}
+  headers:
+    Content-Type: "text/xml"
   wrapper: false
   status: 200
   next: end
