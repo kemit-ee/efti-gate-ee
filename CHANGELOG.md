@@ -4,6 +4,11 @@ All notable changes to the **eFTI Gate (EE)** specification corpus are documente
 
 ## [Unreleased]
 
+### Changed
+
+- **Two Ruuter instances** ([ADR-005](docs/architecture/decisions/005-m2m-ruuter-split.md)) — `efti` (admin UI API + `auth/*`, admin JWT) and `ruuter-m2m` (renamed from `ruuter-xroad`): peer-gate eDelivery, Authority API, Platform API and X-Road, each under a guarded subdirectory. The `efti` `POST /api/v1/` guard now enforces ADMIN in one place instead of a per-DSL inline check.
+- **Platform API authentication** ([ADR-004](docs/architecture/decisions/004-platform-api-key.md)) — platforms authenticate with an `X-Api-Key` header stored as a SHA-256 hash, replacing the mTLS `cert_subject` design in the permissions matrix / OpenAPI. New `POST /api/v1/platforms/{id}/api-key` admin endpoint and Admin UI "Generate API key" flow (key shown once).
+
 ## [1.0.0] — 2026-05-18
 
 First public release of the eFTI Gate (EE) specification corpus by KeMIT.
