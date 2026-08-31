@@ -62,7 +62,7 @@ code/
   xml-mapper/           # XML↔JSON conversion (FTI004/009/010/019/021/025/029/030)
   multiplexer/          # Fan-out search to all registered gates
   core/                 # Shared: ResqlClient, Party types, XSD schemas
-tests/http/             # IntelliJ HTTP Client test files (*.http)
+tests/                  # IntelliJ HTTP Client test files (*.http) with assertions
 ```
 
 ## Nginx proxy (UI)
@@ -131,14 +131,16 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 
 ## Testing
 
-- `tests/http/*.http` — IntelliJ HTTP Client format; run all with `docker compose run --rm http-tests`
-- Env file: `tests/http/http-client.env.json` (local/docker environments)
+- `tests/*/*.http` — IntelliJ HTTP Client format; run all with `docker compose run --rm http-tests`
+- In these files, every new request starts with ### 
+- Env file: `tests/http-client.env.json` (local/docker environments)
 - Assertions: `> {% client.test("name", () => { client.assert(...) }) %}`
 - Health check: `GET /efti/api/v1/test/baasikontoroll` (public, returns DB status)
 
 ## Post-change
 
-- Always `git add` new files 
+- If anything listed in `AGENTS.md` changed - update the file
+- Always run `git add` for new/changed files 
 
 ## Key gotchas
 

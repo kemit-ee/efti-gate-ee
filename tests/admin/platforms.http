@@ -117,6 +117,7 @@ Authorization: Bearer {{adminToken}}
   })
 %}
 
+### Check ping result
 POST {{RUUTER_URL}}/admin/v1/platforms/ping/ping-test
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
@@ -130,3 +131,25 @@ Authorization: Bearer {{adminToken}}
 DELETE {{RUUTER_URL}}/admin/v1/platforms/ping-test
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
+
+### NEGATIVE: GET without auth → 401
+GET {{RUUTER_URL}}/admin/v1/platforms
+Content-Type: application/json
+
+> {%
+  client.test("GET platforms without auth rejected", () => {
+    client.assert(response.status === 401 || response.status === 403)
+  })
+%}
+
+### NEGATIVE: POST without auth → 401
+POST {{RUUTER_URL}}/admin/v1/platforms
+Content-Type: application/json
+
+{"id": "NOAUTH", "baseUrl": "https://x.example.com", "status": "ONLINE"}
+
+> {%
+  client.test("POST platform without auth rejected", () => {
+    client.assert(response.status === 401 || response.status === 403)
+  })
+%}

@@ -94,3 +94,25 @@ Authorization: Bearer {{adminToken}}
     client.assert(response.body.status === "DELETED")
   })
 %}
+
+### NEGATIVE: GET without auth → 401
+GET {{RUUTER_URL}}/admin/v1/authorities
+Content-Type: application/json
+
+> {%
+  client.test("GET authorities without auth rejected", () => {
+    client.assert(response.status === 401 || response.status === 403)
+  })
+%}
+
+### NEGATIVE: POST without auth → 401
+POST {{RUUTER_URL}}/admin/v1/authorities
+Content-Type: application/json
+
+{"id": "NOAUTH", "name": "No Auth", "registryCode": "00000000", "subsets": ["EU01"], "status": "ACTIVE"}
+
+> {%
+  client.test("POST authority without auth rejected", () => {
+    client.assert(response.status === 401 || response.status === 403)
+  })
+%}

@@ -95,3 +95,25 @@ Authorization: Bearer {{adminToken}}
     client.assert(response.body.isUserActive === false)
   })
 %}
+
+### NEGATIVE: GET without auth → 401
+GET {{RUUTER_URL}}/admin/v1/users
+Content-Type: application/json
+
+> {%
+  client.test("GET users without auth rejected", () => {
+    client.assert(response.status === 401 || response.status === 403)
+  })
+%}
+
+### NEGATIVE: POST without auth → 401
+POST {{RUUTER_URL}}/admin/v1/users
+Content-Type: application/json
+
+{"taraSub": "noauth", "name": "No Auth"}
+
+> {%
+  client.test("POST user without auth rejected", () => {
+    client.assert(response.status === 401 || response.status === 403)
+  })
+%}

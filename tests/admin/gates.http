@@ -114,6 +114,7 @@ Authorization: Bearer {{adminToken}}
   })
 %}
 
+### Check ping result
 POST {{RUUTER_URL}}/admin/v1/gates/ping/eu-ee32
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
@@ -121,5 +122,27 @@ Authorization: Bearer {{adminToken}}
 > {%
   client.test("Gate pinged successfully", () => {
     client.assert(response.body.status === "ONLINE")
+  })
+%}
+
+### NEGATIVE: GET without auth → 401
+GET {{RUUTER_URL}}/admin/v1/gates
+Content-Type: application/json
+
+> {%
+  client.test("GET gates without auth rejected", () => {
+    client.assert(response.status === 401 || response.status === 403)
+  })
+%}
+
+### NEGATIVE: POST without auth → 401
+POST {{RUUTER_URL}}/admin/v1/gates
+Content-Type: application/json
+
+{"id": "NOAUTH", "countryCode": "EE", "eDeliveryUrl": "https://x.example.com", "status": "ONLINE"}
+
+> {%
+  client.test("POST gate without auth rejected", () => {
+    client.assert(response.status === 401 || response.status === 403)
   })
 %}
