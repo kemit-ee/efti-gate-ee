@@ -1,8 +1,9 @@
-# Any authenticated user — validates JWT via TIM + DB lookup.
+# Admin only — every admin read (platforms, gates, authorities, users, consignments,
+# audit) requires the ADMIN role per permissions-matrix.md §3.3.
 validate_auth:
   call: http.post
   args:
-    url: "[#RUUTER_URL]/efti/internal/check-user-authority"
+    url: "[#RUUTER_URL]/efti/internal/check-admin-authority"
     headers:
       Content-Type: application/json
       authorization: ${incoming.headers.authorization}

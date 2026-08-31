@@ -1,8 +1,13 @@
 # TODO: handle/test error situations properly
+import ../admin/auth.http
+run #auth
 
 ### Query dataset from local platform
+# dataset.yml is Authority API (matrix §3.2) — dataset.guard requires an
+# ADMIN-or-AUTHORITY TARA JWT. dataset-xml stays public (edelivery-only, after AS4 mTLS).
 POST {{RUUTER_URL}}/efti/api/v1/dataset
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 {
   "uil": {

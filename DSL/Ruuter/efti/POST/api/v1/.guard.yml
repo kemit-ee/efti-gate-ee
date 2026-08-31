@@ -1,5 +1,8 @@
-# Public — no authentication required at this level.
-# eDelivery G2G endpoints (dataset, follow-up) are intentionally unauthenticated here.
+# Public at this level. The G2G-inbound routes (dataset-xml, dataset-local,
+# follow-up-xml, follow-up-local, consignments/search-xml) and ping are reached only
+# from the edelivery container after AS4 mTLS, so they stay unauthenticated here.
+# The authority-facing routes (dataset, follow-up, consignments/search) carry their
+# own <route>.guard requiring an ADMIN-or-AUTHORITY TARA JWT.
 guard_success:
   return: "success"
   status: 200
