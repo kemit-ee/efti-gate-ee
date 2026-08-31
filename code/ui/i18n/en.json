@@ -124,6 +124,7 @@
     "consignment": "Consignment",
     "datasetId": "Dataset ID",
     "platformId": "Platform ID",
+    "createdAt": "Created",
     "updatedAt": "Updated",
     "filter": "Filter...",
     "ui": "UI",

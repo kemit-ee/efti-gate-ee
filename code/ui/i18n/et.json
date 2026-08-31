@@ -124,6 +124,7 @@
     "consignment": "Saadetis",
     "datasetId": "Andmekogu ID",
     "platformId": "Platvormi ID",
+    "createdAt": "Loodud",
     "updatedAt": "Uuendatud",
     "filter": "Filtreeri...",
     "ui": "UI",
