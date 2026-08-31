@@ -82,7 +82,7 @@ forward_to_gates:
     headers:
       content-type: "text/xml"
       x-request-id: ${requestId}
-    body: ${criteria_xml.response.body.xml}
+    body: ${criteria_xml.response.body}
     content_type: plaintext
   result: gates_result
   next: xml-to-json
@@ -94,6 +94,7 @@ xml-to-json:
     headers:
       content-type: "text/xml"
     body: ${gates_result.response.body}
+    content_type: plaintext
   result: first_result
   next: respond_first
 
