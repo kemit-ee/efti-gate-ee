@@ -119,19 +119,23 @@ Content-Type: application/json
 ### Token valid before logout
 GET {{RUUTER_URL}}/auth/user
 Authorization: Bearer {{logoutToken}}
+
 > {% client.test("valid before logout", () => client.assert(response.status === 200)) %}
 
 ### Logout
 POST {{RUUTER_URL}}/auth/logout
 Authorization: Bearer {{logoutToken}}
+
 > {% client.test("logout ok", () => client.assert(response.status === 200 || response.status === 204)) %}
 
 ### Token rejected after logout
 GET {{RUUTER_URL}}/auth/user
 Authorization: Bearer {{logoutToken}}
+
 > {% client.test("rejected after logout", () => client.assert(response.status === 401)) %}
 
 ### Logout idempotent
 POST {{RUUTER_URL}}/auth/logout
 Authorization: Bearer {{logoutToken}}
+
 > {% client.test("logout idempotent", () => client.assert(response.status === 200 || response.status === 204)) %}
