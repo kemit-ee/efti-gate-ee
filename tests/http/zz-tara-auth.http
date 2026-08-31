@@ -108,35 +108,44 @@ Authorization: Bearer garbage
   })
 %}
 
-### Logout (Super Admin)
-POST {{RUUTER_URL}}/auth/logout
+### [Logout lifecycle] mint a throwaway token so blacklisting it affects nothing
+POST {{RUUTER_URL}}/auth/dev-login
 Content-Type: application/json
-Authorization: Bearer {{adminToken}}
+
+{ "personalCode": "60001019906", "firstName": "Super", "lastName": "Admin" }
 
 > {%
-  client.test("Logout successful", () => {
-    client.assert(response.status === 200 || response.status === 204)
-  })
+  client.global.set("logoutToken", response.body.token)
+%}
+
+### Token works before logout
+GET {{RUUTER_URL}}/auth/user
+Authorization: Bearer {{logoutToken}}
+
+> {%
+  client.test("Token valid before logout", () => client.assert(response.status === 200))
+%}
+
+### Logout
+POST {{RUUTER_URL}}/auth/logout
+Authorization: Bearer {{logoutToken}}
+
+> {%
+  client.test("Logout successful", () => client.assert(response.status === 200 || response.status === 204))
 %}
 
 ### Verify token rejected after logout
 GET {{RUUTER_URL}}/auth/user
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
+Authorization: Bearer {{logoutToken}}
 
 > {%
-  client.test("Token rejected after logout", () => {
-    client.assert(response.status === 401)
-  })
+  client.test("Token rejected after logout", () => client.assert(response.status === 401))
 %}
 
-### Logout idempotent (calling again is safe)
+### Logout idempotent
 POST {{RUUTER_URL}}/auth/logout
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
+Authorization: Bearer {{logoutToken}}
 
 > {%
-  client.test("Logout idempotent", () => {
-    client.assert(response.status === 200 || response.status === 204)
-  })
+  client.test("Logout idempotent", () => client.assert(response.status === 200 || response.status === 204))
 %}

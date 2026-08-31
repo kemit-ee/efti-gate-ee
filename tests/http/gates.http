@@ -1,10 +1,25 @@
+### [Auth] Login as admin — self-contained, run order does not matter
+POST {{RUUTER_URL}}/auth/dev-login
+Content-Type: application/json
+
+{ "personalCode": "60001019906", "firstName": "Super", "lastName": "Admin" }
+
+> {%
+  client.test("[Auth] admin JWT issued", () => {
+    client.assert(response.status === 200)
+    client.global.set("adminToken", response.body.token)
+  })
+%}
+
 ### Cleanup: delete existing test gate if present
 DELETE {{RUUTER_URL}}/admin/v1/gates/TEST
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 ### Create gate
 POST {{RUUTER_URL}}/admin/v1/gates
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 {
   "id": "TEST",
@@ -27,6 +42,7 @@ Content-Type: application/json
 ### List gates
 GET {{RUUTER_URL}}/admin/v1/gates
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Gates listed", () => {
@@ -38,6 +54,7 @@ Content-Type: application/json
 ### Get single gate
 GET {{RUUTER_URL}}/admin/v1/gates/TEST
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Single gate found", () => {
@@ -49,6 +66,7 @@ Content-Type: application/json
 ### Update gate
 PUT {{RUUTER_URL}}/admin/v1/gates/TEST
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 {
   "countryCode": "EE",
@@ -68,6 +86,7 @@ Content-Type: application/json
 ### Delete gate
 DELETE {{RUUTER_URL}}/admin/v1/gates/TEST
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Gate deleted", () => {
@@ -78,6 +97,7 @@ Content-Type: application/json
 ### Verify gate deleted
 GET {{RUUTER_URL}}/admin/v1/gates/TEST
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Gate deleted", () => {

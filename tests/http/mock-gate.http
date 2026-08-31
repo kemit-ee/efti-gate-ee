@@ -1,3 +1,16 @@
+### [Auth] Login as admin — self-contained, run order does not matter
+POST {{RUUTER_URL}}/auth/dev-login
+Content-Type: application/json
+
+{ "personalCode": "60001019906", "firstName": "Super", "lastName": "Admin" }
+
+> {%
+  client.test("[Auth] admin JWT issued", () => {
+    client.assert(response.status === 200)
+    client.global.set("adminToken", response.body.token)
+  })
+%}
+
 # Mock Gate tests
 #
 # The mock gate lets our own gate act as a remote peer (EU-MOCK) by registering
@@ -10,6 +23,7 @@
 ### Setup — get own gate details
 GET {{RUUTER_URL}}/efti/api/v1/gates/own
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Own gate exists", () => {
@@ -22,6 +36,7 @@ Content-Type: application/json
 ### Setup — create mock gate (same eDelivery URL + cert as own gate)
 POST {{RUUTER_URL}}/admin/v1/gates
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 {
   "id": "EU-MOCK",
@@ -106,6 +121,7 @@ Content-Type: text/xml
 ### Cleanup — delete mock gate
 DELETE {{RUUTER_URL}}/admin/v1/gates/EU-MOCK
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Mock gate deleted", () => {

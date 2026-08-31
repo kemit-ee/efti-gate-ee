@@ -1,3 +1,16 @@
+### [Auth] Login as admin — self-contained, run order does not matter
+POST {{RUUTER_URL}}/auth/dev-login
+Content-Type: application/json
+
+{ "personalCode": "60001019906", "firstName": "Super", "lastName": "Admin" }
+
+> {%
+  client.test("[Auth] admin JWT issued", () => {
+    client.assert(response.status === 200)
+    client.global.set("adminToken", response.body.token)
+  })
+%}
+
 ### Platform uploads a new consignment over REST (TODO: auth)
 POST {{RUUTER_URL}}/efti/api/v1/consignments
 Content-Type: text/xml
@@ -31,6 +44,7 @@ Content-Type: text/xml
 ### List consignments
 GET {{RUUTER_URL}}/efti/api/v1/consignments
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("Find consignment", () => {
@@ -79,8 +93,9 @@ Content-Type: text/xml
 %}
 
 ### Delete consignment
-DELETE {{RUUTER_URL}}/efti/api/v1/consignments/550e8400-e29b-41d4-a716-446655440000
+DELETE {{RUUTER_URL}}/admin/v1/consignments/550e8400-e29b-41d4-a716-446655440000
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("No content success", () => {
@@ -91,6 +106,7 @@ Content-Type: application/json
 ### List contains no consignments after deletion
 GET {{RUUTER_URL}}/efti/api/v1/consignments
 Content-Type: application/json
+Authorization: Bearer {{adminToken}}
 
 > {%
   client.test("No consignments in list after deletion", () => {
