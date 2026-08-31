@@ -93,7 +93,8 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - `template: api/v1/foo` — call another DSL file as subroutine, works only in the same top-level Ruuter project
 - `.guard` files — placed in directory hierarchy; Ruuter runs the nearest guard before the route
 - Guard hierarchy: `admin/` POST/PUT/DELETE = admin-only; `admin/` GET = any authenticated user; `auth/` POST = public; `auth/` GET = any authenticated user
-- In this project we name guard files as `.guard.yml`, with extension
+- In this project we name directory guard files as `.guard.yml`, with extension
+- Per-route guards are `<route>.guard` (no `.yml`) next to `<route>.yml` — `<route>.guard.yml` would be loaded as a separate route, not a guard
 
 ## SQL conventions (ReSql)
 
