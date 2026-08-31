@@ -4,7 +4,6 @@
   import api from 'src/api/api'
   import {showToast} from 'src/stores/toasts'
   import Button from 'src/components/Button.svelte'
-  import {navigate} from 'src/router'
   import {type Platform, Status} from "src/api/ruuterTypes";
 
   export let platforms: Platform[]
@@ -19,9 +18,10 @@
   }
 
   async function ping(platform: Platform) {
-    try{
-      await api.post(`platforms/ping/${platform.id}`)
-      showToast(platform.id + ' pinged successfully')
+    try {
+      platform = await api.post(`platforms/ping/${platform.id}`)
+      platforms = platforms.replaceById(platform)
+      showToast(platform.id + ' ' + t.general.pinged)
     } catch (e: any) {
       if (platform.status !== Status.DISABLED) platforms = platforms.map(g => g.id === platform.id ? { ...g, status: Status.OFFLINE } : g)
       throw e

@@ -3,6 +3,7 @@ package efti
 import RequestIdHandler
 import efti.domain.ConsignmentRow
 import efti.xml.fti.*
+import efti.xml.fti.FTIResponseCode.Completed
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import klite.HttpExchange
@@ -31,5 +32,5 @@ class SearchRoutes(val requestIdHandler: RequestIdHandler) {
 
   @Operation(description = "Map ConsignmentRow as JSON to FTI021SearchIdentifierResponse as XML. Meant for other Gate request.")
   @POST("/response-to-xml") fun responseToXml(consignments: List<ConsignmentRow>, e: HttpExchange): String =
-    FTI021SearchIdentifierResponse(ExchangedDocument("021", e.requestId.uuid)).render(consignments.map { it.xml })
+    FTI021SearchIdentifierResponse(ExchangedDocument("021", e.requestId.uuid, responseCode = Completed)).render(consignments.map { it.xml })
 }

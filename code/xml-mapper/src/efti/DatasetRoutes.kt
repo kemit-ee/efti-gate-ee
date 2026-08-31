@@ -4,6 +4,7 @@ import RequestIdHandler
 import efti.domain.UIL
 import efti.subsets.Subset
 import efti.xml.fti.*
+import efti.xml.fti.FTIResponseCode.Completed
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import klite.HttpExchange
@@ -25,13 +26,13 @@ class DatasetRoutes(val requestIdHandler: RequestIdHandler) {
 
   @Operation(description = "Map FTI010GetCmdsResponse or SpecifiedSupplyChainConsignment as XML to FTI010GetCmdsResponse as XML.")
   @POST("/response-to-xml") fun responseToXml(req: DatasetResponseRequest, e: HttpExchange): String {
-    if (req.xml.contains("FTI010")) return req.xml
-    return FTI010GetCmdsResponse(ExchangedDocument("010", e.requestId.uuid), req.subsets, req.uil).render(req.xml)
+    if (req.xml.contains("ExchangedDocument")) return req.xml
+    return FTI010GetCmdsResponse(ExchangedDocument("010", e.requestId.uuid, responseCode = Completed), req.subsets, req.uil).render(req.xml)
   }
 
   @Operation(description = "Map FTI010GetCmdsResponse or SpecifiedSupplyChainConsignment as XML to SpecifiedSupplyChainConsignment as JSON.")
   @POST("/response-to-json") fun responseToJson(xml: String): SpecifiedSupplyChainConsignment =
-    if (xml.contains("FTI010")) xmlParser.parse<FTI010GetCmdsResponse>(xml).consignment!!
+    if (xml.contains("ExchangedDocument")) xmlParser.parse<FTI010GetCmdsResponse>(xml).consignment!!
     else xmlParser.parse<SpecifiedSupplyChainConsignment>(xml)
 }
 

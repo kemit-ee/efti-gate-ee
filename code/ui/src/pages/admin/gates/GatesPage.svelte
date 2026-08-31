@@ -36,7 +36,7 @@
   <Button label={t.general.add} onclick={add} class="primary"/>
 </h1>
 
-<GateList {gates} onEdit={onEdit} onDeleted={load}/>
+<GateList bind:gates onEdit={onEdit} onDeleted={load}/>
 
 <Modal bind:show={editGate} title={t.gates.gate}>
   {#if editGate}

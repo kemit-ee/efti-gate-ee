@@ -19,10 +19,20 @@ call_dataset:
   request_type: "POST"
   body: ${request_json.response.body}
   result: dataset_response
+  next: to_xml
+
+to_xml:
+  call: http.post
+  args:
+    url: "[#XML_MAPPER_URL]/api/v1/dataset/response-to-xml"
+    headers:
+      Content-Type: "application/json"
+    body: ${dataset_response}
+  result: xml_response
   next: respond
 
 respond:
-  return: ${dataset_response}
+  return: ${xml_response.response.body}
   wrapper: false
   headers:
     Content-Type: "text/xml"

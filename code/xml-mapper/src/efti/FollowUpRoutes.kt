@@ -3,6 +3,7 @@ package efti
 import RequestIdHandler
 import efti.domain.UIL
 import efti.xml.fti.*
+import efti.xml.fti.FTIResponseCode.Completed
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import klite.HttpExchange
@@ -35,7 +36,7 @@ class FollowUpRoutes(val requestIdHandler: RequestIdHandler) {
 
   @Operation(description = "Map UIL as JSON to FTI030LodgeFollowUpCommResponse as XML.")
   @POST("/response-to-xml") fun responseToXml(uil: UIL, e: HttpExchange): String =
-    FTI030LodgeFollowUpCommResponse(ExchangedDocument("030", e.requestId.uuid), uil).render()
+    FTI030LodgeFollowUpCommResponse(ExchangedDocument("030", e.requestId.uuid, responseCode = Completed), uil).render()
 }
 
 data class FollowUpRequest(val uil: UIL, val referenceIds: List<UUID> = emptyList(), val message: String, val files: List<BinaryFile> = emptyList())
