@@ -15,7 +15,7 @@ to_json:
   next: call_search
 
 call_search:
-  template: api/v1/consignments/search
+  template: api/v1/authority/consignments-search
   request_type: "POST"
   body:
     criteria: ${criteria_json.response.body}

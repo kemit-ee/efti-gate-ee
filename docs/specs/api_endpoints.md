@@ -38,7 +38,7 @@ mis on **teostatud**, mis on **puudu** ja millised on näidisissendid/väljundid
 | **Auth (Platform API)** | mTLS X.509 — reversproxy edastab `X-Client-Cert-Subject` + `X-Client-Cert-Serial` |
 | **Auth (Cron)** | Staatiline `ARCHIVE_OPS_TOKEN` env-muutuja |
 | **Health** | Autentimine puudub — avalik |
-| **Guard-failid** | `GET /api/v1/*` → autentimine nõutav; `POST/PUT/DELETE /api/v1/*` → ADMIN nõutav (v.a. `authority/*` ja `dataset`/`follow-up` → AUTHORITY-or-ADMIN); `/api/v1/auth/*` → avalik |
+| **Guard-failid** | Ainult kausta-tasemel `.guard.yml` jõustatakse. `admin/GET|POST|PUT|DELETE /v1/*` → ADMIN; `efti/GET/api/v1/*` → autentimine nõutav; `efti/POST/api/v1/authority/*` → AUTHORITY-or-ADMIN; `efti/POST/api/v1/*` (G2G sisend) → avalik; `auth/POST/*` → avalik |
 | **Rollid** | `ADMIN` — kõik haldustoimingud; `AUTHORITY` — dataset/follow-up/authority-search; `'{}'` — puuduvad õigused (ainult `/api/v1/user`) |
 | **Veavastuse formaat** | RFC 7807 `application/problem+json` |
 | **`X-Request-ID`** | UUID päis kõigil muteerivaatel (POST/PUT/DELETE); duplikaat 10 min jooksul → 409 |
@@ -90,8 +90,8 @@ graph LR
         PL3["GET /api/v1/follow-up?datasetId={id}"]
         PL4["GET /api/v1/datasets?datasetId={id}"]
         AU1["GET /api/v1/identifiers?identifier={id}"]
-        AU2["POST /api/v1/dataset"]
-        AU3["POST /api/v1/follow-up"]
+        AU2["POST /api/v1/authority/dataset"]
+        AU3["POST /api/v1/authority/follow-up"]
     end
 
     subgraph "✅ Teostatud (auth)"
@@ -1042,16 +1042,23 @@ Auth: mTLS X.509 — reversproxy edastab `X-Client-Cert-Subject` + `X-Client-Cer
 
 ### 9.6 Authority API (TARA JWT) ✅
 
-Auth: TARA OIDC JWT — nõuab `AUTHORITY` või `ADMIN` rolli (`POST /api/v1/.guard` authority-or-admin guard).
-`GET /api/v1/identifiers` on any-auth guard all (piisab autentimisest).
+Auth: TARA OIDC JWT — kõik `efti/POST/api/v1/authority/` teed on `AUTHORITY`-või-`ADMIN`
+kausta-guardi taga (`efti/POST/api/v1/authority/.guard.yml`). Ruuter jõustab ainult
+kausta-tasemel `.guard.yml` faile; per-route guard faili ei jõustata. `GET /api/v1/*`
+on any-auth guardi taga (piisab autentimisest).
 
 | Meetod | Ruuter DSL | Ruuter tee | Kirjeldus |
 |---|---|---|---|
 | `GET` | `DSL/Ruuter/efti/GET/api/v1/identifiers.yml` | `GET /efti/api/v1/identifiers?identifier={id}` | Otsing `mainTransportId` / `usedEquipmentIds` järgi |
-| `POST` | `DSL/Ruuter/efti/POST/api/v1/dataset.yml` | `POST /efti/api/v1/dataset` | FTI010 XML andmestik, filtreerituna `subsets[]` järgi — nõuab AUTHORITY/ADMIN |
-| `POST` | `DSL/Ruuter/efti/POST/api/v1/follow-up.yml` | `POST /efti/api/v1/follow-up` | FTI025 XML sisend → log → FTI030 XML vastus — nõuab AUTHORITY/ADMIN |
-| `POST` | `DSL/Ruuter/efti/POST/api/v1/authority/search.yml` | `POST /efti/api/v1/authority/search` | Asutuste otsing — nõuab AUTHORITY/ADMIN |
-| `POST` | `DSL/Ruuter/efti/POST/api/v1/authority/follow-up.yml` | `POST /efti/api/v1/authority/follow-up` | Authority järelkontroll — nõuab AUTHORITY/ADMIN |
+| `POST` | `DSL/Ruuter/efti/POST/api/v1/authority/dataset.yml` | `POST /efti/api/v1/authority/dataset` | FTI010 XML andmestik, filtreerituna `subsets[]` järgi — nõuab AUTHORITY/ADMIN |
+| `POST` | `DSL/Ruuter/efti/POST/api/v1/authority/follow-up.yml` | `POST /efti/api/v1/authority/follow-up` | FTI025 XML sisend → log → FTI030 XML vastus — nõuab AUTHORITY/ADMIN |
+| `POST` | `DSL/Ruuter/efti/POST/api/v1/authority/consignments-search.yml` | `POST /efti/api/v1/authority/consignments-search` | Kohalik saadetiste otsing andmebaasist — nõuab AUTHORITY/ADMIN |
+| `POST` | `DSL/Ruuter/efti/POST/api/v1/authority/search.yml` | `POST /efti/api/v1/authority/search` | Saadetiste otsing: kohalik + broadcast teistele väravatele — nõuab AUTHORITY/ADMIN |
+
+> Väravatevahelised (G2G) sisendteed `efti/POST/api/v1/{dataset,follow-up}-xml`,
+> `…-local` ja `consignments/search-xml` jäävad avalikuks (neid kutsub ainult
+> `edelivery` konteiner pärast AS4 mTLS-i) ning jõuavad samade käsitlejateni
+> `template:` kaudu, mis guardist möödub.
 
 > ℹ️ **Body:** `{ "gateId": "...", "platformId": "...", "datasetId": "...", "subsets": ["EU01", "EU02"] }` — `subsets: []` tagastab kogu andmestiku.
 

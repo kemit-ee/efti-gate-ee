@@ -52,9 +52,11 @@ Authorization: Bearer {{adminToken}}
 
 
 ### Find consignment
-# consignments/search is Authority API (matrix §3.2) — search.guard requires an
-# ADMIN-or-AUTHORITY TARA JWT. search-xml stays public (edelivery-only, after AS4 mTLS).
-POST {{RUUTER_URL}}/efti/api/v1/consignments/search
+# Authority API (matrix §3.2): the local consignment search lives under
+# efti/POST/api/v1/authority/, whose directory guard requires an ADMIN-or-
+# AUTHORITY TARA JWT. search-xml stays public (edelivery-only, after AS4 mTLS)
+# and reaches the same handler via `template:`, which bypasses the guard.
+POST {{RUUTER_URL}}/efti/api/v1/authority/consignments-search
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 

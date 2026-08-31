@@ -91,13 +91,15 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - `allowed_body: [xml]` — wraps raw XML body as `incoming.body.xml`
 - `wrapper: false` — always return raw response (not JSON-wrapped)
 - `template: api/v1/foo` — call another DSL file as subroutine, works only in the same top-level Ruuter project
-- Guard files — always `.guard.yml`. A **directory** guard is `.guard.yml`; a **per-route** guard is `<route>.guard.yml` next to `<route>.yml` (e.g. `dataset.guard.yml` guards `dataset.yml` — it is not exposed as a route). Ruuter runs the directory guard on the path *and* the route's own `<route>.guard.yml`; every guard that runs must return 200, so a permissive directory guard does not exempt a route whose own guard denies.
-- Guard hierarchy (see `docs/specs/permissions-matrix.md`):
-  - `admin/` POST/PUT/DELETE/GET = ADMIN (`check-admin-authority`)
+- Guard files — **`.guard.yml` at a directory level only**. Ruuter runs the nearest `.guard.yml` walking up from the route's directory (parent directory guards apply to child paths). Per-route guard files (`<route>.guard.yml` next to `<route>.yml`) are *loaded but never enforced* — do not rely on them. To give one route a different auth posture than its siblings, put it in its own subdirectory with its own `.guard.yml`.
+- `template:` calls invoke the target handler as an engine subroutine and **bypass guards** — a public route can `template:` into a handler that lives under a guarded directory (this is how the G2G `-xml`/`-local` wrappers reach the guarded authority handlers).
+- Guard map (see `docs/specs/permissions-matrix.md`):
+  - `admin/` GET/POST/PUT/DELETE = ADMIN (`check-admin-authority`)
   - `auth/` POST = public; `auth/` GET = any authenticated user (`check-user-authority`)
   - `efti/GET/api/v1/` = any authenticated user; `efti/GET/api/v1/authority/` = ADMIN or AUTHORITY
-  - `efti/POST/api/v1/` = public directory guard; the authority-facing routes carry a per-route `dataset.guard.yml` / `follow-up.guard.yml` / `consignments/search.guard.yml` requiring ADMIN or AUTHORITY. The `-xml`/`-local` variants and `ping` stay public (reached only from the `edelivery` container after AS4 mTLS).
-  - `platforms/POST/v1/` = platform `X-Api-Key` hash (ADR-004), directory guard covering `consignments.yml` + `consignments-xml.yml`
+  - `efti/POST/api/v1/` = public (gate-to-gate inbound: `dataset-xml`/`-local`, `follow-up-xml`/`-local`, `consignments/search-xml`, `ping` — all edelivery-only after AS4 mTLS)
+  - `efti/POST/api/v1/authority/` = ADMIN or AUTHORITY — holds the real authority handlers (`dataset`, `follow-up`, `consignments-search`, `search`); the G2G wrappers above `template:` into these
+  - `platforms/POST/v1/` = platform `X-Api-Key` hash (ADR-004); also covers the G2G `consignments-xml` — that route needs an internal service token once G2G inbound is revived (follow-up)
   - `Ruuter-xroad/xroad/POST/v1/` = `x-road-client` header resolves to a known authority
 
 ## SQL conventions (ReSql)

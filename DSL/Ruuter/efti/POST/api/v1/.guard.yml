@@ -1,8 +1,9 @@
-# Public at this level. The G2G-inbound routes (dataset-xml, dataset-local,
-# follow-up-xml, follow-up-local, consignments/search-xml) and ping are reached only
-# from the edelivery container after AS4 mTLS, so they stay unauthenticated here.
-# The authority-facing routes (dataset, follow-up, consignments/search) carry their
-# own <route>.guard requiring an ADMIN-or-AUTHORITY TARA JWT.
+# Public at this level. Routes here are the gate-to-gate inbound endpoints
+# (dataset-xml, dataset-local, follow-up-xml, follow-up-local,
+# consignments/search-xml) plus ping — all reached only from the edelivery
+# container after AS4 mTLS. The authority-facing endpoints live under authority/
+# and are guarded there (ADMIN or AUTHORITY). Ruuter only enforces directory
+# .guard.yml files, so a per-route guard here would be silently ignored.
 guard_success:
   return: "success"
   status: 200

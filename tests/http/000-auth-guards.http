@@ -25,7 +25,7 @@ Content-Type: application/json
 %}
 
 ### F5: consignment search rejects an unauthenticated caller
-POST {{RUUTER_URL}}/efti/api/v1/consignments/search
+POST {{RUUTER_URL}}/efti/api/v1/authority/consignments-search
 Content-Type: application/json
 
 {"criteria": {"mainTransportId": {"operator": "EQ", "id": "VESSEL-001"}}, "limit": 1, "offset": 0}
@@ -37,7 +37,7 @@ Content-Type: application/json
 %}
 
 ### F5: consignment search accepts an AUTHORITY token
-POST {{RUUTER_URL}}/efti/api/v1/consignments/search
+POST {{RUUTER_URL}}/efti/api/v1/authority/consignments-search
 Content-Type: application/json
 Authorization: Bearer {{guardAuthorityToken}}
 
@@ -91,14 +91,14 @@ Authorization: Bearer {{guardAdminToken}}
 %}
 
 ### Regression: dataset request is reachable with an AUTHORITY token
-POST {{RUUTER_URL}}/efti/api/v1/dataset
+POST {{RUUTER_URL}}/efti/api/v1/authority/dataset
 Content-Type: application/json
 Authorization: Bearer {{guardAuthorityToken}}
 
 {"uil": {"gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440000"}, "subsets": ["EU01"]}
 
 > {%
-  client.test("AUTHORITY token passes dataset.guard", () => {
+  client.test("AUTHORITY token passes the authority/ guard", () => {
     client.assert(response.status !== 401 && response.status !== 403)
   })
 %}

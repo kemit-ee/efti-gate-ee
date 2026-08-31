@@ -185,65 +185,72 @@ PUT /v1/users/admin/update
 
 ## 6. Autentimine ja autoriseerimine
 
-- Kõik otspunktid nõuavad JWT küpsist, mille väljastab TIM pärast TARA autentimist.
-- Ruuter kontrollib iga päringu alguses `check-user-authority` templiga kasutaja olemasolut ja aktiivsust.
-- Õigused (`permissions`) on stringikoodid (nt `user.list.admin`, `classifier.read`) — kasutajal peavad olema vajalikud koodid JWT-s.
-- `scope` path segment (`admin` | `local`) määrab, milline DSL fail käivitub ja millised andmed on nähtavad.
+- Sirvija-liiklus autendib end TIM-i väljastatud JWT-ga (TARA OIDC järel), mis
+  saadetakse `Authorization: Bearer <jwt>` päisena. Ruuter valideerib selle
+  sisemise DSL-i `efti/internal/check-user-authority` kaudu (TIM-i kutse +
+  `check_user_auth` DB-päring: aktiivsus, `token_revoked_at`).
+- Masinliiklus:
+  - **Platvormid** → `X-Api-Key` (ADR-004; räsi `platforms.api_key_hash` vastu).
+  - **Väravatevaheline (G2G)** → AS4 mTLS `edelivery` konteineris; Ruuteri
+    tasemel need teed on avalikud.
+  - **X-Road** → `x-road-client` päis (`Ruuter-xroad`).
 
-### 6.1 .guard failid
+### 6.1 Guard-failid
 
-Ruuter täidab iga päringu eel automaatselt `.guard` faili, kui see asub vastava meetodi kausta `v1/` tasemel. eFTI-is on guard fail kõikides meetodikataloogides:
+Guard on `.guard.yml` fail meetodikausta all. **Ruuter jõustab ainult
+kausta-tasemel `.guard.yml` faile** — lähim `.guard.yml`, mida leitakse route'i
+kaustast ülespoole liikudes. Route-spetsiifilisi guard-faile
+(`<route>.guard.yml` kõrvuti `<route>.yml`-ga) laaditakse, aga **ei jõustata** —
+ära neile toetu. Kui üks route vajab õdedest erinevat auth-reeglit, pane see
+omaette alamkausta koos oma `.guard.yml`-ga.
 
-```
-DSL/Ruuter/efti/
-  GET/v1/.guard
-  POST/v1/.guard
-  PUT/v1/.guard
-  DELETE/v1/.guard
-```
+`template:` kutse käivitab siht-käsitleja mootori alamrutiinina ja **möödub
+guardist** — avalik route võib `template:` kaudu jõuda käsitlejani, mis asub
+guarditud kausta all (nii jõuavad G2G `-xml`/`-local` mähised guarditud
+`authority/` käsitlejateni).
 
-`.guard` fail käivitub **enne** tegelikku endpoint-faili ja tagastab kas `200 success` (lubab edasi) või `403 unauthorized` (katkestab).
+**Guardide kaart** (vt `docs/specs/permissions-matrix.md`):
 
-**Guard faili loogika sammhaaval:**
+| Kaust | Guard | Nõue |
+|---|---|---|
+| `admin/{GET,POST,PUT,DELETE}/v1/` | `check-admin-authority` | ADMIN |
+| `auth/POST/` | — | avalik (callback, logout, dev-login) |
+| `auth/GET/` | `check-user-authority` | autenditud kasutaja |
+| `efti/GET/api/v1/` | `check-user-authority` | autenditud kasutaja |
+| `efti/GET/api/v1/authority/` | `check-user-authority` + roll | ADMIN või AUTHORITY |
+| `efti/POST/api/v1/` | — | avalik (G2G sisend: `dataset-xml`/`-local`, `follow-up-xml`/`-local`, `consignments/search-xml`, `ping` — ainult `edelivery` pärast AS4 mTLS) |
+| `efti/POST/api/v1/authority/` | `check-user-authority` + roll | ADMIN või AUTHORITY — päris authority-käsitlejad (`dataset`, `follow-up`, `consignments-search`, `search`) |
+| `platforms/POST/v1/` | `get_platform_by_api_key` | kehtiv `X-Api-Key` (räsi); ka G2G `consignments-xml` — vajab sisemist teenusetokenit kui G2G sisend taastatakse |
+| `Ruuter-xroad/xroad/POST/v1/` | `get_authority_by_registry_code` | `x-road-client` päis viitab tuntud asutusele |
 
-| Samm | Toiming | Tulemus |
-|------|---------|---------|
-| `check_for_cookie` | Kontrollib, kas `cookie` päis on olemas | Puudub → `guard_fail` |
-| `authenticate` | Kutsub TIM-i `check-user-authority` template'i JWT küpsisega | Tagastab `authority_result` |
-| `check_authority_result` | Kontrollib, et tulemus ei ole `"false"` | Vale → `guard_fail` |
-| `guard_success` | Tagastab `200 "success"` | Ruuter jätkab endpoint-failiga |
-| `guard_fail` | Tagastab `403 "unauthorized"` | Päring katkeb, vastust ei saadeta |
-
-**Guard faili struktuur** (`GET/v1/.guard`):
+**Guard-faili struktuur** (`efti/POST/api/v1/authority/.guard.yml`):
 
 ```yaml
-check_for_cookie:
+validate_auth:
+  call: http.post
+  args:
+    url: "[#RUUTER_URL]/efti/internal/check-user-authority"
+    headers:
+      Content-Type: application/json
+      authorization: ${incoming.headers.authorization}
+    body: {}
+  result: auth_result
+  next: check_result
+
+check_result:
   switch:
-    - condition: ${incoming.headers == null || incoming.headers.cookie == null}
-      next: guard_fail
-  next: authenticate
+    - condition: ${auth_result.response.status != 200}
+      next: guard_fail            # 401 — pole autenditud
+    - condition: ${auth_result.response.body.isAdmin == true || auth_result.response.body.isAuthority == true}
+      next: guard_success         # 200 — Ruuter jätkab route-failiga
+  next: guard_fail_forbidden      # 403 — autenditud, aga vale roll
 
-authenticate:
-  template: "[#eFTI_PROJECT_LAYER]/check-user-authority"
-  requestType: templates
-  headers:
-    cookie: ${incoming.headers.cookie}
-  result: authority_result
-
-check_authority_result:
-  switch:
-    - condition: ${authority_result !== "false"}
-      next: guard_success
-  next: guard_fail
-
-guard_success:
-  return: "success"
-  status: 200
-  next: end
-
-guard_fail:
-  return: "unauthorized"
+guard_success: { return: "success", status: 200, wrapper: false, next: end }
+guard_fail:    { return: "${auth_result.response.body}", status: "${auth_result.response.status}", wrapper: false, next: end }
+guard_fail_forbidden:
+  return: ${JSON.parse('{"type":"https://api.efti.ee/errors/forbidden","title":"Forbidden","status":403,"detail":"This action requires the ADMIN or AUTHORITY role."}')}
   status: 403
+  wrapper: false
   next: end
 ```
 
@@ -251,33 +258,38 @@ guard_fail:
 
 ```mermaid
 sequenceDiagram
-    participant B as Brauser
+    participant C as Klient
     participant R as Ruuter
-    participant G as .guard
-    participant T as TIM (JWT)
-    participant E as Endpoint YML
+    participant G as .guard.yml (kausta tasemel)
+    participant I as efti/internal/check-user-authority
+    participant T as TIM
+    participant E as Route YML
 
-    B->>R: GET /v1/users/admin/?q=123
-    R->>G: käivita GET/v1/.guard
-    G->>G: check_for_cookie
-    alt Cookie puudub
-        G-->>R: 403 unauthorized
-        R-->>B: HTTP 403
-    else Cookie olemas
-        G->>T: check-user-authority (cookie)
-        alt TIM tagastab "false"
-            T-->>G: "false"
-            G-->>R: 403 unauthorized
-            R-->>B: HTTP 403
-        else TIM kinnitab kasutaja
-            T-->>G: { personalCode, firstName, ... }
+    C->>R: POST /efti/api/v1/authority/dataset  (Bearer <jwt>)
+    R->>G: käivita efti/POST/api/v1/authority/.guard.yml
+    G->>I: check-user-authority (authorization päis)
+    I->>T: GET /jwt/userinfo
+    alt token vigane / kasutaja pole aktiivne
+        I-->>G: 401
+        G-->>R: 401
+        R-->>C: HTTP 401
+    else kehtiv
+        I-->>G: 200 { isAdmin, isAuthority, ... }
+        alt roll puudub
+            G-->>R: 403 forbidden
+            R-->>C: HTTP 403
+        else ADMIN või AUTHORITY
             G-->>R: 200 success
-            R->>E: käivita GET/v1/users/admin.yml
+            R->>E: käivita authority/dataset.yml
             E-->>R: vastus
-            R-->>B: HTTP 200 { user }
+            R-->>C: HTTP 200
         end
     end
 ```
+
+> G2G sisend (`edelivery` → `POST /efti/api/v1/dataset-xml`) tabab avalikku
+> `efti/POST/api/v1/.guard.yml`-i, seejärel jõuab `template: api/v1/authority/dataset`
+> kaudu samasse käsitlejasse guardist mööda minnes.
 
 ---
 
