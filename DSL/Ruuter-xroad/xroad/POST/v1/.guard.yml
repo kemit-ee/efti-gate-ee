@@ -35,9 +35,11 @@ check_found:
 guard_success:
   return: "success"
   status: 200
+  wrapper: false
   next: end
 
 guard_fail:
   return: "unauthorized"
   status: 403
+  wrapper: false
   next: end

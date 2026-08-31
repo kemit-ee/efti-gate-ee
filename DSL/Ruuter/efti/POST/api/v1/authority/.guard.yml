@@ -22,14 +22,17 @@ check_result:
 guard_success:
   return: "success"
   status: 200
+  wrapper: false
   next: end
 
 guard_fail:
   return: ${auth_result.response.body}
   status: ${auth_result.response.status}
+  wrapper: false
   next: end
 
 guard_fail_forbidden:
   return: ${JSON.parse('{"type":"https://api.efti.ee/errors/forbidden","title":"Forbidden","status":403,"detail":"This action requires the ADMIN or AUTHORITY role."}')}
   status: 403
+  wrapper: false
   next: end

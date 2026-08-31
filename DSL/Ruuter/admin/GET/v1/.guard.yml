@@ -2,9 +2,11 @@
 guard_success:
   return: "success"
   status: 200
+  wrapper: false
   next: end
 
 guard_fail:
   return: ${auth_result.response.body}
   status: ${auth_result.response.status}
+  wrapper: false
   next: end
