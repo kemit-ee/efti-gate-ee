@@ -21,8 +21,14 @@ class RuuterClient(
   fun getDataset(xml: String /* FTI009GetCmdsRequest */) =
     http.sendXml(baseUrl + "/dataset-xml", xml)
 
+  fun getLocalDataset(xml: String /* FTI009GetCmdsRequest */) =
+    http.sendXml(baseUrl + "/dataset-local", xml)
+
   fun followUp(xml: String /* FTI025LodgeFollowUpCommRequest */) =
     http.sendXml(baseUrl + "/follow-up-xml", xml)
+
+  fun localFollowUp(xml: String /* FTI025LodgeFollowUpCommRequest */) =
+    http.sendXml(baseUrl + "/follow-up-local", xml)
 
   private fun HttpClient.sendXml(url: URI, xml: String) =
     post(url, xml) { header("Content-Type", "text/xml") }.checkBody()

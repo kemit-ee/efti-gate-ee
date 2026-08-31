@@ -1,0 +1,44 @@
+declaration:
+  description: "Retrieve dataset from local platform — used by mock-gate handler when receiver is own gate"
+  allowed_body: [xml]
+
+parse_request:
+  call: http.post
+  args:
+    url: "[#XML_MAPPER_URL]/api/v1/dataset/request-to-json"
+    headers:
+      Content-Type: "text/xml"
+    content_type: plaintext
+    body:
+      text: ${incoming.body.xml}
+  result: request_json
+  next: call_dataset
+
+call_dataset:
+  template: api/v1/dataset
+  request_type: "POST"
+  body:
+    uil:
+      gateId: "[#OWN_GATE_ID]"
+      platformId: "${request_json.response.body.uil.platformId}"
+      datasetId: "${request_json.response.body.uil.datasetId}"
+    subsets: "${request_json.response.body.subsets}"
+  result: dataset_response
+  next: to_xml
+
+to_xml:
+  call: http.post
+  args:
+    url: "[#XML_MAPPER_URL]/api/v1/dataset/response-to-xml"
+    headers:
+      Content-Type: "application/json"
+    body: ${dataset_response}
+  result: xml_response
+  next: respond
+
+respond:
+  return: ${xml_response.response.body}
+  headers:
+    Content-Type: "text/xml"
+  wrapper: false
+  next: end
