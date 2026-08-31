@@ -72,6 +72,63 @@ Authorization: Bearer {{adminToken}}
   })
 %}
 
+### Generate API key for platform (ADR-004)
+# The gate stores only digest(key,'sha256') in platforms.api_key_hash, never the
+# key itself — the plaintext is returned once here and never again. The
+# consignments.guard hashes the incoming X-Api-Key and matches it against that
+# hash (it used to compare plaintext against platforms.headers->>'X-Api-Key').
+POST {{RUUTER_URL}}/admin/v1/platforms/api-key/demo
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("API key generated", () => {
+    client.assert(response.status === 201)
+    client.assert(response.body.id === "demo")
+    client.assert(/^[0-9a-f]{48}$/.test(response.body.apiKey))
+    client.assert(response.body.apiKeyHint.length === 8)
+    client.global.set("demoApiKey", response.body.apiKey)
+  })
+%}
+
+### Regenerating replaces the key
+POST {{RUUTER_URL}}/admin/v1/platforms/api-key/demo
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("API key regenerated", () => {
+    client.assert(response.status === 201)
+    client.assert(response.body.apiKey !== client.global.get("demoApiKey"))
+  })
+%}
+
+### Platform now shows a key hint, never the hash
+GET {{RUUTER_URL}}/admin/v1/platforms/demo
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("API key hint exposed, hash hidden", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.hasApiKey === true)
+    client.assert(response.body.apiKeyHint.length === 8)
+    client.assert(response.body.apiKeyHash === undefined)
+    client.assert(response.body.apiKey === undefined)
+  })
+%}
+
+### Generate API key for unknown platform → 404
+POST {{RUUTER_URL}}/admin/v1/platforms/api-key/does-not-exist
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("API key generate 404 for unknown platform", () => {
+    client.assert(response.status === 404)
+  })
+%}
+
 ### Delete platform
 DELETE {{RUUTER_URL}}/admin/v1/platforms/demo
 Content-Type: application/json

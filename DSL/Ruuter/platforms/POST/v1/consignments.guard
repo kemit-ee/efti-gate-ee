@@ -1,6 +1,6 @@
-# Platform API-key guard. The X-Api-Key header must be present and must match the
-# X-Api-Key configured on an active platform (platforms.headers). Plaintext for now;
-# hashing at rest is a follow-up (ADR-004).
+# Platform API-key guard (ADR-004). The X-Api-Key header must be present and its
+# SHA-256 must match api_key_hash on an active platform. The key itself is never
+# stored — it is generated via POST /admin/v1/platforms/api-key/:id and shown once.
 check_present:
   switch:
     - condition: ${incoming.headers == null || incoming.headers['x-api-key'] == null || incoming.headers['x-api-key'] == ''}

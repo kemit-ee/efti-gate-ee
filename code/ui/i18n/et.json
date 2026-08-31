@@ -38,7 +38,9 @@
     "success": "Õnnestus",
     "runTests": "Käivita testid",
     "error": "Viga",
-    "back": "Tagasi"
+    "back": "Tagasi",
+    "copy": "Kopeeri",
+    "copied": "Kopeeritud"
   },
   "gates": {
     "title": "Väravad",
@@ -67,7 +69,14 @@
     "added": "Platvorm edukalt registreeritud",
     "disabled": "Keelatud",
     "status": "Staatus",
-    "consignments": "Saadetised"
+    "consignments": "Saadetised",
+    "apiKey": "API võti",
+    "generateApiKey": "Genereeri API võti",
+    "apiKeyGeneratedAt": "Võti genereeritud",
+    "apiKeyNone": "Võtit pole",
+    "apiKeyModalTitle": "API võti genereeritud",
+    "apiKeyModalWarning": "Kopeeri võti kohe. Pärast selle akna sulgemist pole seda enam võimalik näha.",
+    "apiKeyRegenerateConfirm": "Genereerida uus API võti? Praegune võti lakkab kohe töötamast."
   },
   "authorities": {
     "title": "Pädevad asutused",

@@ -2,6 +2,9 @@ import ../admin/auth.http
 run #auth
 
 ### Platform uploads a new consignment over REST
+# X-Api-Key is validated by consignments.guard: it hashes the header and matches
+# digest(key,'sha256') against platforms.api_key_hash (ADR-004, no plaintext).
+# The mock platform's hash is seeded by 20260902-platform-api-key.sql.
 POST {{RUUTER_URL}}/platforms/v1/consignments
 Content-Type: text/xml
 X-Api-Key: mock-secret-key

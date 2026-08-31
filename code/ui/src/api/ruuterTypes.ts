@@ -45,7 +45,17 @@ export interface Platform {
   certSubject?: string
   certSerial?: string
   status: Status
+  apiKeyHint?: string
+  apiKeyGeneratedAt?: string
+  hasApiKey?: boolean
   createdAt: string
+}
+
+export interface PlatformApiKey {
+  id: string
+  apiKey: string
+  apiKeyHint: string
+  apiKeyGeneratedAt: string
 }
 
 export interface PlatformRequest {
