@@ -11,7 +11,7 @@ VALUES (
   :id::uuid,
   :taraSub,
   :name,
-  COALESCE(:roles, '{}')
+  COALESCE(ARRAY(SELECT jsonb_array_elements_text(to_jsonb(:roles))), '{}')
 )
 RETURNING
   row_id,
