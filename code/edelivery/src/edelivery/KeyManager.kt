@@ -1,11 +1,6 @@
 package edelivery
 
-import klite.Config
-import klite.base64Decode
-import klite.base64Encode
-import klite.info
-import klite.isTest
-import klite.logger
+import klite.*
 import java.io.FileInputStream
 import java.security.*
 import java.security.cert.CertificateFactory
@@ -72,12 +67,18 @@ class KeyManager (private val partyRegistry: PartyRegistry) {
     }
 
     var numCustom = 0
+    var numFailed = 0
     partyRegistry.list().filter { it.tlsCert != null }.forEach { gate ->
-      ks.setCertificateEntry(gate.id.toString(), gate.tlsCert!!.toX509())
-      numCustom++
+      try {
+        ks.setCertificateEntry(gate.id.toString(), gate.tlsCert!!.toX509())
+        numCustom++
+      } catch (e: Exception) {
+        log.error("Failed to initialize TLS cert for gate ${gate.id}: ${gate.tlsCert}: ${e.message}")
+        numFailed++
+      }
     }
 
-    log.info("Built TrustStore with $numDefault default and $numCustom custom certificates for gates")
+    log.info("Built TrustStore with $numDefault default and $numCustom custom certificates for gates, $numFailed failed")
 
     val tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()).apply { init(ks) }
     return SSLContext.getInstance("TLS").apply { init(null, tmf.trustManagers, SecureRandom()) }
