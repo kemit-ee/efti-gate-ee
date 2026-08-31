@@ -15,7 +15,7 @@ parse_request:
   next: call_dataset
 
 call_dataset:
-  template: api/v1/dataset
+  template: authority/v1/dataset
   request_type: "POST"
   body:
     uil:
