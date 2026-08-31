@@ -63,11 +63,11 @@ services:
       retries: 20
       start_period: 10s
 
-  ruuter-xroad:
-    container_name: efti_ruuter_xroad
+  ruuter-m2m:
+    container_name: efti_ruuter_m2m
     build:
       context: .
-      dockerfile: docker/ruuter-xroad/Dockerfile
+      dockerfile: docker/ruuter-m2m/Dockerfile
     platform: linux/amd64
     cpus: '0.5'
     depends_on:

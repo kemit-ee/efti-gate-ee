@@ -1,0 +1,27 @@
+port: 8087
+
+http_codes_allow_list: [200, 201, 202, 204, 400, 401, 403, 404, 409, 422, 500, 504]
+
+dsl:
+  project: m2m
+
+guards:
+  # Machine-to-machine surface. Every route sits under a subdirectory with its own
+  # .guard: xroad/ (X-Road client header), edelivery/ (peer-gate AS4, loopback trust),
+  # platform/ (mTLS cert-subject lookup).
+  enforce_on_methods: [GET, POST, PUT, DELETE]
+
+incoming_requests:
+  allowed_method_types: [GET, POST, PUT, DELETE]
+
+internal_requests:
+  # Guard DSLs call ReSQL and are reached over this Ruuter's own loopback.
+  block_private_networks: false
+
+stop_in_case_of_exception: true
+
+logging:
+  # Off by the same reasoning as the efti Ruuter: request/response bodies here carry
+  # consignment data and authority identifiers. Turn on per-session for debugging only.
+  display_request_content: false
+  display_response_content: false

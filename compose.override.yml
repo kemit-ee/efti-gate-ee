@@ -22,13 +22,13 @@ services:
         - action: sync+restart
           path: ./DSL/Ruuter
           target: /app/DSL
-  ruuter-xroad:
+  ruuter-m2m:
     ports:
-      - "${EFTI_RUUTER_XROAD_PORT:-8087}:8087"
+      - "${EFTI_RUUTER_M2M_PORT:-8087}:8087"
     develop:
       watch:
         - action: sync+restart
-          path: ./DSL/Ruuter-xroad
+          path: ./DSL/Ruuter-m2m
           target: /app/DSL
   edelivery:
     ports:
