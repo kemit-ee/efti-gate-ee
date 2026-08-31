@@ -95,7 +95,7 @@ check_edelivery_response:
       next: edelivery_error
   next: respond_remote
 
-respond_remote:
+respond_remote: # TODO: authority most likely does not want to get the xml
   return: ${edelivery_response.response.body}
   headers:
     Content-Type: "text/xml"
