@@ -1,4 +1,4 @@
-POST {{RUUTER_URL}}/efti/api/v1/consignments
+POST {{RUUTER_URL}}/platforms/v1/consignments
 Content-Type: text/xml
 
 < ../../code/xml-mapper/xsd/FTI004/sample.xml
