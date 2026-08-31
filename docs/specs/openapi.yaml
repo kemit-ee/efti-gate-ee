@@ -45,6 +45,11 @@ servers:
   - url: https://api.efti.ee
     description: Production environment
 
+# The gate runs two Ruuter instances (ADR-005). `efti` (8086) serves the Admin API
+# and `auth/*`. `m2m` (8087) serves the machine-to-machine surface — Platform API,
+# Authority API, peer-gate eDelivery, X-Road — under /m2m/<domain>/v1/... Paths in
+# this document still use the pre-split layout; the routing note in ADR-005 maps them.
+
 tags:
   - name: Platform
     description: APIs called by eFTI freight platforms
@@ -76,7 +81,8 @@ security:
 #   Login          (`/oauth2/authorization/tara`, `/authenticate`)     → TIM, NOT in this spec
 #                  Browser ↔ TIM ↔ TARA. Not routed through Ruuter, no `/v1` prefix; TIM
 #                  mints the Bearer token that every surface below is authenticated with.
-#   Platform API   (`/v1/identifiers/{datasetId}` POST/DELETE)         → platformMtls
+#   Platform API   (`/v1/identifiers/{datasetId}` POST/DELETE)         → platformApiKey
+#                  (was platformMtls; superseded 2026-08-25 by ADR-004 — `X-Api-Key` header)
 #   Authority API  (`/v1/identifiers/{identifier}`, `/v1/dataset/...`,
 #                   `/v1/follow-up/...`)                               → taraJwt
 #   Admin API      (`/api/v1/...`)                                     → taraJwt
@@ -172,7 +178,7 @@ paths:
       summary: Register consignment identifiers
       operationId: postIdentifiers
       security:
-        - platformMtls: []
+        - platformApiKey: []
       description: |
         Platform registers consignment identifier metadata in the gate. The gate
         extracts searchable fields (vehicle plate, mode, dangerous goods) and stores
@@ -251,7 +257,7 @@ paths:
       summary: Delete consignment (platform-initiated)
       operationId: deleteIdentifiers
       security:
-        - platformMtls: []
+        - platformApiKey: []
       description: |
         Platform signals that a consignment dataset has been deleted at source. The
         gate INSERTs a new `consignments` row with `status='deleted'` (append-only;
@@ -287,7 +293,7 @@ paths:
       summary: Check consignment registration status
       operationId: getConsignmentStatus
       security:
-        - platformMtls: []
+        - platformApiKey: []
       description: Allows a platform to verify whether a consignment dataset is registered and its current status at this gate.
       parameters:
         - $ref: '#/components/parameters/DatasetIdPath'
@@ -315,7 +321,7 @@ paths:
       summary: Platform availability check
       operationId: platformPing
       security:
-        - platformMtls: []
+        - platformApiKey: []
       description: |
         Gate pings this endpoint on the platform to confirm it is reachable and operational.
         Platforms must implement this endpoint and return 200 OK.
@@ -333,7 +339,7 @@ paths:
       summary: Receive follow-up messages from authorities
       operationId: getPlatformFollowUp
       security:
-        - platformMtls: []
+        - platformApiKey: []
       description: |
         Platform receives follow-up messages sent by authorities regarding a previously
         queried dataset. Used for enforcement notifications.
@@ -367,7 +373,7 @@ paths:
       summary: Retrieve platform's own dataset (for subset filtering test)
       operationId: getPlatformDataset
       security:
-        - platformMtls: []
+        - platformApiKey: []
       description: |
         Allows a platform to retrieve its own full dataset XML. Used primarily to test
         whether the gate's XSLT subsetter is correctly filtering subsets for platforms
@@ -1113,6 +1119,47 @@ paths:
           $ref: '#/components/responses/BadGateway'
         '504':
           $ref: '#/components/responses/GatewayTimeout'
+
+  /api/v1/platforms/{platformId}/api-key:
+    post:
+      tags: [Admin - Platforms]
+      summary: Generate platform API key
+      operationId: generatePlatformApiKey
+      description: |
+        Generates a fresh `X-Api-Key` for the platform ([ADR-004](../architecture/decisions/004-platform-api-key.md)).
+        Appends a new `platforms` row carrying every field forward and replacing the
+        `api_key_*` columns. The plaintext key is returned **exactly once** — the gate
+        stores only its SHA-256 hash. Any previous key stops working immediately.
+      parameters:
+        - $ref: '#/components/parameters/PlatformIdPath'
+      responses:
+        '201':
+          description: New API key generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    example: plt-cargo-ee-001
+                  apiKey:
+                    type: string
+                    description: The plaintext key. Shown only in this response.
+                    example: 3a1f9c02e5b7...c1b2
+                  apiKeyHint:
+                    type: string
+                    description: First 8 hex chars of the key's SHA-256 hash.
+                    example: 3a1f9c02
+                  apiKeyGeneratedAt:
+                    type: string
+                    format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   # ----------------------------------------------------------------------------
   # ADMIN API — AUTHORITIES
@@ -2067,17 +2114,18 @@ components:
         break-glass JWT carries `sub='local-admin'`; the gate resolves it via the
         same `users.tara_sub` lookup used for TARA-issued JWTs.
 
-    platformMtls:
-      type: mutualTLS
+    platformApiKey:
+      type: apiKey
+      in: header
+      name: X-Api-Key
       description: |
-        X.509 client certificate (mTLS) — the **same Member-State-issued certificate
-        the platform's eDelivery Access Point already holds** per Implementing Reg
-        (EU) 2024/1942 Art 11. No second credential.
-
-        The reverse proxy (Caddy / Traefik / nginx) terminates mTLS and forwards
-        `X-Client-Cert-Subject` and `X-Client-Cert-Serial` headers; the gate looks up
-        the subject DN + serial in `platforms.cert_subject` / `platforms.cert_serial`
-        to resolve the platform identity. Used only for the **Platform API**.
+        Per-platform API key ([ADR-004](../architecture/decisions/004-platform-api-key.md),
+        2026-08-25). Sent as `X-Api-Key: <key>` on every **Platform API** request to the
+        m2m Ruuter. The gate hashes the key (SHA-256) and matches it against the latest
+        non-deleted `platforms.api_key_hash`; the match resolves platform identity — no
+        JWT, no user record. Missing/unknown key → 401; a key registered to more than one
+        active platform → 403 `forbidden-multi-platform`. The key is generated by an admin
+        (`POST /api/v1/platforms/api-key/{id}`), shown once, and stored only as the hash.
 
     opsToken:
       type: apiKey
@@ -2103,7 +2151,7 @@ components:
         break-glass fallback endpoint, default-disabled (`LOCAL_ADMIN_FALLBACK_ENABLED`).
         Credentials are matched against the single bcrypt-hashed local-admin row in
         `users.secret_hash`. **Not used anywhere else.** All other surfaces use
-        `taraJwt`, `platformMtls`, or `opsToken`.
+        `taraJwt`, `platformApiKey`, or `opsToken`.
 
   # ============================================================================
   # PARAMETERS
@@ -2849,9 +2897,6 @@ components:
           format: uri
           description: REST API base URL for dataset queries
           example: "https://platform.example.com/v1"
-          type: boolean
-          description: If false, gate applies XSLT subsetting on behalf of the platform
-          example: true
         eDeliveryCert:
           type: string
           nullable: true
@@ -2877,6 +2922,20 @@ components:
             `isPlatformActive=false`; subsequent registrations from the cert mapped to a
             soft-deleted platform return 403 `FORBIDDEN_NO_PLATFORM`.
           example: true
+        hasApiKey:
+          type: boolean
+          description: Whether an `X-Api-Key` credential is currently set (ADR-004).
+          example: true
+        apiKeyHint:
+          type: string
+          nullable: true
+          description: First 8 hex chars of the API key's SHA-256 hash. Never the key or the full hash.
+          example: "3a1f9c02"
+        apiKeyGeneratedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the current API key was generated.
         createdAt:
           type: string
           format: date-time
@@ -2902,8 +2961,6 @@ components:
           description: Additional HTTP headers the gate sends with outbound requests to this platform.
           example:
             X-Api-Key: "secret-key-abc123"
-          type: boolean
-          default: true
         eDeliveryCert:
           type: string
           nullable: true

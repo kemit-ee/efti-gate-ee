@@ -59,20 +59,34 @@ m2m/POST/
 | `POST api/v1/gates/:id/ping` | `POST m2m/... TBD` | admin-triggered? or peer? **OPEN** |
 | `POST api/v1/platforms/:id/ping` | `POST m2m/... TBD` | admin-triggered? **OPEN** |
 
-### Open questions before moving
+### Resolved
 
-1. **`gates/:id/ping`, `platforms/:id/ping`** — who calls these? If the admin UI
-   ("test connectivity" button) they stay on `efti` under the admin guard. If a
-   scheduled job / CronManager, they belong on `m2m` behind an ops credential.
-2. **GET-side authority endpoints** — `GET api/v1/authority/dataset` (Authority
-   API dataset retrieval, TARA JWT today), `GET api/v1/follow-up`,
-   `GET api/v1/consignments`. If authority has no UI these are `m2m` too, which
-   means a `GET` tree under `m2m` with its own guards. Currently scoped as
-   "stays on `efti`, already JWT-guarded" — confirm.
-3. **`template:` cross-project** — every `*-xml` endpoint and `authority/search`
-   use Ruuter `template:` includes. Caller + callee must sit in the same project;
-   all are in the move set, but the `template:` path strings need rewriting to the
-   new relative locations and this must be verified against a running engine.
+1. **`gates/:id/ping`, `platforms/:id/ping`** — both a UI action and (future) an
+   automated job. Kept on `efti` under the admin guard for the UI button; the
+   ops-token `m2m` path for the scheduled job is a **follow-up**, not in this branch.
+2. **GET-side authority endpoints** — `GET authority/dataset` and `GET follow-up`
+   moved to `m2m/GET/authority/`. `GET consignments` stays on `efti` (admin list).
+3. **Authority guard** — X-Road-Client header when present (validated against the
+   authorities registry), otherwise allowed as an eDelivery/loopback call.
+4. **Platform auth** — `X-Api-Key` header, SHA-256 hash lookup (ADR-004).
+
+### Still to verify against a running stack
+
+- `template:` resolution across the new `m2m` paths (`edelivery/v1/*-xml` →
+  `authority/v1/*` and `platform/v1/*`).
+- Guard resolution: does `m2m/POST/<domain>/.guard` cover `<domain>/v1/*`, and is a
+  route with no ancestor `.guard` allowed or denied?
+- `digest(:apiKey,'sha256')` bytea comparison + `app` role privilege on pgcrypto.
+
+### Docs debt (prose still keyed to the old design)
+
+- `permissions-matrix.md` §3.1–§3.3, §7, §8 diagrams and error tables still describe
+  mTLS/`cert_subject` — a superseding note is in place at the top of §3.1 and the
+  doc header, but the bodies want a full rewrite.
+- `openapi.yaml` paths still use the pre-split single-server layout (documented in
+  the file header + ADR-005 routing table); `platformApiKey` scheme and the
+  generate-key path are in.
+- `docs/cfr/**` AC mirror not yet touched.
 
 ## Platform API-key auth (ADR-004)
 

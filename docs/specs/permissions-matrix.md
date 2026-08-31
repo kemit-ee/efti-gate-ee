@@ -4,6 +4,14 @@
 **Date**: 2026-08-21
 **Status**: Development-ready specification
 
+> **Superseded for the Platform API (2026-08-25, [ADR-004](../architecture/decisions/004-platform-api-key.md)):**
+> platforms authenticate with an **API key in the `X-Api-Key` header**, resolved
+> against `platforms.api_key_hash` (SHA-256), **not** mTLS. The `X-Client-Cert-Subject`
+> / `cert_subject` mechanism described below is historical. The failure modes are
+> unchanged: missing/unknown key → 401; one key on >1 active platform →
+> 403 `forbidden-multi-platform`. Platform, authority and G2G routes now live on the
+> separate **m2m Ruuter** ([ADR-005](../architecture/decisions/005-m2m-ruuter-split.md)).
+
 **Changed in 1.2** (§1.1, §2, §3.2, §6, §7, §8.1): the session token is issued by **TIM**
 after TARA OIDC login, not by TARA directly, and is validated by calling TIM rather than
 against a cached TARA JWKS. Revocation is immediate on both paths. The JWT-path cost is one
@@ -90,7 +98,9 @@ Two kinds of caller identity, modelled in two different ways. The legacy "single
 
 ### 3.1 Platform API
 
-Authenticated by **mTLS** with the platform's eDelivery AP X.509 certificate (Member-State-issued per Impl Reg 2024/1942 Art 11). The reverse proxy terminates mTLS and forwards `X-Client-Cert-Subject` / `X-Client-Cert-Serial`; the gate looks them up against `platforms` to resolve identity. **No JWT, no user record.** TARA-authenticated callers (Authority / Admin) cannot reach Platform endpoints.
+Authenticated by an **API key in the `X-Api-Key` header** ([ADR-004](../architecture/decisions/004-platform-api-key.md)). The key is hashed (SHA-256) and matched against the latest non-deleted `platforms` row; the match resolves platform identity. **No JWT, no user record.** TARA-authenticated callers (Authority / Admin) cannot reach Platform endpoints.
+
+> The paragraph and diagrams that follow describe the earlier mTLS design and are kept for context; substitute "`X-Api-Key` header → `platforms.api_key_hash` lookup" for every "`X-Client-Cert-Subject` + `X-Client-Cert-Serial` → `cert_subject` lookup".
 
 | Endpoint | Method | mTLS-resolved Platform | TARA JWT (any role) | Unauth |
 |---|---|---|---|---|

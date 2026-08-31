@@ -33,12 +33,15 @@ mis on **teostatud**, mis on **puudu** ja millised on näidisissendid/väljundid
 
 | Teema | Reegel |
 |---|---|
-| **Auth (Admin)** | TARA OIDC JWT — `Authorization: Bearer <jwt>` (RS256, JWKS) |
-| **Auth (Authority API)** | TARA OIDC JWT — sama mehhanism, nõuab `AUTHORITY` või `ADMIN` rolli |
-| **Auth (Platform API)** | mTLS X.509 — reversproxy edastab `X-Client-Cert-Subject` + `X-Client-Cert-Serial` |
+| **Kaks Ruuterit** | `efti` (8086) — admin UI + `auth/*`. `m2m` (8087) — masinliides: partnervärava eDelivery, Authority API, Platform API, X-Road. Vt [ADR-005](../architecture/decisions/005-m2m-ruuter-split.md). |
+| **Auth (Admin, `efti`)** | TARA OIDC JWT — `Authorization: Bearer <jwt>` (RS256, JWKS) |
+| **Auth (Authority API, `m2m`)** | X-Road-Client päis (RIA turvaserver) või eDelivery — kasutajata masinliiklus |
+| **Auth (Platform API, `m2m`)** | API võti päises `X-Api-Key`; hoitakse SHA-256 räsina. Vt [ADR-004](../architecture/decisions/004-platform-api-key.md). |
+| **Auth (eDelivery G2G, `m2m`)** | Puudub Ruuteri tasemel — AS4 / WS-Security lõpetab `edelivery` teenus, m2m Ruuter pole väljaspool võrku |
 | **Auth (Cron)** | Staatiline `ARCHIVE_OPS_TOKEN` env-muutuja |
 | **Health** | Autentimine puudub — avalik |
-| **Guard-failid** | `GET /api/v1/*` → autentimine nõutav; `POST/PUT/DELETE /api/v1/*` → ADMIN nõutav (v.a. `authority/*` ja `dataset`/`follow-up` → AUTHORITY-or-ADMIN); `/api/v1/auth/*` → avalik |
+| **Guard-failid (`efti`)** | `GET /api/v1/*` → autentimine nõutav; `POST/PUT/DELETE /api/v1/*` → ADMIN nõutav; `/api/v1/auth/*` → avalik |
+| **Guard-failid (`m2m`)** | `m2m/POST/xroad/` → X-Road-Client; `m2m/POST/platform/` → `X-Api-Key`; `m2m/POST/edelivery/` → võrgu-usaldus; `m2m/{POST,GET}/authority/` → X-Road-Client või eDelivery |
 | **Rollid** | `ADMIN` — kõik haldustoimingud; `AUTHORITY` — dataset/follow-up/authority-search; `'{}'` — puuduvad õigused (ainult `/api/v1/user`) |
 | **Veavastuse formaat** | RFC 7807 `application/problem+json` |
 | **`X-Request-ID`** | UUID päis kõigil muteerivaatel (POST/PUT/DELETE); duplikaat 10 min jooksul → 409 |
@@ -422,7 +425,10 @@ POST /efti/api/v1/gates/ping?gateId=eu-de01
 ## 5. Admin — Platforms
 
 Platform'i kirje seob platvormi `baseUrl`-i eDelivery sertifikaadiga.
-mTLS autentimisel otsib gate `(certSubject, certSerial)` paari.
+Platvorm autendib end masinliidesele API võtmega (`X-Api-Key`), mida hoitakse
+SHA-256 räsina (`api_key_hash`) — vt [ADR-004](../architecture/decisions/004-platform-api-key.md).
+Kasutajaliideses ja `GET` vastustes on näha ainult `apiKeyHint` (räsi 8 esimest
+heksamärki) ja `apiKeyGeneratedAt`.
 
 ```mermaid
 sequenceDiagram
@@ -583,6 +589,30 @@ DELETE /efti/api/v1/platforms?platformId=plt-cargo-ee-001
 POST /efti/api/v1/platforms/ping?platformId=plt-cargo-ee-001
 
 → 501 Not Implemented
+```
+
+---
+
+### `POST /efti/api/v1/platforms/api-key/{id}` — Genereeri API võti
+
+**Ruuter DSL:** `DSL/Ruuter/efti/POST/api/v1/platforms/api-key.yml` · ADMIN
+
+Genereerib platvormile uue `X-Api-Key` võtme. Lisab append-only `platforms` rea,
+mis kannab kõik väljad edasi ja asendab `api_key_*` veerud. Avatekstina tagastatakse
+võti **täpselt üks kord**.
+
+```
+POST /efti/api/v1/platforms/api-key/plt-cargo-ee-001
+
+→ 201 Created
+{
+  "id": "plt-cargo-ee-001",
+  "apiKey": "9f8e7d…c1b2",          // 48 heksamärki — näidatakse ainult siin
+  "apiKeyHint": "3a1f9c02",
+  "apiKeyGeneratedAt": "2026-08-31T09:12:00Z"
+}
+
+→ 404 Not Found   // tundmatu või kustutatud platvorm
 ```
 
 ---

@@ -17,7 +17,7 @@ flowchart LR
     Home --> Manage{Manage what?}
     Manage --> Users[Users<br/>/api/v1/users]
     Manage --> Gates[Gates<br/>/api/v1/gates]
-    Manage --> Platforms[Platforms<br/>/api/v1/platforms]
+    Manage --> Platforms[Platforms<br/>/api/v1/platforms<br/>+ generate X-Api-Key]
     Manage --> Authorities[Authorities<br/>/api/v1/authorities]
     Manage --> Cons[Consignments<br/>/api/v1/consignments]
     Manage --> Audit[Audit log<br/>/api/v1/audit]
@@ -27,7 +27,7 @@ UI uses TEDI (Tehik) design system; WCAG 2.2 AA verified in CI; draft auto-save 
 
 ## Rationale
 
-The Admin UI is the operational control surface — every registry mutation, user creation, and audit-log review goes through it. TARA OIDC reuses the same identity primitive as the Authority UI (Epic 21). Disabling Basic Auth in production removes the only non-federated entry point. TEDI + WCAG 2.2 AA are Estonian e-government baselines; the spec inherits them rather than re-litigating.
+The Admin UI is the operational control surface — every registry mutation, user creation, and audit-log review goes through it. Platform registration includes generating the platform's `X-Api-Key` credential ([ADR-004](../decisions/004-platform-api-key.md)): the key is shown once in a modal with a copy button and cannot be retrieved afterwards; the list shows only the generation date and an 8-char hint. TARA OIDC reuses the same identity primitive as the Authority UI (Epic 21). Disabling Basic Auth in production removes the only non-federated entry point. TEDI + WCAG 2.2 AA are Estonian e-government baselines; the spec inherits them rather than re-litigating.
 
 ---
 
