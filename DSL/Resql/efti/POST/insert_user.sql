@@ -3,7 +3,7 @@ description: insert user
 params:
   name:    { type: string,       required: true  }
   taraSub: { type: string,       required: true  }
-  roles:   { type: string_array, required: false }  -- e.g. ['ADMIN'] or ['AUTHORITY']
+  roles:   { type: array, required: false }  # e.g. ['ADMIN'] or ['AUTHORITY']
 */
 INSERT INTO users (id, tara_sub, name, roles)
 VALUES (

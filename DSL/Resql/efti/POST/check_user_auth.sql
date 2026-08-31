@@ -3,8 +3,8 @@ description: Validate that a user is active and their token has not been revoked
   Returns the user row (with is_admin / is_authority flags) if the user passes all checks;
   returns 0 rows if the user is inactive, unknown, or the token predates token_revoked_at.
 params:
-  tara_sub:         { type: string,  required: true }   -- personalCode from JWT claims
-  token_issued_at:  { type: string,  required: true }   -- issued_at from TIM userinfo (ISO-8601)
+  tara_sub:         { type: string,  required: true }   # personalCode from JWT claims
+  token_issued_at:  { type: string,  required: true }   # issued_at from TIM userinfo (ISO-8601)
 */
 SELECT
   u.id,
