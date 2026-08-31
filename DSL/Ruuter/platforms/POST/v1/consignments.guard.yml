@@ -1,0 +1,19 @@
+# Platform API key guard — validates X-Api-Key header is present.
+# Actual key validation against the platform's configured headers happens in the DSL.
+check_api_key:
+  switch:
+    - condition: ${incoming.headers == null || incoming.headers['x-api-key'] == null || incoming.headers['x-api-key'] == ''}
+      next: guard_fail
+  next: guard_success
+
+guard_success:
+  return: "success"
+  status: 200
+  wrapper: false
+  next: end
+
+guard_fail:
+  return: "Unauthorized"
+  status: 401
+  wrapper: false
+  next: end

@@ -4,6 +4,7 @@ run #auth
 ### Setup: upload a consignment to search for
 POST {{RUUTER_URL}}/platforms/v1/consignments
 Content-Type: text/xml
+X-Api-Key: mock-secret-key
 
 < ../../code/xml-mapper/xsd/FTI004/sample.xml
 
