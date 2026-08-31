@@ -1,15 +1,5 @@
-### [Auth] Login as admin
-POST {{RUUTER_URL}}/auth/dev-login
-Content-Type: application/json
-
-{ "personalCode": "60001019906", "firstName": "Super", "lastName": "Admin" }
-
-> {%
-  client.test("[Auth] admin JWT issued", () => {
-    client.assert(response.status === 200)
-    client.global.set("adminToken", response.body.token)
-  })
-%}
+import ../admin/auth.http
+run #auth
 
 ### Setup: ensure test authority exists
 DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-test
