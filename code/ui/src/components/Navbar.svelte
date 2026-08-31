@@ -1,12 +1,11 @@
 <script lang="ts">
-  import {changeLang,lang,t} from 'i18n'
+  import {changeLang, lang, t} from 'i18n'
   import langs from 'i18n/langs.json'
-  import {activePath, Link, navigate} from 'src/router'
+  import {activePath, Link} from 'src/router'
   import type {NavRoute} from 'src/shared/Mode'
   import Icon from "src/icons/Icon.svelte";
   import {onMount} from 'svelte';
-  import api from 'src/api/api';
-  import {clearToken} from 'src/api/api';
+  import api, {clearToken} from 'src/api/api';
   import type {User} from "src/api/ruuterTypes";
   import Dropdown from "src/components/Dropdown.svelte";
 
@@ -45,7 +44,7 @@
   }
 
   async function logout() {
-    await api.post('auth/logout').catch(() => {})
+    await api.post('/auth/logout').catch(() => {})
     clearToken()
     window.location.href = '/'
   }

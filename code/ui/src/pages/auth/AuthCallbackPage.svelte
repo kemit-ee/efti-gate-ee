@@ -1,8 +1,7 @@
 <script lang="ts">
   import {onMount} from 'svelte'
   import {navigate} from 'src/router'
-  import api from 'src/api/api'
-  import {setToken} from 'src/api/api'
+  import api, {setToken} from 'src/api/api'
   import {t} from "i18n";
 
   let error: string | null = null
@@ -20,7 +19,7 @@
     }
 
     try {
-      const data = await api.post<{token: string}>('auth/callback', {code, state})
+      const data = await api.post<{token: string}>('/auth/callback', {code, state})
       setToken(data.token)
       navigate('/gates', {replace: true})
     } catch (e: any) {

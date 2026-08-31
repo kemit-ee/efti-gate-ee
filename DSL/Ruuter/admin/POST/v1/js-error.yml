@@ -1,0 +1,12 @@
+declaration:
+  description: "Accept frontend JS error reports for logging"
+
+log_error:
+  log: "JS error: ${incoming.body}"
+  next: respond
+
+respond:
+  return: ""
+  status: 204
+  wrapper: false
+  next: end

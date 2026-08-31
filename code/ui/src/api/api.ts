@@ -18,10 +18,8 @@ export function clearToken() {
 
 type Body = object|string|FormData|File
 
-const adminResources = ['gates', 'platforms', 'authorities', 'users', 'consignments', 'audit']
-
 class Api {
-  constructor(public prefix = '/efti/api/v1/', public adminPrefix = '/admin/v1/') {}
+  constructor(public prefix = '/admin/v1/') {}
 
   private authHeaders(): Record<string, string> {
     const token = getToken()
@@ -29,9 +27,7 @@ class Api {
   }
 
   request(path: string, init?: RequestInit | {body?: Body, headers?: HeadersInit}): Promise<Response> {
-    if (path.startsWith('/')) throw new Error('Invalid path: ' + path)
-    const base = adminResources.some(r => path === r || path.startsWith(r + '/') || path.startsWith(r + '?')) ? this.adminPrefix : this.prefix
-    path = base + path
+    if (!path.startsWith('/')) path = this.prefix + path
     document.documentElement.classList.add('loading')
     const disabledButtons = this.disableSubmitButtons((init as RequestInit)?.method)
 

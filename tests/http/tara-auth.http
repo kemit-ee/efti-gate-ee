@@ -1,5 +1,5 @@
 ### Dev login as Super Admin
-POST {{RUUTER_URL}}/efti/api/v1/auth/dev-login
+POST {{RUUTER_URL}}/auth/dev-login
 Content-Type: application/json
 
 {
@@ -17,7 +17,7 @@ Content-Type: application/json
 %}
 
 ### Dev login as Mari Tamm
-POST {{RUUTER_URL}}/efti/api/v1/auth/dev-login
+POST {{RUUTER_URL}}/auth/dev-login
 Content-Type: application/json
 
 {
@@ -35,7 +35,7 @@ Content-Type: application/json
 %}
 
 ### Dev login as unprovisioned user (exists in TARA, not in gate DB)
-POST {{RUUTER_URL}}/efti/api/v1/auth/dev-login
+POST {{RUUTER_URL}}/auth/dev-login
 Content-Type: application/json
 
 {
@@ -53,7 +53,7 @@ Content-Type: application/json
 %}
 
 ### Get current user Super admin
-GET {{RUUTER_URL}}/efti/api/v1/user
+GET {{RUUTER_URL}}/auth/user
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
@@ -65,7 +65,7 @@ Authorization: Bearer {{adminToken}}
 %}
 
 ### Get current user Mari
-GET {{RUUTER_URL}}/efti/api/v1/user
+GET {{RUUTER_URL}}/auth/user
 Content-Type: application/json
 Authorization: Bearer {{authorityToken}}
 
@@ -77,7 +77,7 @@ Authorization: Bearer {{authorityToken}}
 %}
 
 ### NEGATIVE: unprovisioned user rejected
-GET {{RUUTER_URL}}/efti/api/v1/user
+GET {{RUUTER_URL}}/auth/user
 Content-Type: application/json
 Authorization: Bearer {{unprovisionedToken}}
 
@@ -88,7 +88,7 @@ Authorization: Bearer {{unprovisionedToken}}
 %}
 
 ### NEGATIVE: no token
-GET {{RUUTER_URL}}/efti/api/v1/user
+GET {{RUUTER_URL}}/auth/user
 Content-Type: application/json
 
 > {%
@@ -98,7 +98,7 @@ Content-Type: application/json
 %}
 
 ### NEGATIVE: garbage token
-GET {{RUUTER_URL}}/efti/api/v1/user
+GET {{RUUTER_URL}}/auth/user
 Content-Type: application/json
 Authorization: Bearer garbage
 
@@ -109,7 +109,7 @@ Authorization: Bearer garbage
 %}
 
 ### Logout (Super Admin)
-POST {{RUUTER_URL}}/efti/api/v1/auth/logout
+POST {{RUUTER_URL}}/auth/logout
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
@@ -120,7 +120,7 @@ Authorization: Bearer {{adminToken}}
 %}
 
 ### Verify token rejected after logout
-GET {{RUUTER_URL}}/efti/api/v1/user
+GET {{RUUTER_URL}}/auth/user
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
@@ -131,7 +131,7 @@ Authorization: Bearer {{adminToken}}
 %}
 
 ### Logout idempotent (calling again is safe)
-POST {{RUUTER_URL}}/efti/api/v1/auth/logout
+POST {{RUUTER_URL}}/auth/logout
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 

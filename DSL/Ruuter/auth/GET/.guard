@@ -1,0 +1,10 @@
+# Any authenticated user — validates JWT via TIM + DB lookup.
+guard_success:
+  return: "success"
+  status: 200
+  next: end
+
+guard_fail:
+  return: ${auth_result.response.body}
+  status: ${auth_result.response.status}
+  next: end

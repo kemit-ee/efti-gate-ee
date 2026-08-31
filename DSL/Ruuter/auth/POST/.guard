@@ -1,3 +1,4 @@
+# Public — no auth required (callback, logout, dev-login).
 guard_success:
   return: "success"
   status: 200

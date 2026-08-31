@@ -31,7 +31,7 @@
     }
 
     try {
-      user = await api.get<User>('user')
+      user = await api.get<User>('/auth/user')
       currentUser.set(user)
     } catch {
       await redirectToTara()
