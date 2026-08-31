@@ -34,11 +34,12 @@ forward_to_platform:
   next: respond
 
 respond:
-  return: ${platform_response.response.body}
+  return:
+    uil: ${incoming.body.uil}
+    subsets: ${incoming.body.subsets}
+    xml: ${platform_response.response.body}
   wrapper: false
   status: ${platform_response.response.status}
-  headers:
-    content-type: text/xml
   next: end
 
 forward_to_remote_gate:
