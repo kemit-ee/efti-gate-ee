@@ -1,0 +1,8 @@
+declaration:
+  description: "Mock platform health check for ping"
+
+respond:
+  return: "OK"
+  wrapper: false
+  status: 200
+  next: end

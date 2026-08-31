@@ -100,14 +100,14 @@ Authorization: Bearer {{adminToken}}
   })
 %}
 
-### Ping platform (REST — no eDelivery cert)
+### Ping platform (REST — mock-platform health endpoint)
 POST {{RUUTER_URL}}/admin/v1/platforms
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
 {
   "id": "ping-test",
-  "baseUrl": "https://httpbin.org/status/200",
+  "baseUrl": "http://ruuter:8086/mock-platform/health",
   "status": "ONLINE"
 }
 

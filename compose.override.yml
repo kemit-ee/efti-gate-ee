@@ -67,4 +67,4 @@ services:
       - ./:/workdir
     entrypoint: [ "/bin/sh", "-c" ]
     command:
-      - "java -cp '/intellij-http-client/*' com.intellij.httpClient.cli.HttpClientMain -L VERBOSE --env-file tests/http-client.env.json -e docker tests/*/*.http"
+      - "java -cp '/intellij-http-client/*' com.intellij.httpClient.cli.HttpClientMain -L VERBOSE --env-file tests/http-client.env.json -e docker --no-progress ${TEST_FILES:-tests/*/*.http}"
