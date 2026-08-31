@@ -1,11 +1,6 @@
 import ./auth.http
 run #auth
 
-### Cleanup: delete existing test authority if present
-DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-mta
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
 ### Create authority
 POST {{RUUTER_URL}}/admin/v1/authorities
 Content-Type: application/json
