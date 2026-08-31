@@ -4,8 +4,8 @@ Working plan for branch `refactor/split-m2m-ruuter`. Status as of the rename com
 
 ## Motivation
 
-`POST/api/v1/.guard` on the `efti` Ruuter is a forced no-op because that one
-directory mixes three security domains:
+`POST/api/v1/.guard` on the `efti` Ruuter mixes three security domains in one
+directory:
 
 | Domain | Credential | Caller |
 |---|---|---|
@@ -14,9 +14,11 @@ directory mixes three security domains:
 | Platform API | `X-Api-Key` header → `platforms` registry (ADR-004, 2026-08-25) | eFTI platforms |
 | Peer-gate G2G | AS4 via the `edelivery` service (loopback) | peer eFTI gates |
 
-Admin enforcement is currently copy-pasted as an inline `check-admin-authority`
-call at the top of `gates.yml`, `users.yml`, `platforms.yml`, `authorities.yml`,
-`users/revoke-token.yml`. DRY violation and easy to forget on a new route.
+Ruuter 0.9.x chains every guard in the path hierarchy, so a non-public guard here
+also gates `auth/*`. Admin enforcement therefore stays as an inline
+`check-admin-authority` call at the top of `gates.yml`, `users.yml`, `platforms.yml`,
+`authorities.yml`, `users/revoke-token.yml`, `platforms/api-key.yml`. The win is
+removing authority / platform / G2G from this mixed directory entirely.
 
 ## Target
 
@@ -24,12 +26,12 @@ Two Ruuter instances, each with uniform, meaningful directory guards:
 
 ### `efti` (port 8086) — UI-facing only
 - `POST/api/v1/auth/*` — public (login/callback/logout)
-- `POST/api/v1/.guard` — **admin JWT** (replaces the no-op; same shape as PUT/DELETE)
+- `POST/api/v1/.guard` — stays public passthrough (chaining constraint)
 - `GET/api/v1/.guard` — any authenticated user (unchanged)
 - `PUT` / `DELETE` — admin (unchanged)
 - Routes: `gates`, `users`, `platforms`, `authorities`, `users/revoke-token`,
   and all admin GET reads (`audit`, `status`, `user`, `gates/own`, list endpoints)
-- Inline `check_admin` blocks deleted from the 4 POST files.
+- Inline `check_admin` blocks stay; `platforms/api-key.yml` gains one.
 
 ### `m2m` (port 8087) — machine-to-machine
 ```

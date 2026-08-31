@@ -40,7 +40,7 @@ mis on **teostatud**, mis on **puudu** ja millised on näidisissendid/väljundid
 | **Auth (eDelivery G2G, `m2m`)** | Puudub Ruuteri tasemel — AS4 / WS-Security lõpetab `edelivery` teenus, m2m Ruuter pole väljaspool võrku |
 | **Auth (Cron)** | Staatiline `ARCHIVE_OPS_TOKEN` env-muutuja |
 | **Health** | Autentimine puudub — avalik |
-| **Guard-failid (`efti`)** | `GET /api/v1/*` → autentimine nõutav; `POST/PUT/DELETE /api/v1/*` → ADMIN nõutav; `/api/v1/auth/*` → avalik |
+| **Guard-failid (`efti`)** | `GET /api/v1/*` → autentimine nõutav; `PUT/DELETE /api/v1/*` → ADMIN; `POST /api/v1/*` guard on avalik (Ruuter 0.9.x aheldab guarde, mitte-avalik katkestaks ka `auth/*`) — POST admin-endpointid kutsuvad `check-admin-authority` oma DSL-i alguses; `/api/v1/auth/*` → avalik |
 | **Guard-failid (`m2m`)** | `m2m/POST/xroad/` → X-Road-Client; `m2m/POST/platform/` → `X-Api-Key`; `m2m/POST/edelivery/` → võrgu-usaldus; `m2m/{POST,GET}/authority/` → X-Road-Client või eDelivery |
 | **Rollid** | `ADMIN` — kõik haldustoimingud; `AUTHORITY` — dataset/follow-up/authority-search; `'{}'` — puuduvad õigused (ainult `/api/v1/user`) |
 | **Veavastuse formaat** | RFC 7807 `application/problem+json` |

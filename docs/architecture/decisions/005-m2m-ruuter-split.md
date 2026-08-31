@@ -26,14 +26,22 @@ m2m/GET/authority/    sama mis POST/authority/
 
 ## Põhjus
 
-- `POST/api/v1/.guard` `efti` Ruuteris oli sunnitud olema no-op, sest üks kataloog
-  segas kolme turvamudelit (admin UI, authority, platform/G2G). Admin-kontroll oli
-  kopeeritud iga admin-endpointi DSL-i algusesse (`check-admin-authority` väljakutse).
-- Pärast jagamist on iga kataloogi guard ühtne ja tähenduslik: `efti/POST` = admin,
-  `m2m/POST/<domeen>` = selle domeeni kredentsiaal. Uut marsruuti ei saa kogemata
-  valveta jätta.
+- `POST/api/v1/.guard` `efti` Ruuteris segas kolme turvamudelit (admin UI, authority,
+  platform/G2G) ühes kataloogis. Authority/platform/G2G marsruudid liiguvad `m2m`-i,
+  kus iga alamkataloogi guard on ühtne ja tähenduslik (`m2m/POST/<domeen>` = selle
+  domeeni kredentsiaal). `m2m` alamkataloogidel pole konflikssevat vanem-guardi.
 - Kaks instantsi saab eraldi võrku/ingressi paigutada, eraldi skaleerida ja
   logireegleid rakendada. UI-liides ei ole partnerväravatele avatud ja vastupidi.
+
+## Mida see EI muuda
+
+`efti/POST/api/v1/.guard` jääb avalikuks läbilaskeks ja admin-endpointid
+(gates, platforms, authorities, users, users/revoke-token, platforms/api-key)
+hoiavad `check-admin-authority` väljakutset oma DSL-i alguses. Ruuter 0.9.x
+**aheldab** kõik teekonna guardid — mitte-avalik `POST/api/v1/.guard` katkestaks
+ka `POST/api/v1/auth/*` (login/logout). Guardi-konsolideerimine nõuaks kas
+deepest-wins semantikaga Ruuterit või URL-i ümberstruktureerimist
+(`/api/v1/admin/...`) — edasilükatud.
 
 ## Marsruutide teisaldus
 

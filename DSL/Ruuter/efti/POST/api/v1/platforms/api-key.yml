@@ -3,6 +3,29 @@ declaration:
     key once — it is stored only as a SHA-256 hash (ADR-004)."
   # Route: POST /api/v1/platforms/api-key/:id
 
+check_admin:
+  call: http.post
+  args:
+    url: "[#RUUTER_URL]/efti/internal/check-admin-authority"
+    headers:
+      Content-Type: application/json
+      authorization: ${incoming.headers.authorization}
+    body: {}
+  result: admin_check
+  next: verify_admin
+
+verify_admin:
+  switch:
+    - condition: ${admin_check.response.status == 200}
+      next: check_exists
+  next: admin_fail
+
+admin_fail:
+  return: ${admin_check.response.body}
+  status: ${admin_check.response.status}
+  wrapper: false
+  next: end
+
 check_exists:
   call: http.post
   args:
