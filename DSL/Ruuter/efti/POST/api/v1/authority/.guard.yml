@@ -15,7 +15,7 @@ check_result:
   switch:
     - condition: ${auth_result.response.status != 200}
       next: guard_fail
-    - condition: ${auth_result.response.body.is_admin == true || auth_result.response.body.is_authority == true}
+    - condition: ${auth_result.response.body.isAdmin == true || auth_result.response.body.isAuthority == true}
       next: guard_success
   next: guard_fail_forbidden
 

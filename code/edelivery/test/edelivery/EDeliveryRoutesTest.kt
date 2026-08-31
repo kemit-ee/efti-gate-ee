@@ -69,7 +69,8 @@ class EDeliveryRoutesTest {
 
     routes.msh(exchange)
 
-    verify {
+    // handler runs on another thread (see `msh success`) — poll instead of racing it
+    verify(timeout = 2000) {
       mockHandler.invoke(match {
         it.key.receiverId == party.id && it.xml.contains(payload)
       })

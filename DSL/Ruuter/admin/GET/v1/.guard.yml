@@ -1,4 +1,4 @@
-# Any authenticated user — validates JWT via TIM + DB lookup.
+# Any authenticated user (same as efti/GET/api/v1/.guard.yml).
 validate_auth:
   call: http.post
   args:
