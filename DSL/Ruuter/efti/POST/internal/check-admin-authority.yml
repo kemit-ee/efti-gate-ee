@@ -70,7 +70,7 @@ check_user_found:
 
 check_admin_role:
   switch:
-    - condition: ${user_res.response.body[0].is_admin == true}
+    - condition: ${user_res.response.body[0].isAdmin == true}
       next: return_user
   next: forbidden
 
