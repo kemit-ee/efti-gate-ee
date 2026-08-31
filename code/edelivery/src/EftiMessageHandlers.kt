@@ -12,7 +12,7 @@ class EftiMessageHandlers(
   }
 
   override val rootTags: Map<String, (MessageContext) -> String?> = mapOf(
-//    "hello" to { null },
+    "hello" to { null },
     "FTI009GetCmdsRequest" to { ruuterClient.getDataset(it.xml) },
     "FTI010GetCmdsResponse" to ::provideResponse,
     "FTI019SearchIdentifierRequest" to { ruuterClient.searchConsignments(it.xml) },
