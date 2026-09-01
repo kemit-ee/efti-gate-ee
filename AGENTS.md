@@ -97,16 +97,22 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - `allowed_body: [xml]` — wraps raw XML body as `incoming.body.xml`
 - `wrapper: false` — always return raw response (not JSON-wrapped)
 - `template: api/v1/foo` — call another DSL file as subroutine, works only in the same top-level Ruuter project
-- Guard files — **`.guard.yml` at a directory level only**. Ruuter runs the nearest `.guard.yml` walking up from the route's directory (parent directory guards apply to child paths). Per-route guard files (`<route>.guard.yml` next to `<route>.yml`) are *loaded but never enforced* — do not rely on them. To give one route a different auth posture than its siblings, put it in its own subdirectory with its own `.guard.yml`.
+- **Each top-level dir under the DSL mount is a Ruuter project** (`auth/`, `admin/`, `efti/`, `platforms/`, `mock-platform/` for the main Ruuter; `xroad/` for `Ruuter-xroad`). `dsl.project:` in `ruuter.yaml` does not gate loading.
+- Guard files (Ruuter ≥ 0.9.7-rc) — every `.guard.yml` walking up from the route's directory runs, outermost-first, all must pass:
+  - `<project>/.guard.yml` (**project-level**, Ruuter #39) — one file for every method in the project. Used for `admin/`, `platforms/`, and `xroad/` where the whole surface has one auth posture.
+  - `<dir>/.guard.yml` (**directory-level**) — applies to every route at/under that dir. Used where posture varies by method/subtree (`efti/`).
+  - `declaration.override_ancestors: true` on a nested guard **replaces** all ancestor guards (incl. project-level) for its subtree — used by `xroad/GET/health/.guard.yml` so the health probe is not forced to send `X-Road-Client`.
+  - A guard may `assign` vars the handler then reads (`${caller}`, `${authority}`) — the same execution context flows through. Prefer this over a handler re-calling `check-*-authority` just to get the caller row.
+  - Per-route sibling guards (`<route>.guard.yml` next to `<route>.yml`) — not used here; behaviour is version-specific (broken in 0.9.4-rc, fixed in 0.9.6-rc #41).
 - `template:` calls invoke the target handler as an engine subroutine and **bypass guards** — a public route can `template:` into a handler that lives under a guarded directory (this is how the G2G `-xml`/`-local` wrappers reach the guarded authority handlers).
 - Guard map (see `docs/specs/permissions-matrix.md`):
-  - `admin/` GET/POST/PUT/DELETE = ADMIN (`check-admin-authority`)
+  - `admin/` GET/POST/PUT/DELETE = ADMIN (`check-admin-authority`) — one `admin/.guard.yml` covers all methods
   - `auth/` POST = public; `auth/` GET = any authenticated user (`check-user-authority`)
   - `efti/GET/api/v1/` = any authenticated user; `efti/GET/api/v1/authority/` = ADMIN or AUTHORITY
   - `efti/POST/api/v1/` = public (gate-to-gate inbound: `dataset-xml`/`-local`, `follow-up-xml`/`-local`, `consignments/search-xml`, `ping` — all edelivery-only after AS4 mTLS)
   - `efti/POST/api/v1/authority/` = ADMIN or AUTHORITY — holds the real authority handlers (`dataset`, `follow-up`, `consignments-search`, `search`); the G2G wrappers above `template:` into these
-  - `platforms/POST/v1/` = platform `X-Api-Key` hash (ADR-004); also covers the G2G `consignments-xml` — that route needs an internal service token once G2G inbound is revived (follow-up)
-  - `Ruuter-xroad/xroad/GET/v1/` and `Ruuter-xroad/xroad/POST/v1/` = `x-road-client` member code resolves to exactly one `ACTIVE` authority (ADR-006). Two guard files with **identical logic** (comments differ) — guards are directory-level and the tree is method-first, so one file cannot cover both methods; keep them in sync. In both, **deny is the fall-through branch** and each accept path is an explicit positive condition, so a non-array ReSql body cannot fail open. `Ruuter-xroad/xroad/GET/health/` is deliberately unguarded (no ancestor `.guard.yml`), same as the `efti` probes.
+  - `platforms/` = platform `X-Api-Key` hash (ADR-004) — one `platforms/.guard.yml`; also covers the G2G `consignments-xml`. **Deny is the fall-through branch**, each accept path an explicit positive condition, so a non-array ReSql body cannot fail open.
+  - `Ruuter-xroad/xroad/` = `x-road-client` member code resolves to exactly one `ACTIVE` authority (ADR-006). One project-level `xroad/.guard.yml` for both methods; it `assign`s `${authority}` for handlers. **Deny is the fall-through branch** and each accept path an explicit positive condition, so a non-array ReSql body cannot fail open. `xroad/GET/health/.guard.yml` uses `override_ancestors` to stay public (the `efti` probes have no ancestor guard and need none).
 
 ## SQL conventions (ReSql)
 

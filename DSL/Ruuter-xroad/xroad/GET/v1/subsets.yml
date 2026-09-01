@@ -7,12 +7,13 @@ declaration:
     from this list — a dataset request may name up to seven subsets, and one call covers all of
     them."
 
-# The guard has already validated the header shape and confirmed an ACTIVE authority exists, but
-# Ruuter cannot hand the guard's result to the handler, so the lookup is repeated here — the same
-# shape echo.yml uses. Deliberately NOT factored into an internal loopback DSL: a route under
-# xroad/POST/internal/ would sit outside every guard and be reachable from outside on port 8087,
-# letting anyone enumerate registry codes to harvest authority names and subsets. One extra ReSql
-# call is cheaper than that exposure.
+# The guard has already validated the header shape, confirmed an ACTIVE authority exists, and
+# exposed it as ${authority}. This handler still re-resolves rather than reading ${authority}:
+# it discloses subset entitlements, and the authority could be soft-deleted between the guard's
+# lookup and this one. Deliberately NOT factored into an internal loopback DSL either: a route
+# under xroad/POST/internal/ would sit outside every guard and be reachable from outside on port
+# 8087, letting anyone enumerate registry codes to harvest authority names and subsets. One extra
+# ReSql call is cheaper than that exposure.
 resolve_authority:
   call: http.post
   args:
