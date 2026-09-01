@@ -1,0 +1,19 @@
+# Readiness probe for the X-Road Ruuter, mirroring DSL/Ruuter/efti/GET/health/ready.yml.
+# Public by construction: guards walk up from xroad/GET/health/ and find none, the same way the
+# efti Ruuter's probes stay public. Wired to the ruuter-xroad healthcheck in compose.yml so
+# `docker compose up --wait` can actually verify the container came up.
+check_db:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/get_db_status"
+    headers:
+      Content-Type: "application/json"
+    body: {}
+  result: db_result
+  next: respond
+
+respond:
+  return: "OK"
+  status: 200
+  wrapper: false
+  next: end

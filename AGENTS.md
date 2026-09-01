@@ -11,6 +11,7 @@ Estonian national eFTI Gate (EU Regulation 2020/1056). Mediates dataset retrieva
 | Layer | Tech | Port | Role |
 |-------|------|------|------|
 | **Ruuter** | Rust DSL engine | 8086 | HTTP API gateway — routes defined as YAML files |
+| **Ruuter (X-Road)** | Rust DSL engine | 8087 | Separate instance for the X-Road national extension (`DSL/Ruuter-xroad`) |
 | **ReSql** | Rust SQL executor | 8090 | Serves SQL files as HTTP endpoints |
 | **Kotlin services** | JVM (klite framework) | 8081–8083 | edelivery (AS4), xml-mapper (XML↔JSON), multiplexer (fan-out) |
 
@@ -57,6 +58,11 @@ DSL/
     platforms/          # Platform API routes (served under /platforms/)
       POST/v1/          # consignments (upload consignment XML)
     mock-platform/      # Mock platform (served under /mock-platform/)
+  Ruuter-xroad/         # SEPARATE Ruuter instance (:8087) — X-Road national extension (ADR-006)
+    xroad/              # Routes served under /xroad/
+      POST/v1/          # echo (connectivity test)
+      GET/v1/           # subsets (subset-permission discovery)
+      GET/health/       # ready (probe, unguarded)
   Resql/efti/POST/      # SQL endpoint files (*.sql)
   Liquibase/            # DB migrations (initial/ + changelog/)
 code/
@@ -100,7 +106,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   - `efti/POST/api/v1/` = public (gate-to-gate inbound: `dataset-xml`/`-local`, `follow-up-xml`/`-local`, `consignments/search-xml`, `ping` — all edelivery-only after AS4 mTLS)
   - `efti/POST/api/v1/authority/` = ADMIN or AUTHORITY — holds the real authority handlers (`dataset`, `follow-up`, `consignments-search`, `search`); the G2G wrappers above `template:` into these
   - `platforms/POST/v1/` = platform `X-Api-Key` hash (ADR-004); also covers the G2G `consignments-xml` — that route needs an internal service token once G2G inbound is revived (follow-up)
-  - `Ruuter-xroad/xroad/POST/v1/` = `x-road-client` header resolves to a known authority
+  - `Ruuter-xroad/xroad/GET/v1/` and `Ruuter-xroad/xroad/POST/v1/` = `x-road-client` member code resolves to exactly one `ACTIVE` authority (ADR-006). Two guard files with **identical logic** (comments differ) — guards are directory-level and the tree is method-first, so one file cannot cover both methods; keep them in sync. In both, **deny is the fall-through branch** and each accept path is an explicit positive condition, so a non-array ReSql body cannot fail open. `Ruuter-xroad/xroad/GET/health/` is deliberately unguarded (no ancestor `.guard.yml`), same as the `efti` probes.
 
 ## SQL conventions (ReSql)
 

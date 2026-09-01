@@ -1,0 +1,319 @@
+import ../admin/auth.http
+run #auth
+
+# GET /xroad/v1/subsets — X-Road subset-permission discovery (ADR-006).
+#
+# Registry codes here are distinct from the ones in xroad-echo.http on purpose:
+# get_authority_by_registry_code has LIMIT 1, so two live authorities sharing a registry_code
+# would make the lookup ambiguous.
+
+### Setup: clean up any leftovers from a previous run
+DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-subsets
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Cleanup subsets authority ok", () => {
+    client.assert(response.status === 204 || response.status === 404)
+  })
+%}
+
+###
+DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-empty
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Cleanup empty-subsets authority ok", () => {
+    client.assert(response.status === 204 || response.status === 404)
+  })
+%}
+
+###
+DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-deleted
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Cleanup deleted-authority fixture ok", () => {
+    client.assert(response.status === 204 || response.status === 404)
+  })
+%}
+
+### Cleanup: duplicate-code fixture
+# Must run before the 70000097 happy path — a leftover ACTIVE duplicate from an aborted run would
+# make that code ambiguous and turn the happy-path 200 into a confusing 403.
+DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-dupe
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Cleanup duplicate-code fixture ok", () => {
+    client.assert(response.status === 204 || response.status === 404)
+  })
+%}
+
+### Setup: authority with two permitted subsets
+POST {{RUUTER_URL}}/admin/v1/authorities
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "id": "auth-xroad-subsets",
+  "name": "X-Road Subsets Test Authority",
+  "registryCode": "70000097",
+  "subsets": ["EU01", "EU05"],
+  "status": "ACTIVE"
+}
+
+> {%
+  client.test("Subsets authority created", () => {
+    client.assert(response.status === 201)
+    client.assert(response.body.registryCode === "70000097")
+  })
+%}
+
+### Setup: authority entitled to nothing
+POST {{RUUTER_URL}}/admin/v1/authorities
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "id": "auth-xroad-empty",
+  "name": "X-Road Empty Subsets Authority",
+  "registryCode": "70000096",
+  "subsets": [],
+  "status": "ACTIVE"
+}
+
+> {%
+  client.test("Empty-subsets authority created", () => {
+    client.assert(response.status === 201)
+  })
+%}
+
+### Happy path: subsystem-level client gets its own permitted subsets
+GET {{RUUTER_XROAD_URL}}/xroad/v1/subsets
+X-Road-Client: EE/GOV/70000097/tram
+X-Road-Id: test-id-subsets-001
+X-Road-UserId: EE30101010007
+
+> {%
+  client.test("Returns the authority's permitted subsets", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.registryCode === "70000097")
+    client.assert(response.body.authorityId === "auth-xroad-subsets")
+    client.assert(response.body.subsets.length === 2)
+    client.assert(response.body.subsets.indexOf("EU01") !== -1)
+    client.assert(response.body.subsets.indexOf("EU05") !== -1)
+  })
+%}
+
+### Member-level client (3 parts, no subsystem) is a valid X-Road client id
+GET {{RUUTER_XROAD_URL}}/xroad/v1/subsets
+X-Road-Client: EE/GOV/70000097
+X-Road-Id: test-id-subsets-002
+
+> {%
+  client.test("3-part member-level client is accepted", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.authorityId === "auth-xroad-subsets")
+  })
+%}
+
+### An authority entitled to nothing gets an empty list, not an error
+GET {{RUUTER_XROAD_URL}}/xroad/v1/subsets
+X-Road-Client: EE/GOV/70000096/tram
+X-Road-Id: test-id-subsets-003
+
+> {%
+  client.test("Empty entitlement returns an empty array", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.authorityId === "auth-xroad-empty")
+    client.assert(response.body.subsets.length === 0)
+  })
+%}
+
+### The GET surface is guarded: no X-Road-Client → 401
+# Regression guard for the GET/v1/.guard.yml file. Without it this route would return 200 to
+# anyone, because Ruuter only enforces a guard it finds walking up from the route's directory.
+GET {{RUUTER_XROAD_URL}}/xroad/v1/subsets
+X-Road-Id: test-id-subsets-004
+
+> {%
+  client.test("Missing X-Road-Client returns 401", () => {
+    client.assert(response.status === 401)
+    client.assert(response.body.type === "https://api.efti.ee/errors/unauthorized")
+    client.assert(response.body.code === "UNAUTHORIZED")
+  })
+%}
+
+### Malformed X-Road-Client (2 parts) → 401
+GET {{RUUTER_XROAD_URL}}/xroad/v1/subsets
+X-Road-Client: EE/GOV
+X-Road-Id: test-id-subsets-005
+
+> {%
+  client.test("Malformed X-Road-Client returns 401", () => {
+    client.assert(response.status === 401)
+    client.assert(response.body.code === "UNAUTHORIZED")
+  })
+%}
+
+### Missing X-Road-Id → 400
+GET {{RUUTER_XROAD_URL}}/xroad/v1/subsets
+X-Road-Client: EE/GOV/70000097/tram
+
+> {%
+  client.test("Missing X-Road-Id returns 400", () => {
+    client.assert(response.status === 400)
+    client.assert(response.body.type === "https://api.efti.ee/errors/missing-required-header")
+    client.assert(response.body.code === "MISSING_REQUIRED_HEADER")
+  })
+%}
+
+### Unknown registry code → 403
+GET {{RUUTER_XROAD_URL}}/xroad/v1/subsets
+X-Road-Client: EE/GOV/99999999/tram
+X-Road-Id: test-id-subsets-006
+
+> {%
+  client.test("Unknown registry code returns 403", () => {
+    client.assert(response.status === 403)
+    client.assert(response.body.code === "FORBIDDEN")
+  })
+%}
+
+### Regression: soft-deleted authority must not authenticate
+# authorities is append-only, so DELETE inserts a new row with status='DELETED' carrying the same
+# registry_code, leaving an older ACTIVE row behind. get_authority_by_registry_code used to filter
+# status inside its DISTINCT ON, so it resolved the latest row of the *filtered* set — the stale
+# ACTIVE one — and a deleted authority kept authenticating. Create, prove it works, delete, prove
+# it stops.
+POST {{RUUTER_URL}}/admin/v1/authorities
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "id": "auth-xroad-deleted",
+  "name": "X-Road Soft-Delete Fixture",
+  "registryCode": "70000095",
+  "subsets": ["EU02"],
+  "status": "ACTIVE"
+}
+
+> {%
+  client.test("Soft-delete fixture created", () => {
+    client.assert(response.status === 201)
+  })
+%}
+
+###
+GET {{RUUTER_XROAD_URL}}/xroad/v1/subsets
+X-Road-Client: EE/GOV/70000095/tram
+X-Road-Id: test-id-subsets-007
+
+> {%
+  client.test("Fixture authenticates while ACTIVE", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.subsets.indexOf("EU02") !== -1)
+  })
+%}
+
+###
+DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-deleted
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Fixture soft-deleted", () => {
+    client.assert(response.status === 204)
+  })
+%}
+
+###
+GET {{RUUTER_XROAD_URL}}/xroad/v1/subsets
+X-Road-Client: EE/GOV/70000095/tram
+X-Road-Id: test-id-subsets-008
+
+> {%
+  client.test("Soft-deleted authority no longer authenticates", () => {
+    client.assert(response.status === 403)
+    client.assert(response.body.code === "FORBIDDEN")
+  })
+%}
+
+### Regression: a registry code shared by two ACTIVE authorities must be denied, not guessed
+# authorities.registry_code has no unique constraint and the admin create route does not check for
+# duplicates, so an operator typo can produce two ACTIVE rows with the same code. Returning either
+# one would hand one organisation the other's subset entitlement. Both the guard and the handler
+# must reject a >1 row count.
+POST {{RUUTER_URL}}/admin/v1/authorities
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "id": "auth-xroad-dupe",
+  "name": "X-Road Duplicate Registry Code Fixture",
+  "registryCode": "70000097",
+  "subsets": ["EU01", "EU02", "EU03", "EU04", "EU07"],
+  "status": "ACTIVE"
+}
+
+> {%
+  client.test("Duplicate-code fixture created", () => {
+    client.assert(response.status === 201)
+    client.assert(response.body.registryCode === "70000097")
+  })
+%}
+
+###
+GET {{RUUTER_XROAD_URL}}/xroad/v1/subsets
+X-Road-Client: EE/GOV/70000097/tram
+X-Road-Id: test-id-subsets-009
+
+> {%
+  client.test("Ambiguous registry code is denied, not resolved arbitrarily", () => {
+    client.assert(response.status === 403)
+    client.assert(response.body.code === "FORBIDDEN")
+    client.assert(response.body.detail.indexOf("more than one") !== -1)
+  })
+%}
+
+### Teardown: remove the duplicate first so 70000097 is unambiguous again
+DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-dupe
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Duplicate-code fixture removed", () => {
+    client.assert(response.status === 204)
+  })
+%}
+
+###
+GET {{RUUTER_XROAD_URL}}/xroad/v1/subsets
+X-Road-Client: EE/GOV/70000097/tram
+X-Road-Id: test-id-subsets-010
+
+> {%
+  client.test("Removing the duplicate restores the original entitlement", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.authorityId === "auth-xroad-subsets")
+    client.assert(response.body.subsets.length === 2)
+  })
+%}
+
+### Teardown
+DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-subsets
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Teardown subsets authority", () => {
+    client.assert(response.status === 204)
+  })
+%}
+
+###
+DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-empty
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Teardown empty-subsets authority", () => {
+    client.assert(response.status === 204)
+  })
+%}

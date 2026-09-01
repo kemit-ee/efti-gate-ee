@@ -66,6 +66,13 @@ tags:
     description: CronManager-driven scheduled job endpoints (archive, expire-identifiers, ping-gates) — `opsToken` only
   - name: Auth
     description: Token issuance, logout, and revocation
+  - name: X-Road
+    description: |
+      Estonian national extension (EE only; other Member States' gates need not implement it).
+      Served by a separate Ruuter instance on port 8087, reached through the RIA-operated X-Road
+      Security Server. Authentication is the Security Server's mTLS, forwarded as the
+      `X-Road-Client` header — identity is the calling **organisation**, resolved against
+      `authorities.registry_code`. REST, not SOAP. See ADR-006.
   - name: Health
     description: Kubernetes liveness and readiness probes — no authentication required
 
@@ -418,9 +425,11 @@ paths:
         - **SSE** (`Accept: text/event-stream`): Streams partial results as gates respond.
           Events: `gate` (gate responded), `consignment` (match found), `complete` (all done).
 
-        The authority's permitted subsets are read from the resolved
-        `users.subsets` (the gate looks up the row by `tara_sub = jwt.sub`) and
-        enforced when the authority subsequently calls `GET /v1/dataset/...`.
+        The authority's permitted subsets are read from `authorities.subsets` and
+        enforced when the authority subsequently calls `GET /v1/dataset/...`. There is no
+        `users.subsets` column; see ADR-006. On the X-Road channel the authority is resolved
+        from the `X-Road-Client` member code, and callers can discover their own entitlement
+        via `GET /xroad/v1/subsets`.
       parameters:
         - name: identifier
           in: path
@@ -561,7 +570,8 @@ paths:
       description: |
         Retrieves the full consignment dataset from the originating platform, filtered
         to the requested eFTI subsets. The authority must only request subsets they
-        are legally permitted to access (enforced via `users.subsets` of the row resolved by `tara_sub = jwt.sub`).
+        are legally permitted to access (enforced via `authorities.subsets`; there is no
+        `users.subsets` column — see ADR-006).
 
         If the dataset resides on a remote gate, the request is forwarded via eDelivery AS4.
         The operation is synchronous from the authority's perspective (gate handles AS4 round-trip).
@@ -1960,8 +1970,155 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 
   # ----------------------------------------------------------------------------
-  # HEALTH
+  # X-ROAD (EE national extension — separate Ruuter instance, port 8087)
   # ----------------------------------------------------------------------------
+
+  /xroad/v1/subsets:
+    # Not served by the `servers` list above: this surface is the `ruuter-xroad` instance on port
+    # 8087, reached by consumers through their own X-Road Security Server at
+    # /r1/EE/GOV/70003158/efti-gate/... — the path below is what the provider-side gate sees.
+    servers:
+      - url: http://ruuter-xroad:8087
+        description: X-Road adapter (compose-internal; reached via the RIA Security Server)
+    get:
+      tags: [X-Road]
+      summary: Discover the calling organisation's permitted eFTI subsets
+      operationId: getXroadSubsets
+      description: |
+        Returns the eFTI data subsets the **calling organisation** is permitted to request,
+        resolved from the `X-Road-Client` header's `memberCode` via `authorities.registry_code`
+        to `authorities.subsets`.
+
+        The registry code is taken only from the Security-Server-established header, never from
+        the request, so a caller can never query another organisation's entitlement.
+
+        A **list** rather than a yes/no check: the list is the superset of yes/no (the client
+        answers its own question locally), a dataset request may name up to seven subsets so a
+        yes/no interface would cost seven round-trips, and the list is cacheable.
+
+        Served by the `ruuter-xroad` instance on port 8087, not the main gate API.
+      security:
+        - xroadClient: []
+      parameters:
+        - name: X-Road-Id
+          in: header
+          required: true
+          description: X-Road message id, logged for correlation.
+          schema:
+            type: string
+          example: 4894e35d-bf0f-44a6-867a-8e51f1daa7e0
+        - name: X-Road-UserId
+          in: header
+          required: false
+          description: |
+            End user's personal identification code, when the calling system has one.
+            **Audit only** — X-Road does not authenticate this value, so it never grants access.
+          schema:
+            type: string
+          example: EE30101010007
+      responses:
+        '200':
+          description: The calling organisation's permitted subsets
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [registryCode, authorityId, subsets]
+                properties:
+                  registryCode:
+                    type: string
+                    description: Estonian Business Registry code the caller resolved to
+                    example: "70000097"
+                  authorityId:
+                    type: string
+                    description: Logical `authorities.id` of the resolved authority
+                    example: auth-mta
+                  subsets:
+                    type: array
+                    description: |
+                      Permitted subsets, verbatim from `authorities.subsets`. An empty array means
+                      the authority is registered but entitled to nothing — a valid 200, not an
+                      error.
+
+                      Deliberately **not** typed as the `Subset` enum. `authorities.subsets` carries
+                      no database CHECK constraint, and the admin UI also offers Estonian national
+                      codes (`EE01`, `EE02`, `EE04`, `EE05a`, `EE05c`, `EE05d`) alongside
+                      `EU01..EU07`, so binding the enum here would make a strict client reject a
+                      legitimate response. The EU set below is a recommendation, not a constraint;
+                      the value set is an open question — see ADR-006.
+                    items:
+                      type: string
+                    x-recommended-values: ["EU01", "EU02", "EU03", "EU04", "EU05", "EU06", "EU07"]
+                    example: ["EU01", "EU05"]
+        '400':
+          description: |
+            `MISSING_REQUIRED_HEADER` — `X-Road-Id` is absent. Checked only after `X-Road-Client`
+            has been validated, so a malformed client id yields 401, not this.
+
+            Note: the body is RFC 7807 *shaped*, but Ruuter serves it as `application/json`, not
+            `application/problem+json`. This matches every other guard in the gate
+            (`platforms/POST/v1/.guard.yml`, `efti/POST/api/v1/authority/.guard.yml`); the media
+            type is documented here as what is actually emitted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: https://api.efti.ee/errors/missing-required-header
+                code: MISSING_REQUIRED_HEADER
+                title: Missing Required Header
+                status: 400
+                detail: X-Road-Id header is required on every X-Road request.
+        '401':
+          description: |
+            `UNAUTHORIZED` — `X-Road-Client` is absent or malformed. The header is the credential,
+            so this is 401 rather than 403. Malformed covers: not 3 or 4 slash-separated parts, an
+            empty instance / memberClass / memberCode, or a trailing slash.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: https://api.efti.ee/errors/unauthorized
+                code: UNAUTHORIZED
+                title: Authentication Required
+                status: 401
+                detail: X-Road-Client header is missing or malformed. Expected instance/memberClass/memberCode[/subsystemCode].
+        '403':
+          description: |
+            `FORBIDDEN`, for either of two conditions:
+
+            - the member code does not resolve to an `ACTIVE` authority; or
+            - it resolves to **more than one** `ACTIVE` authority. `authorities.registry_code` has
+              no unique constraint, so an operator typo can produce duplicates. Returning either row
+              would hand one organisation the other's entitlement, so the request is denied rather
+              than resolved. A dedicated `FORBIDDEN_MULTI_AUTHORITY` code (mirroring
+              `FORBIDDEN_MULTI_PLATFORM`) is proposed in ADR-006's open questions; until then both
+              cases share `FORBIDDEN` and are distinguished by `detail`.
+
+            The two "not resolvable" cases — unknown code, and known-but-soft-deleted — return an
+            identical body, so denials do not reveal whether a registry code is registered.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notResolvable:
+                  summary: Unknown or soft-deleted authority
+                  value:
+                    type: https://api.efti.ee/errors/forbidden
+                    code: FORBIDDEN
+                    title: Forbidden
+                    status: 403
+                    detail: The X-Road client does not resolve to an active competent authority.
+                ambiguous:
+                  summary: Duplicate registry code (registry misconfiguration)
+                  value:
+                    type: https://api.efti.ee/errors/forbidden
+                    code: FORBIDDEN
+                    title: Forbidden
+                    status: 403
+                    detail: The X-Road client registry code resolves to more than one active competent authority. This is a registry misconfiguration; contact the gate operator.
 
   /health/live:
     get:
@@ -2013,6 +2170,25 @@ components:
   # SECURITY SCHEMES
   # ============================================================================
   securitySchemes:
+    xroadClient:
+      type: apiKey
+      in: header
+      name: X-Road-Client
+      description: |
+        **X-Road national extension (EE only).** Not a secret the caller mints — the RIA-operated
+        X-Road Security Server authenticates the consumer organisation by mTLS and sets this header
+        on the forwarded request. The gate trusts it because authentication has already happened
+        upstream; a caller cannot reach the adapter without passing through a Security Server.
+
+        Format `instance/memberClass/memberCode[/subsystemCode]`. Both the 3-part (member-level,
+        `EE/GOV/70000097`) and 4-part (subsystem-level, `EE/GOV/70000097/tram`) forms are valid
+        X-Road client ids. `memberCode` is the Estonian Business Registry code and is resolved
+        against `authorities.registry_code`; the resolved row's `subsets` is the authorisation
+        source. Identity is the **organisation**, never a person — `X-Road-UserId` is not
+        authenticated by X-Road and never grants access.
+
+        Modelled as `apiKey` because OpenAPI has no way to express "header set by a trusted
+        upstream proxy after mTLS". See ADR-006.
     taraJwt:
       type: http
       scheme: bearer
@@ -3050,7 +3226,13 @@ components:
         subsets:
           type: array
           nullable: true
-          description: Subset-level access restriction for AUTHORITY users (null = all authority subsets)
+          deprecated: true
+          description: |
+            **Not implemented — no `users.subsets` column exists** in the migrations or in
+            `docs/specs/db/schema.sql`, and `users` carries no link to an authority. Subset
+            permissions live on `authorities.subsets`, keyed by `registry_code`. See ADR-006.
+            Retained here only so existing clients do not break on an unexpected removal;
+            always absent from responses.
           items:
             $ref: '#/components/schemas/Subset'
           example: ["EU01", "EU02"]
