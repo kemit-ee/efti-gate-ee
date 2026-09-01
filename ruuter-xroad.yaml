@@ -1,6 +1,7 @@
 port: 8087
 
-http_codes_allow_list: [200, 201, 204, 400, 401, 403, 404, 422, 500]
+# Kept in sync with ruuter.yaml so an upstream status is never silently swapped for a generic error.
+http_codes_allow_list: [200, 201, 202, 204, 400, 401, 403, 404, 409, 422, 500, 504]
 
 dsl:
   project: xroad
