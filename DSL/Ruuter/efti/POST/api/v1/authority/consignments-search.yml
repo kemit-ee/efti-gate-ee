@@ -1,3 +1,6 @@
+declaration:
+  description: "Reusable consignments fetching step from ReSQL"
+
 search_consignments:
   call: http.post
   args:
