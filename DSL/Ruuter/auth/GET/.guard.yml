@@ -1,4 +1,6 @@
-# Any authenticated user — validates JWT via TIM + DB lookup.
+# Any authenticated user — validates JWT via TIM + DB lookup. On success the caller
+# row is exposed as ${caller} for the handler (shared execution context), so
+# auth/GET/user.yml does not re-run this lookup.
 validate_auth:
   call: http.post
   args:
@@ -13,8 +15,13 @@ validate_auth:
 check_result:
   switch:
     - condition: ${auth_result.response.status == 200}
-      next: guard_success
+      next: bind_caller
   next: guard_fail
+
+bind_caller:
+  assign:
+    caller: ${auth_result.response.body}
+  next: guard_success
 
 guard_success:
   return: "success"
