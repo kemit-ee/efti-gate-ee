@@ -22,7 +22,7 @@
   ]
 
   let user: User | undefined
-  $: if (!user && '/auth/callback' !== $activePath) getUser()
+  $: if (!user && $activePath !== '/callback') getUser()
 
   async function getUser() {
     if (!getToken()) {
@@ -59,6 +59,6 @@
     {#each routes as r}
       <Route {...r}/>
     {/each}
-    <Route path="/auth/callback" component={AuthCallbackPage}/>
+    <Route path="/callback" component={AuthCallbackPage}/>
   </main>
 </Router>

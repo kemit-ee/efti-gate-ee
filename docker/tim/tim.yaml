@@ -47,4 +47,4 @@ oauth2:
         clock_skew_seconds: 60
         cache_ttl_seconds: 3600
       allowed_redirect_uris:
-        - "http://localhost:8000/auth/callback"
+        - "http://localhost:8000/callback"
