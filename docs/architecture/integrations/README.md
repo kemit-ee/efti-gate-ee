@@ -2,6 +2,9 @@
 
 ## Changes
 
+- **v1.1** — §1.6 rewritten: X-Road establishes *organisation* identity via the Security Server's
+  mTLS and the `X-Road-Client` header, not a TARA-issued user ID token; the surface is REST, not
+  SOAP. See [ADR-006](../decisions/006-xroad-identity-and-subsets.md).
 - _Initial state. Change tracking begins at v1.0.0._
 
 > Theme-wide architectural rules. Every sub-area below — and every Acceptance Criterion (AC) it carries — must derive from or at minimum **not conflict with** the rules stated here. AC live in the corresponding sub-area files under [`docs/cfr/integrations/`](../../cfr/integrations/); this document describes the *contract those AC implement*.
@@ -40,6 +43,14 @@ For mTLS at the AS4 access point, OCSP/CRL revocation checks on peer certificate
 
 `POST /services/fast` (the gate-to-gate fast protocol bypassing Domibus) requires mTLS. There is no `X-API-Key` fallback. If a caller presents `X-API-Key`, it is never honoured. This eliminates an entire class of credential-leak risks at the cost of accepting that fast-protocol setup requires mTLS infrastructure.
 
-### 1.6 X-Road = ID-token transport for Authority access only
+### 1.6 X-Road carries organisation identity, not a user token
 
-X-Road is the transport for **Authority access from RIA-registered national systems** — it is not a substitute for AS4 (which is the cross-border bus). The X-Road message carries a TARA-issued ID token; the gate validates it identically to a direct TARA login (see [Identity & Access §1.1](../identity-and-access/README.md)). The X-Road integration is an Estonian national extension on top of the standard eFTI gate; other Member States' gates need not implement it.
+> **Changed in v1.1.** This rule previously said the X-Road message carries a TARA-issued ID token validated identically to a direct TARA login. It does not, and cannot: the callers this bus exists for are machine-to-machine (ANTS via NES sends >10 000 queries/hour during border operations) and have no human, hence no TARA token. See [ADR-006](../decisions/006-xroad-identity-and-subsets.md).
+
+X-Road is the transport for **Authority access from RIA-registered national systems** — it is not a substitute for AS4 (which is the cross-border bus). It is an Estonian national extension on top of the standard eFTI gate; other Member States' gates need not implement it.
+
+**The identity X-Road establishes is the calling organisation.** The RIA-operated Security Server authenticates the client by mTLS and forwards the result as `X-Road-Client` (`instance/memberClass/memberCode[/subsystemCode]`). The `memberCode` is the Estonian Business Registry code, which the gate resolves against `authorities.registry_code`; the resolved `authorities.subsets` is the authorisation source. The gate trusts the forwarded header because the Security Server has already done the authentication.
+
+`X-Road-UserId` may carry an end user's personal identification code, but X-Road does **not** authenticate it — it is caller-asserted, and it never grants access. It is intended for GDPR Art. 30 audit; the audit writer does not exist yet (no DSL writes `audit_log`), so that is a stated intent rather than implemented behaviour — see [ADR-006](../decisions/006-xroad-identity-and-subsets.md).
+
+**The X-Road surface is REST, not SOAP** (X-Road v7 REST message protocol); errors are RFC 7807 per [`errors.json`](../../specs/errors.json), not SOAP faults. There is no `protocolVersion` to validate — in the REST protocol the version is the `/r1/` prefix on the *consumer's* URL, consumed by the consumer's Security Server and never forwarded to the provider.

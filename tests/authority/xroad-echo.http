@@ -56,7 +56,7 @@ Content-Type: application/json
   })
 %}
 
-### Echo: missing X-Road-Client header → 403
+### Echo: missing X-Road-Client header → 401 (the header is the credential)
 POST {{RUUTER_XROAD_URL}}/xroad/v1/echo
 X-Road-Id: test-id-xroad-002
 Content-Type: application/json
@@ -64,12 +64,14 @@ Content-Type: application/json
 {"hello": "world"}
 
 > {%
-  client.test("Missing X-Road-Client returns 403", () => {
-    client.assert(response.status === 403)
+  client.test("Missing X-Road-Client returns 401", () => {
+    client.assert(response.status === 401)
+    client.assert(response.body.type === "https://api.efti.ee/errors/unauthorized")
+    client.assert(response.body.code === "UNAUTHORIZED")
   })
 %}
 
-### Echo: malformed X-Road-Client (only 2 parts) → 403
+### Echo: malformed X-Road-Client (only 2 parts) → 401
 POST {{RUUTER_XROAD_URL}}/xroad/v1/echo
 X-Road-Client: EE/GOV
 X-Road-Id: test-id-xroad-003
@@ -78,8 +80,23 @@ Content-Type: application/json
 {"hello": "world"}
 
 > {%
-  client.test("Malformed X-Road-Client returns 403", () => {
-    client.assert(response.status === 403)
+  client.test("Malformed X-Road-Client returns 401", () => {
+    client.assert(response.status === 401)
+    client.assert(response.body.code === "UNAUTHORIZED")
+  })
+%}
+
+### Echo: missing X-Road-Id header → 400
+POST {{RUUTER_XROAD_URL}}/xroad/v1/echo
+X-Road-Client: EE/GOV/70000099/testSubsystem
+Content-Type: application/json
+
+{"hello": "world"}
+
+> {%
+  client.test("Missing X-Road-Id returns 400", () => {
+    client.assert(response.status === 400)
+    client.assert(response.body.code === "MISSING_REQUIRED_HEADER")
   })
 %}
 
@@ -94,6 +111,23 @@ Content-Type: application/json
 > {%
   client.test("Unknown registry_code returns 403", () => {
     client.assert(response.status === 403)
+    client.assert(response.body.type === "https://api.efti.ee/errors/forbidden")
+    client.assert(response.body.code === "FORBIDDEN")
+  })
+%}
+
+### Echo: member-level X-Road-Client (3 parts, no subsystem) is valid
+POST {{RUUTER_XROAD_URL}}/xroad/v1/echo
+X-Road-Client: EE/GOV/70000099
+X-Road-Id: test-id-xroad-005
+Content-Type: application/json
+
+{"hello": "world"}
+
+> {%
+  client.test("Member-level 3-part client is accepted", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.authority.registryCode === "70000099")
   })
 %}
 

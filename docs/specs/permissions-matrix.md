@@ -1,15 +1,24 @@
 # eFTI Gate v2.0 Permissions Matrix
 
-**Version**: 1.2 — reconciled with the implemented auth flow
-**Date**: 2026-08-21
+**Version**: 1.3 — X-Road surface added; subset source corrected
+**Date**: 2026-09-01
 **Status**: Development-ready specification
+
+**Changed in 1.3** (§2, §3.2, §7): the X-Road channel is added to the §2 identity table. Subset
+permissions are **not** on `users` — there is no `users.subsets` column in the migrations or in
+`docs/specs/db/schema.sql`, and `users` carries no link to an authority. The only subset register is
+`authorities.subsets`, keyed by `registry_code`, which is what the `X-Road-Client` member code
+resolves to. `FORBIDDEN_SUBSET` is therefore enforceable on the X-Road path and blocked on the JWT
+path until that gap is closed. See
+[ADR-006](../architecture/decisions/006-xroad-identity-and-subsets.md).
 
 **Changed in 1.2** (§1.1, §2, §3.2, §6, §7, §8.1): the session token is issued by **TIM**
 after TARA OIDC login, not by TARA directly, and is validated by calling TIM rather than
 against a cached TARA JWKS. Revocation is immediate on both paths. The JWT-path cost is one
-TIM call plus **one** DB lookup, not two. `FORBIDDEN_SUBSET` / `FORBIDDEN_WRITE_ACCESS` are
+TIM call plus **one** DB lookup, not two. `FORBIDDEN_WRITE_ACCESS` is
 decided from the resolved `users` row, which is what §2 and §6 always said — the §7 wording
-that sourced them from JWT claims was inconsistent and has been corrected. The
+that sourced it from JWT claims was inconsistent and has been corrected. (`FORBIDDEN_SUBSET` was
+listed here too; corrected in 1.3 — subsets are not on `users`.) The
 `resource_access.efti-gate.roles` claim reference is removed: TARA does not issue it.
 
 ---
@@ -39,7 +48,7 @@ graph TD
     TARA -->|Invalid| ERR401[401 TOKEN_INVALID]
     TARA -->|Valid| TARASUB[Resolve users row<br/>by tara_sub = jwt.sub<br/>active row only]
     TARASUB -->|None| NOUSER[401 TOKEN_INVALID<br/>no provisioned user]
-    TARASUB -->|Resolved| AUTHZ[Read roles, subsets<br/>from the resolved users row<br/>as the authorisation source]
+    TARASUB -->|Resolved| AUTHZ[Read roles from the resolved<br/>users row as the<br/>authorisation source]
     MTLS -->|None| NOPLAT[403 FORBIDDEN_NO_PLATFORM]
     MTLS -->|>1 active| MULTI[403 FORBIDDEN_MULTI_PLATFORM]
     MTLS -->|1 active| ALLOWPLAT[Allow Platform handler]
@@ -71,6 +80,7 @@ Two kinds of caller identity, modelled in two different ways. The legacy "single
 | **Platform API** | mTLS X.509 client cert | A `platforms` row whose `cert_subject` + `cert_serial` match | None — cert subject = platform identity. |
 | **CronManager admin endpoints** | Static `Authorization: Bearer <ARCHIVE_OPS_TOKEN>` | Env var; **no DB row** | None — token comparison is the whole authorisation. |
 | **G2G (gate ↔ gate)** | mTLS at the AS4 access point (Member-State-issued cert) | A `gates` row whose `e_delivery_cert` matches | None — gate identity is the cert subject; trust is established by the cert chain rooted at the EU Trust Service. |
+| **X-Road (EE national)** | mTLS at the RIA-operated Security Server, forwarded as the `X-Road-Client` header | The single `ACTIVE` `authorities` row whose `registry_code` matches the header's `memberCode` (a code matching more than one active row is a registry misconfiguration and is denied, not resolved) | The resolved `authorities` row — `authorities.subsets` is the permitted-subset set. Identity is the **organisation**, not a person; `X-Road-UserId` never grants access (intended for audit, but no audit writer exists yet). See [ADR-006](../architecture/decisions/006-xroad-identity-and-subsets.md). |
 | **Break-glass local admin** | HTTP Basic + bcrypt | A single `users` row with `secret_hash != NULL` | The same resolved-`users`-row source as TARA path; the break-glass JWT issued by `/api/v1/auth/local-token` is a transport vehicle, not the source of truth. Default-disabled (`LOCAL_ADMIN_FALLBACK_ENABLED=false`). |
 
 **`users.tara_sub`** carries the value the gate matches against the inbound JWT's `sub` claim. For TARA-issued JWTs this is the Estonian PIC. For the single break-glass local-admin row this is the reserved literal `local-admin` (lower-case; never collides with a PIC). Always non-null — the resolution path is uniform across TARA and break-glass JWTs.
@@ -128,7 +138,7 @@ Authenticated by the **TIM-issued JWT** obtained through TARA OIDC login. The ga
 | Endpoint | Method | TARA JWT (AUTHORITY or ADMIN) | mTLS Platform | Unauth |
 |---|---|---|---|---|
 | `/v1/identifiers/{identifier}` | GET | ✅ All gates' identifiers (audit logged) | ❌ | ❌ |
-| `/v1/dataset/{gateId}/{platformId}/{datasetId}` | GET | ✅ Subsets requested ⊆ `users.subsets` | ❌ | ❌ |
+| `/v1/dataset/{gateId}/{platformId}/{datasetId}` | GET | ✅ Subset restriction **not yet enforced on this path** — see the §7 `FORBIDDEN_SUBSET` note | ❌ | ❌ |
 | `/v1/follow-up/{gateId}/{platformId}/{datasetId}/{datasetRequestId}` | POST | ✅ | ❌ | ❌ |
 
 ```mermaid
@@ -141,7 +151,7 @@ flowchart TD
     ROLE --No--> R403[403 FORBIDDEN]
     ROLE --Yes--> ROUTE{Endpoint?}
     ROUTE -->|GET /identifiers/identifier| SEARCH["No ownership filter<br/>local search + broadcast<br/>identifierCountryOfOrigin = configured countryCode"]
-    ROUTE -->|GET /dataset/...| SUB{requested subsets ⊆ users.subsets?}
+    ROUTE -->|GET /dataset/...| SUB{requested subsets ⊆ permitted subsets?}
     SUB --No--> R403S[403 FORBIDDEN_SUBSET]
     SUB --Yes--> FWD[Forward to platform OR remote gate]
     ROUTE -->|POST /follow-up/...| FU[Send to platform/gate]
@@ -260,7 +270,7 @@ All errors share the schema `{type, code, title, status, detail, instance}` per 
 | 403 | `FORBIDDEN_NO_PLATFORM` | `forbidden-no-platform` | mTLS cert presented but `platforms.cert_subject` lookup yields no active platform, or matched a `is_active=FALSE` row. |
 | 403 | `FORBIDDEN_MULTI_PLATFORM` | `forbidden-multi-platform` | mTLS cert subject resolves to more than one active `platforms` row (configuration error). Always 403 — never 401, 400. |
 | 403 | `FORBIDDEN_WRITE_ACCESS` | `forbidden-write-access` | `checkWriteAccess(entityId)` — the target entity id is not in the **resolved `users` row's** scope. |
-| 403 | `FORBIDDEN_SUBSET` | `forbidden-subset` | Authority requested a subset not in the **resolved `users` row's** permitted subsets. |
+| 403 | `FORBIDDEN_SUBSET` | `forbidden-subset` | Authority requested a subset not in its permitted subsets. On the **X-Road path** these are `authorities.subsets`, resolved from the `X-Road-Client` member code (see §2 and [ADR-006](../architecture/decisions/006-xroad-identity-and-subsets.md)). On the JWT path this is **not yet enforceable** — `users` has no `subsets` column and no link to an authority. |
 | 400 | `BAD_REQUEST_GENERAL` | `bad-request` | Admin tried to delete themselves (`userId == currentUser.id`). |
 
 ---

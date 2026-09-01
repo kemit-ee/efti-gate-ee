@@ -12,7 +12,9 @@ incoming_requests:
   allowed_method_types: [GET, POST, PUT, DELETE]
 
 internal_requests:
-  # check-xroad-client is called over this Ruuter's own loopback.
+  # The X-Road guards and handlers call ReSQL by compose service name (http://resql:8090), which
+  # is a private-network address. There is no loopback helper DSL on this Ruuter — see ADR-006 for
+  # why the authority lookup is repeated in each handler instead of factored into an internal route.
   block_private_networks: false
 
 stop_in_case_of_exception: true

@@ -1,0 +1,64 @@
+declaration:
+  description: "X-Road subset-permission discovery (ADR-006). Returns the eFTI subsets the calling
+    organisation is permitted to request, resolved from the X-Road-Client header via
+    authorities.registry_code to authorities.subsets. The registry code is taken from the
+    Security-Server-established header only, never from the request, so a caller can never ask
+    about another organisation's entitlement. Callers answer their own yes/no questions locally
+    from this list — a dataset request may name up to seven subsets, and one call covers all of
+    them."
+
+# The guard has already validated the header shape and confirmed an ACTIVE authority exists, but
+# Ruuter cannot hand the guard's result to the handler, so the lookup is repeated here — the same
+# shape echo.yml uses. Deliberately NOT factored into an internal loopback DSL: a route under
+# xroad/POST/internal/ would sit outside every guard and be reachable from outside on port 8087,
+# letting anyone enumerate registry codes to harvest authority names and subsets. One extra ReSql
+# call is cheaper than that exposure.
+resolve_authority:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/get_authority_by_registry_code"
+    headers:
+      Content-Type: application/json
+    body:
+      registry_code: "${incoming.headers['x-road-client'].split('/')[2]}"
+  result: authority_res
+  next: check_authority
+
+# Defence in depth. The guard already rejected 0 rows and >1 rows, but this handler discloses
+# subset entitlements, so it re-checks rather than trusting the guard: the authority could be
+# soft-deleted between the two lookups, and a >1 row count must never resolve to body[0] because
+# that would hand one organisation another's entitlement. Deny is the fall-through branch and
+# every accept path is an explicit positive condition — a non-array ReSql body makes every
+# length comparison false, and must land on `forbidden`, not on `respond`.
+check_authority:
+  switch:
+    - condition: ${authority_res.response.status != 200}
+      next: forbidden
+    - condition: ${authority_res.response.body == null || authority_res.response.body.length == 0}
+      next: forbidden
+    - condition: ${authority_res.response.body.length > 1}
+      next: ambiguous
+    - condition: ${authority_res.response.body.length === 1}
+      next: respond
+  next: forbidden
+
+respond:
+  return:
+    registryCode: ${authority_res.response.body[0].registryCode}
+    authorityId: ${authority_res.response.body[0].id}
+    subsets: ${authority_res.response.body[0].subsets}
+  wrapper: false
+  status: 200
+  next: end
+
+forbidden:
+  return: ${JSON.parse('{"type":"https://api.efti.ee/errors/forbidden","code":"FORBIDDEN","title":"Forbidden","status":403,"detail":"The X-Road client does not resolve to an active competent authority."}')}
+  status: 403
+  wrapper: false
+  next: end
+
+ambiguous:
+  return: ${JSON.parse('{"type":"https://api.efti.ee/errors/forbidden","code":"FORBIDDEN","title":"Forbidden","status":403,"detail":"The X-Road client registry code resolves to more than one active competent authority. This is a registry misconfiguration; contact the gate operator."}')}
+  status: 403
+  wrapper: false
+  next: end
