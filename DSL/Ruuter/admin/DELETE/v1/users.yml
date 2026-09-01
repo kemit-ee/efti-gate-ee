@@ -1,29 +1,7 @@
-check_admin:
-  call: http.post
-  args:
-    url: "[#RUUTER_URL]/efti/internal/check-admin-authority"
-    headers:
-      Content-Type: application/json
-      authorization: ${incoming.headers.authorization}
-    body: {}
-  result: admin_check
-  next: verify_admin
-
-verify_admin:
-  switch:
-    - condition: ${admin_check.response.status == 200}
-      next: check_not_self
-  next: admin_fail
-
-admin_fail:
-  return: ${admin_check.response.body}
-  status: ${admin_check.response.status}
-  wrapper: false
-  next: end
-
+# Admin is enforced by admin/.guard.yml, which also exposes the caller row as ${caller}.
 check_not_self:
   switch:
-    - condition: ${admin_check.response.body.id == incoming.params.pathParams[0]}
+    - condition: ${caller.id == incoming.params.pathParams[0]}
       next: delete_self_error
   next: delete_user
 
