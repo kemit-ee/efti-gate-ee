@@ -1,23 +1,14 @@
 declaration:
-  description: "Echo endpoint for X-Road connectivity testing. Validates the caller against the authorities registry and returns the X-Road headers alongside the request body."
-
-resolve_authority:
-  call: http.post
-  args:
-    url: "[#RESQL_URL]/efti/get_authority_by_registry_code"
-    headers:
-      Content-Type: application/json
-    body:
-      registry_code: "${incoming.headers['x-road-client'].split('/')[2]}"
-  result: authority_res
-  next: respond
+  description: "Echo endpoint for X-Road connectivity testing. The guard has already validated the
+    caller against the authorities registry and exposed the row as ${authority}; this handler just
+    echoes it back with the X-Road headers and the request body."
 
 respond:
   return:
     xRoadClient: "${incoming.headers['x-road-client']}"
     xRoadId: "${incoming.headers['x-road-id']}"
     xRoadUserId: "${incoming.headers['x-road-userid']}"
-    authority: ${authority_res.response.body[0]}
+    authority: ${authority}
     echo: ${incoming.body}
   wrapper: false
   status: 200

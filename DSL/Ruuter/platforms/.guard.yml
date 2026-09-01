@@ -1,0 +1,62 @@
+# Platform API-key guard (ADR-004) — one project-level guard (Ruuter #39) for the whole
+# platforms surface — covers consignments.yml (direct platform upload) and consignments-xml.yml
+# (eDelivery-delivered upload). The X-Api-Key header must be present and its SHA-256 must match
+# api_key_hash on an active platform. The key itself is never stored — it is generated via
+# POST /admin/v1/platforms/api-key/:id and shown once.
+check_present:
+  switch:
+    - condition: ${incoming.headers == null || incoming.headers['x-api-key'] == null || incoming.headers['x-api-key'] == ''}
+      next: guard_fail
+  next: resolve_platform
+
+resolve_platform:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/get_platform_by_api_key"
+    headers:
+      Content-Type: application/json
+    body:
+      apiKey: ${incoming.headers['x-api-key']}
+  result: platform_res
+  next: check_platform
+
+# DENY IS THE FALL-THROUGH BRANCH and every accept path is an explicit positive condition — same
+# posture as the X-Road guard. A non-array ReSql body (a 500 error object, a param-validation
+# failure) makes every length comparison false, so it must land on guard_fail, not guard_success.
+check_platform:
+  switch:
+    - condition: ${platform_res.response.status != 200}
+      next: guard_fail
+    - condition: ${platform_res.response.body == null || platform_res.response.body.length == 0}
+      next: guard_fail
+    - condition: ${platform_res.response.body.length > 1}
+      next: guard_multi
+    - condition: ${platform_res.response.body.length === 1}
+      next: guard_success
+  next: guard_fail
+
+guard_success:
+  return: "success"
+  status: 200
+  wrapper: false
+  next: end
+
+guard_fail:
+  return:
+    type: "https://api.efti.ee/errors/unauthorized"
+    title: "Unauthorized"
+    status: 401
+    detail: "X-Api-Key is missing or does not match a registered platform."
+  status: 401
+  wrapper: false
+  next: end
+
+guard_multi:
+  return:
+    type: "https://api.efti.ee/errors/forbidden-multi-platform"
+    title: "Forbidden"
+    status: 403
+    detail: "X-Api-Key resolves to more than one active platform."
+  status: 403
+  wrapper: false
+  next: end
