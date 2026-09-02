@@ -93,12 +93,23 @@ check_edelivery_response:
   switch:
     - condition: ${edelivery_response.response.status != 200}
       next: edelivery_error
+  next: response_to_json
+
+response_to_json:
+  call: http.post
+  args:
+    url: "[#XML_MAPPER_URL]/api/v1/followup/response-to-json"
+    headers:
+      Content-Type: "text/xml"
+    body: ${edelivery_response.response.body}
+    content_type: plaintext
+  result: remote_json
   next: respond_remote
 
-respond_remote: # TODO: authority most likely does not want to get the xml
-  return: ${edelivery_response.response.body}
+respond_remote:
+  return: ${remote_json.response.body}
   headers:
-    Content-Type: "text/xml"
+    Content-Type: "application/json"
   wrapper: false
   status: 200
   next: end
