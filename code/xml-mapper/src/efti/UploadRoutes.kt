@@ -16,6 +16,7 @@ import klite.uuid
   description = "These routes are for mapping requests and responses for consignment uploads."
 )
 class UploadRoutes(val requestIdHandler: RequestIdHandler) {
+  // TODO: replace UniqueIDSetUniqueIDSet with ParameterIDSetCriteria when we identify platform and can pass UIL/PlatformId here as header
   @Operation(description = "Map FTI004UploadIdentifierRequest or UniqueIDSetUniqueIDSet as XML to a flat consignment json suitable for DB insertion.")
   @POST("/request-to-json") fun requestToJson(xml: String, e: HttpExchange): ConsignmentRow {
     val content = if (xml.contains("FTI004UploadIdentifierRequest")) {
