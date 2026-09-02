@@ -25,4 +25,4 @@ WHERE (:resource::text IS NULL OR resource = :resource)
   AND (:from::text IS NULL OR recorded_at >= :from::timestamptz)
   AND (:to::text IS NULL OR recorded_at <= :to::timestamptz)
 ORDER BY recorded_at DESC
-LIMIT COALESCE(:limit, 20) OFFSET COALESCE(:offset, 0);
+LIMIT COALESCE(:limit::int, 20) OFFSET COALESCE(:offset::int, 0);

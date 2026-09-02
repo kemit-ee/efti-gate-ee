@@ -19,4 +19,4 @@ SELECT * FROM (
   ORDER BY id, created_at DESC
 ) latest
 WHERE status != 'DELETED'
-LIMIT COALESCE(:limit, 20) OFFSET COALESCE(:offset, 0);
+LIMIT COALESCE(:limit::int, 20) OFFSET COALESCE(:offset::int, 0);
