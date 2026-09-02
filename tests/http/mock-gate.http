@@ -11,7 +11,7 @@ import ../admin/auth.http
 run #auth
 
 ### Setup — get own gate details
-GET {{RUUTER_URL}}/efti/api/v1/gates/own
+GET {{RUUTER_URL}}/admin/v1/gates/own
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 

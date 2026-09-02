@@ -7,6 +7,7 @@
   import Button from 'src/components/Button.svelte'
   import PlatformForm from 'src/pages/admin/platforms/PlatformForm.svelte'
   import type {Platform} from "src/api/ruuterTypes";
+  import OwnGateButton from "src/pages/admin/gates/OwnGateButton.svelte";
 
   let platforms: Platform[]
   let editPlatform: Platform | false = false
@@ -31,10 +32,16 @@
   }
 </script>
 
-<h1 class="flex justify-between items-center gap-8 mb-6">
-  {t.platforms.title} ({platforms?.length})
-  <Button label={t.general.add} onclick={add} class="primary"/>
-</h1>
+
+<div class="mb-6 flex justify-between items-center gap-8">
+  <h1>
+    {t.platforms.title} ({platforms?.length})
+  </h1>
+  <div>
+    <OwnGateButton/>
+    <Button label={t.general.add} onclick={add} class="primary"/>
+  </div>
+</div>
 
 <PlatformList {platforms} onEdit={onEdit} onDeleted={load} onChanged={load}/>
 
