@@ -1,5 +1,8 @@
 services:
   ui:
+    build:
+      args:
+        - VITE_USE_PROD_TARA_URL=false
     networks:
       - default
       - proxy
