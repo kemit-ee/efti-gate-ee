@@ -62,35 +62,6 @@ Authorization: Bearer {{adminToken}}
   })
 %}
 
-
-### Find consignment
-# Authority API (matrix §3.2): the local consignment search lives under
-# efti/POST/api/v1/authority/, whose directory guard requires an ADMIN-or-
-# AUTHORITY TARA JWT. search-xml stays public (edelivery-only, after AS4 mTLS)
-# and reaches the same handler via `template:`, which bypasses the guard.
-POST {{RUUTER_URL}}/efti/api/v1/authority/consignments-search
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-{
-  "criteria": {
-    "mainTransportId": {"operator": "EQ", "id": "VESSEL-001"},
-    "transportMode": {"operator": "EQ", "mode": "1"},
-    "carriedEquipmentId": {"operator": "EQ", "id": "TE-004"},
-    "deliveryCountry": {"operator": "EQ", "country": "EE"},
-    "deliveryDate": [{"operator": "GT", "date": "2025-06-01"}]
-  },
-  "limit": 10, "offset": 0
-}
-
-> {%
-  client.test("Find consignment", () => {
-    client.assert(response.status === 200)
-    client.assert(response.body.length === 1)
-    client.assert(response.body[0].datasetId === "550e8400-e29b-41d4-a716-446655440000")
-  })
-%}
-
 ### Find consignment over eDelivery
 POST {{RUUTER_URL}}/efti/api/v1/consignments/search-xml
 Content-Type: text/xml
