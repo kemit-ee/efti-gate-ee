@@ -48,6 +48,11 @@ The implementation contracts. Build the new gate against these.
 
 ## Development
 
+Git submodule needed for Tara-Mock:
+```sh
+git submodule update --init
+```
+
 Build and start everything (including http e2e tests):
 ```sh
 docker compose up --build -d
