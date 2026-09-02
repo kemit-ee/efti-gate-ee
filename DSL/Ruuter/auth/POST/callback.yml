@@ -79,7 +79,8 @@ check_jwt:
 # on every API call. No cookie, no CSRF token — per
 # docs/architecture/user-interfaces/README.md §1.3.
 return_token:
-  return: ${JSON.parse('{"token":"' + jwt_result.response.body.token + '"}')}
+  return:
+    token: ${jwt_result.response.body.token}
   wrapper: false
   next: end
 
