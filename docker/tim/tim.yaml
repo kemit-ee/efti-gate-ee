@@ -48,3 +48,4 @@ oauth2:
         cache_ttl_seconds: 3600
       allowed_redirect_uris:
         - "http://localhost:8000/callback"
+        - "https://eu-ee.pikker.dev/callback"

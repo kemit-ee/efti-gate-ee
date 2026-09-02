@@ -39,9 +39,9 @@
   }
 
   async function redirectToTara() {
-    const res = await fetch('/tim/auth/login/tara')
+    const res = await fetch(`/tim/auth/login/tara?redirect_uri=${location.origin}/callback`)
     const data: TaraLoginResponse = await res.json()
-    window.location.href = import.meta.env.VITE_USE_PROD_TARA_URL === 'true'
+    location.href = import.meta.env.VITE_USE_PROD_TARA_URL === 'true'
       ? data.authorization_url
       : data.authorization_url.replace('https://tara-mock:8080', '/tara')
   }
