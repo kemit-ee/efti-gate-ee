@@ -7,9 +7,9 @@ sequenceDiagram
     participant GateSE as Remote Gate (eu-yy03)
 
     Authority->>+Gate: GET /v1/identifiers/456XYZ?registrationCountryCode=FI
-    Note over Authority,Gate: Accept: text/event-stream<br/>Authorization: Bearer JWT<br/>(role=AUTHORITY)<br/>X-Request-ID echoed.
+    Note over Authority,Gate: Accept: text/event-stream<br/>Authorization: Bearer JWT<br/>(is_authority / is_admin)<br/>X-Request-ID echoed.
 
-    Gate->>Gate: Validate JWT (signature, exp, iss, aud,<br/>not in `sessions` denylist),<br/>require resource_access.efti-gate.roles ∋ AUTHORITY
+    Gate->>Gate: Validate JWT (signature, exp, iss, aud,<br/>not in `sessions` denylist),<br/>require is_admin OR is_authority
 
     Gate->>+DB: Local identifier search:<br/>resolve latest consignments rows matching vehicle_plate='456XYZ' AND vehicle_country='FI',<br/>keep only those whose latest status = 'active'.
     DB-->>-Gate: 0 results

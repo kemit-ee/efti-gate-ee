@@ -6,7 +6,7 @@ sequenceDiagram
     participant SSE as SSE Stream
 
     Authority->>+Gate: GET /v1/identifiers/123ABC?registrationCountryCode=EE
-    Note over Authority,Gate: Accept: text/event-stream<br/>Authorization: Bearer JWT<br/>(role=AUTHORITY)<br/>X-Request-ID echoed.
+    Note over Authority,Gate: Accept: text/event-stream<br/>Authorization: Bearer JWT<br/>(is_authority / is_admin)<br/>X-Request-ID echoed.
 
     Gate->>+Auth: validate(JWT)
     Auth-->>-Gate: AuthenticatedUser{authorityId="auth-mta", subsets=["EU01","EU02"]}

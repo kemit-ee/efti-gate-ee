@@ -2,6 +2,9 @@
 
 ## Changes
 
+- **v1.1** — RBAC is two `users` booleans (`is_admin`, `is_authority`), not a role set. The "Role
+  selection and navigation" criteria below (multi-role users, role-switch, role in chrome) no
+  longer apply. AC text is issue-synced; correct it in the GitHub issue.
 - _Initial state. Change tracking begins at v1.0.0._
 
 > Part of [Theme: User Interfaces](README.md). Architecture: [user-interfaces/README.md](../../architecture/user-interfaces/README.md) (theme-wide rules) + [user-interfaces/admin_ui.md](../../architecture/user-interfaces/admin_ui.md) (sub-architecture).

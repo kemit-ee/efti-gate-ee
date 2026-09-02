@@ -2,6 +2,9 @@
 
 ## Changes
 
+- **v1.1** — RBAC storage is two boolean columns, not an array. `users.roles TEXT[]` (`ADMIN` /
+  `AUTHORITY`) is replaced by `users.is_admin` + `users.is_authority`. The model is unchanged: the
+  Admin API requires `is_admin`; the Authority API allows `is_admin` OR `is_authority`.
 - _Initial state. Change tracking begins at v1.0.0._
 
 > Sub-architecture for the RBAC surface. For overarching rules that apply across the whole theme (authorisation snapshot in DB, stateless Resource Server, append-only revocation, channel routing, secret loading) see [theme README](README.md). AC are in [`docs/cfr/identity-and-access/user_management_and_rbac.md`](../../cfr/identity-and-access/user_management_and_rbac.md).
@@ -13,6 +16,8 @@ The user entity is identified by `tara_sub` (the TARA OIDC `sub` claim). The gat
 | Concept | Storage | Purpose |
 |---|---|---|
 | **User identity** | `users.tara_sub` | The TARA personal identification code (Estonian PIC) that identifies the user. |
+| **Admin access** | `users.is_admin` | `TRUE` = full Admin API (gate/platform/authority/user CRUD) **and** the Authority API. |
+| **Authority access** | `users.is_authority` | `TRUE` = Authority API only (dataset search, follow-up, authority-search). The authority guards allow `is_admin` OR `is_authority`. |
 | **Platform binding** | `platforms.e_delivery_cert` | Which platform an mTLS caller is, resolved from the cert. No `platforms` reference in `users`. |
 
 The platform identity is *not* a `users` row — it is a `platforms` row resolved from the client certificate.
@@ -25,7 +30,7 @@ An admin **cannot delete their own account**. The check is enforced at the appli
 
 ## 3. New-user creation
 
-A new user is created with `tara_sub` and `name`. The user is identified by their TARA personal identification code.
+A new user is created with `tara_sub`, `name`, and the `is_admin` / `is_authority` flags (both default to `FALSE` when omitted). The user is identified by their TARA personal identification code.
 
 ## 4. User identification
 

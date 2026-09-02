@@ -48,7 +48,7 @@ graph TD
     TARA -->|Invalid| ERR401[401 TOKEN_INVALID]
     TARA -->|Valid| TARASUB[Resolve users row<br/>by tara_sub = jwt.sub<br/>active row only]
     TARASUB -->|None| NOUSER[401 TOKEN_INVALID<br/>no provisioned user]
-    TARASUB -->|Resolved| AUTHZ[Read roles from the resolved<br/>users row as the<br/>authorisation source]
+    TARASUB -->|Resolved| AUTHZ[Read is_admin / is_authority from<br/>the resolved users row as the<br/>authorisation source]
     MTLS -->|None| NOPLAT[403 FORBIDDEN_NO_PLATFORM]
     MTLS -->|>1 active| MULTI[403 FORBIDDEN_MULTI_PLATFORM]
     MTLS -->|1 active| ALLOWPLAT[Allow Platform handler]
@@ -56,13 +56,9 @@ graph TD
     OPS -->|Match| ALLOW
     BG -->|Invalid or disabled| BGFAIL[401 / 503]
     BG -->|Valid| BGTOKEN[Issue gate-signed JWT<br/>sub='local-admin'; iat=NOW;<br/>caller proceeds via TARA-JWT path]
-    AUTHZ --> ROLECHECK{Required role on route<br/>matches caller's roles?}
-    ROLECHECK -->|No| ERR403[403 FORBIDDEN]
-    ROLECHECK -->|Yes| WRITE{Mutating endpoint<br/>with entityId param?}
-    WRITE -->|Yes| SCOPE{"entityId in caller's<br/>roles[ADMIN] scope?"}
-    SCOPE -->|No| ERR403WA[403 FORBIDDEN_WRITE_ACCESS]
-    SCOPE -->|Yes| ALLOW
-    WRITE -->|No| ALLOW
+    AUTHZ --> ROLECHECK{"Admin route → is_admin;<br/>authority route → is_admin OR is_authority"}
+    ROLECHECK -->|Fails| ERR403[403 FORBIDDEN]
+    ROLECHECK -->|Passes| ALLOW
 ```
 
 The diagram describes the rules; concrete query bodies belong to the implementation. Append-only semantics ("the latest row by `created_at` wins"; "soft-deleted entities — `is_active=FALSE` on the latest row — do not authenticate") apply to every "active row" check. See [`db/README.md`](db/README.md) for the canonical read pattern.
@@ -133,9 +129,9 @@ flowchart TD
 
 ### 3.2 Authority API
 
-Authenticated by the **TIM-issued JWT** obtained through TARA OIDC login. The gate validates the token at TIM, then resolves it to a `users` row via `tara_sub = jwt.sub`. The token itself carries **no** role claim — an earlier draft referenced `resource_access.efti-gate.roles`, a Keycloak-shaped claim that TARA does not issue and the gate does not read.
+Authenticated by the **TIM-issued JWT** obtained through TARA OIDC login. The gate validates the token at TIM, then resolves it to a `users` row via `tara_sub = jwt.sub` and requires `is_authority = true` **or** `is_admin = true` on that row. The token itself carries **no** role claim — an earlier draft referenced `resource_access.efti-gate.roles`, a Keycloak-shaped claim that TARA does not issue and the gate does not read.
 
-| Endpoint | Method | TARA JWT (AUTHORITY or ADMIN) | mTLS Platform | Unauth |
+| Endpoint | Method | TARA JWT (is_authority or is_admin) | mTLS Platform | Unauth |
 |---|---|---|---|---|
 | `/v1/identifiers/{identifier}` | GET | ✅ All gates' identifiers (audit logged) | ❌ | ❌ |
 | `/v1/dataset/{gateId}/{platformId}/{datasetId}` | GET | ✅ Subset restriction **not yet enforced on this path** — see the §7 `FORBIDDEN_SUBSET` note | ❌ | ❌ |
@@ -147,7 +143,7 @@ flowchart TD
     JWT --Invalid--> R401[401 TOKEN_INVALID]
     JWT --Valid--> LOOK[Resolve users row<br/>by tara_sub = jwt.sub<br/>active rows only]
     LOOK --0 rows--> R401N[401 TOKEN_INVALID<br/>no provisioned user]
-    LOOK --1 row--> ROLE{roles ∋ AUTHORITY<br/>or ADMIN?}
+    LOOK --1 row--> ROLE{is_authority<br/>or is_admin?}
     ROLE --No--> R403[403 FORBIDDEN]
     ROLE --Yes--> ROUTE{Endpoint?}
     ROUTE -->|GET /identifiers/identifier| SEARCH["No ownership filter<br/>local search + broadcast<br/>identifierCountryOfOrigin = configured countryCode"]
@@ -166,11 +162,11 @@ flowchart TD
 
 Admin endpoints require a valid TARA-issued JWT whose resolved `users` row matches. Path prefix `/api/v1/`. The CronManager endpoints (`/api/v1/admin/*`) are the exception: they accept only the static `opsToken` Bearer (literal `ARCHIVE_OPS_TOKEN` env-var compare); JWTs are rejected on those routes. See §6 for the credential matrix.
 
-| Endpoint | Method | ADMIN | Other roles | Unauth |
+| Endpoint | Method | is_admin | Non-admin | Unauth |
 |---|---|---|---|---|
 | `/api/v1/auth/local-token` | POST | ✅ (via Basic Auth, default-disabled) | ❌ | ✅ (Basic challenge) |
 | `/api/v1/auth/logout` | POST | ✅ | ✅ (any authenticated user) | ❌ |
-| `/api/v1/user` | GET | ✅ Own user | ❌ | ❌ |
+| `/api/v1/user` | GET | ✅ Own user | ✅ Own user | ❌ |
 | `/api/v1/platforms` | GET / POST | ✅ (POST needs `checkWriteAccess`; returns 201 on create, 409 on existing id) | ❌ | ❌ |
 | `/api/v1/platforms/{platformId}` | PUT / DELETE | ✅ (write needs `checkWriteAccess`; PUT 404 on unknown id) | ❌ | ❌ |
 | `/api/v1/platforms/{platformId}/ping` | POST | ✅ (Super Admin or matching scope) | ❌ | ❌ |
@@ -248,7 +244,7 @@ Three mechanisms, one per surface, mirroring the EFTI4EU reference implementatio
 - **Per-token.** `POST /api/v1/auth/logout` blacklists the token at TIM, which makes TIM's `/jwt/userinfo` reject it from that moment on, and then appends a `sessions` row carrying the token's `jti`, its `exp` and a reason as the durable audit record. Enforcement precedes the audit write, so a failed INSERT can never block a revocation. Entries past `exp` are archived.
 - **Per-user broadcast (`users.token_revoked_at`).** `POST /api/v1/users/{userId}/revoke-token` writes a new `users` row with `token_revoked_at = NOW()` (append-only); the identity query then rejects any token issued before that moment. Use when the user is suspect (compromised credential, offboarding) and every token they hold should fail.
 
-**The access-check layer on the JWT path** calls TIM `GET /jwt/userinfo` to validate the token's signature and blacklist status, then resolves the caller against the database in a single query. That query takes the **latest** `users` row per logical id and only then applies its filters — the row must be `is_active`, must still carry the presented `tara_sub`, and must not have a `token_revoked_at` later than the token's issuance time. Filtering by `tara_sub` before resolving the latest row would let a superseded identifier keep authenticating, so the order is load-bearing. `roles`, `subsets` and scope-IDs are read from the resolved row. Permission claims come from the database, not the token — the gate's authorisation snapshot can change after the token was minted, so DB-side state wins. The mTLS path resolves the platform against `platforms` by `e_delivery_cert` (active rows only). The `opsToken` path does no DB lookup at all (literal env-var compare).
+**The access-check layer on the JWT path** calls TIM `GET /jwt/userinfo` to validate the token's signature and blacklist status, then resolves the caller against the database in a single query. That query takes the **latest** `users` row per logical id and only then applies its filters — the row must be `is_active`, must still carry the presented `tara_sub`, and must not have a `token_revoked_at` later than the token's issuance time. Filtering by `tara_sub` before resolving the latest row would let a superseded identifier keep authenticating, so the order is load-bearing. `is_admin` and `is_authority` are read from the resolved row. Permission state comes from the database, not the token — the gate's authorisation snapshot can change after the token was minted, so DB-side state wins. The mTLS path resolves the platform against `platforms` by `e_delivery_cert` (active rows only). The `opsToken` path does no DB lookup at all (literal env-var compare).
 
 > **`jti` provenance.** TIM's `/jwt/userinfo` exposes neither `jti` nor `exp` — it returns `loggedInDate` / `loginExpireDate` and no token id. The `sessions` row's `jti` is therefore decoded from the token's own payload segment. Only that segment is passed to the database, never the signature, so the DB layer never receives a replayable credential.
 
@@ -266,7 +262,7 @@ All errors share the schema `{type, code, title, status, detail, instance}` per 
 |---|---|---|---|
 | 401 | (no code) | `unauthorized` | No `Authorization` header on a protected route, or JWT signature/exp/iss/aud invalid, or platform mTLS cert not present / not in `platforms.e_delivery_cert` registry. |
 | 401 | `TOKEN_INVALID` | `unauthorized` | JWT presented but malformed, or `jti` is in the revocation denylist (`sessions` table). |
-| 403 | `FORBIDDEN` | `forbidden` | Authenticated, but `roles` claim does not include any role permitted on this surface (e.g. AUTHORITY-only JWT calling Admin endpoint), **or** `Authorization: Bearer …` value does not match `ARCHIVE_OPS_TOKEN` on a CronManager admin endpoint. |
+| 403 | `FORBIDDEN` | `forbidden` | Authenticated, but the resolved `users` row lacks the flag the surface requires (`is_admin` for the Admin API; `is_admin` or `is_authority` for the Authority API), **or** `Authorization: Bearer …` value does not match `ARCHIVE_OPS_TOKEN` on a CronManager admin endpoint. |
 | 403 | `FORBIDDEN_NO_PLATFORM` | `forbidden-no-platform` | mTLS cert presented but `platforms.e_delivery_cert` lookup yields no active platform, or matched a `is_active=FALSE` row. |
 | 403 | `FORBIDDEN_MULTI_PLATFORM` | `forbidden-multi-platform` | mTLS cert subject resolves to more than one active `platforms` row (configuration error). Always 403 — never 401, 400. |
 | 403 | `FORBIDDEN_WRITE_ACCESS` | `forbidden-write-access` | `checkWriteAccess(entityId)` — the target entity id is not in the **resolved `users` row's** scope. |

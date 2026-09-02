@@ -2,6 +2,9 @@
 
 ## Changes
 
+- **v1.1** — No role-selection step. RBAC is two `users` booleans (`is_admin`, `is_authority`);
+  the former `roles TEXT[]` is gone. A caller is an admin or is not — nothing to select or switch.
+  The user form carries an "Admin" and an "Authority" checkbox.
 - _Initial state. Change tracking begins at v1.0.0._
 
 > Sub-architecture for the Admin UI surface. For overarching rules see [theme README](README.md). AC are in [`../../cfr/user-interfaces/admin_ui.md`](../../cfr/user-interfaces/admin_ui.md).
@@ -10,10 +13,7 @@
 
 ```mermaid
 flowchart LR
-    Login[TARA OIDC login<br/>Basic Auth disabled in prod] --> Roles{Multiple roles?}
-    Roles -- yes --> Pick[Role selection screen]
-    Roles -- no --> Home[Main view]
-    Pick --> Home
+    Login[TARA OIDC login<br/>Basic Auth disabled in prod] --> Home[Main view]
     Home --> Manage{Manage what?}
     Manage --> Users[Users<br/>/api/v1/users]
     Manage --> Gates[Gates<br/>/api/v1/gates]

@@ -106,9 +106,9 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - Guard map (see `docs/specs/permissions-matrix.md`):
   - `admin/` GET/POST/PUT/DELETE = ADMIN (`check-admin-authority`) — one `admin/.guard.yml` covers all methods
   - `auth/` POST = public; `auth/` GET = any authenticated user (`check-user-authority`)
-  - `efti/GET/api/v1/` = any authenticated user; `efti/GET/api/v1/authority/` = ADMIN or AUTHORITY
+  - `efti/GET/api/v1/` = any authenticated user; `efti/GET/api/v1/authority/` = `is_admin` OR `is_authority`
   - `efti/POST/api/v1/` = public (gate-to-gate inbound: `dataset-xml`/`-local`, `follow-up-xml`/`-local`, `consignments/search-xml`, `ping` — all edelivery-only after AS4 mTLS)
-  - `efti/POST/api/v1/authority/` = ADMIN or AUTHORITY — holds the real authority handlers (`dataset`, `follow-up`, `consignments-search`, `search`); the G2G wrappers above `template:` into these
+  - `efti/POST/api/v1/authority/` = `is_admin` OR `is_authority` — holds the real authority handlers (`dataset`, `follow-up`, `search`); the G2G wrappers above `template:` into these
   - `platforms/` = platform `X-Api-Key` hash (ADR-004) — one `platforms/.guard.yml`; also covers the G2G `consignments-xml`. **Deny is the fall-through branch**, each accept path an explicit positive condition, so a non-array ReSql body cannot fail open.
   - `xroad/` = `x-road-client` member code resolves to exactly one `ACTIVE` authority (ADR-006). One project-level `xroad/.guard.yml` for both methods; it `assign`s `${authority}` for handlers. **Deny is the fall-through branch** and each accept path an explicit positive condition, so a non-array ReSql body cannot fail open. `xroad/GET/health/.guard.yml` uses `override_ancestors` to stay public (the `efti` probes have no ancestor guard and need none). **`/xroad/**` shares port 8086 with the public gate API — the ingress MUST NOT expose it; only the Security Server may reach it.**
 
@@ -144,7 +144,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 
 ## Dev seed data (context:dev)
 
-- Users: Super Admin (60001019906, ADMIN), Mari Tamm (60001017869, AUTHORITY)
+- Users: Super Admin (60001019906, `is_admin`), Mari Tamm (60001017869, `is_authority`)
 - Platform: `mock` → `http://ruuter:8086/mock-platform` with `X-Api-Key: mock-secret-key`
 - TARA identities: `docker/tara-mock/identities.json`
 

@@ -8,7 +8,9 @@ Authorization: Bearer {{adminToken}}
 
 {
   "taraSub": "test-{{$timestamp}}",
-  "name": "Test User"
+  "name": "Test User",
+  "isAdmin": false,
+  "isAuthority": true
 }
 
 > {%
@@ -16,6 +18,8 @@ Authorization: Bearer {{adminToken}}
     client.assert(response.status === 201)
     client.assert(response.body.name === "Test User")
     client.assert(response.body.isUserActive === true)
+    client.assert(response.body.isAdmin === false)
+    client.assert(response.body.isAuthority === true)
     client.global.set("userId", response.body.id)
     client.global.set("userTaraSub", response.body.taraSub)
   })
@@ -52,13 +56,17 @@ Authorization: Bearer {{adminToken}}
 
 {
   "taraSub": "{{userTaraSub}}",
-  "name": "Updated Test User"
+  "name": "Updated Test User",
+  "isAdmin": true,
+  "isAuthority": false
 }
 
 > {%
   client.test("User updated", () => {
     client.assert(response.status === 200)
     client.assert(response.body.name === "Updated Test User")
+    client.assert(response.body.isAdmin === true)
+    client.assert(response.body.isAuthority === false)
   })
 %}
 

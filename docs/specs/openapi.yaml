@@ -1350,23 +1350,21 @@ paths:
               $ref: '#/components/schemas/UserWrite'
             examples:
               authorityUser:
-                summary: Authority user with subset restrictions
+                summary: Authority user (authority API, not admin)
                 value:
                   taraSub: "EE00000000000"
                   name: "MTA Inspector"
                   email: "inspector@example.com"
-                  roles:
-                    AUTHORITY: ["auth-mta"]
-                  subsets: ["EU01", "EU02"]
-              gateAdminUser:
-                summary: Gate-scoped admin
+                  isAdmin: false
+                  isAuthority: true
+              adminUser:
+                summary: Admin user
                 value:
                   taraSub: "EE00000000000"
                   name: "Gate Admin (Estonia)"
                   email: "admin@example.com"
                   isAdmin: true
-                  roles:
-                    ADMIN: ["eu-xx01"]
+                  isAuthority: false
       responses:
         '201':
           description: User created
@@ -3174,41 +3172,19 @@ components:
             gate rejects any JWT whose `iat` predates this value. NULL means no
             broadcast revocation has occurred for this user.
           example: null
-        isUserAdmin:
+        isAdmin:
           type: boolean
           description: |
-            Admin bypass flag — set on every gate-admin row (super or scoped). A
-            super admin is distinguished by `is_user_admin=TRUE` AND `roles={}` (no
-            scope restriction); a regular gate-scoped admin has `is_user_admin=TRUE`
-            AND `roles={"ADMIN":["<gate-id>"]}` (writes restricted to that gate
-            via `checkWriteAccess`).
+            TRUE grants full Admin API access (gate/platform/authority/user CRUD).
+            Read from `users.is_admin` (replaces the former `roles TEXT[]` ADMIN entry).
           example: false
-        roles:
-          type: object
+        isAuthority:
+          type: boolean
           description: |
-            Map of role → scope-IDs. Only `AUTHORITY` and `ADMIN` are valid keys
-            here. PLATFORM and GATE roles do not exist on `users` — Platform
-            identity is via mTLS (`platforms.e_delivery_cert`); G2G identity is
-            via mTLS at the AS4 access point.
-          additionalProperties:
-            type: array
-            items:
-              type: string
-          example:
-            AUTHORITY: ["auth-mta"]
-        subsets:
-          type: array
-          nullable: true
-          deprecated: true
-          description: |
-            **Not implemented — no `users.subsets` column exists** in the migrations or in
-            `docs/specs/db/schema.sql`, and `users` carries no link to an authority. Subset
-            permissions live on `authorities.subsets`, keyed by `registry_code`. See ADR-006.
-            Retained here only so existing clients do not break on an unexpected removal;
-            always absent from responses.
-          items:
-            $ref: '#/components/schemas/Subset'
-          example: ["EU01", "EU02"]
+            TRUE grants Authority API access (dataset search, follow-up, authority-search).
+            Read from `users.is_authority`. The authority routes allow `isAdmin` OR
+            `isAuthority`; both FALSE means authenticated but limited to `GET /api/v1/user`.
+          example: true
         isUserActive:
           type: boolean
           description: |
@@ -3224,7 +3200,7 @@ components:
         User create/update payload. `taraSub` is required: for TARA-authenticated
         users it is the Estonian PIC; the single break-glass local-admin row uses
         the reserved literal `local-admin` (lower-case).
-      required: [taraSub, name, roles]
+      required: [taraSub, name]
       properties:
         taraSub:
           type: string
@@ -3242,17 +3218,11 @@ components:
         isAdmin:
           type: boolean
           default: false
-        roles:
-          type: object
-          description: |
-            Only `AUTHORITY` and `ADMIN` keys are valid. PLATFORM and GATE roles
-            do not exist on `users`.
-          additionalProperties:
-            type: array
-            items:
-              type: string
-          example:
-            AUTHORITY: ["auth-mta"]
+          description: Grants Admin API access. Omitted → false.
+        isAuthority:
+          type: boolean
+          default: false
+          description: Grants Authority API access (dataset search, follow-up). Omitted → false.
         subsets:
           type: array
           nullable: true
