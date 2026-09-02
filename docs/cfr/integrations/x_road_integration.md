@@ -2,8 +2,12 @@
 
 ## Changes
 
+- **v1.2** — The X-Road surface moved into the main gate Ruuter as the `xroad/` project
+  (`DSL/Ruuter/xroad/`, served under `/xroad/` on port 8086); the separate `ruuter-xroad` container
+  and port 8087 are gone. Network isolation is now an ingress constraint (`/xroad/**` not publicly
+  routable). See [ADR-006](../../architecture/decisions/006-xroad-identity-and-subsets.md).
 - **v1.1** — Spec anchors corrected: the surface is **REST, not SOAP** (no WSDL, no
-  `protocolVersion`), the adapter is the Ruuter project `DSL/Ruuter-xroad/` rather than a Java
+  `protocolVersion`), the adapter is a Ruuter project rather than a Java
   `ee-adapter` module, and subset permissions come from `authorities.subsets`, not `users.subsets`.
   See [ADR-006](../../architecture/decisions/006-xroad-identity-and-subsets.md).
   **The Acceptance Criteria below still carry the SOAP-fault and `users.subsets` wording** — that
@@ -23,8 +27,8 @@
 |---|---|
 | **X-Road service** | `EE/GOV/70003158/efti-gate/{operation}/v1` (one service per gate REST operation exposed via X-Road) |
 | **Protocol** | **X-Road v7 REST message protocol — not SOAP.** No WSDL. No `protocolVersion` header (the version is the consumer-side `/r1/` prefix, never forwarded to the provider). |
-| **Module boundary** | `DSL/Ruuter-xroad/` (Ruuter project `xroad`, container `ruuter-xroad`, port 8087) → `core` (the `efti` Ruuter, port 8086) via published REST API only. `core` carries no X-Road references. There is no `ee-adapter` Gradle module. |
-| **Adapter surface** | Guards `xroad/{GET,POST}/v1/.guard.yml`; routes `POST /xroad/v1/echo`, `GET /xroad/v1/subsets`, `GET /xroad/health/ready` |
+| **Module boundary** | `DSL/Ruuter/xroad/` (Ruuter project `xroad`, served under `/xroad/` on port 8086) → `core` (the `efti` project on the same Ruuter) via published REST API only. `core` carries no X-Road references, and `template:` does not cross project boundaries. There is no `ee-adapter` Gradle module. |
+| **Adapter surface** | One project-level guard `xroad/.guard.yml` (+ `xroad/GET/health/.guard.yml` `override_ancestors` for the public probe); routes `POST /xroad/v1/echo`, `GET /xroad/v1/subsets`, `GET /xroad/health/ready`. **`/xroad/**` must not be exposed on the public ingress.** |
 | **Identity** | `X-Road-Client` (`instance/memberClass/memberCode[/subsystemCode]`) → `authorities.registry_code`. Organisation-level; `X-Road-UserId` is audit-only and never grants access. |
 | **Subset permissions** | `authorities.subsets TEXT[]` — **not** `users.subsets`, which does not exist |
 | **Underlying REST contract** | [`openapi.yaml`](../../specs/openapi.yaml) — the same Admin / Authority / Platform routes the adapter forwards to |

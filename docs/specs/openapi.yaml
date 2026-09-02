@@ -69,8 +69,9 @@ tags:
   - name: X-Road
     description: |
       Estonian national extension (EE only; other Member States' gates need not implement it).
-      Served by a separate Ruuter instance on port 8087, reached through the RIA-operated X-Road
-      Security Server. Authentication is the Security Server's mTLS, forwarded as the
+      Served by the main gate Ruuter under `/xroad/`, reached through the RIA-operated X-Road
+      Security Server. The `/xroad/**` path must not be exposed on any public ingress — only the
+      Security Server may reach it. Authentication is the Security Server's mTLS, forwarded as the
       `X-Road-Client` header — identity is the calling **organisation**, resolved against
       `authorities.registry_code`. REST, not SOAP. See ADR-006.
   - name: Health
@@ -1970,16 +1971,13 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 
   # ----------------------------------------------------------------------------
-  # X-ROAD (EE national extension — separate Ruuter instance, port 8087)
+  # X-ROAD (EE national extension — served by the main Ruuter under /xroad/)
   # ----------------------------------------------------------------------------
 
   /xroad/v1/subsets:
-    # Not served by the `servers` list above: this surface is the `ruuter-xroad` instance on port
-    # 8087, reached by consumers through their own X-Road Security Server at
-    # /r1/EE/GOV/70003158/efti-gate/... — the path below is what the provider-side gate sees.
-    servers:
-      - url: http://ruuter-xroad:8087
-        description: X-Road adapter (compose-internal; reached via the RIA Security Server)
+    # Served by the main gate Ruuter, but reached by consumers through their own X-Road Security
+    # Server at /r1/EE/GOV/70003158/efti-gate/... — the path below is what the provider-side gate
+    # sees. The /xroad/** path must not be exposed on a public ingress (see ADR-006).
     get:
       tags: [X-Road]
       summary: Discover the calling organisation's permitted eFTI subsets
@@ -1996,7 +1994,7 @@ paths:
         answers its own question locally), a dataset request may name up to seven subsets so a
         yes/no interface would cost seven round-trips, and the list is cacheable.
 
-        Served by the `ruuter-xroad` instance on port 8087, not the main gate API.
+        Served by the main gate Ruuter under `/xroad/`; not exposed on the public ingress.
       security:
         - xroadClient: []
       parameters:

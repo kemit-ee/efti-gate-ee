@@ -2,7 +2,10 @@
 # (Ruuter #39) covering every method under /xroad/** — replaces the two byte-identical
 # xroad/{GET,POST}/v1/.guard.yml files that previously had to be kept in sync by hand.
 #
-# Identity model: this Ruuter is the PROVIDER-side X-Road adapter, called by our own Security
+# The xroad/ project is served by the MAIN Ruuter (port 8086) alongside the efti/ surface — it
+# used to run as a separate ruuter-xroad container on port 8087; that container is gone.
+#
+# Identity model: this project is the PROVIDER-side X-Road adapter, called by our own Security
 # Server (turvaserver). The Security Server establishes the caller ORGANISATION by mTLS and
 # forwards it as X-Road-Client = instance/memberClass/memberCode[/subsystemCode]. The memberCode
 # is the Estonian Business Registry code, which resolves to authorities.registry_code, and
@@ -11,10 +14,11 @@
 #
 # !! X-Road-Client is an ORDINARY HEADER that this guard trusts unconditionally, because the
 # !! Security Server already authenticated the caller. The whole model therefore depends on
-# !! network isolation: anyone able to reach port 8087 directly can claim any registry code and
-# !! impersonate any registered authority. Port 8087 must be reachable ONLY from the Security
-# !! Server — never published publicly, never behind a public ingress. See ADR-006.
-# !! (compose.override.yml publishes it on localhost for development only.)
+# !! network isolation: anyone able to reach /xroad/** directly can claim any registry code and
+# !! impersonate any registered authority. Now that these routes share port 8086 with the public
+# !! gate API, isolation is an EXPLICIT DEPLOYMENT CONSTRAINT: the ingress / reverse proxy MUST
+# !! NOT expose /xroad/** publicly — only the Security Server may reach it. See ADR-006.
+# !! (compose.override.yml publishes 8086 on localhost for development only.)
 #
 # There is no protocolVersion to validate: in the X-Road REST protocol the version is the /r1/
 # prefix on the CONSUMER's URL, consumed by the consumer's Security Server and never forwarded to

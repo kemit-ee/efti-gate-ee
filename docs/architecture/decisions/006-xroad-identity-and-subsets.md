@@ -2,6 +2,15 @@
 
 **Otsus (otsustajad täpsustamata, 01.09.2026):**
 
+> **Muudatus (02.09.2026):** X-Roadi pind ei ole enam eraldi konteiner. `DSL/Ruuter-xroad/xroad/`
+> liikus põhi-Ruuteri projektiks `DSL/Ruuter/xroad/` ja seda teenindatakse `/xroad/` all pordil
+> 8086. Eraldi `ruuter-xroad` konteiner, port 8087, `constants-xroad.ini` ja `ruuter-xroad.yaml`
+> on kustutatud. Võrguisolatsiooni nõue **ei muutu sisuliselt**, aga on nüüd selgesõnaline
+> **ingressi piirang**: avalik pöördproksi / ingress ei tohi `/xroad/**` teed marsruutida, ja
+> ainult turvaserver tohib selleni pääseda. Kaks meetodipõhist guardi asendati ühe
+> projektitasemelise `xroad/.guard.yml`-iga (`xroad/GET/health/.guard.yml` `override_ancestors`
+> hoiab health-probe avalikuna).
+
 ## Otsus
 
 ### 1. X-Roadi liides on REST, mitte SOAP
@@ -31,31 +40,29 @@ TRAM / LOIS2 / ANTS (NES kaudu)
       ↓  X-Roadi võrk — turvaserverite vaheline mTLS + allkirjastamine
   MEIE turvaserver
       ↓  lihttekst HTTP meie enda võrgus, lisab X-Road-* päised
-  ruuter-xroad:8087   ← see on see, mis on ehitatud
+  ruuter :8086  /xroad/**   ← see on see, mis on ehitatud (xroad projekt)
 ```
 
-`ruuter-xroad` on **teenusepakkuja adapter**, mida kutsub *meie oma* turvaserver. Tarbija (kliendi)
+`xroad` projekt on **teenusepakkuja adapter**, mida kutsub *meie oma* turvaserver. Tarbija (kliendi)
 poolt ei ole ehitatud — värav ei kutsu ise ühtegi X-Roadi teenust.
 
-> ### ⚠ Turvanõue: adapter peab olema ligipääsetav AINULT oma turvaserverist
+> ### ⚠ Turvanõue: `/xroad/**` peab olema ligipääsetav AINULT oma turvaserverist
 >
 > `X-Road-Client` on **tavaline HTTP päis**, mille väravab usaldab tingimusteta, sest tuvastamine on
 > juba tehtud turvaserveris. Sellest järeldub, et **kogu autentimismudel toetub võrgu
-> isolatsioonile**: kes iganes suudab `ruuter-xroad`-i pordini 8087 otse pääseda, saab saata
+> isolatsioonile**: kes iganes suudab `/xroad/**` teeni otse pääseda, saab saata
 > `X-Road-Client: EE/GOV/<suvaline-registrikood>/x` ja esineda **mis tahes registreeritud asutusena**
 > — see tähendab kohe kogu tema alamhulkade õiguste avalikustamist ja hiljem, kui `core`-i edastus on
-> ühendatud, ka täielikku andmeligipääsu.
+> ühendatud, ka täielikku andmeligipääsu. Kuna `/xroad/**` jagab nüüd porti 8086 avaliku API-ga, on
+> see **ingressi** probleem, mitte pordi avaldamise oma.
 >
 > Juurutamisel on seega **kohustuslik**:
-> - port 8087 **ei tohi** olla avaldatud avalikku võrku ega üldse väljapoole klastri sisevõrku;
-> - võrgureegel (NetworkPolicy / security group) peab lubama sissetuleva ühenduse **ainult** oma
->   turvaserveri aadressilt;
-> - turvaserver ise peab olema ainus tee adapterini — ükski pöördproksi ega ingress ei tohi
->   `/xroad/*` teed välja tuua.
+> - avalik ingress / pöördproksi **ei tohi** `/xroad/**` teed marsruutida — sellele teele vasta 404;
+> - võrgureegel (NetworkPolicy / security group) peab lubama `/xroad/**` liiklust **ainult** oma
+>   turvaserveri aadressilt (nt eraldi sisemine kuulaja või proksi, milleni ainult turvaserver ulatub).
 >
-> `compose.override.yml` avaldab 8087 `localhost`-i, aga see fail on **ainult lokaalseks
-> arenduseks** (`compose.yml` ise porti ei avalda). Tootmises tohib seda porti avaldada ainult
-> turvaserverile.
+> `compose.override.yml` avaldab 8086 `localhost`-i, aga see fail on **ainult lokaalseks
+> arenduseks**.
 >
 > Alternatiiv, mis sellest sõltuvusest vabaneks, oleks mTLS ka turvaserveri ja adapteri vahel, aga
 > X-Roadi juurutusmudel seda ei eelda ja RIA seda ei nõua.
@@ -74,7 +81,7 @@ mõjuta.
 
 Päis on ette nähtud GDPR art 30 auditi jaoks, aga **auditikirjutajat veel ei ole**: mitte ükski DSL
 ei kirjuta `audit_log` tabelisse, `insert_audit*.sql` faili ei eksisteeri (ainus viide on
-admin-liidese *lugemine* `admin/GET/v1/audit.yml`), ja `ruuter-xroad.yaml` seab
+admin-liidese *lugemine* `admin/GET/v1/audit.yml`), ja `ruuter.yaml` seab
 `display_request_content: false`, seega päis ei jõua ka päringulogisse. Vt lahtisi küsimusi.
 
 ### 5. Õiguste päring tagastab loendi, mitte jah/ei vastuse
@@ -103,7 +110,7 @@ Uusi veerge ega migratsioone ei ole. Kasutame olemasolevat:
 | `X-Road-UserId` | ei | Lõppkasutaja isikukood. **Ainult audit — õigusi ei anna.** |
 | `X-Road-Represented-Party`, `X-Road-Issue` | ei | Informatiivsed |
 
-## Kontroll (`DSL/Ruuter-xroad/xroad/{GET,POST}/v1/.guard.yml`)
+## Kontroll (`DSL/Ruuter/xroad/.guard.yml`)
 
 Guard **autendib ainult** — alamhulkade kontrolli ta ei tee (vt allpool):
 
@@ -123,10 +130,10 @@ valideerimise viga), on `body.length` `undefined` ja kõik võrdlused sellega on
 sattuma keeldumisele, mitte lubamisele. Ühe negatiivse tingimusega kirjutatud kontroll, mille
 läbikukkumisharu on `guard_success`, kukub täpselt selle sisendi peal **lahti** (fail-open).
 
-Guard on **kahes failis** (`GET/v1/` ja `POST/v1/`), **loogika identne** (kommentaarid erinevad).
-Ruuteri guardid on kataloogipõhised ja puu on meetodipõhine, seega üks fail ei kata mõlemat
-meetodit. Ilma `GET/v1/.guard.yml`-ita oleks `GET /xroad/v1/*` täiesti avalik, hoolimata sellest et
-`ruuter-xroad.yaml` loetleb GET-i `guards.enforce_on_methods` all.
+Guard on **üks projektitasemeline fail** `DSL/Ruuter/xroad/.guard.yml` (Ruuter #39), mis katab kõik
+meetodid `/xroad/**` all. `DSL/Ruuter/xroad/GET/health/.guard.yml` kasutab `override_ancestors`-i,
+et health-probe jääks avalikuks. `ruuter.yaml` loetleb GET/POST/PUT/DELETE `guards.enforce_on_methods`
+all.
 
 ### Alamhulkade kontroll (`FORBIDDEN_SUBSET`) ei ole veel teostatud
 
@@ -154,7 +161,7 @@ X-Road-Id: abc-123
 
 Guardi tulemust ei saa Ruuteris käsitlejale edasi anda, seega käsitleja teeb asutuse päringu
 uuesti (sama kuju nagu `echo.yml`). **Sisemist `check-xroad-client` abi-marsruuti teadlikult ei
-tehtud**: `xroad/POST/internal/` alla jääv marsruut oleks väljaspool kõiki guarde ja pordilt 8087
+tehtud**: `xroad/POST/internal/` alla jääv marsruut oleks väljaspool kõiki guarde ja
 väljastpoolt kättesaadav, mis laseks kellel tahes registrikoode läbi käia ja asutuste nimesid ning
 alamhulki koguda. Üks lisapäring ReSQL-i on odavam kui see avatus.
 
@@ -178,8 +185,7 @@ Need dokumendid väitsid vastupidist ja on selle otsusega korrigeeritud:
   ID-tõendit, mida valideeritakse nagu otselogimist. See on teemaülene reegel, mis blokeeris
   valitud lahenduse.
 - `docs/architecture/integrations/x_road_integration.md` — kirjeldas SOAP-i ja Java mooduleid
-  `ee-adapter`/`core`, mida ei ole olemas; tegelik teostus on eraldi Ruuteri projekt
-  `DSL/Ruuter-xroad/`.
+  `ee-adapter`/`core`, mida ei ole olemas; tegelik teostus on Ruuteri projekt `DSL/Ruuter/xroad/`.
 - `docs/specs/permissions-matrix.md` §3.2 ja §7 — `FORBIDDEN_SUBSET` allikas.
 - `docs/specs/openapi.yaml` — `User.subsets` kirjeldab veergu, mida ei ole.
 
@@ -207,19 +213,21 @@ authorities.subsets` — see oli õige ja jääb muutmata.
   leppimata sõnavarale murraks admin-liidese dokumenteeritud EE-valikud. Väärtusteruum tuleb enne
   piirangu lisamist otsustada.
 - **X-Roadi marsruutide edastamine `core`-i** on lahtine. `efti/POST/api/v1/authority/.guard.yml`
-  nõuab TIM-i JWT-d, mida `ruuter-xroad`-il ei ole, ja projektiülene `template:` ei tööta. Vajab
-  sisemist teenusetokenit (`AGENTS.md` märgib sama vajadust G2G sisendi jaoks).
+  nõuab TIM-i JWT-d, mida `xroad` projektil ei ole, ja projektiülene `template:` ei tööta ka siis,
+  kui mõlemad projektid jooksevad samas mootoris. Vajab sisemist teenusetokenit (`AGENTS.md` märgib
+  sama vajadust G2G sisendi jaoks).
 - **Alamhulkade jõustamine JWT/TARA teel** (`efti/POST/api/v1/authority/dataset.yml`) on
   disainiliselt blokeeritud, kuni `users` real ei ole ei `subsets` veergu ega seost asutusega.
 
 ## Seos `refactor/split-m2m-ruuter` haruga
 
-See otsus on teostatud `dev` haru paigutuses. Harus `origin/refactor/split-m2m-ruuter` (ADR-005)
-nimetatakse `ruuter-xroad` ümber `ruuter-m2m`-ks ja marsruudid liiguvad. Vastavus liitmise jaoks:
+See otsus on teostatud `dev` haru paigutuses, kus X-Roadi pind on põhi-Ruuteri projekt
+`DSL/Ruuter/xroad/`. Harus `origin/refactor/split-m2m-ruuter` (ADR-005) nimetatakse pind ümber
+`m2m`-ks ja marsruudid liiguvad. Vastavus liitmise jaoks:
 
 | `dev` | `refactor/split-m2m-ruuter` |
 |---|---|
-| `DSL/Ruuter-xroad/xroad/POST/v1/` | `DSL/Ruuter-m2m/m2m/POST/xroad/v1/` |
-| `DSL/Ruuter-xroad/xroad/GET/v1/` | `DSL/Ruuter-m2m/m2m/GET/xroad/v1/` |
-| `constants-xroad.ini` / `ruuter-xroad.yaml` | `constants-m2m.ini` / `ruuter-m2m.yaml` |
-| `tests/authority/xroad-*.http` | `tests/http/xroad-*.http` |
+| `DSL/Ruuter/xroad/POST/v1/` | `DSL/Ruuter-m2m/m2m/POST/xroad/v1/` |
+| `DSL/Ruuter/xroad/GET/v1/` | `DSL/Ruuter-m2m/m2m/GET/xroad/v1/` |
+| põhi-Ruuteri `constants.ini` / `ruuter.yaml` | `constants-m2m.ini` / `ruuter-m2m.yaml` |
+| `tests/http/xroad-*.http` | `tests/http/xroad-*.http` |

@@ -1,7 +1,6 @@
 # Health probes must stay public. The project-level xroad/.guard.yml would otherwise
-# demand an X-Road-Client header on GET /xroad/health/*, breaking the container
-# healthcheck. override_ancestors replaces the project guard for this subtree only
-# (Ruuter #39 / task 020).
+# demand an X-Road-Client header on GET /xroad/health/*. override_ancestors replaces
+# the project guard for this subtree only (Ruuter #39 / task 020).
 declaration:
   override_ancestors: true
 

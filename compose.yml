@@ -70,23 +70,6 @@ services:
       retries: 20
       start_period: 10s
 
-  ruuter-xroad:
-    container_name: efti_ruuter_xroad
-    build:
-      context: .
-      dockerfile: docker/ruuter-xroad/Dockerfile
-    platform: linux/amd64
-    cpus: '0.5'
-    depends_on:
-      - resql
-    mem_limit: 256M
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8087/xroad/health/ready || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-      start_period: 10s
-
   ui:
     build:
       context: .

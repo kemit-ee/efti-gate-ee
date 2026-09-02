@@ -1064,6 +1064,32 @@ on any-auth guardi taga (piisab autentimisest).
 
 ---
 
+### 9.7 X-Road API (Turvaserver) ✅
+
+Eesti riiklik laiendus (ADR-006). Teenindab **põhi-Ruuter** `xroad/` projektis, teed
+`/xroad/**` pordil 8086 — eraldi `ruuter-xroad` konteinerit / porti 8087 enam ei ole.
+
+Auth: X-Roadi turvaserver tuvastab helistaja **organisatsiooni** mTLS-iga ja edastab selle
+`X-Road-Client` päises (`instance/memberClass/memberCode[/subsystemCode]`); `memberCode` seotakse
+`authorities.registry_code`-ga. `X-Road-Id` on kohustuslik (korrelatsioon). `X-Road-UserId` ei anna
+kunagi õigusi. Üks projektitasemeline `xroad/.guard.yml` katab kõik meetodid;
+`xroad/GET/health/.guard.yml` (`override_ancestors`) hoiab health-probe avalikuna.
+
+> ⚠️ **Juurutus:** `/xroad/**` jagab porti 8086 avaliku API-ga — avalik ingress **ei tohi** seda
+> teed marsruutida; ainult turvaserver tohib selleni pääseda (ADR-006).
+
+| Meetod | Ruuter DSL | Ruuter tee | Kirjeldus |
+|---|---|---|---|
+| `POST` | `DSL/Ruuter/xroad/POST/v1/echo.yml` | `POST /xroad/v1/echo` | Ühenduvustest — kajastab X-Road päised, lahendatud asutuse rea ja keha |
+| `GET` | `DSL/Ruuter/xroad/GET/v1/subsets.yml` | `GET /xroad/v1/subsets` | Helistaja enda lubatud alamhulgad (`authorities.subsets`) `X-Road-Client` põhjal |
+| `GET` | `DSL/Ruuter/xroad/GET/health/ready.yml` | `GET /xroad/health/ready` | Valmisoleku proov (avalik, ilma X-Road päisteta) |
+
+Keeldumised: **401** `UNAUTHORIZED` (`X-Road-Client` puudub/vigane), **400** `MISSING_REQUIRED_HEADER`
+(`X-Road-Id` puudub), **403** `FORBIDDEN` (`memberCode` ei vasta ühelegi `ACTIVE` asutusele või
+vastab mitmele).
+
+---
+
 ## 10. Veaformaat
 
 Kõik vead järgivad RFC 7807 `application/problem+json` formaati.
