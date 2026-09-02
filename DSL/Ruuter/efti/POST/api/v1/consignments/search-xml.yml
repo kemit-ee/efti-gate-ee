@@ -12,16 +12,17 @@ to_json:
     body:
       text: ${incoming.body.xml}
   result: criteria_json
-  next: call_search
+  next: local_search
 
-call_search:
-  template: api/v1/authority/consignments-search
-  request_type: "POST"
-  body:
-    criteria: ${criteria_json.response.body}
-    limit: ${incoming.params.limit ?? 100}
-    offset: ${incoming.params.offset ?? 0}
-  result: search_response
+local_search:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/get_consignments"
+    headers:
+      Content-Type: "application/json"
+    body:
+      criteria: ${incoming.body}
+  result: local_result
   next: to_xml
 
 to_xml:
@@ -30,7 +31,7 @@ to_xml:
     url: "[#XML_MAPPER_URL]/api/v1/search/response-to-xml"
     headers:
       Content-Type: "application/json"
-    body: ${search_response}
+    body: ${local_result.response.body}
   result: xml_response
   next: respond
 
