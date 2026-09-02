@@ -36,7 +36,7 @@ Authorization: Bearer {{adminToken}}
 %}
 
 ### Echo: valid X-Road client (registry_code matches authority)
-POST {{RUUTER_XROAD_URL}}/xroad/v1/echo
+POST {{RUUTER_URL}}/xroad/v1/echo
 X-Road-Client: EE/GOV/70000099/testSubsystem
 X-Road-Id: test-id-xroad-001
 X-Road-UserId: EE30101010007
@@ -57,7 +57,7 @@ Content-Type: application/json
 %}
 
 ### Echo: missing X-Road-Client header → 401 (the header is the credential)
-POST {{RUUTER_XROAD_URL}}/xroad/v1/echo
+POST {{RUUTER_URL}}/xroad/v1/echo
 X-Road-Id: test-id-xroad-002
 Content-Type: application/json
 
@@ -72,7 +72,7 @@ Content-Type: application/json
 %}
 
 ### Echo: malformed X-Road-Client (only 2 parts) → 401
-POST {{RUUTER_XROAD_URL}}/xroad/v1/echo
+POST {{RUUTER_URL}}/xroad/v1/echo
 X-Road-Client: EE/GOV
 X-Road-Id: test-id-xroad-003
 Content-Type: application/json
@@ -87,7 +87,7 @@ Content-Type: application/json
 %}
 
 ### Echo: missing X-Road-Id header → 400
-POST {{RUUTER_XROAD_URL}}/xroad/v1/echo
+POST {{RUUTER_URL}}/xroad/v1/echo
 X-Road-Client: EE/GOV/70000099/testSubsystem
 Content-Type: application/json
 
@@ -101,7 +101,7 @@ Content-Type: application/json
 %}
 
 ### Echo: unknown registry_code (not in authorities) → 403
-POST {{RUUTER_XROAD_URL}}/xroad/v1/echo
+POST {{RUUTER_URL}}/xroad/v1/echo
 X-Road-Client: EE/GOV/99999999/unknownSubsystem
 X-Road-Id: test-id-xroad-004
 Content-Type: application/json
@@ -117,7 +117,7 @@ Content-Type: application/json
 %}
 
 ### Echo: member-level X-Road-Client (3 parts, no subsystem) is valid
-POST {{RUUTER_XROAD_URL}}/xroad/v1/echo
+POST {{RUUTER_URL}}/xroad/v1/echo
 X-Road-Client: EE/GOV/70000099
 X-Road-Id: test-id-xroad-005
 Content-Type: application/json

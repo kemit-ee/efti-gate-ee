@@ -2,13 +2,17 @@
 
 ## Changes
 
-- **v1.1** — Reconciled with the implementation. The surface is **REST, not SOAP**; there is no
-  WSDL and no `protocolVersion` check. The adapter is the separate Ruuter project
-  `DSL/Ruuter-xroad/` (container `ruuter-xroad`, port 8087), not a Java `ee-adapter` Gradle module —
-  no such module exists (`code/settings.gradle.kts` includes only `core`, `edelivery`,
-  `xml-mapper`, `multiplexer`). Identity is the calling *organisation*, and the authorisation
-  source is `authorities.subsets`. See
+- **v1.2** — The X-Road surface is now a project of the **main gate Ruuter** (`DSL/Ruuter/xroad/`,
+  served under `/xroad/` on port 8086); the separate `ruuter-xroad` container / port 8087 /
+  `constants-xroad.ini` / `ruuter-xroad.yaml` are gone. The network-isolation requirement is
+  unchanged but is now an explicit **ingress constraint** (`/xroad/**` must not be publicly
+  routable) rather than a property of a dedicated port. See
   [ADR-006](../decisions/006-xroad-identity-and-subsets.md).
+- **v1.1** — Reconciled with the implementation. The surface is **REST, not SOAP**; there is no
+  WSDL and no `protocolVersion` check. The adapter is a Ruuter project, not a Java `ee-adapter`
+  Gradle module — no such module exists (`code/settings.gradle.kts` includes only `core`,
+  `edelivery`, `xml-mapper`, `multiplexer`). Identity is the calling *organisation*, and the
+  authorisation source is `authorities.subsets`.
 - _Initial state. Change tracking begins at v1.0.0._
 
 > Sub-architecture for the X-Road Integration (EE extension) surface. For overarching rules see [theme README](README.md). AC are in [`../../cfr/integrations/x_road_integration.md`](../../cfr/integrations/x_road_integration.md).
@@ -19,9 +23,9 @@
 sequenceDiagram
     participant Client as EE client<br/>(TRAM / LOIS2 / ANTS via NES)
     participant SS as X-Road Security Server<br/>(RIA-operated)
-    participant Adapter as ruuter-xroad<br/>(DSL/Ruuter-xroad, :8087)
+    participant Adapter as xroad project<br/>(DSL/Ruuter/xroad, /xroad/ on :8086)
     participant Resql as ReSQL / PostgreSQL
-    participant Core as core REST API<br/>(ruuter, :8086)
+    participant Core as core REST API<br/>(ruuter efti project, :8086)
     Client->>SS: REST request /r1/EE/GOV/70003158/efti-gate/...
     SS->>SS: Authenticate client organisation (mTLS)
     SS->>Adapter: Forward REST + X-Road-Client / X-Road-Id / X-Road-UserId
@@ -34,11 +38,12 @@ sequenceDiagram
     SS-->>Client: Response
 ```
 
-The `ruuter-xroad` project calls `core` only over the published REST API — the `efti` Ruuter
-project carries zero X-Road references. Note that this edge is **not yet wired**: `core`'s
-`efti/POST/api/v1/authority/.guard.yml` requires a TIM-issued JWT that `ruuter-xroad` has no way to
-obtain, and cross-project `template:` calls do not work. It needs an internal service token, the
-same one `AGENTS.md` flags as pending for G2G inbound.
+The `xroad` project calls `core` only over the published REST API — the `efti` Ruuter project
+carries zero X-Road references, and even though both projects now run in the same engine, the
+`template:` bypass does not cross project boundaries. Note that this edge is **not yet wired**:
+`core`'s `efti/POST/api/v1/authority/.guard.yml` requires a TIM-issued JWT that the `xroad` project
+has no way to obtain. It needs an internal service token, the same one `AGENTS.md` flags as pending
+for G2G inbound.
 
 ## Topology — the gate is the provider, not a consumer
 
@@ -52,32 +57,32 @@ TRAM / LOIS2 / ANTS (via NES)
  OUR Security Server (turvaserver, RIA-operated network)
       │  plain HTTP inside our own network, injecting the X-Road-* headers
       ▼
- ruuter-xroad:8087  ← what this gate implements
+ ruuter :8086  /xroad/**  ← what this gate implements (xroad project)
 ```
 
-`ruuter-xroad` is a **provider-side adapter service, called by our own Security Server**. The
+The `xroad` project is a **provider-side adapter, called by our own Security Server**. The
 consumer (client) side is not implemented — the gate never calls out to other X-Road services.
 Registering the service, and granting each client subsystem access rights to it, is Security Server
 configuration, not gate code.
 
-> ### ⚠ Deployment requirement: the adapter must be reachable only from its own Security Server
+> ### ⚠ Deployment requirement: `/xroad/**` must be reachable only from our own Security Server
 >
 > `X-Road-Client` is an ordinary HTTP header that the gate trusts unconditionally, because
 > authentication already happened at the Security Server. **The entire authentication model therefore
-> rests on network isolation.** Anyone who can reach port 8087 directly can send
+> rests on network isolation.** Anyone who can reach `/xroad/**` directly can send
 > `X-Road-Client: EE/GOV/<any-registry-code>/x` and impersonate **any registered authority** —
 > immediately disclosing that authority's subset entitlement, and once core forwarding is wired,
-> its data.
+> its data. Now that `/xroad/**` shares port 8086 with the public gate API, this is an **ingress
+> concern**, not a matter of not publishing a port.
 >
 > Mandatory at deploy time:
-> - port 8087 must **not** be published to any public network;
-> - a NetworkPolicy / security group must permit ingress **only** from the Security Server;
-> - no reverse proxy or ingress may expose `/xroad/*`.
+> - the public ingress / reverse proxy must **not** route `/xroad/**` — return 404 for it;
+> - a NetworkPolicy / security group must permit `/xroad/**` traffic **only** from the Security
+>   Server (e.g. a separate internal listener, or a proxy that only the Security Server can reach).
 >
-> `compose.override.yml` publishes 8087 on localhost, but that file is **local development only**
-> (`compose.yml` itself publishes no port). Note also that no Security Server container exists in
-> compose, so the E2E suite simulates the Security Server by setting the headers by hand — the
-> upstream mTLS step is not exercised locally.
+> `compose.override.yml` publishes 8086 on localhost, but that is **local development only**. No
+> Security Server container exists in compose, so the E2E suite simulates it by setting the headers
+> by hand — the upstream mTLS step is not exercised locally.
 >
 > Removing this dependency would mean requiring mTLS between the Security Server and the adapter
 > too; the X-Road deployment model does not assume it and RIA does not require it.
@@ -100,9 +105,9 @@ There is **no `protocolVersion`**: in the X-Road REST message protocol the versi
 prefix on the consumer's URL, consumed by the consumer's own Security Server and never forwarded to
 the provider. The gate's own contract version is the `/v1` in `/xroad/v1/...`.
 
-Guards live at `DSL/Ruuter-xroad/xroad/{GET,POST}/v1/.guard.yml` — two files with **identical logic**
-(the comments differ), because Ruuter guards are directory-level and the tree is method-first, so one
-file cannot cover both methods. The guards **authenticate only**. Denials:
+Authentication is one project-level guard, `DSL/Ruuter/xroad/.guard.yml` (Ruuter #39), covering every
+method under `/xroad/**`. `DSL/Ruuter/xroad/GET/health/.guard.yml` uses `override_ancestors` to keep
+the health probe public. The guard **authenticates only**. Denials:
 
 | Condition | Status | `code` |
 |---|---|---|
@@ -147,8 +152,9 @@ caller can never ask about another organisation's entitlement.
 
 X-Road is the Estonian national-level secure data-exchange layer; integrating via X-Road is a
 prerequisite for Estonian-side regulatory clients (TRAM, LOIS2, ANTS via NES). Isolating X-Road in
-its own Ruuter project keeps the `efti`/`admin`/`platforms` surface portable to non-X-Road
-jurisdictions and avoids polluting cross-border eDelivery flows with EE-specific concerns. ANTS
+its own Ruuter project (`xroad/`, with its own project-level guard) keeps the
+`efti`/`admin`/`platforms` surface portable to non-X-Road jurisdictions and avoids polluting
+cross-border eDelivery flows with EE-specific concerns. ANTS
 gets its own bypass endpoint because the cross-gate broadcast that the regular Authority route
 performs is wrong for the ANTS use case (border-operations existence check, high volume,
 local-registry-only).

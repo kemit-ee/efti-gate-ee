@@ -193,7 +193,8 @@ PUT /v1/users/admin/update
   - **Platvormid** → `X-Api-Key` (ADR-004; räsi `platforms.api_key_hash` vastu).
   - **Väravatevaheline (G2G)** → AS4 mTLS `edelivery` konteineris; Ruuteri
     tasemel need teed on avalikud.
-  - **X-Road** → `x-road-client` päis (`Ruuter-xroad`).
+  - **X-Road** → `x-road-client` päis (`xroad/` projekt põhi-Ruuteris, `/xroad/**`; ei tohi olla
+    avalikult ligipääsetav).
 
 ### 6.1 Guard-failid
 
@@ -221,7 +222,7 @@ guarditud kausta all (nii jõuavad G2G `-xml`/`-local` mähised guarditud
 | `efti/POST/api/v1/` | — | avalik (G2G sisend: `dataset-xml`/`-local`, `follow-up-xml`/`-local`, `consignments/search-xml`, `ping` — ainult `edelivery` pärast AS4 mTLS) |
 | `efti/POST/api/v1/authority/` | `check-user-authority` + roll | ADMIN või AUTHORITY — päris authority-käsitlejad (`dataset`, `follow-up`, `consignments-search`, `search`) |
 | `platforms/POST/v1/` | `get_platform_by_api_key` | kehtiv `X-Api-Key` (räsi); ka G2G `consignments-xml` — vajab sisemist teenusetokenit kui G2G sisend taastatakse |
-| `Ruuter-xroad/xroad/POST/v1/` | `get_authority_by_registry_code` | `x-road-client` päis viitab tuntud asutusele |
+| `xroad/` (projektitasemel `xroad/.guard.yml`) | `get_authority_by_registry_code` | `x-road-client` päis viitab tuntud asutusele |
 
 **Guard-faili struktuur** (`efti/POST/api/v1/authority/.guard.yml`):
 

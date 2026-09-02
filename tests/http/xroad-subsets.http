@@ -89,7 +89,7 @@ Authorization: Bearer {{adminToken}}
 %}
 
 ### Happy path: subsystem-level client gets its own permitted subsets
-GET {{RUUTER_XROAD_URL}}/xroad/v1/subsets
+GET {{RUUTER_URL}}/xroad/v1/subsets
 X-Road-Client: EE/GOV/70000097/tram
 X-Road-Id: test-id-subsets-001
 X-Road-UserId: EE30101010007
@@ -106,7 +106,7 @@ X-Road-UserId: EE30101010007
 %}
 
 ### Member-level client (3 parts, no subsystem) is a valid X-Road client id
-GET {{RUUTER_XROAD_URL}}/xroad/v1/subsets
+GET {{RUUTER_URL}}/xroad/v1/subsets
 X-Road-Client: EE/GOV/70000097
 X-Road-Id: test-id-subsets-002
 
@@ -118,7 +118,7 @@ X-Road-Id: test-id-subsets-002
 %}
 
 ### An authority entitled to nothing gets an empty list, not an error
-GET {{RUUTER_XROAD_URL}}/xroad/v1/subsets
+GET {{RUUTER_URL}}/xroad/v1/subsets
 X-Road-Client: EE/GOV/70000096/tram
 X-Road-Id: test-id-subsets-003
 
@@ -133,7 +133,7 @@ X-Road-Id: test-id-subsets-003
 ### The GET surface is guarded: no X-Road-Client → 401
 # Regression guard for the GET/v1/.guard.yml file. Without it this route would return 200 to
 # anyone, because Ruuter only enforces a guard it finds walking up from the route's directory.
-GET {{RUUTER_XROAD_URL}}/xroad/v1/subsets
+GET {{RUUTER_URL}}/xroad/v1/subsets
 X-Road-Id: test-id-subsets-004
 
 > {%
@@ -145,7 +145,7 @@ X-Road-Id: test-id-subsets-004
 %}
 
 ### Malformed X-Road-Client (2 parts) → 401
-GET {{RUUTER_XROAD_URL}}/xroad/v1/subsets
+GET {{RUUTER_URL}}/xroad/v1/subsets
 X-Road-Client: EE/GOV
 X-Road-Id: test-id-subsets-005
 
@@ -157,7 +157,7 @@ X-Road-Id: test-id-subsets-005
 %}
 
 ### Missing X-Road-Id → 400
-GET {{RUUTER_XROAD_URL}}/xroad/v1/subsets
+GET {{RUUTER_URL}}/xroad/v1/subsets
 X-Road-Client: EE/GOV/70000097/tram
 
 > {%
@@ -169,7 +169,7 @@ X-Road-Client: EE/GOV/70000097/tram
 %}
 
 ### Unknown registry code → 403
-GET {{RUUTER_XROAD_URL}}/xroad/v1/subsets
+GET {{RUUTER_URL}}/xroad/v1/subsets
 X-Road-Client: EE/GOV/99999999/tram
 X-Road-Id: test-id-subsets-006
 
@@ -205,7 +205,7 @@ Authorization: Bearer {{adminToken}}
 %}
 
 ###
-GET {{RUUTER_XROAD_URL}}/xroad/v1/subsets
+GET {{RUUTER_URL}}/xroad/v1/subsets
 X-Road-Client: EE/GOV/70000095/tram
 X-Road-Id: test-id-subsets-007
 
@@ -227,7 +227,7 @@ Authorization: Bearer {{adminToken}}
 %}
 
 ###
-GET {{RUUTER_XROAD_URL}}/xroad/v1/subsets
+GET {{RUUTER_URL}}/xroad/v1/subsets
 X-Road-Client: EE/GOV/70000095/tram
 X-Road-Id: test-id-subsets-008
 
@@ -263,7 +263,7 @@ Authorization: Bearer {{adminToken}}
 %}
 
 ###
-GET {{RUUTER_XROAD_URL}}/xroad/v1/subsets
+GET {{RUUTER_URL}}/xroad/v1/subsets
 X-Road-Client: EE/GOV/70000097/tram
 X-Road-Id: test-id-subsets-009
 
@@ -286,7 +286,7 @@ Authorization: Bearer {{adminToken}}
 %}
 
 ###
-GET {{RUUTER_XROAD_URL}}/xroad/v1/subsets
+GET {{RUUTER_URL}}/xroad/v1/subsets
 X-Road-Client: EE/GOV/70000097/tram
 X-Road-Id: test-id-subsets-010
 
