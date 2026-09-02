@@ -1,0 +1,21 @@
+services:
+  proxy:
+    image: lucaslorentz/caddy-docker-proxy:ci-alpine
+    restart: unless-stopped
+    environment:
+      - CADDY_INGRESS_NETWORKS=proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "./caddy_data:/data"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    labels:
+      - caddy.servers.protocols=h1 h2
+
+  ui:
+    labels:
+      - caddy=eu-ee.pikker.dev
+      - caddy.reverse_proxy={{upstreams 80}}
+      - caddy.reverse_proxy.lb_retries=10
+      - caddy.reverse_proxy.lb_try_interval=500ms
