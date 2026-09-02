@@ -16,8 +16,8 @@ import java.net.URI
 import java.net.http.HttpClient
 
 data class ResqlParams(
-  val limit: Int = 9999,
-  val offset: Int = 0
+  val limit: String = "9999",
+  val offset: String = "0"
 )
 
 class ResqlClient(
