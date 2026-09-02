@@ -11,3 +11,10 @@ E'-----BEGIN CERTIFICATE-----\nMIIDATCCAemgAwIBAgIUB+wp45qwsgT0vhrdKm7e0LtM1SQwD
 WHERE NOT EXISTS (SELECT 1 FROM gates WHERE id = 'EU-EE');
 
 --rollback DELETE FROM gates WHERE id = 'EU-EE';
+
+--changeset efti:seed-mock-gate context:dev splitStatements:false
+INSERT INTO gates (id, country_code, e_delivery_url, e_delivery_cert, status)
+SELECT DISTINCT ON (id)'EU-MOCK', country_code, e_delivery_url, e_delivery_cert, status
+FROM gates WHERE id = 'EU-EE' ORDER BY id, created_at DESC;
+
+--rollback DELETE FROM gates WHERE id = 'EU-MOCK';
