@@ -20,6 +20,18 @@ X-Api-Key: mock-secret-key
   })
 %}
 
+### NEGATIVE: REST upload without API key → 401
+POST {{RUUTER_URL}}/platforms/v1/consignments
+Content-Type: text/xml
+
+< ../../code/xml-mapper/xsd/FTI004/sample.xml
+
+> {%
+  client.test("REST upload without API key rejected", () => {
+    client.assert(response.status === 401)
+  })
+%}
+
 ### Platform uploads a new consignment over eDelivery
 # consignments-xml.yml is now covered by the platforms/POST/v1/.guard.yml directory
 # guard (ADR-004), so it needs the X-Api-Key too.
