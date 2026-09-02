@@ -4,7 +4,7 @@ WORKDIR /app
 COPY . ./
 
 ARG PROJECT
-RUN --mount=type=cache,target=/root/.gradle,id=efti-gate-ee-gradle-cache \
+RUN --mount=type=cache,target=/root/.gradle,id=efti-gate-ee-gradle-cache,sharing=locked \
     ./gradlew $PROJECT:build --info
 
 FROM eclipse-temurin:25-jre-alpine
