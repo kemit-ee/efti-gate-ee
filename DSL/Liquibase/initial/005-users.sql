@@ -7,6 +7,8 @@ CREATE TABLE users (
   id                UUID         NOT NULL,
   tara_sub          TEXT         NOT NULL,
   name              TEXT         NOT NULL,
+  is_admin          BOOLEAN      NOT NULL DEFAULT FALSE,
+  is_authority      BOOLEAN      NOT NULL DEFAULT FALSE,
   secret_hash       TEXT,
   token_revoked_at  TIMESTAMPTZ,
   is_active         BOOLEAN      NOT NULL DEFAULT TRUE,
@@ -19,6 +21,8 @@ COMMENT ON COLUMN users.row_id           IS 'Synthetic primary key, unique per r
 COMMENT ON COLUMN users.id               IS 'Logical user identifier (UUID). Many rows over time; latest wins.';
 COMMENT ON COLUMN users.tara_sub         IS 'The `sub` value the gate matches against on every JWT validation. For TARA-issued JWTs this is the Estonian PIC. For the single break-glass local-admin row it is the reserved literal ''local-admin''.';
 COMMENT ON COLUMN users.name             IS 'Display name';
+COMMENT ON COLUMN users.is_admin         IS 'TRUE = full admin API access (gate/platform/authority/user CRUD). Replaces the former roles TEXT[] ''ADMIN'' entry.';
+COMMENT ON COLUMN users.is_authority     IS 'TRUE = authority API access (dataset search, follow-up, authority-search). Replaces the former roles TEXT[] ''AUTHORITY'' entry. The authority guards allow is_admin OR is_authority.';
 COMMENT ON COLUMN users.secret_hash      IS 'bcrypt hash of the break-glass local-admin password. NULL for normal users.';
 COMMENT ON COLUMN users.token_revoked_at IS 'Per-user broadcast revocation marker. NULL means no broadcast revocation has occurred.';
 COMMENT ON COLUMN users.is_active        IS 'Logical-deletion flag';

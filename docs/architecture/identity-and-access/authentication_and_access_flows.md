@@ -67,12 +67,12 @@ sequenceDiagram
     Gate->>DB: SELECT 1 FROM sessions WHERE jti = $1 AND expires_at > NOW()
     DB-->>Gate: 0 rows (not in denylist)
     Gate->>DB: SELECT … FROM users WHERE tara_sub = jwt.sub AND is_active = TRUE
-    DB-->>Gate: User{roles=[AUTHORITY], subsets=[EU07], scope=[auth-mta]}
-    alt JWT valid + user resolved + role matches route
+    DB-->>Gate: User{is_admin=false, is_authority=true}
+    alt JWT valid + user resolved + is_admin/is_authority satisfies route
         Gate-->>Officer: 200 OK
     else Signature/exp/aud invalid OR jti revoked OR no users row
         Gate-->>Officer: 401 TOKEN_INVALID (RFC 7807)
-    else Wrong role / out-of-scope subset / out-of-scope entity
+    else Route needs is_admin (or is_admin/is_authority) and the row lacks it
         Gate-->>Officer: 403 FORBIDDEN (RFC 7807)
     end
 ```

@@ -78,7 +78,7 @@
 - [ ] JWT signing: **RS256**. Both the gate-JWT signing key and the break-glass JWT signing key are loaded from a runtime secret (K8s Secret / vault) — never baked into the container image.
 - [ ] JWT validation on the hot path checks signature + claims (`iss`, `aud`, `exp`) against the gate's own signing key only — **no DB query per request in the default profile**.
 - [ ] JWT TTL is configurable per use case: long-lived (admin sessions), short-lived (API calls), or one-shot (single-use step-up). Pick the TTL based on the desired revocation latency.
-- [ ] At login and refresh, the TARA OIDC ID token is validated against the cached TARA JWKS (RS256, `iss`, `aud`, `exp`, `sub`), the `users` row is resolved by `tara_sub`, and the gate mints its own JWT carrying `tara_sub`, `roles`, `subsets`, `scopes`.
+- [ ] At login and refresh, the TARA OIDC ID token is validated against the cached TARA JWKS (RS256, `iss`, `aud`, `exp`, `sub`), the `users` row is resolved by `tara_sub`, and the gate mints its own JWT carrying identity (`tara_sub`) and freshness (`iat`, `exp`, `jti`) only — `is_admin` / `is_authority` are read from the `users` row on every request, never from the token.
 - [ ] Clock-skew tolerance ±60 s per [`non-functional.md`](../../specs/non-functional.md) §4.
 - [ ] mTLS certificates (Platform-API and AS4 access point) loaded from runtime secret at startup — never in the container image.
 

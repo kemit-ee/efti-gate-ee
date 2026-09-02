@@ -2,6 +2,10 @@
 
 ## Changes
 
+- **v1.1** — RBAC storage: `users.roles TEXT[]` (`ADMIN` / `AUTHORITY`) → `users.is_admin` +
+  `users.is_authority` booleans. Model unchanged (Admin API needs `is_admin`; Authority API allows
+  `is_admin` OR `is_authority`). The Acceptance-Criteria wording below is issue-synced — correct it
+  in the GitHub issue, not here.
 - _Initial state. Change tracking begins at v1.0.0._
 
 > Part of [Theme 1](README.md). Architecture: [identity-and-access/README.md](../../architecture/identity-and-access/README.md) (theme-wide rules) + [identity-and-access/user_management_and_rbac.md](../../architecture/identity-and-access/user_management_and_rbac.md) (sub-architecture).
@@ -21,7 +25,7 @@
 | | `POST /api/v1/auth/logout` |
 | | `POST /api/v1/auth/local-token` |
 | | Full request / response / error shapes: [`openapi.yaml`](../../specs/openapi.yaml) |
-| **Schema** | `users` (`tara_sub`, `name`, `secret_hash TEXT NULL`, `token_revoked_at TIMESTAMPTZ`) |
+| **Schema** | `users` (`tara_sub`, `name`, `is_admin BOOLEAN`, `is_authority BOOLEAN`, `secret_hash TEXT NULL`, `token_revoked_at TIMESTAMPTZ`) |
 | | `sessions` (JWT denylist) |
 | | Partial index `(tara_sub, created_at DESC) WHERE tara_sub IS NOT NULL` |
 | | Full schema: [`db/schema.sql`](../../specs/db/schema.sql) |

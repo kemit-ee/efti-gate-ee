@@ -10,9 +10,8 @@ SELECT DISTINCT ON (id)
   name,
   token_revoked_at,
   is_active AS is_user_active,
-  roles,
-  'ADMIN'     = ANY(roles) AS is_admin,
-  'AUTHORITY' = ANY(roles) AS is_authority,
+  is_admin,
+  is_authority,
   created_at
 FROM users
 WHERE tara_sub = :tara_sub

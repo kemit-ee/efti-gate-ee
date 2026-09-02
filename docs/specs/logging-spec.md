@@ -110,7 +110,7 @@ All log entries **must** be valid JSON on a single line. Format follows [Elastic
 | `efti.expired_count` | int | Rows deleted by `IdentifierExpirationJob` | `14` |
 | `efti.cutoff_datetime` | ISO 8601 | Expiration cutoff used by job | `"2026-04-16T02:00:00.000Z"` |
 | `efti.audit` | boolean | Marks an event as audit-meaningful (GDPR / admin trail) | `true` |
-| `efti.required_role` | string | Role expected when `user.access.denied` fires | `"AUTHORITY"` / `"ADMIN"` (no `PLATFORM` — Platform identity is mTLS, denial is `FORBIDDEN_NO_PLATFORM` or `FORBIDDEN_MULTI_PLATFORM`; CronManager admin/* denial is plain `FORBIDDEN` without an `efti.required_role`) |
+| `efti.required` | string | Flag the route required when `user.access.denied` fires | `"is_admin"` (Admin API) / `"is_admin|is_authority"` (Authority API). Platform identity is mTLS (`FORBIDDEN_NO_PLATFORM` / `FORBIDDEN_MULTI_PLATFORM`); CronManager `admin/*` denial is plain `FORBIDDEN` without `efti.required`. |
 | `efti.authority.country` | string (ISO-3166 α-2) | Set on `authority.create` | `"EE"` |
 | `efti.authority.subsets` | string[] | Set on `authority.create` | `["EU01","EU07"]` |
 | `efti.db.pool.available` | int | Available DB connections (warning event) | `1` |
@@ -159,7 +159,7 @@ Five templates cover every event shape in the gate. Per-event variations live in
     "request.body.bytes": 1842,
     "response.status_code": 200
   },
-  "user": { "id": null, "roles": [] },
+  "user": { "id": null, "is_admin": null, "is_authority": null },
   "efti": {
     "dataset.id": "550e8400-e29b-41d4-a716-446655440000",
     "platform.id": "<platformId>",
@@ -199,7 +199,7 @@ Five templates cover every event shape in the gate. Per-event variations live in
     "request.body.bytes": 542,
     "response.status_code": 400
   },
-  "user": { "id": null, "roles": [] },
+  "user": { "id": null, "is_admin": null, "is_authority": null },
   "efti": { "dataset.id": "660f9511-f39c-42e5-b827-557766551111", "platform.id": "<platformId>", "error.code": "INVALID_XML" },
   "error": { "type": "BadRequest", "message": "Error parsing identifiers: XML parse error at line 4: element 'modeCode' is not closed" },
   "service.name": "efti-gate", "service.version": "2.0.0", "host.hostname": "gate-<gateId>-node1"
@@ -226,8 +226,8 @@ Five templates cover every event shape in the gate. Per-event variations live in
     "request.path": "/v1/identifiers/550e8400-e29b-41d4-a716-446655440000",
     "response.status_code": 403
   },
-  "user": { "id": "04fa30eb-eb08-11f0-b506-3c9c0f2eb459", "roles": ["AUTHORITY"] },
-  "efti": { "error.code": "FORBIDDEN", "required_role": "ADMIN", "audit": true },
+  "user": { "id": "04fa30eb-eb08-11f0-b506-3c9c0f2eb459", "is_admin": false, "is_authority": true },
+  "efti": { "error.code": "FORBIDDEN", "required": "is_admin", "audit": true },
   "error": { "type": "Forbidden", "message": "Access denied: endpoint requires PLATFORM role" },
   "service.name": "efti-gate", "service.version": "2.0.0", "host.hostname": "gate-<gateId>-node1"
 }
@@ -237,7 +237,7 @@ Five templates cover every event shape in the gate. Per-event variations live in
 |---|---|
 | `efti.error.code` | `FORBIDDEN`, `FORBIDDEN_NO_PLATFORM`, `FORBIDDEN_MULTI_PLATFORM`, `FORBIDDEN_SUBSET`, `FORBIDDEN_WRITE_ACCESS`, or `TOKEN_INVALID`. |
 | `efti.audit` | `true` — this event is part of the GDPR / security audit trail. |
-| `user.id` / `user.roles` | Omit when authentication failed (no user resolved). |
+| `user.id` / `user.is_admin` / `user.is_authority` | Omit when authentication failed (no user resolved). |
 
 ### 4.4 Server error (ERROR, includes stack)
 
@@ -284,7 +284,7 @@ Five templates cover every event shape in the gate. Per-event variations live in
     "request.path": "/api/v1/platforms",
     "response.status_code": 200
   },
-  "user": { "id": "175791a3-da82-11f0-b10c-3c9c0f2eb459", "roles": ["ADMIN"] },
+  "user": { "id": "175791a3-da82-11f0-b10c-3c9c0f2eb459", "is_admin": true, "is_authority": false },
   "efti": { "platform.id": "<platformId>", "audit": true },
   "db": { "table": "platforms", "operation": "INSERT", "duration_ms": 11 },
   "service.name": "efti-gate", "service.version": "2.0.0", "host.hostname": "gate-<gateId>-node1"
@@ -355,7 +355,7 @@ The `audit_log` row's `details` column is JSONB; the keys per `event.action` are
 | `dataset.proxy` | `dataset_id`, `target_gate_id`, `target_platform_id`, `as4_message_id` | |
 | `followup.send` | `dataset_id`, `target_platform_id`, `target_gate_id`, `dataset_request_id`, `body_bytes` | |
 | `user.login` | `outcome` (`success` / `failure`), `failure_reason` (when failure) | TARA-issued JWT validation result. |
-| `user.access.denied` | `required_role`, `actual_roles`, `target_resource` | |
+| `user.access.denied` | `required` (`"is_admin"` or `"is_admin|is_authority"`), `target_resource` | |
 | `platform.create` / `platform.update` / `platform.delete` | `platform_id`, `before` (full row, NULL on create), `after` (full row, NULL on delete) | The denormalised before/after lets the audit reader reconstruct the change without re-querying the live DB. |
 | `authority.create` / `authority.update` / `authority.delete` | `authority_id`, `before`, `after` | |
 | `gate.create` / `gate.update` / `gate.delete` | `gate_id`, `before`, `after` | |
@@ -467,6 +467,6 @@ Logs cross trust boundaries — apply the redaction rules below at every log sit
 | Failed identifier registrations (last 24 h) | `event.action: "identifier.register" AND event.outcome: "failure"` |
 | Trace one request end-to-end | `http.request.id: "<uuid>"` |
 | Slow queries today | `event.action: "db.query.slow" AND db.duration_ms: [500 TO *]` |
-| GDPR audit — dataset access by authorities | `event.action: ("dataset.deliver" OR "dataset.proxy") AND user.roles: "AUTHORITY"` |
+| GDPR audit — dataset access by authorities | `event.action: ("dataset.deliver" OR "dataset.proxy")` |
 | All audit-meaningful events for a user | `user.id: "<uuid>" AND efti.audit: true` |
 | Gates that timed out in last hour | `efti.error.code: "GATE_TIMEOUT" AND @timestamp: [now-1h TO now]` |

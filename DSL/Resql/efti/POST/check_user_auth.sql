@@ -10,12 +10,11 @@ SELECT
   u.id,
   u.tara_sub,
   u.name,
-  u.roles,
-  'ADMIN'     = ANY(u.roles) AS is_admin,
-  'AUTHORITY' = ANY(u.roles) AS is_authority
+  u.is_admin,
+  u.is_authority
 FROM (
   SELECT DISTINCT ON (id)
-    id, tara_sub, name, roles, token_revoked_at, created_at
+    id, tara_sub, name, is_admin, is_authority, token_revoked_at, created_at
   FROM users
   WHERE tara_sub     = :tara_sub
     AND is_active    = TRUE
