@@ -1,32 +1,10 @@
-check_admin:
-  call: http.post
-  args:
-    url: "[#RUUTER_URL]/efti/internal/check-admin-authority"
-    headers:
-      Content-Type: application/json
-      authorization: ${incoming.headers.authorization}
-    body: {}
-  result: admin_check
-  next: verify_admin
-
-verify_admin:
-  switch:
-    - condition: ${admin_check.response.status == 200}
-      next: check_exists
-  next: admin_fail
-
-admin_fail:
-  return: ${admin_check.response.body}
-  status: ${admin_check.response.status}
-  wrapper: false
-  next: end
-
+# Admin is enforced by admin/.guard.yml; this handler starts straight at the lookup.
 check_exists:
   call: http.post
   args:
     url: "[#RESQL_URL]/efti/get_user_by_id"
     headers:
-      Content-Type: application/json"
+      Content-Type: "application/json"
     body:
       userId: "${incoming.params.pathParams[0]}"
   result: exists_result
@@ -51,32 +29,16 @@ update_user:
   result: update_result
   next: check_update
 
+# update_user RETURNS the new row (column list matches get_user_by_id). No re-fetch needed.
 check_update:
   switch:
     - condition: ${update_result.response.body == null || update_result.response.body.length == 0}
       next: update_failed
-  next: verify_user
-
-verify_user:
-  call: http.post
-  args:
-    url: "[#RESQL_URL]/efti/get_user_by_id"
-    headers:
-      Content-Type: "application/json"
-    body:
-      userId: "${incoming.params.pathParams[0]}"
-  result: verify_result
-  next: check_verify
-
-check_verify:
-  switch:
-    - condition: ${verify_result.response.body == null || verify_result.response.body.length == 0}
-      next: verify_failed
   next: respond
 
 respond:
   wrapper: false
-  return: ${verify_result.response.body[0]}
+  return: ${update_result.response.body[0]}
   next: end
 
 not_found:
@@ -87,12 +49,6 @@ not_found:
 
 update_failed:
   return: {"error": "Failed to update user"}
-  status: 500
-  wrapper: false
-  next: end
-
-verify_failed:
-  return: {"error": "User updated but could not be verified"}
   status: 500
   wrapper: false
   next: end

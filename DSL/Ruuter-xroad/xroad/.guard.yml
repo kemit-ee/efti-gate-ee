@@ -28,6 +28,10 @@
 # the main DSL via the shared execution context). echo.yml reads it directly. subsets.yml
 # deliberately re-resolves instead — see the rationale in that file.
 
+log_context:
+  log: "xroad guard client=${incoming.headers['x-road-client'] ?? '-'} xroad-id=${incoming.headers['x-road-id'] ?? '-'} rid=${incoming.headers['x-request-id'] ?? '-'}"
+  next: check_client_header
+
 check_client_header:
   switch:
     - condition: ${incoming.headers == null || incoming.headers['x-road-client'] == null || incoming.headers['x-road-client'] == ''}
@@ -63,6 +67,7 @@ resolve_authority:
     url: "[#RESQL_URL]/efti/get_authority_by_registry_code"
     headers:
       Content-Type: application/json
+      x-request-id: ${incoming.headers['x-request-id'] ?? null}
     body:
       registry_code: "${xroad_parts[2]}"
   result: authority_res

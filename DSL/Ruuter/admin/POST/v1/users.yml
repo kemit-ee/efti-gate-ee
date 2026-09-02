@@ -27,31 +27,16 @@ create_user:
   result: insert_result
   next: check_insert
 
+# insert_user RETURNS the full row (column list matches get_user_by_id); an empty body
+# means the insert produced nothing. No re-fetch needed.
 check_insert:
   switch:
     - condition: ${insert_result.response.body == null || insert_result.response.body.length == 0}
       next: insert_failed
-  next: verify_user
-
-verify_user:
-  call: http.post
-  args:
-    url: "[#RESQL_URL]/efti/get_user_by_id"
-    headers:
-      Content-Type: "application/json"
-    body:
-      userId: "${insert_result.response.body[0].id}"
-  result: verify_result
-  next: check_verify
-
-check_verify:
-  switch:
-    - condition: ${verify_result.response.body == null || verify_result.response.body.length == 0}
-      next: verify_failed
   next: respond
 
 respond:
-  return: ${verify_result.response.body[0]}
+  return: ${insert_result.response.body[0]}
   status: 201
   wrapper: false
   next: end
@@ -64,12 +49,6 @@ conflict:
 
 insert_failed:
   return: {"error": "Failed to create user"}
-  status: 500
-  wrapper: false
-  next: end
-
-verify_failed:
-  return: {"error": "User created but could not be verified"}
   status: 500
   wrapper: false
   next: end

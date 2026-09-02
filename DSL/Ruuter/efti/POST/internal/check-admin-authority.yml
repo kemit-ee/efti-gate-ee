@@ -11,6 +11,21 @@ declaration:
       - field: authorization
         type: string
         description: "Bearer <gate JWT>"
+      - field: x-viljus-knows-a-secret
+        type: string
+        description: "Shared internal secret ([#INTERNAL_SECRET]); checked by internal/.guard.yml"
+      - field: x-forwarded-for
+        type: string
+        description: "Original client address, forwarded by the calling .guard"
+      - field: x-request-id
+        type: string
+        description: "Correlation id, forwarded by the calling .guard"
+
+# The secret header is enforced by DSL/Ruuter/efti/POST/internal/.guard.yml; the calling
+# guards also forward x-forwarded-for / x-request-id for context.
+log_context:
+  log: "internal/check-admin-authority rid=${incoming.headers['x-request-id'] ?? '-'} from=${incoming.headers['x-forwarded-for'] ?? '-'}"
+  next: check_for_bearer
 
 check_for_bearer:
   switch:
@@ -81,13 +96,21 @@ return_user:
   next: end
 
 unauthorized:
-  return: ${JSON.parse('{"type":"https://api.efti.ee/errors/unauthorized","title":"Unauthorized","status":401,"detail":"Token is missing, invalid, expired, or the user has no active gate account."}')}
+  return:
+    type: "https://api.efti.ee/errors/unauthorized"
+    title: "Unauthorized"
+    status: 401
+    detail: "Token is missing, invalid, expired, or the user has no active gate account."
   status: 401
   wrapper: false
   next: end
 
 forbidden:
-  return: ${JSON.parse('{"type":"https://api.efti.ee/errors/forbidden","title":"Forbidden","status":403,"detail":"This action requires the ADMIN role."}')}
+  return:
+    type: "https://api.efti.ee/errors/forbidden"
+    title: "Forbidden"
+    status: 403
+    detail: "This action requires the ADMIN role."
   status: 403
   wrapper: false
   next: end

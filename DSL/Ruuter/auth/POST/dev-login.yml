@@ -48,7 +48,8 @@ check_jwt:
   next: jwt_error
 
 return_token:
-  return: ${JSON.parse('{"token":"' + jwt_result.response.body.token + '"}')}
+  return:
+    token: ${jwt_result.response.body.token}
   wrapper: false
   next: end
 

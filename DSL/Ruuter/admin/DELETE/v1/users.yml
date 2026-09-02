@@ -1,29 +1,7 @@
-check_admin:
-  call: http.post
-  args:
-    url: "[#RUUTER_URL]/efti/internal/check-admin-authority"
-    headers:
-      Content-Type: application/json
-      authorization: ${incoming.headers.authorization}
-    body: {}
-  result: admin_check
-  next: verify_admin
-
-verify_admin:
-  switch:
-    - condition: ${admin_check.response.status == 200}
-      next: check_not_self
-  next: admin_fail
-
-admin_fail:
-  return: ${admin_check.response.body}
-  status: ${admin_check.response.status}
-  wrapper: false
-  next: end
-
+# Admin is enforced by admin/.guard.yml, which also exposes the caller row as ${caller}.
 check_not_self:
   switch:
-    - condition: ${admin_check.response.body.id == incoming.params.pathParams[0]}
+    - condition: ${caller.id == incoming.params.pathParams[0]}
       next: delete_self_error
   next: delete_user
 
@@ -44,29 +22,14 @@ delete_user:
   result: delete_result
   next: check_delete
 
+# soft_delete_user RETURNS the tombstone row (row_id, id, is_user_active, created_at);
+# an empty body means no such user, is_user_active must be false. No re-fetch needed.
 check_delete:
   switch:
     - condition: ${delete_result.response.body == null || delete_result.response.body.length == 0}
       next: delete_failed
-  next: verify_user
-
-verify_user:
-  call: http.post
-  args:
-    url: "[#RESQL_URL]/efti/get_user_by_id"
-    headers:
-      Content-Type: "application/json"
-    body:
-      userId: "${incoming.params.pathParams[0]}"
-  result: verify_result
-  next: check_verify
-
-check_verify:
-  switch:
-    - condition: ${verify_result.response.body == null || verify_result.response.body.length == 0}
-      next: not_found
-    - condition: ${verify_result.response.body[0].isUserActive != false}
-      next: verify_failed
+    - condition: ${delete_result.response.body[0].isUserActive != false}
+      next: delete_failed
   next: respond
 
 respond:
@@ -76,18 +39,6 @@ respond:
   next: end
 
 delete_failed:
-  return: {"error": "Failed to delete user"}
-  status: 500
-  wrapper: false
-  next: end
-
-not_found:
-  return: {"error": "Not Found"}
-  status: 404
-  wrapper: false
-  next: end
-
-verify_failed:
   return: {"error": "User deletion could not be verified"}
   status: 500
   wrapper: false
