@@ -172,8 +172,6 @@ CREATE TABLE platforms (
   headers         JSONB        NOT NULL DEFAULT '{}'::jsonb,
   e_delivery_cert TEXT,
   tls_cert        TEXT,
-  cert_subject    TEXT,                    -- DN string from the platform's eDelivery AP cert (for inbound mTLS lookup)
-  cert_serial     TEXT,                    -- serial number of the same cert; (subject, serial) is the natural key for the lookup
   status          gate_status  NOT NULL DEFAULT 'ONLINE',
   created_by      UUID,
   created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
@@ -186,15 +184,12 @@ COMMENT ON COLUMN platforms.base_url            IS 'Platform''s REST API base UR
 COMMENT ON COLUMN platforms.headers             IS 'Custom headers (e.g. API key) the gate sends with platform requests';
 COMMENT ON COLUMN platforms.e_delivery_cert     IS 'Public certificate (PEM) for AS4 communication with this platform';
 COMMENT ON COLUMN platforms.tls_cert            IS 'Public TLS certificate (PEM) for HTTPS communication';
-COMMENT ON COLUMN platforms.cert_subject        IS 'Subject DN of the platform''s eDelivery AP X.509 certificate (Member-State-issued per Impl Reg 2024/1942 Art 11). The reverse proxy terminates mTLS on inbound Platform-API calls and forwards X-Client-Cert-Subject; the gate looks up (cert_subject, cert_serial) to resolve the platform identity.';
-COMMENT ON COLUMN platforms.cert_serial         IS 'Serial number of the eDelivery AP certificate. Together with cert_subject forms the natural key for inbound-mTLS lookup. NULL during transition before the platform''s cert is registered.';
 COMMENT ON COLUMN platforms.status IS 'Platvormi tööseisund hetkel: ONLINE — aktiivne ja kättesaadav; OFFLINE — ping ebaõnnestus; DISABLED — halduslikult välja lülitatud (nähtav loendis); DELETED — pehme kustutus (operaatori poolt eemaldatud, rida säilib auditiks).';
 COMMENT ON COLUMN platforms.created_by          IS 'users.row_id of the actor that wrote this row';
 COMMENT ON COLUMN platforms.created_at          IS 'When this row was inserted';
 
 CREATE INDEX idx_platforms_id_latest    ON platforms (id, created_at DESC);
 CREATE INDEX idx_platforms_status       ON platforms (status);
-CREATE INDEX idx_platforms_cert_lookup  ON platforms (cert_subject, cert_serial);
 
 -- ----------------------------------------------------------------------------
 -- 3.3 authorities — registered competent authorities
@@ -250,7 +245,7 @@ CREATE TABLE users (
   created_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-COMMENT ON TABLE  users IS 'Human users of the gate (authority officers, gate admins, and the single break-glass local-admin row). Append-only: every credential rotation or status flip INSERTs a new row with the same id. Primary auth is TARA OIDC; the gate matches the JWT `sub` claim against `tara_sub` to resolve a JWT to its users row. Platform identity is NOT modelled here (Platform API uses mTLS against platforms.cert_subject); G2G identity is at the AS4 access point.';
+COMMENT ON TABLE  users IS 'Human users of the gate (authority officers, gate admins, and the single break-glass local-admin row). Append-only: every credential rotation or status flip INSERTs a new row with the same id. Primary auth is TARA OIDC; the gate matches the JWT `sub` claim against `tara_sub` to resolve a JWT to its users row. Platform identity is NOT modelled here (Platform API uses mTLS against platforms.e_delivery_cert); G2G identity is at the AS4 access point.';
 COMMENT ON COLUMN users.row_id            IS 'Synthetic primary key, unique per row';
 COMMENT ON COLUMN users.id                IS 'Logical user identifier (UUID). Many rows over time; latest wins.';
 COMMENT ON COLUMN users.tara_sub          IS 'The `sub` value the gate matches against on every JWT validation. For TARA-issued JWTs this is the Estonian PIC. For the single break-glass local-admin row it is the reserved literal ''local-admin'' (lower-case, never collides with a PIC). Never NULL — the lookup path is uniform across TARA and break-glass JWTs.';

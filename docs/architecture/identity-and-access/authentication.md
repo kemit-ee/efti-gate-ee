@@ -87,7 +87,7 @@ it; the schema still supports the stateless profile unchanged.
 
 - TLS terminated by a trusted reverse proxy (Envoy, Nginx, etc.) that validates the cert chain.
 - Proxy forwards the request with `X-Client-Cert-Subject` and `X-Client-Cert-Serial` headers (header names configurable via `MTLS_HEADER_SUBJECT` / `MTLS_HEADER_SERIAL` per [`docs/specs/non-functional.md`](../../specs/non-functional.md) §4.1).
-- Gate resolves `platforms` by `(cert_subject, cert_serial)` against rows with `is_active = TRUE`.
+- Gate resolves `platforms` by `e_delivery_cert` against rows with `is_active = TRUE`.
 - 0 rows → `403 FORBIDDEN_NO_PLATFORM`. >1 rows → `403 FORBIDDEN_MULTI_PLATFORM` (operator misconfiguration; both conditions are detectable and distinguishable).
 
 ## 4. CronManager static token

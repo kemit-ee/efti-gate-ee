@@ -1,7 +1,7 @@
 flowchart TD
     Start([Incoming HTTP Request]) --> ProxyType{Cred type?}
 
-    ProxyType -->|"X-Client-Cert-Subject<br/>(mTLS, Platform API)"| LookupCert[Resolve active platforms<br/>by cert_subject + cert_serial]
+    ProxyType -->|"X-Client-Cert-Subject<br/>(mTLS, Platform API)"| LookupCert[Resolve active platforms<br/>by e_delivery_cert]
     ProxyType -->|"Authorization: Bearer JWT<br/>(Authority / Admin)"| ValidateJwt[Validate JWT signature<br/>against cached JWKS;<br/>check iss, aud, exp, iat]
     ProxyType -->|"Authorization: Bearer ARCHIVE_OPS_TOKEN<br/>(CronManager admin/*)"| OpsCompare[Literal compare against<br/>ARCHIVE_OPS_TOKEN env var]
     ProxyType -->|"None"| Anon[Anonymous request]

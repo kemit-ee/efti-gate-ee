@@ -189,8 +189,8 @@ paths:
 
         **Auth:** mTLS with the Member-State-issued certificate the platform's
         eDelivery AP holds (Impl Reg 2024/1942 Art 11). The reverse proxy validates
-        the cert chain and forwards `X-Client-Cert-Subject` / `X-Client-Cert-Serial`;
-        the gate looks them up in `platforms.cert_subject` / `platforms.cert_serial`.
+        the cert chain and forwards the client certificate;
+        the gate looks it up in `platforms.e_delivery_cert`.
 
         The request body must be a valid `<consignment>` XML per the
         [consignment-identifier XSD](https://github.com/EFTI4EU/reference-implementation/blob/main/schema/xsd/consignment-identifier.xsd).
@@ -1338,7 +1338,7 @@ paths:
         `sub` matches this `tara_sub`, the gate has a row to bind to.
 
         The gate does **not** issue user secrets — TARA owns auth. Platform
-        identity is mTLS via `platforms.cert_subject`, not a user row; G2G
+        identity is mTLS via `platforms.e_delivery_cert`, not a user row; G2G
         identity is mTLS at the AS4 access point. Neither has a `users` record.
 
         409 if `tara_sub` already exists on an active row.
@@ -2249,8 +2249,8 @@ components:
         (EU) 2024/1942 Art 11. No second credential.
 
         The reverse proxy (Caddy / Traefik / nginx) terminates mTLS and forwards
-        `X-Client-Cert-Subject` and `X-Client-Cert-Serial` headers; the gate looks up
-        the subject DN + serial in `platforms.cert_subject` / `platforms.cert_serial`
+        `X-Client-Cert-Subject` and `X-Client-Cert-Serial` headers;         the gate looks up
+        the cert in `platforms.e_delivery_cert`
         to resolve the platform identity. Used only for the **Platform API**.
 
     opsToken:
@@ -3033,16 +3033,6 @@ components:
         tlsCert:
           type: string
           nullable: true
-        certSubject:
-          type: string
-          nullable: true
-          description: Subject DN of the platform's eDelivery AP cert (used by inbound mTLS lookup).
-          example: "CN=eDelivery-Platform, O=Example Logistics OÜ, C=EE"
-        certSerial:
-          type: string
-          nullable: true
-          description: Serial number of the same certificate.
-          example: "0123456789ABCDEF"
         isPlatformActive:
           type: boolean
           description: |
@@ -3084,21 +3074,6 @@ components:
         tlsCert:
           type: string
           nullable: true
-        certSubject:
-          type: string
-          nullable: true
-          description: |
-            Subject DN of the platform's eDelivery AP X.509 certificate. The reverse
-            proxy validates inbound mTLS against this; the gate matches on
-            `(certSubject, certSerial)` to resolve the platform identity. Required
-            in production — without this, no Platform-API request from this
-            platform can authenticate.
-          example: "CN=eDelivery-Platform, O=Example Logistics OÜ, C=EE"
-        certSerial:
-          type: string
-          nullable: true
-          description: Serial number of the same certificate.
-          example: "0123456789ABCDEF"
 
     # --------------------------------------------------------------------------
     # AUTHORITY
@@ -3165,7 +3140,7 @@ components:
         Human caller of the gate (authority officer or gate admin). Primary auth
         is TARA OIDC; the gate matches the JWT `sub` against `taraSub` to
         resolve a JWT to this row. Platform identity is NOT modelled here —
-        Platform API uses mTLS against `platforms.cert_subject`. G2G identity
+        Platform API uses mTLS against `platforms.e_delivery_cert`. G2G identity
         is mTLS at the AS4 access point.
       properties:
         id:
@@ -3213,7 +3188,7 @@ components:
           description: |
             Map of role → scope-IDs. Only `AUTHORITY` and `ADMIN` are valid keys
             here. PLATFORM and GATE roles do not exist on `users` — Platform
-            identity is via mTLS (`platforms.cert_subject`); G2G identity is
+            identity is via mTLS (`platforms.e_delivery_cert`); G2G identity is
             via mTLS at the AS4 access point.
           additionalProperties:
             type: array

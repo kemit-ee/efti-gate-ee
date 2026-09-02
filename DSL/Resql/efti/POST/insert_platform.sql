@@ -3,8 +3,6 @@ description: insert platform
 params:
   id: { type: string, required: true }
   baseUrl: { type: string, required: true }
-  certSerial: { type: string }
-  certSubject: { type: string }
   eDeliveryCert: { type: string }
   headers: { type: object, default: {} }
   status: { type: string, default: "ONLINE" }
@@ -16,8 +14,6 @@ INSERT INTO platforms (
   headers,
   e_delivery_cert,
   tls_cert,
-  cert_subject,
-  cert_serial,
   status
 )
 VALUES (
@@ -26,8 +22,6 @@ VALUES (
   COALESCE(:headers::jsonb, '{}'::jsonb),
   :eDeliveryCert,
   :tlsCert,
-  :certSubject,
-  :certSerial,
   COALESCE(:status, 'ONLINE')::gate_status
 )
 RETURNING
@@ -37,8 +31,6 @@ RETURNING
   headers,
   e_delivery_cert,
   tls_cert,
-  cert_subject,
-  cert_serial,
   status::text,
   api_key_hint,
   api_key_generated_at,

@@ -10,7 +10,7 @@
 
 ```mermaid
 stateDiagram-v2
-    [*] --> ONLINE: POST /api/v1/platforms<br/>(id, baseUrl, certSubject, certSerial, eDeliveryCert?)
+    [*] --> ONLINE: POST /api/v1/platforms<br/>(id, baseUrl, eDeliveryCert?)
     ONLINE --> ONLINE: PUT /api/v1/platforms/{id}<br/>(append-only INSERT; cert renewal etc.)
     ONLINE --> DELETED: DELETE /api/v1/platforms/{id}<br/>(latest row status='DELETED')
     DELETED --> ONLINE: POST again — new row, status='ONLINE'
@@ -23,5 +23,5 @@ stateDiagram-v2
 
 ## Rationale
 
-Platform metadata (cert subject/serial, base URL, capability flags) drives Platform-API auth and the subsetting decision in Epic 5. Append-only INSERTs preserve every cert rotation and capability change as an auditable history. `LISTEN/NOTIFY` keeps every gate node's in-memory platform cache fresh without polling.
+Platform metadata (base URL, capability flags) drives Platform-API auth and the subsetting decision in Epic 5. Append-only INSERTs preserve every capability change as an auditable history. `LISTEN/NOTIFY` keeps every gate node's in-memory platform cache fresh without polling.
 

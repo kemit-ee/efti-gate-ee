@@ -42,8 +42,6 @@ export interface Platform {
   headers?: Record<string, string>
   eDeliveryCert?: string
   tlsCert?: string
-  certSubject?: string
-  certSerial?: string
   status: Status
   apiKeyHint?: string
   apiKeyGeneratedAt?: string
@@ -64,8 +62,6 @@ export interface PlatformRequest {
   headers?: Record<string, string>
   eDeliveryCert?: string
   tlsCert?: string
-  certSubject?: string
-  certSerial?: string
   status?: Status
 }
 

@@ -13,7 +13,7 @@ The user entity is identified by `tara_sub` (the TARA OIDC `sub` claim). The gat
 | Concept | Storage | Purpose |
 |---|---|---|
 | **User identity** | `users.tara_sub` | The TARA personal identification code (Estonian PIC) that identifies the user. |
-| **Platform binding** | `platforms.cert_subject`, `platforms.cert_serial` | Which platform an mTLS caller is, resolved entirely from the cert. No `platforms` reference in `users`. |
+| **Platform binding** | `platforms.e_delivery_cert` | Which platform an mTLS caller is, resolved from the cert. No `platforms` reference in `users`. |
 
 The platform identity is *not* a `users` row — it is a `platforms` row resolved from the client certificate.
 

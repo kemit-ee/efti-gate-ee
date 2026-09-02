@@ -12,8 +12,6 @@ Authorization: Bearer {{adminToken}}
   "headers": {"X-Api-Key": "test-key-123"},
   "eDeliveryCert": "-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----",
   "tlsCert": "-----BEGIN CERTIFICATE-----\ntest-tls-cert\n-----END CERTIFICATE-----",
-  "certSubject": "CN=demo-platform.example.com",
-  "certSerial": "ABCDEF1234567890",
   "status": "ONLINE"
 }
 
@@ -60,8 +58,6 @@ Authorization: Bearer {{adminToken}}
   "headers": {"X-Api-Key": "updated-key-456"},
   "eDeliveryCert": "-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----",
   "tlsCert": "-----BEGIN CERTIFICATE-----\ntest-tls-cert\n-----END CERTIFICATE-----",
-  "certSubject": "CN=demo-platform.example.com",
-  "certSerial": "ABCDEF1234567890",
   "status": "ONLINE"
 }
 

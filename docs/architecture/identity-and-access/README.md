@@ -83,7 +83,7 @@ The gate has exactly four authentication channels, each with one credential type
 |---|---|---|---|
 | Authority / Admin API | TIM-issued RS256 JWT, as `Authorization: Bearer` | TIM `GET /jwt/userinfo` (signature + blacklist), then the resolved `users` row for permissions | `users` by `tara_sub`, every request |
 | Authority / Admin login (one-time) | TARA OIDC RS256 ID token | TIM performs the code exchange and validates against the TARA JWKS | none — TIM owns this hop; Ruuter is not involved |
-| Platform API | mTLS X.509 client cert | Reverse proxy + cert chain | `platforms` by `(cert_subject, cert_serial)` |
+| Platform API | mTLS X.509 client cert | Reverse proxy + cert chain | `platforms` by `e_delivery_cert` |
 | CronManager admin endpoints | Static Bearer | Literal compare against `ARCHIVE_OPS_TOKEN` env var | none |
 | Gate-to-gate (G2G) | mTLS at AS4 access point | EU Trust Service trust list, OCSP/CRL fail-closed | none (peer gate cert) |
 

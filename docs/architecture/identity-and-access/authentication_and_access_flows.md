@@ -14,7 +14,7 @@ This sub-architecture's deliverable *is* this document: keeping the four flow di
 flowchart TD
     Caller[Caller] --> Type{Channel?}
     Type -- Authority / Admin API --> F2[Flow 2: TARA OIDC JWT<br/>RS256, JWKS-validated; users.tara_sub lookup;<br/>sessions denylist check]
-    Type -- Platform API --> F2b[Flow 2b: mTLS<br/>X.509 cert; platforms.cert_subject lookup]
+    Type -- Platform API --> F2b[Flow 2b: mTLS<br/>X.509 cert; platforms.e_delivery_cert lookup]
     Type -- CronManager admin --> Fops[Static Bearer ARCHIVE_OPS_TOKEN<br/>literal env-var compare]
     Type -- Gate-to-gate --> F3[Flow 3: mTLS at AS4 access point<br/>EU Trust Service cert chain]
     F2 --> Allow[Resource access]
@@ -89,7 +89,7 @@ sequenceDiagram
     Platform->>Proxy: POST /v1/identifiers/:datasetId<br/>(client cert: Member-State-issued for the platform's eDelivery AP)
     Proxy->>Proxy: Validate cert chain
     Proxy->>Gate: forwarded request + X-Client-Cert-Subject + X-Client-Cert-Serial
-    Gate->>DB: Resolve active platforms row by (cert_subject, cert_serial)
+    Gate->>DB: Resolve active platforms row by e_delivery_cert
     DB-->>Gate: 1 row → platform_id resolved
     alt cert resolves to exactly 1 active platform
         Gate-->>Platform: 200 OK

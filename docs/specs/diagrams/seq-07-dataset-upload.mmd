@@ -8,7 +8,7 @@ sequenceDiagram
     Platform->>Gate: POST /v1/identifiers/550e8400-e29b-41d4-a716-446655440000
     Note over Platform,Gate: Content-Type: app/xml<br/>mTLS client cert<br/>(MS-issued for AP).<br/>Proxy forwards subject<br/>+ serial headers.<br/>X-Request-ID: uuid.<br/>Body: consignment XML.
 
-    Gate->>Gate: Resolve platform_id from active platforms by (cert_subject, cert_serial)<br/>→ platform_id='plt-xxx-001'
+    Gate->>Gate: Resolve platform_id from active platforms by e_delivery_cert<br/>→ platform_id='plt-xxx-001'
     Gate->>Gate: X-Request-ID deduplication against request_id_cache<br/>(10-minute window — conflict → 409 DUPLICATE_REQUEST_ID)
     Gate->>Gate: Extract datasetId from path — parse XML per consignment-identifier.xsd
 

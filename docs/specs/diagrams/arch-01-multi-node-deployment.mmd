@@ -34,7 +34,7 @@ graph TB
         GateLT[eu-yy03\nLithuania Gate]
     end
 
-    Platform -->|"HTTPS POST /v1/identifiers/{datasetId}\nmTLS — platforms.cert_subject lookup"| LB
+    Platform -->|"HTTPS POST /v1/identifiers/{datasetId}\nmTLS — platforms.e_delivery_cert lookup"| LB
     Authority -->|"HTTPS GET /v1/identifiers/{plate}\nAuthorization: Bearer {TARA-JWT}\nAccept: text/event-stream"| LB
     Admin -->|"HTTPS POST/PUT/DELETE /api/v1/*\nAuthorization: Bearer {TARA-JWT}"| LB
 

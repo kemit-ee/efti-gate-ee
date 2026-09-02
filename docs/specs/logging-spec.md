@@ -163,7 +163,6 @@ Five templates cover every event shape in the gate. Per-event variations live in
   "efti": {
     "dataset.id": "550e8400-e29b-41d4-a716-446655440000",
     "platform.id": "<platformId>",
-    "platform.cert_subject": "CN=eDelivery-Platform, O=<orgName>, C=EE",
     "gate.id": "<gateId>",
     "identifier.value": "123ABC",
     "identifier.type": "means",
@@ -201,7 +200,7 @@ Five templates cover every event shape in the gate. Per-event variations live in
     "response.status_code": 400
   },
   "user": { "id": null, "roles": [] },
-  "efti": { "dataset.id": "660f9511-f39c-42e5-b827-557766551111", "platform.id": "<platformId>", "platform.cert_subject": "CN=eDelivery-Platform, O=<orgName>, C=EE", "error.code": "INVALID_XML" },
+  "efti": { "dataset.id": "660f9511-f39c-42e5-b827-557766551111", "platform.id": "<platformId>", "error.code": "INVALID_XML" },
   "error": { "type": "BadRequest", "message": "Error parsing identifiers: XML parse error at line 4: element 'modeCode' is not closed" },
   "service.name": "efti-gate", "service.version": "2.0.0", "host.hostname": "gate-<gateId>-node1"
 }
@@ -363,7 +362,7 @@ The `audit_log` row's `details` column is JSONB; the keys per `event.action` are
 | `user.create` / `user.delete` | `user_id`, `before`, `after` (excluding `secret_hash`) | `secret_hash` is never copied into the audit row, even on the break-glass path. |
 | `consignment.delete` | `dataset_id`, `triggered_by` (`platform` / `admin`) | |
 | `archive.run` | `archived` (per-table count map), `duration_ms`, `partial`, `next_archivable_count_estimate` | Per-run summary. |
-| `g2g.identifier.search.incoming` / `g2g.dataset.request.incoming` / `edelivery.message.receive` | `source_gate_id`, `source_cert_subject`, `as4_message_id`, `outcome` | |
+| `g2g.identifier.search.incoming` / `g2g.dataset.request.incoming` / `edelivery.message.receive` | `source_gate_id`, `as4_message_id`, `outcome` | |
 | `gate.ping` | `target_gate_id`, `outcome`, `responseTimeMs`, `previous_status`, `new_status` | Per-peer ping result. |
 
 ### 5.2 Audit-write transactionality

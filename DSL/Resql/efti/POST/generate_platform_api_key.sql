@@ -11,18 +11,18 @@ WITH newkey AS (
 ),
 latest AS (
   SELECT DISTINCT ON (id)
-    id, base_url, headers, e_delivery_cert, tls_cert, cert_subject, cert_serial, status
+    id, base_url, headers, e_delivery_cert, tls_cert, status
   FROM platforms
   WHERE id = :id AND status != 'DELETED'
   ORDER BY id, created_at DESC
 ),
 ins AS (
   INSERT INTO platforms (
-    id, base_url, headers, e_delivery_cert, tls_cert, cert_subject, cert_serial, status,
+    id, base_url, headers, e_delivery_cert, tls_cert, status,
     api_key_hash, api_key_hint, api_key_generated_at
   )
   SELECT
-    l.id, l.base_url, l.headers, l.e_delivery_cert, l.tls_cert, l.cert_subject, l.cert_serial, l.status,
+    l.id, l.base_url, l.headers, l.e_delivery_cert, l.tls_cert, l.status,
     digest(n.k, 'sha256'),
     substr(encode(digest(n.k, 'sha256'), 'hex'), 1, 8),
     NOW()

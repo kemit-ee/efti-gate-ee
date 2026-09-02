@@ -10,8 +10,8 @@ sequenceDiagram
     Proxy->>Proxy: Validate cert chain
     Proxy->>+Gate: forwarded request +<br/>X-Client-Cert-Subject: CN=eDelivery-Platform, O=Example Logistics<br/>X-Client-Cert-Serial: 0123456789ABCDEF
 
-    Gate->>+Auth: resolvePlatform(certSubject, certSerial)
-    Auth->>+DB: Resolve active platforms row by (cert_subject, cert_serial)
+    Gate->>+Auth: resolvePlatform(e_delivery_cert)
+    Auth->>+DB: Resolve active platforms row by e_delivery_cert
     DB-->>-Auth: Platform 'plt-xxx-001' (single match)
     Auth-->>-Gate: Platform{id='plt-xxx-001'}
 

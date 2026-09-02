@@ -422,7 +422,6 @@ POST /efti/api/v1/gates/ping?gateId=eu-de01
 ## 5. Admin — Platforms
 
 Platform'i kirje seob platvormi `baseUrl`-i eDelivery sertifikaadiga.
-mTLS autentimisel otsib gate `(certSubject, certSerial)` paari.
 
 ```mermaid
 sequenceDiagram
@@ -485,8 +484,6 @@ GET /efti/api/v1/platforms
 | `headers` | object | ❌ | Lisapäised (nt API võtmed) |
 | `eDeliveryCert` | string\|null | ❌ | AS4 sertifikaat PEM |
 | `tlsCert` | string\|null | ❌ | mTLS sertifikaat PEM |
-| `certSubject` | string\|null | ❌ | mTLS lahendamiseks vajalik tootmises |
-| `certSerial` | string\|null | ❌ | Sama sertifikaadi seeria |
 | `isPlatformActive` | boolean | ❌ | Vaikimisi `true` |
 
 ```json
@@ -498,9 +495,7 @@ Content-Type: application/json
   "id": "plt-cargo-ee-001",
   "baseUrl": "https://api.cargo-ee.com/efti/v1",
   "supportsSubsetting": true,
-  "headers": { "X-Api-Key": "secret-key-abc123" },
-  "certSubject": "CN=eDelivery-Platform, O=Cargo EE OÜ, C=EE",
-  "certSerial": "0123456789ABCDEF"
+  "headers": { "X-Api-Key": "secret-key-abc123" }
 }
 
 // Vastus 201 Created
@@ -532,7 +527,6 @@ GET /efti/api/v1/platforms?platformId=plt-cargo-ee-001
     {
       "id": "plt-cargo-ee-001",
       "baseUrl": "https://api.cargo-ee.com/efti/v1",
-      "certSubject": "CN=eDelivery-Platform, O=Cargo EE OÜ, C=EE",
       "supportsSubsetting": true,
       "isPlatformActive": true
     }
@@ -1160,8 +1154,6 @@ Kõik vead järgivad RFC 7807 `application/problem+json` formaati.
 | `headers` | object | Väljuvad lisapäised |
 | `eDeliveryCert` | string\|null | |
 | `tlsCert` | string\|null | |
-| `certSubject` | string\|null | mTLS lahendamiseks |
-| `certSerial` | string\|null | |
 | `supportsSubsetting` | boolean | |
 | `isPlatformActive` | boolean | |
 | `createdAt` | datetime | |

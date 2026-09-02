@@ -116,6 +116,15 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: false
             encoding: UTF-8
+  - changeSet:
+      id: 013-drop-platform-cert-fields
+      author: efti
+      changes:
+        - sqlFile:
+            path: changelog/20260902-drop-platform-cert-fields.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            encoding: UTF-8
 
   - includeAll:
       path: changelog/

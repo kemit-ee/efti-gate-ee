@@ -11,8 +11,8 @@ sequenceDiagram
     Proxy->>Proxy: Validate cert chain against MS-issued CA
     Proxy->>+Gate: POST /v1/identifiers/550e8400-...<br/>X-Client-Cert-Subject: CN=eDelivery-Platform, O=Example Logistics<br/>X-Client-Cert-Serial: 0123456789ABCDEF
 
-    Gate->>+Auth: resolvePlatform(certSubject, certSerial)
-    Auth->>+DB: Resolve active platforms rows by (cert_subject, cert_serial)
+    Gate->>+Auth: resolvePlatform(e_delivery_cert)
+    Auth->>+DB: Resolve active platforms rows by e_delivery_cert
     DB-->>-Auth: 2 active platforms match: 'plt-xxx-002', 'plt-xxx-003'
     Auth->>Auth: matches > 1 → CONFIGURATION ERROR
     Auth-->>-Gate: ForbiddenException(FORBIDDEN_MULTI_PLATFORM)
@@ -25,8 +25,8 @@ sequenceDiagram
 
     Note over Platform: After fix:<br/>(retry the same call)
     Platform->>+Gate: POST /v1/identifiers/550e8400-...<br/>X-Client-Cert-Subject: CN=eDelivery-Platform, O=Example Logistics
-    Gate->>+Auth: resolvePlatform(certSubject, certSerial)
-    Auth->>+DB: Resolve active platforms rows by (cert_subject, cert_serial)
+    Gate->>+Auth: resolvePlatform(e_delivery_cert)
+    Auth->>+DB: Resolve active platforms rows by e_delivery_cert
     DB-->>-Auth: 1 active platform matches: 'plt-xxx-002'
     Auth->>Auth: matches == 1 → OK
     Auth-->>-Gate: Platform{id="plt-xxx-002"}

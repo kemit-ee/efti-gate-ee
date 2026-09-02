@@ -14,7 +14,7 @@ sequenceDiagram
     participant Gate as eFTI Gate
     participant DB as PostgreSQL
     Platform->>Gate: POST /v1/identifiers/{datasetId}<br/>Client cert (mTLS, eDelivery AP)<br/>Content-Type: application/xml<br/>X-Request-ID: <uuid>
-    Gate->>Gate: Resolve platform_id from active platforms by (cert_subject, cert_serial)<br/>Validate XSD (consignment-identifier.xsd)<br/>Check X-Request-ID dedup (10-min TTL)
+    Gate->>Gate: Resolve platform_id from active platforms by e_delivery_cert<br/>Validate XSD (consignment-identifier.xsd)<br/>Check X-Request-ID dedup (10-min TTL)
     alt cert resolved + XSD valid
         Gate->>DB: INSERT consignments + identifiers<br/>(append-only: previous row stays in place but is no longer latest)
         Gate-->>Platform: 200 OK

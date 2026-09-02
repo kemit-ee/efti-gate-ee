@@ -10,8 +10,6 @@ update_platform:
       headers: "${incoming.body.headers}"
       eDeliveryCert: "${incoming.body.eDeliveryCert}"
       tlsCert: "${incoming.body.tlsCert}"
-      certSubject: "${incoming.body.certSubject}"
-      certSerial: "${incoming.body.certSerial}"
       status: "${incoming.body.status}"
   result: update_result
   next: check_update

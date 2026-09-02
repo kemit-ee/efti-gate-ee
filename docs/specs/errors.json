@@ -282,13 +282,13 @@
       "examples": [
         {
           "scenario": "Inbound mTLS request from an unregistered platform",
-          "request": "POST /v1/identifiers/550e8400-e29b-41d4-a716-446655440000 (mTLS, cert subject not in platforms.cert_subject)",
+          "request": "POST /v1/identifiers/550e8400-e29b-41d4-a716-446655440000 (mTLS, cert not in platforms.e_delivery_cert)",
           "response": {
             "type": "https://api.efti.ee/errors/forbidden-no-platform",
             "code": "FORBIDDEN_NO_PLATFORM",
             "title": "No matching platform",
             "status": 403,
-            "detail": "No active platform row matches the presented client certificate. Register the platform with its cert_subject + cert_serial via POST /api/v1/platforms.",
+            "detail": "No active platform row matches the presented client certificate. Register the platform with its e_delivery_cert via POST /api/v1/platforms.",
             "instance": "/v1/identifiers/550e8400-e29b-41d4-a716-446655440000"
           }
         }

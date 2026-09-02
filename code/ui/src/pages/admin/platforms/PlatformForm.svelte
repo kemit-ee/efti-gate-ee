@@ -37,8 +37,6 @@
       headers: platform.headers ?? undefined,
       eDeliveryCert: platform.eDeliveryCert,
       tlsCert: platform.tlsCert,
-      certSubject: platform.certSubject,
-      certSerial: platform.certSerial,
     }
     if (isEdit) await api.put(`platforms/${request.id}`, request)
     else await api.post('platforms', request)
