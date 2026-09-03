@@ -1,8 +1,9 @@
 # ADR-007: `transport-means` `scope: allgates` vastuse kuju
 
-**MUSTAND (otsustajad täpsustamata, 03.09.2026) — valik variantide A ja B vahel on lahtine.**
+**MUSTAND (otsustajad täpsustamata, 03.09.2026) — valik variantide A, B ja D vahel on lahtine.**
 
-Seotud: [issue #125](https://github.com/kemit-ee/efti-gate-ee/issues/125), [ADR-006](006-xroad-identity-and-subsets.md), PR #121.
+Seotud: [issue #125](https://github.com/kemit-ee/efti-gate-ee/issues/125), [ADR-006](006-xroad-identity-and-subsets.md),
+[ADR-008](008-adopt-datamapper.md) (variant D eeldab seda), PR #121.
 
 ## Kontekst
 
@@ -76,6 +77,29 @@ fikseeritud `transportMeansOrEquipmentId` kriteerium.
   `transport-means`-i "ainult identifikaatoritasand, ei dataset-sisu" põhimõttega — vajab
   eraldi filtreerimist või selget hoiatust
 
+### Variant D — DataMapperi mall, ühtne kohalikule ja kaugele
+
+Eeldab [ADR-008](008-adopt-datamapper.md) (DataMapperi kasutuselevõtt). Üks Handlebars-mall
+`DSL/DMapper/hbs/`-is, mida jooksutatakse **nii kohalike ReSql ridade kui kaug-otsingu tulemuste
+peal** → üks kureeritud kuju mõlemale, sõltumata allikast.
+
+`transport-means.yml`:
+1. kohalikud read: `get_consignments_by_vehicle.sql` (või lihtsam `get_consignments.sql`) →
+   DataMapper `transport_means` mall
+2. kaug-tulemused: `core` search → `xml-mapper` `search/response-to-json` → **sama** DataMapper mall
+3. liidab mõlemad, `found` = pikkus, `x-poll-more` edasi
+
+**Poolt:**
+- `scope` lubadus kehtib täielikult — `existence` / `local` / `allgates` räägivad sama keelt
+- projektsioon on deklaratiivne, andmebaasita testitav mall — mitte Kotlin ega `jsonb_build_object`
+- ei lisa `xml-mapper`-i vastutust; kihijaotus selgineb (vt ADR-008)
+- muster kordub iga tulevase `allgates`-tüüpi marsruudi puhul
+
+**Vastu:**
+- eeldab ADR-008 ratifitseerimist — uus teenus `compose.yml`-is, `DSL/DMapper/` struktuur,
+  õppimiskõver. See on kogu vastuse-kujundamise strateegia otsus, mitte ainult ADR-007 oma.
+- kui ADR-008 lükkub edasi, lükkub ka see variant
+
 ## Miks variant C (DSL-poolne ümberkujundamine) ei lenda üldse
 
 Kolmas mõeldav lähenemine — jätta kaug-tulemused `core` search'i kujusse ja **kujundada need
@@ -99,12 +123,15 @@ Kolmas mõeldav lähenemine — jätta kaug-tulemused `core` search'i kujusse ja
 
 ## Soovitus
 
-- **Variant A**, kui kureeritud väljaleping on välisele tarbijale oluline (ANTS / NES
-  liidestumine eeldab stabiilset skeemi) ja `scope` disaini elegants on Kotlin-endpointi väärt.
+- **Variant D**, kui [ADR-008](008-adopt-datamapper.md) läheb läbi — see on ainus variant, mis
+  `scope` lubadust täielikult hoiab, ilma Kotlin-tööta, ja skaleerub järgmistele marsruutidele.
+  ADR-007 ja ADR-008 on selle valiku kaudu tihedalt seotud.
+- **Variant A**, kui DataMapperit ei võeta kasutusele, aga kureeritud väljaleping on välisele
+  tarbijale oluline (ANTS / NES eeldab stabiilset skeemi).
 - **Variant B** selge `openapi.yaml` märkusega, kui `allgates` on esialgu haruldane kasutus ja
   kiire kohaletoimetamine kaalub üles kahe kuju halva.
 
-Otsust ei ole tehtud. Otsustajad: Sten Viljus + arhitektid.
+Otsust ei ole tehtud. Otsustajad: Sten Viljus + arhitektid. **Seotud otsus: [ADR-008](008-adopt-datamapper.md).**
 
 ## Tagajärjed
 
@@ -119,7 +146,14 @@ Otsust ei ole tehtud. Otsustajad: Sten Viljus + arhitektid.
   `scope` tabelis eraldi märkus, et `allgates` kuju erineb
 - klient peab `allgates` puhul teadma `core` search'i väljaleppe
 
+**Variant D:**
+- ADR-008 tagajärjed (uus teenus, `DSL/DMapper/` struktuur)
+- `DSL/DMapper/hbs/transport_means.hbs` — üks projektsioonimall
+- `transport-means.yml` kutsub malli nii kohaliku kui kaug-tulemuse peal
+- `openapi.yaml`: üks `transport-means` 200 skeem kõigi `scope` väärtuste jaoks
+
 ## Rakendatav changeset
 
 Vt [issue #125](https://github.com/kemit-ee/efti-gate-ee/issues/125). Käesolev ADR fikseeritakse
-(MUSTAND → OTSUS) siis, kui A/B valik on tehtud, enne #125 teostust.
+(MUSTAND → OTSUS) siis, kui A/B/D valik on tehtud, enne #125 teostust. Variant D valik eeldab
+[ADR-008](008-adopt-datamapper.md) ratifitseerimist.
