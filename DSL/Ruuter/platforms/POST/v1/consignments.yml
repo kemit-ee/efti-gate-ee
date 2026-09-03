@@ -17,7 +17,7 @@ consignment_xml:
     headers:
       Content-Type: "text/xml"
       x-gate-id: ${incoming.headers['x-gate-id'] ?? '[#OWN_GATE_ID]'}
-      X-Platform-Id: ${incoming.body.platformId} # TODO: take guard's platform?.id
+      x-platform-id: ${platform?.id ?? incoming.body.platformId} # TODO: take guard's platform?.id
       x-dataset-id: ${incoming.params?.pathParams[0]}
   result: consignment_json
   next: insert_consignment
