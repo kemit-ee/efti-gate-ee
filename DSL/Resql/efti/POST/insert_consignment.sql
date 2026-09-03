@@ -27,6 +27,12 @@ params:
   usedEquipmentSeq: { type: array, items: { type: integer } }
   xml: { type: string }
 */
+-- The *Seq params are declared `items: {type: integer}` (matching the XML `<SequenceNumeric>` and
+-- the XML mapper's `List<Int>`), so ReSql binds them as a native `bigint[]`. The columns are
+-- `INTEGER[]` (see 006-consignments.sql), and Postgres will not implicitly narrow `bigint[]` →
+-- `integer[]` on INSERT — hence the explicit `::integer[]` casts. The `text[]` params match their
+-- `TEXT[]` columns directly and need no cast. (ReSql >= 0.1.2-alpha binds empty typed arrays
+-- natively too, so this is cast-only, not a jsonb-unpack workaround — see issue #132.)
 INSERT INTO consignments (
   dataset_id,
   platform_id,
@@ -75,10 +81,10 @@ INSERT INTO consignments (
   :usedEquipmentIds,
   :usedEquipmentCategories,
   :usedEquipmentCountries,
-  :usedEquipmentSeq,
+  :usedEquipmentSeq::integer[],
   :carriedEquipmentIds,
   :carriedEquipmentCategories,
-  :carriedEquipmentSeq
+  :carriedEquipmentSeq::integer[]
 )
 RETURNING
   row_id,

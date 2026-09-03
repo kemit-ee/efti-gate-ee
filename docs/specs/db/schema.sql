@@ -293,10 +293,10 @@ CREATE TABLE consignments (
   used_equipment_ids        TEXT[],
   used_equipment_categories TEXT[],
   used_equipment_countries  TEXT[],
-  used_equipment_seq        TEXT[],
+  used_equipment_seq        INTEGER[],
   carried_equipment_ids        TEXT[],
   carried_equipment_categories TEXT[],
-  carried_equipment_seq        TEXT[],
+  carried_equipment_seq        INTEGER[],
   created_by          UUID,
   created_at          TIMESTAMPTZ         NOT NULL DEFAULT NOW(),
 

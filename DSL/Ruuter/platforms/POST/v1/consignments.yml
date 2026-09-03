@@ -17,8 +17,17 @@ consignment_to_json:
     headers:
       content-type: "text/xml"
       x-gate-id: ${incoming.headers['x-gate-id'] ?? '[#OWN_GATE_ID]'}
-      x-platform-id: ${platform?.id}
-      x-dataset-id: ${incoming.params?.pathParams[0]}
+      # `platform` is assigned by platforms/.guard.yml and is only in scope for a request that
+      # actually ran that guard. This handler is ALSO reached as a `template:` sub-call from
+      # consignments-xml.yml, and a template sub-call carries neither the guard nor its context —
+      # so a bare `${platform...}` here is a ReferenceError on that path (`?.`/`??` do not rescue an
+      # UNDECLARED identifier; only `typeof` does). No ternary — `": "` would terminate the YAML
+      # plain scalar. On the eDelivery path this is null and xml-mapper ignores it: a full
+      # FTI004UploadIdentifierRequest carries the UIL in the XML (UploadRoutes.kt), the X-Platform-Id
+      # header is read only for the bare-ParameterIDSetCriteria (direct REST) case.
+      # STOPGAP — see the platforms-guard issue; real fix waits on Ruuter #57 (per-route guard opt-out).
+      x-platform-id: ${(typeof platform !== 'undefined' && platform && platform.id) || null}
+      x-dataset-id: ${incoming.params?.pathParams?.[0]}
   result: consignment_json
   next: insert_consignment
 
