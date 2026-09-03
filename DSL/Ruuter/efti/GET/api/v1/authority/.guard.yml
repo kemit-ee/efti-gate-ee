@@ -2,6 +2,11 @@
 # operators: requires a TARA JWT resolving to a users row with is_admin. Competent authorities
 # proper authenticate as organisations over X-Road, not via this JWT surface. Mirrors
 # efti/POST/api/v1/authority/.guard.yml.
+#
+# Deliberately does NOT accept the X-Internal-Service-Token branch that the POST sibling has: the
+# X-Road adapter forwards only POST, so the token gets no more reach than it needs. If a future
+# internal caller needs a GET authority route, add the branch here explicitly rather than assuming
+# the asymmetry is an oversight.
 validate_auth:
   call: http.post
   args:

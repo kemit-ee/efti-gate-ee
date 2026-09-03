@@ -1,0 +1,445 @@
+import ../admin/auth.http
+run #auth
+
+# POST /xroad/v1/transport-means — a transport-means identifier in, the identifier-level data the
+# gate holds out (ADR-006). Mode-neutral: road plate, vessel IMO, aircraft registration, or a
+# transport-equipment (container) id.
+#
+# Fixtures come from tests/authority/authority-api.http, which uploads
+# code/xml-mapper/xsd/FTI004/sample.xml and sorts before tests/http/ in the tests/*/*.http glob:
+#   main_transport_id      VESSEL-001
+#   used_equipment_ids     TE-001, TE-002
+#   carried_equipment_ids  TE-003, TE-004
+#   transport_reg_country  DE
+#
+# Registry codes 70000093 / 70000092 are unused elsewhere (echo 70000099, subsets 70000095-97,
+# forward 70000094, admin 70000001/00000000).
+#
+# Every X-Road-Id must be a real UUID — the guard rejects anything else with 400 INVALID_REQUEST_ID.
+
+### Cleanup: EU02-entitled authority
+DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-tm
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Cleanup EU02 authority ok", () => {
+    client.assert(response.status === 204 || response.status === 404)
+  })
+%}
+
+### Cleanup: authority without EU02
+DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-tm-no-eu02
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Cleanup non-EU02 authority ok", () => {
+    client.assert(response.status === 204 || response.status === 404)
+  })
+%}
+
+### Setup: authority entitled to EU02 (means of transport)
+POST {{RUUTER_URL}}/admin/v1/authorities
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "id": "auth-xroad-tm",
+  "name": "X-Road Transport Means Authority",
+  "registryCode": "70000093",
+  "subsets": ["EU01", "EU02"],
+  "status": "ACTIVE"
+}
+
+> {%
+  client.test("EU02 authority created", () => {
+    client.assert(response.status === 201)
+    client.assert(response.body.registryCode === "70000093")
+  })
+%}
+
+### Setup: authority NOT entitled to EU02
+POST {{RUUTER_URL}}/admin/v1/authorities
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "id": "auth-xroad-tm-no-eu02",
+  "name": "X-Road Transport Means Authority Without EU02",
+  "registryCode": "70000092",
+  "subsets": ["EU01"],
+  "status": "ACTIVE"
+}
+
+> {%
+  client.test("Non-EU02 authority created", () => {
+    client.assert(response.status === 201)
+  })
+%}
+
+### scope local (default): main transport means identifier
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0001-4d1d-8f1a-0ec000000001
+X-Road-UserId: EE30101010007
+Content-Type: application/json
+
+{ "identifier": "VESSEL-001" }
+
+> {%
+  client.test("Main transport means identifier returns its consignments", () => {
+    client.assert(response.status === 200, "expected 200, got " + response.status +
+      " body=" + JSON.stringify(response.body))
+    client.assert(response.body.identifier === "VESSEL-001")
+    client.assert(response.body.scope === "local", "scope must default to local")
+    client.assert(response.body.found >= 1, "expected at least one match, found=" + response.body.found)
+    client.assert(Array.isArray(response.body.consignments))
+    client.assert(response.body.consignments.length === response.body.found, "found must equal the array length")
+    const c = response.body.consignments[0]
+    client.assert(c.mainTransportId === "VESSEL-001")
+    client.assert(c.uil !== undefined && c.uil.datasetId !== undefined, "uil.datasetId must be present so the caller can fetch the dataset")
+    client.assert(c.uil.gateId !== undefined && c.uil.platformId !== undefined)
+  })
+%}
+
+### CONTAINER SEARCH: a used-equipment id must match, not just the towing unit
+# The point of the rename. A border check on a container number must not answer "not registered"
+# merely because the number sits on the equipment rather than the main transport means.
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0002-4d1d-8f2a-0ec000000002
+Content-Type: application/json
+
+{ "identifier": "TE-001" }
+
+> {%
+  client.test("Used-equipment id finds the consignment", () => {
+    client.assert(response.status === 200, "expected 200, got " + response.status +
+      " body=" + JSON.stringify(response.body))
+    client.assert(response.body.found >= 1, "TE-001 is in used_equipment_ids and must match; found=" + response.body.found)
+    const c = response.body.consignments[0]
+    client.assert(c.usedEquipmentIds.indexOf("TE-001") !== -1)
+    client.assert(c.mainTransportId === "VESSEL-001", "the same consignment is returned, matched via its equipment")
+  })
+%}
+
+### CONTAINER SEARCH: a carried-equipment id must match too
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0003-4d1d-8f3a-0ec000000003
+Content-Type: application/json
+
+{ "identifier": "TE-003" }
+
+> {%
+  client.test("Carried-equipment id finds the consignment", () => {
+    client.assert(response.status === 200, "expected 200, got " + response.status +
+      " body=" + JSON.stringify(response.body))
+    client.assert(response.body.found >= 1, "TE-003 is in carried_equipment_ids and must match; found=" + response.body.found)
+    client.assert(response.body.consignments[0].carriedEquipmentIds.indexOf("TE-003") !== -1)
+  })
+%}
+
+### scope existence: the sub-second ANTS border path, boolean only
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0004-4d1d-8f4a-0ec000000004
+Content-Type: application/json
+
+{ "identifier": "VESSEL-001", "scope": "existence" }
+
+> {%
+  client.test("scope existence returns registered true and no data", () => {
+    client.assert(response.status === 200, "expected 200, got " + response.status +
+      " body=" + JSON.stringify(response.body))
+    client.assert(response.body.registered === true)
+    client.assert(response.body.scope === "existence")
+    client.assert(response.body.identifier === "VESSEL-001")
+    client.assert(response.body.consignments === undefined, "existence must not return consignment data")
+    client.assert(response.body.found === undefined, "existence returns a boolean, not a count")
+  })
+%}
+
+### scope existence: a container id is registered too
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0005-4d1d-8f5a-0ec000000005
+Content-Type: application/json
+
+{ "identifier": "TE-002", "scope": "existence" }
+
+> {%
+  client.test("Existence check matches equipment ids", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.registered === true, "TE-002 is in used_equipment_ids")
+  })
+%}
+
+### scope existence: unknown identifier is registered false, not 404
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0006-4d1d-8f6a-0ec000000006
+Content-Type: application/json
+
+{ "identifier": "NO-SUCH-IDENTIFIER-XYZ", "scope": "existence" }
+
+> {%
+  client.test("Unknown identifier returns registered false", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.registered === false)
+  })
+%}
+
+### REGRESSION: the local response must carry no dataset content
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0007-4d1d-8f7a-0ec000000007
+Content-Type: application/json
+
+{ "identifier": "VESSEL-001" }
+
+> {%
+  client.test("No dataset content is returned", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.consignments[0].xml === undefined, "xml must never be returned")
+    client.assert(JSON.stringify(response.body).indexOf("<") === -1, "no XML markup anywhere in the response")
+  })
+%}
+
+### Unknown identifier under scope local is 200 with found 0, not 404
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0008-4d1d-8f8a-0ec000000008
+Content-Type: application/json
+
+{ "identifier": "NO-SUCH-IDENTIFIER-XYZ" }
+
+> {%
+  client.test("Unknown identifier returns 200 with found 0", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.found === 0)
+    client.assert(Array.isArray(response.body.consignments))
+    client.assert(response.body.consignments.length === 0)
+  })
+%}
+
+### countryCode that matches the registration country still finds it
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0009-4d1d-8f9a-0ec000000009
+Content-Type: application/json
+
+{ "identifier": "VESSEL-001", "countryCode": "DE" }
+
+> {%
+  client.test("Matching countryCode does not filter it out", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.found >= 1, "transport_reg_country is DE in the fixture; found=" + response.body.found)
+    client.assert(response.body.countryCode === "DE")
+  })
+%}
+
+### countryCode that does not match filters the row out
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-000a-4d1d-8faa-0ec00000000a
+Content-Type: application/json
+
+{ "identifier": "VESSEL-001", "countryCode": "ZZ" }
+
+> {%
+  client.test("Non-matching countryCode yields no results", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.found === 0)
+  })
+%}
+
+### Empty countryCode means "any country" — normalised in SQL, not the DSL
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-000b-4d1d-8fba-0ec00000000b
+Content-Type: application/json
+
+{ "identifier": "VESSEL-001", "countryCode": "" }
+
+> {%
+  client.test("Empty countryCode does not filter anything out", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.found >= 1, "empty countryCode must behave as absent, found=" + response.body.found)
+  })
+%}
+
+### scope allgates is in the contract but not yet built → 501
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-000c-4d1d-8fca-0ec00000000c
+Content-Type: application/json
+
+{ "identifier": "VESSEL-001", "scope": "allgates" }
+
+> {%
+  client.test("scope allgates returns 501 NOT_IMPLEMENTED", () => {
+    client.assert(response.status === 501, "expected 501, got " + response.status)
+    client.assert(response.body.code === "NOT_IMPLEMENTED")
+    client.assert(response.body.type === "https://api.efti.ee/errors/not-implemented")
+  })
+%}
+
+### Unknown scope → 400, not a silent default
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-000d-4d1d-8fda-0ec00000000d
+Content-Type: application/json
+
+{ "identifier": "VESSEL-001", "scope": "Local" }
+
+> {%
+  client.test("Unknown scope returns 400", () => {
+    client.assert(response.status === 400)
+    client.assert(response.body.code === "BAD_REQUEST_GENERAL")
+    client.assert(response.body.detail.indexOf("scope") !== -1, "the detail must name the offending field")
+  })
+%}
+
+### Entitlement: an authority without EU02 is denied, on every scope
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000092/tram
+X-Road-Id: 0a11ce5e-000e-4d1d-8fea-0ec00000000e
+Content-Type: application/json
+
+{ "identifier": "VESSEL-001" }
+
+> {%
+  client.test("Authority without EU02 gets 403 FORBIDDEN_SUBSET", () => {
+    client.assert(response.status === 403)
+    client.assert(response.body.code === "FORBIDDEN_SUBSET")
+    client.assert(response.body.deniedSubsets.indexOf("EU02") !== -1)
+    client.assert(response.body.permittedSubsets.indexOf("EU01") !== -1)
+    client.assert(response.body.authorityId === "auth-xroad-tm-no-eu02")
+    client.assert(JSON.stringify(response.body).indexOf("VESSEL-001") === -1, "a denial must not leak data about the identifier")
+  })
+%}
+
+### Entitlement is checked before the existence shortcut too
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000092/tram
+X-Road-Id: 0a11ce5e-000f-4d1d-8ffa-0ec00000000f
+Content-Type: application/json
+
+{ "identifier": "VESSEL-001", "scope": "existence" }
+
+> {%
+  client.test("scope existence is also EU02-gated", () => {
+    client.assert(response.status === 403, "the cheap path must not bypass entitlement")
+    client.assert(response.body.code === "FORBIDDEN_SUBSET")
+    client.assert(response.body.registered === undefined, "a denial must not answer the question")
+  })
+%}
+
+### identifier absent → 400
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0010-4d1d-8f0a-0ec000000010
+Content-Type: application/json
+
+{ "countryCode": "EE" }
+
+> {%
+  client.test("Absent identifier returns 400", () => {
+    client.assert(response.status === 400)
+    client.assert(response.body.code === "BAD_REQUEST_GENERAL")
+  })
+%}
+
+### identifier empty → 400
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0011-4d1d-8f1a-0ec000000011
+Content-Type: application/json
+
+{ "identifier": "" }
+
+> {%
+  client.test("Empty identifier returns 400", () => {
+    client.assert(response.status === 400)
+    client.assert(response.body.code === "BAD_REQUEST_GENERAL")
+  })
+%}
+
+### identifier numeric → 400, not a 502 from the data layer
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0012-4d1d-8f2a-0ec000000012
+Content-Type: application/json
+
+{ "identifier": 12345 }
+
+> {%
+  client.test("Numeric identifier returns 400, not 502", () => {
+    client.assert(response.status === 400, "expected 400, got " + response.status)
+    client.assert(response.body.code === "BAD_REQUEST_GENERAL")
+  })
+%}
+
+### The guard still fronts this route: no X-Road-Client → 401
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Id: 0a11ce5e-0013-4d1d-8f3a-0ec000000013
+Content-Type: application/json
+
+{ "identifier": "VESSEL-001" }
+
+> {%
+  client.test("Missing X-Road-Client returns 401", () => {
+    client.assert(response.status === 401)
+    client.assert(response.body.code === "UNAUTHORIZED")
+  })
+%}
+
+### Non-UUID X-Road-Id → 400 INVALID_REQUEST_ID
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: ANTS-2026-000123
+Content-Type: application/json
+
+{ "identifier": "VESSEL-001" }
+
+> {%
+  client.test("Non-UUID X-Road-Id returns 400 INVALID_REQUEST_ID", () => {
+    client.assert(response.status === 400)
+    client.assert(response.body.code === "INVALID_REQUEST_ID")
+  })
+%}
+
+### Unknown registry code → 403, before any lookup
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/99999999/ants
+X-Road-Id: 0a11ce5e-0014-4d1d-8f4a-0ec000000014
+Content-Type: application/json
+
+{ "identifier": "VESSEL-001" }
+
+> {%
+  client.test("Unknown registry code returns 403 FORBIDDEN", () => {
+    client.assert(response.status === 403)
+    client.assert(response.body.code === "FORBIDDEN")
+  })
+%}
+
+### Teardown: EU02 authority
+DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-tm
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Teardown EU02 authority", () => {
+    client.assert(response.status === 204)
+  })
+%}
+
+### Teardown: non-EU02 authority
+DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-tm-no-eu02
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Teardown non-EU02 authority", () => {
+    client.assert(response.status === 204)
+  })
+%}

@@ -7,9 +7,6 @@ call_consignment:
   request_type: "POST"
   body:
     xml: ${incoming.body.xml}
-    platformId: ${incoming.body.platformId}
-  query:
-    pathParams: ${incoming.params.pathParams}
   result: consignment_response
   next: to_xml
 

@@ -231,7 +231,7 @@
       "code": "FORBIDDEN",
       "httpStatus": 403,
       "title": "Forbidden",
-      "description": "The authenticated caller is identified but not permitted on this surface \u2014 the static opsToken does not match, or the authenticated user is calling an endpoint reserved for a different identity type.",
+      "description": "The authenticated caller is identified but not permitted on this surface — the static opsToken does not match, or the authenticated user is calling an endpoint reserved for a different identity type.",
       "type": "https://api.efti.ee/errors/forbidden",
       "examples": [
         {
@@ -254,7 +254,7 @@
       "code": "FORBIDDEN_MULTI_PLATFORM",
       "httpStatus": 403,
       "title": "Certificate matches multiple active platforms",
-      "description": "The presented client certificate's subject DN + serial resolve to more than one active row in the `platforms` registry. This is a configuration error \u2014 exactly one active platform row per certificate. The platform cannot authenticate until the operator soft-deletes the obsolete row(s).",
+      "description": "The presented client certificate's subject DN + serial resolve to more than one active row in the `platforms` registry. This is a configuration error — exactly one active platform row per certificate. The platform cannot authenticate until the operator soft-deletes the obsolete row(s).",
       "type": "https://api.efti.ee/errors/forbidden-multi-platform",
       "examples": [
         {
@@ -595,6 +595,28 @@
       "logLevel": "WARN",
       "retryable": false
     },
+    "NOT_IMPLEMENTED": {
+      "code": "NOT_IMPLEMENTED",
+      "httpStatus": 501,
+      "title": "Not Implemented",
+      "description": "The request names a capability that is part of the published API contract but is not yet implemented. Distinct from 400: the value is recognised and valid, the capability is absent.",
+      "type": "https://api.efti.ee/errors/not-implemented",
+      "examples": [
+        {
+          "scenario": "X-Road transport-means lookup requested with scope 'allgates' before cross-gate fan-out is built",
+          "request": "POST /xroad/v1/transport-means {\"identifier\":\"123ABC\",\"scope\":\"allgates\"}",
+          "response": {
+            "type": "https://api.efti.ee/errors/not-implemented",
+            "code": "NOT_IMPLEMENTED",
+            "title": "Not Implemented",
+            "status": 501,
+            "detail": "scope 'allgates' is part of the published contract but not yet implemented; cross-gate fan-out arrives in a follow-up. Use scope 'local' for this gate's own register."
+          }
+        }
+      ],
+      "logLevel": "INFO",
+      "retryable": false
+    },
     "PLATFORM_NOT_FOUND": {
       "code": "PLATFORM_NOT_FOUND",
       "httpStatus": 404,
@@ -829,7 +851,7 @@
       "retryable": false
     }
   },
-  "rfcReference": "RFC 7807 Problem Details for HTTP APIs \u2014 https://www.rfc-editor.org/rfc/rfc7807",
+  "rfcReference": "RFC 7807 Problem Details for HTTP APIs — https://www.rfc-editor.org/rfc/rfc7807",
   "notes": [
     "All error responses include Content-Type: application/problem+json",
     "The 'instance' field always reflects the exact request path that produced the error",

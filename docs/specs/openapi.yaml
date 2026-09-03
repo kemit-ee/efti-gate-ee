@@ -1996,22 +1996,8 @@ paths:
       security:
         - xroadClient: []
       parameters:
-        - name: X-Road-Id
-          in: header
-          required: true
-          description: X-Road message id, logged for correlation.
-          schema:
-            type: string
-          example: 4894e35d-bf0f-44a6-867a-8e51f1daa7e0
-        - name: X-Road-UserId
-          in: header
-          required: false
-          description: |
-            End user's personal identification code, when the calling system has one.
-            **Audit only** — X-Road does not authenticate this value, so it never grants access.
-          schema:
-            type: string
-          example: EE30101010007
+        - $ref: '#/components/parameters/XRoadId'
+        - $ref: '#/components/parameters/XRoadUserId'
       responses:
         '200':
           description: The calling organisation's permitted subsets
@@ -2115,6 +2101,317 @@ paths:
                     title: Forbidden
                     status: 403
                     detail: The X-Road client registry code resolves to more than one active competent authority. This is a registry misconfiguration; contact the gate operator.
+
+  /xroad/v1/transport-means:
+    post:
+      tags: [X-Road]
+      summary: Look up what the gate knows about a vehicle registration number
+      operationId: xroadTransportMeansLookup
+      description: |
+        A registration number in, the identifier-level data this gate holds against it out.
+
+        **No dataset content is returned.** The response carries the `uil` of each matching
+        consignment plus transport-means and date/country metadata. To obtain content, call
+        `POST /xroad/v1/dataset` with a returned `uil` — that path applies the subset check per
+        requested subset.
+
+        This route is backed by a dedicated projection rather than the general consignment search so
+        that it pins an explicit field contract, and so that it omits the stored identifier XML,
+        which is redundant here (it carries the same fields already returned as columns) and whose
+        schema belongs to the platform rather than to this gate.
+
+        **Requires `EU02`** in `authorities.subsets`: Delegated Reg 2024/2024 defines EU02 as "means
+        of transport (vehicle plate, container number)", which is exactly this data.
+
+        **Local registry only** — no cross-gate broadcast.
+
+        An unknown number is a **200 with `found: 0`**, not a 404: "we do not know this vehicle" is a
+        successful answer, and it doubles as an existence check.
+
+        **Matching is exact:** case-sensitive (the column is `TEXT`, not `CITEXT`) and untrimmed, so
+        `123abc ` will not match `123ABC`. Result sets are capped at 50 by the server; the cap is not
+        caller-adjustable.
+      security:
+        - xroadClient: []
+      parameters:
+        - $ref: '#/components/parameters/XRoadId'
+        - $ref: '#/components/parameters/XRoadUserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identifier]
+              properties:
+                identifier:
+                  type: string
+                  minLength: 1
+                  description: Vehicle registration number, matched against `consignments.main_transport_id`.
+                  example: "123ABC"
+                countryCode:
+                  type: string
+                  description: |
+                    Optional registration-country filter (`consignments.transport_reg_country`).
+                    Absent or empty means any country.
+                  example: EE
+      responses:
+        '200':
+          description: |
+            What the gate knows. `found` always equals `consignments.length`.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [identifier, found, consignments]
+                properties:
+                  identifier: { type: string, example: "123ABC" }
+                  countryCode:
+                    type: string
+                    nullable: true
+                    description: Echo of the filter applied, `null` if none.
+                  found:
+                    type: integer
+                    description: Number of matching consignments, capped at the server-fixed 50.
+                    example: 1
+                  consignments:
+                    type: array
+                    description: Empty when the gate holds nothing for this number.
+                    items:
+                      type: object
+                      properties:
+                        uil:
+                          # Inlined rather than $ref'ing UIL: that schema pins
+                          # gateId to ^eu-[a-z]{2}[0-9]{2}$, which the real gate id EU-EE
+                          # (constants.ini OWN_GATE_ID) does not match — a validator would
+                          # reject every genuine response. /xroad/v1/dataset's requestBody
+                          # already inlines it for the same reason.
+                          type: object
+                          required: [gateId, platformId, datasetId]
+                          properties:
+                            gateId: { type: string, example: EU-EE }
+                            platformId: { type: string, example: mock }
+                            datasetId: { type: string, format: uuid }
+                        mainTransportId: { type: string, example: "123ABC" }
+                        mainTransportType: { type: string }
+                        transportRegCountry: { type: string, example: EE }
+                        transportMode: { type: string }
+                        dangerousGoods: { type: string, nullable: true }
+                        acceptanceDate: { type: string, format: date-time, nullable: true }
+                        acceptanceCountry: { type: string, nullable: true }
+                        deliveryDate: { type: string, format: date-time, nullable: true }
+                        deliveryCountry: { type: string, nullable: true }
+                        loadingDate: { type: string, format: date-time, nullable: true }
+                        loadingCountry: { type: string, nullable: true }
+                        unloadingDate: { type: string, format: date-time, nullable: true }
+                        unloadingCountry: { type: string, nullable: true }
+                        usedEquipmentIds: { type: array, items: { type: string } }
+                        usedEquipmentCategories: { type: array, items: { type: string } }
+                        usedEquipmentCountries: { type: array, items: { type: string } }
+                        carriedEquipmentIds: { type: array, items: { type: string } }
+                        carriedEquipmentCategories: { type: array, items: { type: string } }
+                        status: { type: string, example: ACTIVE }
+                        createdAt: { type: string, format: date-time }
+        '400':
+          description: |
+            `BAD_REQUEST_GENERAL` — `identifier` is absent, empty, or not a string; or
+            `INVALID_REQUEST_ID` — `X-Road-Id` is not UUID-shaped.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          $ref: '#/components/responses/XRoadUnauthorized'
+        '403':
+          description: |
+            `FORBIDDEN_SUBSET` — the authority is not entitled to `EU02`. The body carries
+            `deniedSubsets`, `permittedSubsets` and `authorityId`, and deliberately does not echo the
+            requested number. Or `FORBIDDEN` — the client does not resolve to one ACTIVE authority.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          $ref: '#/components/responses/XRoadBadGateway'
+
+  /xroad/v1/dataset:
+    post:
+      tags: [X-Road]
+      summary: Retrieve a consignment dataset filtered to the requested eFTI subsets
+      operationId: xroadGetDataset
+      description: |
+        Forwards to the gate's core Authority API after enforcing the calling organisation's
+        subset entitlement.
+
+        **Subset enforcement.** The requested subsets must all be within `authorities.subsets` for
+        the organisation resolved from `X-Road-Client`. A partially permitted request is denied in
+        full — there is no silent narrowing to the permitted subset, because that would answer a
+        question the caller did not ask and hide the entitlement error.
+
+        Callers can discover their own entitlement up front via `GET /xroad/v1/subsets`.
+      security:
+        - xroadClient: []
+      parameters:
+        - $ref: '#/components/parameters/XRoadId'
+        - $ref: '#/components/parameters/XRoadUserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [uil, subsets]
+              properties:
+                uil:
+                  type: object
+                  required: [gateId, platformId, datasetId]
+                  properties:
+                    gateId: { type: string, example: EU-EE }
+                    platformId: { type: string, example: mock }
+                    datasetId: { type: string, format: uuid }
+                subsets:
+                  type: array
+                  minItems: 1
+                  description: |
+                    At least one subset is required. See `GET /xroad/v1/subsets` for the note on why
+                    this is not bound to the `Subset` enum.
+                  items: { type: string }
+                  example: ["EU01", "EU05"]
+      responses:
+        '200':
+          description: Dataset as returned by the platform or peer gate, passed through unchanged.
+        '400':
+          description: |
+            One of:
+
+            - `MISSING_SUBSET` — the subset list is empty or absent;
+            - `BAD_REQUEST_GENERAL` — the body was rejected by the gate's data layer, e.g. `subsets`
+              sent as a string instead of an array (the route cannot detect that itself: a string
+              has a non-zero `length`, and distinguishing it from an array would need
+              `Array.isArray`, unproven in this engine);
+            - `INVALID_REQUEST_ID` — `X-Road-Id` is present but not UUID-shaped.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          $ref: '#/components/responses/XRoadUnauthorized'
+        '403':
+          description: |
+            `FORBIDDEN` (client does not resolve to one ACTIVE authority) or `FORBIDDEN_SUBSET`
+            (a requested subset is outside the organisation's entitlement).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: https://api.efti.ee/errors/forbidden-subset
+                code: FORBIDDEN_SUBSET
+                title: Subset Access Denied
+                status: 403
+                detail: The requesting authority is not permitted to access one or more of the requested eFTI subsets.
+                authorityId: auth-mta
+                deniedSubsets: ["EU06"]
+                permittedSubsets: ["EU01", "EU02"]
+        '502':
+          $ref: '#/components/responses/XRoadBadGateway'
+
+  /xroad/v1/search:
+    post:
+      tags: [X-Road]
+      summary: Search consignments by identifier criteria
+      operationId: xroadSearch
+      description: |
+        Forwards to the gate's core Authority API, which searches locally first and then broadcasts
+        to peer gates. No subset gate: this returns identifier-level metadata rather than dataset
+        content and takes no subset parameter — competent authorities have unrestricted identifier
+        search under Reg 2024/1942.
+
+        **Polling.** When the response carries `x-poll-more: true`, peer gates are still answering.
+        Re-issue the request with `{"poll": true}` and the **same `X-Road-Id`** to collect the rest —
+        the gate uses that value as the correlation key.
+      security:
+        - xroadClient: []
+      parameters:
+        - $ref: '#/components/parameters/XRoadId'
+        - $ref: '#/components/parameters/XRoadUserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Search criteria, passed through to the core Authority API unchanged.
+              additionalProperties: true
+              example: { transportMode: "1" }
+      responses:
+        '200':
+          description: Matching consignments.
+          headers:
+            x-poll-more:
+              description: '`true` while peer gates are still responding — poll again with the same `X-Road-Id`.'
+              schema: { type: boolean }
+        '401':
+          $ref: '#/components/responses/XRoadUnauthorized'
+        '403':
+          description: '`FORBIDDEN` — the client does not resolve to one ACTIVE authority.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          $ref: '#/components/responses/XRoadBadGateway'
+
+  /xroad/v1/follow-up:
+    post:
+      tags: [X-Road]
+      summary: Send a follow-up message to a platform via the gate
+      operationId: xroadFollowUp
+      description: |
+        Forwards to the gate's core Authority API. No subset gate: a follow-up carries a message,
+        not dataset content.
+
+        Note: the gate currently writes an empty `requestingUserId` to `follow_up_log`, so the
+        X-Road caller is not attributed. Pre-existing and equally true of the JWT path.
+      security:
+        - xroadClient: []
+      parameters:
+        - $ref: '#/components/parameters/XRoadId'
+        - $ref: '#/components/parameters/XRoadUserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [uil, message]
+              properties:
+                uil:
+                  type: object
+                  properties:
+                    gateId: { type: string }
+                    platformId: { type: string }
+                    datasetId: { type: string, format: uuid }
+                referenceIds:
+                  type: array
+                  items: { type: string }
+                message: { type: string }
+                files:
+                  type: array
+                  items: { type: string }
+      responses:
+        '200':
+          description: Follow-up accepted by the platform or peer gate.
+        '401':
+          $ref: '#/components/responses/XRoadUnauthorized'
+        '403':
+          description: '`FORBIDDEN` — the client does not resolve to one ACTIVE authority.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '502':
+          $ref: '#/components/responses/XRoadBadGateway'
 
   /health/live:
     get:
@@ -2281,6 +2578,40 @@ components:
   # PARAMETERS
   # ============================================================================
   parameters:
+    # --- X-Road adapter (EE national extension). X-Road-Client is not here: it is the credential
+    # --- and is modelled as the `xroadClient` security scheme.
+    XRoadId:
+      name: X-Road-Id
+      in: header
+      required: true
+      description: |
+        X-Road message id. **Must be a UUID** — a consumer contract this gate imposes, because it
+        maps the value to its internal `x-request-id`, which is consumed as a typed UUID on the
+        cross-gate path. A non-UUID is rejected with 400 `INVALID_REQUEST_ID`. X-Road itself permits
+        an arbitrary unique string here (the Security Server generates a UUID only when the consumer
+        omits the header), so a consumer information system that sets its own id must use UUIDs.
+
+        Also the correlation key for polling an in-flight cross-gate search: re-issue
+        `POST /xroad/v1/search` with `{"poll": true}` and the same value. Note a request re-sent
+        through the Security Server normally receives a **fresh** id, so polling requires the
+        consumer to reuse it deliberately.
+      schema:
+        type: string
+        format: uuid
+      example: 4894e35d-bf0f-44a6-867a-8e51f1daa7e0
+
+    XRoadUserId:
+      name: X-Road-UserId
+      in: header
+      required: false
+      description: |
+        End user's personal identification code, when the calling system has one. **Audit only —
+        never grants access**, because X-Road does not authenticate this value; it is asserted by
+        the caller. (The audit writer does not exist yet — see ADR-006.)
+      schema:
+        type: string
+      example: EE30101010007
+
     DatasetIdPath:
       name: datasetId
       in: path
@@ -2395,6 +2726,62 @@ components:
   # RESPONSES
   # ============================================================================
   responses:
+    # --- X-Road adapter (EE national extension). Media type is application/json, not
+    # --- application/problem+json: the bodies are RFC 7807-shaped but Ruuter serves them as JSON,
+    # --- matching every other guard in the gate. Documented as what is actually emitted.
+    XRoadUnauthorized:
+      description: |
+        `UNAUTHORIZED` — `X-Road-Client` is absent or malformed. That header is the credential, so
+        this is 401 rather than 403. Malformed covers: not 3 or 4 slash-separated parts, an empty
+        instance / memberClass / memberCode, or a trailing slash.
+
+        A missing `X-Road-Id` is a separate 400 `MISSING_REQUIRED_HEADER`, checked only after the
+        credential's shape has been validated.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: "https://api.efti.ee/errors/unauthorized"
+            code: UNAUTHORIZED
+            title: Authentication Required
+            status: 401
+            detail: "X-Road-Client header is missing or malformed. Expected instance/memberClass/memberCode[/subsystemCode]."
+
+    XRoadBadGateway:
+      description: |
+        `GATEWAY_UNAVAILABLE` — the gate's core API answered with a 4xx or 5xx.
+
+        Normalised to 502 rather than passing the gate's status through: `errors.json` binds each
+        code to exactly one status, and RFC 7807 requires the body's `status` to match the HTTP
+        status, so forwarding an arbitrary status would force either an invented code or a
+        code/status mismatch. The gate's real status and payload are carried verbatim in
+        `coreStatus` and `coreResponse`, so no diagnostic is lost — branch on `coreStatus`, not the
+        HTTP status, to tell "unknown platform" from "gate broken".
+
+        The same code and status are also used when a **gate-side data-layer call** fails rather than
+        core — a subset-entitlement lookup or a vehicle lookup. Those variants carry `resqlStatus`
+        instead of `coreStatus`/`coreResponse`, and on `/xroad/v1/transport-means` also a `failedStep`
+        (`check_authority_subsets` or `get_consignments_by_transport_means`) so an operator can tell which of
+        the route's two queries failed.
+
+        **Not** emitted when core is unreachable or the 70 s timeout expires: that raises inside the
+        forwarding step and, with `stop_in_case_of_exception: true`, Ruuter emits its own generic
+        500. Documented in ADR-006 — a hard core outage surfaces as 500, not 502.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: "https://api.efti.ee/errors/bad-gateway"
+            code: GATEWAY_UNAVAILABLE
+            title: Bad Gateway
+            status: 502
+            detail: "The gate's dataset request failed. The gate's own status and response are carried in coreStatus and coreResponse."
+            coreStatus: 404
+            coreResponse:
+              error: "Platform Not Found"
+
     BadRequest:
       description: Bad Request — invalid parameters, malformed XML, or missing required fields
       content:

@@ -7,7 +7,7 @@ declaration:
         In this case, datasetId must be provided as path parameter.
   allowed_body: [xml]
 
-consignment_xml:
+consignment_to_json:
   call: http.post
   args:
     url: "[#XML_MAPPER_URL]/api/v1/upload/request-to-json"
@@ -15,9 +15,9 @@ consignment_xml:
       text: "${incoming.body.xml}"
     content_type: plaintext
     headers:
-      Content-Type: "text/xml"
+      content-type: "text/xml"
       x-gate-id: ${incoming.headers['x-gate-id'] ?? '[#OWN_GATE_ID]'}
-      x-platform-id: ${platform?.id ?? incoming.body.platformId} # TODO: take guard's platform?.id
+      x-platform-id: ${platform?.id}
       x-dataset-id: ${incoming.params?.pathParams[0]}
   result: consignment_json
   next: insert_consignment

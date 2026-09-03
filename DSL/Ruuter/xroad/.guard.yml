@@ -24,9 +24,10 @@
 # prefix on the CONSUMER's URL, consumed by the consumer's Security Server and never forwarded to
 # the provider. Our own contract version is the /v1 in the route path.
 #
-# This guard authenticates only. It does NOT check requested subsets — no route on this surface
-# accepts a subset parameter yet. When one is added, it must apply the FORBIDDEN_SUBSET check
-# itself (see ADR-006).
+# This guard authenticates only; it does NOT check requested subsets. Two routes now do their own:
+# `dataset.yml` (the subsets named in the request) and `vehicle.yml` (EU02, because that is the class
+# of data it returns). `search` and `follow-up` take no subset parameter. Any new route that does
+# must apply the check itself — this guard will not do it for them. See ADR-006.
 #
 # The resolved authority row is exposed to handlers as ${authority} (guard-side assign flows into
 # the main DSL via the shared execution context). echo.yml reads it directly. subsets.yml
@@ -63,7 +64,35 @@ check_id_header:
   switch:
     - condition: ${incoming.headers['x-road-id'] == null || incoming.headers['x-road-id'] == ''}
       next: guard_missing_header
-  next: resolve_authority
+  next: parse_id
+
+# X-Road-Id must be UUID-shaped, because the forwarding routes map it to x-request-id and core feeds
+# that value to TYPED UUID parameters: multiplexer's `@PathParam searchId: UUID`
+# (MultiplexerRoutes.kt:21,43) and edelivery's `e.requestId.uuid` (InternalRoutes.kt:20). Both throw
+# on anything else. The X-Road REST protocol does NOT guarantee a UUID here — the Security Server
+# generates one only when the consumer omits it; a consumer information system may set an arbitrary
+# unique string, which the SS forwards verbatim. Unchecked, a perfectly legal message id silently
+# breaks every cross-gate path: core's authority/search.yml never checks the multiplexer's status and
+# its respond_first sets no `status:`, so the gate would answer 200 with a wrong body.
+#
+# Shape only. Validating hex digits needs a regex, and no DSL file in this repo uses
+# .match/.test/RegExp, so that support is unproven — this stays on .split()/.length, which are
+# proven. It catches the realistic failure ('ITSYS-2026-000123' splits into 3 parts) even though a
+# same-shaped non-hex string would still reach core.
+#
+# Applied in this project-level guard rather than per-route: one contract ("X-Road-Id is a UUID") is
+# simpler for a consumer to satisfy and document than a per-route matrix, and it means a caller
+# cannot discover their subsets with an id that would fail on their very next request.
+parse_id:
+  assign:
+    xroad_id_parts: ${incoming.headers['x-road-id'].split('-')}
+  next: validate_id_format
+
+validate_id_format:
+  switch:
+    - condition: ${xroad_id_parts.length === 5 && xroad_id_parts[0].length === 8 && xroad_id_parts[1].length === 4 && xroad_id_parts[2].length === 4 && xroad_id_parts[3].length === 4 && xroad_id_parts[4].length === 12}
+      next: resolve_authority
+  next: guard_invalid_id
 
 resolve_authority:
   call: http.post
@@ -127,6 +156,17 @@ guard_missing_header:
     title: "Missing Required Header"
     status: 400
     detail: "X-Road-Id header is required on every X-Road request."
+  status: 400
+  wrapper: false
+  next: end
+
+guard_invalid_id:
+  return:
+    type: "https://api.efti.ee/errors/invalid-request-id"
+    code: "INVALID_REQUEST_ID"
+    title: "Invalid Request ID"
+    status: 400
+    detail: "X-Road-Id must be a UUID. The gate maps it to its internal request id, which is consumed as a typed UUID on the cross-gate path."
   status: 400
   wrapper: false
   next: end
