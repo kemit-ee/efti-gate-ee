@@ -21,6 +21,7 @@ local_search:
     headers:
       Content-Type: "application/json"
     body:
+      gateId: ${incoming.params.gateId ?? '[#OWN_GATE_ID]'}
       criteria: ${incoming.body}
   result: local_result
   next: to_xml

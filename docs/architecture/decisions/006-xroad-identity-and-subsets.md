@@ -414,15 +414,13 @@ funktsionaalset indeksit.
 - **Alamhulkade jõustamine JWT/TARA teel** (`efti/POST/api/v1/authority/dataset.yml`) on
   disainiliselt blokeeritud, kuni `users` real ei ole ei `subsets` veergu ega seost asutusega.
 
-## Seos `refactor/split-m2m-ruuter` haruga
+## Seos masinliidese (`m2m`) eraldamisega (ADR-005)
 
-See otsus on teostatud `dev` haru paigutuses, kus X-Roadi pind on põhi-Ruuteri projekt
-`DSL/Ruuter/xroad/`. Harus `origin/refactor/split-m2m-ruuter` (ADR-005) nimetatakse pind ümber
-`m2m`-ks ja marsruudid liiguvad. Vastavus liitmise jaoks:
-
-| `dev` | `refactor/split-m2m-ruuter` |
-|---|---|
-| `DSL/Ruuter/xroad/POST/v1/` | `DSL/Ruuter-m2m/m2m/POST/xroad/v1/` |
-| `DSL/Ruuter/xroad/GET/v1/` | `DSL/Ruuter-m2m/m2m/GET/xroad/v1/` |
-| põhi-Ruuteri `constants.ini` / `ruuter.yaml` | `constants-m2m.ini` / `ruuter-m2m.yaml` |
-| `tests/http/xroad-*.http` | `tests/http/xroad-*.http` |
+> **Uuendus (03.09.2026):** ADR-005 vaadati Antoniga üle. Eraldi Ruuteri *instantsi*
+> (`ruuter-m2m`, port 8087, `constants-m2m.ini`) asemel jääb masinliides **eraldi projektiks
+> põhi-Ruuteris**, samamoodi nagu `DSL/Ruuter/xroad/` praegu. Teisele Ruuterile saab vajadusel
+> hiljem tõsta. Varasem vastendustabel (`DSL/Ruuter/xroad/` → `DSL/Ruuter-m2m/m2m/...`,
+> `constants-m2m.ini` / `ruuter-m2m.yaml`) kirjeldas vana `refactor/split-m2m-ruuter` haru
+> paigutust ja **ei ole enam asjakohane** — X-Roadi pind jääb `DSL/Ruuter/xroad/`-i, oma
+> projektitasemelise guardiga. Kui `m2m` projekt hiljem lisandub, käib ümbernimetamine
+> `DSL/Ruuter/xroad/` → `DSL/Ruuter/m2m/.../xroad/` põhi-Ruuteri *sees*, mitte eraldi instantsi.

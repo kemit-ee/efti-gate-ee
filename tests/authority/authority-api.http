@@ -25,8 +25,63 @@ Authorization: Bearer {{adminToken}} # TODO: this is not right for authority
     client.assert(response.status === 200)
     client.assert(response.body[0].mainTransportId === "VESSEL-001")
     client.assert(response.body[0].acceptanceCountry === "DE")
+    client.assert(response.body[0].xml.startsWith("<ParameterIDSetCriteria"))
   })
 %}
+
+### Setup: upload a consignment to search for in EU-MOCK gate
+POST {{RUUTER_URL}}/platforms/v1/consignments/b0284c81-a79d-11f1-931a-4ca954ebfb9f
+X-Gate-Id: EU-MOCK
+Content-Type: text/xml
+X-Api-Key: mock-secret-key
+
+<ParameterIDSetCriteria xmlns:udt="urn:eu:move:eFTI:data:standard:UnqualifiedDataType:34">
+  <CarrierAcceptanceDateParameterScope>
+    <SpecifiedDateTime>
+      <udt:DateTimeString format="102">20210924</udt:DateTimeString>
+    </SpecifiedDateTime>
+  </CarrierAcceptanceDateParameterScope>
+  <CarrierAcceptanceCountryParameterScope>
+    <CountryID>DE</CountryID>
+  </CarrierAcceptanceCountryParameterScope>
+
+  <MainCarriageTransportMeansIDParameterScope>
+    <ID>MOCK-123</ID>
+  </MainCarriageTransportMeansIDParameterScope>
+  <MainCarriageModeCodeParameterScope>
+    <TransportModeParameterCode>3</TransportModeParameterCode>
+  </MainCarriageModeCodeParameterScope>
+
+  <UsedTransportEquipmentIDParameterScope>
+    <ID>TE-001</ID>
+    <ID>TE-002</ID>
+  </UsedTransportEquipmentIDParameterScope>
+  <UsedTransportEquipmentCategoryCodeParameterScope>
+    <TransportEquipmentCategoryParameterCode>T10</TransportEquipmentCategoryParameterCode>
+    <TransportEquipmentCategoryParameterCode>T10</TransportEquipmentCategoryParameterCode>
+  </UsedTransportEquipmentCategoryCodeParameterScope>
+  <UsedTransportEquipmentRegistrationCountryParameterScope>
+    <CountryID>DE</CountryID>
+    <CountryID>DE</CountryID>
+  </UsedTransportEquipmentRegistrationCountryParameterScope>
+  <UsedTransportEquipmentSequenceNumberParameterScope>
+    <SequenceNumeric>1</SequenceNumeric>
+    <SequenceNumeric>2</SequenceNumeric>
+  </UsedTransportEquipmentSequenceNumberParameterScope>
+
+  <CarriedTransportEquipmentIDParameterScope>
+    <ID>TE-003</ID>
+    <ID>TE-004</ID>
+  </CarriedTransportEquipmentIDParameterScope>
+  <CarriedTransportEquipmentCategoryCodeParameterScope>
+    <TransportEquipmentCategoryParameterCode>BPR</TransportEquipmentCategoryParameterCode>
+    <TransportEquipmentCategoryParameterCode>BPR</TransportEquipmentCategoryParameterCode>
+  </CarriedTransportEquipmentCategoryCodeParameterScope>
+  <CarriedTransportEquipmentSequenceNumberParameterScope>
+    <SequenceNumeric>3</SequenceNumeric>
+    <SequenceNumeric>4</SequenceNumeric>
+  </CarriedTransportEquipmentSequenceNumberParameterScope>
+</ParameterIDSetCriteria>
 
 ### Authority searches for remote consignments
 # @timeout 70
@@ -36,8 +91,17 @@ X-Request-ID: 073b32bc-a081-11f1-8d67-3c9c0f2eb459
 Authorization: Bearer {{adminToken}} # TODO: this is not right for authority
 
 {
-  "mainTransportId": {"operator": "EQ", "id": "065EST"}
+  "mainTransportId": {"operator": "EQ", "id": "MOCK-123"}
 }
+
+> {%
+  client.test("Local consignment", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body[0].mainTransportId === "MOCK-123")
+    client.assert(response.body[0].gateId === "EU-MOCK")
+    client.assert(response.body[0].xml.startsWith("<ParameterIDSetCriteria"))
+  })
+%}
 
 ### Authority retrieves a full dataset of a consignment (local platform)
 GET {{RUUTER_URL}}/efti/api/v1/authority/dataset/EU-EE/mock/b24ebf37-a068-11f1-b8f0-3c9c0f2eb459

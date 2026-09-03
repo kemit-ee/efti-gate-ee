@@ -1,3 +1,4 @@
+import edelivery.PartyId
 import klite.Config
 import klite.http.bodyOrThrow
 import klite.http.post
@@ -13,8 +14,8 @@ class RuuterClient(
   fun saveConsignment(xml: String /* FTI004UploadIdentifierRequest */) =
     http.sendXml(baseUrl + "/platforms/v1/consignments-xml", xml)
 
-  fun searchConsignments(xml: String /* FTI019SearchIdentifierRequest */) =
-    http.sendXml(baseUrl + "/efti/api/v1/consignments/search-xml", xml)
+  fun searchConsignments(xml: String /* FTI019SearchIdentifierRequest */, gateId: PartyId) =
+    http.sendXml(baseUrl + "/efti/api/v1/consignments/search-xml?gateId=$gateId", xml)
 
   fun getDataset(xml: String /* FTI009GetCmdsRequest */) =
     http.sendXml(baseUrl + "/efti/api/v1/dataset-xml", xml)
