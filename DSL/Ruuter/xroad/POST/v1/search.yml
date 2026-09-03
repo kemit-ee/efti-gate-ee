@@ -1,0 +1,59 @@
+declaration:
+  description: "X-Road Authority operation: search consignments by identifier criteria (ADR-006).
+    Local-first, then cross-gate broadcast — core handles that. Forwards to the gate's core REST API.
+    No subset gate: this route returns identifier-level metadata, not dataset content, and takes no
+    subset parameter. Competent authorities have unrestricted identifier search (Reg 2024/1942)."
+
+# X-Road-Id becomes x-request-id. That is load-bearing here rather than merely tidy: core's
+# authority/search.yml uses x-request-id as the multiplexer polling key, so a caller re-issuing the
+# request with {"poll": true} and the same X-Road-Id collects the remaining gates' results.
+# timeout must exceed core's own 65s multiplexer timeout (authority/search.yml forward_to_gates).
+forward_to_core:
+  call: http.post
+  timeout: 70000
+  args:
+    url: "[#RUUTER_URL]/efti/api/v1/authority/search"
+    headers:
+      Content-Type: application/json
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
+      x-request-id: "${incoming.headers['x-road-id']}"
+    body: ${incoming.body}
+  result: core_res
+  next: check_core_status
+
+# Only fires once core has RESPONDED. A connection refusal, DNS failure, or the 70s timeout
+# expiring raises inside the http.post above, and ruuter.yaml sets
+# stop_in_case_of_exception: true, so the run aborts and Ruuter emits its own generic 500 — not the
+# 502 GATEWAY_UNAVAILABLE this code exists to name. Not fixable with another branch here (the run
+# never reaches it); documented in ADR-006 instead.
+check_core_status:
+  switch:
+    - condition: ${core_res.response.status >= 400}
+      next: core_error
+  next: respond
+
+# core signals "more gates still responding" with x-poll-more; pass it through so the X-Road caller
+# knows to poll again.
+respond:
+  return: ${core_res.response.body}
+  headers:
+    content-type: "application/json"
+    x-poll-more: ${core_res.response.headers['x-poll-more'] ?? 'false'}
+  wrapper: false
+  status: ${core_res.response.status}
+  next: end
+
+# Normalised to 502 GATEWAY_UNAVAILABLE, matching errors.json exactly; core's real status and body
+# are carried in coreStatus / coreResponse. See dataset.yml's core_error for the full rationale.
+core_error:
+  return:
+    type: "https://api.efti.ee/errors/bad-gateway"
+    code: "GATEWAY_UNAVAILABLE"
+    title: "Bad Gateway"
+    status: 502
+    detail: "The gate's consignment search failed. The gate's own status and response are carried in coreStatus and coreResponse."
+    coreStatus: ${core_res.response.status}
+    coreResponse: ${core_res.response.body}
+  wrapper: false
+  status: 502
+  next: end
