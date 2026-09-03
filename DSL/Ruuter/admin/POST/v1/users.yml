@@ -25,7 +25,6 @@ create_user:
       taraSub: "${incoming.body.taraSub}"
       name: "${incoming.body.name}"
       isAdmin: ${incoming.body.isAdmin ?? false}
-      isAuthority: ${incoming.body.isAuthority ?? false}
   result: insert_result
   next: check_insert
 

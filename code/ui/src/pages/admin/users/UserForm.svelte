@@ -21,7 +21,6 @@
       taraSub: user.taraSub,
       name: user.name,
       isAdmin: !!user.isAdmin,
-      isAuthority: !!user.isAuthority,
     }
     if (isEdit) {
       await api.put(`users/${user.id}`, request)
@@ -50,10 +49,6 @@
         disabled={isSelf && user.isAdmin}
       />
       {t.users.isAdmin ?? 'Admin'}
-    </label>
-    <label class="flex items-center gap-2 text-sm">
-      <input type="checkbox" bind:checked={user.isAuthority}/>
-      {t.users.isAuthority ?? 'Authority'}
     </label>
   </fieldset>
 

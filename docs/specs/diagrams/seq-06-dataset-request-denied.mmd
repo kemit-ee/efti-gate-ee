@@ -5,9 +5,9 @@ sequenceDiagram
     participant Platform as Platform (plt-xxx-001)
 
     Authority->>+GateEE: GET /v1/dataset/eu-yy01/plt-xxx-001/a1b2c3d4-e5f6-7890-abcd-ef1234567890?subsetId=EU07
-    Note over Authority,GateEE: Authorization: Bearer JWT<br/>(is_authority / is_admin)<br/>X-Request-ID echoed.
+    Note over Authority,GateEE: Authorization: Bearer JWT<br/>(is_admin)<br/>X-Request-ID echoed.
 
-    GateEE->>GateEE: Validate JWT + authorize (require is_admin OR is_authority)
+    GateEE->>GateEE: Validate JWT + authorize (require is_admin)
     GateEE->>GateEE: Forward to remote gate eu-yy01
 
     GateEE->>+GateFI: eDelivery AS4: UILQueryRequest<br/>(subsetId=EU07, requestId=req-e5f6a7b8)

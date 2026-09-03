@@ -1,10 +1,11 @@
-# Authority-facing dataset request via GET (Authority API, matrix §3.2). Requires a
-# TARA JWT resolving to a users row with the ADMIN or AUTHORITY role. Mirrors
+# Authority-facing dataset request via GET (Authority API, matrix §3.2). Restricted to gate
+# operators: requires a TARA JWT resolving to a users row with is_admin. Competent authorities
+# proper authenticate as organisations over X-Road, not via this JWT surface. Mirrors
 # efti/POST/api/v1/authority/.guard.yml.
 validate_auth:
   call: http.post
   args:
-    url: "[#RUUTER_URL]/efti/internal/check-user-authority"
+    url: "[#RUUTER_URL]/efti/internal/check-admin-authority"
     headers:
       Content-Type: application/json
       authorization: ${incoming.headers.authorization}
@@ -16,11 +17,9 @@ validate_auth:
 
 check_result:
   switch:
-    - condition: ${auth_result.response.status != 200}
-      next: guard_fail
-    - condition: ${auth_result.response.body.isAdmin == true || auth_result.response.body.isAuthority == true}
+    - condition: ${auth_result.response.status == 200}
       next: guard_success
-  next: guard_fail_forbidden
+  next: guard_fail
 
 guard_success:
   return: "success"
@@ -31,11 +30,5 @@ guard_success:
 guard_fail:
   return: ${auth_result.response.body}
   status: ${auth_result.response.status}
-  wrapper: false
-  next: end
-
-guard_fail_forbidden:
-  return: ${JSON.parse('{"type":"https://api.efti.ee/errors/forbidden","title":"Forbidden","status":403,"detail":"This action requires the ADMIN or AUTHORITY role."}')}
-  status: 403
   wrapper: false
   next: end

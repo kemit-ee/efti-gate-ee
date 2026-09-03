@@ -73,7 +73,7 @@ check_tara_sub:
   next: unauthorized
 
 # DB lookup: validates is_active, token_revoked_at (broadcast revocation), and returns
-# is_admin / is_authority flags. 0 rows → reject for any reason.
+# the is_admin flag. 0 rows → reject for any reason.
 lookup_user:
   call: http.post
   args:

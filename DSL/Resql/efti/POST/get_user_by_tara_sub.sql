@@ -11,7 +11,6 @@ SELECT DISTINCT ON (id)
   token_revoked_at,
   is_active AS is_user_active,
   is_admin,
-  is_authority,
   created_at
 FROM users
 WHERE tara_sub = :tara_sub

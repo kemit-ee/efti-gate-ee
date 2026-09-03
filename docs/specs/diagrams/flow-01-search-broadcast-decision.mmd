@@ -1,6 +1,6 @@
 flowchart TD
     Start([Authority: GET /v1/identifiers/identifier]) --> AuthCheck[Authenticate user via API key]
-    AuthCheck --> RoleCheck{is_admin OR is_authority?}
+    AuthCheck --> RoleCheck{is_admin?}
 
     RoleCheck -->|No| Deny403[Return 403 Forbidden]
     RoleCheck -->|Yes| BuildQuery[Build IdentifiersQuery\nid, countryCode, mode,\ndangerousGoodsIndicator, forceBroadcast]
