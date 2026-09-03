@@ -82,7 +82,7 @@ services:
 
   edelivery:
     environment:
-      - OWN_GATE_ID=${OWN_GATE_ID}
+      - OWN_GATE_ID
       - RESQL_URL=http://resql:8090
       - RUUTER_URL=http://ruuter:8086
     build:
@@ -106,6 +106,7 @@ services:
 
   multiplexer:
     environment:
+      - OWN_GATE_ID
       - RESQL_URL=http://resql:8090
       - EDELIVERY_URL=http://edelivery:8081
     build:
