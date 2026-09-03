@@ -2,7 +2,11 @@ port: 8086
 
 # Statuses a DSL is allowed to return. 401/403/204 must be listed or the auth
 # guards' denials and logout's 204 are replaced with a generic error.
-http_codes_allow_list: [200, 201, 202, 204, 400, 401, 403, 404, 409, 422, 500, 504]
+# 502 is required by the xroad/ project: its forwarding routes normalise a core or ReSql failure to
+# 502 GATEWAY_UNAVAILABLE (errors.json pins that code to 502), and without it here Ruuter would
+# replace the whole RFC 7807 body with a generic error. 501 likewise, for NOT_IMPLEMENTED — the
+# transport-means route publishes scope 'allgates' in its contract before the fan-out exists.
+http_codes_allow_list: [200, 201, 202, 204, 400, 401, 403, 404, 409, 422, 500, 501, 502, 504]
 
 dsl:
   project: efti

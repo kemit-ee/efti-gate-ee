@@ -1,0 +1,56 @@
+declaration:
+  description: "X-Road Authority operation: send a follow-up message to a platform via the gate
+    (ADR-006). Forwards to the gate's core REST API. No subset gate: a follow-up carries a message,
+    not dataset content, and takes no subset parameter."
+  # No allowed_body — a proxy should not strip fields it does not recognise; core's handler owns its
+  # own contract. See dataset.yml for the fuller reasoning.
+
+# timeout must exceed core's own 65s edelivery timeout (authority/follow-up.yml send_via_edelivery).
+#
+# NOTE: core's authority/follow-up.yml writes requestingUserId: "" into follow_up_log, so the
+# X-Road caller is not attributed. Pre-existing and equally true of the JWT path; fixing it needs
+# the audit story, where forwarding the resolved authority id would be the mechanism. See ADR-006.
+forward_to_core:
+  call: http.post
+  timeout: 70000
+  args:
+    url: "[#RUUTER_URL]/efti/api/v1/authority/follow-up"
+    headers:
+      Content-Type: application/json
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
+      x-request-id: "${incoming.headers['x-road-id']}"
+    body: ${incoming.body}
+  result: core_res
+  next: check_core_status
+
+# Only fires once core has RESPONDED. A connection refusal, DNS failure, or the 70s timeout
+# expiring raises inside the http.post above, and ruuter.yaml sets
+# stop_in_case_of_exception: true, so the run aborts and Ruuter emits its own generic 500 — not the
+# 502 GATEWAY_UNAVAILABLE this code exists to name. Not fixable with another branch here (the run
+# never reaches it); documented in ADR-006 instead.
+check_core_status:
+  switch:
+    - condition: ${core_res.response.status >= 400}
+      next: core_error
+  next: respond
+
+respond:
+  return: ${core_res.response.body}
+  wrapper: false
+  status: ${core_res.response.status}
+  next: end
+
+# Normalised to 502 GATEWAY_UNAVAILABLE, matching errors.json exactly; core's real status and body
+# are carried in coreStatus / coreResponse. See dataset.yml's core_error for the full rationale.
+core_error:
+  return:
+    type: "https://api.efti.ee/errors/bad-gateway"
+    code: "GATEWAY_UNAVAILABLE"
+    title: "Bad Gateway"
+    status: 502
+    detail: "The gate's follow-up request failed. The gate's own status and response are carried in coreStatus and coreResponse."
+    coreStatus: ${core_res.response.status}
+    coreResponse: ${core_res.response.body}
+  wrapper: false
+  status: 502
+  next: end

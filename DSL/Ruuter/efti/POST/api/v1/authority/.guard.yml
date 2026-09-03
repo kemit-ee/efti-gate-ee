@@ -4,6 +4,25 @@
 # gate operators: it requires a TARA JWT resolving to a users row with is_admin.
 # check-admin-authority returns 200 for admins, 401 if the token is missing/invalid, 403 if
 # authenticated but not admin.
+#
+# A second credential is also accepted, ahead of the JWT check:
+#   X-Internal-Service-Token — another gate component calling in over the internal network. Today
+#   that is the X-Road adapter (the xroad/ project on this same Ruuter), which has no way to obtain
+#   a TIM JWT; the same token is earmarked for G2G inbound. This is a GENERIC internal-service
+#   credential: core stays unaware of X-Road, and the handlers below are identity-blind anyway
+#   (dataset.yml reads only body.uil/body.subsets, follow-up.yml hardcodes requestingUserId). The
+#   caller authorises itself before forwarding — the X-Road adapter resolves the organisation from
+#   X-Road-Client and enforces authorities.subsets itself.
+#
+# The non-null/non-empty checks are load-bearing, not defensive noise: if INTERNAL_SERVICE_TOKEN is
+# unset, '[#INTERNAL_SERVICE_TOKEN]' may interpolate to an empty string, and without them an absent
+# or empty header would compare equal to it and authenticate. Fall-through is the JWT path, never a
+# bare success.
+check_service_token:
+  switch:
+    - condition: ${incoming.headers != null && incoming.headers['x-internal-service-token'] != null && incoming.headers['x-internal-service-token'] != '' && incoming.headers['x-internal-service-token'] == '[#INTERNAL_SERVICE_TOKEN]'}
+      next: guard_success
+  next: validate_auth
 validate_auth:
   call: http.post
   args:

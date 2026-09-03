@@ -58,7 +58,9 @@ DSL/
       POST/v1/          # consignments (upload consignment XML)
     mock-platform/      # Mock platform (served under /mock-platform/)
     xroad/              # X-Road national extension (ADR-006), served under /xroad/
-      POST/v1/          # echo (connectivity test)
+      POST/v1/          # echo (connectivity test); transport-means (identifier lookup: plate/IMO/
+                        #   aircraft reg/container id, scope=existence|local); dataset, search,
+                        #   follow-up (forward to core)
       GET/v1/           # subsets (subset-permission discovery)
       GET/health/       # ready (probe, unguarded)
   Resql/efti/POST/      # SQL endpoint files (*.sql)
@@ -109,7 +111,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   - `auth/` POST = public; `auth/` GET = any authenticated user (`check-user-authority`)
   - `efti/GET/api/v1/` = any authenticated user; `efti/GET/api/v1/authority/` = `is_admin` OR `is_authority`
   - `efti/POST/api/v1/` = public (gate-to-gate inbound: `dataset-xml`/`-local`, `follow-up-xml`/`-local`, `consignments/search-xml`, `ping` — all edelivery-only after AS4 mTLS)
-  - `efti/POST/api/v1/authority/` = `is_admin` OR `is_authority` — holds the real authority handlers (`dataset`, `follow-up`, `search`); the G2G wrappers above `template:` into these
+  - `efti/POST/api/v1/authority/` = ADMIN or AUTHORITY **or** a matching `X-Internal-Service-Token` (ADR-006) — holds the real authority handlers (`dataset`, `follow-up`, `search`); the G2G wrappers above `template:` into these. The token is a generic internal-service credential (the X-Road adapter uses it; G2G inbound will too), so `core` stays X-Road-unaware. Deny is the fall-through: an absent or empty header can never match, even if the constant were unset. The GET sibling deliberately does **not** accept it — the adapter forwards only POST.
   - `platforms/` = platform `X-Api-Key` hash (ADR-004) — one `platforms/.guard.yml`; also covers the G2G `consignments-xml`. **Deny is the fall-through branch**, each accept path an explicit positive condition, so a non-array ReSql body cannot fail open.
   - `xroad/` = `x-road-client` member code resolves to exactly one `ACTIVE` authority (ADR-006). One project-level `xroad/.guard.yml` for both methods; it `assign`s `${authority}` for handlers. **Deny is the fall-through branch** and each accept path an explicit positive condition, so a non-array ReSql body cannot fail open. `xroad/GET/health/.guard.yml` uses `override_ancestors` to stay public (the `efti` probes have no ancestor guard and need none). **`/xroad/**` shares port 8086 with the public gate API — the ingress MUST NOT expose it; only the Security Server may reach it.**
 
@@ -166,6 +168,8 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 ## Key gotchas
 
 - `constants.ini` uses compose-internal URLs (`http://ruuter:8086`); `.env` uses localhost URLs
+- Constants are `COPY`-ed into the image at build time with **no env substitution**, and `compose.override.yml` syncs only `DSL/` — so changing `constants.ini` or `ruuter.yaml` needs `docker compose up --build ruuter`. A `--watch` restart will not pick it up. (Before the `xroad` project was merged into the main Ruuter this also had to be kept in sync with a second `constants-xroad.ini`; that hazard is gone.)
+- `X-Road-Id` must be a UUID: the adapter maps it to `x-request-id` and core hands that to typed `UUID` parameters (`MultiplexerRoutes.kt` `@PathParam searchId: UUID`, edelivery's `e.requestId.uuid`). The X-Road guard enforces the shape and returns 400 `INVALID_REQUEST_ID`.
 - Ruuter `http_codes_allow_list` must include any status you return (401, 403, 204 are not default)
 - `internal_requests.block_private_networks: false` in `ruuter.yaml` — auth DSLs call TIM/ReSQL by compose service name
 - edelivery test mode uses a hardcoded PKCS#12 keystore (see `KeyManager.kt`); production reads from `certs/own.p12`

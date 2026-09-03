@@ -1,0 +1,369 @@
+import ../admin/auth.http
+run #auth
+
+# X-Road → core forwarding + subset enforcement (ADR-006).
+#
+# Registry code 70000094 is distinct from the codes used by xroad-echo.http (70000099) and
+# xroad-subsets.http (70000095-97): get_authority_by_registry_code denies a code matching more than
+# one ACTIVE authority, so a collision would fail loudly rather than silently pick a row.
+
+### Setup: clean up any leftover from an aborted run
+DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-fwd
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Cleanup ok", () => {
+    client.assert(response.status === 204 || response.status === 404)
+  })
+%}
+
+### Setup: authority permitted EU01 and EU02 only
+POST {{RUUTER_URL}}/admin/v1/authorities
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "id": "auth-xroad-fwd",
+  "name": "X-Road Forwarding Test Authority",
+  "registryCode": "70000094",
+  "subsets": ["EU01", "EU02"],
+  "status": "ACTIVE"
+}
+
+> {%
+  client.test("Forwarding test authority created", () => {
+    client.assert(response.status === 201)
+    client.assert(response.body.registryCode === "70000094")
+  })
+%}
+
+### Happy path: permitted subset reaches core, which reaches the seeded mock platform
+# The `mock` platform is seeded by 20260814-mock-platform.sql with
+# baseUrl = http://ruuter:8086/mock-platform, served by DSL/Ruuter/mock-platform/GET/v1/dataset.yml.
+# A 200 here proves the whole chain: guard -> subset check -> service token -> core authority
+# handler -> platform.
+# @timeout 75
+POST {{RUUTER_URL}}/xroad/v1/dataset
+X-Road-Client: EE/GOV/70000094/tram
+X-Road-Id: 0a11ce5e-0001-4d1d-8f1a-0f0d00010000
+Content-Type: application/json
+
+{
+  "uil": { "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440000" },
+  "subsets": ["EU01"]
+}
+
+> {%
+  client.test("Permitted subset is forwarded to core and answered", () => {
+    client.assert(response.status === 200, "expected 200, got " + response.status +
+      " body=" + JSON.stringify(response.body))
+  })
+%}
+
+### Denial: subset outside the authority's entitlement never reaches core
+# @timeout 75
+POST {{RUUTER_URL}}/xroad/v1/dataset
+X-Road-Client: EE/GOV/70000094/tram
+X-Road-Id: 0a11ce5e-0002-4d1d-8f2a-0f0d00020000
+Content-Type: application/json
+
+{
+  "uil": { "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440000" },
+  "subsets": ["EU06"]
+}
+
+> {%
+  client.test("Unpermitted subset returns 403 FORBIDDEN_SUBSET", () => {
+    client.assert(response.status === 403)
+    client.assert(response.body.code === "FORBIDDEN_SUBSET")
+    client.assert(response.body.type === "https://api.efti.ee/errors/forbidden-subset")
+    client.assert(response.body.deniedSubsets.indexOf("EU06") !== -1)
+    client.assert(response.body.permittedSubsets.indexOf("EU01") !== -1)
+    client.assert(response.body.authorityId === "auth-xroad-fwd")
+  })
+%}
+
+### Denial: a mix of permitted and unpermitted is rejected as a whole
+# @timeout 75
+POST {{RUUTER_URL}}/xroad/v1/dataset
+X-Road-Client: EE/GOV/70000094/tram
+X-Road-Id: 0a11ce5e-0003-4d1d-8f3a-0f0d00030000
+Content-Type: application/json
+
+{
+  "uil": { "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440000" },
+  "subsets": ["EU01", "EU06"]
+}
+
+> {%
+  client.test("Partially permitted request is denied entirely", () => {
+    client.assert(response.status === 403)
+    client.assert(response.body.code === "FORBIDDEN_SUBSET")
+    client.assert(response.body.deniedSubsets.indexOf("EU06") !== -1)
+    client.assert(response.body.deniedSubsets.indexOf("EU01") === -1, "EU01 is permitted, must not be listed as denied")
+  })
+%}
+
+### Empty subsets array → 400, not a silent pass
+# '{}' <@ anything is TRUE in Postgres, so without the route's own pre-check an empty list would
+# sail through the containment test.
+# @timeout 75
+POST {{RUUTER_URL}}/xroad/v1/dataset
+X-Road-Client: EE/GOV/70000094/tram
+X-Road-Id: 0a11ce5e-0004-4d1d-8f4a-0f0d00040000
+Content-Type: application/json
+
+{
+  "uil": { "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440000" },
+  "subsets": []
+}
+
+> {%
+  client.test("Empty subsets returns 400 MISSING_SUBSET", () => {
+    client.assert(response.status === 400)
+    client.assert(response.body.code === "MISSING_SUBSET")
+  })
+%}
+
+### Omitted subsets key → 400
+# @timeout 75
+POST {{RUUTER_URL}}/xroad/v1/dataset
+X-Road-Client: EE/GOV/70000094/tram
+X-Road-Id: 0a11ce5e-0005-4d1d-8f5a-0f0d00050000
+Content-Type: application/json
+
+{
+  "uil": { "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440000" }
+}
+
+> {%
+  client.test("Absent subsets key returns 400 MISSING_SUBSET", () => {
+    client.assert(response.status === 400)
+    client.assert(response.body.code === "MISSING_SUBSET")
+  })
+%}
+
+### Core failure is wrapped as RFC 7807 with core's own status and body carried
+# @timeout 75
+POST {{RUUTER_URL}}/xroad/v1/dataset
+X-Road-Client: EE/GOV/70000094/tram
+X-Road-Id: 0a11ce5e-0006-4d1d-8f6a-0f0d00060000
+Content-Type: application/json
+
+{
+  "uil": { "gateId": "EU-EE", "platformId": "no-such-platform", "datasetId": "550e8400-e29b-41d4-a716-446655440000" },
+  "subsets": ["EU01"]
+}
+
+> {%
+  client.test("Core 404 surfaces as 502 with coreStatus/coreResponse carried", () => {
+    client.assert(response.status === 502)
+    client.assert(response.body.code === "GATEWAY_UNAVAILABLE")
+    client.assert(response.body.type === "https://api.efti.ee/errors/bad-gateway")
+    client.assert(response.body.coreStatus === 404, "core's real status must be preserved, got " + response.body.coreStatus)
+    client.assert(response.body.coreResponse !== undefined, "core's payload must be carried")
+  })
+%}
+
+### The guard still fronts the forwarding routes: no X-Road-Client → 401
+# @timeout 75
+POST {{RUUTER_URL}}/xroad/v1/dataset
+X-Road-Id: 0a11ce5e-0007-4d1d-8f7a-0f0d00070000
+Content-Type: application/json
+
+{
+  "uil": { "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440000" },
+  "subsets": ["EU01"]
+}
+
+> {%
+  client.test("Missing X-Road-Client returns 401", () => {
+    client.assert(response.status === 401)
+    client.assert(response.body.code === "UNAUTHORIZED")
+  })
+%}
+
+### Non-UUID X-Road-Id → 400, before anything is forwarded
+# The gate maps X-Road-Id to x-request-id, and core hands that to typed UUID parameters —
+# multiplexer's @PathParam searchId: UUID and edelivery's e.requestId.uuid, both of which throw on
+# anything else. X-Road itself permits an arbitrary unique string here, so the shape is enforced at
+# the guard. This id is exactly the kind a consumer information system would generate.
+# @timeout 75
+POST {{RUUTER_URL}}/xroad/v1/dataset
+X-Road-Client: EE/GOV/70000094/tram
+X-Road-Id: ITSYS-2026-000123
+Content-Type: application/json
+
+{
+  "uil": { "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440000" },
+  "subsets": ["EU01"]
+}
+
+> {%
+  client.test("Non-UUID X-Road-Id returns 400 INVALID_REQUEST_ID", () => {
+    client.assert(response.status === 400)
+    client.assert(response.body.code === "INVALID_REQUEST_ID")
+    client.assert(response.body.type === "https://api.efti.ee/errors/invalid-request-id")
+  })
+%}
+
+### Unknown registry code → 403, before any subset work
+# @timeout 75
+POST {{RUUTER_URL}}/xroad/v1/dataset
+X-Road-Client: EE/GOV/99999999/tram
+X-Road-Id: 0a11ce5e-0008-4d1d-8f8a-0f0d00080000
+Content-Type: application/json
+
+{
+  "uil": { "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440000" },
+  "subsets": ["EU01"]
+}
+
+> {%
+  client.test("Unknown registry code returns 403 FORBIDDEN", () => {
+    client.assert(response.status === 403)
+    client.assert(response.body.code === "FORBIDDEN")
+  })
+%}
+
+### search: forwarded, no subset gate
+# Criteria MUST use the {operator, id} object shape. get_consignments.sql:42-44 reads
+# :criteria->'x'->>'operator', so a bare string like {"transportMode":"1"} matches NOTHING — every
+# row is excluded regardless of DB contents, the local search returns empty, core falls through to
+# the multiplexer, and the assertion passes on a garbage body. VESSEL-001 is the consignment
+# tests/authority/authority-api.http uploads, and that file sorts earlier in the tests/*/*.http glob.
+# @timeout 75
+POST {{RUUTER_URL}}/xroad/v1/search
+X-Road-Client: EE/GOV/70000094/tram
+X-Road-Id: 0a11ce5e-0009-4d1d-8f9a-0f0d00090000
+Content-Type: application/json
+
+{ "mainTransportId": { "operator": "EQ", "id": "VESSEL-001" } }
+
+> {%
+  client.test("Search is forwarded to core and returns the local match", () => {
+    client.assert(response.status === 200, "expected 200, got " + response.status +
+      " body=" + JSON.stringify(response.body))
+    client.assert(Array.isArray(response.body), "expected an array, got " + JSON.stringify(response.body))
+    client.assert(response.body.length > 0, "expected the local search to match VESSEL-001")
+    client.assert(response.body[0].mainTransportId === "VESSEL-001")
+  })
+%}
+
+### search: guard applies here too
+# @timeout 75
+POST {{RUUTER_URL}}/xroad/v1/search
+X-Road-Id: 0a11ce5e-0010-4d1d-8f0a-0f0d00100000
+Content-Type: application/json
+
+{ "mainTransportId": { "operator": "EQ", "id": "VESSEL-001" } }
+
+> {%
+  client.test("Search without X-Road-Client returns 401", () => {
+    client.assert(response.status === 401)
+  })
+%}
+
+### follow-up: forwarded, no subset gate
+# @timeout 75
+POST {{RUUTER_URL}}/xroad/v1/follow-up
+X-Road-Client: EE/GOV/70000094/tram
+X-Road-Id: 0a11ce5e-0011-4d1d-8f1a-0f0d00110000
+Content-Type: application/json
+
+{
+  "uil": { "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440000" },
+  "referenceIds": ["550e8400-e29b-41d4-a716-446655440000"],
+  "message": "X-Road follow-up test"
+}
+
+> {%
+  // 201, not 200: mock-platform/POST/v1/dataset.yml returns 201 and core's authority/follow-up.yml
+  // passes the platform's status straight through (respond: status: ${platform_response...}).
+  // tests/http/follow-up.http:28 asserts the same. No "|| 502" escape hatch — a 502 here means the
+  // forward failed, which is a test failure, not an acceptable outcome.
+  client.test("Follow-up is forwarded to core and accepted", () => {
+    client.assert(response.status === 201,
+      "expected 201, got " + response.status + " body=" + JSON.stringify(response.body))
+    client.assert(response.body.gateId === "EU-EE")
+    client.assert(response.body.platformId === "mock")
+    client.assert(response.body.datasetId === "550e8400-e29b-41d4-a716-446655440000")
+  })
+%}
+
+### SECURITY: core's authority routes reject a wrong service token
+# The critical negative for the new check_service_token branch. Calling core DIRECTLY on :8086 with
+# a bogus token and no JWT must fall through to the TIM path and be rejected.
+# @timeout 75
+POST {{RUUTER_URL}}/efti/api/v1/authority/search
+Content-Type: application/json
+X-Internal-Service-Token: definitely-not-the-token
+
+{ "mainTransportId": { "operator": "EQ", "id": "VESSEL-001" } }
+
+> {%
+  client.test("Wrong service token is rejected", () => {
+    client.assert(response.status === 401, "a bogus service token must not authenticate, got " + response.status)
+  })
+%}
+
+### SECURITY: an empty service token header does not authenticate
+# Honest scope: this does NOT isolate the guard's `!= ''` clause. An empty header and an absent
+# header both fall through to validate_auth and 401, so the assertion passes with or without that
+# clause. The clause exists to stop an UNSET constant (which interpolates to empty) from matching an
+# empty header — a state no HTTP request can create, so it is covered by the node evaluation in the
+# PR description rather than here. Whether the client even transmits an empty-valued header is
+# client-dependent; if it drops it, this degenerates into the next case, which still asserts 401.
+# @timeout 75
+POST {{RUUTER_URL}}/efti/api/v1/authority/search
+Content-Type: application/json
+X-Internal-Service-Token:
+
+{ "mainTransportId": { "operator": "EQ", "id": "VESSEL-001" } }
+
+> {%
+  client.test("Empty service token header does not authenticate", () => {
+    client.assert(response.status === 401)
+  })
+%}
+
+### SECURITY: no credential at all is still rejected (no regression)
+# @timeout 75
+POST {{RUUTER_URL}}/efti/api/v1/authority/search
+Content-Type: application/json
+
+{ "mainTransportId": { "operator": "EQ", "id": "VESSEL-001" } }
+
+> {%
+  client.test("No credential is rejected", () => {
+    client.assert(response.status === 401)
+  })
+%}
+
+### Regression: the TIM JWT path still works on the modified guard
+# Same proven criteria shape, and an explicit X-Request-ID: core's authority/search.yml uses it as
+# the multiplexer key, so omitting it would build a URL ending in "/null" if the local search missed.
+# @timeout 75
+POST {{RUUTER_URL}}/efti/api/v1/authority/search
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+X-Request-ID: 0a11ce5e-00f0-4d1d-8faa-0f0d00f00000
+
+{ "mainTransportId": { "operator": "EQ", "id": "VESSEL-001" } }
+
+> {%
+  client.test("JWT path unaffected by the service-token branch", () => {
+    client.assert(response.status === 200, "expected 200, got " + response.status)
+    client.assert(response.body[0].mainTransportId === "VESSEL-001")
+  })
+%}
+
+### Teardown
+DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-fwd
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Teardown ok", () => {
+    client.assert(response.status === 204)
+  })
+%}

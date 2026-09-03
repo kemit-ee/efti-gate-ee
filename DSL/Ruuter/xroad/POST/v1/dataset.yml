@@ -1,0 +1,201 @@
+declaration:
+  description: "X-Road Authority operation: retrieve a consignment dataset filtered to the requested
+    eFTI subsets (ADR-006). Enforces authorities.subsets for the calling organisation, then forwards
+    to the gate's core REST API. Body is the same {uil, subsets} contract core's
+    efti/POST/api/v1/authority/dataset expects."
+  # Deliberately no allowed_body. The field-list form is used exactly once in the repo (core's own
+  # authority/dataset.yml); every other use is the special [xml] mode, so whether it filters or
+  # requires the listed keys is unproven. If it requires them, the MISSING_SUBSET branch below
+  # would be unreachable because Ruuter would reject the request first. A proxy should also not
+  # silently strip fields it does not recognise — core validates its own contract.
+
+# The project-level xroad/.guard.yml has already validated the X-Road-Client shape, confirmed it
+# resolves to exactly one ACTIVE authority, and bound the row as ${authority}. Read the registry code
+# off that rather than re-parsing the header, so the parsing rule lives in exactly one place.
+setup:
+  assign:
+    registry_code: ${authority.registryCode}
+  next: check_subsets_present
+
+# '{}' <@ anything is TRUE in Postgres, so an empty list would pass the containment test below.
+# openapi.yaml requires minItems 1 on subsetId, so reject it here instead.
+check_subsets_present:
+  switch:
+    - condition: ${incoming.body == null || incoming.body.subsets == null || incoming.body.subsets.length == 0}
+      next: missing_subset
+  next: check_subset_permission
+
+check_subset_permission:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/check_authority_subsets"
+    headers:
+      Content-Type: application/json
+    body:
+      registry_code: "${registry_code}"
+      requested_subsets: ${incoming.body.subsets}
+  result: subset_res
+  next: evaluate_permission
+
+# Deny is the fall-through branch and every accept path is an explicit positive condition: a
+# non-array ReSql body (500 error object, param-validation failure) makes every length comparison
+# false and must land on a denial, never on the forward.
+evaluate_permission:
+  switch:
+    # ReSql rejected the request body — e.g. `subsets` sent as a string instead of an array, which
+    # check_subsets_present cannot catch ("EU01".length is 4, so it looks non-empty, and telling a
+    # string from an array would need Array.isArray, unproven in this engine). That is the caller's
+    # error, so it must be a 400, not a 403 blaming their entitlement.
+    - condition: ${subset_res.response.status === 400}
+      next: bad_request
+    # Any other non-200 is a data-layer failure, not an authorisation answer. Kept separate from
+    # `forbidden` so an operator debugging a ReSql outage is not pointed at the caller's identity.
+    - condition: ${subset_res.response.status != 200}
+      next: resql_error
+    - condition: ${subset_res.response.body == null || subset_res.response.body.length == 0}
+      next: forbidden
+    # authorityId must be present for this to be a real row set: a non-array body (say a string)
+    # also reports a length > 1, and would otherwise be misreported as a registry misconfiguration.
+    # Every branch here denies either way; this only keeps the diagnostic honest.
+    - condition: ${subset_res.response.body.length > 1 && subset_res.response.body[0] != null && subset_res.response.body[0].authorityId != null}
+      next: ambiguous
+    - condition: ${subset_res.response.body.length === 1 && subset_res.response.body[0] != null && subset_res.response.body[0].allowed == true}
+      next: forward_to_core
+    - condition: ${subset_res.response.body.length === 1 && subset_res.response.body[0] != null && subset_res.response.body[0].allowed == false}
+      next: forbidden_subset
+  next: forbidden
+
+# The X-Road message id becomes the gate's x-request-id: all three core authority handlers read it,
+# and authority/search.yml uses it as the multiplexer polling key, so this gives end-to-end
+# correlation from the Security Server through to the peer gate.
+# timeout must exceed core's own 65s edelivery timeout (authority/dataset.yml send_via_edelivery),
+# or the adapter gives up first and the caller sees a spurious gateway error instead of core's answer.
+forward_to_core:
+  call: http.post
+  timeout: 70000
+  args:
+    url: "[#RUUTER_URL]/efti/api/v1/authority/dataset"
+    headers:
+      Content-Type: application/json
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
+      x-request-id: "${incoming.headers['x-road-id']}"
+    body: ${incoming.body}
+  result: core_res
+  next: check_core_status
+
+# Only fires once core has RESPONDED. A connection refusal, DNS failure, or the 70s timeout
+# expiring raises inside the http.post above, and ruuter.yaml sets
+# stop_in_case_of_exception: true, so the run aborts and Ruuter emits its own generic 500 — not the
+# 502 GATEWAY_UNAVAILABLE this code exists to name. Not fixable with another branch here (the run
+# never reaches it); documented in ADR-006 instead.
+check_core_status:
+  switch:
+    - condition: ${core_res.response.status >= 400}
+      next: core_error
+  next: respond
+
+respond:
+  return: ${core_res.response.body}
+  wrapper: false
+  status: ${core_res.response.status}
+  next: end
+
+# Core's handlers return ad-hoc shapes ({"error": "Platform Not Found"}, {"error", "detail"}), not
+# RFC 7807, so they get wrapped.
+#
+# Normalised to 502 GATEWAY_UNAVAILABLE rather than passing core's status through. errors.json pins
+# each code to exactly one status (GATEWAY_UNAVAILABLE = 502, type .../bad-gateway), and RFC 7807
+# requires the body's `status` to match the HTTP status — so forwarding core's arbitrary status
+# would force either an invented code or a code/status mismatch. From the X-Road caller's position
+# the adapter IS the gateway and core is upstream, so 502 is the honest classification. Core's real
+# status and payload are carried verbatim in coreStatus / coreResponse, so no diagnostic is lost.
+core_error:
+  return:
+    type: "https://api.efti.ee/errors/bad-gateway"
+    code: "GATEWAY_UNAVAILABLE"
+    title: "Bad Gateway"
+    status: 502
+    detail: "The gate's dataset request failed. The gate's own status and response are carried in coreStatus and coreResponse."
+    coreStatus: ${core_res.response.status}
+    coreResponse: ${core_res.response.body}
+  wrapper: false
+  status: 502
+  next: end
+
+missing_subset:
+  return:
+    type: "https://api.efti.ee/errors/missing-subset"
+    code: "MISSING_SUBSET"
+    title: "Missing Subset Parameter"
+    status: 400
+    detail: "At least one subset must be requested."
+  wrapper: false
+  status: 400
+  next: end
+
+# The denied and permitted sets are carried as RFC 7807 extension members rather than interpolated
+# into the detail prose. Two reasons: every value here is then a WHOLE-value interpolation, which is
+# the pattern proven throughout the repo (embedded ${} inside a longer literal is proven for `url:`
+# and `log:` values but not for `return:` mapping values); and a machine-to-machine X-Road caller can
+# branch on the arrays directly instead of parsing a sentence.
+forbidden_subset:
+  return:
+    type: "https://api.efti.ee/errors/forbidden-subset"
+    code: "FORBIDDEN_SUBSET"
+    title: "Subset Access Denied"
+    status: 403
+    detail: "The requesting authority is not permitted to access one or more of the requested eFTI subsets."
+    authorityId: ${subset_res.response.body[0].authorityId}
+    deniedSubsets: ${subset_res.response.body[0].deniedSubsets}
+    permittedSubsets: ${subset_res.response.body[0].subsets}
+  wrapper: false
+  status: 403
+  next: end
+
+# Residual denial: the subset lookup returned no row, or a row whose `allowed` was neither true nor
+# false. Both mean the caller's organisation could not be resolved to a single ACTIVE authority —
+# transport failures are handled by resql_error above, so this detail is accurate.
+forbidden:
+  return:
+    type: "https://api.efti.ee/errors/forbidden"
+    code: "FORBIDDEN"
+    title: "Forbidden"
+    status: 403
+    detail: "The X-Road client does not resolve to an active competent authority."
+  wrapper: false
+  status: 403
+  next: end
+
+bad_request:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "The request body was rejected by the gate's data layer. Check that 'subsets' is an array of subset codes."
+  wrapper: false
+  status: 400
+  next: end
+
+resql_error:
+  return:
+    type: "https://api.efti.ee/errors/bad-gateway"
+    code: "GATEWAY_UNAVAILABLE"
+    title: "Bad Gateway"
+    status: 502
+    detail: "The subset-permission lookup failed. This is a gate-side data-layer failure, not an authorisation decision."
+    resqlStatus: ${subset_res.response.status}
+  wrapper: false
+  status: 502
+  next: end
+
+ambiguous:
+  return:
+    type: "https://api.efti.ee/errors/forbidden"
+    code: "FORBIDDEN"
+    title: "Forbidden"
+    status: 403
+    detail: "The X-Road client registry code resolves to more than one active competent authority. This is a registry misconfiguration; contact the gate operator."
+  wrapper: false
+  status: 403
+  next: end
