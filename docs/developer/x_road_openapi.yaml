@@ -3,7 +3,7 @@ openapi: 3.0.3
 # ---------------------------------------------------------------------------
 # eFTI Gate (EE) — X-Road provider surface for competent authorities
 #
-# Machine-readable companion to docs/specs/x_road_authority_integration_guide.md.
+# Machine-readable companion to docs/developer/x_road_authority_integration_guide.md.
 # That guide is the prose source of truth; this file is the formal contract for
 # the six X-Road service operations a competent authority's information system
 # may call through the X-Road network.
@@ -68,7 +68,7 @@ info:
     Every error is an [RFC 7807](https://datatracker.ietf.org/doc/html/rfc7807) Problem
     Details object (`type`, `code`, `title`, `status`, `detail`, plus operation-specific
     extension members) with media type `application/json`. Switch on `code`, never on
-    `title`/`detail` text. `code` values mirror `docs/specs/errors.json`.
+    `title`/`detail` text. `code` values mirror `../specs/errors.json`.
 
     For `502 GATEWAY_UNAVAILABLE`, branch on the `coreStatus` / `resqlStatus` extension
     member, not on the HTTP status — the gate normalises every downstream failure to 502
@@ -862,7 +862,7 @@ components:
       type: object
       description: |
         Identifier-level consignment metadata. Same projection the JWT Authority API
-        `search` returns; see `docs/specs/openapi.yaml` for the full field list.
+        `search` returns; see `../specs/openapi.yaml` for the full field list.
       additionalProperties: true
       properties:
         uil: { $ref: '#/components/schemas/Uil' }
