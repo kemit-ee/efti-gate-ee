@@ -48,6 +48,7 @@ class UploadRoutesTest: BaseMocks() {
     """.trimIndent()
     val result = routes.requestToJson(xml, exchange)
 
+    expect(result.xml).toEqual(xml)
     expect(result.datasetId).toEqual(uil.datasetId)
     expect(result.gateId).toEqual(uil.gateId)
     expect(result.platformId).toEqual(uil.platformId)

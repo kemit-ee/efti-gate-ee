@@ -20,7 +20,8 @@ import klite.uuid
 class UploadRoutes(val requestIdHandler: RequestIdHandler) {
   @Operation(description = "Map FTI004UploadIdentifierRequest or ParameterIDSetCriteria as XML to a flat consignment json suitable for DB insertion.")
   @POST("/request-to-json") fun requestToJson(xml: String, e: HttpExchange): ConsignmentRow {
-    val (uil, criteria) = if (xml.contains("FTI004UploadIdentifierRequest")) {
+    val isFullRequest = xml.contains("FTI004UploadIdentifierRequest")
+    val (uil, criteria) = if (isFullRequest) {
       val req = xmlParser.parse<FTI004UploadIdentifierRequest>(xml)
       requestIdHandler.send(e, req.document.queryId)
       req.content.uil to req.content.criteria!!
@@ -28,7 +29,7 @@ class UploadRoutes(val requestIdHandler: RequestIdHandler) {
       UIL(PlatformId(e.header("X-Platform-Id")!!), e.header("X-Dataset-Id")!!.uuid, GateId(e.header("X-Gate-Id")!!)) to
       xmlParser.parse<ParameterIDSetCriteria>(xml)
     }
-    val criteriaXml = if (xml.contains("ParameterIDSetCriteria")) xml.extractParameterIDSetCriteria() else xml
+    val criteriaXml = if (isFullRequest) xml.extractParameterIDSetCriteria() else xml
     return ConsignmentRow(uil, criteria, criteriaXml)
   }
 
