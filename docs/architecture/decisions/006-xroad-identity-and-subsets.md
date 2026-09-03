@@ -67,6 +67,94 @@ poolt ei ole ehitatud — värav ei kutsu ise ühtegi X-Roadi teenust.
 > Alternatiiv, mis sellest sõltuvusest vabaneks, oleks mTLS ka turvaserveri ja adapteri vahel, aga
 > X-Roadi juurutusmudel seda ei eelda ja RIA seda ei nõua.
 
+### 2b. Adapter kutsub `core`-i sisemise teenusetokeniga
+
+Adapter peab jõudma `core`-i autoriteedi-marsruutideni, aga
+`efti/POST/api/v1/authority/.guard.yml` nõuab TIM-i JWT-d, mida adapteril ei ole kusagilt võtta, ja
+projektiülene `template:` ei tööta (Ruuteri projekti *sees* töötab — `dataset-local.yml:18` ja
+`authority/search.yml:47` kasutavad seda — aga `efti` / `xroad` piiri üleselt mitte).
+
+Lahendus: `core`-i autoriteedi-guard saab **teise kredentsiaali** — kui päis
+`X-Internal-Service-Token` klapib konstandiga, luba ja jäta TIM-i kutse vahele. Läbikukkumisharu on
+endine JWT-tee, mitte lubamine.
+
+See on **üldine sisemise teenuse kredentsiaal**, mitte X-Roadi oma: `core` ei tea X-Roadist midagi
+ja mooduli piiri nõue jääb kehtima. Sama tokenit vajab ka G2G sissetulev liiklus (`AGENTS.md` märgib
+seda juba).
+
+**Miks see piisab:** `core`-i autoriteedi-käsitlejad **ei kasuta helistaja identiteeti üldse** —
+`authority/dataset.yml` loeb ainult `body.uil` ja `body.subsets`, `authority/follow-up.yml:12`
+kirjutab `requestingUserId: ""`, `authority/consignments-search.yml` edastab keha otse ReSQL-i,
+`authority/search.yml` ei puuduta helistajat. Identiteet loeb ainult guardis, ja seal ainult
+küsimusena "kas see on ADMIN või AUTHORITY". Seega ei pea adapter kasutajat teesklema — autoriseerimise
+teeb ta ise ära (organisatsioon `X-Road-Client`-ist, alamhulgad `authorities.subsets`-ist) enne
+edastamist.
+
+**Miks mitte TIM-i teenusekonto:** modelleeriks masina inimesena, nõuaks kredentsiaalide rotatsiooni
+ja lisaks igale päringule TIM-i pöördumise; lahendatud identiteet oleks kasutaja, mitte X-Roadi
+organisatsioon. **Miks mitte mTLS adapteri ja core-i vahel:** Ruuteri `http.post`-il puudub
+igasugune märk kliendisertifikaadi toest, ja hüpe on juba usaldustsooni sees.
+
+**Päiste vastendus.** `X-Road-Id` → `x-request-id`. See ei ole kosmeetika: kõik kolm `core`-i
+autoriteedi-käsitlejat loevad `x-request-id`-d ja `authority/search.yml` kasutab seda multiplekseri
+küsitlusvõtmena.
+
+> ### `X-Road-Id` peab olema UUID — see on tarbijalepe
+>
+> `core` annab `x-request-id` edasi **tüübitud UUID-parameetritele**: multiplekseri
+> `@POST("/first/:searchId") fun multiplex(..., @PathParam searchId: UUID)`
+> (`MultiplexerRoutes.kt:21`, sama real 43) ja edelivery `RequestKey(partyId, e.requestId.uuid)`
+> (`InternalRoutes.kt:20`). Mõlemad viskavad erindi kõige muu peale.
+>
+> **X-Roadi REST-protokoll seda ei garanteeri:** turvaserver genereerib UUID-i ainult siis, kui
+> tarbija selle ära jätab — tarbija infosüsteem võib määrata suvalise unikaalse sõne, mille
+> turvaserver muutmata edasi annab. Kontrollimata jätmine tähendab, et täiesti korrektne sõnumi id
+> lõhub kogu väravatevahelise tee, ja halvimal juhul **vaikselt**: `core`-i `search.yml` ei kontrolli
+> multiplekseri staatust ja `respond_first` ei sea `status`-t, seega vastaks värav 200-ga vale kehaga.
+>
+> Seetõttu kontrollib guard kuju ja tagastab **400 `INVALID_REQUEST_ID`**. Kontroll on **ainult
+> kujuline** (5 osa pikkustega 8-4-4-4-12): kuueteistkümnendsüsteemi märkide valideerimine nõuaks
+> regulaaravaldist ja ükski DSL fail repos ei kasuta `.match` / `.test` / `RegExp`, seega on see tugi
+> tõestamata. Kuju kontroll püüab reaalse juhtumi (`ITSYS-2026-000123` annab 3 osa), kuigi sama
+> kujuga mitte-hex sõne jõuaks `core`-ini.
+>
+> Nõue kehtib **kogu X-Roadi pinnal**, ka `subsets`-il ja `echo`-l, mis `core`-i ei edasta. Üks
+> ühtne lepe on tarbijale lihtsam kui marsruudipõhine maatriks, ja nii ei saa helistaja avastada oma
+> alamhulki id-ga, mis järgmise päringu peal läbi kukuks.
+
+> ### Teadaolev piirang: küsitlusvõti on jagatud
+>
+> `core`-i `poll_remaining` (`authority/search.yml:15-19`) teeb
+> `GET multiplexer/api/v1/rest/${requestId}` **ilma omaniku kontrollita**, ja
+> `MultiplexerRoutes.kt:43` tühjendab järjekorra sellele id-le, mis talle antakse. Kuna `X-Road-Id`
+> on täielikult helistaja kontrolli all, saab üks asutus teise pooleliolevat otsingut tühjendada, kui
+> ta id-d ära arvab või näeb (90 s vahemälu TTL piirab akent).
+>
+> Sama auk on JWT-teel, seega on see `core`-is varasem — aga käesolev töö avab selle X-Roadi
+> helistajatele ja **dokumenteerib id taaskasutuse kui ettenähtud mehhanismi**, seega kuulub see
+> siia. Mõju on piiratud: lekib identifikaatori-tasemel otsingu metaandmed pädevate asutuste vahel,
+> kellel igaühel on määruse 2024/1942 järgi piiramatu identifikaatoripäring.
+>
+> Sulgub siis, kui lahendatud asutuse id hakkab `core`-ini jõudma (vt auditi lugu). Lisaks tuleb
+> tarbijapoolne eeldus välja öelda: turvaserveri kaudu uuesti saadetud päring saab tavaliselt **uue**
+> `X-Road-Id`, seega küsitlemiseks peab tarbija infosüsteem id-d teadlikult samaks jätma.
+
+> ### Teadaolev piirang: `core`-i täielik katkestus annab 500, mitte 502
+>
+> `check_core_status` rakendub alles siis, kui `core` on **vastanud**. Ühenduse tõrge, DNS-i viga või
+> 70 s ajalõpu möödumine viskab erindi `http.post`-i sees, ja `ruuter.yaml` seab
+> `stop_in_case_of_exception: true`, seega jooks katkeb ja Ruuter annab oma üldise 500 — mitte 502
+> `GATEWAY_UNAVAILABLE`, mille jaoks see kood loodi. Lisaharuga seda parandada ei saa (jooks ei jõua
+> sinna). Tuleb kinnitada, kas turvaserver kordab 5xx peale päringut.
+
+**Vigade edastamine.** `core` tagastab ad-hoc kujusid (`{"error": "Platform Not Found"}`), mitte RFC
+7807. Adapter mähib need. Staatus normaliseeritakse **502 `GATEWAY_UNAVAILABLE`**-ks, mitte ei
+edastata `core`-i oma staatust: `errors.json` seob iga koodi täpselt ühe staatusega
+(`GATEWAY_UNAVAILABLE` = 502) ja RFC 7807 nõuab, et keha `status` klapiks HTTP staatusega — seega
+suvalise staatuse edastamine sunniks kas välja mõeldud koodi või koodi/staatuse vasturääkivuse.
+`core`-i tegelik staatus ja keha kantakse edasi väljades `coreStatus` / `coreResponse`, seega ühtegi
+diagnostikat ei kaota.
+
 ### 3. Autoriseerimise allikas on `authorities.subsets`
 
 `users` tabelis **ei ole** `subsets` veergu ega ka seost asutusega (`roles TEXT[]` on ainus
@@ -105,7 +193,7 @@ Uusi veerge ega migratsioone ei ole. Kasutame olemasolevat:
 | Päis | Kohustuslik | Roll |
 |---|---|---|
 | `X-Road-Client` | jah | **Kredentsiaal.** `instance/memberClass/memberCode[/subsystemCode]`. Nii 3- kui 4-osaline kuju on kehtiv X-Roadi kliendi id. |
-| `X-Road-Id` | jah | Sõnumi id; logitakse korrelatsiooni jaoks |
+| `X-Road-Id` | jah | Sõnumi id. **Peab olema UUID** — vt §2b; guard tagastab muidu 400 `INVALID_REQUEST_ID`. Vastendub `x-request-id`-ks. |
 | `X-Road-Service` | ei | Turvaserveri seatud; informatiivne |
 | `X-Road-UserId` | ei | Lõppkasutaja isikukood. **Ainult audit — õigusi ei anna.** |
 | `X-Road-Represented-Party`, `X-Road-Issue` | ei | Informatiivsed |
@@ -121,6 +209,13 @@ Guard **autendib ainult** — alamhulkade kontrolli ta ei tee (vt allpool):
    (registri seadistusviga; suvalise rea valimine annaks ühele organisatsioonile teise õigused)
 5. Muidu lubatud
 
+Marsruudi tasemel lisanduvad (`POST /xroad/v1/dataset`; `POST /xroad/v1/vehicle` nõuab EU02-t):
+
+6. Alamhulkade loend on tühi või puudub → **400** `MISSING_SUBSET`
+7. Küsitud alamhulk ei ole `authorities.subsets` sees → **403** `FORBIDDEN_SUBSET`
+8. `core` vastab staatusega ≥ 400 → **502** `GATEWAY_UNAVAILABLE`, `core`-i staatus ja keha väljades
+   `coreStatus` / `coreResponse`
+
 `X-Road-Client` on kredentsiaal, seega selle puudumine on 401 mitte 403 — sama hoiak nagu
 platvormide `X-Api-Key` guardil (ADR-004).
 
@@ -130,23 +225,39 @@ valideerimise viga), on `body.length` `undefined` ja kõik võrdlused sellega on
 sattuma keeldumisele, mitte lubamisele. Ühe negatiivse tingimusega kirjutatud kontroll, mille
 läbikukkumisharu on `guard_success`, kukub täpselt selle sisendi peal **lahti** (fail-open).
 
-Guard on **üks projektitasemeline fail** `DSL/Ruuter/xroad/.guard.yml` (Ruuter #39), mis katab kõik
-meetodid `/xroad/**` all. `DSL/Ruuter/xroad/GET/health/.guard.yml` kasutab `override_ancestors`-i,
-et health-probe jääks avalikuks. `ruuter.yaml` loetleb GET/POST/PUT/DELETE `guards.enforce_on_methods`
-all.
+Guard on **üks projektitasemel fail** `xroad/.guard.yml` (Ruuter ≥ 0.9.7-rc, #39), mis katab iga
+meetodi `/xroad/**` all. Varem oli see kaks käsitsi sünkroonis hoitud faili (`GET/v1/` ja `POST/v1/`),
+sest guardid olid ainult kataloogipõhised ja puu on meetodipõhine — projektitasemel guard kaotab selle
+duplikaadi ära.
 
-### Alamhulkade kontroll (`FORBIDDEN_SUBSET`) ei ole veel teostatud
+Tervisekontroll on ainus erand: `xroad/GET/health/.guard.yml` seab
+`declaration.override_ancestors: true`, mis **asendab** projektiguardi selle alampuu jaoks, nii et
+`GET /xroad/health/ready` ei pea `X-Road-Client` päist saatma ja konteineri healthcheck töötab.
 
-`authorities.subsets` on **autoriseerimise allikas** ja `FORBIDDEN_SUBSET` on veakataloogis olemas,
-aga **mitte ükski guard ega X-Roadi marsruut ei tee praegu alamhulga kontrolli** — X-Roadi pinnal ei
-ole ühtegi marsruuti, mis alamhulga parameetrit vastu võtaks (olemas on ainult `echo` ja `subsets`).
-Kui selline marsruut lisatakse, peab ta kontrolli ise tegema; guard seda tema eest ei tee.
+### Alamhulkade kontroll (`FORBIDDEN_SUBSET`)
 
-Kontroll kuulub SQL-i, mitte DSL-i: Postgresi massiivi sisalduvuse operaator
-(`requested <@ authorities.subsets`) teeb selle ühe avaldisega, samas kui ükski Ruuteri DSL fail
-repos ei kasuta `.every` / `.includes` / noolefunktsioone, seega mootori JS-massiivi tugi on
-tõestamata. ReSql juba oskab `{ type: array }` parameetreid ja `::text[]` teisendusi
-(`insert_authority.sql`).
+Kontrolli teeb **marsruut, mitte guard**: guard autendib organisatsiooni, aga alamhulga parameetrit
+võtab vastu ainult `POST /xroad/v1/dataset`, seega teeb kontrolli see marsruut ise. Iga uus alamhulga
+parameetrit võttev marsruut peab sama tegema — guard ei tee seda tema eest.
+
+Kontroll on SQL-is, mitte DSL-is: Postgresi massiivi sisalduvuse operaator
+(`:requested_subsets <@ a.subsets` failis `check_authority_subsets.sql`) teeb selle ühe avaldisega,
+samas kui ükski Ruuteri DSL fail repos ei kasuta `.every` / `.includes` / noolefunktsioone, seega
+mootori JS-massiivi tugi on tõestamata. ReSql oskab juba `{ type: array }` parameetreid ja `::text[]`
+teisendusi (`insert_authority.sql`).
+
+Kaks lõksu, mis on koodis kommenteeritud:
+
+- **`'{}' <@ ükskõik mis` on TRUE.** Tühi alamhulkade loend läbiks sisalduvuse testi. Seega lükkab
+  marsruut tühja või puuduva loendi tagasi **enne** SQL-i kutsumist — **400** `MISSING_SUBSET`
+  (`openapi.yaml` nõuab `subsetId`-l `minItems: 1`).
+- **Osaliselt lubatud päring keelatakse tervikuna.** `["EU01","EU06"]`, kus ainult EU01 on lubatud,
+  annab 403 — mitte vaikset EU01-ni kärpimist. Kärpimine annaks helistajale vastuse, mida ta ei
+  küsinud, ja peidaks õiguste vea.
+
+Keeldumine kannab `deniedSubsets` / `permittedSubsets` / `authorityId` RFC 7807 laiendusväljadena,
+mitte `detail`-teksti sisse põimituna: nii on iga väärtus terviklik interpolatsioon (repos tõestatud
+muster) ja masinliiklus saab massiividel otse hargneda, ilma lauset parsimata.
 
 ## Päring
 
@@ -192,12 +303,96 @@ Need dokumendid väitsid vastupidist ja on selle otsusega korrigeeritud:
 `docs/specs/data-transformations.md` §428 ütles juba varem `requested subsets ⊆
 authorities.subsets` — see oli õige ja jääb muutmata.
 
+## Sõidukipäring (`POST /xroad/v1/vehicle`)
+
+Esimene päris äriteenus sellel pinnal: **sisse tuleb auto number, vastu liigub see, mida värav tema
+kohta teab.**
+
+**Vastuses ei ole andmestiku sisu.** Tagastatakse identifikaatori-tasemel metaandmed —
+`uil` (gateId/platformId/datasetId), veovahendi väljad, kuupäevad, riigid, veoseadmed. Sisu saab
+helistaja seejärel `POST /xroad/v1/dataset`-iga, kasutades tagastatud `uil`-i, ja **see tee läbib
+alamhulkade kontrolli**.
+
+Selleks on eraldi ReSql fail `get_consignments_by_vehicle.sql`, mitte olemasolev
+`get_consignments.sql`. Põhjused:
+
+1. **Stabiilne väljaleping** väline X-Roadi tarbijale. `get_consignments` tagastab lisaks
+   identifikaatori metaandmetele ka toore `xml` välja, mille skeem kuulub platvormile
+   (`FTI004UploadIdentifierRequest`), mitte väravale — ehk see võib meie alt muutuda.
+2. **`consignments.xml` on siin üleliigne**: see on *identifikaatori* XML nii, nagu platvorm selle
+   saatis (`006-consignments.sql:54`), ja kannab samu välju, mis on juba veergudesse
+   denormaliseeritud. Selle saatmine kahekordistaks vastuse ilma uue infota, marsruudil, mis peab
+   olema odav ja suure läbilaskega.
+
+> **Parandus.** Selle otsuse varasem sõnastus väitis, et `get_consignments.sql` taaskasutamine
+> annaks "terve andmestiku" ja läheks `authorities.subsets`-ist mööda. **See oli vale.** Andmestiku
+> sisu ei jõua kunagi Postgresesse — `authority/dataset.yml` tõmbab selle platvormilt
+> `?subsetId=...`-iga, ja **just seal** alamhulkade õigus rakendub. `consignments.xml` on
+> identifikaatori XML, mitte andmestik. Sama vale eeldust kasutati ka `authority/search.yml`
+> süüdistamiseks; ka see on tagasi võetud. Kuratud projektsioon on endiselt õige valik, aga
+> ülaltoodud põhjustel, mitte turvapõhjusel.
+
+**Õigus: nõutav on `EU02`.** Delegeeritud määruse 2024/2024 järgi on EU02 "means of transport
+(vehicle plate, container number)" — ehk täpselt see andmeklass, mida see päring tagastab. Ilma
+selleta **403 `FORBIDDEN_SUBSET`**. Kasutab sama `check_authority_subsets.sql` sisalduvustesti, mis
+andmestiku marsruut; uut õiguste päringut ei ole.
+
+**Ainult kohalik register.** Multiplekserit ei kutsuta — "meile teadaolev" tähendab meie oma
+registrit, ja ANTS-i nõue keelab ristvärava levipäringu sõnaselgelt.
+
+**Veerg on `main_transport_id`**, mitte `vehicle_plate` — viimane esineb vanemates dokumentides, aga
+ei ole skeemis kunagi olnud. Päring on indeksitoega (`idx_consignments_main_transport_id`) ja
+kasutab sama kaheastmelist kuju nagu `get_authority_by_registry_code.sql`: kandidaadid kitsendatakse
+indeksi kaudu, iga loogilise `(dataset_id, platform_id)` **viimane rida** lahendatakse filtreerimata,
+ja alles välimine `WHERE` nõuab, et viimane rida numbrit ikka kannaks. Vastupidine järjekord
+tähendaks, et parandatud numbriga uuesti laetud saadetis vastaks igavesti vanale numbrile.
+
+Kaks teadlikku valikut, mida arvustaja võib tahta üle vaadata:
+
+- **`status = 'ACTIVE'`** on positiivne lubatute loend, rangem kui `get_consignments.sql`-i
+  `status != 'DELETED'` (mis tagastab ka `INACTIVE`). Tagajärg: sama numbri tulemused võivad erineda
+  admin-otsingust.
+- **`LIMIT 50` on serveripoolne**, mitte helistaja määratav. Levinud number võib vastata paljudele
+  saadetistele, ja helistaja määratav limiit on täpselt see, kuidas identifikaatoripäringust saab
+  massväljavõtte tööriist.
+
+**Number sobitatakse täht-täheliselt.** `main_transport_id` on `TEXT`, mitte `CITEXT`, seega `123abc`
+ei leia `123ABC`-d; ka tühikuid ei eemaldata (`.trim()` ei ole selle mootoris tõestatud). See on
+dokumenteeritud, mitte vaikselt normaliseeritud, sest muutmine tähendaks veeru tüübi muutust või
+funktsionaalset indeksit.
+
 ## Avatud küsimused
 
 - **Auditikirjutaja puudub.** `X-Road-UserId` (ja üldse iga autoriseerimise sündmus) tuleks
   `audit_log` tabelisse kirjutada GDPR art 30 nõude täitmiseks — `logging-spec.md` kirjeldab välju,
   aga kirjutavat koodi ei ole kusagil. Kuni seda ei ole, on käesoleva ADR-i auditiväide **kavatsus,
   mitte teostus**. Kehtib kogu värava kohta, mitte ainult X-Roadi kanali kohta.
+- **Sisemise teenusetokeni tootmisjuurutust EI OLE OLEMAS.** `INTERNAL_SERVICE_TOKEN` on literaal
+  failis `constants.ini`, mille `docker/ruuter/Dockerfile` `COPY`-b tõmmisesse. (Enne `xroad`
+  projekti liitmist oli sama väärtus ka failis `constants-xroad.ini` ja pidi olema
+  bait-täpselt sama — see duplikaadi oht on kadunud.) Ruuteri konstantidel **ei ole** repos
+  kusagil `${ENV}` asendust ega entrypointi, mis faili ümber kirjutaks — seega ainus viis väärtust
+  muuta on **muuta versioonihaldusesse pandud faili ja mõlemad tõmmised uuesti ehitada**, ja miski ei
+  anna häiret, kui see ununeb. See ei ole "tootmine peab süstima" vaid "süstimismehhanismi pole".
+
+  Mõju, kui ununeb: avalikus repos olev sõne annab ADMIN-või-AUTHORITY-ekvivalentse ligipääsu kõigile
+  neljale marsruudile `efti/POST/api/v1/authority/` all — **sealhulgas `consignments-search`, mis
+  annab `incoming.body` otse `get_consignments`-ile koos helistaja määratud `limit`/`offset`-iga**,
+  ehk saadetiste registri massväljavõtte. Token annab selle ilma TARA-ta ja ilma auditireata.
+
+  Vaja on: (a) entrypoint, mis genereerib konstandifaili keskkonnamuutujast või monteeritud
+  saladusest, ja (b) käivitusaegne või health-probe kontroll, et väärtus ei ole kaasa pandud
+  vaikeväärtus. Kuni selleni kehtib teele `/efti/api/v1/authority/**` sama isolatsiooninõue nagu
+  teele `/xroad/**` — mõlemad on nüüd samal pordil 8086, seega on isolatsioon **tee-, mitte
+  pordipõhine**.
+
+- **Teoreetiline: asendamata kohatäide autendiks.** Kui konstant `constants.ini`-st puuduks **ja**
+  Ruuter jätaks `[#INTERNAL_SERVICE_TOKEN]` literaalseks (asendamata) selle asemel, et asendada see
+  tühjaga, siis autendiks helistaja, kes saadab täpselt selle sõne. Guardi `!= ''` klauslid katavad
+  tühja-asenduse haru, mitte literaalse. Ruuteri tegelik käitumine puuduva konstandi puhul on
+  **kontrollimata**. Kuna mõlemad Dockerfile'id `COPY`-vad faili, mis võtme sisaldab, ei saa eeldus
+  praegu täituda — kirjas ainult sellepärast, et see on ainus sisend, mis tingimuse tõeseks muudab
+  ilma õiget saladust teadmata.
 - **`FORBIDDEN_MULTI_AUTHORITY` veakood puudub.** Sama registrikoodiga mitme `ACTIVE` asutuse
   juhtum tagastab praegu üldise `FORBIDDEN`-i eristava `detail`-iga. Platvormide poolel on selle
   jaoks oma kood (`FORBIDDEN_MULTI_PLATFORM`); asutuste jaoks tuleks samaväärne kood

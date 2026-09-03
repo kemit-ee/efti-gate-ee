@@ -1,0 +1,212 @@
+declaration:
+  description: "X-Road vehicle lookup (ADR-006). A vehicle registration number comes in; the
+    identifier-level data this gate holds against it comes back. Local registry only — no cross-gate
+    broadcast. Returns NO dataset content: the caller uses the returned uil with
+    POST /xroad/v1/dataset to fetch content, which goes through the subset check.
+    Requires EU02 (means of transport) in authorities.subsets, because that is what this data is."
+  # No allowed_body, for the same reason as dataset.yml: the field-list form is used once in the
+  # whole repo and its filter-vs-require semantics are unproven.
+
+# The project-level xroad/.guard.yml has already validated the X-Road-Client shape, confirmed a
+# UUID-shaped X-Road-Id, resolved exactly one ACTIVE authority, and bound the row as ${authority}.
+# Only proven-in-this-repo constructs: ?. and ?? are used widely. Deliberately no String() or
+# .trim() — neither appears anywhere in the DSL, so engine support is unproven. Consequence: the
+# plate is matched VERBATIM (no trimming, and case-sensitively because main_transport_id is TEXT not
+# CITEXT). Stated in openapi.yaml.
+#
+# No ternary either, though it has precedent at auth/POST/callback.yml:49 — a ternary contains
+# ": " which terminates a YAML plain scalar, so it only works quoted.
+#
+# country_code is QUOTED, so it always reaches ReSql as a string, never as a JSON null. Two reasons:
+# a real JSON null in a ReSql *body* param has no precedent here (all 17 `?? null` uses in the repo
+# are in `headers:`), and if Ruuter rendered it as the string "null" every unfiltered lookup would
+# silently return found: 0. The SQL treats '' as "any country", so the empty string is the safe
+# carrier. It also means a non-string countryCode becomes a harmless string rather than a ReSql
+# param-type error surfacing as 502.
+setup:
+  assign:
+    registry_code: ${authority.registryCode}
+    vehicle_id: ${incoming.body?.vehicleId ?? ''}
+    country_code: "${incoming.body?.countryCode ?? ''}"
+  next: check_input
+
+# The `.length == null` clauses are a type check built from proven constructs: a string has a numeric
+# length, while a number, boolean or object has `undefined`, and `undefined == null` is true. Without
+# it a numeric vehicleId would reach ReSql, be rejected as a param type error, and surface as a
+# 502 gateway error — misreporting a caller mistake as a gate fault.
+#
+# countryCode is checked against the RAW body, not the assigned country_code: the assign quotes the
+# value, so by then a number has already become a string and the mistake is invisible. Answering 400
+# is clearer than silently returning found: 0 for a country that was never a country.
+#
+# Known gap: a NON-EMPTY array passes (['ABC'].length === 1) and yields 200 with found: 0 rather than
+# 400, because distinguishing an array from a string needs Array.isArray, unproven in this engine.
+# Every other wrong type — null, empty string, number, boolean, object, empty array — is rejected.
+check_input:
+  switch:
+    - condition: ${vehicle_id == null || vehicle_id.length == null || vehicle_id.length == 0}
+      next: bad_request
+    - condition: ${incoming.body?.countryCode != null && incoming.body.countryCode.length == null}
+      next: bad_request
+  next: check_subset_permission
+
+# EU02 is "means of transport (vehicle plate, container number)" per Delegated Reg 2024/2024, so
+# this response IS EU02-class data by definition. Reuses the containment SQL the dataset route uses;
+# no new entitlement query.
+check_subset_permission:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/check_authority_subsets"
+    headers:
+      Content-Type: application/json
+      x-request-id: "${incoming.headers['x-road-id']}"
+    body:
+      registry_code: "${registry_code}"
+      requested_subsets: ["EU02"]
+  result: subset_res
+  next: evaluate_permission
+
+# Same fail-closed shape as dataset.yml: deny is the fall-through, every accept path is an explicit
+# positive condition, and no accept path derefs body[0] without having proven it exists and is
+# non-null. A non-array ReSql body makes every length comparison false and lands on `forbidden`.
+evaluate_permission:
+  switch:
+    - condition: ${subset_res.response.status === 400}
+      next: bad_request
+    - condition: ${subset_res.response.status != 200}
+      next: entitlement_lookup_failed
+    - condition: ${subset_res.response.body == null || subset_res.response.body.length == 0}
+      next: forbidden
+    - condition: ${subset_res.response.body.length > 1 && subset_res.response.body[0] != null && subset_res.response.body[0].authorityId != null}
+      next: ambiguous
+    - condition: ${subset_res.response.body.length === 1 && subset_res.response.body[0] != null && subset_res.response.body[0].allowed == true}
+      next: lookup_vehicle
+    - condition: ${subset_res.response.body.length === 1 && subset_res.response.body[0] != null && subset_res.response.body[0].allowed == false}
+      next: forbidden_subset
+  next: forbidden
+
+# Single local ReSql call — no timeout override needed, nowhere near core's 65s paths. The SQL
+# deliberately returns no `xml`; see the header comment in get_consignments_by_vehicle.sql.
+lookup_vehicle:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/get_consignments_by_vehicle"
+    headers:
+      Content-Type: application/json
+      x-request-id: "${incoming.headers['x-road-id']}"
+    body:
+      vehicle_id: "${vehicle_id}"
+      country_code: "${country_code}"
+  result: vehicle_res
+  next: check_lookup
+
+# Error is the fall-through here too: a non-array body must never be emitted as `consignments`.
+# An empty array IS a legitimate 200 answer, so it is an explicit accept rather than a fall-through.
+#
+# Distinguishing an array from a string needs care without Array.isArray (unproven in this engine):
+# `body.length >= 0` is true for a string as well, so a 200 carrying "oops" would be emitted as
+# four consignments. Instead, accept either an empty result, or a non-empty one whose first element
+# carries `uil` — a field get_consignments_by_vehicle always builds. Only proven constructs
+# (.length, indexing, property access), and a string, object, number or null all fail both.
+check_lookup:
+  switch:
+    - condition: ${vehicle_res.response.status != 200}
+      next: vehicle_lookup_failed
+    - condition: ${vehicle_res.response.body != null && vehicle_res.response.body.length == 0}
+      next: respond
+    - condition: ${vehicle_res.response.body != null && vehicle_res.response.body.length > 0 && vehicle_res.response.body[0] != null && vehicle_res.response.body[0].uil != null}
+      next: respond
+  next: vehicle_lookup_failed
+
+# "We do not know this vehicle" is a successful answer to the question asked, so an empty result is
+# 200 with found: 0 — not 404. That also gives ANTS-style existence semantics for free.
+respond:
+  return:
+    vehicleId: ${vehicle_id}
+    countryCode: ${country_code}
+    found: ${vehicle_res.response.body.length}
+    consignments: ${vehicle_res.response.body}
+  wrapper: false
+  status: 200
+  next: end
+
+bad_request:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "vehicleId is required and must be a non-empty string; countryCode, if given, must be a string."
+  wrapper: false
+  status: 400
+  next: end
+
+# The denied/permitted sets are RFC 7807 extension members rather than interpolated into the detail
+# prose — every value is then a whole-value interpolation, and a machine caller can branch on the
+# arrays directly. Same shape as dataset.yml.
+forbidden_subset:
+  return:
+    type: "https://api.efti.ee/errors/forbidden-subset"
+    code: "FORBIDDEN_SUBSET"
+    title: "Subset Access Denied"
+    status: 403
+    detail: "A vehicle lookup returns means-of-transport data (EU02), which this authority is not permitted to access."
+    authorityId: ${subset_res.response.body[0].authorityId}
+    deniedSubsets: ${subset_res.response.body[0].deniedSubsets}
+    permittedSubsets: ${subset_res.response.body[0].subsets}
+  wrapper: false
+  status: 403
+  next: end
+
+# Residual denial: the entitlement lookup returned no row, or a row whose `allowed` was neither true
+# nor false. Transport failures go to entitlement_lookup_failed, so this detail is accurate.
+forbidden:
+  return:
+    type: "https://api.efti.ee/errors/forbidden"
+    code: "FORBIDDEN"
+    title: "Forbidden"
+    status: 403
+    detail: "The X-Road client does not resolve to an active competent authority."
+  wrapper: false
+  status: 403
+  next: end
+
+ambiguous:
+  return:
+    type: "https://api.efti.ee/errors/forbidden"
+    code: "FORBIDDEN"
+    title: "Forbidden"
+    status: 403
+    detail: "The X-Road client registry code resolves to more than one active competent authority. This is a registry misconfiguration; contact the gate operator."
+  wrapper: false
+  status: 403
+  next: end
+
+# Two distinct steps rather than one shared `resql_error`: this route makes two ReSql calls, and a
+# single step could not tell an operator which one failed. openapi's XRoadBadGateway also promises
+# `resqlStatus`, which the shared version carried for neither.
+entitlement_lookup_failed:
+  return:
+    type: "https://api.efti.ee/errors/bad-gateway"
+    code: "GATEWAY_UNAVAILABLE"
+    title: "Bad Gateway"
+    status: 502
+    detail: "The subset-entitlement lookup failed in the gate's data layer. This is not an authorisation decision."
+    failedStep: "check_authority_subsets"
+    resqlStatus: ${subset_res.response.status}
+  wrapper: false
+  status: 502
+  next: end
+
+vehicle_lookup_failed:
+  return:
+    type: "https://api.efti.ee/errors/bad-gateway"
+    code: "GATEWAY_UNAVAILABLE"
+    title: "Bad Gateway"
+    status: 502
+    detail: "The vehicle lookup failed in the gate's data layer. This is not an authorisation decision."
+    failedStep: "get_consignments_by_vehicle"
+    resqlStatus: ${vehicle_res.response.status}
+  wrapper: false
+  status: 502
+  next: end

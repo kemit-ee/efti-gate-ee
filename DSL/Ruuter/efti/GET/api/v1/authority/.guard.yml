@@ -1,6 +1,10 @@
 # Authority-facing dataset request via GET (Authority API, matrix §3.2). Requires a
-# TARA JWT resolving to a users row with the ADMIN or AUTHORITY role. Mirrors
-# efti/POST/api/v1/authority/.guard.yml.
+# TARA JWT resolving to a users row with the ADMIN or AUTHORITY role.
+#
+# Deliberately does NOT accept the X-Internal-Service-Token branch that the POST sibling has: the
+# X-Road adapter forwards only POST, so the token gets no more reach than it needs. If a future
+# internal caller needs a GET authority route, add the branch here explicitly rather than assuming
+# the asymmetry is an oversight.
 validate_auth:
   call: http.post
   args:

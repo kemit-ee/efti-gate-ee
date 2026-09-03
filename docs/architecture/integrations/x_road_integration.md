@@ -32,18 +32,58 @@ sequenceDiagram
     Adapter->>Adapter: Guard: validate headers, parse memberCode
     Adapter->>Resql: get_authority_by_registry_code(memberCode)
     Resql-->>Adapter: ACTIVE authority row + subsets
-    Adapter->>Core: REST call (Authority API)
+    Adapter->>Resql: check_authority_subsets (dataset only)
+    Resql-->>Adapter: allowed / deniedSubsets
+    Adapter->>Core: REST call + X-Internal-Service-Token, x-request-id = X-Road-Id
     Core-->>Adapter: JSON / XML response
     Adapter-->>SS: JSON response (or RFC 7807 problem detail)
     SS-->>Client: Response
 ```
 
 The `xroad` project calls `core` only over the published REST API — the `efti` Ruuter project
-carries zero X-Road references, and even though both projects now run in the same engine, the
-`template:` bypass does not cross project boundaries. Note that this edge is **not yet wired**:
-`core`'s `efti/POST/api/v1/authority/.guard.yml` requires a TIM-issued JWT that the `xroad` project
-has no way to obtain. It needs an internal service token, the same one `AGENTS.md` flags as pending
-for G2G inbound.
+carries zero X-Road references.
+
+**How the adapter authenticates to core.** `core`'s `efti/POST/api/v1/authority/.guard.yml` accepts
+two credentials: a TIM-issued JWT resolving to an ADMIN/AUTHORITY `users` row, **or** a matching
+`X-Internal-Service-Token`. The second is a *generic internal-service* credential — `core` learns
+nothing about X-Road, and the same token is earmarked for G2G inbound. Deny (the JWT path) is the
+fall-through; a missing or empty header can never match, even if the constant were unset.
+
+This works because `core`'s authority handlers are **identity-blind**: `authority/dataset.yml` reads
+only `body.uil` and `body.subsets`, `authority/follow-up.yml:12` writes `requestingUserId: ""`,
+`authority/consignments-search.yml` proxies the body to ReSql, and `authority/search.yml` never
+touches the caller. Identity matters only in the guard, and only as "ADMIN or AUTHORITY?" — so the
+adapter does not impersonate a user. It performs the real authorisation itself: organisation from
+`X-Road-Client`, subsets from `authorities.subsets`, both before forwarding.
+
+> The service token grants full Authority-API access to whoever holds it, and it is baked into the
+> image at build time. The same network-isolation requirement therefore applies to port
+> 8086's `/efti/api/v1/authority/*` surface. See ADR-006's open questions for production delivery.
+
+**Header mapping.** `X-Road-Id` becomes `x-request-id`. All four core authority handlers read it, and
+`authority/search.yml` uses it as the multiplexer polling key — so a caller re-issuing a search with
+the same `X-Road-Id` and `{"poll": true}` collects the remaining gates' results.
+
+> **`X-Road-Id` must be a UUID, and the gate enforces it.** Core hands `x-request-id` to *typed*
+> `UUID` parameters — multiplexer's `@PathParam searchId: UUID` (`MultiplexerRoutes.kt:21,43`) and
+> edelivery's `e.requestId.uuid` (`InternalRoutes.kt:20`) — both of which throw on anything else. The
+> X-Road REST protocol does **not** guarantee a UUID: the Security Server generates one only when the
+> consumer omits the header, and a consumer information system may set an arbitrary unique string
+> that the SS forwards verbatim. Unchecked, a legal message id breaks every cross-gate path, and
+> silently in the worst case — core's `search.yml` never checks the multiplexer's status and
+> `respond_first` sets no `status:`, so the gate would answer 200 with a wrong body. The guard
+> therefore validates the shape and returns 400 `INVALID_REQUEST_ID`. Shape only: hex-digit
+> validation would need a regex, and no DSL file here uses `.match`/`.test`/`RegExp`.
+>
+> **Known limitation — the polling key is shared.** Core's `poll_remaining` does
+> `GET multiplexer/api/v1/rest/${requestId}` with no ownership check, and the multiplexer drains the
+> queue for whatever id it is handed. Since `X-Road-Id` is caller-controlled, one authority that
+> guesses or observes another's in-flight id can drain that search's results (bounded by the 90 s
+> cache TTL). The same hole exists on the JWT path, so it is pre-existing in core — but this surface
+> newly exposes it to X-Road callers and documents id reuse as the intended polling mechanism. It
+> closes when the resolved authority id starts flowing to core with the audit story. Impact is
+> limited to identifier-level metadata between authorities that each have unrestricted identifier
+> search under Reg 2024/1942.
 
 ## Topology — the gate is the provider, not a consumer
 
@@ -105,16 +145,26 @@ There is **no `protocolVersion`**: in the X-Road REST message protocol the versi
 prefix on the consumer's URL, consumed by the consumer's own Security Server and never forwarded to
 the provider. The gate's own contract version is the `/v1` in `/xroad/v1/...`.
 
-Authentication is one project-level guard, `DSL/Ruuter/xroad/.guard.yml` (Ruuter #39), covering every
-method under `/xroad/**`. `DSL/Ruuter/xroad/GET/health/.guard.yml` uses `override_ancestors` to keep
-the health probe public. The guard **authenticates only**. Denials:
+Authentication lives in **one project-level guard**, `DSL/Ruuter/xroad/.guard.yml` (Ruuter
+≥ 0.9.7-rc), covering every method under `/xroad/**`. `xroad/GET/health/.guard.yml` sets
+`declaration.override_ancestors: true` to replace it for that subtree, keeping the container health
+probe public. The guard **authenticates only**. Denials:
 
 | Condition | Status | `code` |
 |---|---|---|
 | `X-Road-Client` absent or malformed | 401 | `UNAUTHORIZED` |
 | `X-Road-Id` absent | 400 | `MISSING_REQUIRED_HEADER` |
+| `X-Road-Id` present but not UUID-shaped | 400 | `INVALID_REQUEST_ID` |
 | `memberCode` resolves to no `ACTIVE` authority | 403 | `FORBIDDEN` |
 | `memberCode` resolves to **more than one** `ACTIVE` authority (registry misconfiguration) | 403 | `FORBIDDEN` |
+
+Per-route denials on `POST /xroad/v1/dataset`, which is the only operation taking a subset parameter:
+
+| Condition | Status | `code` |
+|---|---|---|
+| `subsets` empty or absent | 400 | `MISSING_SUBSET` |
+| A requested subset is not in `authorities.subsets` | 403 | `FORBIDDEN_SUBSET` |
+| `core` answered with status ≥ 400 | 502 | `GATEWAY_UNAVAILABLE` (core's status and body in `coreStatus` / `coreResponse`) |
 
 Deny is the fall-through branch and every accept path is an explicit positive condition. That
 ordering is load-bearing: if ReSql returns a non-array body (a 500 error object, a param-validation
@@ -122,20 +172,66 @@ failure) then `body.length` is `undefined` and every comparison against it is fa
 must land on the denial. Expressing the check as a single negative condition with success as the
 fall-through fails **open** on exactly that input.
 
-**`FORBIDDEN_SUBSET` is not yet emitted anywhere.** `authorities.subsets` is established as the
-authorisation source and the code exists in the catalog, but no guard and no X-Road route performs a
-subset check — the surface currently exposes only `echo` and `subsets`, neither of which takes a
-subset parameter. A route that does must apply the check itself; the guard will not do it. The check
-belongs in SQL (`requested <@ authorities.subsets`) rather than the DSL, because no Ruuter DSL file
-in the repo uses `.every` / `.includes` / arrow functions, so the engine's JS array support is
-unproven.
+**`FORBIDDEN_SUBSET` is enforced by the route, not the guard.** The guard authenticates the
+organisation; only `POST /xroad/v1/dataset` accepts a subset parameter, so that route applies the
+check itself via `DSL/Resql/efti/POST/check_authority_subsets.sql`. Any future route taking subsets
+must do the same — the guard will not do it for them.
+
+The check lives in SQL (`:requested_subsets <@ a.subsets`) rather than the DSL because no Ruuter DSL
+file in the repo uses `.every` / `.includes` / arrow functions, so the engine's JS array support is
+unproven, while ReSql already handles `{type: array}` params and `::text[]` casts.
+
+Two traps, both commented in the code:
+
+- **`'{}' <@ anything` is TRUE**, so an empty subset list would pass the containment test. The route
+  rejects an empty or absent list *before* calling SQL — 400 `MISSING_SUBSET`, matching
+  `openapi.yaml`'s `minItems: 1` on `subsetId`.
+- **A partially permitted request is denied whole.** `["EU01","EU06"]` where only EU01 is permitted
+  returns 403, not a silent narrowing to EU01 — narrowing would answer a question the caller did not
+  ask and would hide the entitlement error.
+
+The denial carries `deniedSubsets`, `permittedSubsets` and `authorityId` as RFC 7807 extension
+members rather than interpolated into the `detail` prose, so a machine caller can branch on the
+arrays directly.
 
 Because `authorities` is append-only, the authority lookup
 (`DSL/Resql/efti/POST/get_authority_by_registry_code.sql`) resolves the latest row per logical id
 **before** filtering on `registry_code` and `status`. Filtering inside the `DISTINCT ON` would let a
 soft-deleted authority with an older `ACTIVE` row keep authenticating.
 
-## Subset-permission lookup
+## Vehicle lookup
+
+`POST /xroad/v1/vehicle` — a registration number in, the identifier-level data this gate holds out:
+
+```json
+{ "vehicleId": "123ABC", "found": 1, "consignments": [
+  { "uil": {"gateId": "EU-EE", "platformId": "mock", "datasetId": "550e..."},
+    "mainTransportId": "123ABC", "transportRegCountry": "EE", "transportMode": "3", "...": "..." } ] }
+```
+
+**No dataset content**, and none to leak: dataset content never enters Postgres. It is fetched from
+the platform by `authority/dataset.yml` with `?subsetId=...`, which is where subset entitlement is
+enforced. `consignments.xml` is the *identifier* XML as received from the platform
+(`006-consignments.sql:54`), not a dataset.
+
+The dedicated `get_consignments_by_vehicle.sql` exists for two other reasons: it pins an explicit
+field contract for an external consumer, rather than exposing a blob whose schema belongs to the
+platform; and it drops that blob, which is redundant here because it carries the same fields already
+denormalised into the columns returned. Content is still fetched afterwards via
+`POST /xroad/v1/dataset` with the returned `uil`.
+
+> An earlier draft justified this file by claiming reuse would "bypass `authorities.subsets`". That
+> was wrong and has been retracted here and in ADR-006 — there is no bypass to defeat.
+
+Requires **`EU02`** in `authorities.subsets` (Delegated Reg 2024/2024 defines EU02 as "means of
+transport (vehicle plate, container number)" — exactly this data), else 403 `FORBIDDEN_SUBSET`.
+Local registry only, no broadcast. An unknown plate is a **200 with `found: 0`**, not a 404, which
+also gives ANTS-style existence semantics.
+
+The column is `main_transport_id`; `consignments.vehicle_plate` named in older docs has never
+existed. Matching is case-sensitive and untrimmed — see ADR-006.
+
+## Subset-permission lookup## Subset-permission lookup
 
 `GET /xroad/v1/subsets` returns the calling organisation's own permitted subsets:
 

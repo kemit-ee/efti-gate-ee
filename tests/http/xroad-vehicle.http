@@ -1,0 +1,297 @@
+import ../admin/auth.http
+run #auth
+
+# POST /xroad/v1/vehicle — vehicle registration number in, identifier-level data out (ADR-006).
+#
+# Registry codes 70000093 / 70000092 are unused elsewhere (echo 70000099, subsets 70000095-97,
+# forward 70000094, admin 70000001/00000000). get_authority_by_registry_code denies a code matching
+# more than one ACTIVE authority, so a collision fails loudly rather than picking a row.
+#
+# Every X-Road-Id must be a real UUID — the guard rejects anything else with 400 INVALID_REQUEST_ID.
+#
+# The consignment carrying plate VESSEL-001 is uploaded by tests/authority/authority-api.http, which
+# sorts before tests/http/ in the tests/*/*.http glob.
+
+### Cleanup: EU02-entitled authority
+DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-veh
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Cleanup EU02 authority ok", () => {
+    client.assert(response.status === 204 || response.status === 404)
+  })
+%}
+
+### Cleanup: authority without EU02
+DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-veh-no-eu02
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Cleanup non-EU02 authority ok", () => {
+    client.assert(response.status === 204 || response.status === 404)
+  })
+%}
+
+### Setup: authority entitled to EU02 (means of transport)
+POST {{RUUTER_URL}}/admin/v1/authorities
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "id": "auth-xroad-veh",
+  "name": "X-Road Vehicle Lookup Authority",
+  "registryCode": "70000093",
+  "subsets": ["EU01", "EU02"],
+  "status": "ACTIVE"
+}
+
+> {%
+  client.test("EU02 authority created", () => {
+    client.assert(response.status === 201)
+    client.assert(response.body.registryCode === "70000093")
+  })
+%}
+
+### Setup: authority NOT entitled to EU02
+POST {{RUUTER_URL}}/admin/v1/authorities
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "id": "auth-xroad-veh-no-eu02",
+  "name": "X-Road Vehicle Lookup Authority Without EU02",
+  "registryCode": "70000092",
+  "subsets": ["EU01"],
+  "status": "ACTIVE"
+}
+
+> {%
+  client.test("Non-EU02 authority created", () => {
+    client.assert(response.status === 201)
+  })
+%}
+
+### Happy path: known plate returns the identifier-level data we hold
+POST {{RUUTER_URL}}/xroad/v1/vehicle
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0001-4d1d-8f1a-0ec000000001
+X-Road-UserId: EE30101010007
+Content-Type: application/json
+
+{ "vehicleId": "VESSEL-001" }
+
+> {%
+  client.test("Known plate returns its consignments", () => {
+    client.assert(response.status === 200, "expected 200, got " + response.status +
+      " body=" + JSON.stringify(response.body))
+    client.assert(response.body.vehicleId === "VESSEL-001")
+    client.assert(response.body.found >= 1, "expected at least one match, found=" + response.body.found)
+    client.assert(Array.isArray(response.body.consignments))
+    client.assert(response.body.consignments.length === response.body.found, "found must equal the array length")
+    const c = response.body.consignments[0]
+    client.assert(c.mainTransportId === "VESSEL-001")
+    client.assert(c.uil !== undefined && c.uil.datasetId !== undefined, "uil.datasetId must be present so the caller can fetch the dataset")
+    client.assert(c.uil.gateId !== undefined && c.uil.platformId !== undefined)
+  })
+%}
+
+### REGRESSION: the response must carry no dataset content
+# This is the entire reason get_consignments_by_vehicle.sql exists rather than reusing
+# get_consignments.sql, which selects the xml column and would hand over the full dataset,
+# bypassing authorities.subsets.
+POST {{RUUTER_URL}}/xroad/v1/vehicle
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0002-4d1d-8f2a-0ec000000002
+Content-Type: application/json
+
+{ "vehicleId": "VESSEL-001" }
+
+> {%
+  client.test("No dataset content is returned", () => {
+    client.assert(response.status === 200)
+    const c = response.body.consignments[0]
+    client.assert(c.xml === undefined, "xml must never be returned by the vehicle lookup")
+    client.assert(JSON.stringify(response.body).indexOf("<") === -1, "no XML markup anywhere in the response")
+  })
+%}
+
+### Unknown plate is a successful "we don't know it", not a 404
+POST {{RUUTER_URL}}/xroad/v1/vehicle
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0003-4d1d-8f3a-0ec000000003
+Content-Type: application/json
+
+{ "vehicleId": "NO-SUCH-PLATE-XYZ" }
+
+> {%
+  client.test("Unknown plate returns 200 with found 0", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.found === 0)
+    client.assert(Array.isArray(response.body.consignments))
+    client.assert(response.body.consignments.length === 0)
+  })
+%}
+
+### countryCode that does not match filters the row out
+POST {{RUUTER_URL}}/xroad/v1/vehicle
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0004-4d1d-8f4a-0ec000000004
+Content-Type: application/json
+
+{ "vehicleId": "VESSEL-001", "countryCode": "ZZ" }
+
+> {%
+  client.test("Non-matching countryCode yields no results", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.found === 0)
+  })
+%}
+
+### Empty countryCode means "any country" — normalised in SQL, not the DSL
+POST {{RUUTER_URL}}/xroad/v1/vehicle
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0005-4d1d-8f5a-0ec000000005
+Content-Type: application/json
+
+{ "vehicleId": "VESSEL-001", "countryCode": "" }
+
+> {%
+  client.test("Empty countryCode does not filter anything out", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.found >= 1, "empty countryCode must behave as absent, found=" + response.body.found)
+  })
+%}
+
+### Entitlement: an authority without EU02 is denied
+# EU02 is "means of transport (vehicle plate, container number)" per Delegated Reg 2024/2024, so
+# that is exactly the class of data this route returns.
+POST {{RUUTER_URL}}/xroad/v1/vehicle
+X-Road-Client: EE/GOV/70000092/tram
+X-Road-Id: 0a11ce5e-0006-4d1d-8f6a-0ec000000006
+Content-Type: application/json
+
+{ "vehicleId": "VESSEL-001" }
+
+> {%
+  client.test("Authority without EU02 gets 403 FORBIDDEN_SUBSET", () => {
+    client.assert(response.status === 403)
+    client.assert(response.body.code === "FORBIDDEN_SUBSET")
+    client.assert(response.body.type === "https://api.efti.ee/errors/forbidden-subset")
+    client.assert(response.body.deniedSubsets.indexOf("EU02") !== -1)
+    client.assert(response.body.permittedSubsets.indexOf("EU01") !== -1)
+    client.assert(response.body.authorityId === "auth-xroad-veh-no-eu02")
+    client.assert(JSON.stringify(response.body).indexOf("VESSEL-001") === -1, "a denial must not leak data about the plate")
+  })
+%}
+
+### vehicleId absent → 400
+POST {{RUUTER_URL}}/xroad/v1/vehicle
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0007-4d1d-8f7a-0ec000000007
+Content-Type: application/json
+
+{ "countryCode": "EE" }
+
+> {%
+  client.test("Absent vehicleId returns 400", () => {
+    client.assert(response.status === 400)
+    client.assert(response.body.code === "BAD_REQUEST_GENERAL")
+  })
+%}
+
+### vehicleId empty → 400
+POST {{RUUTER_URL}}/xroad/v1/vehicle
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0008-4d1d-8f8a-0ec000000008
+Content-Type: application/json
+
+{ "vehicleId": "" }
+
+> {%
+  client.test("Empty vehicleId returns 400", () => {
+    client.assert(response.status === 400)
+    client.assert(response.body.code === "BAD_REQUEST_GENERAL")
+  })
+%}
+
+### vehicleId numeric → 400, not a 502 from the data layer
+# The route's `.length == null` type check catches this. Without it the number would reach ReSql,
+# be rejected as a param type error, and surface as a 502 — misreporting a caller mistake as a
+# gate fault.
+POST {{RUUTER_URL}}/xroad/v1/vehicle
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0009-4d1d-8f9a-0ec000000009
+Content-Type: application/json
+
+{ "vehicleId": 12345 }
+
+> {%
+  client.test("Numeric vehicleId returns 400, not 502", () => {
+    client.assert(response.status === 400, "expected 400, got " + response.status)
+    client.assert(response.body.code === "BAD_REQUEST_GENERAL")
+  })
+%}
+
+### The guard still fronts this route: no X-Road-Client → 401
+POST {{RUUTER_URL}}/xroad/v1/vehicle
+X-Road-Id: 0a11ce5e-000a-4d1d-8faa-0ec00000000a
+Content-Type: application/json
+
+{ "vehicleId": "VESSEL-001" }
+
+> {%
+  client.test("Missing X-Road-Client returns 401", () => {
+    client.assert(response.status === 401)
+    client.assert(response.body.code === "UNAUTHORIZED")
+  })
+%}
+
+### Non-UUID X-Road-Id → 400 INVALID_REQUEST_ID
+POST {{RUUTER_URL}}/xroad/v1/vehicle
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: ANTS-2026-000123
+Content-Type: application/json
+
+{ "vehicleId": "VESSEL-001" }
+
+> {%
+  client.test("Non-UUID X-Road-Id returns 400 INVALID_REQUEST_ID", () => {
+    client.assert(response.status === 400)
+    client.assert(response.body.code === "INVALID_REQUEST_ID")
+  })
+%}
+
+### Unknown registry code → 403, before any lookup
+POST {{RUUTER_URL}}/xroad/v1/vehicle
+X-Road-Client: EE/GOV/99999999/ants
+X-Road-Id: 0a11ce5e-000b-4d1d-8fba-0ec00000000b
+Content-Type: application/json
+
+{ "vehicleId": "VESSEL-001" }
+
+> {%
+  client.test("Unknown registry code returns 403 FORBIDDEN", () => {
+    client.assert(response.status === 403)
+    client.assert(response.body.code === "FORBIDDEN")
+  })
+%}
+
+### Teardown: EU02 authority
+DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-veh
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Teardown EU02 authority", () => {
+    client.assert(response.status === 204)
+  })
+%}
+
+### Teardown: non-EU02 authority
+DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-veh-no-eu02
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Teardown non-EU02 authority", () => {
+    client.assert(response.status === 204)
+  })
+%}

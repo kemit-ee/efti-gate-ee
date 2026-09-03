@@ -91,7 +91,7 @@ Authorization: Bearer {{adminToken}}
 ### Happy path: subsystem-level client gets its own permitted subsets
 GET {{RUUTER_URL}}/xroad/v1/subsets
 X-Road-Client: EE/GOV/70000097/tram
-X-Road-Id: test-id-subsets-001
+X-Road-Id: 0a11ce5e-0001-4d1d-8f1a-0ec200000001
 X-Road-UserId: EE30101010007
 
 > {%
@@ -108,7 +108,7 @@ X-Road-UserId: EE30101010007
 ### Member-level client (3 parts, no subsystem) is a valid X-Road client id
 GET {{RUUTER_URL}}/xroad/v1/subsets
 X-Road-Client: EE/GOV/70000097
-X-Road-Id: test-id-subsets-002
+X-Road-Id: 0a11ce5e-0002-4d1d-8f2a-0ec200000002
 
 > {%
   client.test("3-part member-level client is accepted", () => {
@@ -120,7 +120,7 @@ X-Road-Id: test-id-subsets-002
 ### An authority entitled to nothing gets an empty list, not an error
 GET {{RUUTER_URL}}/xroad/v1/subsets
 X-Road-Client: EE/GOV/70000096/tram
-X-Road-Id: test-id-subsets-003
+X-Road-Id: 0a11ce5e-0003-4d1d-8f3a-0ec200000003
 
 > {%
   client.test("Empty entitlement returns an empty array", () => {
@@ -134,7 +134,7 @@ X-Road-Id: test-id-subsets-003
 # Regression guard for the GET/v1/.guard.yml file. Without it this route would return 200 to
 # anyone, because Ruuter only enforces a guard it finds walking up from the route's directory.
 GET {{RUUTER_URL}}/xroad/v1/subsets
-X-Road-Id: test-id-subsets-004
+X-Road-Id: 0a11ce5e-0004-4d1d-8f4a-0ec200000004
 
 > {%
   client.test("Missing X-Road-Client returns 401", () => {
@@ -147,7 +147,7 @@ X-Road-Id: test-id-subsets-004
 ### Malformed X-Road-Client (2 parts) → 401
 GET {{RUUTER_URL}}/xroad/v1/subsets
 X-Road-Client: EE/GOV
-X-Road-Id: test-id-subsets-005
+X-Road-Id: 0a11ce5e-0005-4d1d-8f5a-0ec200000005
 
 > {%
   client.test("Malformed X-Road-Client returns 401", () => {
@@ -171,7 +171,7 @@ X-Road-Client: EE/GOV/70000097/tram
 ### Unknown registry code → 403
 GET {{RUUTER_URL}}/xroad/v1/subsets
 X-Road-Client: EE/GOV/99999999/tram
-X-Road-Id: test-id-subsets-006
+X-Road-Id: 0a11ce5e-0006-4d1d-8f6a-0ec200000006
 
 > {%
   client.test("Unknown registry code returns 403", () => {
@@ -207,7 +207,7 @@ Authorization: Bearer {{adminToken}}
 ###
 GET {{RUUTER_URL}}/xroad/v1/subsets
 X-Road-Client: EE/GOV/70000095/tram
-X-Road-Id: test-id-subsets-007
+X-Road-Id: 0a11ce5e-0007-4d1d-8f7a-0ec200000007
 
 > {%
   client.test("Fixture authenticates while ACTIVE", () => {
@@ -229,7 +229,7 @@ Authorization: Bearer {{adminToken}}
 ###
 GET {{RUUTER_URL}}/xroad/v1/subsets
 X-Road-Client: EE/GOV/70000095/tram
-X-Road-Id: test-id-subsets-008
+X-Road-Id: 0a11ce5e-0008-4d1d-8f8a-0ec200000008
 
 > {%
   client.test("Soft-deleted authority no longer authenticates", () => {
@@ -265,7 +265,7 @@ Authorization: Bearer {{adminToken}}
 ###
 GET {{RUUTER_URL}}/xroad/v1/subsets
 X-Road-Client: EE/GOV/70000097/tram
-X-Road-Id: test-id-subsets-009
+X-Road-Id: 0a11ce5e-0009-4d1d-8f9a-0ec200000009
 
 > {%
   client.test("Ambiguous registry code is denied, not resolved arbitrarily", () => {
@@ -288,7 +288,7 @@ Authorization: Bearer {{adminToken}}
 ###
 GET {{RUUTER_URL}}/xroad/v1/subsets
 X-Road-Client: EE/GOV/70000097/tram
-X-Road-Id: test-id-subsets-010
+X-Road-Id: 0a11ce5e-000a-4d1d-8faa-0ec20000000a
 
 > {%
   client.test("Removing the duplicate restores the original entitlement", () => {
