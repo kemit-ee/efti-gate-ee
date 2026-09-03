@@ -96,7 +96,6 @@
     "tokenRevokedAt": "Token tühistatud",
     "access": "Ligipääs",
     "isAdmin": "Admin",
-    "isAuthority": "Authority",
     "cannotRemoveOwnAdmin": "Ei saa enda admin-õigust eemaldada",
     "generateSecret": "Loo uus parool või token",
     "copyPastePassword": "Kopeeri kasutaja parool (te ei näe seda enam)",

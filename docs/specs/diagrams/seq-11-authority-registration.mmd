@@ -16,13 +16,13 @@ sequenceDiagram
     Note over Admin: Authority registered<br/>with allowed subsets.<br/>Now create users.
 
     Admin->>+Gate: POST /api/v1/users
-    Note over Admin,Gate: Body — UserWrite:<br/>taraSub, name, email,<br/>isAdmin, isAuthority.<br/>No secret — primary<br/>auth is TARA JWT.<br/>Full schema: openapi.yaml.
+    Note over Admin,Gate: Body — UserWrite:<br/>taraSub, name, email,<br/>isAdmin.<br/>No secret — primary<br/>auth is TARA JWT.<br/>Full schema: openapi.yaml.
 
     Gate->>Gate: Validate taraSub uniqueness against active users<br/>(409 if already in use)
 
-    Gate->>+DB: Append a new users row (id=fresh UUID, tara_sub='EE00000000001',<br/>is_admin=FALSE, is_authority=TRUE, secret_hash=NULL, is_active=TRUE).
+    Gate->>+DB: Append a new users row (id=fresh UUID, tara_sub='EE00000000001',<br/>is_admin=TRUE, secret_hash=NULL, is_active=TRUE).
     DB-->>-Gate: written — user.id="d2e3f4a5-..."
 
-    Gate-->>-Admin: 201 Created<br/>{"id":"d2e3f4a5-...","taraSub":"EE00000000001","name":"Example User",<br/>"isAdmin":false,"isAuthority":true,"isUserActive":true}
+    Gate-->>-Admin: 201 Created<br/>{"id":"d2e3f4a5-...","taraSub":"EE00000000001","name":"Example User",<br/>"isAdmin":true,"isUserActive":true}
 
-    Note over Admin: User auths via TARA OIDC.<br/>Gate resolves JWT `sub`<br/>to the latest active<br/>users row by tara_sub<br/>on every request.<br/>is_authority=true → may call the authority API.
+    Note over Admin: User auths via TARA OIDC.<br/>Gate resolves JWT `sub`<br/>to the latest active<br/>users row by tara_sub<br/>on every request.<br/>is_admin=true → may call the JWT authority API (competent authorities proper use X-Road).
