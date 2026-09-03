@@ -1,9 +1,9 @@
 # The /efti/internal/* routes (check-user-authority, check-admin-authority) are only ever
-# called by this Ruuter's own .guard files over loopback. They are not routed by any
-# reverse proxy / ingress (docker/ui/nginx.conf proxies only /admin /auth /platforms /tim
-# /services/msh /tara; ruuter has no published port and is not on the public proxy network)
-# and reachability is further governed by `internal_requests` in ruuter.yaml — so the
-# routes are unreachable from outside the container network. This guard exists only so the
+# called by this Ruuter's own .guard files over loopback (RUUTER_URL = 127.0.0.1:8086).
+# docker/ui/nginx.conf 404s `/efti/internal/` ahead of its `/efti/` passthrough, and
+# `ruuter` has no published port / is not on the public proxy network in compose.pikker.yml,
+# so the routes are unreachable from outside the container network. `internal_requests` in
+# ruuter.yaml governs what the loopback call itself may reach. This guard exists only so the
 # directory has an explicit guard file; it does no credential check.
 guard_success:
   return: "success"
