@@ -1,0 +1,403 @@
+{
+  "info": {
+    "name": "eFTI Gate — X-Road developer mock",
+    "description": "Public sandbox that imitates the eFTI Gate X-Road authority surface with canned responses. See docs/developer/x_road_developer_mock.md and x_road_authority_integration_guide.md.\n\nSet the `baseUrl` collection variable:\n  - eu-ee.pikker.dev (default, current deployment)\n  - https://dev.efti.ee once that domain is pointed at the deployment\n  - http://localhost:8088 for a local `docker compose up`\n\n`X-Road-Id` uses Postman's `{{$guid}}` so every request gets a fresh UUID.\n\nSpecial `X-Road-Client` member codes:\n  00000000 -> 403 FORBIDDEN (guard)\n  70000000 -> resolves with no subset entitlement (FORBIDDEN_SUBSET path)\n  anything else well-formed -> mock authority auth-mock, subsets EU01,EU02,EU03,EU05\n\nQuestions: Sten Viljus <Sten.Viljus@Askend.com>.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://eu-ee.pikker.dev", "type": "string" },
+    { "key": "xRoadClient", "value": "EE/GOV/70000097/tram", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /developer/health/ready",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/developer/health/ready", "host": ["{{baseUrl}}"], "path": ["developer", "health", "ready"] }
+          },
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));"
+            ] } }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "echo",
+      "item": [
+        {
+          "name": "echo — happy path",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Road-Client", "value": "{{xRoadClient}}" },
+              { "key": "X-Road-Id", "value": "{{$guid}}" },
+              { "key": "X-Road-UserId", "value": "EE30101010007" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"hello\": \"world\"\n}" },
+            "url": { "raw": "{{baseUrl}}/developer/v1/echo", "host": ["{{baseUrl}}"], "path": ["developer", "v1", "echo"] }
+          },
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('200', () => pm.response.to.have.status(200));",
+              "const b = pm.response.json();",
+              "pm.test('authority resolved', () => { pm.expect(b.authority.id).to.eql('auth-mock'); pm.expect(b.authority.subsets).to.have.lengthOf(4); });",
+              "pm.test('body echoed', () => pm.expect(b.echo.hello).to.eql('world'));"
+            ] } }
+          ]
+        },
+        {
+          "name": "echo — missing X-Road-Client (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Road-Id", "value": "{{$guid}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": { "raw": "{{baseUrl}}/developer/v1/echo", "host": ["{{baseUrl}}"], "path": ["developer", "v1", "echo"] }
+          },
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('401 UNAUTHORIZED', () => { pm.response.to.have.status(401); pm.expect(pm.response.json().code).to.eql('UNAUTHORIZED'); });"
+            ] } }
+          ]
+        },
+        {
+          "name": "echo — missing X-Road-Id (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Road-Client", "value": "{{xRoadClient}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": { "raw": "{{baseUrl}}/developer/v1/echo", "host": ["{{baseUrl}}"], "path": ["developer", "v1", "echo"] }
+          },
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('400 MISSING_REQUIRED_HEADER', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().code).to.eql('MISSING_REQUIRED_HEADER'); });"
+            ] } }
+          ]
+        },
+        {
+          "name": "echo — non-UUID X-Road-Id (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Road-Client", "value": "{{xRoadClient}}" },
+              { "key": "X-Road-Id", "value": "not-a-uuid" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": { "raw": "{{baseUrl}}/developer/v1/echo", "host": ["{{baseUrl}}"], "path": ["developer", "v1", "echo"] }
+          },
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('400 INVALID_REQUEST_ID', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().code).to.eql('INVALID_REQUEST_ID'); });"
+            ] } }
+          ]
+        },
+        {
+          "name": "echo — reserved member code 00000000 (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Road-Client", "value": "EE/GOV/00000000/x" },
+              { "key": "X-Road-Id", "value": "{{$guid}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": { "raw": "{{baseUrl}}/developer/v1/echo", "host": ["{{baseUrl}}"], "path": ["developer", "v1", "echo"] }
+          },
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('403 FORBIDDEN', () => { pm.response.to.have.status(403); pm.expect(pm.response.json().code).to.eql('FORBIDDEN'); });"
+            ] } }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "subsets",
+      "item": [
+        {
+          "name": "subsets — happy path",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Road-Client", "value": "{{xRoadClient}}" },
+              { "key": "X-Road-Id", "value": "{{$guid}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/developer/v1/subsets", "host": ["{{baseUrl}}"], "path": ["developer", "v1", "subsets"] }
+          },
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('200', () => pm.response.to.have.status(200));",
+              "pm.test('permitted subsets', () => { const b = pm.response.json(); pm.expect(b.authorityId).to.eql('auth-mock'); pm.expect(b.subsets).to.include('EU02'); });"
+            ] } }
+          ]
+        },
+        {
+          "name": "subsets — member 70000000 (empty entitlement)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Road-Client", "value": "EE/GOV/70000000/tram" },
+              { "key": "X-Road-Id", "value": "{{$guid}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/developer/v1/subsets", "host": ["{{baseUrl}}"], "path": ["developer", "v1", "subsets"] }
+          },
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('200 with empty subsets', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().subsets).to.have.lengthOf(0); });"
+            ] } }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "transport-means",
+      "item": [
+        {
+          "name": "transport-means — local hit",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Road-Client", "value": "{{xRoadClient}}" },
+              { "key": "X-Road-Id", "value": "{{$guid}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"identifier\": \"MOCK-PLATE-1\",\n  \"countryCode\": \"EE\",\n  \"scope\": \"local\"\n}" },
+            "url": { "raw": "{{baseUrl}}/developer/v1/transport-means", "host": ["{{baseUrl}}"], "path": ["developer", "v1", "transport-means"] }
+          },
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('200 found 1', () => { pm.response.to.have.status(200); const b = pm.response.json(); pm.expect(b.found).to.eql(1); pm.expect(b.consignments[0].uil.datasetId).to.eql('550e8400-e29b-41d4-a716-446655440001'); });"
+            ] } }
+          ]
+        },
+        {
+          "name": "transport-means — unknown identifier (found 0)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Road-Client", "value": "{{xRoadClient}}" },
+              { "key": "X-Road-Id", "value": "{{$guid}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"identifier\": \"NOPE\"\n}" },
+            "url": { "raw": "{{baseUrl}}/developer/v1/transport-means", "host": ["{{baseUrl}}"], "path": ["developer", "v1", "transport-means"] }
+          },
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('200 found 0', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().found).to.eql(0); });"
+            ] } }
+          ]
+        },
+        {
+          "name": "transport-means — existence",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Road-Client", "value": "{{xRoadClient}}" },
+              { "key": "X-Road-Id", "value": "{{$guid}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"identifier\": \"MOCK-PLATE-1\",\n  \"scope\": \"existence\"\n}" },
+            "url": { "raw": "{{baseUrl}}/developer/v1/transport-means", "host": ["{{baseUrl}}"], "path": ["developer", "v1", "transport-means"] }
+          },
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('200 registered true', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().registered).to.eql(true); });"
+            ] } }
+          ]
+        },
+        {
+          "name": "transport-means — missing identifier (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Road-Client", "value": "{{xRoadClient}}" },
+              { "key": "X-Road-Id", "value": "{{$guid}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"scope\": \"local\"\n}" },
+            "url": { "raw": "{{baseUrl}}/developer/v1/transport-means", "host": ["{{baseUrl}}"], "path": ["developer", "v1", "transport-means"] }
+          },
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('400 BAD_REQUEST_GENERAL', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().code).to.eql('BAD_REQUEST_GENERAL'); });"
+            ] } }
+          ]
+        },
+        {
+          "name": "transport-means — scope allgates (501)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Road-Client", "value": "{{xRoadClient}}" },
+              { "key": "X-Road-Id", "value": "{{$guid}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"identifier\": \"MOCK-PLATE-1\",\n  \"scope\": \"allgates\"\n}" },
+            "url": { "raw": "{{baseUrl}}/developer/v1/transport-means", "host": ["{{baseUrl}}"], "path": ["developer", "v1", "transport-means"] }
+          },
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('501 NOT_IMPLEMENTED', () => { pm.response.to.have.status(501); pm.expect(pm.response.json().code).to.eql('NOT_IMPLEMENTED'); });"
+            ] } }
+          ]
+        },
+        {
+          "name": "transport-means — member 70000000 lacks EU02 (403 FORBIDDEN_SUBSET)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Road-Client", "value": "EE/GOV/70000000/tram" },
+              { "key": "X-Road-Id", "value": "{{$guid}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"identifier\": \"MOCK-PLATE-1\"\n}" },
+            "url": { "raw": "{{baseUrl}}/developer/v1/transport-means", "host": ["{{baseUrl}}"], "path": ["developer", "v1", "transport-means"] }
+          },
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('403 FORBIDDEN_SUBSET', () => { pm.response.to.have.status(403); const b = pm.response.json(); pm.expect(b.code).to.eql('FORBIDDEN_SUBSET'); pm.expect(b.deniedSubsets).to.include('EU02'); });"
+            ] } }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "search",
+      "item": [
+        {
+          "name": "search — hit",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Road-Client", "value": "{{xRoadClient}}" },
+              { "key": "X-Road-Id", "value": "{{$guid}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"mainTransportId\": { \"operator\": \"EQ\", \"id\": \"MOCK-PLATE-1\" }\n}" },
+            "url": { "raw": "{{baseUrl}}/developer/v1/search", "host": ["{{baseUrl}}"], "path": ["developer", "v1", "search"] }
+          },
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('200 one result', () => { pm.response.to.have.status(200); pm.expect(pm.response.json()).to.have.lengthOf(1); });",
+              "pm.test('x-poll-more false', () => pm.expect(pm.response.headers.get('x-poll-more')).to.eql('false'));"
+            ] } }
+          ]
+        },
+        {
+          "name": "search — poll (empty)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Road-Client", "value": "{{xRoadClient}}" },
+              { "key": "X-Road-Id", "value": "{{$guid}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"poll\": true\n}" },
+            "url": { "raw": "{{baseUrl}}/developer/v1/search", "host": ["{{baseUrl}}"], "path": ["developer", "v1", "search"] }
+          },
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('200 empty', () => { pm.response.to.have.status(200); pm.expect(pm.response.json()).to.have.lengthOf(0); });"
+            ] } }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "dataset",
+      "item": [
+        {
+          "name": "dataset — happy path",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Road-Client", "value": "{{xRoadClient}}" },
+              { "key": "X-Road-Id", "value": "{{$guid}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"uil\": { \"gateId\": \"EU-EE\", \"platformId\": \"mock\", \"datasetId\": \"550e8400-e29b-41d4-a716-446655440001\" },\n  \"subsets\": [\"EU01\", \"EU05\"]\n}" },
+            "url": { "raw": "{{baseUrl}}/developer/v1/dataset", "host": ["{{baseUrl}}"], "path": ["developer", "v1", "dataset"] }
+          },
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('200 with xml', () => { pm.response.to.have.status(200); const b = pm.response.json(); pm.expect(b.xml).to.include('SpecifiedSupplyChainConsignment'); pm.expect(b.subsets).to.have.lengthOf(2); });"
+            ] } }
+          ]
+        },
+        {
+          "name": "dataset — no subsets (400 MISSING_SUBSET)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Road-Client", "value": "{{xRoadClient}}" },
+              { "key": "X-Road-Id", "value": "{{$guid}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"uil\": { \"gateId\": \"EU-EE\", \"platformId\": \"mock\", \"datasetId\": \"550e8400-e29b-41d4-a716-446655440001\" },\n  \"subsets\": []\n}" },
+            "url": { "raw": "{{baseUrl}}/developer/v1/dataset", "host": ["{{baseUrl}}"], "path": ["developer", "v1", "dataset"] }
+          },
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('400 MISSING_SUBSET', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().code).to.eql('MISSING_SUBSET'); });"
+            ] } }
+          ]
+        },
+        {
+          "name": "dataset — member 70000000 (403 FORBIDDEN_SUBSET)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Road-Client", "value": "EE/GOV/70000000/tram" },
+              { "key": "X-Road-Id", "value": "{{$guid}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"uil\": { \"gateId\": \"EU-EE\", \"platformId\": \"mock\", \"datasetId\": \"550e8400-e29b-41d4-a716-446655440001\" },\n  \"subsets\": [\"EU01\"]\n}" },
+            "url": { "raw": "{{baseUrl}}/developer/v1/dataset", "host": ["{{baseUrl}}"], "path": ["developer", "v1", "dataset"] }
+          },
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('403 FORBIDDEN_SUBSET', () => { pm.response.to.have.status(403); pm.expect(pm.response.json().code).to.eql('FORBIDDEN_SUBSET'); });"
+            ] } }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "follow-up",
+      "item": [
+        {
+          "name": "follow-up",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Road-Client", "value": "{{xRoadClient}}" },
+              { "key": "X-Road-Id", "value": "{{$guid}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"uil\": { \"gateId\": \"EU-EE\", \"platformId\": \"mock\", \"datasetId\": \"550e8400-e29b-41d4-a716-446655440001\" },\n  \"message\": \"Please confirm the gross weight.\",\n  \"referenceIds\": [\"REF-1\"],\n  \"files\": []\n}" },
+            "url": { "raw": "{{baseUrl}}/developer/v1/follow-up", "host": ["{{baseUrl}}"], "path": ["developer", "v1", "follow-up"] }
+          },
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('200 DELIVERED', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().status).to.eql('DELIVERED'); });"
+            ] } }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -142,7 +142,7 @@ Otsust ei ole tehtud. Otsustajad: Sten Viljus + arhitektid. **Seotud otsus: [ADR
 
 **Variant B:**
 - `transport-means.yml` `allgates` haru peegeldab `xroad/POST/v1/search.yml`-i
-- `openapi.yaml`: kaks 200 skeemi `scope` järgi; `x_road_authority_integration_guide.md`
+- `openapi.yaml`: kaks 200 skeemi `scope` järgi; `developer/x_road_authority_integration_guide.md`
   `scope` tabelis eraldi märkus, et `allgates` kuju erineb
 - klient peab `allgates` puhul teadma `core` search'i väljaleppe
 

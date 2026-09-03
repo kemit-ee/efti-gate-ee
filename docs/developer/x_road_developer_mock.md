@@ -281,7 +281,22 @@ Content-Type: application/json
 - Fan-out'i / pollimist tegelikult ei toimu; `x-poll-more` on alati `false`.
 - Vastuseajad on kohesed; `502 GATEWAY_UNAVAILABLE` teed ei ole (päris väravas tuleb see `core` tõrke korral).
 
+## Postmani kollektsioon
+
+[`eFTI-developer-mock.postman_collection.json`](eFTI-developer-mock.postman_collection.json) —
+kõik 20 päringut (6 operatsiooni õnnelikud teed + veajuhud + tervisekontroll), kaustadesse
+jaotatud, testiskriptidega. `baseUrl` muutuja vaikeväärtus on `https://eu-ee.pikker.dev`;
+vaheta `https://dev.efti.ee` või `http://localhost:8088` vastu. `X-Road-Id` kasutab
+Postmani `{{$guid}}`-i, seega iga päring saab värske UUID-i.
+
+Impordi: Postman → File → Import → vali fail. Käivita üksik päring või terve kollektsioon
+(Runner).
+
 ## Test
 
 `tests/http/developer-mock.http` (jookseb `http-tests` compose-teenuse kaudu:
 `TEST_FILES=tests/http/developer-mock.http docker compose run --rm http-tests`).
+
+## Küsimused
+
+Sten Viljus — <Sten.Viljus@Askend.com>.

@@ -4,7 +4,7 @@
 # provider surface (DSL/Ruuter/xroad/**) with CANNED responses. It runs as its own
 # container (ruuter-developer, port 8088) with NO database, NO core, and NO link to the
 # real gate — so exposing it publicly at https://dev.efti.ee/developer/ cannot leak real
-# consignment data or reach a privileged route. See docs/specs/x_road_developer_mock.md.
+# consignment data or reach a privileged route. See docs/developer/x_road_developer_mock.md.
 #
 # The guard mirrors DSL/Ruuter/xroad/.guard.yml's request-shape checks (same status codes
 # and RFC 7807 bodies) so integrators can exercise the 401 / 400 paths, but it resolves
