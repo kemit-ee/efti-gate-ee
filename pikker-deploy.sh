@@ -5,9 +5,10 @@ SERVER=root@pikker.dev
 
 DOCKER_DEFAULT_PLATFORM=linux/amd64 docker compose -f compose.yml -f compose.pikker.yml build
 
-IMAGES=$(docker compose images --format json | jq -r '.[] | select(.Repository | startswith("efti_gate_ee-")) | "\(.Repository):\(.Tag)"' | sort -u)
+BUILD_SERVICES=$(docker compose -f compose.yml -f compose.pikker.yml config --format json | jq -r '.services | to_entries[] | select(.value | has("build")) | .key')
+IMAGES=$(docker compose -f compose.yml -f compose.pikker.yml images -q $BUILD_SERVICES)
 
-echo "Saving images: $IMAGES"
+echo "Saving images..."
 docker save $IMAGES | gzip | ssh $SERVER 'gunzip | docker load'
 
 scp compose.yml compose.pikker.yml $SERVER:efti-gate-ee/
