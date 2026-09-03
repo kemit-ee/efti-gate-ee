@@ -11,7 +11,7 @@ get_consignment:
 
 check_found:
   switch:
-    - condition: ${!consignment_result.response.body?.length}
+    - condition: ${!consignment_result.response.body.length}
       next: not_found
   next: respond
 

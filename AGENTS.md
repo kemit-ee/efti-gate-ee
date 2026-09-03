@@ -92,6 +92,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - Internal routes: `POST /efti/internal/check-admin-authority` → `DSL/Ruuter/efti/POST/internal/check-admin-authority.yml`
 - Constants from `constants.ini` referenced as `[#VARIABLE]` (e.g., `[#OWN_GATE_ID]`, `[#EDELIVERY_URL]`)
 - Request data: `incoming.body`, `incoming.headers`, `incoming.params.pathParams`
+- `body` and `headers` are never null in Ruuter, no need to check for these
 - `allowed_body: [xml]` — wraps raw XML body as `incoming.body.xml`
 - `wrapper: false` — always return raw response (not JSON-wrapped)
 - `template: api/v1/foo` — call another DSL file as subroutine, works only in the same top-level Ruuter project

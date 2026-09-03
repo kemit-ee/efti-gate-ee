@@ -12,7 +12,7 @@ check_exists:
 
 check_found:
   switch:
-    - condition: ${!exists_result.response.body?.length}
+    - condition: ${!exists_result.response.body.length}
       next: not_found
   next: update_user
 
@@ -33,13 +33,13 @@ update_user:
 # update_user RETURNS the new row (column list matches get_user_by_id). No re-fetch needed.
 check_update:
   switch:
-    - condition: ${update_result.response.status >= 400 || !update_result.response.body?.length}
+    - condition: ${update_result.response.status >= 400 || !update_result.response.body.length}
       next: update_failed
   next: respond
 
 respond:
   wrapper: false
-  return: ${update_result.response.body?.[0]}
+  return: ${update_result.response.body[0]}
   next: end
 
 not_found:

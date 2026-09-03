@@ -35,7 +35,7 @@ check_authority:
   switch:
     - condition: ${authority_res.response.status != 200}
       next: forbidden
-    - condition: ${!authority_res.response.body?.length}
+    - condition: ${!authority_res.response.body.length}
       next: forbidden
     - condition: ${authority_res.response.body.length > 1}
       next: ambiguous
@@ -45,9 +45,9 @@ check_authority:
 
 respond:
   return:
-    registryCode: ${authority_res.response.body?.[0]?.registryCode}
-    authorityId: ${authority_res.response.body?.[0]?.id}
-    subsets: ${authority_res.response.body?.[0]?.subsets}
+    registryCode: ${authority_res.response.body[0]?.registryCode}
+    authorityId: ${authority_res.response.body[0]?.id}
+    subsets: ${authority_res.response.body[0]?.subsets}
   wrapper: false
   status: 200
   next: end

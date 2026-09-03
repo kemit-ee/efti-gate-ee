@@ -18,12 +18,12 @@ update_gate:
 # no such gate. No re-fetch needed.
 check_update:
   switch:
-    - condition: ${update_result.response.status >= 400 || !update_result.response.body?.length}
+    - condition: ${update_result.response.status >= 400 || !update_result.response.body.length}
       next: update_failed
   next: respond
 
 respond:
-  return: ${update_result.response.body?.[0]}
+  return: ${update_result.response.body[0]}
   wrapper: false
   next: end
 

@@ -20,7 +20,7 @@ insert_log:
 
 check_insert:
   switch:
-    - condition: ${log_result.response.status >= 400 || !log_result.response.body?.length}
+    - condition: ${log_result.response.status >= 400 || !log_result.response.body.length}
       next: insert_failed
   next: check_gate
 
@@ -43,15 +43,15 @@ get_platform:
 
 check_platform:
   switch:
-    - condition: ${!platform_result.response.body?.length}
+    - condition: ${!platform_result.response.body.length}
       next: platform_not_found
   next: forward_to_platform
 
 forward_to_platform:
   call: http.post
   args:
-    url: "${platform_result.response.body?.[0]?.baseUrl}/v1/dataset/${incoming.body.uil.datasetId}/follow-up"
-    headers: "${Object.assign(platform_result.response.body?.[0]?.headers ?? {}, {'Content-Type': 'application/json', 'X-Dataset-Request-ID': incoming.body.referenceIds[0]})}"
+    url: "${platform_result.response.body[0]?.baseUrl}/v1/dataset/${incoming.body.uil.datasetId}/follow-up"
+    headers: "${Object.assign(platform_result.response.body[0]?.headers ?? {}, {'Content-Type': 'application/json', 'X-Dataset-Request-ID': incoming.body.referenceIds[0]})}"
     body: ${incoming.body}
   result: platform_response
   next: respond

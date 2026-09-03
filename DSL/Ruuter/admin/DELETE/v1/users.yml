@@ -26,9 +26,9 @@ delete_user:
 # an empty body means no such user, is_user_active must be false. No re-fetch needed.
 check_delete:
   switch:
-    - condition: ${delete_result.response.status >= 400 || delete_result.response.body?.[0]?.isUserActive != false}
+    - condition: ${delete_result.response.status >= 400 || delete_result.response.body[0]?.isUserActive != false}
       next: delete_failed
-    - condition: ${!delete_result.response.body?.length}
+    - condition: ${!delete_result.response.body.length}
       next: not_found
   next: respond
 

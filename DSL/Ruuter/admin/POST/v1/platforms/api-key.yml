@@ -16,9 +16,9 @@ check_exists:
 
 check_found:
   switch:
-    - condition: ${!exists_result.response.body?.length}
+    - condition: ${!exists_result.response.body.length}
       next: not_found
-    - condition: ${exists_result.response.body?.[0]?.status == 'DELETED'}
+    - condition: ${exists_result.response.body[0]?.status == 'DELETED'}
       next: not_found
   next: generate_key
 
@@ -35,16 +35,16 @@ generate_key:
 
 check_generated:
   switch:
-    - condition: ${key_result.response.status >= 400 || !key_result.response.body?.length}
+    - condition: ${key_result.response.status >= 400 || !key_result.response.body.length}
       next: generate_failed
   next: respond
 
 respond:
   return:
-    id: "${key_result.response.body?.[0]?.id}"
-    apiKey: "${key_result.response.body?.[0]?.apiKey}"
-    apiKeyHint: "${key_result.response.body?.[0]?.apiKeyHint}"
-    apiKeyGeneratedAt: "${key_result.response.body?.[0]?.apiKeyGeneratedAt}"
+    id: "${key_result.response.body[0]?.id}"
+    apiKey: "${key_result.response.body[0]?.apiKey}"
+    apiKeyHint: "${key_result.response.body[0]?.apiKeyHint}"
+    apiKeyGeneratedAt: "${key_result.response.body[0]?.apiKeyGeneratedAt}"
   status: 201
   wrapper: false
   next: end

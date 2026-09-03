@@ -88,12 +88,12 @@ lookup_user:
 
 check_user_found:
   switch:
-    - condition: ${user_res.response.body?.length > 0}
+    - condition: ${user_res.response.body.length > 0}
       next: return_user
   next: unauthorized
 
 return_user:
-  return: ${user_res.response.body?.[0]}
+  return: ${user_res.response.body[0]}
   status: 200
   wrapper: false
   next: end

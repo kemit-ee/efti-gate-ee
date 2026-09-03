@@ -11,7 +11,7 @@ get_gate:
 
 check_gate_exists:
   switch:
-    - condition: ${!gate_result.response.body?.length}
+    - condition: ${!gate_result.response.body.length}
       next: gate_not_found
   next: ping_edelivery
 
@@ -45,7 +45,7 @@ update_online:
 
 check_online_update:
   switch:
-    - condition: ${!online_result.response.body?.length}
+    - condition: ${!online_result.response.body.length}
       next: update_failed
   next: verify_online
 
@@ -62,12 +62,12 @@ verify_online:
 
 check_verify:
   switch:
-    - condition: ${!verify_result.response.body?.length}
+    - condition: ${!verify_result.response.body.length}
       next: update_failed
   next: respond_ok
 
 respond_ok:
-  return: ${verify_result.response.body?.[0]}
+  return: ${verify_result.response.body[0]}
   wrapper: false
   next: end
 
@@ -85,7 +85,7 @@ update_offline:
 
 check_offline_update:
   switch:
-    - condition: ${!offline_result.response.body?.length}
+    - condition: ${!offline_result.response.body.length}
       next: update_failed
   next: gateway_unavailable
 
