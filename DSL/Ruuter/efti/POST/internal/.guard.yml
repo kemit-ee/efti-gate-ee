@@ -1,26 +1,12 @@
 # The /efti/internal/* routes (check-user-authority, check-admin-authority) are only ever
-# called by this Ruuter's own .guard files over loopback. This guard is a second line of
-# defence behind network isolation and internal_requests: the caller must present the
-# shared internal secret in x-viljus-knows-a-secret. A plain string compare is enough —
-# the route is never reachable from outside a correctly deployed gate.
-check_secret:
-  switch:
-    - condition: ${incoming.headers == null || incoming.headers['x-viljus-knows-a-secret'] != '[#INTERNAL_SECRET]'}
-      next: guard_fail
-  next: guard_success
-
+# called by this Ruuter's own .guard files over loopback. They are not routed by any
+# reverse proxy / ingress (docker/ui/nginx.conf proxies only /admin /auth /platforms /tim
+# /services/msh /tara; ruuter has no published port and is not on the public proxy network)
+# and reachability is further governed by `internal_requests` in ruuter.yaml — so the
+# routes are unreachable from outside the container network. This guard exists only so the
+# directory has an explicit guard file; it does no credential check.
 guard_success:
   return: "success"
   status: 200
-  wrapper: false
-  next: end
-
-guard_fail:
-  return:
-    type: "https://api.efti.ee/errors/forbidden"
-    title: "Forbidden"
-    status: 403
-    detail: "Internal endpoint."
-  status: 403
   wrapper: false
   next: end

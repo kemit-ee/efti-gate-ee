@@ -8,7 +8,6 @@ validate_auth:
     headers:
       Content-Type: application/json
       authorization: ${incoming.headers.authorization}
-      x-viljus-knows-a-secret: "[#INTERNAL_SECRET]"
       x-forwarded-for: ${incoming.headers['x-forwarded-for'] ?? null}
       x-request-id: ${incoming.headers['x-request-id'] ?? null}
     body: {}
