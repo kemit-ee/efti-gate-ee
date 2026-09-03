@@ -1,8 +1,7 @@
 package efti.domain
 
 import efti.subsets.CountryCode
-import efti.xml.fti.UniqueIDSetUniqueIDSet
-import efti.xml.fti.extractUniqueIDSetUniqueIDSet
+import efti.xml.fti.ParameterIDSetCriteria
 import java.time.Instant
 import java.util.*
 
@@ -10,6 +9,7 @@ data class ConsignmentRow(
   val datasetId: UUID,
   val platformId: PlatformId,
   val gateId: GateId,
+  /** ParameterSetIDCriteria tag */
   val xml: String,
   val transportMode: Mode?,
   val acceptanceDate: Instant?,
@@ -33,28 +33,28 @@ data class ConsignmentRow(
   val carriedEquipmentSeq: List<Int>?,
   val status: String? = null,
 ) {
-  constructor(content: UniqueIDSetUniqueIDSet, xml: String): this(
-    content.uil.datasetId, content.uil.platformId, content.uil.gateId,
-    xml.extractUniqueIDSetUniqueIDSet(),
-    content.criteria!!.transportMode,
-    content.criteria.acceptanceDate?.instant,
-    content.criteria.acceptanceCountry,
-    content.criteria.deliveryDate?.instant,
-    content.criteria.deliveryCountry,
-    content.criteria.dangerousGoods,
-    content.criteria.mainTransportId,
-    content.criteria.mainTransportType,
-    content.criteria.transportRegCountry,
-    content.criteria.loadingDate?.instant,
-    content.criteria.loadingCountry,
-    content.criteria.unloadingDate?.instant,
-    content.criteria.unloadingCountry,
-    content.criteria.usedEquipmentIds,
-    content.criteria.usedEquipmentCategories,
-    content.criteria.usedEquipmentCountries,
-    content.criteria.usedEquipmentSeq,
-    content.criteria.carriedEquipmentIds,
-    content.criteria.carriedEquipmentCategories,
-    content.criteria.carriedEquipmentSeq,
+  constructor(uil: UIL, criteria: ParameterIDSetCriteria, xml: String): this(
+    uil.datasetId, uil.platformId, uil.gateId,
+    xml,
+    criteria.transportMode,
+    criteria.acceptanceDate?.instant,
+    criteria.acceptanceCountry,
+    criteria.deliveryDate?.instant,
+    criteria.deliveryCountry,
+    criteria.dangerousGoods,
+    criteria.mainTransportId,
+    criteria.mainTransportType,
+    criteria.transportRegCountry,
+    criteria.loadingDate?.instant,
+    criteria.loadingCountry,
+    criteria.unloadingDate?.instant,
+    criteria.unloadingCountry,
+    criteria.usedEquipmentIds,
+    criteria.usedEquipmentCategories,
+    criteria.usedEquipmentCountries,
+    criteria.usedEquipmentSeq,
+    criteria.carriedEquipmentIds,
+    criteria.carriedEquipmentCategories,
+    criteria.carriedEquipmentSeq,
   )
 }

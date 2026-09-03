@@ -1,5 +1,10 @@
 declaration:
-  description: "Accept consignment XML from Platforms (External API)"
+  description: |
+    Accept consignment XML from Platforms (External API)
+    Posted XML can be: 
+      * the full FTI004UploadIdentifierRequest (if coming via eDelivery)
+      * just the ParameterIDSetCriteria element (for direct platform upload via REST).
+        In this case, datasetId must be provided as path parameter.
   allowed_body: [xml]
 
 consignment_xml:
@@ -11,6 +16,9 @@ consignment_xml:
     content_type: plaintext
     headers:
       Content-Type: "text/xml"
+      X-Gate-Id: '[#OWN_GATE_ID]'
+      X-Platform-Id: ${platform?.id}
+      X-Dataset-Id: ${incoming.params?.pathParams[0]}
   result: consignment_json
   next: insert_consignment
 
