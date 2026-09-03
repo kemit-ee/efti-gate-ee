@@ -2100,11 +2100,11 @@ paths:
                     status: 403
                     detail: The X-Road client registry code resolves to more than one active competent authority. This is a registry misconfiguration; contact the gate operator.
 
-  /xroad/v1/vehicle:
+  /xroad/v1/transport-means:
     post:
       tags: [X-Road]
       summary: Look up what the gate knows about a vehicle registration number
-      operationId: xroadVehicleLookup
+      operationId: xroadTransportMeansLookup
       description: |
         A registration number in, the identifier-level data this gate holds against it out.
 
@@ -2140,9 +2140,9 @@ paths:
           application/json:
             schema:
               type: object
-              required: [vehicleId]
+              required: [identifier]
               properties:
-                vehicleId:
+                identifier:
                   type: string
                   minLength: 1
                   description: Vehicle registration number, matched against `consignments.main_transport_id`.
@@ -2161,9 +2161,9 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [vehicleId, found, consignments]
+                required: [identifier, found, consignments]
                 properties:
-                  vehicleId: { type: string, example: "123ABC" }
+                  identifier: { type: string, example: "123ABC" }
                   countryCode:
                     type: string
                     nullable: true
@@ -2212,7 +2212,7 @@ paths:
                         createdAt: { type: string, format: date-time }
         '400':
           description: |
-            `BAD_REQUEST_GENERAL` — `vehicleId` is absent, empty, or not a string; or
+            `BAD_REQUEST_GENERAL` — `identifier` is absent, empty, or not a string; or
             `INVALID_REQUEST_ID` — `X-Road-Id` is not UUID-shaped.
           content:
             application/json:
@@ -2759,8 +2759,8 @@ components:
 
         The same code and status are also used when a **gate-side data-layer call** fails rather than
         core — a subset-entitlement lookup or a vehicle lookup. Those variants carry `resqlStatus`
-        instead of `coreStatus`/`coreResponse`, and on `/xroad/v1/vehicle` also a `failedStep`
-        (`check_authority_subsets` or `get_consignments_by_vehicle`) so an operator can tell which of
+        instead of `coreStatus`/`coreResponse`, and on `/xroad/v1/transport-means` also a `failedStep`
+        (`check_authority_subsets` or `get_consignments_by_transport_means`) so an operator can tell which of
         the route's two queries failed.
 
         **Not** emitted when core is unreachable or the 70 s timeout expires: that raises inside the

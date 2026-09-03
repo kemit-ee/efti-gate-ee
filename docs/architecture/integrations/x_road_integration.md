@@ -202,10 +202,10 @@ soft-deleted authority with an older `ACTIVE` row keep authenticating.
 
 ## Vehicle lookup
 
-`POST /xroad/v1/vehicle` — a registration number in, the identifier-level data this gate holds out:
+`POST /xroad/v1/transport-means` — a registration number in, the identifier-level data this gate holds out:
 
 ```json
-{ "vehicleId": "123ABC", "found": 1, "consignments": [
+{ "identifier": "123ABC", "found": 1, "consignments": [
   { "uil": {"gateId": "EU-EE", "platformId": "mock", "datasetId": "550e..."},
     "mainTransportId": "123ABC", "transportRegCountry": "EE", "transportMode": "3", "...": "..." } ] }
 ```
@@ -215,7 +215,7 @@ the platform by `authority/dataset.yml` with `?subsetId=...`, which is where sub
 enforced. `consignments.xml` is the *identifier* XML as received from the platform
 (`006-consignments.sql:54`), not a dataset.
 
-The dedicated `get_consignments_by_vehicle.sql` exists for two other reasons: it pins an explicit
+The dedicated `get_consignments_by_transport_means.sql` exists for two other reasons: it pins an explicit
 field contract for an external consumer, rather than exposing a blob whose schema belongs to the
 platform; and it drops that blob, which is redundant here because it carries the same fields already
 denormalised into the columns returned. Content is still fetched afterwards via

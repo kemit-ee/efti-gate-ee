@@ -2,7 +2,7 @@
 
 ## Changes
 
-- **v1.3** — `POST /xroad/v1/vehicle` implemented: a registration number in, the identifier-level
+- **v1.3** — `POST /xroad/v1/transport-means` implemented: a registration number in, the identifier-level
   data the gate holds out, EU02-gated, local registry only, no dataset content. This substantially
   covers the **ANTS existence-check** AC below, except that it returns the known data rather than a
   bare `{"registered": …}`. Two AC corrections that must be made **in the GitHub issue**, not here:
@@ -34,7 +34,7 @@
 | **X-Road service** | `EE/GOV/70003158/efti-gate/{operation}/v1` (one service per gate REST operation exposed via X-Road) |
 | **Protocol** | **X-Road v7 REST message protocol — not SOAP.** No WSDL. No `protocolVersion` header (the version is the consumer-side `/r1/` prefix, never forwarded to the provider). |
 | **Module boundary** | `DSL/Ruuter/xroad/` (Ruuter project `xroad`, served under `/xroad/` on port 8086) → `core` (the `efti` project on the same Ruuter) via published REST API only. `core` carries no X-Road references, and `template:` does not cross project boundaries. There is no `ee-adapter` Gradle module. |
-| **Adapter surface** | One project-level guard `xroad/.guard.yml` (+ `xroad/GET/health/.guard.yml` `override_ancestors` for the public probe). Routes: `POST /xroad/v1/vehicle` (local vehicle lookup, EU02-gated, no dataset content), `POST /xroad/v1/{dataset,search,follow-up}` (forward to core over its published REST API), `POST /xroad/v1/echo` (diagnostic, outside the versioned contract), `GET /xroad/v1/subsets`, `GET /xroad/health/ready`. **`/xroad/**` must not be exposed on the public ingress.** |
+| **Adapter surface** | One project-level guard `xroad/.guard.yml` (+ `xroad/GET/health/.guard.yml` `override_ancestors` for the public probe). Routes: `POST /xroad/v1/transport-means` (local vehicle lookup, EU02-gated, no dataset content), `POST /xroad/v1/{dataset,search,follow-up}` (forward to core over its published REST API), `POST /xroad/v1/echo` (diagnostic, outside the versioned contract), `GET /xroad/v1/subsets`, `GET /xroad/health/ready`. **`/xroad/**` must not be exposed on the public ingress.** |
 | **Identity** | `X-Road-Client` (`instance/memberClass/memberCode[/subsystemCode]`) → `authorities.registry_code`. Organisation-level; `X-Road-UserId` is audit-only and never grants access. |
 | **Subset permissions** | `authorities.subsets TEXT[]` — **not** `users.subsets`, which does not exist |
 | **Underlying REST contract** | [`openapi.yaml`](../../specs/openapi.yaml) — the same Admin / Authority / Platform routes the adapter forwards to |

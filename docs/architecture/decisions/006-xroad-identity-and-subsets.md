@@ -209,7 +209,7 @@ Guard **autendib ainult** — alamhulkade kontrolli ta ei tee (vt allpool):
    (registri seadistusviga; suvalise rea valimine annaks ühele organisatsioonile teise õigused)
 5. Muidu lubatud
 
-Marsruudi tasemel lisanduvad (`POST /xroad/v1/dataset`; `POST /xroad/v1/vehicle` nõuab EU02-t):
+Marsruudi tasemel lisanduvad (`POST /xroad/v1/dataset`; `POST /xroad/v1/transport-means` nõuab EU02-t):
 
 6. Alamhulkade loend on tühi või puudub → **400** `MISSING_SUBSET`
 7. Küsitud alamhulk ei ole `authorities.subsets` sees → **403** `FORBIDDEN_SUBSET`
@@ -303,7 +303,7 @@ Need dokumendid väitsid vastupidist ja on selle otsusega korrigeeritud:
 `docs/specs/data-transformations.md` §428 ütles juba varem `requested subsets ⊆
 authorities.subsets` — see oli õige ja jääb muutmata.
 
-## Sõidukipäring (`POST /xroad/v1/vehicle`)
+## Sõidukipäring (`POST /xroad/v1/transport-means`)
 
 Esimene päris äriteenus sellel pinnal: **sisse tuleb auto number, vastu liigub see, mida värav tema
 kohta teab.**
@@ -313,7 +313,7 @@ kohta teab.**
 helistaja seejärel `POST /xroad/v1/dataset`-iga, kasutades tagastatud `uil`-i, ja **see tee läbib
 alamhulkade kontrolli**.
 
-Selleks on eraldi ReSql fail `get_consignments_by_vehicle.sql`, mitte olemasolev
+Selleks on eraldi ReSql fail `get_consignments_by_transport_means.sql`, mitte olemasolev
 `get_consignments.sql`. Põhjused:
 
 1. **Stabiilne väljaleping** väline X-Roadi tarbijale. `get_consignments` tagastab lisaks

@@ -58,7 +58,9 @@ DSL/
       POST/v1/          # consignments (upload consignment XML)
     mock-platform/      # Mock platform (served under /mock-platform/)
     xroad/              # X-Road national extension (ADR-006), served under /xroad/
-      POST/v1/          # echo (connectivity test); vehicle (local lookup); dataset, search, follow-up (forward to core)
+      POST/v1/          # echo (connectivity test); transport-means (identifier lookup: plate/IMO/
+                        #   aircraft reg/container id, scope=existence|local); dataset, search,
+                        #   follow-up (forward to core)
       GET/v1/           # subsets (subset-permission discovery)
       GET/health/       # ready (probe, unguarded)
   Resql/efti/POST/      # SQL endpoint files (*.sql)
