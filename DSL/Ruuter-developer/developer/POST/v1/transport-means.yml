@@ -1,0 +1,142 @@
+declaration:
+  description: "Developer mock — imitates POST /xroad/v1/transport-means. Canned identifier-level
+    projection for the well-known identifier MOCK-PLATE-1; found: 0 for anything else."
+
+setup:
+  assign:
+    identifier: ${incoming.body?.identifier ?? ''}
+    country_code: "${incoming.body?.countryCode ?? ''}"
+    scope: "${incoming.body?.scope ?? 'local'}"
+  next: check_input
+
+check_input:
+  switch:
+    - condition: ${identifier == null || identifier.length == null || identifier.length == 0}
+      next: bad_request_identifier
+    - condition: ${scope != 'existence' && scope != 'local' && scope != 'allgates'}
+      next: bad_request_scope
+  next: check_subset
+
+# The mock's EU02 gate: member code 70000000 is entitled to nothing.
+check_subset:
+  switch:
+    - condition: ${memberCode == '70000000'}
+      next: forbidden_subset
+  next: route_by_scope
+
+route_by_scope:
+  switch:
+    - condition: ${scope == 'allgates'}
+      next: not_implemented
+    - condition: ${scope == 'existence'}
+      next: respond_existence
+  next: route_local
+
+route_local:
+  switch:
+    - condition: ${identifier == 'MOCK-PLATE-1'}
+      next: respond_local_hit
+  next: respond_local_miss
+
+respond_existence:
+  return:
+    identifier: "${identifier}"
+    countryCode: "${country_code}"
+    scope: "${scope}"
+    registered: ${identifier == 'MOCK-PLATE-1'}
+  wrapper: false
+  status: 200
+  next: end
+
+respond_local_hit:
+  return:
+    identifier: "${identifier}"
+    countryCode: "${country_code}"
+    scope: "${scope}"
+    found: 1
+    consignments:
+      - uil:
+          gateId: "EU-EE"
+          platformId: "mock"
+          datasetId: "550e8400-e29b-41d4-a716-446655440001"
+        mainTransportId: "MOCK-PLATE-1"
+        mainTransportType: "1522"
+        transportRegCountry: "EE"
+        transportMode: "3"
+        dangerousGoods: null
+        acceptanceDate: null
+        acceptanceCountry: null
+        deliveryDate: null
+        deliveryCountry: null
+        loadingDate: "2026-04-23T06:00:00Z"
+        loadingCountry: "EE"
+        unloadingDate: "2026-04-25T14:00:00Z"
+        unloadingCountry: "FI"
+        usedEquipmentIds: ["CONT-MOCK-01"]
+        usedEquipmentCategories: ["CN"]
+        usedEquipmentCountries: ["EE"]
+        carriedEquipmentIds: []
+        carriedEquipmentCategories: []
+        status: "ACTIVE"
+        createdAt: "2026-04-23T10:15:00Z"
+  wrapper: false
+  status: 200
+  next: end
+
+respond_local_miss:
+  return:
+    identifier: "${identifier}"
+    countryCode: "${country_code}"
+    scope: "${scope}"
+    found: 0
+    consignments: []
+  wrapper: false
+  status: 200
+  next: end
+
+not_implemented:
+  return:
+    type: "https://api.efti.ee/errors/not-implemented"
+    code: "NOT_IMPLEMENTED"
+    title: "Not Implemented"
+    status: 501
+    detail: "scope 'allgates' is part of the published contract but not yet implemented. Use scope 'local'."
+  wrapper: false
+  status: 501
+  next: end
+
+forbidden_subset:
+  return:
+    type: "https://api.efti.ee/errors/forbidden-subset"
+    code: "FORBIDDEN_SUBSET"
+    title: "Subset Access Denied"
+    status: 403
+    detail: "The requesting authority is not permitted to access one or more of the requested eFTI subsets."
+    authorityId: "auth-mock"
+    deniedSubsets: ["EU02"]
+    permittedSubsets: []
+  wrapper: false
+  status: 403
+  next: end
+
+bad_request_identifier:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "identifier is required and must be a non-empty string."
+  wrapper: false
+  status: 400
+  next: end
+
+bad_request_scope:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "scope, if given, must be one of: existence, local, allgates."
+  wrapper: false
+  status: 400
+  next: end

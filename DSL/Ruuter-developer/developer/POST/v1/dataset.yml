@@ -1,0 +1,63 @@
+declaration:
+  description: "Developer mock — imitates POST /xroad/v1/dataset. Returns a canned FTI010 dataset
+    XML for any well-formed request. Member code 70000000 is entitled to nothing -> 403
+    FORBIDDEN_SUBSET, so the error path is exercisable."
+
+check_subsets_present:
+  switch:
+    - condition: ${incoming.body == null || incoming.body.subsets == null || incoming.body.subsets.length == 0}
+      next: missing_subset
+  next: check_subset_permission
+
+check_subset_permission:
+  switch:
+    - condition: ${memberCode == '70000000'}
+      next: forbidden_subset
+  next: respond
+
+respond:
+  return:
+    uil: ${incoming.body.uil}
+    subsets: ${incoming.body.subsets}
+    xml: |
+      <rsm:SpecifiedSupplyChainConsignment
+          xmlns:rsm="urn:eu:move:eFTI:data:standard:FTI010GetCmdsResponse:1"
+          xmlns="urn:eu:move:eFTI:data:standard:ReusableAggregateBusinessInformationEntity:34">
+        <GrossWeightMeasure unitCode="KGM">15000.00</GrossWeightMeasure>
+        <PackageQuantity>120</PackageQuantity>
+        <MainCarriageLogisticsTransportMovement>
+          <ModeCode>3</ModeCode>
+          <UsedLogisticsTransportMeans>
+            <ID schemeAgencyID="5">MOCK-PLATE-1</ID>
+            <RegistrationTradeCountry><ID>EE</ID></RegistrationTradeCountry>
+          </UsedLogisticsTransportMeans>
+        </MainCarriageLogisticsTransportMovement>
+      </rsm:SpecifiedSupplyChainConsignment>
+  wrapper: false
+  status: 200
+  next: end
+
+missing_subset:
+  return:
+    type: "https://api.efti.ee/errors/missing-subset"
+    code: "MISSING_SUBSET"
+    title: "Missing Subset Parameter"
+    status: 400
+    detail: "At least one subset must be requested."
+  wrapper: false
+  status: 400
+  next: end
+
+forbidden_subset:
+  return:
+    type: "https://api.efti.ee/errors/forbidden-subset"
+    code: "FORBIDDEN_SUBSET"
+    title: "Subset Access Denied"
+    status: 403
+    detail: "The requesting authority is not permitted to access one or more of the requested eFTI subsets."
+    authorityId: "auth-mock"
+    deniedSubsets: ${incoming.body.subsets}
+    permittedSubsets: []
+  wrapper: false
+  status: 403
+  next: end

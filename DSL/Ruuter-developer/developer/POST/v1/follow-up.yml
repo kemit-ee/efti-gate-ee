@@ -1,0 +1,12 @@
+declaration:
+  description: "Developer mock — imitates POST /xroad/v1/follow-up. Always accepts the message and
+    returns a DELIVERED acknowledgement. No subset check."
+
+respond:
+  return:
+    uil: ${incoming.body?.uil}
+    status: "DELIVERED"
+    message: "${incoming.body?.message ?? ''}"
+  wrapper: false
+  status: 200
+  next: end

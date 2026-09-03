@@ -1,0 +1,27 @@
+declaration:
+  description: "Developer mock — imitates GET /xroad/v1/subsets. Returns the canned subset
+    entitlement for the calling member code."
+
+route:
+  switch:
+    - condition: ${memberCode == '70000000'}
+      next: respond_empty
+  next: respond
+
+respond:
+  return:
+    registryCode: "${memberCode}"
+    authorityId: "auth-mock"
+    subsets: ["EU01", "EU02", "EU03", "EU05"]
+  wrapper: false
+  status: 200
+  next: end
+
+respond_empty:
+  return:
+    registryCode: "${memberCode}"
+    authorityId: "auth-mock"
+    subsets: []
+  wrapper: false
+  status: 200
+  next: end

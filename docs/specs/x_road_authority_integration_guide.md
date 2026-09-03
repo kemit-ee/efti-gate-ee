@@ -397,3 +397,11 @@ Kõva core-katkestus (ühendus keeldub, DNS, 70 s timeout) tuleb 500-na, mitte 5
 4. Genereeri iga päringu jaoks UUID `X-Road-Id` (või lase turvaserveril seada).
 5. Otsi → `search`; kui `x-poll-more: true`, pollida sama id-ga ja `{ "poll": true }`.
 6. Sisu → `dataset` tagastatud `uil` ja lubatud `subsets`-iga.
+
+## Arendaja-mock
+
+Kui X-tee juurdepääsu, turvaserverit ega asutuse registreeringut veel ei ole, ehita ja testi
+oma klienti avaliku mock-teenuse vastu, mis matkib seda liidest konserveeritud vastustega:
+**`https://dev.efti.ee/developer/v1/{serviceCode}`**. Vt
+[`x_road_developer_mock.md`](x_road_developer_mock.md) — sisendid, vastused ja erilised
+testkoodid (nt `memberCode 70000000` alamhulga-vea jaoks).

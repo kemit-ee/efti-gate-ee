@@ -1,0 +1,118 @@
+# Project-level guard for the PUBLIC developer mock (/developer/**).
+#
+# This whole Ruuter project is a standalone sandbox that imitates the gate's X-Road
+# provider surface (DSL/Ruuter/xroad/**) with CANNED responses. It runs as its own
+# container (ruuter-developer, port 8088) with NO database, NO core, and NO link to the
+# real gate — so exposing it publicly at https://dev.efti.ee/developer/ cannot leak real
+# consignment data or reach a privileged route. See docs/specs/x_road_developer_mock.md.
+#
+# The guard mirrors DSL/Ruuter/xroad/.guard.yml's request-shape checks (same status codes
+# and RFC 7807 bodies) so integrators can exercise the 401 / 400 paths, but it resolves
+# the caller from the X-Road-Client member code against a HARD-CODED rule instead of the
+# authorities table:
+#   memberCode 00000000  -> 403 FORBIDDEN   (imitates "not a registered authority")
+#   memberCode 70000000  -> resolves, but entitled to NO subsets (imitates FORBIDDEN_SUBSET)
+#   any other well-formed value -> resolves as the mock authority "auth-mock"
+#
+# The resolved member code is exposed to handlers as ${memberCode}.
+
+log_context:
+  log: "developer-mock client=${incoming.headers['x-road-client'] ?? '-'} xroad-id=${incoming.headers['x-road-id'] ?? '-'}"
+  next: check_client_header
+
+check_client_header:
+  switch:
+    - condition: ${incoming.headers == null || incoming.headers['x-road-client'] == null || incoming.headers['x-road-client'] == ''}
+      next: guard_unauthorized
+  next: parse_client
+
+parse_client:
+  assign:
+    xroad_parts: ${incoming.headers['x-road-client'].split('/')}
+  next: validate_client_format
+
+# 3 parts (EE/GOV/70000099) or 4 (EE/GOV/70000099/tram). Reject a trailing slash.
+validate_client_format:
+  switch:
+    - condition: ${(xroad_parts.length === 3 || xroad_parts.length === 4) && xroad_parts[0] != '' && xroad_parts[1] != '' && xroad_parts[2] != null && xroad_parts[2] != '' && xroad_parts[xroad_parts.length - 1] != ''}
+      next: check_id_header
+  next: guard_unauthorized
+
+check_id_header:
+  switch:
+    - condition: ${incoming.headers['x-road-id'] == null || incoming.headers['x-road-id'] == ''}
+      next: guard_missing_header
+  next: parse_id
+
+# Shape-only UUID check, identical to the real guard (8-4-4-4-12).
+parse_id:
+  assign:
+    xroad_id_parts: ${incoming.headers['x-road-id'].split('-')}
+  next: validate_id_format
+
+validate_id_format:
+  switch:
+    - condition: ${xroad_id_parts.length === 5 && xroad_id_parts[0].length === 8 && xroad_id_parts[1].length === 4 && xroad_id_parts[2].length === 4 && xroad_id_parts[3].length === 4 && xroad_id_parts[4].length === 12}
+      next: bind_member
+  next: guard_invalid_id
+
+bind_member:
+  assign:
+    memberCode: ${xroad_parts[2]}
+  next: check_member
+
+check_member:
+  switch:
+    - condition: ${memberCode == '00000000'}
+      next: guard_forbidden
+  next: guard_success
+
+guard_success:
+  return: "success"
+  status: 200
+  wrapper: false
+  next: end
+
+guard_unauthorized:
+  return:
+    type: "https://api.efti.ee/errors/unauthorized"
+    code: "UNAUTHORIZED"
+    title: "Authentication Required"
+    status: 401
+    detail: "X-Road-Client header is missing or malformed. Expected instance/memberClass/memberCode[/subsystemCode]."
+  status: 401
+  wrapper: false
+  next: end
+
+guard_missing_header:
+  return:
+    type: "https://api.efti.ee/errors/missing-required-header"
+    code: "MISSING_REQUIRED_HEADER"
+    title: "Missing Required Header"
+    status: 400
+    detail: "X-Road-Id header is required on every X-Road request."
+  status: 400
+  wrapper: false
+  next: end
+
+guard_invalid_id:
+  return:
+    type: "https://api.efti.ee/errors/invalid-request-id"
+    code: "INVALID_REQUEST_ID"
+    title: "Invalid Request ID"
+    status: 400
+    detail: "X-Road-Id must be a UUID (8-4-4-4-12)."
+  status: 400
+  wrapper: false
+  next: end
+
+guard_forbidden:
+  return:
+    type: "https://api.efti.ee/errors/forbidden"
+    code: "FORBIDDEN"
+    title: "Forbidden"
+    status: 403
+    detail: "The X-Road client does not resolve to an active competent authority. (Mock: member code 00000000 is reserved for this response.)"
+  status: 403
+  wrapper: false
+  next: end

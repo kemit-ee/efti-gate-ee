@@ -1,0 +1,44 @@
+declaration:
+  description: "Developer mock — imitates POST /xroad/v1/search. Returns a canned result array for
+    mainTransportId EQ MOCK-PLATE-1; an empty array otherwise and for poll requests. No subset
+    check (identifier search is unrestricted)."
+
+route:
+  switch:
+    - condition: ${incoming.body?.poll == true}
+      next: respond_empty
+    - condition: ${incoming.body?.mainTransportId != null && incoming.body.mainTransportId.id == 'MOCK-PLATE-1'}
+      next: respond_hit
+  next: respond_empty
+
+respond_hit:
+  return:
+    - uil:
+        gateId: "EU-EE"
+        platformId: "mock"
+        datasetId: "550e8400-e29b-41d4-a716-446655440001"
+      mainTransportId: "MOCK-PLATE-1"
+      mainTransportType: "1522"
+      transportMode: "3"
+      transportRegCountry: "EE"
+      acceptanceDate: "2026-04-22T09:00:00Z"
+      acceptanceCountry: "EE"
+      deliveryDate: "2026-04-25T14:00:00Z"
+      deliveryCountry: "FI"
+      status: "ACTIVE"
+      createdAt: "2026-04-23T10:15:00Z"
+  headers:
+    content-type: "application/json"
+    x-poll-more: "false"
+  wrapper: false
+  status: 200
+  next: end
+
+respond_empty:
+  return: []
+  headers:
+    content-type: "application/json"
+    x-poll-more: "false"
+  wrapper: false
+  status: 200
+  next: end

@@ -70,6 +70,24 @@ services:
       retries: 20
       start_period: 10s
 
+  # Public developer mock of the X-Road authority surface (/developer/**). Standalone by
+  # design: no database, no core, no link to the real gate — so exposing it publicly cannot
+  # leak real data or reach a privileged route. See docs/specs/x_road_developer_mock.md.
+  ruuter-developer:
+    container_name: efti_ruuter_developer
+    build:
+      context: .
+      dockerfile: docker/ruuter-developer/Dockerfile
+    platform: linux/amd64
+    cpus: '0.25'
+    mem_limit: 128M
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8088/developer/health/ready || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
   ui:
     build:
       context: .
@@ -78,6 +96,8 @@ services:
         - VITE_USE_PROD_TARA_URL=true
     depends_on:
       ruuter:
+        condition: service_healthy
+      ruuter-developer:
         condition: service_healthy
 
   edelivery:

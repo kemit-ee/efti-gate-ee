@@ -1,0 +1,300 @@
+# Developer mock of the X-Road authority surface (/developer/**).
+# Standalone ruuter-developer container — no DB, no core. See docs/specs/x_road_developer_mock.md.
+#
+# X-Road-Client member codes with special meaning:
+#   00000000 -> 403 FORBIDDEN (guard)
+#   70000000 -> resolves but entitled to no subsets (FORBIDDEN_SUBSET / empty)
+#   anything else well-formed -> mock authority "auth-mock" with subsets EU01,EU02,EU03,EU05
+
+### health (public, no headers)
+GET {{DEVELOPER_URL}}/developer/health/ready
+
+> {%
+  client.test("health 200", () => { client.assert(response.status === 200) })
+%}
+
+### echo — happy path
+POST {{DEVELOPER_URL}}/developer/v1/echo
+X-Road-Client: EE/GOV/70000097/tram
+X-Road-Id: 4894e35d-bf0f-44a6-867a-8e51f1daa7e0
+X-Road-UserId: EE30101010007
+Content-Type: application/json
+
+{ "hello": "world" }
+
+> {%
+  client.test("echo 200 + shape", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.xRoadClient === "EE/GOV/70000097/tram")
+    client.assert(response.body.authority.registryCode === "70000097")
+    client.assert(response.body.authority.subsets.length === 4)
+    client.assert(response.body.echo.hello === "world")
+  })
+%}
+
+### echo — missing X-Road-Client -> 401
+POST {{DEVELOPER_URL}}/developer/v1/echo
+X-Road-Id: 4894e35d-bf0f-44a6-867a-8e51f1daa7e0
+Content-Type: application/json
+
+{}
+
+> {%
+  client.test("401 UNAUTHORIZED", () => {
+    client.assert(response.status === 401)
+    client.assert(response.body.code === "UNAUTHORIZED")
+  })
+%}
+
+### echo — missing X-Road-Id -> 400
+POST {{DEVELOPER_URL}}/developer/v1/echo
+X-Road-Client: EE/GOV/70000097/tram
+Content-Type: application/json
+
+{}
+
+> {%
+  client.test("400 MISSING_REQUIRED_HEADER", () => {
+    client.assert(response.status === 400)
+    client.assert(response.body.code === "MISSING_REQUIRED_HEADER")
+  })
+%}
+
+### echo — non-UUID X-Road-Id -> 400
+POST {{DEVELOPER_URL}}/developer/v1/echo
+X-Road-Client: EE/GOV/70000097/tram
+X-Road-Id: not-a-uuid
+Content-Type: application/json
+
+{}
+
+> {%
+  client.test("400 INVALID_REQUEST_ID", () => {
+    client.assert(response.status === 400)
+    client.assert(response.body.code === "INVALID_REQUEST_ID")
+  })
+%}
+
+### echo — reserved member code 00000000 -> 403
+POST {{DEVELOPER_URL}}/developer/v1/echo
+X-Road-Client: EE/GOV/00000000/x
+X-Road-Id: 4894e35d-bf0f-44a6-867a-8e51f1daa7e0
+Content-Type: application/json
+
+{}
+
+> {%
+  client.test("403 FORBIDDEN", () => {
+    client.assert(response.status === 403)
+    client.assert(response.body.code === "FORBIDDEN")
+  })
+%}
+
+### subsets — happy path
+GET {{DEVELOPER_URL}}/developer/v1/subsets
+X-Road-Client: EE/GOV/70000097/tram
+X-Road-Id: 4894e35d-bf0f-44a6-867a-8e51f1daa7e0
+
+> {%
+  client.test("subsets 200", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.authorityId === "auth-mock")
+    client.assert(response.body.subsets.indexOf("EU02") !== -1)
+  })
+%}
+
+### subsets — member 70000000 -> empty entitlement
+GET {{DEVELOPER_URL}}/developer/v1/subsets
+X-Road-Client: EE/GOV/70000000/tram
+X-Road-Id: 4894e35d-bf0f-44a6-867a-8e51f1daa7e0
+
+> {%
+  client.test("empty subsets", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.subsets.length === 0)
+  })
+%}
+
+### transport-means — local hit
+POST {{DEVELOPER_URL}}/developer/v1/transport-means
+X-Road-Client: EE/GOV/70000097/tram
+X-Road-Id: 4894e35d-bf0f-44a6-867a-8e51f1daa7e0
+Content-Type: application/json
+
+{ "identifier": "MOCK-PLATE-1", "scope": "local" }
+
+> {%
+  client.test("found 1", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.found === 1)
+    client.assert(response.body.consignments[0].uil.datasetId === "550e8400-e29b-41d4-a716-446655440001")
+  })
+%}
+
+### transport-means — unknown identifier -> found 0
+POST {{DEVELOPER_URL}}/developer/v1/transport-means
+X-Road-Client: EE/GOV/70000097/tram
+X-Road-Id: 4894e35d-bf0f-44a6-867a-8e51f1daa7e0
+Content-Type: application/json
+
+{ "identifier": "NOPE" }
+
+> {%
+  client.test("found 0", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.found === 0)
+  })
+%}
+
+### transport-means — existence
+POST {{DEVELOPER_URL}}/developer/v1/transport-means
+X-Road-Client: EE/GOV/70000097/tram
+X-Road-Id: 4894e35d-bf0f-44a6-867a-8e51f1daa7e0
+Content-Type: application/json
+
+{ "identifier": "MOCK-PLATE-1", "scope": "existence" }
+
+> {%
+  client.test("registered true", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.registered === true)
+  })
+%}
+
+### transport-means — missing identifier -> 400
+POST {{DEVELOPER_URL}}/developer/v1/transport-means
+X-Road-Client: EE/GOV/70000097/tram
+X-Road-Id: 4894e35d-bf0f-44a6-867a-8e51f1daa7e0
+Content-Type: application/json
+
+{ "scope": "local" }
+
+> {%
+  client.test("400 BAD_REQUEST_GENERAL", () => {
+    client.assert(response.status === 400)
+    client.assert(response.body.code === "BAD_REQUEST_GENERAL")
+  })
+%}
+
+### transport-means — allgates -> 501
+POST {{DEVELOPER_URL}}/developer/v1/transport-means
+X-Road-Client: EE/GOV/70000097/tram
+X-Road-Id: 4894e35d-bf0f-44a6-867a-8e51f1daa7e0
+Content-Type: application/json
+
+{ "identifier": "MOCK-PLATE-1", "scope": "allgates" }
+
+> {%
+  client.test("501 NOT_IMPLEMENTED", () => {
+    client.assert(response.status === 501)
+    client.assert(response.body.code === "NOT_IMPLEMENTED")
+  })
+%}
+
+### transport-means — member 70000000 lacks EU02 -> 403 FORBIDDEN_SUBSET
+POST {{DEVELOPER_URL}}/developer/v1/transport-means
+X-Road-Client: EE/GOV/70000000/tram
+X-Road-Id: 4894e35d-bf0f-44a6-867a-8e51f1daa7e0
+Content-Type: application/json
+
+{ "identifier": "MOCK-PLATE-1" }
+
+> {%
+  client.test("403 FORBIDDEN_SUBSET", () => {
+    client.assert(response.status === 403)
+    client.assert(response.body.code === "FORBIDDEN_SUBSET")
+    client.assert(response.body.deniedSubsets[0] === "EU02")
+  })
+%}
+
+### search — hit
+POST {{DEVELOPER_URL}}/developer/v1/search
+X-Road-Client: EE/GOV/70000097/tram
+X-Road-Id: 4894e35d-bf0f-44a6-867a-8e51f1daa7e0
+Content-Type: application/json
+
+{ "mainTransportId": { "operator": "EQ", "id": "MOCK-PLATE-1" } }
+
+> {%
+  client.test("one result", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.length === 1)
+    client.assert(response.headers.valueOf("x-poll-more") === "false")
+  })
+%}
+
+### search — poll -> empty
+POST {{DEVELOPER_URL}}/developer/v1/search
+X-Road-Client: EE/GOV/70000097/tram
+X-Road-Id: 4894e35d-bf0f-44a6-867a-8e51f1daa7e0
+Content-Type: application/json
+
+{ "poll": true }
+
+> {%
+  client.test("empty", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.length === 0)
+  })
+%}
+
+### dataset — happy path
+POST {{DEVELOPER_URL}}/developer/v1/dataset
+X-Road-Client: EE/GOV/70000097/tram
+X-Road-Id: 4894e35d-bf0f-44a6-867a-8e51f1daa7e0
+Content-Type: application/json
+
+{ "uil": { "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440001" }, "subsets": ["EU01", "EU05"] }
+
+> {%
+  client.test("200 + xml", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.xml.indexOf("SpecifiedSupplyChainConsignment") !== -1)
+    client.assert(response.body.subsets.length === 2)
+  })
+%}
+
+### dataset — no subsets -> 400
+POST {{DEVELOPER_URL}}/developer/v1/dataset
+X-Road-Client: EE/GOV/70000097/tram
+X-Road-Id: 4894e35d-bf0f-44a6-867a-8e51f1daa7e0
+Content-Type: application/json
+
+{ "uil": { "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440001" }, "subsets": [] }
+
+> {%
+  client.test("400 MISSING_SUBSET", () => {
+    client.assert(response.status === 400)
+    client.assert(response.body.code === "MISSING_SUBSET")
+  })
+%}
+
+### dataset — member 70000000 -> 403 FORBIDDEN_SUBSET
+POST {{DEVELOPER_URL}}/developer/v1/dataset
+X-Road-Client: EE/GOV/70000000/tram
+X-Road-Id: 4894e35d-bf0f-44a6-867a-8e51f1daa7e0
+Content-Type: application/json
+
+{ "uil": { "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440001" }, "subsets": ["EU01"] }
+
+> {%
+  client.test("403 FORBIDDEN_SUBSET", () => {
+    client.assert(response.status === 403)
+    client.assert(response.body.code === "FORBIDDEN_SUBSET")
+  })
+%}
+
+### follow-up
+POST {{DEVELOPER_URL}}/developer/v1/follow-up
+X-Road-Client: EE/GOV/70000097/tram
+X-Road-Id: 4894e35d-bf0f-44a6-867a-8e51f1daa7e0
+Content-Type: application/json
+
+{ "uil": { "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440001" }, "message": "Please confirm gross weight.", "referenceIds": ["REF-1"] }
+
+> {%
+  client.test("200 DELIVERED", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.status === "DELIVERED")
+  })
+%}
