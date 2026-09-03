@@ -97,7 +97,7 @@ Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
 {
-  "id":"eu-ee32",
+  "id":"EU-EE32",
   "countryCode":"EE",
   "eDeliveryUrl":"https://eu-ee32.eftisandbox.eu/services/msh",
   "eDeliveryCert":"-----BEGIN CERTIFICATE-----\nMIIC/TCCAeWgAwIBAgIUCB2/kCn1BjL7HPrd0vF/6KrLUMowDQYJKoZIhvcNAQEL\nBQAwDjEMMAoGA1UEAwwDcG9jMB4XDTI1MTAxNDExNTUyMVoXDTI2MTAxNDExNTUy\nMVowDjEMMAoGA1UEAwwDcG9jMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC\nAQEAlEXWkfWLILKZYpiiQErsD0o33PzdZN1y7jG1EFbHZ00oZuILD/fF7M8cblPg\nWr8N9mUKoHrcK21z1rwtwyCxDSZ/E1t5gGA79Ln8qcbJf5U0pTtGlnTqxc/2nswQ\na9WW6Fv6E+GZ5KCoEB/UHSb665cOcNFGCTfAyIMAbhUNS7ntPYvFECDuzXeqCZex\nPMG0qSfJBeRDRa7lWoWkA/eTCgCtgdiQSFDp6CmAHOUNHqbpIbji6am4n9qSGJS1\nd/rR4EDEQ5OPVbKh0rEK4ttsBNBmD2ldjHZbxcTDDPztqhOTJiosSofVRxDUs42p\nvhJbueOGRotMNmn6gXGBD4HsUwIDAQABo1MwUTAdBgNVHQ4EFgQUt8GqaKD/lNyt\nZIjtDIqdPapkJgQwHwYDVR0jBBgwFoAUt8GqaKD/lNytZIjtDIqdPapkJgQwDwYD\nVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEAGk+5Nr49hZR7/Whxr34v\nhmwQf1EtwmOxUWLRGEx4cKtd+2VtcMjRs5TjVEHZmsOXevFJpqnLs012cuvqnxes\nNs6/lliEbw1aKitOLnSN7poBH5tuqMi+UZoSo8jgs1CPy0rY6KJj0sSQcSxkWZLK\nM/SnOQMYmmrbJKWekhC2Vb6wx2LKkEmqDnFliAyQoCPbwCS2Jass/5I3LQjWVYja\nALI79L6es8CBpbTU2goRC4TWyhzeVCiA3Fjhz6UfmIjIyi5p9MhVvbloT6tsujvo\nmwm9l4/yEnQQ65RzxMVrahQN6nlAs7knZRzRzQ5K9KBiOqV8fO3vP5/d4imkun8t\nyA==\n-----END CERTIFICATE-----\n"
@@ -110,7 +110,7 @@ Authorization: Bearer {{adminToken}}
 %}
 
 ### Check ping result
-POST {{RUUTER_URL}}/admin/v1/gates/ping/eu-ee32
+POST {{RUUTER_URL}}/admin/v1/gates/ping/EU-EE32
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
