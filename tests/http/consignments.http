@@ -58,7 +58,6 @@ X-Api-Key: mock-secret-key
 # guard (ADR-004), so it needs the X-Api-Key too.
 POST {{RUUTER_URL}}/platforms/v1/consignments-xml
 Content-Type: text/xml
-X-Api-Key: mock-secret-key
 
 < ../../code/xml-mapper/xsd/FTI004/sample.xml
 
