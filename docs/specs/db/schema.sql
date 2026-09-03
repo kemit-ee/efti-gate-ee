@@ -456,7 +456,6 @@ CREATE TABLE follow_up_log (
   row_id                  UUID             PRIMARY KEY DEFAULT uuid_generate_v4(),
   follow_up_id            UUID             NOT NULL,                 -- logical id of the follow-up message
   requesting_gate_id      CITEXT           NOT NULL,
-  requesting_user_id      UUID,                                       -- logical users.id (denormalised, no FK)
   dataset_request_id      UUID             NOT NULL,
   destination_gate_id     CITEXT           NOT NULL,
   destination_platform_id CITEXT           NOT NULL,
@@ -471,7 +470,6 @@ COMMENT ON TABLE  follow_up_log IS 'Log of follow-up messages received by the AA
 COMMENT ON COLUMN follow_up_log.row_id                  IS 'Synthetic primary key';
 COMMENT ON COLUMN follow_up_log.follow_up_id            IS 'Unique identifier of the follow-up message (UUIDv4). Mandatory per Art 6(2)(c).';
 COMMENT ON COLUMN follow_up_log.requesting_gate_id      IS 'Gate that originated the follow-up (AAP). Mandatory per Art 6(2)(c).';
-COMMENT ON COLUMN follow_up_log.requesting_user_id      IS 'Logical users.id of the authority user (NULL for G2G follow-ups without user attribution)';
 COMMENT ON COLUMN follow_up_log.dataset_request_id      IS 'Dataset request being followed up on';
 COMMENT ON COLUMN follow_up_log.destination_gate_id     IS 'Gate that owns the target platform';
 COMMENT ON COLUMN follow_up_log.destination_platform_id IS 'Platform the follow-up was delivered to';
