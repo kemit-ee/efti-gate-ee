@@ -5,8 +5,8 @@ teenuse identifikaatorid, päringu- ja vastuseväljad ning vead.
 
 > **Masinloetav leping:** [`x_road_openapi.yaml`](x_road_openapi.yaml) — OpenAPI 3.0
 > kirjeldus kõigist kuuest operatsioonist (skeemid, päised, veakoodid). Käesolev
-> dokument on proosaallikas; `x_road_openapi.yaml` on selle formaalne vaste.
-> Praegu on `dev`-is teostatud ainult `echo` ja `subsets`; ülejäänud on leping.
+> dokumendi formaalne vastus on `x_road_openapi.yaml`.
+
 
 ## Ülevaade
 
@@ -66,8 +66,7 @@ poolel vastab sellele tee `/xroad/v1/{serviceCode}`.
 
 Sinu `X-Road-Client` on sinu organisatsiooni X-tee id. Kehtib nii 3-osaline
 (`EE/GOV/70000097`) kui 4-osaline (`EE/GOV/70000097/tram`) kuju. Ligipääsuõiguse annab
-`memberCode` (index 2), mis peab olema sinu **äriregistri kood** — värav lahendab selle
-`authorities.registry_code` järgi täpselt üheks `ACTIVE` asutuse kirjeks.
+`memberCode` (index 2), mis peab olema sinu **äriregistri kood**.
 
 ## Eeltingimused
 
@@ -406,7 +405,17 @@ Kõva core-katkestus (ühendus keeldub, DNS, 70 s timeout) tuleb 500-na, mitte 5
 ## Arendaja-mock
 
 Kui X-tee juurdepääsu, turvaserverit ega asutuse registreeringut veel ei ole, ehita ja testi
-oma klienti avaliku mock-teenuse vastu, mis matkib seda liidest konserveeritud vastustega:
-**`https://dev.efti.ee/developer/v1/{serviceCode}`**. Vt
+oma klienti avaliku mock-teenuse vastu, mis matkib seda liidest konserveeritud vastustega.
+Sihtdomeen on `https://dev.efti.ee/developer/`, esialgu on ta üleval aadressil
+**`https://eu-ee.pikker.dev/developer/v1/{serviceCode}`**. Vt
 [`x_road_developer_mock.md`](x_road_developer_mock.md) — sisendid, vastused ja erilised
 testkoodid (nt `memberCode 70000000` alamhulga-vea jaoks).
+
+**Postmani kollektsioon:**
+[`eFTI-developer-mock.postman_collection.json`](eFTI-developer-mock.postman_collection.json) —
+kõik kuus operatsiooni + vea- ja tervisekontrolli päringud, `baseUrl` muutujaga
+(vaikimisi `https://eu-ee.pikker.dev`). Impordi Postmani (File → Import) ja jooksuta.
+
+## Küsimused
+
+Liidestumisel tekkivate küsimustega pöördu **Sten Viljus** — <Sten.Viljus@Askend.com>.

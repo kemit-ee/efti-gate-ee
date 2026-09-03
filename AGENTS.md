@@ -63,6 +63,9 @@ DSL/
                         #   follow-up (forward to core)
       GET/v1/           # subsets (subset-permission discovery)
       GET/health/       # ready (probe, unguarded)
+  Ruuter-developer/     # PUBLIC X-Road mock — separate container (ruuter-developer:8088),
+    developer/          #   no DB / no core, canned responses. Served under /developer/.
+                        #   See docs/developer/x_road_developer_mock.md.
   Resql/efti/POST/      # SQL endpoint files (*.sql)
   Liquibase/            # DB migrations (initial/ + changelog/)
 code/
