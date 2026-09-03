@@ -11,12 +11,12 @@ fetch_own_gate:
 
 check_found:
   switch:
-    - condition: ${result.response.body == null || result.response.body.length == 0}
+    - condition: ${!result.response.body?.length}
       next: not_found
   next: respond
 
 respond:
-  return: ${result.response.body[0]}
+  return: ${result.response.body?.[0]}
   wrapper: false
   next: end
 
