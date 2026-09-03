@@ -2,6 +2,8 @@ package efti
 
 import RequestIdHandler
 import efti.domain.ConsignmentRow
+import efti.domain.GateId
+import efti.domain.PlatformId
 import efti.domain.UIL
 import efti.xml.fti.*
 import efti.xml.fti.FTIResponseCode.Completed
@@ -16,15 +18,18 @@ import klite.uuid
   description = "These routes are for mapping requests and responses for consignment uploads."
 )
 class UploadRoutes(val requestIdHandler: RequestIdHandler) {
-  // TODO: replace UniqueIDSetUniqueIDSet with ParameterIDSetCriteria when we identify platform and can pass UIL/PlatformId here as header
-  @Operation(description = "Map FTI004UploadIdentifierRequest or UniqueIDSetUniqueIDSet as XML to a flat consignment json suitable for DB insertion.")
+  @Operation(description = "Map FTI004UploadIdentifierRequest or ParameterIDSetCriteria as XML to a flat consignment json suitable for DB insertion.")
   @POST("/request-to-json") fun requestToJson(xml: String, e: HttpExchange): ConsignmentRow {
-    val content = if (xml.contains("FTI004UploadIdentifierRequest")) {
+    val (uil, criteria) = if (xml.contains("FTI004UploadIdentifierRequest")) {
       val req = xmlParser.parse<FTI004UploadIdentifierRequest>(xml)
       requestIdHandler.send(e, req.document.queryId)
-      req.content
-    } else xmlParser.parse<UniqueIDSetUniqueIDSet>(xml)
-    return ConsignmentRow(content, xml)
+      req.content.uil to req.content.criteria!!
+    } else {
+      UIL(PlatformId(e.header("X-Platform-Id")!!), e.header("X-Dataset-Id")!!.uuid, GateId(e.header("X-Gate-Id")!!)) to
+      xmlParser.parse<ParameterIDSetCriteria>(xml)
+    }
+    val criteriaXml = if (xml.contains("ParameterIDSetCriteria")) xml.extractParameterIDSetCriteria() else xml
+    return ConsignmentRow(uil, criteria, criteriaXml)
   }
 
   @Operation(description = "Map UIL as JSON to FTI029UploadIdentifierResponse as XML.")

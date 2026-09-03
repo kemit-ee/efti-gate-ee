@@ -32,6 +32,26 @@ Content-Type: text/xml
   })
 %}
 
+### Platform uploads a new consignment over REST in a shorter format
+POST {{RUUTER_URL}}/platforms/v1/consignments/b93232c0-f798-43b5-8e2f-6663dd4c32ca
+Content-Type: text/xml
+X-Api-Key: mock-secret-key
+
+<ParameterIDSetCriteria xmlns:udt="urn:eu:move:eFTI:data:standard:UnqualifiedDataType:34">
+  <MainCarriageTransportMeansIDParameterScope><ID>013DEF</ID></MainCarriageTransportMeansIDParameterScope>
+  <MainCarriageModeCodeParameterScope><TransportModeParameterCode>3</TransportModeParameterCode></MainCarriageModeCodeParameterScope>
+  <CarrierAcceptanceCountryParameterScope><CountryID>EE</CountryID></CarrierAcceptanceCountryParameterScope>
+</ParameterIDSetCriteria>
+
+> {%
+  client.test("Consignment saved", () => {
+    client.assert(response.status === 201)
+    client.assert(response.body.gateId === "EU-EE")
+    client.assert(response.body.platformId === "mock")
+    client.assert(response.body.datasetId === "b93232c0-f798-43b5-8e2f-6663dd4c32ca")
+  })
+%}
+
 ### Platform uploads a new consignment over eDelivery
 # consignments-xml.yml is now covered by the platforms/POST/v1/.guard.yml directory
 # guard (ADR-004), so it needs the X-Api-Key too.

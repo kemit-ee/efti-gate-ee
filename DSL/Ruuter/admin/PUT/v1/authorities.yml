@@ -17,7 +17,7 @@ update_authority:
 # body means no such authority. No re-fetch needed.
 check_update:
   switch:
-    - condition: ${update_result.response.body == null || update_result.response.body.length == 0}
+    - condition: ${update_result.response.status >= 400 || !update_result.response.body?.length}
       next: update_failed
   next: respond
 

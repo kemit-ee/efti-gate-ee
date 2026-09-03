@@ -9,8 +9,9 @@ import efti.domain.PlatformId
 import efti.domain.UIL
 import efti.subsets.CountryCode.DE
 import efti.xml.fti.FTI029UploadIdentifierResponse
-import efti.xml.fti.extractUniqueIDSetUniqueIDSet
+import efti.xml.fti.extractParameterIDSetCriteria
 import efti.xml.fti.xmlParser
+import io.mockk.every
 import io.mockk.verify
 import klite.uuid
 import org.junit.jupiter.api.Test
@@ -20,7 +21,7 @@ class UploadRoutesTest: BaseMocks() {
   val routes = UploadRoutes(requestIdHandler)
   val uil = UIL(PlatformId("mock"), "550e8400-e29b-41d4-a716-446655440000".uuid, GateId("EU-EE"))
 
-  @Test fun requestToJson() {
+  @Test fun requestToJsonFromFTI004() {
     val xml = File("xsd/FTI004/sample.xml").readText()
     val result = routes.requestToJson(xml, exchange)
 
@@ -31,7 +32,27 @@ class UploadRoutesTest: BaseMocks() {
     expect(result.platformId).toEqual(uil.platformId)
     expect(result.acceptanceCountry).toEqual(DE)
     expect(result.transportMode).toEqual(MARINE)
-    expect(result.xml).toEqual(xml.extractUniqueIDSetUniqueIDSet())
+    expect(result.xml).toEqual(xml.extractParameterIDSetCriteria())
+  }
+
+  @Test fun requestToJsonFromCriteria() {
+    every { exchange.header("X-Platform-Id") } returns "mock"
+    every { exchange.header("X-Dataset-Id") } returns "550e8400-e29b-41d4-a716-446655440000"
+    every { exchange.header("X-Gate-Id") } returns "EU-EE"
+
+    val xml = """
+      <ParameterIDSetCriteria xmlns:udt="urn:eu:move:eFTI:data:standard:UnqualifiedDataType:34">
+        <CarrierAcceptanceCountryParameterScope><CountryID>DE</CountryID></CarrierAcceptanceCountryParameterScope>
+        <MainCarriageModeCodeParameterScope><TransportModeParameterCode>1</TransportModeParameterCode></MainCarriageModeCodeParameterScope>
+      </ParameterIDSetCriteria>
+    """.trimIndent()
+    val result = routes.requestToJson(xml, exchange)
+
+    expect(result.datasetId).toEqual(uil.datasetId)
+    expect(result.gateId).toEqual(uil.gateId)
+    expect(result.platformId).toEqual(uil.platformId)
+    expect(result.acceptanceCountry).toEqual(DE)
+    expect(result.transportMode).toEqual(MARINE)
   }
 
   @Test fun responseToXml() {
