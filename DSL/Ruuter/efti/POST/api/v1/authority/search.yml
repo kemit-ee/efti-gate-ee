@@ -100,7 +100,7 @@ xml-to-json:
   next: respond_first
 
 respond_first:
-  return: ${first_result}
+  return: ${first_result.response.body}
   headers:
     content-type: "application/json"
     x-poll-more: true
