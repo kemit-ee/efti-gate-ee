@@ -23,7 +23,7 @@ check_update:
   next: respond
 
 respond:
-  return: ${update_result.response.body[0]}
+  return: ${update_result.response.body?.[0]}
   wrapper: false
   next: end
 

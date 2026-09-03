@@ -45,18 +45,18 @@ verify_consignment:
     headers:
       Content-Type: "application/json"
     body:
-      datasetId: "${insert_result.response.body[0].datasetId}"
+      datasetId: "${insert_result.response.body?.[0]?.datasetId}"
   result: verify_result
   next: check_verify
 
 check_verify:
   switch:
-    - condition: ${verify_result.response.body == null || verify_result.response.body.length == 0}
+    - condition: ${!verify_result.response.body?.length}
       next: verify_failed
   next: respond
 
 respond:
-  return: ${verify_result.response.body[0]}
+  return: ${verify_result.response.body?.[0]}
   wrapper: false
   status: 201
   next: end

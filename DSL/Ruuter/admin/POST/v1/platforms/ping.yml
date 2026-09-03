@@ -11,16 +11,16 @@ get_platform:
 
 check_platform_exists:
   switch:
-    - condition: ${platform_result.response.body == null || platform_result.response.body.length == 0}
+    - condition: ${!platform_result.response.body?.length}
       next: platform_not_found
-    - condition: ${platform_result.response.body[0].eDeliveryCert == null || platform_result.response.body[0].eDeliveryCert == ""}
+    - condition: ${!platform_result.response.body?.[0]?.eDeliveryCert}
       next: ping_rest
   next: ping_edelivery
 
 ping_rest:
   call: http.post
   args:
-    url: "${platform_result.response.body[0].baseUrl}"
+    url: "${platform_result.response.body?.[0]?.baseUrl}"
     headers:
       Content-Type: "application/json"
     body: {}
@@ -63,7 +63,7 @@ update_online:
 
 check_online_update:
   switch:
-    - condition: ${online_result.response.body == null || online_result.response.body.length == 0}
+    - condition: ${!online_result.response.body?.length}
       next: update_failed
   next: verify_online
 
@@ -80,12 +80,12 @@ verify_online:
 
 check_verify:
   switch:
-    - condition: ${verify_result.response.body == null || verify_result.response.body.length == 0}
+    - condition: ${!verify_result.response.body?.length}
       next: update_failed
   next: respond_ok
 
 respond_ok:
-  return: ${verify_result.response.body[0]}
+  return: ${verify_result.response.body?.[0]}
   wrapper: false
   next: end
 
@@ -103,7 +103,7 @@ update_offline:
 
 check_offline_update:
   switch:
-    - condition: ${offline_result.response.body == null || offline_result.response.body.length == 0}
+    - condition: ${!offline_result.response.body?.length}
       next: update_failed
   next: gateway_unavailable
 

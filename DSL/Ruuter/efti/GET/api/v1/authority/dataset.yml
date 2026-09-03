@@ -30,8 +30,8 @@ check_platform:
 forward_to_platform:
   call: http.get
   args:
-    url: "${platform_result.response.body[0].baseUrl}/v1/dataset/${incoming.params.pathParams[2]}?subsetId=${incoming.params?.subsets?.join(',')}"
-    headers: "${Object.assign(platform_result.response.body[0].headers, {'x-request-id': incoming.headers['x-request-id']})}"
+    url: "${platform_result.response.body?.[0]?.baseUrl}/v1/dataset/${incoming.params.pathParams[2]}?subsetId=${incoming.params?.subsets?.join(',')}"
+    headers: "${Object.assign(platform_result.response.body?.[0]?.headers ?? {}, {'x-request-id': incoming.headers['x-request-id']})}"
   result: platform_response
   next: respond
 

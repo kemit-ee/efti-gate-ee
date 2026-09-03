@@ -12,7 +12,7 @@ check_exists:
 
 check_found:
   switch:
-    - condition: ${exists_result.response.body == null || exists_result.response.body.length == 0}
+    - condition: ${!exists_result.response.body?.length}
       next: not_found
   next: update_user
 
@@ -39,7 +39,7 @@ check_update:
 
 respond:
   wrapper: false
-  return: ${update_result.response.body[0]}
+  return: ${update_result.response.body?.[0]}
   next: end
 
 not_found:

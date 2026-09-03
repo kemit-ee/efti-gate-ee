@@ -17,12 +17,12 @@ fetch_single:
 
 check_single:
   switch:
-    - condition: ${single_result.response.body == null || single_result.response.body.length == 0}
+    - condition: ${!single_result.response.body?.length}
       next: not_found
   next: respond_single
 
 respond_single:
-  return: ${single_result.response.body[0]}
+  return: ${single_result.response.body?.[0]}
   wrapper: false
   next: end
 

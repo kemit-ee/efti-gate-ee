@@ -37,7 +37,7 @@ check_insert:
   next: respond
 
 respond:
-  return: ${insert_result.response.body[0]}
+  return: ${insert_result.response.body?.[0]}
   status: 201
   wrapper: false
   next: end

@@ -35,7 +35,7 @@ check_platform:
 
 guard_success:
   assign:
-    platform: ${platform_res.response.body[0]}
+    platform: ${platform_res.response.body?.[0]}
   next: return
 
 return:
