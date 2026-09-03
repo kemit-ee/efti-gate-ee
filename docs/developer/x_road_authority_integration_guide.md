@@ -5,8 +5,8 @@ teenuse identifikaatorid, päringu- ja vastuseväljad ning vead.
 
 > **Masinloetav leping:** [`x_road_openapi.yaml`](x_road_openapi.yaml) — OpenAPI 3.0
 > kirjeldus kõigist kuuest operatsioonist (skeemid, päised, veakoodid). Käesolev
-> dokument on proosaallikas; `x_road_openapi.yaml` on selle formaalne vaste.
-> Praegu on `dev`-is teostatud ainult `echo` ja `subsets`; ülejäänud on leping.
+> dokumendi formaalne vastus on `x_road_openapi.yaml`.
+
 
 ## Ülevaade
 
@@ -66,8 +66,7 @@ poolel vastab sellele tee `/xroad/v1/{serviceCode}`.
 
 Sinu `X-Road-Client` on sinu organisatsiooni X-tee id. Kehtib nii 3-osaline
 (`EE/GOV/70000097`) kui 4-osaline (`EE/GOV/70000097/tram`) kuju. Ligipääsuõiguse annab
-`memberCode` (index 2), mis peab olema sinu **äriregistri kood** — värav lahendab selle
-`authorities.registry_code` järgi täpselt üheks `ACTIVE` asutuse kirjeks.
+`memberCode` (index 2), mis peab olema sinu **äriregistri kood**.
 
 ## Eeltingimused
 
