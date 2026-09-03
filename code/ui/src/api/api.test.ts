@@ -14,7 +14,7 @@ describe('api', () => {
   it('extracts json', async () => {
     const promise = api.requestJson('path', {body: {data: 'data'}})
     expect(document.documentElement.classList.contains('loading')).to.equal(true)
-    expect(fetch).toHaveBeenCalledWith('/efti/api/v1/path', {headers: {...headers}, body: '{"data":"data"}'})
+    expect(fetch).toHaveBeenCalledWith('/admin/v1/path', {headers: {...headers}, body: '{"data":"data"}'})
     expect(await promise).to.equal('data')
     expect(document.documentElement.classList.contains('loading')).to.equal(false)
   })
@@ -22,7 +22,7 @@ describe('api', () => {
   it('sends Authorization header when token is set', async () => {
     setToken('test-jwt')
     await api.requestJson('path', {body: {data: 'data'}})
-    expect(fetch).toHaveBeenCalledWith('/efti/api/v1/path', {
+    expect(fetch).toHaveBeenCalledWith('/admin/v1/path', {
       headers: {...headers, 'Authorization': 'Bearer test-jwt'},
       body: '{"data":"data"}'
     })
@@ -56,7 +56,7 @@ describe('api', () => {
   })
 
   it('handles http error', () => {
-    fetch.mockResolvedValue({status: 403, json: () => Promise.resolve({statusCode: 403, message: '', reason: 'Forbidden'})})
+    fetch.mockResolvedValue({status: 403, json: () => Promise.resolve({statusCode: 403, message: 'Forbidden', reason: 'Forbidden'})})
     return api.requestJson('path', {headers}).then(() => {
       throw 'should be rejected'
     }, e => {

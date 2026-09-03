@@ -16,6 +16,7 @@ import java.net.URI
 import java.net.http.HttpClient
 
 data class ResqlParams(
+  val status: String? = null,
   val limit: String = "9999",
   val offset: String = "0"
 )
@@ -27,12 +28,12 @@ class ResqlClient(
 ) {
   private val log = logger()
 
-  private inline fun <reified T> fetch(path: String): List<T> {
-    val res = http.post(baseUrl + path, jsonMapper.render(ResqlParams()))
+  private inline fun <reified T> fetch(path: String, params: ResqlParams = ResqlParams()): List<T> {
+    val res = http.post(baseUrl + path, jsonMapper.render(params))
     return jsonMapper.parse<List<T>>(res.bodyOrThrow())
   }
 
-  fun getGates() = fetch<GateParty>("/get_gates").map {
+  fun getGates(status: String? = null) = fetch<GateParty>("/get_gates", ResqlParams(status = status)).map {
     EDeliveryParty(it.id, it.eDeliveryUrl, it.eDeliveryCert, it.tlsCert)
   }.associateBy { it.id }.also { log.info("Fetched gates: ${it.keys}") }
 

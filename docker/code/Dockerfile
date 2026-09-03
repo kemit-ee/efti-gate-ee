@@ -25,8 +25,8 @@ COPY --from=build /app/$PROJECT/build/libs ./
 USER user
 
 ENV TZ=Europe/Tallinn
-ENV JAVA_TOOL_OPTIONS="-Xss256K -XX:MaxRAMPercentage=80 -XX:+UseCompactObjectHeaders -XX:+ExitOnOutOfMemoryError --add-opens=java.net.http/jdk.internal.net.http=ALL-UNNAMED"
-CMD java -jar *.jar
+ENV JAVA_MAIN_OPTIONS="-Xss256K -XX:MaxRAMPercentage=80 -XX:+UseCompactObjectHeaders -XX:+ExitOnOutOfMemoryError --add-opens=java.net.http/jdk.internal.net.http=ALL-UNNAMED"
+CMD java $JAVA_MAIN_OPTIONS -jar *.jar
 
 ARG PORT
 ENV PORT=$PORT

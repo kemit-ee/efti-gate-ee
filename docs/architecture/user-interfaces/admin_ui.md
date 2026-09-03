@@ -2,7 +2,7 @@
 
 ## Changes
 
-- **v1.1** — No role-selection step. RBAC is two `users` booleans (`is_admin`, `is_authority`);
+- **v1.1** — No role-selection step. RBAC is the single `users.is_admin` boolean;
   the former `roles TEXT[]` is gone. A caller is an admin or is not — nothing to select or switch.
   The user form carries an "Admin" and an "Authority" checkbox.
 - _Initial state. Change tracking begins at v1.0.0._

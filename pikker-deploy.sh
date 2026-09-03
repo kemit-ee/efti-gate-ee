@@ -3,11 +3,14 @@ set -e
 
 SERVER=root@pikker.dev
 
+(cd code/ui && npm run test:run && npm run check && npm run build)
+(cd code && ./gradlew test jar --info)
+
 DOCKER_DEFAULT_PLATFORM=linux/amd64 docker compose -f compose.yml -f compose.pikker.yml build
 
-IMAGES=$(docker compose images --format json | jq -r '.[] | select(.Repository | startswith("efti_gate_ee-")) | "\(.Repository):\(.Tag)"' | sort -u)
+IMAGES=$(docker compose -f compose.yml -f compose.pikker.yml config --images | grep '^efti_')
 
-echo "Saving images: $IMAGES"
+echo "Saving images..."
 docker save $IMAGES | gzip | ssh $SERVER 'gunzip | docker load'
 
 scp compose.yml compose.pikker.yml $SERVER:efti-gate-ee/

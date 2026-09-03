@@ -14,7 +14,7 @@ X-Api-Key: mock-secret-key
 POST {{RUUTER_URL}}/efti/api/v1/authority/search
 Content-Type: application/json
 X-Request-ID: 073b32bc-a081-11f1-8d67-3c9c0f2eb459
-Authorization: Bearer {{adminToken}}
+Authorization: Bearer {{adminToken}} # TODO: this is not right for authority
 
 {
   "mainTransportId": {"operator": "EQ", "id": "VESSEL-001"}
@@ -30,13 +30,14 @@ Authorization: Bearer {{adminToken}}
 
 ### Authority searches for remote consignments
 # @timeout 70
-#POST {{RUUTER_URL}}/efti/api/v1/authority/search
-#Content-Type: application/json
-#X-Request-ID: 073b32bc-a081-11f1-8d67-3c9c0f2eb459
-#
-#{
-#  "mainTransportId": {"operator": "EQ", "id": "065EST"}
-#}
+POST {{RUUTER_URL}}/efti/api/v1/authority/search
+Content-Type: application/json
+X-Request-ID: 073b32bc-a081-11f1-8d67-3c9c0f2eb459
+Authorization: Bearer {{adminToken}} # TODO: this is not right for authority
+
+{
+  "mainTransportId": {"operator": "EQ", "id": "065EST"}
+}
 
 ### Authority retrieves a full dataset of a consignment (local platform)
 GET {{RUUTER_URL}}/efti/api/v1/authority/dataset/EU-EE/mock/b24ebf37-a068-11f1-b8f0-3c9c0f2eb459

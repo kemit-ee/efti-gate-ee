@@ -117,7 +117,7 @@ check_authority:
   switch:
     - condition: ${authority_res.response.status != 200}
       next: guard_forbidden
-    - condition: ${authority_res.response.body == null || authority_res.response.body.length == 0}
+    - condition: ${!authority_res.response.body.length}
       next: guard_forbidden
     - condition: ${authority_res.response.body.length > 1}
       next: guard_ambiguous

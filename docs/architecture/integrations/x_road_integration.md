@@ -52,9 +52,10 @@ fall-through; a missing or empty header can never match, even if the constant we
 This works because `core`'s authority handlers are **identity-blind**: `authority/dataset.yml` reads
 only `body.uil` and `body.subsets`, `authority/follow-up.yml:12` writes `requestingUserId: ""`,
 `authority/consignments-search.yml` proxies the body to ReSql, and `authority/search.yml` never
-touches the caller. Identity matters only in the guard, and only as "ADMIN or AUTHORITY?" — so the
-adapter does not impersonate a user. It performs the real authorisation itself: organisation from
-`X-Road-Client`, subsets from `authorities.subsets`, both before forwarding.
+touches the caller. Identity matters only in the guard, and only as "is this an admin?" (the JWT
+path now resolves gate operators only — a competent authority proper authenticates over X-Road) —
+so the adapter does not impersonate a user. It performs the real authorisation itself: organisation
+from `X-Road-Client`, subsets from `authorities.subsets`, both before forwarding.
 
 > The service token grants full Authority-API access to whoever holds it, and it is baked into the
 > image at build time. The same network-isolation requirement therefore applies to port

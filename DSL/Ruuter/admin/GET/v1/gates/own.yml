@@ -11,7 +11,7 @@ fetch_own_gate:
 
 check_found:
   switch:
-    - condition: ${result.response.body == null || result.response.body.length == 0}
+    - condition: ${!result.response.body.length}
       next: not_found
   next: respond
 

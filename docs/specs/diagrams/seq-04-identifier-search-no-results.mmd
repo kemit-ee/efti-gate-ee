@@ -8,7 +8,7 @@ sequenceDiagram
     Authority->>+Gate: GET /v1/identifiers/999ZZZ?registrationCountryCode=EE
     Note over Authority,Gate: Accept: text/event-stream<br/>X-Request-ID echoed.
 
-    Gate->>Gate: Authenticate & authorize (require is_admin OR is_authority)
+    Gate->>Gate: Authenticate & authorize (require is_admin)
 
     Gate->>+DB: Local identifier search:<br/>resolve latest consignments rows matching vehicle_plate='999ZZZ',<br/>keep only those whose latest status = 'active'.
     DB-->>-Gate: 0 results

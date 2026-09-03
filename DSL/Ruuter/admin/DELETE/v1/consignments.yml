@@ -13,10 +13,10 @@ delete_consignment:
 # an empty body means no such consignment. No re-fetch needed.
 check_delete:
   switch:
-    - condition: ${delete_result.response.body == null || delete_result.response.body.length == 0}
-      next: not_found
-    - condition: ${delete_result.response.body[0].status != 'DELETED'}
+    - condition: ${delete_result.response.status >= 400 || delete_result.response.body[0]?.status != 'DELETED'}
       next: delete_failed
+    - condition: ${!delete_result.response.body.length}
+      next: not_found
   next: respond
 
 respond:

@@ -6,6 +6,7 @@ import klite.annotations.POST
 import klite.annotations.PathParam
 import klite.http.post
 import klite.http.timeout
+import java.lang.Thread.currentThread
 import java.net.URI
 import java.net.http.HttpClient
 import java.util.*
@@ -13,18 +14,19 @@ import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.TimeUnit.SECONDS
 import kotlin.time.Duration.Companion.seconds
 
-class MultiplexerRoutes(private val registry: GateRegistry, private val http: HttpClient) {
+class MultiplexerRoutes(private val registry: MultiplexerGateRegistry, private val http: HttpClient) {
   private val eDeliveryUrl = URI(Config["EDELIVERY_URL"])
   private val pending = Cache<UUID, PartyResponses>(90.seconds)
 
   @Operation(description = "Multiplex a search request to all gates. Returns first response as XML.")
   @POST("/first/:searchId") fun multiplex(xml: String, @PathParam searchId: UUID): String {
+    currentThread().name = searchId.toString()
     val responses = PartyResponses()
     pending[searchId] = responses
 
     AppScope.async {
       val futures = registry.gates.keys.map { gateId ->
-        AppScope.async {
+        AppScope.async("+$gateId") {
           val response = http.post(eDeliveryUrl + "/api/v1/send/$gateId", xml) {
             header("x-request-id", searchId.toString())
             timeout(62.seconds)

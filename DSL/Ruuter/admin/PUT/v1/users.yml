@@ -12,7 +12,7 @@ check_exists:
 
 check_found:
   switch:
-    - condition: ${exists_result.response.body == null || exists_result.response.body.length == 0}
+    - condition: ${!exists_result.response.body.length}
       next: not_found
   next: update_user
 
@@ -27,14 +27,13 @@ update_user:
       taraSub: "${incoming.body.taraSub}"
       name: "${incoming.body.name}"
       isAdmin: ${incoming.body.isAdmin ?? false}
-      isAuthority: ${incoming.body.isAuthority ?? false}
   result: update_result
   next: check_update
 
 # update_user RETURNS the new row (column list matches get_user_by_id). No re-fetch needed.
 check_update:
   switch:
-    - condition: ${update_result.response.body == null || update_result.response.body.length == 0}
+    - condition: ${update_result.response.status >= 400 || !update_result.response.body.length}
       next: update_failed
   next: respond
 

@@ -237,8 +237,7 @@ CREATE TABLE users (
   id                UUID         NOT NULL,                 -- logical user identifier; NOT unique
   tara_sub          TEXT         NOT NULL,                 -- the JWT `sub` value the gate matches against; never NULL
   name              TEXT         NOT NULL,
-  is_admin          BOOLEAN      NOT NULL DEFAULT FALSE,   -- full admin API access
-  is_authority      BOOLEAN      NOT NULL DEFAULT FALSE,   -- authority API access (dataset search, follow-up)
+  is_admin          BOOLEAN      NOT NULL DEFAULT FALSE,   -- full admin API access + the JWT authority API
   secret_hash       TEXT,                                  -- bcrypt of break-glass local-admin password. NULL for the typical user (TARA OIDC JWT).
   token_revoked_at  TIMESTAMPTZ,                           -- per-user broadcast revocation marker; see COMMENT for semantics
   is_active         BOOLEAN      NOT NULL DEFAULT TRUE,
@@ -246,13 +245,12 @@ CREATE TABLE users (
   created_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-COMMENT ON TABLE  users IS 'Human users of the gate (authority officers, gate admins, and the single break-glass local-admin row). Append-only: every credential rotation or status flip INSERTs a new row with the same id. Primary auth is TARA OIDC; the gate matches the JWT `sub` claim against `tara_sub` to resolve a JWT to its users row. Platform identity is NOT modelled here (Platform API uses mTLS against platforms.e_delivery_cert); G2G identity is at the AS4 access point.';
+COMMENT ON TABLE  users IS 'Human users of the gate (gate admins and the single break-glass local-admin row). Append-only: every credential rotation or status flip INSERTs a new row with the same id. Primary auth is TARA OIDC; the gate matches the JWT `sub` claim against `tara_sub` to resolve a JWT to its users row. Platform identity is NOT modelled here (Platform API uses mTLS against platforms.e_delivery_cert); G2G identity is at the AS4 access point.';
 COMMENT ON COLUMN users.row_id            IS 'Synthetic primary key, unique per row';
 COMMENT ON COLUMN users.id                IS 'Logical user identifier (UUID). Many rows over time; latest wins.';
 COMMENT ON COLUMN users.tara_sub          IS 'The `sub` value the gate matches against on every JWT validation. For TARA-issued JWTs this is the Estonian PIC. For the single break-glass local-admin row it is the reserved literal ''local-admin'' (lower-case, never collides with a PIC). Never NULL — the lookup path is uniform across TARA and break-glass JWTs.';
 COMMENT ON COLUMN users.name              IS 'Display name';
-COMMENT ON COLUMN users.is_admin          IS 'TRUE grants full admin API access (gate/platform/authority/user CRUD). Replaces the former roles TEXT[] ''ADMIN'' entry.';
-COMMENT ON COLUMN users.is_authority      IS 'TRUE grants authority API access (dataset search, follow-up, authority-search). Replaces the former roles TEXT[] ''AUTHORITY'' entry. The authority guards allow is_admin OR is_authority; both FALSE means authenticated but no API access beyond GET /api/v1/user.';
+COMMENT ON COLUMN users.is_admin          IS 'TRUE grants full admin API access (gate/platform/authority/user CRUD) and the JWT authority API (dataset search, follow-up, authority-search). Replaces the former roles TEXT[] ''ADMIN'' entry. FALSE means authenticated but no API access beyond GET /api/v1/user. Competent authorities proper authenticate as organisations over X-Road (authorities.registry_code), not as users.';
 COMMENT ON COLUMN users.secret_hash       IS 'bcrypt hash of the break-glass local-admin password. NULL for the typical user — primary auth is TARA-issued OIDC JWT (Authority + Admin) or the platform''s eDelivery AP X.509 cert (Platform). Populated only on the single local-root row used during TARA outages and initial bootstrap; the break-glass path is exposed via POST /api/v1/auth/local-token, default-disabled (LOCAL_ADMIN_FALLBACK_ENABLED=false).';
 COMMENT ON COLUMN users.token_revoked_at  IS 'Per-user broadcast revocation marker. POST /api/v1/users/{userId}/revoke-token INSERTs a new users row with this column set to NOW(); on JWT validation the gate rejects any presented JWT whose `iat` claim predates the resolved user''s latest token_revoked_at. Distinct from the per-jti `sessions` denylist (which targets a specific JWT, e.g. on POST /api/v1/auth/logout); this column targets all currently-issued JWTs for the user. NULL means no broadcast revocation has occurred.';
 COMMENT ON COLUMN users.is_active     IS 'Logical-deletion flag';
@@ -458,7 +456,6 @@ CREATE TABLE follow_up_log (
   row_id                  UUID             PRIMARY KEY DEFAULT uuid_generate_v4(),
   follow_up_id            UUID             NOT NULL,                 -- logical id of the follow-up message
   requesting_gate_id      CITEXT           NOT NULL,
-  requesting_user_id      UUID,                                       -- logical users.id (denormalised, no FK)
   dataset_request_id      UUID             NOT NULL,
   destination_gate_id     CITEXT           NOT NULL,
   destination_platform_id CITEXT           NOT NULL,
@@ -473,7 +470,6 @@ COMMENT ON TABLE  follow_up_log IS 'Log of follow-up messages received by the AA
 COMMENT ON COLUMN follow_up_log.row_id                  IS 'Synthetic primary key';
 COMMENT ON COLUMN follow_up_log.follow_up_id            IS 'Unique identifier of the follow-up message (UUIDv4). Mandatory per Art 6(2)(c).';
 COMMENT ON COLUMN follow_up_log.requesting_gate_id      IS 'Gate that originated the follow-up (AAP). Mandatory per Art 6(2)(c).';
-COMMENT ON COLUMN follow_up_log.requesting_user_id      IS 'Logical users.id of the authority user (NULL for G2G follow-ups without user attribution)';
 COMMENT ON COLUMN follow_up_log.dataset_request_id      IS 'Dataset request being followed up on';
 COMMENT ON COLUMN follow_up_log.destination_gate_id     IS 'Gate that owns the target platform';
 COMMENT ON COLUMN follow_up_log.destination_platform_id IS 'Platform the follow-up was delivered to';
@@ -650,11 +646,11 @@ BEGIN;
 -- The break-glass local-admin row carries the reserved literal tara_sub='local-admin' so
 -- the JWT validation lookup path is uniform across TARA-issued and gate-issued JWTs.
 -- TARA-side users carry their Estonian PIC (literal placeholders below).
-INSERT INTO users (id, tara_sub, name, is_admin, is_authority, secret_hash) VALUES
-  ('a0000000-0000-4000-8000-000000000001', 'local-admin',    'Break-glass Local Admin', TRUE,  FALSE, '$2a$12$REPLACE_WITH_REAL_BCRYPT_HASH_DURING_BOOTSTRAP'),
-  ('a0000000-0000-4000-8000-000000000002', 'EE00000000001',  'Multi-Gate Super Admin',  TRUE,  FALSE, NULL),
-  ('a0000000-0000-4000-8000-000000000003', 'EE00000000002',  'MTA Inspector',           FALSE, TRUE,  NULL),
-  ('a0000000-0000-4000-8000-000000000004', 'EE00000000003',  'PPA Border Officer',      FALSE, TRUE,  NULL);
+INSERT INTO users (id, tara_sub, name, is_admin, secret_hash) VALUES
+  ('a0000000-0000-4000-8000-000000000001', 'local-admin',    'Break-glass Local Admin', TRUE,  '$2a$12$REPLACE_WITH_REAL_BCRYPT_HASH_DURING_BOOTSTRAP'),
+  ('a0000000-0000-4000-8000-000000000002', 'EE00000000001',  'Multi-Gate Super Admin',  TRUE,  NULL),
+  ('a0000000-0000-4000-8000-000000000003', 'EE00000000002',  'MTA Inspector',           TRUE,  NULL),
+  ('a0000000-0000-4000-8000-000000000004', 'EE00000000003',  'PPA Border Officer',      TRUE,  NULL);
 
 -- Seed gates
 INSERT INTO gates (id, country_code, e_delivery_url, status, last_ping_at) VALUES

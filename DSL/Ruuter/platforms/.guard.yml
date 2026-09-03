@@ -5,7 +5,7 @@
 # POST /admin/v1/platforms/api-key/:id and shown once.
 check_present:
   switch:
-    - condition: ${!incoming.headers?.['x-api-key']}
+    - condition: ${!incoming.headers['x-api-key']}
       next: guard_fail
   next: resolve_platform
 
@@ -25,7 +25,7 @@ resolve_platform:
 # failure) makes every length comparison false, so it must land on guard_fail, not guard_success.
 check_platform:
   switch:
-    - condition: ${platform_res.response.status != 200 || !platform_res.response.body?.length}
+    - condition: ${platform_res.response.status != 200 || !platform_res.response.body.length}
       next: guard_fail
     - condition: ${platform_res.response.body.length > 1}
       next: guard_multi
@@ -34,6 +34,11 @@ check_platform:
   next: guard_fail
 
 guard_success:
+  assign:
+    platform: ${platform_res.response.body[0]}
+  next: return
+
+return:
   return: "success"
   status: 200
   wrapper: false

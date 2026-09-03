@@ -1,6 +1,7 @@
 /*
 description: get platforms
 params:
+  status: { type: string }
   limit: { type: number, default: 20 }
   offset: { type: number, default: 0 }
 */
@@ -20,5 +21,5 @@ SELECT * FROM (
   FROM platforms
   ORDER BY id, created_at DESC
 ) latest
-WHERE status != 'DELETED'
+WHERE :status IS NULL AND status != 'DELETED' OR status = :status
 LIMIT COALESCE(:limit, 20) OFFSET COALESCE(:offset, 0);

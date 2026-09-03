@@ -95,7 +95,6 @@
     "tokenRevokedAt": "Token revoked at",
     "access": "Access",
     "isAdmin": "Admin",
-    "isAuthority": "Authority",
     "cannotRemoveOwnAdmin": "Cannot remove your own admin access",
     "secretHash": "Secret hash",
     "generateSecret": "Generate new password or token",

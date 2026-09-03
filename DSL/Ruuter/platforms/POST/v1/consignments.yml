@@ -1,5 +1,10 @@
 declaration:
-  description: "Accept consignment XML from Platforms (External API)"
+  description: |
+    Accept consignment XML from Platforms (External API)
+    Posted XML can be: 
+      * the full FTI004UploadIdentifierRequest (if coming via eDelivery)
+      * just the ParameterIDSetCriteria element (for direct platform upload via REST).
+        In this case, datasetId must be provided as path parameter.
   allowed_body: [xml]
 
 consignment_xml:
@@ -11,6 +16,9 @@ consignment_xml:
     content_type: plaintext
     headers:
       Content-Type: "text/xml"
+      X-Gate-Id: '[#OWN_GATE_ID]'
+      X-Platform-Id: ${incoming.body.platformId}
+      X-Dataset-Id: ${incoming.params?.pathParams[0]}
   result: consignment_json
   next: insert_consignment
 
@@ -26,7 +34,7 @@ insert_consignment:
 
 check_insert:
   switch:
-    - condition: ${insert_result.response.body == null || insert_result.response.body.length == 0}
+    - condition: ${insert_result.response.status >= 400 || !insert_result.response.body.length}
       next: insert_failed
   next: verify_consignment
 
@@ -37,13 +45,13 @@ verify_consignment:
     headers:
       Content-Type: "application/json"
     body:
-      datasetId: "${insert_result.response.body[0].datasetId}"
+      datasetId: "${insert_result.response.body[0]?.datasetId}"
   result: verify_result
   next: check_verify
 
 check_verify:
   switch:
-    - condition: ${verify_result.response.body == null || verify_result.response.body.length == 0}
+    - condition: ${!verify_result.response.body.length}
       next: verify_failed
   next: respond
 

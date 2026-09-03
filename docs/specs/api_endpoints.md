@@ -34,12 +34,12 @@ mis on **teostatud**, mis on **puudu** ja millised on näidisissendid/väljundid
 | Teema | Reegel |
 |---|---|
 | **Auth (Admin)** | TARA OIDC JWT — `Authorization: Bearer <jwt>` (RS256, JWKS) |
-| **Auth (Authority API)** | TARA OIDC JWT — sama mehhanism, nõuab `is_authority` VÕI `is_admin` |
+| **Auth (Authority API)** | TARA OIDC JWT — sama mehhanism, nõuab `is_admin` |
 | **Auth (Platform API)** | mTLS X.509 — reversproxy edastab `X-Client-Cert-Subject` + `X-Client-Cert-Serial` |
 | **Auth (Cron)** | Staatiline `ARCHIVE_OPS_TOKEN` env-muutuja |
 | **Health** | Autentimine puudub — avalik |
-| **Guard-failid** | Ainult kausta-tasemel `.guard.yml` jõustatakse. `admin/GET|POST|PUT|DELETE /v1/*` → `is_admin`; `efti/GET/api/v1/*` → autentimine nõutav; `efti/POST/api/v1/authority/*` → `is_authority` või `is_admin`; `efti/POST/api/v1/*` (G2G sisend) → avalik; `auth/POST/*` → avalik |
-| **Õigusmudel** | `users.is_admin` — kõik haldustoimingud; `users.is_authority` — dataset/follow-up/authority-search; mõlemad `false` — ainult `/api/v1/user`. (Endine `roles TEXT[]` on kahe boolean veeruga asendatud.) |
+| **Guard-failid** | Ainult kausta-tasemel `.guard.yml` jõustatakse. `admin/GET|POST|PUT|DELETE /v1/*` → `is_admin`; `efti/GET/api/v1/*` → autentimine nõutav; `efti/POST/api/v1/authority/*` → `is_admin`; `efti/POST/api/v1/*` (G2G sisend) → avalik; `auth/POST/*` → avalik |
+| **Õigusmudel** | `users.is_admin` — kõik haldustoimingud + JWT authority API (dataset/follow-up/search); `false` — ainult `/api/v1/user`. Asutus ise autendib organisatsioonina X-Roadi kaudu (`authorities.registry_code`), mitte kasutajana. (Endine `roles TEXT[]` asendatud.) |
 | **Veavastuse formaat** | RFC 7807 `application/problem+json` |
 | **`X-Request-ID`** | UUID päis kõigil muteerivaatel (POST/PUT/DELETE); duplikaat 10 min jooksul → 409 |
 | **Paginatsioon** | `?limit=100&offset=0`; kogus `X-Total-Count` päises |
@@ -790,7 +790,6 @@ GET /efti/api/v1/users?limit=2&offset=0
 | `taraSub` | string | ✅ | TARA `sub` väärtus |
 | `name` | string | ✅ | |
 | `isAdmin` | boolean | ❌ | Vaikimisi `false` |
-| `isAuthority` | boolean | ❌ | Vaikimisi `false` |
 
 ```json
 // Päring
@@ -800,8 +799,7 @@ Content-Type: application/json
 {
   "taraSub": "EE12345678901",
   "name": "Mari Mets",
-  "isAdmin": false,
-  "isAuthority": true
+  "isAdmin": false
 }
 
 // Vastus 201 Created
@@ -860,7 +858,7 @@ GET /efti/api/v1/users?userId=550e8400-e29b-41d4-a716-446655440000
 
 **Auth:** nõuab `is_admin = true`. (Admin-liides blokeerib enda `isAdmin` lipu eemaldamise; backend seda ei jõusta.)
 
-Päringu keha sama mis `POST /users` (sh `isAdmin` / `isAuthority`).
+Päringu keha sama mis `POST /users` (sh `isAdmin`).
 
 ```json
 // Päring
@@ -869,8 +867,7 @@ Content-Type: application/json
 
 {
   "name": "Mari Mets-Uuendatud",
-  "isAdmin": false,
-  "isAuthority": true
+  "isAdmin": true
 }
 
 // Vastus 200 OK
@@ -1039,7 +1036,7 @@ Auth: mTLS X.509 — reversproxy edastab `X-Client-Cert-Subject` + `X-Client-Cer
 
 ### 9.6 Authority API (TARA JWT) ✅
 
-Auth: TARA OIDC JWT — kõik `efti/POST/api/v1/authority/` teed nõuavad `is_authority` või
+Auth: TARA OIDC JWT — kõik `efti/POST/api/v1/authority/` teed nõuavad
 `is_admin` (`efti/POST/api/v1/authority/.guard.yml`). Ruuter jõustab ainult
 kausta-tasemel `.guard.yml` faile; per-route guard faili ei jõustata. `GET /api/v1/*`
 on any-auth guardi taga (piisab autentimisest).
@@ -1047,9 +1044,9 @@ on any-auth guardi taga (piisab autentimisest).
 | Meetod | Ruuter DSL | Ruuter tee | Kirjeldus |
 |---|---|---|---|
 | `GET` | `DSL/Ruuter/efti/GET/api/v1/identifiers.yml` | `GET /efti/api/v1/identifiers?identifier={id}` | Otsing `mainTransportId` / `usedEquipmentIds` järgi |
-| `POST` | `DSL/Ruuter/efti/POST/api/v1/authority/dataset.yml` | `POST /efti/api/v1/authority/dataset` | FTI010 XML andmestik, filtreerituna `subsets[]` järgi — nõuab is_authority või is_admin |
-| `POST` | `DSL/Ruuter/efti/POST/api/v1/authority/follow-up.yml` | `POST /efti/api/v1/authority/follow-up` | FTI025 XML sisend → log → FTI030 XML vastus — nõuab is_authority või is_admin |
-| `POST` | `DSL/Ruuter/efti/POST/api/v1/authority/search.yml` | `POST /efti/api/v1/authority/search` | Saadetiste otsing: kohalik + broadcast teistele väravatele — nõuab is_authority või is_admin |
+| `POST` | `DSL/Ruuter/efti/POST/api/v1/authority/dataset.yml` | `POST /efti/api/v1/authority/dataset` | FTI010 XML andmestik, filtreerituna `subsets[]` järgi — nõuab is_admin |
+| `POST` | `DSL/Ruuter/efti/POST/api/v1/authority/follow-up.yml` | `POST /efti/api/v1/authority/follow-up` | FTI025 XML sisend → log → FTI030 XML vastus — nõuab is_admin |
+| `POST` | `DSL/Ruuter/efti/POST/api/v1/authority/search.yml` | `POST /efti/api/v1/authority/search` | Saadetiste otsing: kohalik + broadcast teistele väravatele — nõuab is_admin |
 
 > Väravatevahelised (G2G) sisendteed `efti/POST/api/v1/{dataset,follow-up}-xml`,
 > `…-local` ja `consignments/search-xml` jäävad avalikuks (neid kutsub ainult
@@ -1184,7 +1181,6 @@ Kõik vead järgivad RFC 7807 `application/problem+json` formaati.
 | `taraSub` | string | TARA autentimise sub |
 | `name` | string | |
 | `isAdmin` | boolean | `true` = admin API ligipääs |
-| `isAuthority` | boolean | `true` = authority API ligipääs (dataset/follow-up/search) |
 | `tokenRevokedAt` | datetime\|null | Tokeni tühistamise aeg |
 | `isUserActive` | boolean | `false` = pehme kustutus |
 | `createdAt` | datetime | |
