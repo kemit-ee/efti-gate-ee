@@ -6,7 +6,7 @@ consignments:
       Content-Type: "application/json"
     body:
       criteria: {}
-      limit: ${incoming.params.limit ?? 11}
+      limit: ${incoming.params.limit ?? 100}
       offset: ${incoming.params.offset ?? 0}
   result: search_result
   next: respond

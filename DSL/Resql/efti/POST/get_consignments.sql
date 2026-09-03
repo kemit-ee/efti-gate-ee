@@ -1,6 +1,7 @@
 /*
 description: get consignments
 params:
+  gateId: { type: string }
   criteria: { type: object }
   limit: { type: number, default: 20 }
   offset: { type: number, default: 0 }
@@ -39,6 +40,7 @@ FROM (
   ORDER BY platform_id, dataset_id, created_at DESC
 ) latest
 WHERE status != 'DELETED'
+  AND (:gateId IS NULL OR gate_id = :gateId)
   AND (:criteria->>'transportMode' IS NULL
        OR :criteria->'transportMode'->>'operator' = 'EQ' AND transport_mode = :criteria->'transportMode'->>'mode'
        OR :criteria->'transportMode'->>'operator' = 'NE' AND transport_mode != :criteria->'transportMode'->>'mode'
@@ -160,4 +162,4 @@ WHERE status != 'DELETED'
        OR :criteria->'unloadingDate'->1->>'operator' = 'GE' AND unloading_date >= (:criteria->'unloadingDate'->1->>'date')::timestamptz
   )
 ORDER BY platform_id, dataset_id, created_at DESC
-LIMIT COALESCE(:limit, 20) OFFSET COALESCE(:offset, 0);
+LIMIT COALESCE(:limit, 100) OFFSET COALESCE(:offset, 0);

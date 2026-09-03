@@ -17,7 +17,7 @@ class EftiMessageHandlers(
     "hello" to { null },
     "FTI009GetCmdsRequest" to { if (isOwnGate(it)) ruuterClient.getLocalDataset(it.xml) else ruuterClient.getDataset(it.xml) },
     "FTI010GetCmdsResponse" to ::provideResponse,
-    "FTI019SearchIdentifierRequest" to { ruuterClient.searchConsignments(it.xml) },
+    "FTI019SearchIdentifierRequest" to { ruuterClient.searchConsignments(it.xml, it.key.receiverId) },
     "FTI021SearchIdentifierResponse" to ::provideResponse,
     "FTI004UploadIdentifierRequest" to { ruuterClient.saveConsignment(it.xml) },
     "FTI029UploadIdentifierResponse" to ::provideResponse,
