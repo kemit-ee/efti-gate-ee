@@ -54,10 +54,13 @@ X-Api-Key: mock-secret-key
 %}
 
 ### Platform uploads a new consignment over eDelivery
-# consignments-xml.yml is now covered by the platforms/POST/v1/.guard.yml directory
-# guard (ADR-004), so it needs the X-Api-Key too.
+# consignments-xml.yml is covered by the platforms/.guard.yml directory guard
+# (ADR-004), so it needs the X-Api-Key too. See issue: eDelivery inbound should be
+# authenticated by AS4 mTLS at the edelivery layer, not by a platform API key —
+# blocked on Ruuter #57 (per-route guard opt-out).
 POST {{RUUTER_URL}}/platforms/v1/consignments-xml
 Content-Type: text/xml
+X-Api-Key: mock-secret-key
 
 < ../../code/xml-mapper/xsd/FTI004/sample.xml
 
