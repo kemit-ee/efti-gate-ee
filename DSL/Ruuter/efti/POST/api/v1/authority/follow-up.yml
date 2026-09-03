@@ -9,7 +9,6 @@ insert_log:
       Content-Type: "application/json"
     body:
       requestingGateId: "${incoming.body.uil.gateId}"
-      requestingUserId: ""
       datasetRequestId: "${incoming.body.uil.datasetId}"
       destinationGateId: "${incoming.body.uil.gateId}"
       destinationPlatformId: "${incoming.body.uil.platformId}"
