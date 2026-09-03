@@ -1,6 +1,5 @@
 import type en from './en.json'
 import langs from './langs.json'
-import type {Instant} from 'src/api/types'
 
 export function changeLang(lang: typeof langs[number]) {
   localStorage['lang'] = lang
@@ -25,6 +24,6 @@ async function load() {
 export const lang = choosePreferredLang()
 export let t: typeof en = await load()
 
-export function formatDateTime(date?: Instant) {
+export function formatDateTime(date?: string) {
   return date ? new Intl.DateTimeFormat(lang === 'et' ? 'et-EE' : 'en-GB', {dateStyle: 'long', timeStyle: 'medium'}).format(new Date(date)) : ''
 }

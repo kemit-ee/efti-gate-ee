@@ -3,6 +3,9 @@ set -e
 
 SERVER=root@pikker.dev
 
+(cd code/ui && npm run test:run && npm run check && npm run build)
+(cd code && ./gradlew test jar --info)
+
 DOCKER_DEFAULT_PLATFORM=linux/amd64 docker compose -f compose.yml -f compose.pikker.yml build
 
 IMAGES=$(docker compose -f compose.yml -f compose.pikker.yml config --images | grep '^efti_')
