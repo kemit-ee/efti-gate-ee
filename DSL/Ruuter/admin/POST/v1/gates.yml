@@ -18,7 +18,7 @@ create_gate:
 # means the insert produced nothing. No re-fetch needed.
 check_insert:
   switch:
-    - condition: ${insert_result.response.body == null || insert_result.response.body.length == 0}
+    - condition: ${insert_result.response.status >= 400 || !insert_result.response.body?.length}
       next: insert_failed
   next: respond
 
