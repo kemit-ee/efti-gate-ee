@@ -44,12 +44,11 @@ X-Api-Key: mock-secret-key
 </ParameterIDSetCriteria>
 
 > {%
-  client.test("Consignment saved", () => {
-    // Uncomment when this is fixed https://github.com/turnerrainer/Resql/issues/11
-    // client.assert(response.status === 201)
-    // client.assert(response.body.gateId === "EU-EE")
-    // client.assert(response.body.platformId === "mock")
-    // client.assert(response.body.datasetId === "b93232c0-f798-43b5-8e2f-6663dd4c32ca")
+  client.test("Consignment saved (short format)", () => {
+    client.assert(response.status === 201)
+    client.assert(response.body.gateId === "EU-EE")
+    client.assert(response.body.platformId === "mock")
+    client.assert(response.body.datasetId === "b93232c0-f798-43b5-8e2f-6663dd4c32ca")
   })
 %}
 
@@ -101,7 +100,11 @@ Content-Type: text/xml
 %}
 
 ### Admin delete consignment
-DELETE {{RUUTER_URL}}/admin/v1/consignments/550e8400-e29b-41d4-a716-446655440000
+# Delete this file's own short-format upload (b93232c0), NOT the shared sample.xml
+# consignment (550e8400) — tests/authority/authority-api.http uploads that one and
+# xroad-forward.http / xroad-transport-means.http (which sort after this file) depend
+# on it staying ACTIVE.
+DELETE {{RUUTER_URL}}/admin/v1/consignments/b93232c0-f798-43b5-8e2f-6663dd4c32ca
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
@@ -111,14 +114,14 @@ Authorization: Bearer {{adminToken}}
   })
 %}
 
-### List contains no consignments after deletion
+### List no longer contains the deleted consignment
 GET {{RUUTER_URL}}/admin/v1/consignments
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
 > {%
-  client.test("No consignments in list after deletion", () => {
+  client.test("Deleted consignment is not listed", () => {
     client.assert(response.status === 200)
-    client.assert(response.body.length === 0)
+    client.assert(response.body.every(c => c.datasetId !== "b93232c0-f798-43b5-8e2f-6663dd4c32ca"))
   })
 %}
