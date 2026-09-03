@@ -5,7 +5,7 @@ import resql.ResqlClient
 import kotlin.concurrent.thread
 import kotlin.time.Duration.Companion.minutes
 
-class GateRegistry(private val resqlClient: ResqlClient) {
+class MultiplexerGateRegistry(private val resqlClient: ResqlClient) {
   var gates = loadOtherGates()
   init {
     thread(name = javaClass.simpleName, isDaemon = true) {
@@ -16,5 +16,5 @@ class GateRegistry(private val resqlClient: ResqlClient) {
     }
   }
 
-  private fun loadOtherGates() = resqlClient.getOnlineGates() - Config.partyId
+  private fun loadOtherGates() = resqlClient.getGates("ONLINE") - Config.partyId
 }

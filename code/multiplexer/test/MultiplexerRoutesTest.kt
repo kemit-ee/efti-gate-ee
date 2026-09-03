@@ -23,7 +23,7 @@ class MultiplexerRoutesTest {
   val party1 = EDeliveryParty(PartyId("party-1"), URI("http://p1"), "cert1")
   val party2 = EDeliveryParty(PartyId("party-2"), URI("http://p2"), "cert2")
 
-  val registry = mockk<GateRegistry> {
+  val registry = mockk<MultiplexerGateRegistry> {
     every { gates } returns mapOf(party1.id to party1, party2.id to party2)
   }
   val http = mockk<HttpClient>()
