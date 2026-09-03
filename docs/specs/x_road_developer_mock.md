@@ -23,10 +23,15 @@ Arendaja klient ──HTTP──> https://dev.efti.ee/developer/v1/{operatsioon}
 
 | | |
 |---|---|
-| Avalik baas-URL | `https://dev.efti.ee/developer/` |
+| Avalik baas-URL (sihtdomeen) | `https://dev.efti.ee/developer/` |
+| Avalik baas-URL (praegune juurutus) | `https://eu-ee.pikker.dev/developer/` |
 | Lokaalne (docker) | `http://localhost:8088/developer/` |
 | Operatsiooni tee | `POST\|GET /developer/v1/{operatsioon}` |
 | Tervisekontroll | `GET /developer/health/ready` → `200 "OK"` (päiseid ei vaja) |
+
+`ruuter-developer` konteiner ise ei avalda porti — ligipääs käib ainult läbi väravat teenindava
+nginx-i (`docker/ui/nginx.conf`, `location /developer/`). `dev.efti.ee` hakkab tööle, kui see
+domeen juurutuse pöördproksile (Caddy) suunata; nginx ise on hostist sõltumatu.
 
 Vaste päris väravale: mock `/developer/v1/echo` ↔ värav `/xroad/v1/echo` ↔ tarbija
 `/r1/EE/GOV/70001231/efti-gate/echo/v1`.
