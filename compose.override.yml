@@ -25,12 +25,21 @@ services:
   edelivery:
     ports:
       - 8081:8081
+      - 5051:5051
+    environment:
+      - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5051
   xml-mapper:
     ports:
       - 8082:8082
+      - 5052:5052
+    environment:
+      - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5052
   multiplexer:
     ports:
       - 8083:8083
+      - 5053:5053
+    environment:
+      - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5053
   ui:
     ports:
       - 8000:80
