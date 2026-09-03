@@ -22,6 +22,17 @@ services:
         - action: sync+restart
           path: ./DSL/Ruuter
           target: /app/DSL
+  ruuter-developer:
+    ports:
+      - "${EFTI_RUUTER_DEVELOPER_PORT:-8088}:8088"
+    healthcheck:
+      start_interval: 1s
+      interval: 60s
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./DSL/Ruuter-developer
+          target: /app/DSL
   edelivery:
     ports:
       - 8081:8081
@@ -63,6 +74,7 @@ services:
     image: jetbrains/intellij-http-client
     depends_on:
       - ruuter
+      - ruuter-developer
       - xml-mapper
     volumes:
       - ./:/workdir

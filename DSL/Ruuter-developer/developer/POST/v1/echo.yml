@@ -1,0 +1,41 @@
+declaration:
+  description: "Developer mock — imitates POST /xroad/v1/echo. Echoes the X-Road headers and the
+    request body, plus a canned authority row derived from the X-Road-Client member code."
+
+route:
+  switch:
+    - condition: ${memberCode == '70000000'}
+      next: respond_no_subsets
+  next: respond
+
+respond:
+  return:
+    xRoadClient: "${incoming.headers['x-road-client']}"
+    xRoadId: "${incoming.headers['x-road-id']}"
+    xRoadUserId: "${incoming.headers['x-road-userid'] ?? null}"
+    authority:
+      id: "auth-mock"
+      registryCode: "${memberCode}"
+      name: "Mock Competent Authority"
+      subsets: ["EU01", "EU02", "EU03", "EU05"]
+      status: "ACTIVE"
+    echo: ${incoming.body}
+  wrapper: false
+  status: 200
+  next: end
+
+respond_no_subsets:
+  return:
+    xRoadClient: "${incoming.headers['x-road-client']}"
+    xRoadId: "${incoming.headers['x-road-id']}"
+    xRoadUserId: "${incoming.headers['x-road-userid'] ?? null}"
+    authority:
+      id: "auth-mock"
+      registryCode: "${memberCode}"
+      name: "Mock Competent Authority (no entitlement)"
+      subsets: []
+      status: "ACTIVE"
+    echo: ${incoming.body}
+  wrapper: false
+  status: 200
+  next: end
