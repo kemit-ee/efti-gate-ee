@@ -16,6 +16,7 @@ import java.net.URI
 import java.net.http.HttpClient
 
 data class ResqlParams(
+  val status: String = "ONLINE",
   val limit: String = "9999",
   val offset: String = "0"
 )
@@ -27,18 +28,18 @@ class ResqlClient(
 ) {
   private val log = logger()
 
-  private inline fun <reified T> fetch(path: String): List<T> {
-    val res = http.post(baseUrl + path, jsonMapper.render(ResqlParams()))
+  private inline fun <reified T> fetch(path: String, params: ResqlParams = ResqlParams()): List<T> {
+    val res = http.post(baseUrl + path, jsonMapper.render(params))
     return jsonMapper.parse<List<T>>(res.bodyOrThrow())
   }
 
-  fun getGates() = fetch<GateParty>("/get_gates").map {
+  fun getOnlineGates() = fetch<GateParty>("/get_gates").map {
     EDeliveryParty(it.id, it.eDeliveryUrl, it.eDeliveryCert, it.tlsCert)
   }.associateBy { it.id }.also { log.info("Fetched gates: ${it.keys}") }
 
-  fun getPlatforms() = fetch<PlatformParty>("/get_platforms").mapNotNull { p ->
+  fun getOnlinePlatforms() = fetch<PlatformParty>("/get_platforms").mapNotNull { p ->
     p.eDeliveryCert?.let { EDeliveryParty(p.id, p.baseUrl, it, p.tlsCert) }
   }.associateBy { it.id }.also { log.info("Fetched platforms: ${it.keys}") }
 
-  fun getParties(): Map<PartyId, EDeliveryParty> = getGates() + getPlatforms()
+  fun getParties(): Map<PartyId, EDeliveryParty> = getOnlineGates() + getOnlinePlatforms()
 }

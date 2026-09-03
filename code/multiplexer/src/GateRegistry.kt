@@ -16,5 +16,5 @@ class GateRegistry(private val resqlClient: ResqlClient) {
     }
   }
 
-  private fun loadOtherGates() = resqlClient.getGates() - Config.partyId
+  private fun loadOtherGates() = resqlClient.getOnlineGates() - Config.partyId
 }
