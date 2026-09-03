@@ -29,11 +29,11 @@ class SearchRoutes(val requestIdHandler: RequestIdHandler) {
 
   @Operation(description = "Map one or more FTI021SearchIdentifierResponse as XML with delimiter to multiple ConsignmentRow as JSON. Coming from multiplexer, meant for Authority request.")
   @POST("/response-to-json") fun responseToJson(xml: String): List<ConsignmentRow> =
-    xml.split("⦀").flatMap { xml -> xmlParser.parse<FTI021SearchIdentifierResponse>(xml).content?.map { r -> ConsignmentRow(r.uil, r.criteria!!, xml) } ?: emptyList() }
+    xml.split("⦀").flatMap { xml -> xmlParser.parse<FTI021SearchIdentifierResponse>(xml).content?.map { r -> ConsignmentRow(r.uil, r.criteria!!, xml.extractParameterIDSetCriteria()) } ?: emptyList() }
 
   @Operation(description = "Map ConsignmentRow as JSON to FTI021SearchIdentifierResponse as XML. Meant for other Gate request.")
   @POST("/response-to-xml") fun responseToXml(consignments: List<ConsignmentRow>, e: HttpExchange): String =
     FTI021SearchIdentifierResponse(ExchangedDocument("021", e.requestId.uuid, responseCode = Completed)).render(
-      consignments.map { UniqueIDSetUniqueIDSet(UIL(it.platformId, it.datasetId, it.gateId)).render().replace("</UniqueIDSetUniqueIDSet>", "<ParameterIDSetCriteria>${it.xml}</ParameterIDSetCriteria></UniqueIDSetUniqueIDSet>") }
+      consignments.map { UniqueIDSetUniqueIDSet(UIL(it.platformId, it.datasetId, it.gateId)).render(it.xml) }
     )
 }

@@ -164,12 +164,8 @@ class FTIMessagesTest {
     validateXsd("FTI030", rendered)
   }
 
-  @Test fun renderNullParameterIDSetCriteria() {
-    expect(ParameterIDSetCriteria.render(null)).toEqual("")
-  }
-
   @Test fun renderEmptyParameterIDSetCriteria() {
-    expect(ParameterIDSetCriteria.render(ParameterIDSetCriteria())).toEqual("")
+    expect(ParameterIDSetCriteria().render()).toEqual("<ParameterIDSetCriteria></ParameterIDSetCriteria>")
   }
 
   @Test fun renderFullParameterIDSetCriteria() {
@@ -195,7 +191,7 @@ class FTIMessagesTest {
       carriedEquipmentCategories = listOf("BPR", "BPR"),
       carriedEquipmentSeq = listOf(3, 4)
     )
-    val xml = ParameterIDSetCriteria.render(criteria)
+    val xml = criteria.render()
 
     expect(xml).toContain("<CarrierAcceptanceDateParameterScope><SpecifiedDateTime><udt:DateTimeString format=\"102\">20210924</udt:DateTimeString></SpecifiedDateTime></CarrierAcceptanceDateParameterScope>")
     expect(xml).toContain("<CarrierAcceptanceCountryParameterScope><CountryID>DE</CountryID></CarrierAcceptanceCountryParameterScope>")
@@ -225,7 +221,7 @@ class FTIMessagesTest {
       transportMode = Mode.ROAD,
       mainTransportId = "TRUCK-001"
     )
-    val xml = ParameterIDSetCriteria.render(criteria)
+    val xml = criteria.render()
 
     expect(xml).toContain("<CarrierAcceptanceCountryParameterScope><CountryID>DE</CountryID></CarrierAcceptanceCountryParameterScope>")
     expect(xml).toContain("<MainCarriageModeCodeParameterScope><TransportModeParameterCode>3</TransportModeParameterCode></MainCarriageModeCodeParameterScope>")
