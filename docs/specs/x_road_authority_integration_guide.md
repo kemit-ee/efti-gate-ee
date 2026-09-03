@@ -3,6 +3,11 @@
 eFTI värav pakub X-tee kaudu pakkuja-poolset teenust pädevatele asutustele. See juhis kirjeldab
 teenuse identifikaatorid, päringu- ja vastuseväljad ning vead.
 
+> **Masinloetav leping:** [`x_road_openapi.yaml`](x_road_openapi.yaml) — OpenAPI 3.0
+> kirjeldus kõigist kuuest operatsioonist (skeemid, päised, veakoodid). Käesolev
+> dokument on proosaallikas; `x_road_openapi.yaml` on selle formaalne vaste.
+> Praegu on `dev`-is teostatud ainult `echo` ja `subsets`; ülejäänud on leping.
+
 ## Ülevaade
 
 ```mermaid
