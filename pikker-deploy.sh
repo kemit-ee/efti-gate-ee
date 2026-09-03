@@ -5,7 +5,7 @@ SERVER=root@pikker.dev
 
 DOCKER_DEFAULT_PLATFORM=linux/amd64 docker compose -f compose.yml -f compose.pikker.yml build
 
-IMAGES=$(docker compose images --format json | jq -r '.[] | select(.Repository != "sha256") | "\(.Repository):\(.Tag)"' | sort -u)
+IMAGES=$(docker compose images --format json | jq -r '.[] | select(.Repository | startswith("efti_gate_ee-")) | "\(.Repository):\(.Tag)"' | sort -u)
 
 echo "Saving images: $IMAGES"
 docker save $IMAGES | gzip | ssh $SERVER 'gunzip | docker load'
