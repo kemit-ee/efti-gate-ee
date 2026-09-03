@@ -1,7 +1,7 @@
 /*
 description: Existence check for a transport-means identifier — does this gate hold any ACTIVE
-  consignment for it? Returns exactly one row, {registered: true|false}, and no consignment data.
-  Backs `scope: existence` on the X-Road transport-means service (the ANTS border-check path).
+  consignment for it? Returns exactly one row carrying a single boolean flag, and no consignment
+  data. Backs the existence scope on the X-Road transport-means service (the ANTS border-check path).
 params:
   transport_means_id: { type: string, required: true }
   country_code:       { type: string }
