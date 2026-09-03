@@ -49,7 +49,7 @@
     "id": "Värava ID",
     "eDeliveryUrl": "eDelivery URL",
     "eDeliveryUrlPlaceholder": "https://some.host/services/msh",
-    "disabled": "Keelatud",
+    "disabled": "Välja lülitatud",
     "xsdSupport": "XSD tugi",
     "added": "Värav edukalt registreeritud",
     "ownGateDescription": "Teave selle värava kohta. Kasutage seda oma eDelivery juurdepääsupunkti seadistamiseks"
@@ -67,7 +67,7 @@
     "headers": "Päised",
     "xsdSupport": "XSD tugi",
     "added": "Platvorm edukalt registreeritud",
-    "disabled": "Keelatud",
+    "disabled": "Välja lülitatud",
     "status": "Staatus",
     "consignments": "Saadetised",
     "apiKey": "API võti",
