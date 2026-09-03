@@ -1349,14 +1349,13 @@ paths:
             schema:
               $ref: '#/components/schemas/UserWrite'
             examples:
-              authorityUser:
-                summary: Authority user (authority API, not admin)
+              plainUser:
+                summary: Plain user (authenticated, no API access beyond GET /api/v1/user)
                 value:
                   taraSub: "EE00000000000"
                   name: "MTA Inspector"
                   email: "inspector@example.com"
                   isAdmin: false
-                  isAuthority: true
               adminUser:
                 summary: Admin user
                 value:
@@ -1364,7 +1363,6 @@ paths:
                   name: "Gate Admin (Estonia)"
                   email: "admin@example.com"
                   isAdmin: true
-                  isAuthority: false
       responses:
         '201':
           description: User created
@@ -3175,16 +3173,12 @@ components:
         isAdmin:
           type: boolean
           description: |
-            TRUE grants full Admin API access (gate/platform/authority/user CRUD).
-            Read from `users.is_admin` (replaces the former `roles TEXT[]` ADMIN entry).
+            TRUE grants full Admin API access (gate/platform/authority/user CRUD) and
+            the JWT Authority API (dataset search, follow-up, authority-search). Read
+            from `users.is_admin` (replaces the former `roles TEXT[]` ADMIN entry).
+            FALSE means authenticated but limited to `GET /api/v1/user`. Competent
+            authorities proper authenticate as organisations over X-Road, not as users.
           example: false
-        isAuthority:
-          type: boolean
-          description: |
-            TRUE grants Authority API access (dataset search, follow-up, authority-search).
-            Read from `users.is_authority`. The authority routes allow `isAdmin` OR
-            `isAuthority`; both FALSE means authenticated but limited to `GET /api/v1/user`.
-          example: true
         isUserActive:
           type: boolean
           description: |
@@ -3218,11 +3212,7 @@ components:
         isAdmin:
           type: boolean
           default: false
-          description: Grants Admin API access. Omitted → false.
-        isAuthority:
-          type: boolean
-          default: false
-          description: Grants Authority API access (dataset search, follow-up). Omitted → false.
+          description: Grants Admin API access and the JWT Authority API. Omitted → false.
         subsets:
           type: array
           nullable: true

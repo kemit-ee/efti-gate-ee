@@ -1,5 +1,5 @@
 flowchart TD
-    Start([Authority: GET /v1/dataset/gateId/platformId/datasetId?subsetId=EU07]) --> AuthCheck[Authenticate & authorize\nis_admin OR is_authority required]
+    Start([Authority: GET /v1/dataset/gateId/platformId/datasetId?subsetId=EU07]) --> AuthCheck[Authenticate & authorize\nis_admin required]
 
     AuthCheck --> ParseUIL[Parse UIL\ngateId, platformId, datasetId, subsetId]
 

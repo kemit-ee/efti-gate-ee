@@ -2,7 +2,7 @@
 
 ## Changes
 
-- **v1.1** — RBAC is two `users` booleans (`is_admin`, `is_authority`), not a role set. The "Role
+- **v1.1** — RBAC is the single `users.is_admin` boolean, not a role set. The "Role
   selection and navigation" criteria below (multi-role users, role-switch, role in chrome) no
   longer apply. AC text is issue-synced; correct it in the GitHub issue.
 - _Initial state. Change tracking begins at v1.0.0._

@@ -11,9 +11,6 @@ declaration:
       - field: authorization
         type: string
         description: "Bearer <gate JWT>"
-      - field: x-viljus-knows-a-secret
-        type: string
-        description: "Shared internal secret ([#INTERNAL_SECRET]); checked by internal/.guard.yml"
       - field: x-forwarded-for
         type: string
         description: "Original client address, forwarded by the calling .guard"
@@ -22,9 +19,9 @@ declaration:
         description: "Correlation id, forwarded by the calling .guard"
 
 # Shared authentication logic called over Ruuter's loopback by the .guard files.
-# The secret header is enforced by DSL/Ruuter/efti/POST/internal/.guard.yml; the
-# calling guards also forward x-forwarded-for / x-request-id so this line has
-# a bit of context on who asked.
+# Reachability is governed by network isolation + `internal_requests` (see
+# DSL/Ruuter/efti/POST/internal/.guard.yml); the calling guards forward
+# x-forwarded-for / x-request-id so this line has a bit of context on who asked.
 #
 # Why an internal HTTP route rather than a `template:` step: the Rust engine
 # (ruuter-on-rust v0.8.1-rc.3) parses `template:` but cannot execute it — the step aborts
@@ -76,7 +73,7 @@ check_tara_sub:
   next: unauthorized
 
 # DB lookup: validates is_active, token_revoked_at (broadcast revocation), and returns
-# is_admin / is_authority flags. 0 rows → reject for any reason.
+# the is_admin flag. 0 rows → reject for any reason.
 lookup_user:
   call: http.post
   args:

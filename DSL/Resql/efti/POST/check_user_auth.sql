@@ -1,6 +1,6 @@
 /*
 description: Validate that a user is active and their token has not been revoked by broadcast.
-  Returns the user row (with is_admin / is_authority flags) if the user passes all checks;
+  Returns the user row (with the is_admin flag) if the user passes all checks;
   returns 0 rows if the user is inactive, unknown, or the token predates token_revoked_at.
 params:
   tara_sub:         { type: string,  required: true }   # personalCode from JWT claims
@@ -10,11 +10,10 @@ SELECT
   u.id,
   u.tara_sub,
   u.name,
-  u.is_admin,
-  u.is_authority
+  u.is_admin
 FROM (
   SELECT DISTINCT ON (id)
-    id, tara_sub, name, is_admin, is_authority, token_revoked_at, created_at
+    id, tara_sub, name, is_admin, token_revoked_at, created_at
   FROM users
   WHERE tara_sub     = :tara_sub
     AND is_active    = TRUE

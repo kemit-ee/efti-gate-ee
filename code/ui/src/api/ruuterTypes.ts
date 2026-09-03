@@ -87,7 +87,6 @@ export interface User {
   taraSub: string
   name: string
   isAdmin: boolean
-  isAuthority: boolean
   createdAt: string
   tokenRevokedAt?: string
 }
@@ -96,14 +95,12 @@ export interface CreateUserRequest {
   taraSub: string
   name: string
   isAdmin: boolean
-  isAuthority: boolean
 }
 
 export interface UpdateUserRequest {
   name: string
   taraSub: string
   isAdmin: boolean
-  isAuthority: boolean
 }
 
 export enum ConsignmentStatus {

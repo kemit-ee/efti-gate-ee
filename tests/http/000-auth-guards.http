@@ -13,7 +13,7 @@ Content-Type: application/json
   client.global.set("guardAdminToken", response.body.token)
 %}
 
-### Login: Mari Tamm (AUTHORITY, not ADMIN)
+### Login: Mari Tamm (plain user, not ADMIN)
 # @name guardAuthorityLogin
 POST {{RUUTER_URL}}/auth/dev-login
 Content-Type: application/json
@@ -36,7 +36,7 @@ Content-Type: application/json
   })
 %}
 
-### F5: authority search accepts an AUTHORITY token
+### F5: authority search rejects a non-admin token (the JWT authority API needs is_admin)
 POST {{RUUTER_URL}}/efti/api/v1/authority/search
 Content-Type: application/json
 Authorization: Bearer {{guardAuthorityToken}}
@@ -44,7 +44,20 @@ Authorization: Bearer {{guardAuthorityToken}}
 {"criteria": {"mainTransportId": {"operator": "EQ", "id": "VESSEL-001"}}, "limit": 1, "offset": 0}
 
 > {%
-  client.test("F5 AUTHORITY authority search -> not blocked", () => {
+  client.test("F5 non-admin authority search -> 403", () => {
+    client.assert(response.status === 403)
+  })
+%}
+
+### F5: authority search accepts an ADMIN token
+POST {{RUUTER_URL}}/efti/api/v1/authority/search
+Content-Type: application/json
+Authorization: Bearer {{guardAdminToken}}
+
+{"criteria": {"mainTransportId": {"operator": "EQ", "id": "VESSEL-001"}}, "limit": 1, "offset": 0}
+
+> {%
+  client.test("F5 ADMIN authority search -> not blocked", () => {
     client.assert(response.status !== 401 && response.status !== 403)
   })
 %}
@@ -61,12 +74,12 @@ Content-Type: text/xml
   })
 %}
 
-### F2: admin list rejects an AUTHORITY token (needs ADMIN)
+### F2: admin list rejects a non-admin token (needs ADMIN)
 GET {{RUUTER_URL}}/admin/v1/platforms
 Authorization: Bearer {{guardAuthorityToken}}
 
 > {%
-  client.test("F2 AUTHORITY token on admin GET -> 403", () => {
+  client.test("F2 non-admin token on admin GET -> 403", () => {
     client.assert(response.status === 403)
   })
 %}
@@ -90,7 +103,7 @@ Authorization: Bearer {{guardAdminToken}}
   })
 %}
 
-### Regression: dataset request is reachable with an AUTHORITY token
+### Regression: dataset request rejects a non-admin token, passes for an ADMIN token
 POST {{RUUTER_URL}}/efti/api/v1/authority/dataset
 Content-Type: application/json
 Authorization: Bearer {{guardAuthorityToken}}
@@ -98,7 +111,20 @@ Authorization: Bearer {{guardAuthorityToken}}
 {"uil": {"gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440000"}, "subsets": ["EU01"]}
 
 > {%
-  client.test("AUTHORITY token passes the authority/ guard", () => {
+  client.test("non-admin token is blocked by the authority/ guard -> 403", () => {
+    client.assert(response.status === 403)
+  })
+%}
+
+### Regression: dataset request passes the authority/ guard for an ADMIN token
+POST {{RUUTER_URL}}/efti/api/v1/authority/dataset
+Content-Type: application/json
+Authorization: Bearer {{guardAdminToken}}
+
+{"uil": {"gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440000"}, "subsets": ["EU01"]}
+
+> {%
+  client.test("ADMIN token passes the authority/ guard", () => {
     client.assert(response.status !== 401 && response.status !== 403)
   })
 %}

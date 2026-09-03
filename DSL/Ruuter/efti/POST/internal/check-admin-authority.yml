@@ -11,9 +11,6 @@ declaration:
       - field: authorization
         type: string
         description: "Bearer <gate JWT>"
-      - field: x-viljus-knows-a-secret
-        type: string
-        description: "Shared internal secret ([#INTERNAL_SECRET]); checked by internal/.guard.yml"
       - field: x-forwarded-for
         type: string
         description: "Original client address, forwarded by the calling .guard"
@@ -21,8 +18,9 @@ declaration:
         type: string
         description: "Correlation id, forwarded by the calling .guard"
 
-# The secret header is enforced by DSL/Ruuter/efti/POST/internal/.guard.yml; the calling
-# guards also forward x-forwarded-for / x-request-id for context.
+# Reachability is governed by network isolation + `internal_requests` (see
+# DSL/Ruuter/efti/POST/internal/.guard.yml); the calling guards forward
+# x-forwarded-for / x-request-id for context.
 log_context:
   log: "internal/check-admin-authority rid=${incoming.headers['x-request-id'] ?? '-'} from=${incoming.headers['x-forwarded-for'] ?? '-'}"
   next: check_for_bearer
