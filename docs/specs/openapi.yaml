@@ -13,6 +13,8 @@ info:
     - **Admin API** (`/api/v1/...`) — called by gate operators
     - **Health API** (`/health/...`) — Kubernetes liveness/readiness probes
 
+    The gate's **X-Road provider surface** (`/xroad/v1/*`, called by competent authorities over the X-Road network) is specified separately in [`x_road_openapi.yaml`](x_road_openapi.yaml) — see also `x_road_authority_integration_guide.md`.
+
     The gate's **AS4 surfaces** (`/services/msh` for inbound AS4 SOAP, `/services/fast` for the optional fast-protocol mTLS HTTPS alternative) are **out of scope** for this OpenAPI document. They are wire-protocol-defined by the EU eDelivery AS4 1.15 conformance profile (per `non-functional.md` §3) — not by REST OpenAPI. See `seq-14-gate-to-gate-search.mmd` and `seq-16-mtls-fast-protocol.mmd` for the message-flow contract; see Epic 10 (`docs/cfr/integrations/edelivery_as4.md`) and Epic 25 (`docs/cfr/integrations/as4_message_flow.md`) for the AS4 message catalogue.
 
     ## Authentication

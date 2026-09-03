@@ -1,0 +1,895 @@
+openapi: 3.0.3
+
+# ---------------------------------------------------------------------------
+# eFTI Gate (EE) — X-Road provider surface for competent authorities
+#
+# Machine-readable companion to docs/specs/x_road_authority_integration_guide.md.
+# That guide is the prose source of truth; this file is the formal contract for
+# the six X-Road service operations a competent authority's information system
+# may call through the X-Road network.
+#
+# Identity & authorisation (ADR-006):
+#   - The caller is an ORGANISATION, not a person. The consumer's Security Server
+#     authenticates it by mTLS and forwards the result as the X-Road-Client header
+#     (instance/memberClass/memberCode[/subsystemCode]). memberCode (index 2) is
+#     the Estonian Business Registry code and must resolve to exactly one ACTIVE
+#     row in `authorities.registry_code`.
+#   - `authorities.subsets` is the only subset-entitlement register. Callers read
+#     their own entitlement with `subsets` and answer yes/no questions locally.
+#   - X-Road-UserId is caller-asserted, never authenticated, and never grants access.
+#
+# Implementation status on `dev`:
+#   - IMPLEMENTED:  echo, subsets
+#   - CONTRACT ONLY (routes not built yet): transport-means, search, dataset, follow-up.
+#     The request/response shapes below are the agreed contract (see the guide and
+#     ADR-007); `transport-means` `scope: allgates` response shape is still open
+#     (ADR-007 variants A/B/D).
+# ---------------------------------------------------------------------------
+
+info:
+  title: eFTI Gate (EE) — X-Road Authority API
+  version: 1.0.0
+  description: |
+    Provider-side X-Road REST adapter of the Estonian eFTI Gate (KeMIT), for competent
+    authorities that reach the gate over the X-Road network.
+
+    ## How a call is made
+
+    A competent authority's information system calls its **own** Security Server, which
+    forwards the request across X-Road to the gate's Security Server, which forwards it
+    to the gate over plain HTTP on the internal network, adding the `X-Road-*` headers.
+
+    Consumer-side URL:
+
+    ```
+    POST https://<your-security-server>/r1/EE/GOV/70001231/efti-gate/{serviceCode}/v1
+    ```
+
+    - `EE/GOV/70001231/efti-gate` — the gate's X-Road member + subsystem (service provider id).
+    - `/r1/` — X-Road REST message-protocol version; consumed by your Security Server, never
+      forwarded to the gate. There is **no** `protocolVersion` field to send.
+    - `{serviceCode}` — one of `echo`, `subsets`, `transport-means`, `search`, `dataset`,
+      `follow-up`.
+    - `/v1` — this contract's version, part of the gate-side route.
+
+    Gate-side these map to `/xroad/v1/{serviceCode}` on port 8086. That path is **not**
+    publicly routable — only the gate's Security Server may reach it (ADR-006).
+
+    ## Prerequisites
+
+    | Requirement | Who |
+    |---|---|
+    | Your organisation is registered at the gate as a single `ACTIVE` authority whose `registry_code` is your Business Registry code | gate operator |
+    | `authorities.subsets` is populated (e.g. `["EU01","EU05"]`) — required for `dataset` and `transport-means` | gate operator |
+    | Your client subsystem has X-Road access rights to the gate's services | RIA / Security Server administration |
+
+    ## Errors
+
+    Every error is an [RFC 7807](https://datatracker.ietf.org/doc/html/rfc7807) Problem
+    Details object (`type`, `code`, `title`, `status`, `detail`, plus operation-specific
+    extension members) with media type `application/json`. Switch on `code`, never on
+    `title`/`detail` text. `code` values mirror `docs/specs/errors.json`.
+
+    For `502 GATEWAY_UNAVAILABLE`, branch on the `coreStatus` / `resqlStatus` extension
+    member, not on the HTTP status — the gate normalises every downstream failure to 502
+    and carries the real status and body in `coreStatus` / `coreResponse` (or
+    `resqlStatus`). A hard downstream outage (connection refused, DNS failure, 70 s
+    timeout) surfaces as `500`, not `502`.
+  contact:
+    name: KeMIT — Keskkonnaministeeriumi Infotehnoloogiakeskus
+    email: help@kemit.ee
+    url: https://github.com/kemit-ee/efti-gate-ee
+  license:
+    name: Business Source License 1.1
+    url: https://mariadb.com/bsl11/
+
+servers:
+  - url: https://{securityServer}/r1/EE/GOV/70001231/efti-gate
+    description: >-
+      Consumer-facing URL. `{securityServer}` is your own X-Road Security Server host.
+      The `{serviceCode}/v1` suffix on each path completes the consumer URL.
+    variables:
+      securityServer:
+        default: your-security-server.example.ee
+        description: Host name of the calling organisation's X-Road Security Server
+
+tags:
+  - name: Connectivity
+    description: Connectivity and entitlement discovery
+  - name: Search
+    description: Identifier-level lookups
+  - name: Dataset
+    description: Dataset retrieval and follow-up
+
+# The credential is the X-Road-Client header, set by the calling Security Server after it
+# has authenticated the organisation by mTLS. The gate trusts the header unconditionally
+# (ADR-006); reachability of /xroad/** is an ingress constraint, not an API-key check.
+security:
+  - xRoadClient: []
+
+paths:
+
+  # =========================================================================
+  # 1. echo  — IMPLEMENTED
+  # =========================================================================
+  /echo/v1:
+    post:
+      tags: [Connectivity]
+      operationId: echo
+      summary: Connectivity test
+      description: |
+        Echoes the resolved authority row, the `X-Road-*` headers and the request body.
+        Use it to confirm your Security Server access rights and that your registry code
+        resolves to the expected authority.
+
+        Gate-side route: `POST /xroad/v1/echo`.
+      parameters:
+        - $ref: '#/components/parameters/XRoadClient'
+        - $ref: '#/components/parameters/XRoadId'
+        - $ref: '#/components/parameters/XRoadUserId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              example: { "hello": "world" }
+      responses:
+        '200':
+          description: Caller resolved; payload echoed back.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [xRoadClient, xRoadId, authority, echo]
+                properties:
+                  xRoadClient:
+                    type: string
+                    example: "EE/GOV/70000097/tram"
+                  xRoadId:
+                    type: string
+                    format: uuid
+                    example: "4894e35d-bf0f-44a6-867a-8e51f1daa7e0"
+                  xRoadUserId:
+                    type: string
+                    nullable: true
+                    example: null
+                  authority:
+                    $ref: '#/components/schemas/Authority'
+                  echo:
+                    type: object
+                    additionalProperties: true
+                    description: The request body, unchanged.
+        '400': { $ref: '#/components/responses/MissingHeader' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # =========================================================================
+  # 2. subsets  — IMPLEMENTED
+  # =========================================================================
+  /subsets/v1:
+    get:
+      tags: [Connectivity]
+      operationId: getOwnSubsets
+      summary: Discover your own subset entitlement
+      description: |
+        Returns the eFTI subsets your organisation is permitted to request. The registry
+        code is taken from the `X-Road-Client` header only — you cannot ask about another
+        organisation. One call covers every subset; cache the list and answer your own
+        yes/no questions locally.
+
+        `subsets: []` is a valid `200` — the authority is registered but entitled to nothing.
+
+        Gate-side route: `GET /xroad/v1/subsets`.
+      parameters:
+        - $ref: '#/components/parameters/XRoadClient'
+        - $ref: '#/components/parameters/XRoadId'
+        - $ref: '#/components/parameters/XRoadUserId'
+      responses:
+        '200':
+          description: The calling authority's permitted subsets.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [registryCode, authorityId, subsets]
+                properties:
+                  registryCode:
+                    type: string
+                    example: "70000097"
+                  authorityId:
+                    type: string
+                    example: "auth-mta"
+                  subsets:
+                    type: array
+                    items: { $ref: '#/components/schemas/Subset' }
+                    example: ["EU01", "EU05"]
+        '400': { $ref: '#/components/responses/MissingHeader' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # =========================================================================
+  # 3. transport-means  — CONTRACT ONLY (route not built on dev)
+  # =========================================================================
+  /transport-means/v1:
+    post:
+      tags: [Search]
+      operationId: transportMeansSearch
+      summary: Transport-means / transport-equipment lookup
+      description: |
+        Identifier in, identifier-level data out. The identifier is matched against the
+        main transport-means id (`main_transport_id`) and the transport-equipment ids
+        (`used_equipment_ids` / `carried_equipment_ids`) — one field covers plate numbers
+        and container numbers. Matching is case-sensitive and not trimmed. Local results
+        are capped at 50 rows. An unknown identifier is `200` with `found: 0`, never `404`.
+
+        Dataset content is **not** returned; fetch it with `dataset` using a `uil` from the
+        response. Requires **EU02** in `authorities.subsets`, else `403 FORBIDDEN_SUBSET`.
+
+        Gate-side route: `POST /xroad/v1/transport-means`.
+
+        **Status:** contract only — the route is not implemented on `dev`. `scope: allgates`
+        response shape is unresolved (ADR-007).
+      parameters:
+        - $ref: '#/components/parameters/XRoadClient'
+        - $ref: '#/components/parameters/XRoadId'
+        - $ref: '#/components/parameters/XRoadUserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/TransportMeansRequest'
+                - $ref: '#/components/schemas/PollRequest'
+            examples:
+              local:
+                summary: Local lookup (default scope)
+                value: { "identifier": "123ABC", "countryCode": "EE", "scope": "local" }
+              existence:
+                summary: Sub-second existence check
+                value: { "identifier": "123ABC", "scope": "existence" }
+              poll:
+                summary: Poll for outstanding allgates results (reuse the same X-Road-Id)
+                value: { "poll": true }
+      responses:
+        '200':
+          description: |
+            Lookup result. The shape depends on `scope`:
+            - `existence` → `TransportMeansExistenceResponse`
+            - `local` / `allgates` → `TransportMeansResponse` (`found` always equals
+              `consignments.length`). When the response header `x-poll-more: true` is
+              present, neighbouring gates are still responding — poll again with the same
+              `X-Road-Id` and body `{ "poll": true }`.
+          headers:
+            x-poll-more:
+              $ref: '#/components/headers/XPollMore'
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/TransportMeansResponse'
+                  - $ref: '#/components/schemas/TransportMeansExistenceResponse'
+        '400':
+          description: |
+            `BAD_REQUEST_GENERAL` — `identifier` missing/empty/not a string, or `scope` is
+            an unknown value. `INVALID_REQUEST_ID` — `X-Road-Id` is not UUID-shaped.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: |
+            `FORBIDDEN` — does not resolve to a single ACTIVE authority.
+            `FORBIDDEN_SUBSET` — the authority lacks EU02; the body carries `deniedSubsets`,
+            `permittedSubsets`, `authorityId` (the searched identifier is not echoed).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SubsetProblemDetails' }
+        '502': { $ref: '#/components/responses/GatewayUnavailable' }
+
+  # =========================================================================
+  # 4. search  — CONTRACT ONLY (route not built on dev)
+  # =========================================================================
+  /search/v1:
+    post:
+      tags: [Search]
+      operationId: consignmentSearch
+      summary: Consignment metadata search
+      description: |
+        Searches identifier-level consignment metadata by criteria: local register first,
+        then fan-out to neighbouring gates. No subset check — a competent authority's
+        identifier search is unrestricted (Reg 2024/1942).
+
+        Each criterion is `{ "<field>": { "operator": "<op>", "<valueKey>": "<value>" } }`.
+        Date fields take an **array** of `{ "operator": "<op>", "date": "<ISO-8601>" }`.
+
+        Gate-side route: `POST /xroad/v1/search`.
+
+        **Status:** contract only — the route is not implemented on `dev`. The body is the
+        eFTI search-criteria object also accepted by the JWT Authority API
+        (`POST /efti/api/v1/authority/search`).
+      parameters:
+        - $ref: '#/components/parameters/XRoadClient'
+        - $ref: '#/components/parameters/XRoadId'
+        - $ref: '#/components/parameters/XRoadUserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/SearchCriteria'
+                - $ref: '#/components/schemas/PollRequest'
+            examples:
+              byPlate:
+                value: { "mainTransportId": { "operator": "EQ", "id": "123ABC" } }
+              byDate:
+                value:
+                  acceptanceDate:
+                    - { "operator": "GE", "date": "2026-04-01T00:00:00Z" }
+                    - { "operator": "LT", "date": "2026-05-01T00:00:00Z" }
+              poll:
+                value: { "poll": true }
+      responses:
+        '200':
+          description: |
+            Matching consignments. If the response header `x-poll-more: true` is present,
+            neighbouring gates are still responding — poll again with the same `X-Road-Id`
+            and body `{ "poll": true }`.
+          headers:
+            x-poll-more:
+              $ref: '#/components/headers/XPollMore'
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ConsignmentMetadata' }
+        '400':
+          description: '`INVALID_REQUEST_ID` — `X-Road-Id` is not UUID-shaped.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '502': { $ref: '#/components/responses/GatewayUnavailable' }
+
+  # =========================================================================
+  # 5. dataset  — CONTRACT ONLY (route not built on dev)
+  # =========================================================================
+  /dataset/v1:
+    post:
+      tags: [Dataset]
+      operationId: getDataset
+      summary: Dataset retrieval
+      description: |
+        Forwards to the gate's core Authority API after a subset-entitlement check. Every
+        requested subset must be in `authorities.subsets`; a partially-permitted request is
+        refused **whole** — no silent narrowing. Check your entitlement first with `subsets`.
+
+        Gate-side route: `POST /xroad/v1/dataset`.
+
+        **Status:** contract only — the route is not implemented on `dev`.
+      parameters:
+        - $ref: '#/components/parameters/XRoadClient'
+        - $ref: '#/components/parameters/XRoadId'
+        - $ref: '#/components/parameters/XRoadUserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DatasetRequest' }
+            example:
+              uil:
+                gateId: "EU-EE"
+                platformId: "mock"
+                datasetId: "550e8400-e29b-41d4-a716-446655440001"
+              subsets: ["EU01", "EU05"]
+      responses:
+        '200':
+          description: Dataset XML from the platform / neighbouring gate, unchanged.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [uil, subsets, xml]
+                properties:
+                  uil: { $ref: '#/components/schemas/Uil' }
+                  subsets:
+                    type: array
+                    items: { $ref: '#/components/schemas/Subset' }
+                  xml:
+                    type: string
+                    format: xml
+                    description: FTI010 dataset XML, verbatim from the source.
+        '400':
+          description: |
+            `MISSING_SUBSET` — `subsets` empty or absent.
+            `BAD_REQUEST_GENERAL` — body rejected by the data layer (e.g. `subsets` sent as
+            a string, not an array).
+            `INVALID_REQUEST_ID` — `X-Road-Id` is not UUID-shaped.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: |
+            `FORBIDDEN` — does not resolve to a single ACTIVE authority.
+            `FORBIDDEN_SUBSET` — one or more requested subsets are not permitted; body
+            carries `authorityId`, `deniedSubsets`, `permittedSubsets`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SubsetProblemDetails' }
+              example:
+                type: "https://api.efti.ee/errors/forbidden-subset"
+                code: "FORBIDDEN_SUBSET"
+                title: "Subset Access Denied"
+                status: 403
+                detail: "The requesting authority is not permitted to access one or more of the requested eFTI subsets."
+                authorityId: "auth-mta"
+                deniedSubsets: ["EU06"]
+                permittedSubsets: ["EU01", "EU02"]
+        '502': { $ref: '#/components/responses/GatewayUnavailable' }
+
+  # =========================================================================
+  # 6. follow-up  — CONTRACT ONLY (route not built on dev)
+  # =========================================================================
+  /follow-up/v1:
+    post:
+      tags: [Dataset]
+      operationId: sendFollowUp
+      summary: Follow-up message
+      description: |
+        Forwards a free-text follow-up message (and optional file references) to the core
+        Authority API, which routes it to the platform or neighbouring gate that holds the
+        dataset. No subset check.
+
+        Gate-side route: `POST /xroad/v1/follow-up`.
+
+        **Status:** contract only — the route is not implemented on `dev`.
+      parameters:
+        - $ref: '#/components/parameters/XRoadClient'
+        - $ref: '#/components/parameters/XRoadId'
+        - $ref: '#/components/parameters/XRoadUserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FollowUpRequest' }
+            example:
+              uil:
+                gateId: "EU-EE"
+                platformId: "mock"
+                datasetId: "550e8400-e29b-41d4-a716-446655440001"
+              message: "Please confirm the gross weight of the consignment."
+              referenceIds: ["REF-1"]
+              files: []
+      responses:
+        '200':
+          description: The platform / neighbouring gate accepted the follow-up.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '502': { $ref: '#/components/responses/GatewayUnavailable' }
+
+# ===========================================================================
+# COMPONENTS
+# ===========================================================================
+components:
+
+  securitySchemes:
+    xRoadClient:
+      type: apiKey
+      in: header
+      name: X-Road-Client
+      description: |
+        Set by the calling organisation's X-Road Security Server, not by the client
+        application. `instance/memberClass/memberCode[/subsystemCode]`; `memberCode`
+        must resolve to one `ACTIVE` `authorities.registry_code`. See ADR-006.
+
+  parameters:
+    XRoadClient:
+      name: X-Road-Client
+      in: header
+      required: true
+      description: |
+        **Credential.** Set by the calling Security Server, not by you.
+        `instance/memberClass/memberCode[/subsystemCode]` — both the 3-part
+        (`EE/GOV/70000097`) and 4-part (`EE/GOV/70000097/tram`) forms are valid.
+        `memberCode` (index 2) must be your Business Registry code and must resolve to
+        exactly one `ACTIVE` row in `authorities.registry_code`.
+      schema:
+        type: string
+        example: "EE/GOV/70000097/tram"
+    XRoadId:
+      name: X-Road-Id
+      in: header
+      required: true
+      description: |
+        Message id, **must be a UUID** (5 groups, 8-4-4-4-12). The gate maps it to its
+        internal `x-request-id`, consumed as a typed UUID parameter; a non-UUID value is
+        `400 INVALID_REQUEST_ID`. Also the polling key for `search` / `transport-means` —
+        to poll, deliberately reuse the same value your Security Server issued on the first
+        call.
+      schema:
+        type: string
+        format: uuid
+        example: "4894e35d-bf0f-44a6-867a-8e51f1daa7e0"
+    XRoadUserId:
+      name: X-Road-UserId
+      in: header
+      required: false
+      description: |
+        End-user personal code. **Not authenticated by X-Road and grants no access** —
+        intended for audit only. Other informational headers (`X-Road-Service`,
+        `X-Road-Represented-Party`, `X-Road-Issue`) are also set by the Security Server.
+      schema:
+        type: string
+        example: "EE30101010007"
+
+  headers:
+    XPollMore:
+      description: |
+        Present and `true` while neighbouring gates are still responding. Poll again with
+        the same `X-Road-Id` and body `{ "poll": true }` until it is absent/`false`.
+      schema:
+        type: boolean
+        example: true
+
+  responses:
+    Unauthorized:
+      description: '`401 UNAUTHORIZED` — `X-Road-Client` missing or malformed.'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+          example:
+            type: "https://api.efti.ee/errors/unauthorized"
+            code: "UNAUTHORIZED"
+            title: "Authentication Required"
+            status: 401
+            detail: "X-Road-Client header is missing or malformed. Expected instance/memberClass/memberCode[/subsystemCode]."
+    MissingHeader:
+      description: '`400 MISSING_REQUIRED_HEADER` — `X-Road-Id` is absent.'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+          example:
+            type: "https://api.efti.ee/errors/missing-required-header"
+            code: "MISSING_REQUIRED_HEADER"
+            title: "Missing Required Header"
+            status: 400
+            detail: "X-Road-Id header is required on every X-Road request."
+    Forbidden:
+      description: |
+        `403 FORBIDDEN` — the registry code does not resolve to a single `ACTIVE`
+        authority (zero matches, or a registry misconfiguration with more than one
+        `ACTIVE` row sharing the code).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+          example:
+            type: "https://api.efti.ee/errors/forbidden"
+            code: "FORBIDDEN"
+            title: "Forbidden"
+            status: 403
+            detail: "The X-Road client does not resolve to an active competent authority."
+    GatewayUnavailable:
+      description: |
+        `502 GATEWAY_UNAVAILABLE` — a downstream step (core Authority API or the data
+        layer) failed. Branch on the extension member, not the HTTP status: `coreStatus` /
+        `coreResponse` carry the real core response, `resqlStatus` the data-layer status,
+        `failedStep` names the step. A hard outage surfaces as `500` instead.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/GatewayProblemDetails' }
+
+  schemas:
+
+    # ---- Errors ----------------------------------------------------------
+    ProblemDetails:
+      type: object
+      description: RFC 7807 Problem Details. Switch on `code`.
+      required: [type, code, title, status]
+      properties:
+        type: { type: string, format: uri, example: "https://api.efti.ee/errors/forbidden" }
+        code: { $ref: '#/components/schemas/ErrorCode' }
+        title: { type: string, example: "Forbidden" }
+        status: { type: integer, example: 403 }
+        detail: { type: string }
+        instance: { type: string }
+
+    SubsetProblemDetails:
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetails'
+        - type: object
+          properties:
+            authorityId: { type: string, example: "auth-mta" }
+            deniedSubsets:
+              type: array
+              items: { $ref: '#/components/schemas/Subset' }
+            permittedSubsets:
+              type: array
+              items: { $ref: '#/components/schemas/Subset' }
+
+    GatewayProblemDetails:
+      allOf:
+        - $ref: '#/components/schemas/ProblemDetails'
+        - type: object
+          properties:
+            failedStep: { type: string, example: "forward_to_core" }
+            coreStatus: { type: integer, nullable: true, example: 404 }
+            coreResponse:
+              type: object
+              additionalProperties: true
+              nullable: true
+              description: The real downstream response body.
+            resqlStatus: { type: integer, nullable: true }
+
+    ErrorCode:
+      type: string
+      description: Canonical error code, mirrors `docs/specs/errors.json`.
+      enum:
+        - MISSING_REQUIRED_HEADER
+        - INVALID_REQUEST_ID
+        - MISSING_SUBSET
+        - BAD_REQUEST_GENERAL
+        - UNAUTHORIZED
+        - FORBIDDEN
+        - FORBIDDEN_SUBSET
+        - GATEWAY_UNAVAILABLE
+      example: FORBIDDEN
+
+    # ---- Enums / shared -------------------------------------------------
+    Subset:
+      type: string
+      description: |
+        eFTI data subset per EU Delegated Regulation 2024/2024:
+        EU01 consignment identification · EU02 means of transport ·
+        EU03 transported goods · EU04 locations · EU05 dangerous goods ·
+        EU06 waste shipment · EU07 consignee/consignor commercial data.
+      enum: [EU01, EU02, EU03, EU04, EU05, EU06, EU07]
+      example: "EU05"
+
+    Operator:
+      type: string
+      description: Comparison operator for a search criterion.
+      enum: [EQ, NE, LT, LE, GT, GE]
+
+    Authority:
+      type: object
+      description: A resolved competent-authority registry row.
+      properties:
+        id: { type: string, example: "auth-mta" }
+        registryCode: { type: string, example: "70000097" }
+        name: { type: string, example: "Estonian Tax and Customs Board" }
+        subsets:
+          type: array
+          items: { $ref: '#/components/schemas/Subset' }
+        status: { type: string, enum: [ACTIVE], example: "ACTIVE" }
+
+    Uil:
+      type: object
+      description: Unique Item Locator — addresses one dataset across the eFTI network.
+      required: [gateId, platformId, datasetId]
+      properties:
+        gateId:
+          type: string
+          example: "EU-EE"
+          description: eFTI gate id; if not this gate, the request is forwarded to that gate.
+        platformId:
+          type: string
+          example: "mock"
+        datasetId:
+          type: string
+          format: uuid
+          description: Dataset UUID assigned by the platform.
+          example: "550e8400-e29b-41d4-a716-446655440001"
+
+    PollRequest:
+      type: object
+      description: Poll body for an async `search` / `transport-means` call. Send with the same `X-Road-Id`.
+      required: [poll]
+      properties:
+        poll: { type: boolean, enum: [true] }
+
+    # ---- transport-means ----------------------------------------------
+    TransportMeansRequest:
+      type: object
+      required: [identifier]
+      properties:
+        identifier:
+          type: string
+          minLength: 1
+          description: Transport-means or transport-equipment identifier. Non-empty string.
+          example: "123ABC"
+        countryCode:
+          type: string
+          nullable: true
+          description: Registration-country filter; absent/empty = all countries.
+          example: "EE"
+        scope:
+          type: string
+          default: local
+          description: |
+            Search scope, in ascending cost:
+            - `existence` — local only, `{ identifier, countryCode, registered }`, p95 < 1 s.
+            - `local` *(default)* — local only, full projection, synchronous.
+            - `allgates` — local + every neighbouring gate; same shape as `local`, results
+              accumulate asynchronously (`x-poll-more` + polling). **Not implemented yet
+              (ADR-007);** until then `allgates` returns `400 BAD_REQUEST_GENERAL` or behaves
+              as `local` — see the route's final state.
+          enum: [existence, local, allgates]
+
+    TransportMeansResponse:
+      type: object
+      description: "Response for `scope: local` (and, once built, `allgates`)."
+      required: [identifier, found, consignments]
+      properties:
+        identifier: { type: string, example: "123ABC" }
+        countryCode: { type: string, nullable: true, example: "EE" }
+        found:
+          type: integer
+          description: Always equals `consignments.length`.
+          example: 1
+        consignments:
+          type: array
+          items: { $ref: '#/components/schemas/TransportMeansConsignment' }
+
+    TransportMeansExistenceResponse:
+      type: object
+      description: "Response for `scope: existence`."
+      required: [identifier, registered]
+      properties:
+        identifier: { type: string, example: "123ABC" }
+        countryCode: { type: string, nullable: true, example: "EE" }
+        registered: { type: boolean, example: true }
+
+    TransportMeansConsignment:
+      type: object
+      description: Curated identifier-level projection — no dataset content, no XML blob.
+      properties:
+        uil: { $ref: '#/components/schemas/Uil' }
+        mainTransportId: { type: string, example: "123ABC" }
+        mainTransportType: { type: string, nullable: true }
+        transportRegCountry: { type: string, nullable: true, example: "EE" }
+        transportMode: { type: string, nullable: true, enum: ["1","2","3","4","5"], example: "3" }
+        dangerousGoods: { type: string, nullable: true }
+        acceptanceDate: { type: string, format: date-time, nullable: true }
+        acceptanceCountry: { type: string, nullable: true }
+        deliveryDate: { type: string, format: date-time, nullable: true }
+        deliveryCountry: { type: string, nullable: true }
+        loadingDate: { type: string, format: date-time, nullable: true }
+        loadingCountry: { type: string, nullable: true }
+        unloadingDate: { type: string, format: date-time, nullable: true }
+        unloadingCountry: { type: string, nullable: true }
+        usedEquipmentIds: { type: array, items: { type: string } }
+        usedEquipmentCategories: { type: array, items: { type: string } }
+        usedEquipmentCountries: { type: array, items: { type: string } }
+        carriedEquipmentIds: { type: array, items: { type: string } }
+        carriedEquipmentCategories: { type: array, items: { type: string } }
+        status: { type: string, enum: [active, inactive, deleted, ACTIVE], example: "ACTIVE" }
+        createdAt: { type: string, format: date-time, example: "2026-04-23T10:15:00Z" }
+
+    # ---- search ------------------------------------------------------
+    SearchCriteria:
+      type: object
+      minProperties: 1
+      description: |
+        One or more criteria, ANDed. Each string/enum field takes a single
+        `StringCriterion`; each date field takes an **array** of `DateCriterion`.
+      properties:
+        transportMode:
+          allOf: [{ $ref: '#/components/schemas/StringCriterion' }]
+          description: "value key: `mode` (one of 1..5)"
+        mainTransportId:
+          allOf: [{ $ref: '#/components/schemas/StringCriterion' }]
+          description: "value key: `id`"
+        mainTransportType:
+          allOf: [{ $ref: '#/components/schemas/StringCriterion' }]
+          description: "value key: `code`"
+        transportRegCountry:
+          allOf: [{ $ref: '#/components/schemas/StringCriterion' }]
+          description: "value key: `country`"
+        acceptanceCountry:
+          allOf: [{ $ref: '#/components/schemas/StringCriterion' }]
+          description: "value key: `country`"
+        deliveryCountry:
+          allOf: [{ $ref: '#/components/schemas/StringCriterion' }]
+          description: "value key: `country`"
+        loadingCountry:
+          allOf: [{ $ref: '#/components/schemas/StringCriterion' }]
+          description: "value key: `country`"
+        unloadingCountry:
+          allOf: [{ $ref: '#/components/schemas/StringCriterion' }]
+          description: "value key: `country`"
+        dangerousGoodsCode:
+          allOf: [{ $ref: '#/components/schemas/StringCriterion' }]
+          description: "value key: `code`"
+        usedEquipmentId:
+          allOf: [{ $ref: '#/components/schemas/StringCriterion' }]
+          description: "value key: `id`"
+        carriedEquipmentId:
+          allOf: [{ $ref: '#/components/schemas/StringCriterion' }]
+          description: "value key: `id`"
+        usedEquipmentCategory:
+          allOf: [{ $ref: '#/components/schemas/StringCriterion' }]
+          description: "value key: `code`"
+        carriedEquipmentCategory:
+          allOf: [{ $ref: '#/components/schemas/StringCriterion' }]
+          description: "value key: `code`"
+        usedEquipmentCountry:
+          allOf: [{ $ref: '#/components/schemas/StringCriterion' }]
+          description: "value key: `country`"
+        acceptanceDate:
+          type: array
+          items: { $ref: '#/components/schemas/DateCriterion' }
+        deliveryDate:
+          type: array
+          items: { $ref: '#/components/schemas/DateCriterion' }
+        loadingDate:
+          type: array
+          items: { $ref: '#/components/schemas/DateCriterion' }
+        unloadingDate:
+          type: array
+          items: { $ref: '#/components/schemas/DateCriterion' }
+
+    StringCriterion:
+      type: object
+      required: [operator]
+      properties:
+        operator: { $ref: '#/components/schemas/Operator' }
+        id: { type: string }
+        code: { type: string }
+        country: { type: string }
+        mode: { type: string, enum: ["1","2","3","4","5"] }
+      description: |
+        Exactly one value key is set, matching the field (`id` / `code` / `country` /
+        `mode`) — see each field's note in `SearchCriteria`.
+
+    DateCriterion:
+      type: object
+      required: [operator, date]
+      properties:
+        operator: { $ref: '#/components/schemas/Operator' }
+        date: { type: string, format: date-time, example: "2026-04-23T00:00:00Z" }
+
+    ConsignmentMetadata:
+      type: object
+      description: |
+        Identifier-level consignment metadata. Same projection the JWT Authority API
+        `search` returns; see `docs/specs/openapi.yaml` for the full field list.
+      additionalProperties: true
+      properties:
+        uil: { $ref: '#/components/schemas/Uil' }
+
+    # ---- dataset / follow-up ---------------------------------------
+    DatasetRequest:
+      type: object
+      required: [uil, subsets]
+      properties:
+        uil: { $ref: '#/components/schemas/Uil' }
+        subsets:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/Subset' }
+          description: Requested subsets; every one must be in `authorities.subsets`.
+
+    FollowUpRequest:
+      type: object
+      required: [uil, message]
+      properties:
+        uil: { $ref: '#/components/schemas/Uil' }
+        message: { type: string, example: "Please confirm the gross weight." }
+        referenceIds:
+          type: array
+          items: { type: string }
+          description: Referenced identifiers.
+        files:
+          type: array
+          items: { type: string }
+          description: File references.
