@@ -23,7 +23,6 @@ check_service_token:
     - condition: ${incoming.headers != null && incoming.headers['x-internal-service-token'] != null && incoming.headers['x-internal-service-token'] != '' && incoming.headers['x-internal-service-token'] == '[#INTERNAL_SERVICE_TOKEN]'}
       next: guard_success
   next: validate_auth
-
 validate_auth:
   call: http.post
   args:
