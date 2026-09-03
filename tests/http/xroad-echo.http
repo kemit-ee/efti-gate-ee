@@ -48,7 +48,7 @@ Content-Type: application/json
   client.test("Echo returns 200 for known authority", () => {
     client.assert(response.status === 200)
     client.assert(response.body.xRoadClient === "EE/GOV/70000099/testSubsystem")
-    client.assert(response.body.xRoadId === "test-id-xroad-001")
+    client.assert(response.body.xRoadId === "0a11ce5e-0001-4d1d-8f1a-0ec100000001")
     client.assert(response.body.xRoadUserId === "EE30101010007")
     client.assert(response.body.authority.id === "auth-xroad-test")
     client.assert(response.body.authority.registryCode === "70000099")

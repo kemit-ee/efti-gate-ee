@@ -11,12 +11,17 @@ delete_authority:
 
 # soft_delete_authority RETURNS the tombstone row (row_id, id, status, created_at); an empty
 # body means no such authority. No re-fetch needed — the RETURNING already proves the write.
+# The empty-body check MUST come before the status check: for a missing authority body[0] is
+# undefined, so `body[0]?.status != 'DELETED'` is true and the row would 500 as "not verified"
+# instead of 404.
 check_delete:
   switch:
-    - condition: ${delete_result.response.status >= 400 || delete_result.response.body[0]?.status != 'DELETED'}
+    - condition: ${delete_result.response.status >= 400}
       next: delete_failed
     - condition: ${!delete_result.response.body.length}
       next: not_found
+    - condition: ${delete_result.response.body[0]?.status != 'DELETED'}
+      next: delete_failed
   next: respond
 
 respond:
