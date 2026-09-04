@@ -1,22 +1,27 @@
 declaration:
   description: "Mock platform endpoint for testing follow-up messages"
-
-check_api_key:
-  switch:
-    - condition: ${incoming.headers['x-api-key'] != 'mock-secret-key'}
-      next: unauthorized
+  # Handles params: /:datasetId/follow-up
 
 check_path:
   switch:
     - condition: ${incoming.params.pathParams?.[1] != 'follow-up'}
       next: not_found
 
+check_api_key:
+  switch:
+    - condition: ${incoming.headers['x-api-key'] != 'mock-secret-key'}
+      next: unauthorized
+
+assign:
+  assign:
+    datasetId: ${incoming.params.pathParams[0]}
+
 log_request:
   log: "Follow-up request for datasetId=${incoming.params.pathParams[0]}: ${incoming.body}"
 
 respond:
   return:
-    datasetId: ${incoming.params.pathParams[0]}
+    datasetId: ${datasetId}
     message: ${incoming.body.message}
   wrapper: false
   status: 201
