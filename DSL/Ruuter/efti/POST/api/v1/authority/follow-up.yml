@@ -1,61 +1,21 @@
 declaration:
   description: "Authority sends a follow-up message to a Platform via the gate (TARA JWT)"
 
-insert_log:
-  call: http.post
-  args:
-    url: "[#RESQL_URL]/efti/insert_follow_up_log"
-    headers:
-      Content-Type: "application/json"
-    body:
-      requestingGateId: "${incoming.body.uil.gateId}"
-      datasetRequestId: "${incoming.body.uil.datasetId}"
-      destinationGateId: "${incoming.body.uil.gateId}"
-      destinationPlatformId: "${incoming.body.uil.platformId}"
-      payload: "${incoming.body.message}"
-      status: "DELIVERED"
-  result: log_result
-
-check_insert:
-  switch:
-    - condition: ${log_result.response.status >= 400 || !log_result.response.body.length}
-      next: insert_failed
-
-
 check_gate:
   switch:
     - condition: ${incoming.body.uil.gateId != '[#OWN_GATE_ID]'}
       next: forward_to_remote_gate
 
+call_local_platform:
+  template: api/v1/follow-up-local
+  request_type: "POST"
+  body: ${incoming.body}
+  result: followup_response
 
-get_platform:
-  call: http.post
-  args:
-    url: "[#RESQL_URL]/efti/get_platform_by_id"
-    headers:
-      Content-Type: "application/json"
-    body:
-      id: "${incoming.body.uil.platformId}"
-  result: platform_result
-
-check_platform:
-  switch:
-    - condition: ${!platform_result.response.body.length}
-      next: platform_not_found
-
-
-forward_to_platform:
-  call: http.post
-  args:
-    url: "${platform_result.response.body[0]?.baseUrl}/v1/dataset/${incoming.body.uil.datasetId}/follow-up"
-    headers: "${Object.assign(platform_result.response.body[0]?.headers ?? {}, {'Content-Type': 'application/json', 'X-Dataset-Request-ID': incoming.body.referenceIds[0]})}"
-    body: ${incoming.body}
-  result: platform_response
-
-respond:
-  return: ${incoming.body.uil}
+respond_local:
+  return: ${followup_response}
   wrapper: false
-  status: ${platform_response.response.status}
+  status: 201
   next: end
 
 forward_to_remote_gate:
@@ -65,10 +25,10 @@ forward_to_remote_gate:
     headers:
       Content-Type: "application/json"
     body:
-      uil: "${incoming.body.uil}"
-      referenceIds: "${incoming.body.referenceIds}"
-      message: "${incoming.body.message}"
-      files: "${incoming.body.files ?? []}"
+      uil: ${incoming.body.uil}
+      referenceIds: ${incoming.body.referenceIds}
+      message: ${incoming.body.message}
+      files: ${incoming.body.files ?? []}
   result: followup_xml
 
 send_via_edelivery:
@@ -78,8 +38,8 @@ send_via_edelivery:
     url: "[#EDELIVERY_URL]/api/v1/send/${incoming.body.uil.gateId}"
     headers:
       Content-Type: "text/xml"
-      x-request-id: "${incoming.headers['x-request-id'] ?? ''}"
-    body: "${followup_xml.response.body}"
+      x-request-id: ${incoming.headers['x-request-id'] ?? ''}
+    body: ${followup_xml.response.body}
     content_type: plaintext
   result: edelivery_response
 
@@ -87,7 +47,6 @@ check_edelivery_response:
   switch:
     - condition: ${edelivery_response.response.status != 200}
       next: edelivery_error
-
 
 response_to_json:
   call: http.post
@@ -104,26 +63,12 @@ respond_remote:
   headers:
     Content-Type: "application/json"
   wrapper: false
-  status: 200
+  status: 201
   next: end
 
 edelivery_error:
   return:
     error: "Remote gate follow-up failed"
-    detail: "${edelivery_response.response.body}"
+    detail: ${edelivery_response.response.body}
   wrapper: false
   status: ${edelivery_response.response.status}
-  next: end
-
-platform_not_found:
-  return:
-    error: "Platform Not Found"
-  wrapper: false
-  status: 404
-  next: end
-
-insert_failed:
-  return:
-    error: "Failed to log follow-up message"
-  wrapper: false
-  status: 500

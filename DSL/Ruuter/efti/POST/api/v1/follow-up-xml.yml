@@ -14,7 +14,7 @@ parse_xml:
   result: followup_json
 
 call_follow_up:
-  template: api/v1/authority/follow-up
+  template: api/v1/follow-up-local
   request_type: "POST"
   body: ${followup_json.response.body}
   result: followup_response

@@ -97,3 +97,55 @@ Authorization: Bearer {{adminToken}}
     client.assert(response.body.consignment.grossWeightMeasure === "15000.00")
   })
 %}
+
+### Authority sends a follow-up message for a consignment
+POST {{RUUTER_URL}}/efti/api/v1/authority/follow-up
+Content-Type: application/json
+X-Request-ID: 327b4aea-a081-11f1-a87b-3c9c0f2eb459
+Authorization: Bearer {{adminToken}}
+
+{
+  "uil": {
+    "gateId": "EU-EE",
+    "platformId": "mock",
+    "datasetId": "b24ebf37-a068-11f1-b8f0-3c9c0f2eb459"
+  },
+  "referenceIds": ["073b32bc-a081-11f1-8d67-3c9c0f2eb459"],
+  "message": "Follow-up message for the consignment",
+  "files": [{"fileName": "document.pdf", "fileContent": "base64-encoded-content"}]
+}
+
+> {%
+  client.test("Follow-up to a local platform", () => {
+    client.assert(response.status === 201)
+    client.assert(response.body.gateId === "EU-EE")
+    client.assert(response.body.platformId === "mock")
+    client.assert(response.body.datasetId === "b24ebf37-a068-11f1-b8f0-3c9c0f2eb459")
+  })
+%}
+
+### Authority sends a follow-up message for a consignment (remote platform)
+POST {{RUUTER_URL}}/efti/api/v1/authority/follow-up
+Content-Type: application/json
+X-Request-ID: 327b4aea-a081-11f1-a87b-3c9c0f2eb459
+Authorization: Bearer {{adminToken}}
+
+{
+  "uil": {
+    "gateId": "EU-MOCK",
+    "platformId": "mock",
+    "datasetId": "550e8400-e29b-41d4-a716-446655440000"
+  },
+  "referenceIds": ["073b32bc-a081-11f1-8d67-3c9c0f2eb459"],
+  "message": "Follow-up message for the consignment",
+  "files": [{"fileName": "document.pdf", "base64Content": "base64-encoded-content", "mimeType": "application/pdf"}]
+}
+
+> {%
+  client.test("Follow-up to a local platform", () => {
+    client.assert(response.status === 201)
+    client.assert(response.body.gateId === "EU-MOCK")
+    client.assert(response.body.platformId === "mock")
+    client.assert(response.body.datasetId === "550e8400-e29b-41d4-a716-446655440000")
+  })
+%}
