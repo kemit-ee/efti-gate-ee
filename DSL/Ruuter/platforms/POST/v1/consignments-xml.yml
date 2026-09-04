@@ -8,7 +8,6 @@ call_consignment:
   body:
     xml: ${incoming.body.xml}
   result: consignment_response
-  next: to_xml
 
 to_xml:
   call: http.post
@@ -18,7 +17,6 @@ to_xml:
       Content-Type: "application/json"
     body: ${consignment_response}
   result: xml_response
-  next: respond
 
 respond:
   return: ${xml_response.response.body}
@@ -26,4 +24,3 @@ respond:
     Content-Type: "text/xml"
   wrapper: false
   status: 201
-  next: end

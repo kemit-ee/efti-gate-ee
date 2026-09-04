@@ -29,7 +29,6 @@ consignment_to_json:
       x-platform-id: ${(typeof platform !== 'undefined' && platform && platform.id) || null}
       x-dataset-id: ${incoming.params?.pathParams?.[0]}
   result: consignment_json
-  next: insert_consignment
 
 insert_consignment:
   call: http.post
@@ -39,13 +38,11 @@ insert_consignment:
       Content-Type: "application/json"
     body: ${consignment_json.response.body}
   result: insert_result
-  next: check_insert
 
 check_insert:
   switch:
     - condition: ${insert_result.response.status >= 400 || !insert_result.response.body.length}
       next: insert_failed
-  next: verify_consignment
 
 verify_consignment:
   call: http.post
@@ -56,13 +53,11 @@ verify_consignment:
     body:
       datasetId: "${insert_result.response.body[0]?.datasetId}"
   result: verify_result
-  next: check_verify
 
 check_verify:
   switch:
     - condition: ${!verify_result.response.body.length}
       next: verify_failed
-  next: respond
 
 respond:
   return: ${verify_result.response.body[0]}
@@ -80,4 +75,3 @@ verify_failed:
   return: {"error": "Consignment inserted but could not be verified"}
   status: 500
   wrapper: false
-  next: end

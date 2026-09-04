@@ -21,7 +21,6 @@ validate_input:
   switch:
     - condition: ${incoming.body == null || incoming.body.personalCode == null}
       next: missing_params
-  next: generate_jwt
 
 generate_jwt:
   call: http.post
@@ -39,7 +38,6 @@ generate_jwt:
       expirationInMinutes: 60
       JWTName: "eftiJwtCookie"
   result: jwt_result
-  next: check_jwt
 
 check_jwt:
   switch:
@@ -63,4 +61,3 @@ missing_params:
   status: 400
   return: {"error": "personalCode is required"}
   wrapper: false
-  next: end

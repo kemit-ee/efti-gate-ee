@@ -7,7 +7,6 @@ delete_platform:
     body:
       id: "${incoming.params.pathParams[0]}"
   result: delete_result
-  next: check_delete
 
 # soft_delete_platform RETURNS the tombstone row (row_id, id, status, created_at); an empty
 # body means no such platform. No re-fetch needed — the RETURNING already proves the write.
@@ -17,7 +16,6 @@ check_delete:
       next: delete_failed
     - condition: ${!delete_result.response.body.length}
       next: not_found
-  next: respond
 
 respond:
   return: ""
@@ -35,4 +33,3 @@ not_found:
   return: {"error": "Not Found"}
   status: 404
   wrapper: false
-  next: end

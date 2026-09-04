@@ -6,9 +6,7 @@ check_db:
       Content-Type: "application/json"
     body: {}
   result: db_status
-  next: respond
 
 respond:
   return: ${db_status.response.body}
   wrapper: false
-  next: end

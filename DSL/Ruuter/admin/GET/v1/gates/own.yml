@@ -7,13 +7,11 @@ fetch_own_gate:
     body:
       id: "[#OWN_GATE_ID]"
   result: result
-  next: check_found
 
 check_found:
   switch:
     - condition: ${!result.response.body.length}
       next: not_found
-  next: respond
 
 respond:
   return: ${result.response.body[0]}
@@ -24,4 +22,3 @@ not_found:
   return: {"error": "Not Found"}
   status: 404
   wrapper: false
-  next: end

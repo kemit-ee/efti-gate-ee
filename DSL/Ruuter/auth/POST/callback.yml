@@ -18,7 +18,6 @@ validate_input:
   switch:
     - condition: ${incoming.body == null || incoming.body.code == null || incoming.body.state == null}
       next: missing_params
-  next: call_tim_callback
 
 # Step 1: Exchange code via TIM's callback endpoint.
 # TIM validates state (single-use), exchanges code for tokens at TARA-Mock's
@@ -32,7 +31,6 @@ call_tim_callback:
       code: ${incoming.body.code}
       state: ${incoming.body.state}
   result: callback_result
-  next: check_callback
 
 check_callback:
   switch:
@@ -47,7 +45,6 @@ normalize_personal_code:
   assign:
     raw_user_id: ${callback_result.response.body.user_profile.user_id}
     personal_code: "${callback_result.response.body.user_profile.user_id.startsWith('EE') ? callback_result.response.body.user_profile.user_id.substring(2) : callback_result.response.body.user_profile.user_id}"
-  next: generate_jwt
 
 # Step 2b: Generate a custom JWT with the user's profile claims.
 generate_jwt:
@@ -66,7 +63,6 @@ generate_jwt:
       expirationInMinutes: 480
       JWTName: "eftiJwtCookie"
   result: jwt_result
-  next: check_jwt
 
 check_jwt:
   switch:
@@ -100,4 +96,3 @@ missing_params:
   status: 400
   return: {"error": "code and state are required"}
   wrapper: false
-  next: end

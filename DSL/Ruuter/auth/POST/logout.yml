@@ -12,12 +12,10 @@ check_bearer:
   switch:
     - condition: ${incoming.headers == null || incoming.headers.authorization == null || !incoming.headers.authorization.toLowerCase().startsWith("bearer ")}
       next: return_ok
-  next: extract_token
 
 extract_token:
   assign:
     token: ${incoming.headers.authorization.substring(7)}
-  next: expire_tim_session
 
 expire_tim_session:
   call: http.post
@@ -27,9 +25,7 @@ expire_tim_session:
       cookie: "eftiJwtCookie=${token}"
       X-TIM-Admin-Token: "[#TIM_ADMIN_TOKEN]"
   result: expire_result
-  next: return_ok
 
 return_ok:
   return: {"message": "logged out"}
   wrapper: false
-  next: end

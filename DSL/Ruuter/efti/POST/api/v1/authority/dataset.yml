@@ -6,7 +6,7 @@ check_gate:
   switch:
     - condition: ${incoming.body.uil.gateId != '[#OWN_GATE_ID]'}
       next: forward_to_remote_gate
-  next: get_platform
+
 
 get_platform:
   call: http.post
@@ -17,13 +17,12 @@ get_platform:
     body:
       id: "${incoming.body.uil.platformId}"
   result: platform_result
-  next: check_platform
 
 check_platform:
   switch:
     - condition: ${!platform_result.response.body.length}
       next: platform_not_found
-  next: forward_to_platform
+
 
 forward_to_platform:
   call: http.get
@@ -31,7 +30,6 @@ forward_to_platform:
     url: "${platform_result.response.body[0]?.baseUrl}/v1/dataset/${incoming.body.uil.datasetId}?subsetId=${incoming.body.subsets.join(',')}"
     headers: "${Object.assign(platform_result.response.body[0]?.headers ?? {}, {'x-request-id': incoming.headers['x-request-id'] ?? null})}"
   result: platform_response
-  next: respond
 
 respond:
   return:
@@ -52,7 +50,6 @@ forward_to_remote_gate:
       uil: "${incoming.body.uil}"
       subsets: "${incoming.body.subsets}"
   result: dataset_xml
-  next: send_via_edelivery
 
 send_via_edelivery:
   call: http.post
@@ -65,13 +62,12 @@ send_via_edelivery:
     body: "${dataset_xml.response.body}"
     content_type: plaintext
   result: edelivery_response
-  next: check_edelivery_response
 
 check_edelivery_response:
   switch:
     - condition: ${edelivery_response.response.status != 200}
       next: edelivery_error
-  next: convert_response_to_json
+
 
 convert_response_to_json:
   call: http.post
@@ -81,7 +77,6 @@ convert_response_to_json:
       Content-Type: "text/xml"
     body: "${edelivery_response.response.body}"
   result: dataset_json
-  next: respond_remote
 
 respond_remote:
   return: ${dataset_json.response.body}
@@ -102,4 +97,3 @@ platform_not_found:
     error: "Platform Not Found"
   wrapper: false
   status: 404
-  next: end

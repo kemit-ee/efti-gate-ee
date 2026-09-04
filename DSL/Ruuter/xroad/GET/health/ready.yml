@@ -10,10 +10,8 @@ check_db:
       Content-Type: "application/json"
     body: {}
   result: db_result
-  next: respond
 
 respond:
   return: "OK"
   status: 200
   wrapper: false
-  next: end

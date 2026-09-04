@@ -7,7 +7,6 @@ check_present:
   switch:
     - condition: ${!incoming.headers['x-api-key']}
       next: guard_fail
-  next: resolve_platform
 
 resolve_platform:
   call: http.post
@@ -18,7 +17,6 @@ resolve_platform:
     body:
       apiKey: ${incoming.headers['x-api-key']}
   result: platform_res
-  next: check_platform
 
 # DENY IS THE FALL-THROUGH BRANCH and every accept path is an explicit positive condition — same
 # posture as the X-Road guard. A non-array ReSql body (a 500 error object, a param-validation
@@ -36,7 +34,6 @@ check_platform:
 guard_success:
   assign:
     platform: ${platform_res.response.body[0]}
-  next: return
 
 return:
   return: "success"
@@ -62,4 +59,3 @@ guard_multi:
     detail: "X-Api-Key resolves to more than one active platform."
   status: 403
   wrapper: false
-  next: end

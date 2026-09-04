@@ -7,13 +7,12 @@ get_consignment:
     body:
       datasetId: "${incoming.params.pathParams[0]}"
   result: consignment_result
-  next: check_found
 
 check_found:
   switch:
     - condition: ${!consignment_result.response.body.length}
       next: not_found
-  next: respond
+
 
 respond:
   return: ${consignment_result.response.body}
@@ -24,4 +23,3 @@ not_found:
   return: {"error": "Not Found"}
   status: 404
   wrapper: false
-  next: end

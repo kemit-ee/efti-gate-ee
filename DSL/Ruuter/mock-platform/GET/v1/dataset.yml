@@ -5,7 +5,6 @@ check_api_key:
   switch:
     - condition: ${incoming.headers['x-api-key'] != 'mock-secret-key'}
       next: unauthorized
-  next: respond
 
 respond:
   return: |
@@ -86,4 +85,3 @@ unauthorized:
     error: "Unauthorized"
   status: 401
   wrapper: false
-  next: end

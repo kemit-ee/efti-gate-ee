@@ -3,10 +3,8 @@ declaration:
 
 log_error:
   log: "JS error: ${incoming.body}"
-  next: respond
 
 respond:
   return: ""
   status: 204
   wrapper: false
-  next: end

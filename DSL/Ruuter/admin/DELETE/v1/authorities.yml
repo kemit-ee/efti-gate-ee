@@ -7,7 +7,6 @@ delete_authority:
     body:
       id: "${incoming.params.pathParams[0]}"
   result: delete_result
-  next: check_delete
 
 # soft_delete_authority RETURNS the tombstone row (row_id, id, status, created_at); an empty
 # body means no such authority. No re-fetch needed — the RETURNING already proves the write.
@@ -22,7 +21,6 @@ check_delete:
       next: not_found
     - condition: ${delete_result.response.body[0]?.status != 'DELETED'}
       next: delete_failed
-  next: respond
 
 respond:
   return: ""
@@ -40,4 +38,3 @@ not_found:
   return: {"error": "Not Found"}
   status: 404
   wrapper: false
-  next: end

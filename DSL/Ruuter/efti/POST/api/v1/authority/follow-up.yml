@@ -15,19 +15,18 @@ insert_log:
       payload: "${incoming.body.message}"
       status: "DELIVERED"
   result: log_result
-  next: check_insert
 
 check_insert:
   switch:
     - condition: ${log_result.response.status >= 400 || !log_result.response.body.length}
       next: insert_failed
-  next: check_gate
+
 
 check_gate:
   switch:
     - condition: ${incoming.body.uil.gateId != '[#OWN_GATE_ID]'}
       next: forward_to_remote_gate
-  next: get_platform
+
 
 get_platform:
   call: http.post
@@ -38,13 +37,12 @@ get_platform:
     body:
       id: "${incoming.body.uil.platformId}"
   result: platform_result
-  next: check_platform
 
 check_platform:
   switch:
     - condition: ${!platform_result.response.body.length}
       next: platform_not_found
-  next: forward_to_platform
+
 
 forward_to_platform:
   call: http.post
@@ -53,7 +51,6 @@ forward_to_platform:
     headers: "${Object.assign(platform_result.response.body[0]?.headers ?? {}, {'Content-Type': 'application/json', 'X-Dataset-Request-ID': incoming.body.referenceIds[0]})}"
     body: ${incoming.body}
   result: platform_response
-  next: respond
 
 respond:
   return: ${incoming.body.uil}
@@ -73,7 +70,6 @@ forward_to_remote_gate:
       message: "${incoming.body.message}"
       files: "${incoming.body.files ?? []}"
   result: followup_xml
-  next: send_via_edelivery
 
 send_via_edelivery:
   call: http.post
@@ -86,13 +82,12 @@ send_via_edelivery:
     body: "${followup_xml.response.body}"
     content_type: plaintext
   result: edelivery_response
-  next: check_edelivery_response
 
 check_edelivery_response:
   switch:
     - condition: ${edelivery_response.response.status != 200}
       next: edelivery_error
-  next: response_to_json
+
 
 response_to_json:
   call: http.post
@@ -103,7 +98,6 @@ response_to_json:
     body: ${edelivery_response.response.body}
     content_type: plaintext
   result: remote_json
-  next: respond_remote
 
 respond_remote:
   return: ${remote_json.response.body}
@@ -133,4 +127,3 @@ insert_failed:
     error: "Failed to log follow-up message"
   wrapper: false
   status: 500
-  next: end

@@ -13,9 +13,7 @@ fetch_audit_log:
       limit: "${incoming.params.limit}"
       offset: "${incoming.params.offset}"
   result: result
-  next: respond
 
 respond:
   return: ${result.response.body}
   wrapper: false
-  next: end

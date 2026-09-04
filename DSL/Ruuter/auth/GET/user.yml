@@ -15,4 +15,3 @@ declaration:
 return_user:
   return: ${caller}
   wrapper: false
-  next: end

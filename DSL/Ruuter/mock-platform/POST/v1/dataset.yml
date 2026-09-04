@@ -5,17 +5,14 @@ check_api_key:
   switch:
     - condition: ${incoming.headers['x-api-key'] != 'mock-secret-key'}
       next: unauthorized
-  next: check_path
 
 check_path:
   switch:
     - condition: ${incoming.params.pathParams?.[1] != 'follow-up'}
       next: not_found
-  next: log_request
 
 log_request:
   log: "Follow-up request for datasetId=${incoming.params.pathParams[0]}: ${incoming.body}"
-  next: respond
 
 respond:
   return:
@@ -37,4 +34,3 @@ not_found:
     error: "Not Found"
   wrapper: false
   status: 404
-  next: end

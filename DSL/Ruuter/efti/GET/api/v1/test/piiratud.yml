@@ -10,7 +10,7 @@ check_for_cookie:
   switch:
     - condition: ${incoming.headers == null || incoming.headers.cookie == null}
       next: unauthorized
-  next: validate_jwt
+
 
 validate_jwt:
   call: http.get
@@ -19,7 +19,6 @@ validate_jwt:
     headers:
       cookie: ${incoming.headers.cookie}
   result: tim_result
-  next: check_response
 
 check_response:
   switch:
@@ -37,4 +36,3 @@ unauthorized:
   return: {"type": "https://api.efti.ee/errors/unauthorized", "title": "Unauthorized", "status": 401}
   status: 401
   wrapper: false
-  next: end

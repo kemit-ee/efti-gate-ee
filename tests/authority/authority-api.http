@@ -38,49 +38,18 @@ X-Api-Key: mock-secret-key
 <ParameterIDSetCriteria xmlns:udt="urn:eu:move:eFTI:data:standard:UnqualifiedDataType:34">
   <CarrierAcceptanceDateParameterScope>
     <SpecifiedDateTime>
-      <udt:DateTimeString format="102">20210924</udt:DateTimeString>
+      <udt:DateTimeString format="102">20260903</udt:DateTimeString>
     </SpecifiedDateTime>
   </CarrierAcceptanceDateParameterScope>
   <CarrierAcceptanceCountryParameterScope>
     <CountryID>DE</CountryID>
   </CarrierAcceptanceCountryParameterScope>
-
   <MainCarriageTransportMeansIDParameterScope>
     <ID>MOCK-123</ID>
   </MainCarriageTransportMeansIDParameterScope>
   <MainCarriageModeCodeParameterScope>
     <TransportModeParameterCode>3</TransportModeParameterCode>
   </MainCarriageModeCodeParameterScope>
-
-  <UsedTransportEquipmentIDParameterScope>
-    <ID>TE-001</ID>
-    <ID>TE-002</ID>
-  </UsedTransportEquipmentIDParameterScope>
-  <UsedTransportEquipmentCategoryCodeParameterScope>
-    <TransportEquipmentCategoryParameterCode>T10</TransportEquipmentCategoryParameterCode>
-    <TransportEquipmentCategoryParameterCode>T10</TransportEquipmentCategoryParameterCode>
-  </UsedTransportEquipmentCategoryCodeParameterScope>
-  <UsedTransportEquipmentRegistrationCountryParameterScope>
-    <CountryID>DE</CountryID>
-    <CountryID>DE</CountryID>
-  </UsedTransportEquipmentRegistrationCountryParameterScope>
-  <UsedTransportEquipmentSequenceNumberParameterScope>
-    <SequenceNumeric>1</SequenceNumeric>
-    <SequenceNumeric>2</SequenceNumeric>
-  </UsedTransportEquipmentSequenceNumberParameterScope>
-
-  <CarriedTransportEquipmentIDParameterScope>
-    <ID>TE-003</ID>
-    <ID>TE-004</ID>
-  </CarriedTransportEquipmentIDParameterScope>
-  <CarriedTransportEquipmentCategoryCodeParameterScope>
-    <TransportEquipmentCategoryParameterCode>BPR</TransportEquipmentCategoryParameterCode>
-    <TransportEquipmentCategoryParameterCode>BPR</TransportEquipmentCategoryParameterCode>
-  </CarriedTransportEquipmentCategoryCodeParameterScope>
-  <CarriedTransportEquipmentSequenceNumberParameterScope>
-    <SequenceNumeric>3</SequenceNumeric>
-    <SequenceNumeric>4</SequenceNumeric>
-  </CarriedTransportEquipmentSequenceNumberParameterScope>
 </ParameterIDSetCriteria>
 
 ### Authority searches for remote consignments

@@ -7,7 +7,6 @@ delete_consignment:
     body:
       datasetId: "${incoming.params.pathParams[0]}"
   result: delete_result
-  next: check_delete
 
 # soft_delete_consignment RETURNS the tombstone row (row_id, dataset_id, status, created_at);
 # an empty body means no such consignment. No re-fetch needed.
@@ -17,7 +16,6 @@ check_delete:
       next: delete_failed
     - condition: ${!delete_result.response.body.length}
       next: not_found
-  next: respond
 
 respond:
   return: ""
@@ -35,4 +33,3 @@ not_found:
   return: {"error": "Not Found"}
   status: 404
   wrapper: false
-  next: end

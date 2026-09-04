@@ -18,7 +18,6 @@ validate_auth:
       x-request-id: ${incoming.headers['x-request-id'] ?? null}
     body: {}
   result: auth_result
-  next: check_result
 
 check_result:
   switch:
@@ -36,4 +35,3 @@ guard_fail:
   return: ${auth_result.response.body}
   status: ${auth_result.response.status}
   wrapper: false
-  next: end

@@ -23,7 +23,6 @@ resolve_authority:
     body:
       registry_code: "${incoming.headers['x-road-client'].split('/')[2]}"
   result: authority_res
-  next: check_authority
 
 # Defence in depth. The guard already rejected 0 rows and >1 rows, but this handler discloses
 # subset entitlements, so it re-checks rather than trusting the guard: the authority could be
@@ -62,4 +61,3 @@ ambiguous:
   return: ${JSON.parse('{"type":"https://api.efti.ee/errors/forbidden","code":"FORBIDDEN","title":"Forbidden","status":403,"detail":"The X-Road client registry code resolves to more than one active competent authority. This is a registry misconfiguration; contact the gate operator."}')}
   status: 403
   wrapper: false
-  next: end

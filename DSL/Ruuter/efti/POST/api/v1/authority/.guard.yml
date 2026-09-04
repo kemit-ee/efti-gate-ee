@@ -22,7 +22,7 @@ check_service_token:
   switch:
     - condition: ${incoming.headers != null && incoming.headers['x-internal-service-token'] != null && incoming.headers['x-internal-service-token'] != '' && incoming.headers['x-internal-service-token'] == '[#INTERNAL_SERVICE_TOKEN]'}
       next: guard_success
-  next: validate_auth
+
 validate_auth:
   call: http.post
   args:
@@ -34,7 +34,6 @@ validate_auth:
       x-request-id: ${incoming.headers['x-request-id'] ?? null}
     body: {}
   result: auth_result
-  next: check_result
 
 check_result:
   switch:
@@ -52,4 +51,3 @@ guard_fail:
   return: ${auth_result.response.body}
   status: ${auth_result.response.status}
   wrapper: false
-  next: end

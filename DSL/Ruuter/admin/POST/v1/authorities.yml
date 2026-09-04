@@ -11,7 +11,6 @@ create_authority:
       subsets: "${JSON.stringify(incoming.body.subsets ?? [])}"
       status: "${incoming.body.status}"
   result: insert_result
-  next: check_insert
 
 # insert_authority RETURNS the full row (same columns as get_authority_by_id); an empty
 # body means the insert produced nothing. No re-fetch needed.
@@ -19,7 +18,6 @@ check_insert:
   switch:
     - condition: ${insert_result.response.status >= 400 || !insert_result.response.body.length}
       next: insert_failed
-  next: respond
 
 respond:
   return: ${insert_result.response.body[0]}
@@ -31,4 +29,3 @@ insert_failed:
   return: {"error": "Failed to create authority"}
   status: 500
   wrapper: false
-  next: end

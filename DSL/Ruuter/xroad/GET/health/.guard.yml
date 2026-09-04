@@ -8,4 +8,3 @@ allow:
   return: "success"
   status: 200
   wrapper: false
-  next: end

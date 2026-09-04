@@ -9,9 +9,7 @@ consignments:
       limit: ${incoming.params.limit ?? 100}
       offset: ${incoming.params.offset ?? 0}
   result: search_result
-  next: respond
 
 respond:
   return: ${search_result.response.body}
   wrapper: false
-  next: end

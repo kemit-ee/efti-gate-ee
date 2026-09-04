@@ -35,18 +35,15 @@
 
 log_context:
   log: "xroad guard client=${incoming.headers['x-road-client'] ?? '-'} xroad-id=${incoming.headers['x-road-id'] ?? '-'} rid=${incoming.headers['x-request-id'] ?? '-'}"
-  next: check_client_header
 
 check_client_header:
   switch:
     - condition: ${incoming.headers == null || incoming.headers['x-road-client'] == null || incoming.headers['x-road-client'] == ''}
       next: guard_unauthorized
-  next: parse_client
 
 parse_client:
   assign:
     xroad_parts: ${incoming.headers['x-road-client'].split('/')}
-  next: validate_client_format
 
 # 3 parts = member-level client (EE/GOV/70000099); 4 = subsystem-level (EE/GOV/70000099/tram).
 # Both are valid X-Road client ids; only the memberCode at index 2 drives access control. The
@@ -64,7 +61,6 @@ check_id_header:
   switch:
     - condition: ${incoming.headers['x-road-id'] == null || incoming.headers['x-road-id'] == ''}
       next: guard_missing_header
-  next: parse_id
 
 # X-Road-Id must be UUID-shaped, because the forwarding routes map it to x-request-id and core feeds
 # that value to TYPED UUID parameters: multiplexer's `@PathParam searchId: UUID`
@@ -86,7 +82,6 @@ check_id_header:
 parse_id:
   assign:
     xroad_id_parts: ${incoming.headers['x-road-id'].split('-')}
-  next: validate_id_format
 
 validate_id_format:
   switch:
@@ -104,7 +99,6 @@ resolve_authority:
     body:
       registry_code: "${xroad_parts[2]}"
   result: authority_res
-  next: check_authority
 
 # DENY IS THE FALL-THROUGH BRANCH, and every accept path is an explicit positive condition.
 # This ordering is load-bearing. If ReSql returns a non-array body (a 500 error object, a
@@ -128,7 +122,6 @@ check_authority:
 bind_authority:
   assign:
     authority: ${authority_res.response.body[0]}
-  next: guard_success
 
 guard_success:
   return: "success"
@@ -196,4 +189,3 @@ guard_ambiguous:
     detail: "The X-Road client registry code resolves to more than one active competent authority. This is a registry misconfiguration; contact the gate operator."
   status: 403
   wrapper: false
-  next: end

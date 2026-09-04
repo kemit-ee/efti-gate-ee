@@ -23,18 +23,17 @@ declaration:
 # x-forwarded-for / x-request-id for context.
 log_context:
   log: "internal/check-admin-authority rid=${incoming.headers['x-request-id'] ?? '-'} from=${incoming.headers['x-forwarded-for'] ?? '-'}"
-  next: check_for_bearer
+
 
 check_for_bearer:
   switch:
     - condition: ${incoming.headers == null || incoming.headers.authorization == null || !incoming.headers.authorization.toLowerCase().startsWith("bearer ")}
       next: unauthorized
-  next: extract_token
+
 
 extract_token:
   assign:
     token: ${incoming.headers.authorization.substring(7)}
-  next: check_token
 
 check_token:
   switch:
@@ -49,7 +48,6 @@ validate_token:
     headers:
       cookie: "eftiJwtCookie=${token}"
   result: token_info
-  next: check_token_info
 
 check_token_info:
   switch:
@@ -73,7 +71,6 @@ lookup_user:
       tara_sub: ${token_info.response.body.userinfo.claims.personalCode}
       token_issued_at: ${token_info.response.body.userinfo.issued_at}
   result: user_res
-  next: check_user_found
 
 check_user_found:
   switch:
@@ -111,4 +108,3 @@ forbidden:
     detail: "This action requires the ADMIN role."
   status: 403
   wrapper: false
-  next: end

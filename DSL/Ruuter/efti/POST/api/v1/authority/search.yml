@@ -4,7 +4,6 @@ declaration:
 setup:
   assign:
     requestId: ${incoming.headers['x-request-id']}
-  next: check_poll
 
 check_poll:
   switch:
@@ -17,13 +16,12 @@ poll_remaining:
   args:
     url: "[#MULTIPLEXER_URL]/api/v1/rest/${requestId}"
   result: rest_result
-  next: check_rest
 
 check_rest:
   switch:
     - condition: ${!rest_result.response.body || rest_result.response.body == ''}
       next: respond_empty
-  next: rest_to_json
+
 
 rest_to_json:
   call: http.post
@@ -33,7 +31,6 @@ rest_to_json:
       content-type: "text/xml"
     body: ${rest_result.response.body}
   result: rest_json
-  next: respond_rest
 
 respond_rest:
   return: ${rest_json.response.body}
@@ -53,7 +50,6 @@ local_search:
       gateId: '[#OWN_GATE_ID]'
       criteria: ${incoming.body}
   result: local_result
-  next: check_local
 
 check_local:
   switch:
@@ -74,7 +70,6 @@ criteria-to-xml:
       content-type: "application/json"
     body: ${incoming.body}
   result: criteria_xml
-  next: forward_to_gates
 
 forward_to_gates:
   call: http.post
@@ -87,7 +82,6 @@ forward_to_gates:
     body: ${criteria_xml.response.body}
     content_type: plaintext
   result: gates_result
-  next: xml-to-json
 
 xml-to-json:
   call: http.post
@@ -98,7 +92,6 @@ xml-to-json:
     body: ${gates_result.response.body}
     content_type: plaintext
   result: first_result
-  next: respond_first
 
 respond_first:
   return: ${first_result.response.body}
@@ -106,9 +99,7 @@ respond_first:
     content-type: "application/json"
     x-poll-more: true
   wrapper: false
-  next: end
 
 respond_empty:
   return: []
   wrapper: false
-  next: end

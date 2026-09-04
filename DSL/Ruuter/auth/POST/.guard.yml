@@ -3,4 +3,3 @@ guard_success:
   return: "success"
   status: 200
   wrapper: false
-  next: end

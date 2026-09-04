@@ -12,7 +12,6 @@ parse_xml:
     body:
       text: "${incoming.body.xml}"
   result: followup_json
-  next: call_follow_up
 
 call_follow_up:
   template: api/v1/authority/follow-up
@@ -26,7 +25,6 @@ call_follow_up:
     message: "${followup_json.response.body.message}"
     files: "${followup_json.response.body.files}"
   result: followup_response
-  next: to_xml
 
 to_xml:
   call: http.post
@@ -36,7 +34,6 @@ to_xml:
       Content-Type: "application/json"
     body: ${followup_response}
   result: xml_response
-  next: respond
 
 respond:
   return: ${xml_response.response.body}
@@ -44,4 +41,3 @@ respond:
     Content-Type: "text/xml"
   wrapper: false
   status: 201
-  next: end

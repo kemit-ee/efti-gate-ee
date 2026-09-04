@@ -15,7 +15,6 @@ declaration:
 setup:
   assign:
     registry_code: ${authority.registryCode}
-  next: check_subsets_present
 
 # '{}' <@ anything is TRUE in Postgres, so an empty list would pass the containment test below.
 # openapi.yaml requires minItems 1 on subsetId, so reject it here instead.
@@ -23,7 +22,6 @@ check_subsets_present:
   switch:
     - condition: ${incoming.body == null || incoming.body.subsets == null || incoming.body.subsets.length == 0}
       next: missing_subset
-  next: check_subset_permission
 
 check_subset_permission:
   call: http.post
@@ -35,7 +33,6 @@ check_subset_permission:
       registry_code: "${registry_code}"
       requested_subsets: ${incoming.body.subsets}
   result: subset_res
-  next: evaluate_permission
 
 # Deny is the fall-through branch and every accept path is an explicit positive condition: a
 # non-array ReSql body (500 error object, param-validation failure) makes every length comparison
@@ -81,7 +78,6 @@ forward_to_core:
       x-request-id: "${incoming.headers['x-road-id']}"
     body: ${incoming.body}
   result: core_res
-  next: check_core_status
 
 # Only fires once core has RESPONDED. A connection refusal, DNS failure, or the 70s timeout
 # expiring raises inside the http.post above, and ruuter.yaml sets
@@ -92,7 +88,6 @@ check_core_status:
   switch:
     - condition: ${core_res.response.status >= 400}
       next: core_error
-  next: respond
 
 respond:
   return: ${core_res.response.body}

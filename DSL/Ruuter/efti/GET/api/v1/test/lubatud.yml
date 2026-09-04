@@ -10,7 +10,7 @@ check_for_cookie:
   switch:
     - condition: ${incoming.headers == null || incoming.headers.cookie == null}
       next: return_anonymous
-  next: get_jwt_info
+
 
 get_jwt_info:
   call: http.get
@@ -19,7 +19,6 @@ get_jwt_info:
     headers:
       cookie: ${incoming.headers.cookie}
   result: tim_result
-  next: check_response
 
 check_response:
   switch:
@@ -37,4 +36,3 @@ return_anonymous:
   return: {"authenticated": false, "message": "Sessioon puudub"}
   status: 200
   wrapper: false
-  next: end

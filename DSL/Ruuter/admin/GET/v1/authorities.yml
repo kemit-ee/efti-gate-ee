@@ -13,13 +13,11 @@ fetch_single:
     body:
       id: "${incoming.params.pathParams[0]}"
   result: single_result
-  next: check_single
 
 check_single:
   switch:
     - condition: ${!single_result.response.body.length}
       next: not_found
-  next: respond_single
 
 respond_single:
   return: ${single_result.response.body[0]}
@@ -36,7 +34,6 @@ fetch_list:
       limit: "${incoming.params.limit}"
       offset: "${incoming.params.offset}"
   result: list_result
-  next: respond_list
 
 respond_list:
   return: ${list_result.response.body}
@@ -47,4 +44,3 @@ not_found:
   return: {"error": "Not Found"}
   status: 404
   wrapper: false
-  next: end

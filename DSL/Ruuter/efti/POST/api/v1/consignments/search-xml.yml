@@ -12,7 +12,6 @@ to_json:
     body:
       text: ${incoming.body.xml}
   result: criteria_json
-  next: local_search
 
 local_search:
   call: http.post
@@ -24,7 +23,6 @@ local_search:
       gateId: ${incoming.params.gateId ?? '[#OWN_GATE_ID]'}
       criteria: ${incoming.body}
   result: local_result
-  next: to_xml
 
 to_xml:
   call: http.post
@@ -34,7 +32,6 @@ to_xml:
       Content-Type: "application/json"
     body: ${local_result.response.body}
   result: xml_response
-  next: respond
 
 respond:
   return: ${xml_response.response.body}
@@ -42,4 +39,3 @@ respond:
     Content-Type: "text/xml"
   wrapper: false
   status: 200
-  next: end
