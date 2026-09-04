@@ -8,7 +8,7 @@ juurdepääs, turvaserver ja asutuse registreering on paigas.
 
 ## Miks eraldi teenus
 
-Mock jookseb **omaette konteinerina** (`ruuter-developer`, port 8088) — eraldi Ruuteri projekt,
+Mock jookseb **omaette konteinerina** (`ruuter-xroad-mock`, port 8088) — eraldi Ruuteri projekt,
 millel **ei ole** andmebaasi, `core`-i ega ühtki ühendust päris väravaga. Iga marsruut vastab
 literaali pealt. Isegi vigane marsruut ei saa
 lekitada päris saadetiste andmeid ega jõuda privilegeeritud teeni. Päris `/xroad/**` **ei ole**

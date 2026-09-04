@@ -2,10 +2,9 @@
 
 ## Changes
 
+- **v2.1** — `users.is_admin` dropped. Every authenticated user has full access.
 - **v2.0** — `users.is_authority` dropped. A competent authority proper is an organisation
-  authenticated over X-Road (`authorities.registry_code`), never a `users` row. The interactive
-  JWT Authority API now requires `is_admin`. RBAC on the JWT path is the single `users.is_admin`
-  boolean.
+  authenticated over X-Road (`authorities.registry_code`), never a `users` row.
 - **v1.1** — RBAC storage: `users.roles TEXT[]` (`ADMIN` / `AUTHORITY`) → `users.is_admin`
   (plus a then-present `is_authority`, since removed). The Acceptance-Criteria wording below is
   issue-synced — correct it in the GitHub issue, not here.
@@ -28,7 +27,7 @@
 | | `POST /api/v1/auth/logout` |
 | | `POST /api/v1/auth/local-token` |
 | | Full request / response / error shapes: [`openapi.yaml`](../../specs/openapi.yaml) |
-| **Schema** | `users` (`tara_sub`, `name`, `is_admin BOOLEAN`, `secret_hash TEXT NULL`, `token_revoked_at TIMESTAMPTZ`) |
+| **Schema** | `users` (`tara_sub`, `name`, `secret_hash TEXT NULL`, `token_revoked_at TIMESTAMPTZ`) |
 | | `sessions` (JWT denylist) |
 | | Partial index `(tara_sub, created_at DESC) WHERE tara_sub IS NOT NULL` |
 | | Full schema: [`db/schema.sql`](../../specs/db/schema.sql) |

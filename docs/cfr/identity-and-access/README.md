@@ -19,7 +19,7 @@
 ## Acceptance Criteria
 
 **Theme done when:**
-- [ ] [User Management and RBAC](user_management_and_rbac.md): `is_admin` enforced on every admin and authority route.
+- [ ] [User Management and RBAC](user_management_and_rbac.md): authentication enforced on every admin and authority route.
 - [ ] [Authentication](authentication.md): TARA login works, Basic Auth disabled in production, mTLS for G2G.
 - [ ] [Authentication and Access Flows](authentication_and_access_flows.md): all four auth sequence diagrams documented (Flow 1, Flow 2, Flow 2b, Flow 3).
 

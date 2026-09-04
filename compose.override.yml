@@ -22,16 +22,16 @@ services:
         - action: sync+restart
           path: ./DSL/Ruuter
           target: /app/DSL
-  ruuter-developer:
+  ruuter-xroad-mock:
     ports:
-      - "${EFTI_RUUTER_DEVELOPER_PORT:-8088}:8088"
+      - "${EFTI_RUUTER_XROAD_MOCK_PORT:-8088}:8088"
     healthcheck:
       start_interval: 1s
       interval: 60s
     develop:
       watch:
         - action: sync+restart
-          path: ./DSL/Ruuter-developer
+          path: ./DSL/Ruuter-xroad-mock
           target: /app/DSL
   edelivery:
     ports:
@@ -74,7 +74,7 @@ services:
     image: jetbrains/intellij-http-client
     depends_on:
       - ruuter
-      - ruuter-developer
+      - ruuter-xroad-mock
       - xml-mapper
     volumes:
       - ./:/workdir

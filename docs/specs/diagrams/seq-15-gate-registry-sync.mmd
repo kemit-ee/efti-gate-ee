@@ -7,10 +7,10 @@ sequenceDiagram
 
     Note over Gate,OtherNode: Multi-node deployment.<br/>Both nodes share one<br/>PostgreSQL. GateRegistry<br/>is an in-memory cache<br/>of the latest gates row<br/>per id (loaded at startup).
 
-    Admin->>+Gate: POST /api/v1/gates<br/>Authorization: Bearer TARA-JWT (is_admin)
+    Admin->>+Gate: POST /api/v1/gates<br/>Authorization: Bearer TARA-JWT
     Note over Admin,Gate: Body — GateWrite:<br/>id, countryCode,<br/>eDeliveryUrl,<br/>eDeliveryCert.<br/>Full schema: openapi.yaml.
 
-    Gate->>Gate: Validate JWT (signature, exp, iss, aud),<br/>require is_admin
+    Gate->>Gate: Validate JWT (signature, exp, iss, aud),<br/>resolve users row
     Gate->>+GateReg: save(Gate{id="eu-xx02", ...})
 
     GateReg->>GateReg: in-memory cache: gates["eu-xx02"] = Gate{...}<br/>(this node only)

@@ -6,7 +6,11 @@ port: 8088
 http_codes_allow_list: [200, 201, 202, 204, 400, 401, 403, 404, 409, 422, 500, 501, 502, 504]
 
 dsl:
-  project: developer
+  # Fallback/label only — Ruuter resolves the project per request from the first URL segment
+  # against the directories under /app/DSL (the main gate Ruuter sets `project: efti` yet serves
+  # /xroad/, /admin/, …). The DSL directory here is still `developer/`, so the public surface
+  # stays /developer/**.
+  project: ruuter-xroad-mock
 
 guards:
   enforce_on_methods: [GET, POST, PUT, DELETE]

@@ -86,7 +86,6 @@ export interface User {
   id: string
   taraSub: string
   name: string
-  isAdmin: boolean
   createdAt: string
   tokenRevokedAt?: string
 }
@@ -94,13 +93,11 @@ export interface User {
 export interface CreateUserRequest {
   taraSub: string
   name: string
-  isAdmin: boolean
 }
 
 export interface UpdateUserRequest {
   name: string
   taraSub: string
-  isAdmin: boolean
 }
 
 export enum ConsignmentStatus {

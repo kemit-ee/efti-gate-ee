@@ -638,7 +638,7 @@ graph TB
     end
 
     subgraph "Authorization"
-        Z1[Access control<br/>users.is_admin<br/>+ mTLS platform identity]
+        Z1[Access control<br/>authenticated users<br/>+ mTLS platform identity]
         Z2[Subset Permissions<br/>Authority-specific]
         Z3[Resource Ownership<br/>Platform can only<br/>access own data]
     end

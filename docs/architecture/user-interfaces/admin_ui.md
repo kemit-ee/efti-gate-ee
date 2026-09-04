@@ -2,9 +2,8 @@
 
 ## Changes
 
-- **v1.1** — No role-selection step. RBAC is the single `users.is_admin` boolean;
-  the former `roles TEXT[]` is gone. A caller is an admin or is not — nothing to select or switch.
-  The user form carries an "Admin" and an "Authority" checkbox.
+- **v1.1** — No role-selection step. Every authenticated user has full access;
+  the former `roles TEXT[]` is gone. A caller is authenticated or is not — nothing to select or switch.
 - _Initial state. Change tracking begins at v1.0.0._
 
 > Sub-architecture for the Admin UI surface. For overarching rules see [theme README](README.md). AC are in [`../../cfr/user-interfaces/admin_ui.md`](../../cfr/user-interfaces/admin_ui.md).

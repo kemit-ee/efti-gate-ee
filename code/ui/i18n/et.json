@@ -95,8 +95,6 @@
     "secretHash": "Salasõna räsi",
     "tokenRevokedAt": "Token tühistatud",
     "access": "Ligipääs",
-    "isAdmin": "Admin",
-    "cannotRemoveOwnAdmin": "Ei saa enda admin-õigust eemaldada",
     "generateSecret": "Loo uus parool või token",
     "copyPastePassword": "Kopeeri kasutaja parool (te ei näe seda enam)",
     "copyPasteToken": "Kopeeri kasutaja bearer token (te ei näe seda enam)",

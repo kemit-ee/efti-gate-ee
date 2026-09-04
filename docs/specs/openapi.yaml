@@ -1352,19 +1352,17 @@ paths:
               $ref: '#/components/schemas/UserWrite'
             examples:
               plainUser:
-                summary: Plain user (authenticated, no API access beyond GET /api/v1/user)
+                summary: Plain user (authenticated, full API access)
                 value:
                   taraSub: "EE00000000000"
                   name: "MTA Inspector"
                   email: "inspector@example.com"
-                  isAdmin: false
               adminUser:
                 summary: Admin user
                 value:
                   taraSub: "EE00000000000"
                   name: "Gate Admin (Estonia)"
                   email: "admin@example.com"
-                  isAdmin: true
       responses:
         '201':
           description: User created
@@ -3559,15 +3557,6 @@ components:
             gate rejects any JWT whose `iat` predates this value. NULL means no
             broadcast revocation has occurred for this user.
           example: null
-        isAdmin:
-          type: boolean
-          description: |
-            TRUE grants full Admin API access (gate/platform/authority/user CRUD) and
-            the JWT Authority API (dataset search, follow-up, authority-search). Read
-            from `users.is_admin` (replaces the former `roles TEXT[]` ADMIN entry).
-            FALSE means authenticated but limited to `GET /api/v1/user`. Competent
-            authorities proper authenticate as organisations over X-Road, not as users.
-          example: false
         isUserActive:
           type: boolean
           description: |
@@ -3598,10 +3587,6 @@ components:
           type: string
           format: email
           example: "inspector@example.com"
-        isAdmin:
-          type: boolean
-          default: false
-          description: Grants Admin API access and the JWT Authority API. Omitted → false.
         subsets:
           type: array
           nullable: true
