@@ -1,0 +1,13 @@
+# Public diagnostic endpoints (baasikontoroll = health/DB check, lubatud/piiratud = TARA
+# cookie session probes), documented as public in AGENTS.md. override_ancestors keeps them
+# reachable without X-Internal-Service-Token now that the parent efti/GET/api/v1/.guard.yml
+# requires it — the parent's own comment always intended this file to exist; it just hadn't
+# been written yet.
+declaration:
+  override_ancestors: true
+
+allow:
+  return: "success"
+  status: 200
+  wrapper: false
+  next: end

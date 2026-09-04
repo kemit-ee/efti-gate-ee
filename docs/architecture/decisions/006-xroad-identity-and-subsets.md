@@ -75,8 +75,16 @@ projektiülene `template:` ei tööta (Ruuteri projekti *sees* töötab — `dat
 `authority/search.yml:47` kasutavad seda — aga `efti` / `xroad` piiri üleselt mitte).
 
 Lahendus: `core`-i autoriteedi-guard saab **teise kredentsiaali** — kui päis
-`X-Internal-Service-Token` klapib konstandiga, luba ja jäta TIM-i kutse vahele. Läbikukkumisharu on
-endine JWT-tee, mitte lubamine.
+`X-Internal-Service-Token` klapib konstandiga, luba.
+>
+> **Muudatus (04.09.2026, permissions-matrix v1.6):** JWT-tee on `efti/api/v1/*`-lt (kogu
+> autoriteedi-pinnalt, mitte ainult POST-ilt) täielikult eemaldatud — see polnud alternatiiv,
+> vaid ainuke tee jäi alles. `efti/api/v1/*` on nüüd puhtalt gate-sisene: iga selle alla jääva
+> route'i guard nõuab `X-Internal-Service-Token`-it, läbikukkumisharu (puuduv, tühi või vale
+> päis) tagastab 401 otse, ilma TIM-i poole pöördumata. Ühtlasi kaovad orvuks jäänud
+> `efti/PUT/api/v1/.guard.yml` ja `efti/DELETE/api/v1/.guard.yml` (nende all polnud handlereid)
+> ning G2G-sissetuleva pinna (`efti/POST/api/v1/.guard.yml`, varem avalik) taha tuleb sama
+> token — edelivery saadab selle nüüd igal kutsel.
 
 See on **üldine sisemise teenuse kredentsiaal**, mitte X-Roadi oma: `core` ei tea X-Roadist midagi
 ja mooduli piiri nõue jääb kehtima. Sama tokenit vajab ka G2G sissetulev liiklus (`AGENTS.md` märgib
