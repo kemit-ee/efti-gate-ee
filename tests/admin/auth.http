@@ -65,18 +65,6 @@ Authorization: Bearer {{adminToken}}
   })
 %}
 
-### Get current user Mari
-GET {{RUUTER_URL}}/auth/user
-Content-Type: application/json
-Authorization: Bearer {{authorityToken}}
-
-> {%
-  client.test("Mari user profile returned", () => {
-    client.assert(response.status === 200)
-    client.assert(response.body.taraSub === "60001017869")
-  })
-%}
-
 ### NEGATIVE: unprovisioned user rejected
 GET {{RUUTER_URL}}/auth/user
 Content-Type: application/json

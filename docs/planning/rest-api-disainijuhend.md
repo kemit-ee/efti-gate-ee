@@ -242,7 +242,7 @@ check_result:
   switch:
     - condition: ${auth_result.response.status != 200}
       next: guard_fail            # 401 — pole autenditud
-    - condition: ${auth_result.response.body.isAdmin == true || auth_result.response.body.isAuthority == true}
+    - condition: ${auth_result.response.status == 200}
       next: guard_success         # 200 — Ruuter jätkab route-failiga
   next: guard_fail_forbidden      # 403 — autenditud, aga vale roll
 
@@ -275,12 +275,8 @@ sequenceDiagram
         G-->>R: 401
         R-->>C: HTTP 401
     else kehtiv
-        I-->>G: 200 { isAdmin, isAuthority, ... }
-        alt roll puudub
-            G-->>R: 403 forbidden
-            R-->>C: HTTP 403
-        else ADMIN või AUTHORITY
-            G-->>R: 200 success
+        I-->>G: 200 { user row }
+        G-->>R: 200 success
             R->>E: käivita authority/dataset.yml
             E-->>R: vastus
             R-->>C: HTTP 200

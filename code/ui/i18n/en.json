@@ -94,8 +94,6 @@
     "taraSub": "Personal code",
     "tokenRevokedAt": "Token revoked at",
     "access": "Access",
-    "isAdmin": "Admin",
-    "cannotRemoveOwnAdmin": "Cannot remove your own admin access",
     "secretHash": "Secret hash",
     "generateSecret": "Generate new password or token",
     "copyPastePassword": "Copy user's password (you won't see it again)",

@@ -7,11 +7,9 @@
 -- below) exercises.
 
 --changeset efti:005-seed-dev-users context:dev
-INSERT INTO users (id, tara_sub, name, is_admin) VALUES
+INSERT INTO users (id, tara_sub, name) VALUES
   -- Super Admin — full admin access
-  ('11111111-1111-1111-1111-111111111111', '60001019906', 'Super Admin', TRUE),
-  -- Plain non-admin user — exercises the 401/403 path on admin and authority routes
-  ('22222222-2222-2222-2222-222222222222', '60001017869', 'Mari Tamm',   FALSE);
+  ('11111111-1111-1111-1111-111111111111', '60001019906', 'Super Admin')
 
 -- Rollback is a soft-delete, not a DELETE: append-only forbids removing rows, so
 -- "undo" means inserting a newer row whose is_active = FALSE (docs/specs/db/README.md).

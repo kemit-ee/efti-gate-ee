@@ -6,10 +6,10 @@ sequenceDiagram
 
     Note over Admin: Admin has the platform's<br/>eDelivery AP X.509 cert<br/>(MS-issued per Reg<br/>2024/1942 Art 11).<br/>Ready to register.
 
-    Admin->>+Gate: POST /api/v1/platforms<br/>Authorization: Bearer TARA-JWT (is_admin)
+    Admin->>+Gate: POST /api/v1/platforms<br/>Authorization: Bearer TARA-JWT
     Note over Admin,Gate: Body — PlatformWrite:<br/>id, baseUrl,<br/>eDeliveryCert.<br/>Full schema: openapi.yaml.
 
-    Gate->>Gate: Validate JWT (signature, exp, iss, aud, not in denylist),<br/>require is_admin
+    Gate->>Gate: Validate JWT (signature, exp, iss, aud, not in denylist),<br/>resolve users row
 
     Gate->>+PlatformReg: save(PlatformWrite)
     PlatformReg->>+DB: Append a new platforms row carrying the platform's id, baseUrl,<br/>eDeliveryCert, status='ONLINE',<br/>created_by=admin's user-row-id.

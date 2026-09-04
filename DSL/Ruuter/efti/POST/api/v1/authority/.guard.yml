@@ -1,7 +1,7 @@
 # JWT Authority API (search, dataset, follow-up). A competent authority proper is an
 # organisation authenticated over X-Road (DSL/Ruuter/xroad/.guard.yml → authorities.registry_code);
 # there is no "authority" flag on users. This interactive JWT surface is therefore restricted to
-# gate operators: it requires a TARA JWT resolving to a users row with is_admin.
+# gate operators: it requires a TARA JWT resolving to an active users row.
 # check-admin-authority returns 200 for admins, 401 if the token is missing/invalid, 403 if
 # authenticated but not admin.
 #

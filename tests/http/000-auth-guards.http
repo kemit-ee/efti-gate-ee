@@ -13,17 +13,6 @@ Content-Type: application/json
   client.global.set("guardAdminToken", response.body.token)
 %}
 
-### Login: Mari Tamm (plain user, not ADMIN)
-# @name guardAuthorityLogin
-POST {{RUUTER_URL}}/auth/dev-login
-Content-Type: application/json
-
-{"personalCode": "60001017869", "firstName": "Mari", "lastName": "Tamm"}
-
-> {%
-  client.global.set("guardAuthorityToken", response.body.token)
-%}
-
 ### F5: authority search rejects an unauthenticated caller
 POST {{RUUTER_URL}}/efti/api/v1/authority/search
 Content-Type: application/json
@@ -36,16 +25,16 @@ Content-Type: application/json
   })
 %}
 
-### F5: authority search rejects a non-admin token (the JWT authority API needs is_admin)
+### F5: authority search accepts any authenticated user
 POST {{RUUTER_URL}}/efti/api/v1/authority/search
 Content-Type: application/json
-Authorization: Bearer {{guardAuthorityToken}}
+Authorization: Bearer {{guardAdminToken}}
 
 {"criteria": {"mainTransportId": {"operator": "EQ", "id": "VESSEL-001"}}, "limit": 1, "offset": 0}
 
 > {%
-  client.test("F5 non-admin authority search -> 403", () => {
-    client.assert(response.status === 403)
+  client.test("F5 authenticated user authority search -> not blocked", () => {
+    client.assert(response.status !== 401 && response.status !== 403)
   })
 %}
 
@@ -74,16 +63,6 @@ Content-Type: text/xml
   })
 %}
 
-### F2: admin list rejects a non-admin token (needs ADMIN)
-GET {{RUUTER_URL}}/admin/v1/platforms
-Authorization: Bearer {{guardAuthorityToken}}
-
-> {%
-  client.test("F2 non-admin token on admin GET -> 403", () => {
-    client.assert(response.status === 403)
-  })
-%}
-
 ### F2: admin list rejects an unauthenticated caller
 GET {{RUUTER_URL}}/admin/v1/platforms
 
@@ -103,16 +82,16 @@ Authorization: Bearer {{guardAdminToken}}
   })
 %}
 
-### Regression: dataset request rejects a non-admin token, passes for an ADMIN token
+### Regression: dataset request passes the authority/ guard for an authenticated token
 POST {{RUUTER_URL}}/efti/api/v1/authority/dataset
 Content-Type: application/json
-Authorization: Bearer {{guardAuthorityToken}}
+Authorization: Bearer {{guardAdminToken}}
 
 {"uil": {"gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440000"}, "subsets": ["EU01"]}
 
 > {%
-  client.test("non-admin token is blocked by the authority/ guard -> 403", () => {
-    client.assert(response.status === 403)
+  client.test("authenticated token passes the authority/ guard", () => {
+    client.assert(response.status !== 401 && response.status !== 403)
   })
 %}
 

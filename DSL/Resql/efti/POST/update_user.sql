@@ -4,14 +4,12 @@ params:
   id:          { type: string,  required: true }
   name:        { type: string,  required: true }
   taraSub:     { type: string,  required: true }
-  isAdmin:     { type: boolean, required: false }
 */
-INSERT INTO users (id, tara_sub, name, is_admin)
+INSERT INTO users (id, tara_sub, name)
 VALUES (
   :id::uuid,
   :taraSub,
-  :name,
-  COALESCE(:isAdmin::boolean, FALSE)
+  :name
 )
 -- Column list matches get_user_by_id so the update handler can return this row directly.
 RETURNING
@@ -21,5 +19,4 @@ RETURNING
   name,
   token_revoked_at,
   is_active   AS is_user_active,
-  is_admin,
   created_at;

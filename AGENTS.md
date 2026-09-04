@@ -111,11 +111,11 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   - Per-route sibling guards (`<route>.guard.yml` next to `<route>.yml`) — not used here; behaviour is version-specific (broken in 0.9.4-rc, fixed in 0.9.6-rc #41).
   - `template:` calls invoke the target handler as an engine subroutine and **bypass guards** — a public route can `template:` into a handler that lives under a guarded directory (this is how the G2G `-xml`/`-local` wrappers reach the guarded authority handlers).
 - Guard map (see `docs/specs/permissions-matrix.md`):
-  - `admin/` GET/POST/PUT/DELETE = ADMIN (`check-admin-authority`) — one `admin/.guard.yml` covers all methods
+  - `admin/` GET/POST/PUT/DELETE = authenticated (`check-admin-authority`) — one `admin/.guard.yml` covers all methods
   - `auth/` POST = public; `auth/` GET = any authenticated user (`check-user-authority`)
-  - `efti/GET/api/v1/` = any authenticated user; `efti/GET/api/v1/authority/` = `is_admin` OR `is_authority`
+  - `efti/GET/api/v1/` = any authenticated user; `efti/GET/api/v1/authority/` = any authenticated user
   - `efti/POST/api/v1/` = public (gate-to-gate inbound: `dataset-xml`/`-local`, `follow-up-xml`/`-local`, `consignments/search-xml`, `ping` — all edelivery-only after AS4 mTLS)
-  - `efti/POST/api/v1/authority/` = ADMIN or AUTHORITY **or** a matching `X-Internal-Service-Token` (ADR-006) — holds the real authority handlers (`dataset`, `follow-up`, `search`); the G2G wrappers above `template:` into these. The token is a generic internal-service credential (the X-Road adapter uses it; G2G inbound will too), so `core` stays X-Road-unaware. Deny is the fall-through: an absent or empty header can never match, even if the constant were unset. The GET sibling deliberately does **not** accept it — the adapter forwards only POST.
+  - `efti/POST/api/v1/authority/` = any authenticated user **or** a matching `X-Internal-Service-Token` (ADR-006) — holds the real authority handlers (`dataset`, `follow-up`, `search`); the G2G wrappers above `template:` into these. The token is a generic internal-service credential (the X-Road adapter uses it; G2G inbound will too), so `core` stays X-Road-unaware. Deny is the fall-through: an absent or empty header can never match, even if the constant were unset. The GET sibling deliberately does **not** accept it — the adapter forwards only POST.
   - `platforms/` = platform `X-Api-Key` hash (ADR-004) — one `platforms/.guard.yml`; also covers the G2G `consignments-xml`. **Deny is the fall-through branch**, each accept path an explicit positive condition, so a non-array ReSql body cannot fail open.
   - `xroad/` = `x-road-client` member code resolves to exactly one `ACTIVE` authority (ADR-006). One project-level `xroad/.guard.yml` for both methods; it `assign`s `${authority}` for handlers. **Deny is the fall-through branch** and each accept path an explicit positive condition, so a non-array ReSql body cannot fail open. `xroad/GET/health/.guard.yml` uses `override_ancestors` to stay public (the `efti` probes have no ancestor guard and need none). **`/xroad/**` shares port 8086 with the public gate API — the ingress MUST NOT expose it; only the Security Server may reach it.**
 
@@ -151,7 +151,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 
 ## Dev seed data (context:dev)
 
-- Users: Super Admin (60001019906, `is_admin`), Mari Tamm (60001017869, `is_authority`)
+- Users: Super Admin (60001019906), Mari Tamm (60001017869)
 - Platform: `mock` → `http://ruuter:8086/mock-platform` with `X-Api-Key: mock-secret-key`
 - TARA identities: `docker/tara-mock/identities.json`
 
@@ -178,3 +178,4 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - `internal_requests.block_private_networks: false` in `ruuter.yaml` — auth DSLs call TIM/ReSQL by compose service name
 - edelivery test mode uses a hardcoded PKCS#12 keystore (see `KeyManager.kt`); production reads from `certs/own.p12`
 - `PartyId` equality is case-insensitive (`.equals(ignoreCase = true)`)
+- user does not have role related fields. if user exist then they are admin. that's it.

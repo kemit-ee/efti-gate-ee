@@ -2,9 +2,10 @@
 
 ## Changes
 
+- **v2.1** — `users.is_admin` dropped. Every authenticated user has full access to Admin
+  and Authority API routes.
 - **v2.0** — `users.is_authority` dropped. A competent authority proper authenticates as an
-  organisation over X-Road (`authorities.registry_code`), not as a `users` row. Both the Admin API
-  and the interactive JWT Authority API require `is_admin`.
+  organisation over X-Road (`authorities.registry_code`), not as a `users` row.
 - **v1.1** — RBAC storage is boolean columns, not an array. `users.roles TEXT[]` (`ADMIN` /
   `AUTHORITY`) is replaced by `users.is_admin` (a then-present `is_authority` was later removed).
 - _Initial state. Change tracking begins at v1.0.0._
@@ -18,8 +19,7 @@ The user entity is identified by `tara_sub` (the TARA OIDC `sub` claim). The gat
 | Concept | Storage | Purpose |
 |---|---|---|
 | **User identity** | `users.tara_sub` | The TARA personal identification code (Estonian PIC) that identifies the user. |
-| **Admin access** | `users.is_admin` | `TRUE` = full Admin API (gate/platform/authority/user CRUD) **and** the Authority API. |
-| **JWT Authority API** | `users.is_admin` | The interactive `/efti/api/v1/authority/*` routes (search, dataset, follow-up) require `is_admin`. Competent authorities proper authenticate as organisations over X-Road (`authorities.registry_code`), not as users. |
+| **Authenticated access** | `users.is_active` | `TRUE` = full Admin API (gate/platform/authority/user CRUD) and the Authority API. |
 | **Platform binding** | `platforms.e_delivery_cert` | Which platform an mTLS caller is, resolved from the cert. No `platforms` reference in `users`. |
 
 The platform identity is *not* a `users` row — it is a `platforms` row resolved from the client certificate.
@@ -32,7 +32,7 @@ An admin **cannot delete their own account**. The check is enforced at the appli
 
 ## 3. New-user creation
 
-A new user is created with `tara_sub`, `name`, and the `is_admin` flag (defaults to `FALSE` when omitted). The user is identified by their TARA personal identification code.
+A new user is created with `tara_sub` and `name`. The user is identified by their TARA personal identification code.
 
 ## 4. User identification
 
