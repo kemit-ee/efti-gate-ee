@@ -1,5 +1,5 @@
 # Developer mock of the X-Road authority surface (/developer/**).
-# Standalone ruuter-developer container — no DB, no core. See docs/specs/x_road_developer_mock.md.
+# Standalone ruuter-xroad-mock container — no DB, no core. See docs/specs/x_road_developer_mock.md.
 #
 # X-Road-Client member codes with special meaning:
 #   00000000 -> 403 FORBIDDEN (guard)

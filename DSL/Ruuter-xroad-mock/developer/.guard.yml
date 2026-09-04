@@ -2,7 +2,7 @@
 #
 # This whole Ruuter project is a standalone sandbox that imitates the gate's X-Road
 # provider surface (DSL/Ruuter/xroad/**) with CANNED responses. It runs as its own
-# container (ruuter-developer, port 8088) with NO database, NO core, and NO link to the
+# container (ruuter-xroad-mock, port 8088) with NO database, NO core, and NO link to the
 # real gate — so exposing it publicly at https://dev.efti.ee/developer/ cannot leak real
 # consignment data or reach a privileged route. See docs/developer/x_road_developer_mock.md.
 #
