@@ -29,6 +29,7 @@ Authorization: Bearer {{adminToken}} # TODO: this is not right for authority
     client.assert(response.body[0].mainTransportId === "VESSEL-001")
     client.assert(response.body[0].acceptanceCountry === "DE")
     client.assert(response.body[0].xml.startsWith("<ParameterIDSetCriteria"))
+    client.assert(response.headers.valueOf('x-poll-more') === "false")
   })
 %}
 
@@ -72,6 +73,7 @@ Authorization: Bearer {{adminToken}} # TODO: this is not right for authority
     client.assert(response.body[0].mainTransportId === "MOCK-123")
     client.assert(response.body[0].gateId === "EU-MOCK")
     client.assert(response.body[0].xml.startsWith("<ParameterIDSetCriteria"))
+    client.assert(response.headers.valueOf('x-poll-more') === "false")
   })
 %}
 

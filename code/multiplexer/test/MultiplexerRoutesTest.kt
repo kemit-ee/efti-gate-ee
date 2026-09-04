@@ -53,7 +53,7 @@ class MultiplexerRoutesTest {
     val result = routes.rest(UUID.randomUUID(), exchange)
 
     expect(result).toEqual("")
-    verify { exchange.header("x-complete", "true") }
+    verify { exchange.header(pollMoreHeader, "false") }
   }
 
   @Test fun restDrainsQueuedResponses() {
@@ -67,7 +67,7 @@ class MultiplexerRoutesTest {
     val result = routes.rest(searchId, exchange)
 
     expect(result).toEqual("<r1/>⦀<r2/>")
-    verify { exchange.header("x-complete", "true") }
+    verify { exchange.header(pollMoreHeader, "false") }
   }
 
   private fun MultiplexerRoutes.pending(key: UUID, value: PartyResponses) {

@@ -14,6 +14,8 @@ import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.TimeUnit.SECONDS
 import kotlin.time.Duration.Companion.seconds
 
+const val pollMoreHeader = "x-poll-more"
+
 class MultiplexerRoutes(private val registry: MultiplexerGateRegistry, private val http: HttpClient) {
   private val eDeliveryUrl = URI(Config["EDELIVERY_URL"])
   private val pending = Cache<UUID, PartyResponses>(90.seconds)
@@ -42,7 +44,7 @@ class MultiplexerRoutes(private val registry: MultiplexerGateRegistry, private v
       responses.complete = true
     }
 
-    return responses.xmls.poll(63, SECONDS)?.also { e.header("x-complete", responses.complete.toString()) }
+    return responses.xmls.poll(63, SECONDS)?.also { e.sendPollMore(responses) }
       ?: throw StatusCodeException(GatewayTimeout)
   }
 
@@ -51,14 +53,18 @@ class MultiplexerRoutes(private val registry: MultiplexerGateRegistry, private v
     val responses = pending[searchId]
 
     if (responses == null) {
-      e.header("x-complete", "true")
+      e.header(pollMoreHeader, "false")
       return ""
     }
 
-    e.header("x-complete", responses.complete.toString())
+    e.sendPollMore(responses)
     val xmls = mutableListOf<String>()
     responses.xmls.drainTo(xmls)
     return xmls.filter { it.isNotEmpty() }.joinToString("⦀")
+  }
+
+  private fun HttpExchange.sendPollMore(responses: PartyResponses) {
+    this.header(pollMoreHeader, (!responses.complete).toString())
   }
 }
 

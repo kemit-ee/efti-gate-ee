@@ -17,12 +17,6 @@ poll_remaining:
     url: "[#MULTIPLEXER_URL]/api/v1/rest/${requestId}"
   result: rest_result
 
-check_rest:
-  switch:
-    - condition: ${!rest_result.response.body || rest_result.response.body == ''}
-      next: respond_empty
-
-
 rest_to_json:
   call: http.post
   args:
@@ -36,7 +30,7 @@ respond_rest:
   return: ${rest_json.response.body}
   headers:
     content-type: "application/json"
-    x-poll-more: ${rest_result.response.headers['complete'] != 'true'}
+    x-poll-more: ${rest_result.response.headers['x-poll-more']}
   wrapper: false
   next: end
 
@@ -59,6 +53,8 @@ check_local:
 
 respond_local:
   return: ${local_result.response.body}
+  headers:
+    x-poll-more: false
   wrapper: false
   next: end
 
@@ -97,9 +93,5 @@ respond_first:
   return: ${first_result.response.body}
   headers:
     content-type: "application/json"
-    x-poll-more: true
-  wrapper: false
-
-respond_empty:
-  return: []
+    x-poll-more: ${gates_result.response.headers['x-poll-more']}
   wrapper: false
