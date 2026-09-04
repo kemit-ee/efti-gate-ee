@@ -1,35 +1,80 @@
 declaration:
   description: "Authority requests a dataset from a Platform via the gate"
 
-assign:
+params:
   assign:
     gateId: ${incoming.params.pathParams[0]}
     platformId: ${incoming.params.pathParams[1]}
     datasetId: ${incoming.params.pathParams[2]}
     subsets: ${incoming.params.subsets}
 
+uil:
+  assign:
+    request_json:
+      uil:
+        gateId: ${gateId}
+        platformId: ${platformId}
+        datasetId: ${datasetId}
+      subsets: ${subsets?.split(',') ?? []}
+
 check_gate:
   switch:
     - condition: ${gateId != '[#OWN_GATE_ID]'}
-      next: forward_to_remote_gate
+      next: request_to_xml
 
 call_local_platform:
   template: api/v1/dataset-local
   request_type: "POST"
-  body:
-    uil:
-      gateId: ${gateId}
-      platformId: ${platformId}
-      datasetId: ${datasetId}
-    subsets: ${subsets?.split(',') ?? []}
+  body: ${request_json}
   result: dataset_response
+  next: convert_response_to_json
+
+request_to_xml:
+  call: http.post
+  args:
+    url: "[#XML_MAPPER_URL]/api/v1/dataset/request-to-xml"
+    headers:
+      content-type: "application/json"
+    body: ${request_json}
+  result: request_xml
+
+send_via_edelivery:
+  call: http.post
+  timeout: 65000
+  args:
+    url: "[#EDELIVERY_URL]/api/v1/send/${gateId}"
+    headers:
+      content-type: "text/xml"
+      x-request-id: ${incoming.headers['x-request-id'] ?? ''}
+    body: ${request_xml.response.body}
+    content_type: plaintext
+  result: edelivery_response
+
+check_edelivery_response:
+  switch:
+    - condition: ${edelivery_response.response.status != 200}
+      next: edelivery_error
+
+assign_dataset_from_edelivery:
+  assign:
+    dataset_response:
+      xml: ${edelivery_response.response.body}
+  next: convert_response_to_json
+
+edelivery_error:
+  return:
+    error: "Remote gate dataset request failed"
+    detail: ${edelivery_response.response.body}
+  wrapper: false
+  status: ${edelivery_response.response.status}
+  next: end
 
 convert_response_to_json:
   call: http.post
   args:
     url: "[#XML_MAPPER_URL]/api/v1/dataset/response-to-json"
     headers:
-      Content-Type: "text/xml"
+      content-type: "text/xml"
     body: ${dataset_response.xml}
     content_type: plaintext
   result: dataset_json
