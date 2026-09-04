@@ -1,6 +1,9 @@
 import ../admin/auth.http
 run #auth
 
+# TODO: forward x-request-id all the way; including remote gates and platforms
+# TODO: check second search response
+
 ### Setup: upload a consignment to search for
 # X-Api-Key hashed and matched against platforms.api_key_hash by consignments.guard
 # (ADR-004); mock hash seeded by 20260902-platform-api-key.sql.

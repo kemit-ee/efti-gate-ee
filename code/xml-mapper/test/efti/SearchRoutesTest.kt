@@ -1,5 +1,6 @@
 package efti
 
+import ch.tutteli.atrium.api.fluent.en_GB.toBeEmpty
 import ch.tutteli.atrium.api.fluent.en_GB.toContain
 import ch.tutteli.atrium.api.fluent.en_GB.toEqual
 import ch.tutteli.atrium.api.verbs.expect
@@ -79,5 +80,10 @@ class SearchRoutesTest : BaseMocks() {
     expect(result.size).toEqual(2)
     expect(result[0].gateId).toEqual(GateId("Gate-001"))
     expect(result[1].gateId).toEqual(GateId("Gate-001"))
+  }
+
+  @Test fun responseToJsonNone() {
+    val result = routes.responseToJson("")
+    expect(result).toBeEmpty()
   }
 }
