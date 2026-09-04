@@ -2,11 +2,15 @@ declaration:
   description: "Authority requests a dataset from a Platform via the gate (TARA JWT)"
   # Path params: /:gateId/:platformId/:datasetId
 
-# TODO: parse params and call POST /api/v1/dataset
+assign:
+  assign:
+    gateId: ${incoming.params.pathParams[0]}
+    platformId: ${incoming.params.pathParams[1]}
+    datasetId: ${incoming.params.pathParams[2]}
 
 check_gate:
   switch:
-    - condition: ${incoming.params.pathParams[0] != '[#OWN_GATE_ID]'}
+    - condition: ${gateId != '[#OWN_GATE_ID]'}
       next: forward_to_remote_gate
   next: get_platform
 
@@ -17,7 +21,7 @@ get_platform:
     headers:
       Content-Type: "application/json"
     body:
-      id: "${incoming.params.pathParams[1]}"
+      id: ${platformId}
   result: platform_result
   next: check_platform
 
@@ -30,7 +34,7 @@ check_platform:
 forward_to_platform:
   call: http.get
   args:
-    url: "${platform_result.response.body[0]?.baseUrl}/v1/dataset/${incoming.params.pathParams[2]}?subsetId=${incoming.params?.subsets?.join(',')}"
+    url: "${platform_result.response.body[0]?.baseUrl}/v1/dataset/${datasetId}?subsetId=${incoming.params?.subsets?.join(',')}"
     headers: "${Object.assign(platform_result.response.body[0]?.headers ?? {}, {'x-request-id': incoming.headers['x-request-id']})}"
   result: platform_response
   next: respond
@@ -51,9 +55,9 @@ forward_to_remote_gate:
       Content-Type: "application/json"
     body:
       uil:
-        gateId: "${incoming.params.pathParams[0]}"
-        platformId: "${incoming.params.pathParams[1]}"
-        datasetId: "${incoming.params.pathParams[2]}"
+        gateId: ${gateId}
+        platformId: ${platformId}
+        datasetId: ${datasetId}
       subsets: "${incoming.params?.subsets ?? []}"
   result: dataset_xml
   next: send_via_edelivery
@@ -62,7 +66,7 @@ send_via_edelivery:
   call: http.post
   timeout: 65000
   args:
-    url: "[#EDELIVERY_URL]/api/v1/send/${incoming.params.pathParams[0]}"
+    url: "[#EDELIVERY_URL]/api/v1/send/${gateId}"
     headers:
       Content-Type: "text/xml"
       x-request-id: "${incoming.headers['x-request-id'] ?? ''}"
