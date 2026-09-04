@@ -1,0 +1,42 @@
+declaration:
+  description: "Query local platform for a dataset — shared by eDelivery and Authority API"
+  allowed_body: [uil, subsets]
+
+get_platform:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/get_platform_by_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.body.uil.platformId}"
+  result: platform_result
+
+check_platform:
+  switch:
+    - condition: ${!platform_result.response.body.length}
+      next: platform_not_found
+
+# TODO: implement platform over eDelivery
+
+query_rest_platform:
+  call: http.get
+  args:
+    url: "${platform_result.response.body[0]?.baseUrl}/v1/dataset/${incoming.body.uil.datasetId}?subsets=${incoming.body.subsets.join(',')}"
+    headers: "${Object.assign(platform_result.response.body[0]?.headers ?? {}, {'x-request-id': incoming.headers['x-request-id']})}"
+  result: dataset_xml
+
+respond:
+  return:
+    uil: ${incoming.body.uil}
+    subsets: ${incoming.body.subsets}
+    xml: ${dataset_xml.response.body}
+  wrapper: false
+  status: ${dataset_xml.response.status}
+  next: end
+
+platform_not_found:
+  return:
+    error: "Platform Not Found"
+  wrapper: false
+  status: 404

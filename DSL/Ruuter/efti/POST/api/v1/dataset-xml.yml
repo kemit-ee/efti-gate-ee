@@ -14,7 +14,7 @@ parse_request:
   result: request_json
 
 call_dataset:
-  template: api/v1/authority/dataset
+  template: api/v1/dataset-local
   request_type: "POST"
   body: ${request_json.response.body}
   result: dataset_response

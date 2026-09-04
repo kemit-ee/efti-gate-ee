@@ -65,7 +65,7 @@ class DatasetRoutesTest : BaseMocks() {
   @Test fun responseToXmlPassThrough() {
     val xml = File("xsd/FTI010/sample.xml").readText()
     val uil = UIL(PlatformId("demo"), "550e8400-e29b-41d4-a716-446655440000".uuid, GateId("POC"))
-    val result = routes.responseToXml(DatasetResponseRequest(uil, xml), exchange)
+    val result = routes.responseToXml(DatasetResponse(uil, xml), exchange)
 
     expect(result).toContain("FTI010GetCmdsResponse")
     expect(result).toContain("<GrossWeightMeasure")
@@ -74,7 +74,7 @@ class DatasetRoutesTest : BaseMocks() {
   @Test fun responseToXmlConstructFTI10() {
     val xml = File("xsd/FTI010/sample.xml").readText().extractSpecifiedSupplyChainConsignment()
     val uil = UIL(PlatformId("demo"), "550e8400-e29b-41d4-a716-446655440000".uuid, GateId("POC"))
-    val result = routes.responseToXml(DatasetResponseRequest(uil, xml), exchange)
+    val result = routes.responseToXml(DatasetResponse(uil, xml), exchange)
 
     expect(result).toContain("FTI010GetCmdsResponse")
     expect(result).toContain("<GrossWeightMeasure")
@@ -87,7 +87,7 @@ class DatasetRoutesTest : BaseMocks() {
   @Test fun responseToXmlWithSubsets() {
     val xml = File("xsd/FTI010/sample.xml").readText().extractSpecifiedSupplyChainConsignment()
     val uil = UIL(PlatformId("demo"), "550e8400-e29b-41d4-a716-446655440000".uuid, GateId("POC"))
-    val result = routes.responseToXml(DatasetResponseRequest(uil, xml, listOf(Subset("EU01"), Subset("EU02"))), exchange)
+    val result = routes.responseToXml(DatasetResponse(uil, xml, listOf(Subset("EU01"), Subset("EU02"))), exchange)
 
     expect(result).toContain("FTI010GetCmdsResponse")
     expect(result).toContain("MessageInformation")
