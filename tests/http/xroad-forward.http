@@ -340,9 +340,10 @@ Content-Type: application/json
   })
 %}
 
-### Regression: the TIM JWT path still works on the modified guard
-# Same proven criteria shape, and an explicit X-Request-ID: core's authority/search.yml uses it as
-# the multiplexer key, so omitting it would build a URL ending in "/null" if the local search missed.
+### SECURITY: the JWT/gate-operator path is gone — an ADMIN token alone no longer authenticates
+# efti/api/v1/* is gate-internal only now; the only credential is X-Internal-Service-Token
+# (permissions-matrix.md §3.2/§7, ADR-006). Was: "JWT path unaffected by the service-token
+# branch" / 200 — that branch has been removed, not just left alongside the service token.
 # @timeout 75
 POST {{RUUTER_URL}}/efti/api/v1/authority/search
 Content-Type: application/json
@@ -352,7 +353,23 @@ X-Request-ID: 0a11ce5e-00f0-4d1d-8faa-0f0d00f00000
 { "mainTransportId": { "operator": "EQ", "id": "VESSEL-001" } }
 
 > {%
-  client.test("JWT path unaffected by the service-token branch", () => {
+  client.test("ADMIN JWT alone is rejected", () => {
+    client.assert(response.status === 401, "expected 401, got " + response.status)
+  })
+%}
+
+### Regression: the internal service token still works for the actual search
+# Same proven criteria shape as above, now with the real credential.
+# @timeout 75
+POST {{RUUTER_URL}}/efti/api/v1/authority/search
+Content-Type: application/json
+X-Internal-Service-Token: dev-internal-service-token-change-me
+X-Request-ID: 0a11ce5e-00f0-4d1d-8faa-0f0d00f00000
+
+{ "mainTransportId": { "operator": "EQ", "id": "VESSEL-001" } }
+
+> {%
+  client.test("service token search -> 200", () => {
     client.assert(response.status === 200, "expected 200, got " + response.status)
     client.assert(response.body[0].mainTransportId === "VESSEL-001")
   })

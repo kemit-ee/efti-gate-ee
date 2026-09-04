@@ -105,6 +105,7 @@ services:
       - OWN_GATE_ID
       - RESQL_URL=http://resql:8090
       - RUUTER_URL=http://ruuter:8086
+      - INTERNAL_SERVICE_TOKEN
     build:
       context: code
       dockerfile: ../docker/code/Dockerfile

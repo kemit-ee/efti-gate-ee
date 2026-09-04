@@ -20,12 +20,13 @@ Content-Type: application/json
 {"criteria": {"mainTransportId": {"operator": "EQ", "id": "VESSEL-001"}}, "limit": 1, "offset": 0}
 
 > {%
-  client.test("F5 no-auth authority search -> 401", () => {
+  client.test("F5 no-credential authority search -> 401", () => {
     client.assert(response.status === 401)
   })
 %}
 
-### F5: authority search accepts any authenticated user
+### F5: authority search rejects an ADMIN JWT — efti/api/v1/* is gate-internal only,
+# there is no gate-operator escape hatch any more (matrix, ADR-006).
 POST {{RUUTER_URL}}/efti/api/v1/authority/search
 Content-Type: application/json
 Authorization: Bearer {{guardAdminToken}}
@@ -33,20 +34,20 @@ Authorization: Bearer {{guardAdminToken}}
 {"criteria": {"mainTransportId": {"operator": "EQ", "id": "VESSEL-001"}}, "limit": 1, "offset": 0}
 
 > {%
-  client.test("F5 authenticated user authority search -> not blocked", () => {
-    client.assert(response.status !== 401 && response.status !== 403)
+  client.test("F5 ADMIN JWT alone on authority search -> 401", () => {
+    client.assert(response.status === 401)
   })
 %}
 
-### F5: authority search accepts an ADMIN token
+### F5: authority search accepts the internal service token
 POST {{RUUTER_URL}}/efti/api/v1/authority/search
 Content-Type: application/json
-Authorization: Bearer {{guardAdminToken}}
+X-Internal-Service-Token: dev-internal-service-token-change-me
 
 {"criteria": {"mainTransportId": {"operator": "EQ", "id": "VESSEL-001"}}, "limit": 1, "offset": 0}
 
 > {%
-  client.test("F5 ADMIN authority search -> not blocked", () => {
+  client.test("F5 internal service token on authority search -> not blocked", () => {
     client.assert(response.status !== 401 && response.status !== 403)
   })
 %}
@@ -82,28 +83,14 @@ Authorization: Bearer {{guardAdminToken}}
   })
 %}
 
-### Regression: dataset request passes the authority/ guard for an authenticated token
-POST {{RUUTER_URL}}/efti/api/v1/authority/dataset
+### efti/api/v1/* rejects a missing service token even for G2G-shaped routes
+POST {{RUUTER_URL}}/efti/api/v1/dataset-local
 Content-Type: application/json
-Authorization: Bearer {{guardAdminToken}}
 
 {"uil": {"gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440000"}, "subsets": ["EU01"]}
 
 > {%
-  client.test("authenticated token passes the authority/ guard", () => {
-    client.assert(response.status !== 401 && response.status !== 403)
-  })
-%}
-
-### Regression: dataset request passes the authority/ guard for an ADMIN token
-POST {{RUUTER_URL}}/efti/api/v1/authority/dataset
-Content-Type: application/json
-Authorization: Bearer {{guardAdminToken}}
-
-{"uil": {"gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440000"}, "subsets": ["EU01"]}
-
-> {%
-  client.test("ADMIN token passes the authority/ guard", () => {
-    client.assert(response.status !== 401 && response.status !== 403)
+  client.test("no service token on dataset-local -> 401", () => {
+    client.assert(response.status === 401)
   })
 %}

@@ -1,10 +1,9 @@
-import ../admin/auth.http
-run #auth
-
 ### Query dataset from local platform
+# efti/api/v1/* is gate-internal (DSL/Ruuter/efti/POST/api/v1/.guard.yml) — the token
+# edelivery/xroad send on every call, not a gate-operator JWT.
 POST {{RUUTER_URL}}/efti/api/v1/dataset-local
 Content-Type: application/json
-Authorization: Bearer {{adminToken}} # TODO: not right for authority
+X-Internal-Service-Token: dev-internal-service-token-change-me
 
 {
   "uil": {
@@ -25,6 +24,7 @@ Authorization: Bearer {{adminToken}} # TODO: not right for authority
 ### Query dataset from local platform over eDelivery
 POST {{RUUTER_URL}}/efti/api/v1/dataset-xml
 Content-Type: text/xml
+X-Internal-Service-Token: dev-internal-service-token-change-me
 
 < ../../code/xml-mapper/xsd/FTI009/sample.xml
 

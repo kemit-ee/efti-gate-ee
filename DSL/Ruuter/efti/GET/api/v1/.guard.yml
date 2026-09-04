@@ -1,20 +1,9 @@
-# Any authenticated user. Validates JWT via TIM + DB lookup. Returns 401 if not authenticated.
-# The GET/api/v1/test/ subdirectory has its own public .guard that overrides this one.
-validate_auth:
-  call: http.post
-  args:
-    url: "[#RUUTER_URL]/efti/internal/check-user-authority"
-    headers:
-      Content-Type: application/json
-      authorization: ${incoming.headers.authorization}
-      x-forwarded-for: ${incoming.headers['x-forwarded-for'] ?? null}
-      x-request-id: ${incoming.headers['x-request-id'] ?? null}
-    body: {}
-  result: auth_result
-
-check_result:
+# efti/api/v1/* is gate-internal only — no TIM/JWT path. The sole credential is
+# X-Internal-Service-Token. test/ overrides this to stay public (diagnostic endpoints);
+# authority/ has its own copy of this same check for clarity and future divergence.
+check_service_token:
   switch:
-    - condition: ${auth_result.response.status == 200}
+    - condition: ${incoming.headers != null && incoming.headers['x-internal-service-token'] != null && incoming.headers['x-internal-service-token'] != '' && incoming.headers['x-internal-service-token'] == '[#INTERNAL_SERVICE_TOKEN]'}
       next: guard_success
   next: guard_fail
 
@@ -25,6 +14,12 @@ guard_success:
   next: end
 
 guard_fail:
-  return: ${auth_result.response.body}
-  status: ${auth_result.response.status}
+  return:
+    type: "https://api.efti.ee/errors/unauthorized"
+    code: "UNAUTHORIZED"
+    title: "Unauthorized"
+    status: 401
+    detail: "This endpoint requires a valid X-Internal-Service-Token."
+  status: 401
   wrapper: false
+  next: end
