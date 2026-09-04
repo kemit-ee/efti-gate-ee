@@ -56,7 +56,7 @@ X-Api-Key: mock-secret-key
   </MainCarriageModeCodeParameterScope>
 </ParameterIDSetCriteria>
 
-### Authority searches for remote consignments
+### Authority searches for remote consignments (first result)
 # @timeout 70
 POST {{RUUTER_URL}}/efti/api/v1/authority/search
 Content-Type: application/json
@@ -74,6 +74,23 @@ Authorization: Bearer {{adminToken}} # TODO: this is not right for authority
     client.assert(response.body[0].gateId === "EU-MOCK")
     client.assert(response.body[0].xml.startsWith("<ParameterIDSetCriteria"))
     client.assert(response.headers.valueOf('x-poll-more') === "false")
+  })
+%}
+
+### Authority searches for remote consignments (rest of results)
+# @timeout 70
+POST {{RUUTER_URL}}/efti/api/v1/authority/search
+Content-Type: application/json
+X-Request-ID: 073b32bc-a081-11f1-8d67-3c9c0f2eb459
+X-Poll: true
+Authorization: Bearer {{adminToken}} # TODO: this is not right for authority
+
+{}
+
+> {%
+  client.test("Local consignment", () => {
+    // client.assert(response.status === 200)
+    // client.assert(response.headers.valueOf('x-poll-more') === "false")
   })
 %}
 

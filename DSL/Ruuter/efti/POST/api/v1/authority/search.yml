@@ -4,10 +4,11 @@ declaration:
 setup:
   assign:
     requestId: ${incoming.headers['x-request-id']}
+    poll: ${incoming.headers['x-poll']}
 
 check_poll:
   switch:
-    - condition: ${incoming.body.poll == true && requestId}
+    - condition: ${!!requestId && !!poll}
       next: poll_remaining
   next: local_search
 
@@ -24,6 +25,7 @@ rest_to_json:
     headers:
       content-type: "text/xml"
     body: ${rest_result.response.body}
+    content_type: plaintext
   result: rest_json
 
 respond_rest:
