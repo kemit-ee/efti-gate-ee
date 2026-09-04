@@ -13,4 +13,4 @@ INSERT INTO users (id, tara_sub, name) VALUES
 
 -- Rollback is a soft-delete, not a DELETE: append-only forbids removing rows, so
 -- "undo" means inserting a newer row whose is_active = FALSE (docs/specs/db/README.md).
---rollback INSERT INTO users (id, tara_sub, name, is_active) SELECT id, tara_sub, name, FALSE FROM users WHERE tara_sub IN ('60001019906', '60001017869');
+--rollback INSERT INTO users (id, tara_sub, name, is_active) SELECT id, tara_sub, name, FALSE FROM users WHERE tara_sub IN ('60001019906');

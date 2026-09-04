@@ -151,7 +151,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 
 ## Dev seed data (context:dev)
 
-- Users: Super Admin (60001019906), Mari Tamm (60001017869)
+- Users: Super Admin (60001019906)
 - Platform: `mock` → `http://ruuter:8086/mock-platform` with `X-Api-Key: mock-secret-key`
 - TARA identities: `docker/tara-mock/identities.json`
 
