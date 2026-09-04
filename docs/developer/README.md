@@ -1,7 +1,6 @@
 # Arendajale — eFTI värava X-tee liidestumine
 
-Väliste tarbijate (pädevad asutused) liidestumisdokumentatsioon. Sisemine spetsifikatsioon
-on `../specs/`.
+Väliste tarbijate (pädevad asutused) liidestumisdokumentatsioon.
 
 | Fail | Sisu |
 |---|---|
