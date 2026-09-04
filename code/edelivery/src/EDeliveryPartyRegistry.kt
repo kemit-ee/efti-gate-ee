@@ -11,7 +11,7 @@ class EDeliveryPartyRegistry(private val resqlClient: ResqlClient): PartyRegistr
   init {
     thread(name = javaClass.simpleName, isDaemon = true) {
       while (!Thread.currentThread().isInterrupted) {
-        sleep(30.minutes)
+        sleep(5.minutes)
         reload()
       }
     }

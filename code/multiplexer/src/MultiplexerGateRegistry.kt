@@ -10,7 +10,7 @@ class MultiplexerGateRegistry(private val resqlClient: ResqlClient) {
   init {
     thread(name = javaClass.simpleName, isDaemon = true) {
       while (!Thread.currentThread().isInterrupted) {
-        sleep(30.minutes)
+        sleep(5.minutes)
         gates = loadOtherGates()
       }
     }

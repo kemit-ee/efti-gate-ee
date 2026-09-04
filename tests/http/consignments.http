@@ -59,7 +59,7 @@ X-Api-Key: mock-secret-key
 # blocked on Ruuter #57 (per-route guard opt-out).
 POST {{RUUTER_URL}}/platforms/v1/consignments-xml
 Content-Type: text/xml
-X-Api-Key: mock-secret-key
+X-Api-Key: mock-secret-key # TODO: remove
 
 < ../../code/xml-mapper/xsd/FTI004/sample.xml
 
