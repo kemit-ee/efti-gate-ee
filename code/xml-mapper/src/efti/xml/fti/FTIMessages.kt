@@ -25,8 +25,8 @@ const val udtNs = "urn:eu:move:eFTI:data:standard:UnqualifiedDataType:34"
 const val ramNs = "urn:eu:move:eFTI:data:standard:ReusableAggregateBusinessInformationEntity:34"
 
 object FtiCapitalize: KeyConverter() {
-  override fun to(o: String) = Capitalize.to(o).replace("Id", "ID")
-  override fun from(o: String) = Capitalize.from(o).replace("ID", "Id")
+  override fun to(o: String) = Capitalize.to(o).replace("Id", "ID", ignoreCase = true)
+  override fun from(o: String) = Capitalize.from(o).replace("ID", "Id", ignoreCase = true)
 }
 
 val xmlParser = XmlParser(keys = FtiCapitalize)

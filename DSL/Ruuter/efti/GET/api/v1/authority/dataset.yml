@@ -13,87 +13,27 @@ check_gate:
     - condition: ${gateId != '[#OWN_GATE_ID]'}
       next: forward_to_remote_gate
 
-get_platform:
+call_local_platform:
+  template: api/v1/dataset-local
+  request_type: "POST"
+  body:
+    uil:
+      gateId: ${gateId}
+      platformId: ${platformId}
+      datasetId: ${datasetId}
+    subsets: ${subsets?.split(',') ?? []}
+  result: dataset_response
+
+convert_response_to_json:
   call: http.post
   args:
-    url: "[#RESQL_URL]/efti/get_platform_by_id"
-    headers:
-      Content-Type: "application/json"
-    body:
-      id: ${platformId}
-  result: platform_result
-
-check_platform:
-  switch:
-    - condition: ${!platform_result.response.body.length}
-      next: platform_not_found
-
-
-forward_to_platform:
-  call: http.get
-  args:
-    url: "${platform_result.response.body[0]?.baseUrl}/v1/dataset/${datasetId}?subsets=${subsets}"
-    headers: "${Object.assign(platform_result.response.body[0]?.headers ?? {}, {'x-request-id': incoming.headers['x-request-id']})}"
-  result: platform_response
-
-respond:
-  return: ${platform_response.response.body}
-  wrapper: false
-  status: ${platform_response.response.status}
-  headers:
-    content-type: text/xml
-  next: end
-
-forward_to_remote_gate:
-  call: http.post
-  args:
-    url: "[#XML_MAPPER_URL]/api/v1/dataset/request-to-xml"
-    headers:
-      Content-Type: "application/json"
-    body:
-      uil:
-        gateId: ${gateId}
-        platformId: ${platformId}
-        datasetId: ${datasetId}
-      subsets: "${incoming.params.subsets?.split(',') ?? []}"
-  result: dataset_xml
-
-send_via_edelivery:
-  call: http.post
-  timeout: 65000
-  args:
-    url: "[#EDELIVERY_URL]/api/v1/send/${gateId}"
+    url: "[#XML_MAPPER_URL]/api/v1/dataset/response-to-json"
     headers:
       Content-Type: "text/xml"
-      x-request-id: "${incoming.headers['x-request-id'] ?? ''}"
-    body: "${dataset_xml.response.body}"
+    body: ${dataset_response.xml}
     content_type: plaintext
-  result: edelivery_response
+  result: dataset_json
 
-check_edelivery_response:
-  switch:
-    - condition: ${edelivery_response.response.status != 200}
-      next: edelivery_error
-
-
-respond_remote:
-  return: ${edelivery_response.response.body}
+respond:
+  return: ${dataset_json.response.body}
   wrapper: false
-  status: 200
-  headers:
-    content-type: text/xml
-  next: end
-
-edelivery_error:
-  return:
-    error: "Remote gate dataset request failed"
-    detail: "${edelivery_response.response.body}"
-  wrapper: false
-  status: ${edelivery_response.response.status}
-  next: end
-
-platform_not_found:
-  return:
-    error: "Platform Not Found"
-  wrapper: false
-  status: 404

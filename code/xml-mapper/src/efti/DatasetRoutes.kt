@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import klite.HttpExchange
 import klite.annotations.POST
+import klite.nodes.at
 import klite.uuid
 
 @Tag(name = "Dataset query", description = "These routes are for mapping requests and responses for dataset query.")
@@ -31,11 +32,15 @@ class DatasetRoutes(val requestIdHandler: RequestIdHandler) {
   }
 
   @Operation(description = "Map FTI010GetCmdsResponse or SpecifiedSupplyChainConsignment as XML to SpecifiedSupplyChainConsignment as JSON.")
-  @POST("/response-to-json") fun responseToJson(xml: String): SpecifiedSupplyChainConsignment =
-    if (xml.contains("ExchangedDocument")) xmlParser.parse<FTI010GetCmdsResponse>(xml).consignment!!
-    else xmlParser.parse<SpecifiedSupplyChainConsignment>(xml)
+  @POST("/response-to-json") fun responseToJson(xml: String): AuthorityDatasetResponse {
+    val xml = xml.extractSpecifiedSupplyChainConsignment()
+    val parsed = xmlParser.parseNodes(xml)
+    return AuthorityDatasetResponse(xml, parsed.at("specifiedSupplyChainConsignment"))
+  }
 }
 
 data class DatasetQueryRequest(val uil: UIL, val subsets: List<Subset>)
 
 data class DatasetResponse(val uil: UIL, val xml: String, val subsets: List<Subset> = emptyList())
+
+data class AuthorityDatasetResponse(val xml: String, val consignment: SpecifiedSupplyChainConsignment)

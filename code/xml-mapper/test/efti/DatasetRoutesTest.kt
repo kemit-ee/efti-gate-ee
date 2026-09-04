@@ -2,6 +2,7 @@ package efti
 
 import ch.tutteli.atrium.api.fluent.en_GB.toContain
 import ch.tutteli.atrium.api.fluent.en_GB.toEqual
+import ch.tutteli.atrium.api.fluent.en_GB.toStartWith
 import ch.tutteli.atrium.api.verbs.expect
 import efti.domain.GateId
 import efti.domain.PlatformId
@@ -58,8 +59,9 @@ class DatasetRoutesTest : BaseMocks() {
     val xml = File("xsd/FTI010/sample.xml").readText()
     val result = routes.responseToJson(xml)
 
-    expect(result["grossWeightMeasure"]).toEqual("15000.00")
-    expect(result["netWeightMeasure"]).toEqual("12000.00")
+    expect(result.xml).toStartWith("<SpecifiedSupplyChainConsignment")
+    expect(result.consignment["grossWeightMeasure"]).toEqual("15000.00")
+    expect(result.consignment["netWeightMeasure"]).toEqual("12000.00")
   }
 
   @Test fun responseToXmlPassThrough() {
