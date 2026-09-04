@@ -20,14 +20,8 @@ class RuuterClient(
   fun getDataset(xml: String /* FTI009GetCmdsRequest */) =
     http.sendXml(baseUrl + "/efti/api/v1/dataset-xml", xml)
 
-  fun getLocalDataset(xml: String /* FTI009GetCmdsRequest */) =
-    http.sendXml(baseUrl + "/efti/api/v1/dataset-local", xml)
-
   fun followUp(xml: String /* FTI025LodgeFollowUpCommRequest */) =
     http.sendXml(baseUrl + "/efti/api/v1/follow-up-xml", xml)
-
-  fun localFollowUp(xml: String /* FTI025LodgeFollowUpCommRequest */) =
-    http.sendXml(baseUrl + "/efti/api/v1/follow-up-local", xml)
 
   private fun HttpClient.sendXml(url: URI, xml: String) =
     post(url, xml) { header("Content-Type", "text/xml") }.bodyOrThrow()
