@@ -111,7 +111,9 @@ Authorization: Bearer {{adminToken}}
 > {%
   client.test("Local platform dataset", () => {
     client.assert(response.status === 200)
-    // client.assert(response.headers['content-type'] === 'text/xml')
+    client.assert(response.headers.valueOf('content-type') === 'text/xml')
+    client.assert(xpath(response.body, '//GrossWeightMeasure')[0].textContent === "15000.00")
+    client.assert(xpath(response.body, '//MainCarriageLogisticsTransportMovement/ID')[0].textContent === "VOY-2021-001")
   })
 %}
 
