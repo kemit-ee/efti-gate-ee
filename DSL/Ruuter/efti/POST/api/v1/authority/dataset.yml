@@ -7,7 +7,6 @@ check_gate:
     - condition: ${incoming.body.uil.gateId != '[#OWN_GATE_ID]'}
       next: forward_to_remote_gate
 
-
 get_platform:
   call: http.post
   args:
@@ -23,11 +22,10 @@ check_platform:
     - condition: ${!platform_result.response.body.length}
       next: platform_not_found
 
-
 forward_to_platform:
   call: http.get
   args:
-    url: "${platform_result.response.body[0]?.baseUrl}/v1/dataset/${incoming.body.uil.datasetId}?subsetId=${incoming.body.subsets.join(',')}"
+    url: "${platform_result.response.body[0]?.baseUrl}/v1/dataset/${incoming.body.uil.datasetId}?subsets=${incoming.body.subsets.join(',')}"
     headers: "${Object.assign(platform_result.response.body[0]?.headers ?? {}, {'x-request-id': incoming.headers['x-request-id'] ?? null})}"
   result: platform_response
 

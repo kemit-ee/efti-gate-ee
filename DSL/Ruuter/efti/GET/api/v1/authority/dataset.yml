@@ -1,18 +1,17 @@
 declaration:
-  description: "Authority requests a dataset from a Platform via the gate (TARA JWT)"
-  # Path params: /:gateId/:platformId/:datasetId
+  description: "Authority requests a dataset from a Platform via the gate"
 
 assign:
   assign:
     gateId: ${incoming.params.pathParams[0]}
     platformId: ${incoming.params.pathParams[1]}
     datasetId: ${incoming.params.pathParams[2]}
+    subsets: ${incoming.params.subsets}
 
 check_gate:
   switch:
     - condition: ${gateId != '[#OWN_GATE_ID]'}
       next: forward_to_remote_gate
-
 
 get_platform:
   call: http.post
@@ -33,7 +32,7 @@ check_platform:
 forward_to_platform:
   call: http.get
   args:
-    url: "${platform_result.response.body[0]?.baseUrl}/v1/dataset/${datasetId}?subsetId=${incoming.params?.subsets?.join(',')}"
+    url: "${platform_result.response.body[0]?.baseUrl}/v1/dataset/${datasetId}?subsets=${subsets}"
     headers: "${Object.assign(platform_result.response.body[0]?.headers ?? {}, {'x-request-id': incoming.headers['x-request-id']})}"
   result: platform_response
 
@@ -56,7 +55,7 @@ forward_to_remote_gate:
         gateId: ${gateId}
         platformId: ${platformId}
         datasetId: ${datasetId}
-      subsets: "${incoming.params?.subsets ?? []}"
+      subsets: "${incoming.params.subsets?.split(',') ?? []}"
   result: dataset_xml
 
 send_via_edelivery:
