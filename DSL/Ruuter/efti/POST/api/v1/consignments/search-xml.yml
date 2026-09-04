@@ -21,7 +21,7 @@ local_search:
       Content-Type: "application/json"
     body:
       gateId: ${incoming.params.gateId ?? '[#OWN_GATE_ID]'}
-      criteria: ${incoming.body}
+      criteria: ${criteria_json.response.body}
   result: local_result
 
 to_xml:
