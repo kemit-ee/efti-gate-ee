@@ -1,8 +1,21 @@
 # eFTI Gate v2.0 Permissions Matrix
 
-**Version**: 1.5 — `users.is_admin` dropped; every authenticated user has full access
-**Date**: 2026-09-03
+**Version**: 1.6 — Authority API (`efti/api/v1/*`) drops the TARA JWT path entirely; it is
+gate-internal only
+**Date**: 2026-09-04
 **Status**: Development-ready specification
+
+**Changed in 1.6** (§3.2, §6): `efti/api/v1/*` — the Authority API's actual Ruuter routes
+(`efti/{GET,POST}/api/v1/*`, `efti/{GET,POST}/api/v1/authority/*`) — no longer accept a TARA
+JWT at all, not even as a fallback alongside the service token. There is no gate-operator
+escape hatch on this surface any more: it is reached only by other gate components over the
+internal network (the X-Road adapter today; G2G inbound is earmarked), never directly by a
+human browser session. The sole credential on every route under `efti/api/v1/` is the shared
+`X-Internal-Service-Token`, previously accepted only as an alternative on the POST authority
+guard. A request with a valid ADMIN/user JWT and no service token now gets 401, same as no
+credential at all — see `DSL/Ruuter/efti/{GET,POST}/api/v1/.guard.yml` and
+`efti/{GET,POST}/api/v1/authority/.guard.yml`. The Admin API (§3.3, `/admin/v1/*`) is
+unaffected — it still authenticates with the TARA JWT.
 
 **Changed in 1.5** (§1.1, §2, §3.2, §6, §7): `users.is_admin` is removed. Every authenticated
 user has full access to all Admin and Authority API routes.
@@ -48,10 +61,13 @@ graph TD
     CRED -->|None| PUB{Public route?<br/>/health, OpenAPI UI}
     PUB -->|Yes| ALLOW[Allow]
     PUB -->|No| UNAUTH[401 Unauthorized]
-    CRED -->|Bearer JWT<br/>Authority / Admin| TARA[Validate token at TIM<br/>signature and blacklist<br/>then latest users row<br/>is_active and<br/>iat ≥ token_revoked_at]
+    CRED -->|Bearer JWT<br/>Admin API only| TARA[Validate token at TIM<br/>signature and blacklist<br/>then latest users row<br/>is_active and<br/>iat ≥ token_revoked_at]
     CRED -->|mTLS X.509<br/>Platform| MTLS[Resolve platform<br/>by cert subject + serial<br/>against active platforms]
     CRED -->|Bearer ARCHIVE_OPS_TOKEN<br/>CronManager admin| OPS[Literal compare against<br/>ARCHIVE_OPS_TOKEN env var]
     CRED -->|HTTP Basic<br/>break-glass only| BG[Validate against bcrypt<br/>secret_hash on local-admin row;<br/>503 if fallback disabled]
+    CRED -->|X-Internal-Service-Token<br/>Authority API only| ISVC[Literal compare against<br/>INTERNAL_SERVICE_TOKEN constant]
+    ISVC -->|Mismatch/absent| ISVCDENY[401 Unauthorized]
+    ISVC -->|Match| ALLOW
     TARA -->|Invalid| ERR401[401 TOKEN_INVALID]
     TARA -->|Valid| TARASUB[Resolve users row<br/>by tara_sub = jwt.sub<br/>active row only]
     TARASUB -->|None| NOUSER[401 TOKEN_INVALID<br/>no provisioned user]
@@ -135,13 +151,18 @@ flowchart TD
 
 ### 3.2 Authority API
 
-Authenticated by the **TIM-issued JWT** obtained through TARA OIDC login. The gate validates the token at TIM, then resolves it to a `users` row via `tara_sub = jwt.sub`. The token itself carries **no** role claim — an earlier draft referenced `resource_access.efti-gate.roles`, a Keycloak-shaped claim that TARA does not issue and the gate does not read.
+**As of 1.6, gate-internal only — see the changelog entry above.** The single credential on
+every route under `efti/api/v1/` is `X-Internal-Service-Token`; there is no TARA/JWT path
+here at all. The X-Road adapter (or, once revived, G2G inbound) resolves the calling
+organisation itself and enforces `authorities.subsets` before forwarding; the token comparison
+is the entire authorisation on this surface, so it depends on network isolation between the
+adapter and this Ruuter port the same way ADR-006's provider-side model does.
 
-| Endpoint | Method | TARA JWT (authenticated) | mTLS Platform | Unauth |
-|---|---|---|---|---|
-| `/v1/identifiers/{identifier}` | GET | ✅ All gates' identifiers (audit logged) | ❌ | ❌ |
-| `/v1/dataset/{gateId}/{platformId}/{datasetId}` | GET | ✅ Subset restriction **not yet enforced on this path** — see the §7 `FORBIDDEN_SUBSET` note | ❌ | ❌ |
-| `/v1/follow-up/{gateId}/{platformId}/{datasetId}/{datasetRequestId}` | POST | ✅ | ❌ | ❌ |
+| Endpoint | Method | X-Internal-Service-Token | TARA JWT | mTLS Platform | Unauth |
+|---|---|---|---|---|---|
+| `/v1/identifiers/{identifier}` | GET | ✅ | ❌ | ❌ | ❌ |
+| `/v1/dataset/{gateId}/{platformId}/{datasetId}` | GET | ✅ Subset restriction **not yet enforced on this path** — see the §7 `FORBIDDEN_SUBSET` note | ❌ | ❌ | ❌ |
+| `/v1/follow-up/{gateId}/{platformId}/{datasetId}/{datasetRequestId}` | POST | ✅ | ❌ | ❌ | ❌ |
 
 ```mermaid
 flowchart TD
@@ -240,7 +261,7 @@ Three mechanisms, one per surface, mirroring the EFTI4EU reference implementatio
 | **Login** (`/oauth2/authorization/tara`, `/authenticate`) | **TARA OIDC**, brokered by TIM | Not part of the versioned eFTI contract and not routed through Ruuter — the browser talks to TIM directly, and auth paths carry no `/v1` prefix (`docs/planning/rest-api-disainijuhend.md` §5). TIM holds `TARA_CLIENT_ID` / `TARA_CLIENT_SECRET` and performs the back-channel code exchange, so the gate's REST surface never handles OIDC codes or the client secret. |
 | **Platform API** (`/v1/identifiers/{datasetId}`, `/v1/datasets/...`, `/v1/status/...`, `/v1/follow-up/{datasetId}/...`, `/v1/ping`) | **mTLS with the platform's eDelivery AP certificate** (the same Member-State-issued X.509 cert mandated by Impl Reg 2024/1942 Art 11). | Reverse proxy terminates mTLS; forwards the client cert; gate looks it up in `platforms.e_delivery_cert`. No second credential — the cert is already mandatory. |
 | **CronManager admin endpoints** (`POST /api/v1/admin/archive`, `…/expire-identifiers`, `…/ping-gates`) | **Static Bearer token** | `Authorization: Bearer <ARCHIVE_OPS_TOKEN>`. Operator provisions a 256-bit random secret into a Kubernetes Secret; CronManager injects it as `BEARER_OPS_TOKEN`. Gate compares the literal value against the `ARCHIVE_OPS_TOKEN` env var. No DB lookup, no JWT verification, no user record. Mismatch → 403 `FORBIDDEN`. Intentionally a non-human credential — TARA models people, not scheduled jobs. |
-| **Gate-internal service calls** (`/efti/api/v1/authority/...`, POST only) | **Static shared secret** in `X-Internal-Service-Token` | Accepted as an alternative to the TIM JWT on the POST authority guard. No DB lookup — the literal comparison against the `INTERNAL_SERVICE_TOKEN` constant is the entire authorisation, so the calling component must have authorised its own end user first (the X-Road adapter resolves the organisation from `X-Road-Client` and enforces `authorities.subsets` before forwarding). Deny is the fall-through: an absent or empty header can never match, even if the constant were unset. **The token grants full Authority-API access to whoever holds it and is baked into the image at build time**, so the surface needs the same network isolation as the adapter itself. |
+| **Gate-internal service calls** (`/efti/api/v1/*`, all of it — the only credential this surface accepts, see §3.2) | **Static shared secret** in `X-Internal-Service-Token` | Not a fallback alongside a JWT any more — as of 1.6 there is no JWT path on `efti/api/v1/*` at all. No DB lookup — the literal comparison against the `INTERNAL_SERVICE_TOKEN` constant is the entire authorisation, so the calling component must have authorised its own end user first (the X-Road adapter resolves the organisation from `X-Road-Client` and enforces `authorities.subsets` before forwarding; edelivery is trusted as the G2G-inbound AS4 mTLS terminator). Deny is the fall-through: an absent or empty header can never match, even if the constant were unset. **The token grants full Authority-API access to whoever holds it and is baked into the image at build time**, so the surface needs the same network isolation as the adapter itself. |
 | **Health** (`/health/...`) | None | Public (Kubernetes probes). |
 | **Break-glass** (`/api/v1/auth/local-token`) | HTTP Basic Auth + bcrypt | Default-disabled; enabled only via `LOCAL_ADMIN_FALLBACK_ENABLED=true`. Issues a short-lived (600 s) gate-signed JWT with `sub='local-admin'` and a fresh `iat`. The break-glass JWT carries the same claim shape as TARA-issued JWTs and is resolved by the same `users.tara_sub = jwt.sub` lookup — the seed `users` row for the break-glass account carries `tara_sub='local-admin'`. |
 
