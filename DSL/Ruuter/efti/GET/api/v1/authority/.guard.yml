@@ -1,26 +1,9 @@
-# Authority-facing dataset request via GET (Authority API, matrix §3.2). Restricted to
-# authenticated users. Competent authorities proper authenticate as organisations over X-Road,
-# not via this JWT surface. Mirrors efti/POST/api/v1/authority/.guard.yml.
-#
-# Deliberately does NOT accept the X-Internal-Service-Token branch that the POST sibling has: the
-# X-Road adapter forwards only POST, so the token gets no more reach than it needs. If a future
-# internal caller needs a GET authority route, add the branch here explicitly rather than assuming
-# the asymmetry is an oversight.
-validate_auth:
-  call: http.post
-  args:
-    url: "[#RUUTER_URL]/efti/internal/check-admin-authority"
-    headers:
-      Content-Type: application/json
-      authorization: ${incoming.headers.authorization}
-      x-forwarded-for: ${incoming.headers['x-forwarded-for'] ?? null}
-      x-request-id: ${incoming.headers['x-request-id'] ?? null}
-    body: {}
-  result: auth_result
-
-check_result:
+# Authority-facing dataset request via GET (Authority API, matrix §3.2). efti/api/v1/* is
+# gate-internal only — the sole credential is X-Internal-Service-Token, same posture as
+# efti/POST/api/v1/authority/.guard.yml. There is no JWT / gate-operator path here.
+check_service_token:
   switch:
-    - condition: ${auth_result.response.status == 200}
+    - condition: ${incoming.headers != null && incoming.headers['x-internal-service-token'] != null && incoming.headers['x-internal-service-token'] != '' && incoming.headers['x-internal-service-token'] == '[#INTERNAL_SERVICE_TOKEN]'}
       next: guard_success
   next: guard_fail
 
@@ -31,6 +14,12 @@ guard_success:
   next: end
 
 guard_fail:
-  return: ${auth_result.response.body}
-  status: ${auth_result.response.status}
+  return:
+    type: "https://api.efti.ee/errors/unauthorized"
+    code: "UNAUTHORIZED"
+    title: "Unauthorized"
+    status: 401
+    detail: "This endpoint requires a valid X-Internal-Service-Token."
+  status: 401
   wrapper: false
+  next: end
