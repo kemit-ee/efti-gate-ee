@@ -10,13 +10,13 @@ juurdepääs, turvaserver ja asutuse registreering on paigas.
 
 Mock jookseb **omaette konteinerina** (`ruuter-developer`, port 8088) — eraldi Ruuteri projekt,
 millel **ei ole** andmebaasi, `core`-i ega ühtki ühendust päris väravaga. Iga marsruut vastab
-literaali pealt. Seetõttu on turvaline see avalikult välja panna: isegi vigane marsruut ei saa
-lekitada päris saadetiste andmeid ega jõuda privilegeeritud teeni. Päris `/xroad/**` **ei tohi**
-kunagi avalikult marsruuditav olla (ADR-006) — mock on see, mille vastu arendaja testib.
+literaali pealt. Isegi vigane marsruut ei saa
+lekitada päris saadetiste andmeid ega jõuda privilegeeritud teeni. Päris `/xroad/**` **ei ole**
+kunagi avalikult marsruuditav (ADR-006) — mock on see, mille vastu arendaja testib.
 
 ```
 Arendaja klient ──HTTP──> https://dev.efti.ee/developer/v1/{operatsioon}
-                          (nginx → ruuter-developer:8088, konserveeritud vastus)
+                          (nginx → xtee-mock-teenus, konserveeritud vastus)
 ```
 
 ## Baas-URL ja teed
@@ -25,13 +25,8 @@ Arendaja klient ──HTTP──> https://dev.efti.ee/developer/v1/{operatsioon}
 |---|---|
 | Avalik baas-URL (sihtdomeen) | `https://dev.efti.ee/developer/` |
 | Avalik baas-URL (praegune juurutus) | `https://eu-ee.pikker.dev/developer/` |
-| Lokaalne (docker) | `http://localhost:8088/developer/` |
-| Operatsiooni tee | `POST\|GET /developer/v1/{operatsioon}` |
 | Tervisekontroll | `GET /developer/health/ready` → `200 "OK"` (päiseid ei vaja) |
 
-`ruuter-developer` konteiner ise ei avalda porti — ligipääs käib ainult läbi väravat teenindava
-nginx-i (`docker/ui/nginx.conf`, `location /developer/`). `dev.efti.ee` hakkab tööle, kui see
-domeen juurutuse pöördproksile (Caddy) suunata; nginx ise on hostist sõltumatu.
 
 Vaste päris väravale: mock `/developer/v1/echo` ↔ värav `/xroad/v1/echo` ↔ tarbija
 `/r1/EE/GOV/70001231/efti-gate/echo/v1`.
