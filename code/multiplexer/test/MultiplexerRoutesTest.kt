@@ -13,6 +13,7 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.net.http.HttpResponse.BodyHandler
 import java.util.*
 
 class MultiplexerRoutesTest {
@@ -34,37 +35,25 @@ class MultiplexerRoutesTest {
 
   @Test fun multiplexReturnsFirstResponse() {
     val searchId = UUID.randomUUID()
-    every { http.send(match<HttpRequest> { it.uri().toString().contains("/send/party-1") }, any<HttpResponse.BodyHandler<String>>()) } returns
-      mockk<HttpResponse<String>>(relaxed = true) { every { statusCode() } returns 200; every { body() } returns "<response>1</response>" }
-    every { http.send(match<HttpRequest> { it.uri().toString().contains("/send/party-2") }, any<HttpResponse.BodyHandler<String>>()) } returns
-      mockk<HttpResponse<String>>(relaxed = true) { every { statusCode() } returns 204; every { body() } returns "" }
+    every { http.send(match<HttpRequest> { it.uri().toString().contains("/send/party-1") }, any<BodyHandler<String>>()) } returns
+      mockk<HttpResponse<String>>(relaxed = true) { every { statusCode() } returns 200; every { body() } returns "<Empty/>" }
+    every { http.send(match<HttpRequest> { it.uri().toString().contains("/send/party-2") }, any<BodyHandler<String>>()) } returns
+      mockk<HttpResponse<String>>(relaxed = true) { every { statusCode() } returns 200; every { body() } returns "<ParameterIDSetCriteria/>" }
 
-    val result = routes.multiplex(xml, searchId)
+    val result = routes.multiplex(xml, searchId, exchange)
 
-    expect(result).toEqual("<response>1</response>")
+    expect(result).toEqual("<ParameterIDSetCriteria/>")
     verify {
-      http.send(match<HttpRequest> { it.uri().toString().contains("/send/party-1") }, any<HttpResponse.BodyHandler<String>>())
-      http.send(match<HttpRequest> { it.uri().toString().contains("/send/party-2") }, any<HttpResponse.BodyHandler<String>>())
+      http.send(match<HttpRequest> { it.uri().toString().contains("/send/party-1") }, any<BodyHandler<String>>())
+      http.send(match<HttpRequest> { it.uri().toString().contains("/send/party-2") }, any<BodyHandler<String>>())
     }
-  }
-
-  @Test fun multiplexCollectsMultipleResponses() {
-    val searchId = UUID.randomUUID()
-    every { http.send(match<HttpRequest> { it.uri().toString().contains("/send/party-1") }, any<HttpResponse.BodyHandler<String>>()) } returns
-      mockk<HttpResponse<String>>(relaxed = true) { every { statusCode() } returns 200; every { body() } returns "<r1/>" }
-    every { http.send(match<HttpRequest> { it.uri().toString().contains("/send/party-2") }, any<HttpResponse.BodyHandler<String>>()) } returns
-      mockk<HttpResponse<String>>(relaxed = true) { every { statusCode() } returns 200; every { body() } returns "<r2/>" }
-
-    val result = routes.multiplex(xml, searchId)
-
-    assert(result == "<r1/>" || result == "<r2/>") { "Expected <r1/> or <r2/> but was $result" }
   }
 
   @Test fun restReturnsEmptyWhenSearchIdNotFound() {
     val result = routes.rest(UUID.randomUUID(), exchange)
 
     expect(result).toEqual("")
-    verify { exchange.header("complete", "true") }
+    verify { exchange.header(pollMoreHeader, "false") }
   }
 
   @Test fun restDrainsQueuedResponses() {
@@ -78,7 +67,7 @@ class MultiplexerRoutesTest {
     val result = routes.rest(searchId, exchange)
 
     expect(result).toEqual("<r1/>⦀<r2/>")
-    verify { exchange.header("complete", "true") }
+    verify { exchange.header(pollMoreHeader, "false") }
   }
 
   private fun MultiplexerRoutes.pending(key: UUID, value: PartyResponses) {

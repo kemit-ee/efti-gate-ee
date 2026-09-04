@@ -38,7 +38,7 @@ fun main() {
   }
 }
 
-val jsonMapper = JsonMapper(renderNulls = true, values = object: ValueConverter<Any?>() {
+val jsonMapper = JsonMapper(values = object: ValueConverter<Any?>() {
   override fun to(o: Any?) =
     if (o is DateTimeString) o.instant.toString()
     else super.to(o)
