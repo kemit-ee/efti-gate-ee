@@ -16,14 +16,35 @@ check_platform:
   switch:
     - condition: ${!platform_result.response.body.length}
       next: platform_not_found
-
-# TODO: implement platform over eDelivery
+    - condition: ${!!platform_result.response.body[0]?.eDeliveryCert}
+      next: request_to_xml
 
 query_rest_platform:
   call: http.get
   args:
     url: "${platform_result.response.body[0]?.baseUrl}/v1/dataset/${incoming.body.uil.datasetId}?subsets=${incoming.body.subsets.join(',')}"
     headers: "${Object.assign(platform_result.response.body[0]?.headers ?? {}, {'x-request-id': incoming.headers['x-request-id']})}"
+  result: dataset_xml
+  next: respond
+
+request_to_xml:
+  call: http.post
+  args:
+    url: "[#XML_MAPPER_URL]/api/v1/dataset/request-to-xml"
+    headers:
+      content-type: "application/json"
+    body: ${incoming.body}
+  result: xml_request
+
+query_edelivery_platform:
+  call: http.post
+  timeout: 65000
+  args:
+    url: "[#EDELIVERY_URL]/api/v1/send/${platform_result.response.body[0].id}"
+    headers:
+      content-type: "text/xml"
+    content_type: plaintext
+    body: ${xml_request.response.body}
   result: dataset_xml
 
 respond:
