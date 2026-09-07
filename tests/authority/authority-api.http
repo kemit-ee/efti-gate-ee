@@ -131,7 +131,7 @@ X-Internal-Service-Token: dev-internal-service-token-change-me
   },
   "referenceIds": ["073b32bc-a081-11f1-8d67-3c9c0f2eb459"],
   "message": "Follow-up message for the consignment",
-  "files": [{"fileName": "document.pdf", "fileContent": "base64-encoded-content"}]
+  "files": [{"fileName": "document.pdf", "base64Content": "base64-encoded-content", "mimeType": "application/pdf"}]
 }
 
 > {%
