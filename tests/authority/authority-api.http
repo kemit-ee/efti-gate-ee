@@ -70,7 +70,7 @@ X-Internal-Service-Token: dev-internal-service-token-change-me
     client.assert(response.body[0].mainTransportId === "MOCK-123")
     client.assert(response.body[0].gateId === "EU-MOCK")
     client.assert(response.body[0].xml.startsWith("<ParameterIDSetCriteria"))
-    client.assert(response.headers.valueOf('x-poll-more') === "false")
+    client.assert(response.headers.valueOf('x-poll-more') === "true")
   })
 %}
 
