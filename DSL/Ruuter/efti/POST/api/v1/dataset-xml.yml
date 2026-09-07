@@ -16,6 +16,12 @@ parse_request:
 call_dataset:
   template: api/v1/dataset-local
   request_type: "POST"
+  # Ruuter #72 (h2ck.me H1, 0.9.11-rc): template: now runs the callee's guard against the
+  # CHILD context — nothing is inherited from incoming.headers automatically. dataset-local
+  # lives under this same guarded directory (efti/POST/api/v1/.guard.yml), so forward the
+  # token this route was itself called with.
+  headers:
+    x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
   body: ${request_json.response.body}
   result: dataset_response
 
