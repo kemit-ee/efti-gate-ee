@@ -40,6 +40,11 @@ services:
       context: .
       dockerfile: docker/resql/Dockerfile
     platform: linux/amd64
+    environment:
+      # Matches the `database` service's POSTGRES_PASSWORD above — resql.yaml
+      # references this by name via password_env rather than embedding it in
+      # the datasource URL.
+      - RESQL_EFTI_PASSWORD=01234
     # The base image ships a healthcheck against :8080; ReSQL listens on :8090.
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8090/health || exit 1"]
