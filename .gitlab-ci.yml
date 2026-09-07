@@ -14,7 +14,6 @@
 #
 # TODO(verify against the efti devops repo before first run):
 #   - SERVICECODE / CHART_REPOSITORY / devops project path / release_file
-#   - the dev environment URL
 #   - whether ruuter-xroad-mock is a dev workload (it is the public developer mock)
 #   - the `image-build` component input for docker build args (used by the three
 #     Kotlin services that share docker/code/Dockerfile) — assumed `build_args` here
