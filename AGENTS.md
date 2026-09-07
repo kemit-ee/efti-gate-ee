@@ -170,6 +170,16 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - Set a one-line branch description spelling out the goal:
   `git branch --edit-description` (or `git config branch.<name>.description "<goal>"`).
 
+## CI/CD
+
+- `.github/workflows/e2e.yml` — GitHub Actions: builds the compose stack and runs the
+  `tests/*/*.http` smoke suite (`docker compose run --rm http-tests`). This is the gate on PRs.
+- `.gitlab-ci.yml` — kemitaws platform pipeline (mirror): `release-version` → sonar → nine
+  `image-build`s (ruuter, ruuter-xroad-mock, resql, liquibase, tim, ui, edelivery, xml-mapper,
+  multiplexer) → SBOM/trivy → `package:charts` trigger into the `efti` devops repo →
+  `release-pin` into `environments/dev/release.yaml`. Runs on the default branch and `release/*`.
+  Header comment lists the CI/CD variables and the values still to confirm against the devops repo.
+
 ## Post-change
 
 - If anything listed in `AGENTS.md` changed - update the file
