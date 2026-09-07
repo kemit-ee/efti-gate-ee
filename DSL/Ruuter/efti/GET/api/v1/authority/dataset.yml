@@ -25,6 +25,12 @@ check_gate:
 call_local_platform:
   template: api/v1/dataset-local
   request_type: "POST"
+  # Ruuter #72 (h2ck.me H1, 0.9.11-rc): template: now runs the callee's guard against the
+  # CHILD context — nothing is inherited from incoming.headers automatically. This route is
+  # itself under efti/GET/api/v1/authority/.guard.yml (same X-Internal-Service-Token
+  # credential as dataset-local's own efti/POST/api/v1/.guard.yml), so forward it.
+  headers:
+    x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
   body: ${request_json}
   result: dataset_response
   next: check_local_result
