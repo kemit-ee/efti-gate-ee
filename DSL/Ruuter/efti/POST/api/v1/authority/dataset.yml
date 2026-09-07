@@ -1,0 +1,74 @@
+declaration:
+  description: "Authority requests a dataset from a Platform via the gate (gate-internal body form).
+    Same {uil, subsets} contract as the sibling authority/search and authority/follow-up handlers.
+    Called by the X-Road adapter (xroad/POST/v1/dataset.yml) after it has resolved the calling
+    organisation and enforced authorities.subsets. The GET/path form for authority officers lives at
+    efti/GET/api/v1/authority/dataset.yml; both delegate to the api/v1/dataset-local template."
+  # No allowed_body: core owns its own contract and a proxy should not strip fields it does not
+  # recognise. The api/v1/dataset-local template this delegates to declares allowed_body: [uil, subsets].
+
+check_gate:
+  switch:
+    - condition: ${incoming.body.uil.gateId != '[#OWN_GATE_ID]'}
+      next: request_to_xml
+
+call_local_platform:
+  template: api/v1/dataset-local
+  request_type: "POST"
+  body: ${incoming.body}
+  result: dataset_response
+  next: convert_response_to_json
+
+request_to_xml:
+  call: http.post
+  args:
+    url: "[#XML_MAPPER_URL]/api/v1/dataset/request-to-xml"
+    headers:
+      content-type: "application/json"
+    body: ${incoming.body}
+  result: request_xml
+
+send_via_edelivery:
+  call: http.post
+  timeout: 65000
+  args:
+    url: "[#EDELIVERY_URL]/api/v1/send/${incoming.body.uil.gateId}"
+    headers:
+      content-type: "text/xml"
+      x-request-id: ${incoming.headers['x-request-id'] ?? ''}
+    body: ${request_xml.response.body}
+    content_type: plaintext
+  result: edelivery_response
+
+check_edelivery_response:
+  switch:
+    - condition: ${edelivery_response.response.status != 200}
+      next: edelivery_error
+
+assign_dataset_from_edelivery:
+  assign:
+    dataset_response:
+      xml: ${edelivery_response.response.body}
+  next: convert_response_to_json
+
+edelivery_error:
+  return:
+    error: "Remote gate dataset request failed"
+    detail: ${edelivery_response.response.body}
+  wrapper: false
+  status: ${edelivery_response.response.status}
+  next: end
+
+convert_response_to_json:
+  call: http.post
+  args:
+    url: "[#XML_MAPPER_URL]/api/v1/dataset/response-to-json"
+    headers:
+      content-type: "text/xml"
+    body: ${dataset_response.xml}
+    content_type: plaintext
+  result: dataset_json
+
+respond:
+  return: ${dataset_json.response.body}
+  wrapper: false
