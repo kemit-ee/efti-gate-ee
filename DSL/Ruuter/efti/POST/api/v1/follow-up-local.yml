@@ -42,7 +42,7 @@ forward_to_rest_platform:
   call: http.post
   args:
     url: "${platform_result.response.body[0]?.baseUrl}/v1/dataset/${incoming.body.uil.datasetId}/follow-up"
-    headers: "${Object.assign(platform_result.response.body[0]?.headers ?? {}, {'Content-Type': 'application/json', 'X-Dataset-Request-ID': incoming.body.referenceIds[0]})}"
+    headers: "${Object.assign(platform_result.response.body[0]?.headers ?? {}, {'Content-Type': 'application/json', 'X-Dataset-Request-ID': incoming.body.referenceIds[0], 'x-request-id': incoming.headers['x-request-id']})}"
     body: ${incoming.body}
   result: platform_response
   next: respond

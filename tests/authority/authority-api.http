@@ -1,5 +1,4 @@
 # TODO: forward x-request-id all the way; including remote gates and platforms
-# TODO: check second search response
 
 ### Setup: upload a consignment to search for
 # X-Api-Key hashed and matched against platforms.api_key_hash by consignments.guard

@@ -13,13 +13,13 @@ class EftiMessageHandlers(
 
   override val rootTags: Map<String, (MessageContext) -> String?> = mapOf(
     "hello" to { null },
-    "FTI009GetCmdsRequest" to { ruuterClient.getDataset(it.xml) },
+    "FTI009GetCmdsRequest" to { ruuterClient.getDataset(it.xml, it.key.requestId) },
     "FTI010GetCmdsResponse" to ::provideResponse,
-    "FTI019SearchIdentifierRequest" to { ruuterClient.searchConsignments(it.xml, it.key.senderId) },
+    "FTI019SearchIdentifierRequest" to { ruuterClient.searchConsignments(it.xml, it.key.senderId, it.key.requestId) },
     "FTI021SearchIdentifierResponse" to ::provideResponse,
-    "FTI004UploadIdentifierRequest" to { ruuterClient.saveConsignment(it.xml) },
+    "FTI004UploadIdentifierRequest" to { ruuterClient.saveConsignment(it.xml, it.key.requestId) },
     "FTI029UploadIdentifierResponse" to ::provideResponse,
-    "FTI025LodgeFollowUpCommRequest" to { ruuterClient.followUp(it.xml) },
+    "FTI025LodgeFollowUpCommRequest" to { ruuterClient.followUp(it.xml, it.key.requestId) },
     "FTI030LodgeFollowUpCommResponse" to ::provideResponse
   )
 }
