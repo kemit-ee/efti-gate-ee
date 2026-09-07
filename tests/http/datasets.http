@@ -1,4 +1,4 @@
-### Query dataset from local platform
+### Dataset query from local authority to local platform
 # efti/api/v1/* is gate-internal (DSL/Ruuter/efti/POST/api/v1/.guard.yml) — the token
 # edelivery/xroad send on every call, not a gate-operator JWT.
 POST {{RUUTER_URL}}/efti/api/v1/dataset-local
@@ -21,7 +21,7 @@ X-Internal-Service-Token: dev-internal-service-token-change-me
   })
 %}
 
-### Query dataset from local platform over eDelivery
+### Dataset query from remote authority to local platform
 POST {{RUUTER_URL}}/efti/api/v1/dataset-xml
 Content-Type: text/xml
 X-Internal-Service-Token: dev-internal-service-token-change-me
