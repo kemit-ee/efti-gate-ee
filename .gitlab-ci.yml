@@ -1,0 +1,296 @@
+# efti-gate-ee code/build repo. One release view: verify -> build -> package -> dev.
+#
+# Adapted from ljvis-2's .gitlab-ci.yml for this repo's layout. Nine images are built from
+# this repo, packaged as wrapper charts in the `efti` devops repo, and pinned into the dev
+# release manifest in one commit. Liquibase has no runtime workload entry — it is a
+# migration runner, invoked as a pre-sync Job by the chart, using the same release version.
+#
+# GitHub Actions (.github/workflows/e2e.yml) still owns the docker-compose http-tests
+# smoke run; this pipeline is the kemitaws platform build + release path.
+#
+# Required CI/CD variables: HARBOR_URL, HARBOR_USERNAME, HARBOR_PASSWORD,
+# SERVICECODE=efti, SONAR_HOST_URL, SONAR_TOKEN, GITOPS_TOKEN and nonlive Argo CD
+# read-only status credentials.
+#
+# TODO(verify against the efti devops repo before first run):
+#   - SERVICECODE / CHART_REPOSITORY / devops project path / release_file
+#   - the dev environment URL
+#   - whether ruuter-xroad-mock is a dev workload (it is the public developer mock)
+#   - the `image-build` component input for docker build args (used by the three
+#     Kotlin services that share docker/code/Dockerfile) — assumed `build_args` here
+
+stages:
+  - test
+  - build
+  - scan
+  - package
+  - deploy-dev
+
+variables:
+  VERSION_BASE: "0.1.0"
+  CHART_REPOSITORY: harbor.kemitaws.ee/efti/charts
+  NONLIVE_CLUSTER: kubernetes-nonlive
+  SECRET_DETECTION_ENABLED: "true"
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH =~ /^release\//
+    - when: never
+
+include:
+  - component: gitlab.kemitaws.ee/platform-internal/ci-components/release-version@6.6.0
+    inputs: { base: $VERSION_BASE, arch: arm64 }
+
+  # Sonar cannot parse the Bürokratt DSL; point the backend scan at DSL so at least the
+  # tree is indexed. Frontend lives under code/ui.
+  - component: gitlab.kemitaws.ee/platform-internal/ci-components/sonar-scan@6.6.0
+    inputs:
+      name: frontend
+      sources: code/ui
+      quality_gate: false
+      extra_args: "-Dsonar.exclusions=**/node_modules/**,**/dist/**"
+  - component: gitlab.kemitaws.ee/platform-internal/ci-components/sonar-scan@6.6.0
+    inputs:
+      name: backend
+      sources: DSL
+      quality_gate: false
+      extra_args: "-Dsonar.exclusions=**/draft/**,**/test/**"
+  - template: Security/Secret-Detection.gitlab-ci.yml
+
+  # ---- images -------------------------------------------------------------------
+  # Ruuter DSL engine (serves /efti + /xroad), context = repo root.
+  - component: gitlab.kemitaws.ee/platform-internal/ci-components/image-build@6.6.0
+    inputs: { name: ruuter, image_path: ruuter/images, dockerfile: docker/ruuter/Dockerfile, version: $RELEASE_VERSION, arch: arm64 }
+  # Public X-Road developer mock — standalone container (docs/developer/x_road_developer_mock.md).
+  - component: gitlab.kemitaws.ee/platform-internal/ci-components/image-build@6.6.0
+    inputs: { name: ruuter-xroad-mock, image_path: ruuter-xroad-mock/images, dockerfile: docker/ruuter-xroad-mock/Dockerfile, version: $RELEASE_VERSION, arch: arm64 }
+  # ReSql SQL executor.
+  - component: gitlab.kemitaws.ee/platform-internal/ci-components/image-build@6.6.0
+    inputs: { name: resql, image_path: resql/images, dockerfile: docker/resql/Dockerfile, version: $RELEASE_VERSION, arch: arm64 }
+  # Liquibase migration runner.
+  - component: gitlab.kemitaws.ee/platform-internal/ci-components/image-build@6.6.0
+    inputs: { name: liquibase, image_path: liquibase/images, dockerfile: docker/liquibase/Dockerfile, version: $RELEASE_VERSION, arch: arm64 }
+  # TIM (Token & Identity Manager).
+  - component: gitlab.kemitaws.ee/platform-internal/ci-components/image-build@6.6.0
+    inputs: { name: tim, image_path: tim/images, dockerfile: docker/tim/Dockerfile, version: $RELEASE_VERSION, arch: arm64 }
+  # UI (Vite/Svelte), built from code/ui via docker/ui/Dockerfile, context = repo root.
+  - component: gitlab.kemitaws.ee/platform-internal/ci-components/image-build@6.6.0
+    inputs:
+      name: ui
+      image_path: ui/images
+      dockerfile: docker/ui/Dockerfile
+      version: $RELEASE_VERSION
+      arch: arm64
+      build_args: "VITE_USE_PROD_TARA_URL=true"
+  # Kotlin services — one Dockerfile (docker/code/Dockerfile), context = code/, selected
+  # by PROJECT/PORT build args.
+  - component: gitlab.kemitaws.ee/platform-internal/ci-components/image-build@6.6.0
+    inputs:
+      name: edelivery
+      image_path: edelivery/images
+      dockerfile: docker/code/Dockerfile
+      context: code
+      version: $RELEASE_VERSION
+      arch: arm64
+      build_args: "PROJECT=edelivery,PORT=8081"
+  - component: gitlab.kemitaws.ee/platform-internal/ci-components/image-build@6.6.0
+    inputs:
+      name: xml-mapper
+      image_path: xml-mapper/images
+      dockerfile: docker/code/Dockerfile
+      context: code
+      version: $RELEASE_VERSION
+      arch: arm64
+      build_args: "PROJECT=xml-mapper,PORT=8082"
+  - component: gitlab.kemitaws.ee/platform-internal/ci-components/image-build@6.6.0
+    inputs:
+      name: multiplexer
+      image_path: multiplexer/images
+      dockerfile: docker/code/Dockerfile
+      context: code
+      version: $RELEASE_VERSION
+      arch: arm64
+      build_args: "PROJECT=multiplexer,PORT=8083"
+
+  # ---- SBOM (all images) + trivy (UI) -----------------------------------------
+  - component: gitlab.kemitaws.ee/platform-internal/ci-components/dependency-track-sbom@6.6.0
+    inputs: { name: ruuter, service_code: $SERVICECODE, project: $SERVICECODE, image_path: ruuter/images, version: $RELEASE_VERSION, arch: arm64 }
+  - component: gitlab.kemitaws.ee/platform-internal/ci-components/dependency-track-sbom@6.6.0
+    inputs: { name: ruuter-xroad-mock, service_code: $SERVICECODE, project: $SERVICECODE, image_path: ruuter-xroad-mock/images, version: $RELEASE_VERSION, arch: arm64 }
+  - component: gitlab.kemitaws.ee/platform-internal/ci-components/dependency-track-sbom@6.6.0
+    inputs: { name: resql, service_code: $SERVICECODE, project: $SERVICECODE, image_path: resql/images, version: $RELEASE_VERSION, arch: arm64 }
+  - component: gitlab.kemitaws.ee/platform-internal/ci-components/dependency-track-sbom@6.6.0
+    inputs: { name: liquibase, service_code: $SERVICECODE, project: $SERVICECODE, image_path: liquibase/images, version: $RELEASE_VERSION, arch: arm64 }
+  - component: gitlab.kemitaws.ee/platform-internal/ci-components/dependency-track-sbom@6.6.0
+    inputs: { name: tim, service_code: $SERVICECODE, project: $SERVICECODE, image_path: tim/images, version: $RELEASE_VERSION, arch: arm64 }
+  - component: gitlab.kemitaws.ee/platform-internal/ci-components/dependency-track-sbom@6.6.0
+    inputs: { name: ui, service_code: $SERVICECODE, project: $SERVICECODE, image_path: ui/images, version: $RELEASE_VERSION, arch: arm64 }
+  - component: gitlab.kemitaws.ee/platform-internal/ci-components/dependency-track-sbom@6.6.0
+    inputs: { name: edelivery, service_code: $SERVICECODE, project: $SERVICECODE, image_path: edelivery/images, version: $RELEASE_VERSION, arch: arm64 }
+  - component: gitlab.kemitaws.ee/platform-internal/ci-components/dependency-track-sbom@6.6.0
+    inputs: { name: xml-mapper, service_code: $SERVICECODE, project: $SERVICECODE, image_path: xml-mapper/images, version: $RELEASE_VERSION, arch: arm64 }
+  - component: gitlab.kemitaws.ee/platform-internal/ci-components/dependency-track-sbom@6.6.0
+    inputs: { name: multiplexer, service_code: $SERVICECODE, project: $SERVICECODE, image_path: multiplexer/images, version: $RELEASE_VERSION, arch: arm64 }
+
+  - component: gitlab.kemitaws.ee/platform-internal/ci-components/trivy-image-scan@6.6.0
+    inputs: { name: ui, project: $SERVICECODE, image_path: ui/images, version: $RELEASE_VERSION, arch: arm64 }
+
+  # ---- pin the release into the dev environment ------------------------------
+  - component: gitlab.kemitaws.ee/platform-internal/ci-components/release-pin@6.6.0
+    inputs:
+      environment: dev
+      repository: gitlab.kemitaws.ee/services/efti/devops.git
+      stage: deploy-dev
+      version: $RELEASE_VERSION
+      argocd_context: $NONLIVE_CLUSTER
+      release_file: environments/dev/release.yaml
+      components: >-
+        resql
+        ruuter
+        ruuter-xroad-mock
+        tim
+        ui
+        edelivery
+        xml-mapper
+        multiplexer
+      artifacts: >-
+        $CHART_REPOSITORY/resql
+        $CHART_REPOSITORY/ruuter
+        $CHART_REPOSITORY/ruuter-xroad-mock
+        $CHART_REPOSITORY/tim
+        $CHART_REPOSITORY/ui
+        $CHART_REPOSITORY/edelivery
+        $CHART_REPOSITORY/xml-mapper
+        $CHART_REPOSITORY/multiplexer
+      applications: >-
+        resql-dev
+        ruuter-dev
+        ruuter-xroad-mock-dev
+        tim-dev
+        ui-dev
+        edelivery-dev
+        xml-mapper-dev
+        multiplexer-dev
+
+# ---------------------------------------------------------------------------- test
+
+secret_detection:
+  stage: test
+  tags: ["arm64"]
+
+.frontend:
+  stage: test
+  image: harbor.kemitaws.ee/dockerhub/library/node:22-alpine
+  tags: ["arm64"]
+  interruptible: true
+  # Temporary onboarding state: these checks report failures but do not gate release yet.
+  allow_failure: true
+  cache:
+    key:
+      files: [code/ui/package-lock.json]
+    paths: [code/ui/node_modules/]
+  before_script:
+    - cd code/ui
+    - npm ci --prefer-offline --no-audit
+
+"frontend:check":
+  extends: .frontend
+  script:
+    - npm audit --audit-level=high || true
+    - npm run check
+
+"frontend:test":
+  extends: .frontend
+  script:
+    - npm run test:run
+
+# Protected-ref image build already runs the vite build; MR pipelines check it separately.
+"frontend:build":
+  extends: .frontend
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: never
+    - if: $CI_COMMIT_BRANCH =~ /^release\//
+      when: never
+    - when: on_success
+  script:
+    - npm run build
+
+"backend:test":
+  stage: test
+  image: harbor.kemitaws.ee/dockerhub/library/eclipse-temurin:25-jdk-alpine
+  tags: ["arm64"]
+  interruptible: true
+  cache:
+    key: gradle-$CI_COMMIT_REF_SLUG
+    paths: [code/.gradle/, code/*/build/]
+  script:
+    - cd code
+    - ./gradlew test --info
+  artifacts:
+    when: always
+    reports:
+      junit: code/*/build/test-results/test/TEST-*.xml
+
+# ----------------------------------------------------------- build, package, deploy
+
+.protected-refs:
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH =~ /^release\//
+
+"build:ruuter":             { extends: .protected-refs }
+"sbom:ruuter":              { extends: .protected-refs, needs: ["release:version", "build:ruuter"] }
+"build:ruuter-xroad-mock":  { extends: .protected-refs }
+"sbom:ruuter-xroad-mock":   { extends: .protected-refs, needs: ["release:version", "build:ruuter-xroad-mock"] }
+"build:resql":              { extends: .protected-refs }
+"sbom:resql":               { extends: .protected-refs, needs: ["release:version", "build:resql"] }
+"build:liquibase":          { extends: .protected-refs }
+"sbom:liquibase":           { extends: .protected-refs, needs: ["release:version", "build:liquibase"] }
+"build:tim":                { extends: .protected-refs }
+"sbom:tim":                 { extends: .protected-refs, needs: ["release:version", "build:tim"] }
+"build:ui":                 { extends: .protected-refs }
+"sbom:ui":                  { extends: .protected-refs, needs: ["release:version", "build:ui"] }
+"trivy:ui":
+  extends: .protected-refs
+  needs: ["release:version", "build:ui"]
+"build:edelivery":          { extends: .protected-refs }
+"sbom:edelivery":           { extends: .protected-refs, needs: ["release:version", "build:edelivery"] }
+"build:xml-mapper":         { extends: .protected-refs }
+"sbom:xml-mapper":          { extends: .protected-refs, needs: ["release:version", "build:xml-mapper"] }
+"build:multiplexer":        { extends: .protected-refs }
+"sbom:multiplexer":         { extends: .protected-refs, needs: ["release:version", "build:multiplexer"] }
+
+# strategy: depend keeps this pipeline red when any packaging job in the devops repo fails.
+package:charts:
+  extends: .protected-refs
+  stage: package
+  trigger:
+    project: services/efti/devops
+    branch: main
+    strategy: depend
+  needs:
+    - "release:version"
+    - "build:ruuter"
+    - "build:ruuter-xroad-mock"
+    - "build:resql"
+    - "build:liquibase"
+    - "build:tim"
+    - "build:ui"
+    - "build:edelivery"
+    - "build:xml-mapper"
+    - "build:multiplexer"
+  variables:
+    # Forward the resolved dotenv value under a different name across the trigger.
+    IMAGE_VERSION: $RELEASE_VERSION
+
+"release:pin:dev":
+  # release/* produces immutable artifacts for manual promotion; it must not overwrite
+  # the default-branch-owned dev environment.
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  environment:
+    name: dev
+    url: https://eftidev.kemitaws.ee
