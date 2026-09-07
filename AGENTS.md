@@ -162,6 +162,14 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - Assertions: `> {% client.test("name", () => { client.assert(...) }) %}`
 - Health check: `GET /efti/api/v1/test/baasikontoroll` (public, returns DB status)
 
+## Branching
+
+- When creating a new branch, its name must describe what the branch sets out to achieve — the
+  change or outcome intended, not a ticket id or random slug. Prefer `type/short-goal`, e.g.
+  `fix/xroad-dataset-forward-missing-post-handler` or `feat/authority-audit-log`.
+- Set a one-line branch description spelling out the goal:
+  `git branch --edit-description` (or `git config branch.<name>.description "<goal>"`).
+
 ## Post-change
 
 - If anything listed in `AGENTS.md` changed - update the file
