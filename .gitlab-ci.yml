@@ -13,8 +13,8 @@
 # read-only status credentials.
 #
 # TODO(verify against the efti devops repo before first run):
-#   - SERVICECODE / CHART_REPOSITORY / devops project path / release_file
-#   - whether ruuter-xroad-mock is a dev workload (it is the public developer mock)
+#   - CHART_REPOSITORY and release_file path (SERVICECODE=efti and the
+#     services/efti/devops project path are confirmed)
 #   - the `image-build` component input for docker build args (used by the three
 #     Kotlin services that share docker/code/Dockerfile) — assumed `build_args` here
 
