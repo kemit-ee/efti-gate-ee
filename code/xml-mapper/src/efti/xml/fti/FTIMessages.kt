@@ -4,10 +4,7 @@ import efti.domain.UIL
 import efti.subsets.CountryCode
 import efti.subsets.Subset
 import efti.xml.edifactDateTimeFormats
-import klite.Capitalize
-import klite.Converter
-import klite.KeyConverter
-import klite.StatusCode
+import klite.*
 import klite.html.each
 import klite.html.unaryPlus
 import klite.json.JsonIgnore
@@ -174,7 +171,7 @@ data class FollowUp(
 
 data class BinaryFile(
   @XmlPath("FileName") val fileName: String,
-  @XmlPath("MIMECode") val mimeType: String,
+  @XmlPath("MIMECode") val mimeType: String = MimeTypes.typeFor(fileName) ?: MimeTypes.binary,
   @XmlPath("IncludedBinaryObject") val base64Content: String,
 ) {
   @Language("xml") fun render() =
