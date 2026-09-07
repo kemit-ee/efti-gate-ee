@@ -11,9 +11,13 @@ allow_datasource_header: false
 
 datasources:
   - name: efti
-    url: "postgres://efti:01234@database:5432/efti"
-    username: ""
-    password_env: ""
+    # Credential-free URL — Resql injects username/password from password_env at
+    # connect time (config.rs::inject_userinfo only fires when the URL has no
+    # existing userinfo; a url with user:pass@ baked in would silently keep that
+    # plaintext value regardless of password_env).
+    url: "postgres://database:5432/efti"
+    username: "efti"
+    password_env: "RESQL_EFTI_PASSWORD"
     max_connections: 10
     acquire_timeout_seconds: 5
 
