@@ -5,6 +5,13 @@ declaration:
 call_consignment:
   template: v1/consignments
   request_type: "POST"
+  # Ruuter #72 (h2ck.me H1, 0.9.11-rc): template: now runs the callee's guard against
+  # the CHILD context — nothing is inherited from incoming.headers automatically. This
+  # route is itself reached only via the guarded /platforms/v1/consignments-xml entry
+  # (edelivery, over the internal network), so forward the internal-service credential
+  # rather than an X-Api-Key we don't have here; platforms/.guard.yml accepts either.
+  headers:
+    x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
   body:
     xml: ${incoming.body.xml}
   result: consignment_response
