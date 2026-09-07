@@ -17,7 +17,23 @@ call_local_platform:
   request_type: "POST"
   body: ${incoming.body}
   result: dataset_response
+  next: check_local_result
+
+# api/v1/dataset-local returns {error: "Platform Not Found"} (no `xml`) when the platform id is
+# unknown. Without this guard that body falls through to convert_response_to_json, which POSTs a
+# null xml to the mapper and the caller gets a 200 wrapping an Internal Server Error. Surface it as
+# a real 404 so the X-Road adapter's check_core_status maps it to 502 with coreStatus:404.
+check_local_result:
+  switch:
+    - condition: ${dataset_response == null || dataset_response.xml == null}
+      next: local_platform_error
   next: convert_response_to_json
+
+local_platform_error:
+  return: ${dataset_response}
+  wrapper: false
+  status: 404
+  next: end
 
 request_to_xml:
   call: http.post
