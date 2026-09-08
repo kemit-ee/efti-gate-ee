@@ -21,6 +21,7 @@ fun main() {
   Server(requestIdGenerator = RequestIdHandler(), registry = registry).apply {
     use<JsonBody>()
     register(httpClient())
+    register<RuuterClient>(if (Config.isProd) RuuterClient::class else RuuterClientDev::class)
     register<PartyRegistry>(EDeliveryPartyRegistry::class)
     register<AsyncResponseProvider>(SingleNodeAsyncResponseProvider::class)
     register<MessageHandlers>(EftiMessageHandlers::class)

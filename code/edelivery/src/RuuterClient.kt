@@ -8,7 +8,7 @@ import java.net.http.HttpClient
 import java.util.*
 
 /** Forwards raw EFTI XMLs to Ruuter for further processing */
-class RuuterClient(
+open class RuuterClient(
   private val http: HttpClient,
   private val baseUrl: URI = URI(Config["RUUTER_URL"]),
   private val internalServiceToken: String = Config["INTERNAL_SERVICE_TOKEN"],
@@ -16,10 +16,10 @@ class RuuterClient(
   fun saveConsignment(xml: String, requestId: UUID /* FTI004UploadIdentifierRequest */) =
     http.sendXml(baseUrl + "/platforms/v1/consignments-xml", xml, requestId)
 
-  fun searchConsignments(xml: String, gateId: PartyId, requestId: UUID /* FTI019SearchIdentifierRequest */) =
+  fun searchConsignments(xml: String, gateId: PartyId, requestId: UUID /* FTI019SearchIdentifierRequest */): String =
     http.sendXml(baseUrl + "/efti/api/v1/consignments/search-xml?gateId=$gateId", xml, requestId)
 
-  fun getDataset(xml: String, requestId: UUID /* FTI009GetCmdsRequest */) =
+  open fun getDataset(xml: String, requestId: UUID /* FTI009GetCmdsRequest */, receiverId: PartyId) =
     http.sendXml(baseUrl + "/efti/api/v1/dataset-xml", xml, requestId)
 
   fun followUp(xml: String, requestId: UUID /* FTI025LodgeFollowUpCommRequest */) =
