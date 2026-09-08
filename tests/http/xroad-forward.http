@@ -143,6 +143,44 @@ Content-Type: application/json
   })
 %}
 
+### Body present but `uil` missing → 400 BAD_REQUEST_GENERAL (distinct from MISSING_SUBSET)
+# @timeout 75
+POST {{RUUTER_URL}}/xroad/v1/dataset
+X-Road-Client: EE/GOV/70000094/tram
+X-Road-Id: 0a11ce5e-0012-4d1d-8f2c-0f0d00120000
+Content-Type: application/json
+
+{
+  "subsets": ["EU01"]
+}
+
+> {%
+  client.test("Missing uil returns 400 BAD_REQUEST_GENERAL", () => {
+    client.assert(response.status === 400)
+    client.assert(response.body.code === "BAD_REQUEST_GENERAL")
+    client.assert(response.body.type === "https://api.efti.ee/errors/bad-request")
+  })
+%}
+
+### follow-up: body missing `message` → 400 BAD_REQUEST_GENERAL
+# @timeout 75
+POST {{RUUTER_URL}}/xroad/v1/follow-up
+X-Road-Client: EE/GOV/70000094/tram
+X-Road-Id: 0a11ce5e-0013-4d1d-8f3c-0f0d00130000
+Content-Type: application/json
+
+{
+  "uil": { "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440000" },
+  "referenceIds": ["550e8400-e29b-41d4-a716-446655440000"]
+}
+
+> {%
+  client.test("Follow-up missing message returns 400 BAD_REQUEST_GENERAL", () => {
+    client.assert(response.status === 400)
+    client.assert(response.body.code === "BAD_REQUEST_GENERAL")
+  })
+%}
+
 ### Core failure is wrapped as RFC 7807 with core's own status and body carried
 # @timeout 75
 POST {{RUUTER_URL}}/xroad/v1/dataset

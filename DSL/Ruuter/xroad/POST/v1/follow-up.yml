@@ -2,8 +2,32 @@ declaration:
   description: "X-Road Authority operation: send a follow-up message to a platform via the gate
     (ADR-006). Forwards to the gate's core REST API. No subset gate: a follow-up carries a message,
     not dataset content, and takes no subset parameter."
-  # No allowed_body — a proxy should not strip fields it does not recognise; core's handler owns its
-  # own contract. See dataset.yml for the fuller reasoning.
+  # Inputs (X-Road-Client / X-Road-Id validated by xroad/.guard.yml):
+  #   body.uil          object, required — {gateId, platformId, datasetId}
+  #   body.referenceIds array,  required — dataset-request ids this follow-up refers to
+  #   body.message      string, required — the follow-up text
+  #   body.files        array,  optional — {fileName, base64Content, mimeType}
+  # No allowed_body — it would make `files` mandatory and strip anything core adds later; a proxy
+  # should not strip fields core validates itself. `validate_input` below is the contract.
+
+# A missing/non-object body or a body missing uil / referenceIds / message is a generic 400 before
+# the forward; `files` is optional so it is not checked. First step.
+validate_input:
+  switch:
+    - condition: ${incoming.body == null || incoming.body.uil == null || incoming.body.referenceIds == null || incoming.body.message == null}
+      next: bad_request
+  next: forward_to_core
+
+bad_request:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "The request body must be a JSON object with 'uil' (object), 'referenceIds' (array) and 'message' (string)."
+  wrapper: false
+  status: 400
+  next: end
 
 # timeout must exceed core's own 65s edelivery timeout (authority/follow-up.yml send_via_edelivery).
 #

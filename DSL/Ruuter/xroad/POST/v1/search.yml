@@ -3,6 +3,30 @@ declaration:
     Local-first, then cross-gate broadcast — core handles that. Forwards to the gate's core REST API.
     No subset gate: this route returns identifier-level metadata, not dataset content, and takes no
     subset parameter. Competent authorities have unrestricted identifier search (Reg 2024/1942)."
+  # Inputs (X-Road-Client / X-Road-Id validated by xroad/.guard.yml):
+  #   body  object, required — {operator, id}-shaped criteria; an empty object {} is valid and
+  #         means "poll for the rest of a prior search" (core keys that on X-Road-Id). Individual
+  #         criteria fields are core's contract, forwarded verbatim — no allowlist.body (it would
+  #         make every criterion mandatory and strip the rest).
+
+# A missing/non-object body is the one thing this route rejects itself; everything else is core's
+# contract. First step so a garbage body never reaches the forward.
+validate_input:
+  switch:
+    - condition: ${incoming.body == null}
+      next: bad_request
+  next: forward_to_core
+
+bad_request:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "A JSON request body is required (send {} to poll for the rest of a prior search)."
+  wrapper: false
+  status: 400
+  next: end
 
 # X-Road-Id becomes x-request-id. That is load-bearing here rather than merely tidy: core's
 # authority/search.yml uses x-request-id as the multiplexer polling key, so a caller re-issuing the
