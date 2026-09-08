@@ -3,7 +3,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 val mainClassName = "LauncherKt"
 
 plugins {
-  val kotlinVersion = "2.4.0"
+  val kotlinVersion = "2.4.20"
   kotlin("jvm") version kotlinVersion
 }
 
@@ -22,7 +22,7 @@ subprojects {
   }
 
   dependencies {
-    fun klite(module: String) = "com.github.keksworks.klite:klite-$module:de981466" // 2.0.4+
+    fun klite(module: String) = "com.github.keksworks.klite:klite-$module:2.0.5"
     implementation(klite("server"))
     implementation(klite("json"))
     implementation(klite("xml"))
