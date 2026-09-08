@@ -3,6 +3,12 @@
 # (eDelivery-delivered upload). The X-Api-Key header must be present and its SHA-256 must match
 # api_key_hash on an active platform. The key itself is never stored — it is generated via
 # POST /admin/v1/platforms/api-key/:id and shown once.
+
+declaration:
+  description: "platforms/ guard (ADR-004). Credential: X-Api-Key (required); its SHA-256 must
+    match platforms.api_key_hash on an ACTIVE platform. Also accepts X-Internal-Service-Token for
+    the G2G consignments-xml route."
+
 check_present:
   switch:
     - condition: ${incoming.headers?.['x-internal-service-token'] == '[#INTERNAL_SERVICE_TOKEN]'}

@@ -15,6 +15,12 @@
 # INTERNAL_SERVICE_TOKEN is unset, '[#INTERNAL_SERVICE_TOKEN]' may interpolate to an empty
 # string, and without them an absent or empty header would compare equal to it and
 # authenticate. Deny is the fall-through branch.
+
+declaration:
+  description: "efti/POST/api/v1/authority guard — gate-internal. Credential:
+    X-Internal-Service-Token (required), must be present, non-empty, and equal
+    INTERNAL_SERVICE_TOKEN. No JWT path."
+
 check_service_token:
   switch:
     - condition: ${incoming.headers != null && incoming.headers['x-internal-service-token'] != null && incoming.headers['x-internal-service-token'] != '' && incoming.headers['x-internal-service-token'] == '[#INTERNAL_SERVICE_TOKEN]'}
