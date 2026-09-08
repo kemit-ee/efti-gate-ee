@@ -179,6 +179,18 @@ secret_detection:
   stage: test
   tags: ["arm64"]
 
+# Sonar cannot parse the Ruuter DSL; this catches a broken flow and the input-contract
+# regressions before an image is built (mirrors the GitHub Actions dsl-validate job).
+"validate:dsl":
+  stage: test
+  image: harbor.kemitaws.ee/base-images/devops-aio:1.0.0
+  tags: ["arm64"]
+  interruptible: true
+  script:
+    - set -euo pipefail
+    - pip3 install --quiet pyyaml
+    - python3 scripts/validate-dsl.py
+
 .frontend:
   stage: test
   image: harbor.kemitaws.ee/dockerhub/library/node:22-alpine

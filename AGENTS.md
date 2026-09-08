@@ -178,9 +178,11 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 
 ## CI/CD
 
-- `.github/workflows/e2e.yml` — GitHub Actions: builds the compose stack and runs the
-  `tests/*/*.http` smoke suite (`docker compose run --rm http-tests`). This is the gate on PRs.
-- `.gitlab-ci.yml` — kemitaws platform pipeline (mirror): `release-version` → sonar → nine
+- `.github/workflows/e2e.yml` — GitHub Actions: `dsl-validate` (`scripts/validate-dsl.py`) +
+  `e2e` (builds the compose stack, runs the `tests/*/*.http` smoke suite via
+  `docker compose run --rm http-tests`). This is the gate on PRs.
+- `.gitlab-ci.yml` — kemitaws platform pipeline (mirror): `secret_detection` + `validate:dsl`
+  (`scripts/validate-dsl.py`) + sonar → nine
   `image-build`s (ruuter, ruuter-xroad-mock, resql, liquibase, tim, ui, edelivery, xml-mapper,
   multiplexer) → SBOM/trivy → `package:charts` trigger into the `efti` devops repo →
   `release-pin` into `environments/dev/release.yaml`. Runs on the default branch and `release/*`.
