@@ -35,9 +35,6 @@ call_local_platform:
   result: dataset_response
   next: check_local_result
 
-# api/v1/dataset-local returns {error: "Platform Not Found"} (no `xml`) for an unknown platform id.
-# Without this guard that body would fall through to convert_response_to_json, which POSTs a null
-# xml to the mapper and the caller gets a 200 wrapping an Internal Server Error.
 check_local_result:
   switch:
     - condition: ${dataset_response == null || dataset_response.xml == null}
