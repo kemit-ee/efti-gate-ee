@@ -9,9 +9,9 @@ import java.util.*
 
 /** Forwards raw EFTI XMLs to Ruuter for further processing */
 open class RuuterClient(
-  private val http: HttpClient,
-  private val baseUrl: URI = URI(Config["RUUTER_URL"]),
-  private val internalServiceToken: String = Config["INTERNAL_SERVICE_TOKEN"],
+  protected val http: HttpClient,
+  protected val baseUrl: URI = URI(Config["RUUTER_URL"]),
+  protected val internalServiceToken: String = Config["INTERNAL_SERVICE_TOKEN"],
 ) {
   fun saveConsignment(xml: String, requestId: UUID /* FTI004UploadIdentifierRequest */) =
     http.sendXml(baseUrl + "/platforms/v1/consignments-xml", xml, requestId)
