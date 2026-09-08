@@ -25,11 +25,12 @@ Exit code 0 = all checks passed, 1 = at least one failure.
 ------------------------------------------------------------------------------------------
 Input contract (check 6)
 ------------------------------------------------------------------------------------------
-Empirically, `turnerrainer/ruuter:0.9.10-rc` treats `declaration.allowlist.body`
-(and the flat `declaration.allowed_body`) as: every listed field is MANDATORY (missing ->
-HTTP 500 in a synthetic `declare` step, before any DSL step; `required: false` is ignored),
-and any undeclared body field is silently stripped. There is no "optional body field" and
-no type enforcement. `allowlist.header` / `allowlist.params` are OpenAPI-only.
+Empirically, `turnerrainer/ruuter:0.9.10-rc` treats a present `declaration.allowlist` block
+(any of body/header/params, and the flat `declaration.allowed_body`) as STRICT: every listed
+field is MANDATORY (missing -> HTTP 500 in a synthetic `declare` step, before any DSL step;
+`required: false` is ignored), and any field NOT listed is silently stripped. Header/param
+stripping happens before the guard runs, so an `allowlist.header` omitting a header the guard
+reads breaks the guard. No "optional field", no type enforcement.
 
 So the real, well-shaped enforcement lives in a `validate_input:` (or `check_input:`) switch
 step returning `400 BAD_REQUEST_GENERAL` / `MISSING_REQUIRED_HEADER` (see docs/specs/errors.json).

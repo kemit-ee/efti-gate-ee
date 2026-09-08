@@ -6,12 +6,9 @@ declaration:
     about another organisation's entitlement. Callers answer their own yes/no questions locally
     from this list — a dataset request may name up to seven subsets, and one call covers all of
     them."
-  # Inputs: X-Road-Client / X-Road-Id are validated by xroad/.guard.yml. No body, no query params.
-  allowlist:
-    header:
-      - field: x-road-client
-        type: string
-        description: "instance/memberClass/memberCode[/subsystemCode] — the memberCode resolves the calling organisation"
+  # Inputs: X-Road-Client (memberCode resolves the calling organisation) and X-Road-Id are
+  # validated by xroad/.guard.yml. No body, no query params. No allowlist block — an
+  # allowlist.header strips every header not listed, including the ones the guard reads.
 
 # The guard has already validated the header shape, confirmed an ACTIVE authority exists, and
 # exposed it as ${authority}. This handler still re-resolves rather than reading ${authority}:

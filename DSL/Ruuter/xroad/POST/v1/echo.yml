@@ -2,21 +2,11 @@ declaration:
   description: "Echo endpoint for X-Road connectivity testing. The guard has already validated the
     caller against the authorities registry and exposed the row as ${authority}; this handler just
     echoes it back with the X-Road headers and the request body."
-  # Inputs: X-Road-Client / X-Road-Id are validated by xroad/.guard.yml (declared there).
-  # The body is a free-form JSON object reflected verbatim in `echo` — no field contract, so no
-  # allowlist.body (which would make listed fields mandatory and strip the rest); validate_input
-  # only rejects a missing/empty body.
-  allowlist:
-    header:
-      - field: x-road-client
-        type: string
-        description: "instance/memberClass/memberCode[/subsystemCode] — set by the Security Server"
-      - field: x-road-id
-        type: string
-        description: "X-Road message id; echoed back"
-      - field: x-road-userid
-        type: string
-        description: "caller-asserted user id; echoed back, never trusted for access"
+  # Inputs, all validated by xroad/.guard.yml: X-Road-Client (required), X-Road-Id (required),
+  # X-Road-UserId (optional, echoed, never trusted). The body is a free-form JSON object reflected
+  # verbatim in `echo` — no field contract. No allowlist block: allowlist.body makes listed fields
+  # mandatory and strips the rest, and allowlist.header strips every header the guard reads.
+  # validate_input only rejects a missing body.
 
 validate_input:
   switch:
