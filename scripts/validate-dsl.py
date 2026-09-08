@@ -39,7 +39,9 @@ step returning `400 BAD_REQUEST_GENERAL` / `MISSING_REQUIRED_HEADER` (see docs/s
 This check applies to route files under CONVERTED_PREFIXES (grown one project per PR). For
 those files it requires:
   a. a `declaration:` block with a non-empty `description`;
-  b. if the file reads `incoming.body` at all, a step named `validate_input` or `check_input`;
+  b. if the file reads `incoming.body`, the body contract is enforced somehow — either a
+     `validate_input` / `check_input` step, or an engine-level `allowed_body` / `allowlist.body`
+     (which 500s on a missing field);
   c. no orphan `allowlist`/`allowed_body` entry — every declared body field is read in the file.
 """
 
@@ -60,6 +62,7 @@ SQL_DIRS = ("DSL/Resql", "DSL/Liquibase")
 # per conversion PR until every project is listed.
 CONVERTED_PREFIXES: tuple[str, ...] = (
     "DSL/Ruuter/xroad/",
+    "DSL/Ruuter/efti/",
 )
 
 # Route files that legitimately take no request input.
@@ -174,8 +177,15 @@ def check_input_contract(parsed: dict[str, dict]) -> list[str]:
         reads_body = "incoming.body" in raw
         step_names = {k for k in data if k != "declaration"}
         has_validation = any(re.search(r"validate_input|check_input", n) for n in step_names)
-        if reads_body and not has_validation:
-            errors.append(f"{path}: reads incoming.body but has no `validate_input` / `check_input` step")
+        decl_dict = decl if isinstance(decl, dict) else {}
+        engine_enforced = bool(decl_dict.get("allowed_body")) or bool(
+            isinstance(decl_dict.get("allowlist"), dict) and decl_dict["allowlist"].get("body")
+        )
+        if reads_body and not has_validation and not engine_enforced:
+            errors.append(
+                f"{path}: reads incoming.body but the body contract is unenforced "
+                "(no `validate_input` / `check_input` step and no `allowed_body` / `allowlist.body`)"
+            )
 
         for field in sorted(_declared_body_fields(decl if isinstance(decl, dict) else {})):
             if not re.search(rf"incoming\.body(\??\.|\[['\"]){re.escape(field)}\b", raw) \

@@ -1,3 +1,7 @@
+declaration:
+  description: "Public health diagnostic — returns the database status. No inputs (see the
+    efti/GET/api/v1/test/.guard.yml override that keeps this endpoint public)."
+
 check_db:
   call: http.post
   args:

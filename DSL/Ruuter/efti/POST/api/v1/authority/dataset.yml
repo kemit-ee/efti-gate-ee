@@ -4,8 +4,26 @@ declaration:
     Called by the X-Road adapter (xroad/POST/v1/dataset.yml) after it has resolved the calling
     organisation and enforced authorities.subsets. The GET/path form for authority officers lives at
     efti/GET/api/v1/authority/dataset.yml; both delegate to the api/v1/dataset-local template."
-  # No allowed_body: core owns its own contract and a proxy should not strip fields it does not
-  # recognise. The api/v1/dataset-local template this delegates to declares allowed_body: [uil, subsets].
+  # Body: uil (object, required — {gateId, platformId, datasetId}) and subsets (array, required,
+  # min 1). No allowed_body here (it would strip fields core validates itself); the dataset-local
+  # template this delegates to declares allowed_body: [uil, subsets]. validate_input is the 400.
+
+validate_input:
+  switch:
+    - condition: ${incoming.body == null || incoming.body.uil == null || incoming.body.subsets == null || incoming.body.subsets.length == 0}
+      next: bad_request
+  next: check_gate
+
+bad_request:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "The request body must be a JSON object with 'uil' (object) and a non-empty 'subsets' array."
+  wrapper: false
+  status: 400
+  next: end
 
 check_gate:
   switch:

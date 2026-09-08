@@ -1,5 +1,25 @@
 declaration:
-  description: "Authority search for consignments — local first, then forward to other gates"
+  description: "Authority search for consignments — local first, then forward to other gates
+    (gate-internal, X-Internal-Service-Token). Body: {operator, id}-shaped criteria object; {} is
+    valid and, with X-Request-Id + X-Poll, means 'poll for the rest of a prior search'. Individual
+    criteria fields are not enumerated here — forwarded verbatim."
+
+validate_input:
+  switch:
+    - condition: ${incoming.body == null}
+      next: bad_request
+  next: setup
+
+bad_request:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "A JSON request body is required (send {} to poll for the rest of a prior search)."
+  wrapper: false
+  status: 400
+  next: end
 
 setup:
   assign:
