@@ -2,6 +2,17 @@ declaration:
   description: "Echo endpoint for X-Road connectivity testing. The guard has already validated the
     caller against the authorities registry and exposed the row as ${authority}; this handler just
     echoes it back with the X-Road headers and the request body."
+  # Inputs, all validated by xroad/.guard.yml: X-Road-Client (required), X-Road-Id (required),
+  # X-Road-UserId (optional, echoed, never trusted). The body is a free-form JSON object reflected
+  # verbatim in `echo` — no field contract. No allowlist block: allowlist.body makes listed fields
+  # mandatory and strips the rest, and allowlist.header strips every header the guard reads.
+  # validate_input only rejects a missing body.
+
+validate_input:
+  switch:
+    - condition: ${incoming.body == null}
+      next: bad_request
+  next: respond
 
 respond:
   return:
@@ -12,4 +23,15 @@ respond:
     echo: ${incoming.body}
   wrapper: false
   status: 200
+  next: end
+
+bad_request:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "A JSON request body is required."
+  wrapper: false
+  status: 400
   next: end
