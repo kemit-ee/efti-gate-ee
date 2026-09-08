@@ -111,27 +111,31 @@ services:
       - RESQL_URL=http://resql:8090
       - RUUTER_URL=http://ruuter:8086
       - INTERNAL_SERVICE_TOKEN
+      - LOGGER_CLASS
     build:
       context: code
       dockerfile: ../docker/code/Dockerfile
       args:
-      - PROJECT=edelivery
-      - PORT=8081
+        - PROJECT=edelivery
+        - PORT=8081
     depends_on:
       - resql
     mem_limit: 512M
 
   xml-mapper:
+    environment:
+      - LOGGER_CLASS
     build:
       context: code
       dockerfile: ../docker/code/Dockerfile
       args:
-      - PROJECT=xml-mapper
-      - PORT=8082
+        - PROJECT=xml-mapper
+        - PORT=8082
     mem_limit: 512M
 
   multiplexer:
     environment:
+      - LOGGER_CLASS
       - OWN_GATE_ID
       - RESQL_URL=http://resql:8090
       - EDELIVERY_URL=http://edelivery:8081
@@ -139,8 +143,8 @@ services:
       context: code
       dockerfile: ../docker/code/Dockerfile
       args:
-      - PROJECT=multiplexer
-      - PORT=8083
+        - PROJECT=multiplexer
+        - PORT=8083
     depends_on:
       - resql
     mem_limit: 512M
