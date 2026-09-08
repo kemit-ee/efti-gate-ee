@@ -16,6 +16,7 @@ call_local_platform:
   template: api/v1/dataset-local
   request_type: "POST"
   headers:
+    x-request-id: ${incoming.headers['x-request-id']}
     x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
   body: ${incoming.body}
   result: dataset_response
@@ -49,7 +50,7 @@ send_via_edelivery:
     url: "[#EDELIVERY_URL]/api/v1/send/${incoming.body.uil.gateId}"
     headers:
       content-type: "text/xml"
-      x-request-id: ${incoming.headers['x-request-id'] ?? ''}
+      x-request-id: ${incoming.headers['x-request-id']}
     body: ${request_xml.response.body}
     content_type: plaintext
   result: edelivery_response

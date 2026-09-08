@@ -43,7 +43,7 @@ query_edelivery_platform:
     url: "[#EDELIVERY_URL]/api/v1/send/${platform_result.response.body[0].id}"
     headers:
       content-type: "text/xml"
-      x-request-id: ${incoming.headers['x-request-id'] ?? ''}
+      x-request-id: ${incoming.headers['x-request-id']}
     content_type: plaintext
     body: ${xml_request.response.body}
   result: dataset_xml
