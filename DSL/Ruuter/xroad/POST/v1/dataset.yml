@@ -3,11 +3,13 @@ declaration:
     eFTI subsets (ADR-006). Enforces authorities.subsets for the calling organisation, then forwards
     to the gate's core REST API. Body is the same {uil, subsets} contract core's
     efti/POST/api/v1/authority/dataset expects."
-  # Deliberately no allowed_body. The field-list form is used exactly once in the repo (core's own
-  # authority/dataset.yml); every other use is the special [xml] mode, so whether it filters or
-  # requires the listed keys is unproven. If it requires them, the MISSING_SUBSET branch below
-  # would be unreachable because Ruuter would reject the request first. A proxy should also not
-  # silently strip fields it does not recognise — core validates its own contract.
+  # Inputs (X-Road-Client / X-Road-Id are validated by xroad/.guard.yml):
+  #   body.uil      object, required — {gateId, platformId, datasetId}, forwarded to core verbatim
+  #   body.subsets  array,  required — eFTI subset codes, min 1 (EU01–EU07)
+  # Deliberately no allowed_body. The field-list form makes every listed key mandatory (a missing
+  # one is a 500 in a pre-DSL `declare` step, which would make the MISSING_SUBSET / BAD_REQUEST
+  # branches below unreachable) and strips everything else — and a proxy should not silently strip
+  # fields core validates itself. `check_input` below is the contract instead.
 
 # The project-level xroad/.guard.yml has already validated the X-Road-Client shape, confirmed it
 # resolves to exactly one ACTIVE authority, and bound the row as ${authority}. Read the registry code
@@ -16,11 +18,16 @@ setup:
   assign:
     registry_code: ${authority.registryCode}
 
-# '{}' <@ anything is TRUE in Postgres, so an empty list would pass the containment test below.
-# openapi.yaml requires minItems 1 on subsetId, so reject it here instead.
-check_subsets_present:
+# Body contract. A missing/non-object body is a generic 400; a present body missing `uil` is a
+# generic 400; missing/empty `subsets` keeps its specific MISSING_SUBSET code (openapi.yaml requires
+# minItems 1 on subsetId, and '{}' <@ anything is TRUE in Postgres so an empty list would otherwise
+# pass the containment test below). `subsets` sent as a non-array is caught downstream in
+# evaluate_permission — telling a string from an array needs Array.isArray, unproven in this engine.
+check_input:
   switch:
-    - condition: ${incoming.body == null || incoming.body.subsets == null || incoming.body.subsets.length == 0}
+    - condition: ${incoming.body == null || incoming.body.uil == null}
+      next: bad_request
+    - condition: ${incoming.body.subsets == null || incoming.body.subsets.length == 0}
       next: missing_subset
 
 check_subset_permission:
@@ -161,13 +168,15 @@ forbidden:
   status: 403
   next: end
 
+# Shared by check_input (missing body / missing uil) and evaluate_permission (ReSql rejected a
+# non-array `subsets`).
 bad_request:
   return:
     type: "https://api.efti.ee/errors/bad-request"
     code: "BAD_REQUEST_GENERAL"
     title: "Bad Request"
     status: 400
-    detail: "The request body was rejected by the gate's data layer. Check that 'subsets' is an array of subset codes."
+    detail: "The request body is missing or malformed. It must be a JSON object with 'uil' (object) and 'subsets' (non-empty array of subset codes)."
   wrapper: false
   status: 400
   next: end

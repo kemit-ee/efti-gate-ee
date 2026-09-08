@@ -99,6 +99,12 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - Request data: `incoming.body`, `incoming.headers`, `incoming.params.pathParams`
 - `body` and `headers` are never null in Ruuter, no need to check for these
 - `allowed_body: [xml]` — wraps raw XML body as `incoming.body.xml`
+- **Input contract** (`declaration:` + `validate_input`, enforced by `scripts/validate-dsl.py`; being rolled out project by project — `xroad/` done):
+  - `declaration.description` documents every expected body field / header / query param and which are optional.
+  - `declaration.allowlist.header` / `.params` — list of `{field, type, description}`; feeds OpenAPI only, **not enforced** by the engine.
+  - `declaration.allowlist.body` — same shape, but the engine makes **every listed field mandatory** (a missing one is a pre-DSL 500 in a synthetic `declare` step; `required: false` is ignored) and **strips undeclared body fields**. So use it only on routes where every body field is always required (proxy/forwarding routes); elsewhere omit it and document the body in `description`.
+  - `validate_input:` (or `check_input:`) — the real contract: first step of the file, a `switch` that routes missing/malformed required input to a `400` step (`BAD_REQUEST_GENERAL` / `MISSING_REQUIRED_HEADER` per `docs/specs/errors.json`). Any route reading `incoming.body` needs one. Reconcile with an existing bespoke validator rather than adding a parallel step.
+  - `.guard.yml` — prose `declaration.description` only; **no `allowlist`** (would trigger the `declare` enforcement against the guard context). The guard's `switch` steps are its contract.
 - `wrapper: false` — always return raw response (not JSON-wrapped)
 - `next:` step declaration is optional if it should advance to the next step in the file; otherwise, `next:` is required to call a specific step; `next: end` stops execution
 - `template: api/v1/foo` — call another DSL file as subroutine, works only in the same top-level Ruuter project
