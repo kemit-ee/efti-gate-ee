@@ -49,6 +49,7 @@
     "id": "Gate ID",
     "eDeliveryUrl": "eDelivery URL",
     "eDeliveryUrlPlaceholder": "https://some.host/services/msh",
+    "status": "Status",
     "disabled": "Disabled",
     "xsdSupport": "XSD Support",
     "added": "Gate registered successfully",
