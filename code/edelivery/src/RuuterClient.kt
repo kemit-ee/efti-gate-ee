@@ -22,13 +22,13 @@ open class RuuterClient(
   open fun getDataset(xml: String, requestId: UUID /* FTI009GetCmdsRequest */, receiverId: PartyId) =
     http.sendXml(baseUrl + "/efti/api/v1/dataset-xml", xml, requestId)
 
-  fun followUp(xml: String, requestId: UUID /* FTI025LodgeFollowUpCommRequest */) =
+  open fun followUp(xml: String, requestId: UUID /* FTI025LodgeFollowUpCommRequest */, receiverId: PartyId) =
     http.sendXml(baseUrl + "/efti/api/v1/follow-up-xml", xml, requestId)
 
   // efti/api/v1/* is gate-internal only (DSL/Ruuter/efti/POST/api/v1/.guard.yml) — every
   // call needs the shared service token. /platforms/v1/consignments-xml is guarded
   // separately (platform X-Api-Key) and ignores this header.
-  private fun HttpClient.sendXml(url: URI, xml: String, requestId: UUID) =
+  fun HttpClient.sendXml(url: URI, xml: String, requestId: UUID) =
     post(url, xml) {
       header("Content-Type", "text/xml")
       header("X-Internal-Service-Token", internalServiceToken)
