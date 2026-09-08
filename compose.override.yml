@@ -76,6 +76,8 @@ services:
       - ruuter
       - ruuter-xroad-mock
       - xml-mapper
+      - multiplexer
+      - edelivery
     volumes:
       - ./:/workdir
     entrypoint: [ "/bin/sh", "-c" ]
