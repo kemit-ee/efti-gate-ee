@@ -1,3 +1,23 @@
+declaration:
+  description: "Replace a user (admin, TARA JWT). Path: userId. Body: taraSub, name (both required)."
+
+validate_input:
+  switch:
+    - condition: ${incoming.body == null || incoming.body.taraSub == null || incoming.body.name == null}
+      next: bad_request
+  next: check_exists
+
+bad_request:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "Required fields: taraSub, name."
+  wrapper: false
+  status: 400
+  next: end
+
 # Admin is enforced by admin/.guard.yml; this handler starts straight at the lookup.
 check_exists:
   call: http.post

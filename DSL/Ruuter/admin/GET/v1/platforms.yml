@@ -1,3 +1,7 @@
+declaration:
+  description: "List platforms, or get one by id (admin, TARA JWT). Path: platformId (optional —
+    absent lists). Query: limit, offset (optional). No body."
+
 route:
   switch:
     - condition: ${incoming.params.pathParams[0] != null}

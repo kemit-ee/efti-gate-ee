@@ -1,3 +1,24 @@
+declaration:
+  description: "Replace a competent authority (admin, TARA JWT). Path: authorityId. Body: name,
+    registryCode (required); subsets (array, optional — defaults []); status (optional)."
+
+validate_input:
+  switch:
+    - condition: ${incoming.body == null || incoming.body.name == null || incoming.body.registryCode == null}
+      next: bad_request
+  next: update_authority
+
+bad_request:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "Required fields: name, registryCode."
+  wrapper: false
+  status: 400
+  next: end
+
 update_authority:
   call: http.post
   args:

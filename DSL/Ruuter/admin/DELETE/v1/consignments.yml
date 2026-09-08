@@ -1,3 +1,6 @@
+declaration:
+  description: "Delete a consignment (admin, TARA JWT). Path: consignmentId. No body."
+
 delete_consignment:
   call: http.post
   args:

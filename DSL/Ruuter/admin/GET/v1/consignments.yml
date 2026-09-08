@@ -1,3 +1,6 @@
+declaration:
+  description: "List consignments (admin, TARA JWT). Query: limit, offset (optional). No body."
+
 consignments:
   call: http.post
   args:

@@ -1,3 +1,6 @@
+declaration:
+  description: "Get this gate's own record, resolved from OWN_GATE_ID (admin, TARA JWT). No inputs."
+
 fetch_own_gate:
   call: http.post
   args:

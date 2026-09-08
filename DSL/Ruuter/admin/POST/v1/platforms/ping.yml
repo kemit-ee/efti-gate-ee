@@ -1,3 +1,7 @@
+declaration:
+  description: "Ping a platform (AS4 if it has an eDelivery cert, else its baseUrl directly) and
+    record the result (admin, TARA JWT). Path: platformId. No body."
+
 get_platform:
   call: http.post
   args:

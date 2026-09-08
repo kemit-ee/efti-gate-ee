@@ -1,3 +1,24 @@
+declaration:
+  description: "Create a user (admin, TARA JWT). Body: taraSub, name (both required). A duplicate
+    active taraSub returns 409."
+
+validate_input:
+  switch:
+    - condition: ${incoming.body == null || incoming.body.taraSub == null || incoming.body.name == null}
+      next: bad_request
+  next: check_duplicate
+
+bad_request:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "Required fields: taraSub, name."
+  wrapper: false
+  status: 400
+  next: end
+
 check_duplicate:
   call: http.post
   args:

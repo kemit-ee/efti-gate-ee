@@ -1,3 +1,7 @@
+declaration:
+  description: "Query the audit log (admin, TARA JWT). Query params, all optional: resource,
+    resourceId, userId, from, to, limit, offset. No body."
+
 fetch_audit_log:
   call: http.post
   args:

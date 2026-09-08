@@ -1,3 +1,24 @@
+declaration:
+  description: "Replace a platform (admin, TARA JWT). Path: platformId. Body: baseUrl (required);
+    headers (object, optional), eDeliveryCert, tlsCert, status (optional)."
+
+validate_input:
+  switch:
+    - condition: ${incoming.body == null || incoming.body.baseUrl == null}
+      next: bad_request
+  next: update_platform
+
+bad_request:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "Required field: baseUrl."
+  wrapper: false
+  status: 400
+  next: end
+
 update_platform:
   call: http.post
   args:

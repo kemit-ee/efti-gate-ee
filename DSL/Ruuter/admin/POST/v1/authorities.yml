@@ -1,3 +1,24 @@
+declaration:
+  description: "Create a competent authority (admin, TARA JWT). Body: id, name, registryCode
+    (all required); subsets (array, optional — defaults to []); status (optional — defaults ACTIVE)."
+
+validate_input:
+  switch:
+    - condition: ${incoming.body == null || incoming.body.id == null || incoming.body.name == null || incoming.body.registryCode == null}
+      next: bad_request
+  next: create_authority
+
+bad_request:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "Required fields: id, name, registryCode."
+  wrapper: false
+  status: 400
+  next: end
+
 create_authority:
   call: http.post
   args:

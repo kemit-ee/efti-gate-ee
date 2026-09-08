@@ -63,6 +63,7 @@ SQL_DIRS = ("DSL/Resql", "DSL/Liquibase")
 CONVERTED_PREFIXES: tuple[str, ...] = (
     "DSL/Ruuter/xroad/",
     "DSL/Ruuter/efti/",
+    "DSL/Ruuter/admin/",
 )
 
 # Route files that legitimately take no request input.
