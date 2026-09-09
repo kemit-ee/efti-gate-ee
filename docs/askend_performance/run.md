@@ -3,11 +3,17 @@
 ```sh
 docker compose -f compose.yml up -d --wait
 
-# base data: findable VESSEL-001 row (gate EU-EE) + semantic fixtures
+# seed one realistic consignment the real way — POST sample.xml through the platform route
+# (VESSEL-001, gate EU-EE; xml-mapper + insert_consignment do the column mapping)
+NET=efti_gate_ee_default
+docker run --rm --network $NET -v "$PWD/code/xml-mapper/xsd/FTI004:/x" curlimages/curl -s -o /dev/null -w '%{http_code}\n' \
+  -X POST http://ruuter:8086/platforms/v1/consignments -H 'Content-Type: text/xml' \
+  -H 'X-Api-Key: mock-secret-key' --data-binary @/x/sample.xml
+
+# semantic fixtures (append-only re-upload AAA->BBB, single CCC) — SQL only, no XML route for this
 docker compose -f compose.yml exec -T database psql -U efti -d efti < docs/askend_performance/seed-consignments.sql
 
 # ab sidecar on the compose network
-NET=efti_gate_ee_default
 docker run -d --name ab --network $NET -v "$PWD/docs/askend_performance:/d" httpd:2.4-alpine sleep infinity
 
 # 4a — full route

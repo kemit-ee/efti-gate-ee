@@ -1,5 +1,5 @@
--- 1M consignments for load testing. Volume on top of docs/askend_performance/seed-consignments.sql
--- (run that first — it provides the findable VESSEL-001 row and the semantic fixtures).
+-- 1M consignments for load testing. Volume on top of the baseline data (sample.xml POST +
+-- docs/askend_performance/seed-consignments.sql — see run.md).
 -- Corrected vs docs/performance/bulk-insert-consignments.sql:
 --   * gate_id = 'EU-EE' (was 'EE' — never matched local_search's OWN_GATE_ID filter)
 --   * single INSERT ... SELECT generate_series (was a 100-iteration DO loop)
