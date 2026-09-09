@@ -51,8 +51,6 @@ services:
     depends_on:
       database:
         condition: service_healthy
-      archive-database:
-        condition: service_healthy
     volumes:
     - ./DSL/Liquibase:/liquibase/changelog:ro
     environment:
@@ -66,10 +64,11 @@ services:
       dockerfile: docker/resql/Dockerfile
     platform: linux/amd64
     environment:
-      # Matches the `database` service's POSTGRES_PASSWORD above — resql.yaml
-      # references this by name via password_env rather than embedding it in
-      # the datasource URL.
+      # Matches each database service's POSTGRES_PASSWORD above — resql.yaml
+      # references these by name via password_env rather than embedding them in
+      # the datasource URLs.
       - RESQL_EFTI_PASSWORD=01234
+      - RESQL_ARCHIVE_PASSWORD=01234
     # The base image ships a healthcheck against :8080; ReSQL listens on :8090.
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8090/health || exit 1"]

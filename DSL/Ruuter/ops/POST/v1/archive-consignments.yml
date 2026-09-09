@@ -1,10 +1,11 @@
 declaration:
   description: "Scheduled archive sweep — CronManager calls this on a timer (Bearer ARCHIVE_OPS_TOKEN).
-    Everything runs through Ruuter + ReSql: (1) copy superseded consignments rows — those whose newer
-    sibling is older than olderThanDays (default 2) — into the separate archive DB over postgres_fdw;
-    (2) read every copied row back from the archive DB and confirm it landed; (3) only if 100 % are
-    confirmed, DELETE exactly those rows from the live DB. A verification mismatch deletes nothing.
-    Body (optional): {olderThanDays: number, batchLimit: number}."
+    Everything goes through Ruuter + ReSql across two datasources: (1) SELECT a batch of superseded
+    consignments rows from the live DB — those whose newer sibling is older than olderThanDays
+    (default 2); (2) INSERT that batch into the separate archive DB; (3) read every row back from the
+    archive DB and confirm it landed; (4) only if 100 % are confirmed, DELETE exactly those rows from
+    the live DB. A verification mismatch deletes nothing. One batch per call — re-invoke until
+    `candidates` is 0. Body (optional): {olderThanDays: number, batchLimit: number}."
   allowlist:
     body:
       - field: olderThanDays
@@ -14,50 +15,67 @@ declaration:
         type: number
         required: false
 
-# ---- 1. copy candidates into the archive DB ----
-copy_to_archive:
+# ---- 1. pick a batch from the live DB ----
+select_batch:
   call: http.post
   args:
-    url: "[#RESQL_URL]/efti/archive_consignments"
+    url: "[#RESQL_URL]/efti/select_archivable_consignments"
     headers:
       Content-Type: "application/json"
     body:
       olderThanDays: ${incoming.body.olderThanDays}
       batchLimit: ${incoming.body.batchLimit}
-  result: copy_result
+  result: select_result
 
-check_copy:
+check_batch:
   switch:
-    - condition: ${copy_result.response.status >= 400}
+    - condition: ${select_result.response.status >= 400}
       next: sweep_failed
-    - condition: ${copy_result.response.body[0].candidateCount == 0}
+    - condition: ${select_result.response.body[0].candidateCount == 0}
       next: nothing_to_archive
-  next: verify_archive
+  next: insert_into_archive
 
-# ---- 2. read the copied rows back from the archive DB ----
-verify_archive:
+# ---- 2. write the batch into the archive DB (idempotent) ----
+insert_into_archive:
   call: http.post
   args:
-    url: "[#RESQL_URL]/efti/verify_archived_consignments"
+    url: "[#RESQL_URL]/archive/insert_archived_consignments"
     headers:
       Content-Type: "application/json"
     body:
-      rowIds: ${copy_result.response.body[0].candidateRowIds}
+      rows: ${select_result.response.body[0].rows}
+  result: insert_result
+
+check_insert:
+  switch:
+    - condition: ${insert_result.response.status >= 400}
+      next: sweep_failed
+  next: verify_archive
+
+# ---- 3. read the batch back from the archive DB ----
+verify_archive:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/archive/verify_archived_consignments"
+    headers:
+      Content-Type: "application/json"
+    body:
+      rowIds: ${select_result.response.body[0].candidateRowIds}
   result: verify_result
 
 check_verify:
   switch:
     - condition: ${verify_result.response.status >= 400}
       next: verify_failed
-    - condition: ${verify_result.response.body[0].confirmedCount != copy_result.response.body[0].candidateCount}
+    - condition: ${verify_result.response.body[0].confirmedCount != select_result.response.body[0].candidateCount}
       next: verify_failed
   next: delete_from_live
 
-# ---- 3. the real DELETE — only the rows just confirmed in the archive ----
+# ---- 4. the real DELETE from the live DB ----
 delete_from_live:
   call: http.post
   args:
-    url: "[#RESQL_URL]/efti/delete_archived_consignments"
+    url: "[#RESQL_URL]/efti/delete_consignments"
     headers:
       Content-Type: "application/json"
     body:
@@ -80,15 +98,15 @@ log_completed:
       jobName: "archive-consignments"
       status: "COMPLETED"
       details:
-        candidates: ${copy_result.response.body[0].candidateCount}
-        newlyCopied: ${copy_result.response.body[0].newlyCopiedCount}
+        candidates: ${select_result.response.body[0].candidateCount}
+        inserted: ${insert_result.response.body[0].insertedCount}
         verified: ${verify_result.response.body[0].confirmedCount}
         deleted: ${delete_result.response.body.length}
   result: log_result
 
 respond_completed:
   return:
-    candidates: ${copy_result.response.body[0].candidateCount}
+    candidates: ${select_result.response.body[0].candidateCount}
     archived: ${verify_result.response.body[0].confirmedCount}
     deleted: ${delete_result.response.body.length}
   headers:
@@ -106,7 +124,7 @@ nothing_to_archive:
   wrapper: false
   next: end
 
-# --- failure branches: log FAILED (best effort), delete nothing, return 5xx ---
+# --- failure branches: log FAILED (best effort), delete nothing, return 502 ---
 verify_failed:
   call: http.post
   args:
@@ -118,7 +136,7 @@ verify_failed:
       status: "FAILED"
       details:
         reason: "archive verification mismatch — no rows deleted"
-        candidates: ${copy_result.response.body[0].candidateCount}
+        candidates: ${select_result.response.body[0].candidateCount}
         confirmed: ${verify_result.response.body[0].confirmedCount}
   result: verify_failed_log
   next: verify_failed_respond
@@ -144,7 +162,7 @@ sweep_failed:
       jobName: "archive-consignments"
       status: "FAILED"
       details:
-        reason: "a copy / delete step returned an error"
+        reason: "a select / insert / delete step returned an error"
   result: sweep_failed_log
   next: sweep_failed_respond
 

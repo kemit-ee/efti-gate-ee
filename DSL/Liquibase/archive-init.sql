@@ -1,12 +1,13 @@
 -- Runs once, as superuser, at cluster initialisation of the SEPARATE archive database
--- (compose service `archive-database`, DB `efti_archive`). Mounted at
--- /docker-entrypoint-initdb.d/. This DB is cold storage only — reached exclusively through
--- postgres_fdw from the live gate DB (see DSL/Liquibase/changelog/20260910-consignments-archive.sql)
--- and never by Ruuter/ReSql directly.
+-- (compose service `archive-database`, DB `efti_archive`). Mounted at /docker-entrypoint-initdb.d/.
 --
--- Deliberately plain types (text, not citext/enum) and NO CHECK / FK / NOT NULL beyond the
--- copied row's own guarantees: this is a landing table, not a validated one. `row_id` is the
--- only key, so the copy can be `ON CONFLICT (row_id) DO NOTHING` and never fail on a re-run.
+-- This DB is cold storage only. It is reached EXCLUSIVELY through ReSql's `archive` datasource
+-- (resql.yaml) driven by the Ruuter archive flow — no foreign-data wrapper, no direct connection
+-- from the gate or anywhere else. Rows are carried in over Ruuter from the live DB.
+--
+-- Deliberately plain types (text, not citext/enum) and NO CHECK / FK / NOT NULL beyond what a
+-- copied row already satisfies: this is a landing table, not a validated one. `row_id` is the only
+-- key, so the copy can be `ON CONFLICT (row_id) DO NOTHING` and never fail on a re-run.
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
@@ -44,4 +45,4 @@ CREATE TABLE consignments (
 CREATE INDEX idx_archive_consignments_dataset      ON consignments (dataset_id, platform_id, created_at DESC);
 CREATE INDEX idx_archive_consignments_archived_at  ON consignments (archived_at);
 
-COMMENT ON TABLE consignments IS 'Cold storage for superseded (non-current) gate consignments rows. Written and read only via postgres_fdw from the live gate DB. No CHECK/FK; ON CONFLICT (row_id) DO NOTHING on copy.';
+COMMENT ON TABLE consignments IS 'Cold storage for superseded (non-current) gate consignments rows. Written and read only via ReSql''s `archive` datasource. No CHECK/FK; ON CONFLICT (row_id) DO NOTHING on insert.';

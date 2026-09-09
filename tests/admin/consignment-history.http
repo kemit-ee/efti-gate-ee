@@ -1,0 +1,47 @@
+### Setup: upload the same dataset twice so it has version history
+POST {{RUUTER_URL}}/platforms/v1/consignments
+Content-Type: text/xml
+X-Api-Key: mock-secret-key
+
+< ../../code/xml-mapper/xsd/FTI004/sample.xml
+
+### ...second version
+POST {{RUUTER_URL}}/platforms/v1/consignments
+Content-Type: text/xml
+X-Api-Key: mock-secret-key
+
+< ../../code/xml-mapper/xsd/FTI004/sample.xml
+
+### Full version history — live rows + archived rows (admin, TARA JWT)
+GET {{RUUTER_URL}}/admin/v1/consignment-history?datasetId=550e8400-e29b-41d4-a716-446655440000
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("history returns live + archived arrays", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.datasetId === "550e8400-e29b-41d4-a716-446655440000")
+    client.assert(Array.isArray(response.body.live) && response.body.live.length >= 2)
+    client.assert(Array.isArray(response.body.archived))
+    client.assert(response.body.live[0].mainTransportId === "VESSEL-001")
+  })
+%}
+
+### Missing datasetId -> 400
+GET {{RUUTER_URL}}/admin/v1/consignment-history
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("missing datasetId rejected", () => {
+    client.assert(response.status === 400)
+    client.assert(response.body.code === "BAD_REQUEST_GENERAL")
+  })
+%}
+
+### No auth -> 401
+GET {{RUUTER_URL}}/admin/v1/consignment-history?datasetId=550e8400-e29b-41d4-a716-446655440000
+
+> {%
+  client.test("no auth rejected", () => {
+    client.assert(response.status === 401 || response.status === 403)
+  })
+%}

@@ -41,3 +41,29 @@ Authorization: Bearer dev-archive-ops-token-change-me
     client.assert(response.body.deleted === 0)
   })
 %}
+
+### ops/v1/purge-archive — no token -> 401
+POST {{RUUTER_URL}}/ops/v1/purge-archive
+Content-Type: application/json
+
+{}
+
+> {%
+  client.test("purge without token rejected", () => {
+    client.assert(response.status === 401)
+  })
+%}
+
+### ops/v1/purge-archive — valid token, nothing old enough to purge
+POST {{RUUTER_URL}}/ops/v1/purge-archive
+Content-Type: application/json
+Authorization: Bearer dev-archive-ops-token-change-me
+
+{}
+
+> {%
+  client.test("valid token -> purge runs", () => {
+    client.assert(response.status === 200)
+    client.assert(typeof response.body.purged === "number")
+  })
+%}

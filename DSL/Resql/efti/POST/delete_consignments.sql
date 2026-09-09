@@ -1,14 +1,13 @@
 /*
 description: the real DELETE — physically removes the given consignments rows from the live DB.
-  SQL-guarded so a row is deleted ONLY if it is already present in archive.consignments AND still
-  has a newer sibling row (i.e. it is genuinely superseded, never a current row / tombstone).
+  A row is removed ONLY if it still has a NEWER sibling row for the same (platform_id, dataset_id),
+  so the current row of a dataset (incl. a DELETED tombstone) can never be deleted. The archive
+  flow calls this only after verifying every row_id reached cold storage.
 params:
   rowIds: { type: array, items: { type: string } }
 */
 DELETE FROM consignments c
-USING archive.consignments a
-WHERE c.row_id = a.row_id
-  AND c.row_id = ANY(:rowIds::uuid[])
+WHERE c.row_id = ANY(:rowIds::uuid[])
   AND EXISTS (
     SELECT 1 FROM consignments n
     WHERE n.platform_id = c.platform_id
