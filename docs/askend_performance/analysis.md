@@ -276,3 +276,34 @@ päris­elus ka kohe `[]` + `x-poll-more:true` tagastama (praegu 65 s / 500).
 Salvestatud: `docs/askend_performance/explain-1m-current.txt` — praegune
 `get_consignments`-i plaan 1M real. Näitab `external merge Disk` Sort node'i ja
 `Rows Removed by Filter: 1 000 000`.
+
+### 6.3 — Päringu-parandus: kandidaatide võrdlus
+
+**Piirangud (AGENTS.md → "Database rules"):** *append-only, INSERT-only* (`app`
+roll ainult SELECT+INSERT, read'id `DISTINCT ON ... ORDER BY created_at DESC`)
+ja **"No JOINs on hot path"** (search-veerud on `consignments`-i peale
+denormaliseeritud). Seega:
+
+| Kandidaat | JOIN? | insert-only? | semantika täpne? | 1M plaan / aeg |
+|---|:---:|:---:|:---:|---|
+| **C0 praegune** — `DISTINCT ON` üle terve tabeli, filter pärast | ei | jah | jah | Sort 245 MB kettale → **23,3 s** (mõõdetud, jaotis 4c) |
+| **C1 filter-first** — kriteerium inner `WHERE`-i, dedupe ainult tabamused | ei | jah | **ei** (vt allpool) | ootuspäraselt Index Scan `idx_consignments_main_transport_id` peal → ~ms; **mõõtmata** |
+| **C6 `NOT EXISTS`** — filter first + "pole uuemat rida sellele datasetile" | võtmesõna `JOIN` ei; **on self-korreleeritud alampäring, mida planeerija teeb anti-join'ina** → tõenäoliselt "no JOINs" mõtte vastu; meeskonna otsus | jah | jah | **mõõtmata** |
+| **C3 `is_latest` lipp** — `WHERE is_latest AND <kriteerium>` | ei | **ei** — 1 UPDATE per insert (cache-veerg; `consignments` domeeni-andmed jäävad muutumatuks, flip tehakse triggeriga, `app` jääb INSERT-only) | jah | Index Scan `main_transport_id` peal → **1,7 ms** (mõõdetud, jaotis 4f) |
+
+> **C1/C6 jäid sellel masinal mõõtmata:** 1M rea laadimine 24 indeksiga (6 GIN)
+> kukutas Postgresi korduvalt kokku (Docker Desktopi VM mälupiir). Skript
+> `docs/askend_performance/explain-candidates-1m.sql` — jooksuta korralikul
+> masinal, tulemus `explain-candidates-1m.txt`-i.
+
+**C1 semantiline risk konkreetselt:** dataset X laaditakse v1 (`main_transport_id
+= 'A'`), siis v2 (`'B'`). Otsing `main_transport_id = 'A'`:
+- C0: dedupe → v2 (`'B'`) → filter `= 'A'` → **ei tagasta** (õige: "selle dataset'i
+  praegune identifikaator pole A").
+- C1: filter `= 'A'` → tabab v1 → dedupe → **tagastab v1** (vale — vananenud rida).
+
+Kui identifikaatoriväljad on `dataset_id` eluea jooksul praktikas muutumatud
+(re-upload = staatuse-muutus / parandus, mitte uus transpordivahend), on C1
+ohutu. **Vajab meeskonna kinnitust.**
+
+Tulemused (`docs/askend_performance/explain-candidates-1m.txt`): `<TODO>`
