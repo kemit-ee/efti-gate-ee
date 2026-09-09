@@ -2,11 +2,16 @@ declaration:
   description: "Search consignments through eDelivery"
   allowed_body: [xml]
 
+setup:
+  assign:
+    requestId: ${incoming.headers['x-request-id']}
+
 to_json:
   call: http.post
   args:
     url: "[#XML_MAPPER_URL]/api/v1/search/request-to-json"
     headers:
+      x-request-id: ${requestId}
       Content-Type: "text/xml"
     content_type: plaintext
     body:
@@ -29,6 +34,7 @@ to_xml:
   args:
     url: "[#XML_MAPPER_URL]/api/v1/search/response-to-xml"
     headers:
+      x-request-id: ${requestId}
       Content-Type: "application/json"
     body: ${local_result.response.body}
   result: xml_response

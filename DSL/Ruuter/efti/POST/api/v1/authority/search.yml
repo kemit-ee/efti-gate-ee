@@ -43,6 +43,7 @@ rest_to_json:
   args:
     url: "[#XML_MAPPER_URL]/api/v1/search/response-to-json"
     headers:
+      x-request-id: ${requestId}
       content-type: "text/xml"
     body: ${rest_result.response.body}
     content_type: plaintext
@@ -85,6 +86,7 @@ criteria-to-xml:
   args:
     url: "[#XML_MAPPER_URL]/api/v1/search/request-to-xml"
     headers:
+      x-request-id: ${requestId}
       content-type: "application/json"
     body: ${incoming.body}
   result: criteria_xml
@@ -106,6 +108,7 @@ xml-to-json:
   args:
     url: "[#XML_MAPPER_URL]/api/v1/search/response-to-json"
     headers:
+      x-request-id: ${requestId}
       content-type: "text/xml"
     body: ${gates_result.response.body}
     content_type: plaintext

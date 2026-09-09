@@ -25,6 +25,10 @@ bad_request:
   status: 400
   next: end
 
+setup:
+  assign:
+    requestId: ${incoming.headers['x-request-id']}
+
 check_gate:
   switch:
     - condition: ${incoming.body.uil.gateId != '[#OWN_GATE_ID]'}
@@ -34,7 +38,7 @@ call_local_platform:
   template: api/v1/dataset-local
   request_type: "POST"
   headers:
-    x-request-id: ${incoming.headers['x-request-id']}
+    x-request-id: ${requestId}
     x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
   body: ${incoming.body}
   result: dataset_response
@@ -57,6 +61,7 @@ request_to_xml:
   args:
     url: "[#XML_MAPPER_URL]/api/v1/dataset/request-to-xml"
     headers:
+      x-request-id: ${requestId}
       content-type: "application/json"
     body: ${incoming.body}
   result: request_xml
@@ -68,7 +73,7 @@ send_via_edelivery:
     url: "[#EDELIVERY_URL]/api/v1/send/${incoming.body.uil.gateId}"
     headers:
       content-type: "text/xml"
-      x-request-id: ${incoming.headers['x-request-id']}
+      x-request-id: ${requestId}
     body: ${request_xml.response.body}
     content_type: plaintext
   result: edelivery_response
@@ -97,6 +102,7 @@ convert_response_to_json:
   args:
     url: "[#XML_MAPPER_URL]/api/v1/dataset/response-to-json"
     headers:
+      x-request-id: ${requestId}
       content-type: "text/xml"
     body: ${dataset_response.xml}
     content_type: plaintext

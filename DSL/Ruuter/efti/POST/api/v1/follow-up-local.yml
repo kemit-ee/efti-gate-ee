@@ -24,6 +24,10 @@ bad_request:
   status: 400
   next: end
 
+setup:
+  assign:
+    requestId: ${incoming.headers['x-request-id']}
+
 insert_log:
   call: http.post
   args:
@@ -65,7 +69,7 @@ forward_to_rest_platform:
   call: http.post
   args:
     url: "${platform_result.response.body[0]?.baseUrl}/v1/dataset/${incoming.body.uil.datasetId}/follow-up"
-    headers: "${Object.assign(platform_result.response.body[0]?.headers ?? {}, {'Content-Type': 'application/json', 'X-Dataset-Request-ID': incoming.body.referenceIds[0], 'x-request-id': incoming.headers['x-request-id']})}"
+    headers: "${Object.assign(platform_result.response.body[0]?.headers ?? {}, {'Content-Type': 'application/json', 'X-Dataset-Request-ID': incoming.body.referenceIds[0], 'x-request-id': requestId})}"
     body: ${incoming.body}
   result: platform_response
   next: respond
@@ -75,6 +79,7 @@ request_to_xml:
   args:
     url: "[#XML_MAPPER_URL]/api/v1/followup/request-to-xml"
     headers:
+      x-request-id: ${requestId}
       content-type: "application/json"
     body: ${incoming.body}
   result: xml_request
@@ -86,6 +91,7 @@ forward_to_edelivery_platform:
     url: "[#EDELIVERY_URL]/api/v1/send/${platform_result.response.body[0].id}"
     headers:
       content-type: "text/xml"
+      x-request-id: ${requestId}
     content_type: plaintext
     body: ${xml_request.response.body}
   result: platform_response

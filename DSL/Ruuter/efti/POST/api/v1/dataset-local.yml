@@ -2,6 +2,10 @@ declaration:
   description: "Query local platform for a dataset — shared by eDelivery and Authority API"
   allowed_body: [uil, subsets]
 
+setup:
+  assign:
+    requestId: ${incoming.headers['x-request-id']}
+
 get_platform:
   call: http.post
   args:
@@ -23,7 +27,7 @@ query_rest_platform:
   call: http.get
   args:
     url: "${platform_result.response.body[0]?.baseUrl}/v1/dataset/${incoming.body.uil.datasetId}?subsets=${incoming.body.subsets.join(',')}"
-    headers: "${Object.assign(platform_result.response.body[0]?.headers ?? {}, {'x-request-id': incoming.headers['x-request-id']})}"
+    headers: "${Object.assign(platform_result.response.body[0]?.headers ?? {}, {'x-request-id': requestId})}"
   result: dataset_xml
   next: respond
 
@@ -32,6 +36,7 @@ request_to_xml:
   args:
     url: "[#XML_MAPPER_URL]/api/v1/dataset/request-to-xml"
     headers:
+      x-request-id: ${requestId}
       content-type: "application/json"
     body: ${incoming.body}
   result: xml_request
@@ -43,7 +48,7 @@ query_edelivery_platform:
     url: "[#EDELIVERY_URL]/api/v1/send/${platform_result.response.body[0].id}"
     headers:
       content-type: "text/xml"
-      x-request-id: ${incoming.headers['x-request-id']}
+      x-request-id: ${requestId}
     content_type: plaintext
     body: ${xml_request.response.body}
   result: dataset_xml

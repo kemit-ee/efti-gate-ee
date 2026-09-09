@@ -1,6 +1,10 @@
 declaration:
   description: "Authority requests a dataset from a Platform via the gate"
 
+setup:
+  assign:
+    requestId: ${incoming.headers['x-request-id']}
+
 params:
   assign:
     gateId: ${incoming.params.pathParams[0]}
@@ -30,6 +34,7 @@ call_local_platform:
   # itself under efti/GET/api/v1/authority/.guard.yml (same X-Internal-Service-Token
   # credential as dataset-local's own efti/POST/api/v1/.guard.yml), so forward it.
   headers:
+    x-request-id: ${requestId}
     x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
   body: ${request_json}
   result: dataset_response
@@ -52,6 +57,7 @@ request_to_xml:
   args:
     url: "[#XML_MAPPER_URL]/api/v1/dataset/request-to-xml"
     headers:
+      x-request-id: ${requestId}
       content-type: "application/json"
     body: ${request_json}
   result: request_xml
@@ -63,7 +69,7 @@ send_via_edelivery:
     url: "[#EDELIVERY_URL]/api/v1/send/${gateId}"
     headers:
       content-type: "text/xml"
-      x-request-id: ${incoming.headers['x-request-id'] ?? ''}
+      x-request-id: ${requestId}
     body: ${request_xml.response.body}
     content_type: plaintext
   result: edelivery_response
@@ -92,6 +98,7 @@ convert_response_to_json:
   args:
     url: "[#XML_MAPPER_URL]/api/v1/dataset/response-to-json"
     headers:
+      x-request-id: ${requestId}
       content-type: "text/xml"
     body: ${dataset_response.xml}
     content_type: plaintext

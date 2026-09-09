@@ -18,6 +18,10 @@ declaration:
         type: string
         description: "Correlation id, forwarded by the calling .guard"
 
+setup:
+  assign:
+    requestId: ${incoming.headers['x-request-id']}
+
 # Shared authentication logic called over Ruuter's loopback by the .guard files.
 # Reachability is governed by network isolation + `internal_requests` (see
 # DSL/Ruuter/efti/POST/internal/.guard.yml); the calling guards forward
@@ -29,7 +33,7 @@ declaration:
 # governed by `internal_requests` in ruuter.yaml.
 
 log_context:
-  log: "internal/check-user-authority rid=${incoming.headers['x-request-id'] ?? '-'} from=${incoming.headers['x-forwarded-for'] ?? '-'}"
+  log: "internal/check-user-authority rid=${requestId ?? '-'} from=${incoming.headers['x-forwarded-for'] ?? '-'}"
 
 
 check_for_bearer:

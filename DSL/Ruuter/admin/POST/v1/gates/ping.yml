@@ -2,6 +2,10 @@ declaration:
   description: "Ping a gate over eDelivery and record ONLINE/OFFLINE (admin, TARA JWT). Path:
     gateId. No body."
 
+setup:
+  assign:
+    requestId: ${incoming.headers['x-request-id']}
+
 get_gate:
   call: http.post
   args:
@@ -25,6 +29,7 @@ ping_edelivery:
     url: "[#EDELIVERY_URL]/api/v1/ping/${incoming.params.pathParams[0]}"
     headers:
       Content-Type: "application/json"
+      x-request-id: ${requestId}
     body: {}
   result: ping_result
   next: check_ping
