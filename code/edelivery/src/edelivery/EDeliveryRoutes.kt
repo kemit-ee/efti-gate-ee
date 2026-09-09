@@ -114,8 +114,10 @@ class EDeliveryRoutes(
     cipherAES.init(Cipher.DECRYPT_MODE, secretKey, gcmSpec)
     val decryptedBytes = cipherAES.doFinal(ciphertext)
 
-    // TODO: check for CompressionType in the message to decide whether to decompress
-    return String(GZIPInputStream(ByteArrayInputStream(decryptedBytes)).readAllBytes())
+    return when (header.compressionType) {
+      "application/gzip" -> String(GZIPInputStream(ByteArrayInputStream(decryptedBytes)).readAllBytes())
+      else -> String(decryptedBytes)
+    }
   }
 }
 

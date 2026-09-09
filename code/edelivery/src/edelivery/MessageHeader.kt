@@ -13,7 +13,8 @@ data class MessageHeader(
   @XmlPath("Header/Security/EncryptedKey/KeyInfo/SecurityTokenReference/X509Data/X509IssuerSerial/X509SerialNumber") val serialNumber: String? = null,
   @XmlPath("Header/Security/EncryptedKey/CipherData/CipherValue") val cipherValue: String? = null,
   @XmlPath("Header/Security/EncryptedData/EncryptionMethod/@Algorithm") val dataEncryptionAlgorithm: String,
-  @XmlPath("Header/Security/Signature/SignedInfo/Reference") val references: List<SignatureReference>
+  @XmlPath("Header/Security/Signature/SignedInfo/Reference") val references: List<SignatureReference>,
+  @XmlPath("Header/Messaging/UserMessage/PayloadInfo/PartInfo/PartProperties/Property[@name=CompressionType]") val compressionType: String? = null
 ) {
   data class SignatureReference(
     @XmlPath("@URI") val uri: String,
