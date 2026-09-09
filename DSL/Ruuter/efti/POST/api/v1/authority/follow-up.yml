@@ -1,5 +1,24 @@
 declaration:
-  description: "Authority sends a follow-up message to a Platform via the gate (TARA JWT)"
+  description: "Authority sends a follow-up message to a Platform via the gate (gate-internal,
+    X-Internal-Service-Token). Body: uil (object, required), referenceIds (array, required),
+    message (string, required), files (array, optional — {fileName, base64Content, mimeType})."
+
+validate_input:
+  switch:
+    - condition: ${incoming.body == null || incoming.body.uil == null || incoming.body.referenceIds == null || incoming.body.message == null}
+      next: bad_request
+  next: check_gate
+
+bad_request:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "The request body must be a JSON object with 'uil' (object), 'referenceIds' (array) and 'message' (string)."
+  wrapper: false
+  status: 400
+  next: end
 
 setup:
   assign:

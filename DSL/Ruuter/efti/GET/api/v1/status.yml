@@ -1,3 +1,7 @@
+declaration:
+  description: "Check whether a consignment dataset is registered at this gate and its current
+    status (gate-internal, X-Internal-Service-Token). Path: datasetId. No query params, no body."
+
 get_consignment:
   call: http.post
   args:

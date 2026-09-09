@@ -1,6 +1,11 @@
 # efti/api/v1/* is gate-internal only — no TIM/JWT path. The sole credential is
 # X-Internal-Service-Token. test/ overrides this to stay public (diagnostic endpoints);
 # authority/ has its own copy of this same check for clarity and future divergence.
+
+declaration:
+  description: "efti/GET/api/v1 guard — gate-internal. Credential: X-Internal-Service-Token
+    (required), must equal INTERNAL_SERVICE_TOKEN. test/ overrides this to public."
+
 check_service_token:
   switch:
     - condition: ${incoming.headers != null && incoming.headers['x-internal-service-token'] != null && incoming.headers['x-internal-service-token'] != '' && incoming.headers['x-internal-service-token'] == '[#INTERNAL_SERVICE_TOKEN]'}

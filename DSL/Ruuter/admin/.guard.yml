@@ -7,6 +7,11 @@
 # is missing/invalid. On success the guard exposes the caller row as ${caller} (the
 # shared execution context flows into the handler), so handlers do not re-call the
 # internal route just to identify the caller.
+
+declaration:
+  description: "Admin guard for /admin/**. Credential: Authorization: Bearer <TARA JWT> (required),
+    validated via check-admin-authority. Forwards X-Forwarded-For / X-Request-Id for context."
+
 validate_auth:
   call: http.post
   args:

@@ -1,3 +1,24 @@
+declaration:
+  description: "Create a platform (admin, TARA JWT). Body: id, baseUrl (required); headers
+    (object, optional), eDeliveryCert, tlsCert, status (optional)."
+
+validate_input:
+  switch:
+    - condition: ${incoming.body == null || incoming.body.id == null || incoming.body.baseUrl == null}
+      next: bad_request
+  next: create_platform
+
+bad_request:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "Required fields: id, baseUrl."
+  wrapper: false
+  status: 400
+  next: end
+
 create_platform:
   call: http.post
   args:

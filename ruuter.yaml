@@ -1,5 +1,9 @@
 port: 8086
 
+# Ruuter 0.9.11-rc moved /_/openapi.json, /_/sources and /_/unguarded behind the admin gate.
+# RUUTER_ADMIN_ENABLED is deliberately left unset: this is the public listener and nothing in the
+# gate or its CI scrapes /_/*. Never set it on a listener that isn't behind its own proxy auth.
+
 # Statuses a DSL is allowed to return. 401/403/204 must be listed or the auth
 # guards' denials and logout's 204 are replaced with a generic error.
 # 502 is required by the xroad/ project: its forwarding routes normalise a core or ReSql failure to

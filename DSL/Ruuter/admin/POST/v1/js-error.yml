@@ -1,10 +1,30 @@
 declaration:
-  description: "Accept frontend JS error reports for logging"
+  description: "Accept frontend JS error reports for logging (admin, TARA JWT). Body: a free-form
+    JSON object — logged verbatim, no field contract."
+
+validate_input:
+  switch:
+    - condition: ${incoming.body == null}
+      next: bad_request
+  next: log_error
+
+bad_request:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "A JSON request body is required."
+  wrapper: false
+  status: 400
+  next: end
 
 log_error:
   log: "JS error: ${incoming.body}"
+  next: respond
 
 respond:
   return: ""
   status: 204
   wrapper: false
+  next: end

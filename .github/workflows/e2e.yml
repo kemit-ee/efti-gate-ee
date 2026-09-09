@@ -7,14 +7,35 @@ on:
 jobs:
   dsl-validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build dsl-tools (Ruuter dsl-lint + dsl-test, pinned to the runtime tag)
+        uses: docker/build-push-action@v6
+        with:
+          context: docker/dsl-tools
+          load: true
+          tags: dsl-tools:local
+          cache-from: type=gha,scope=dsl-tools
+          cache-to: type=gha,mode=max,scope=dsl-tools
+
+      - name: dsl-lint (both DSL roots) + dsl-test
+        run: |
+          run() { docker run --rm -v "$PWD:/workdir" -w /workdir dsl-tools:local "$@"; }
+          run dsl-lint --dsl DSL/Ruuter            --constants constants.ini
+          run dsl-lint --dsl DSL/Ruuter-xroad-mock --constants constants-xroad-mock.ini
+          run dsl-test --dsl DSL/Ruuter --tests DSL-tests --constants constants.ini
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: pip install --quiet pyyaml
-      - run: python3 scripts/validate-dsl.py
+      - name: efti input-contract check
+        run: python3 scripts/validate-dsl.py
 
   e2e:
     runs-on: ubuntu-latest

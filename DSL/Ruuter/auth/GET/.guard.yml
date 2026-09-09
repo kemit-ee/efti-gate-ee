@@ -1,6 +1,11 @@
 # Any authenticated user — validates JWT via TIM + DB lookup. On success the caller
 # row is exposed as ${caller} for the handler (shared execution context), so
 # auth/GET/user.yml does not re-run this lookup.
+
+declaration:
+  description: "auth/GET guard. Credential: Authorization: Bearer <TARA JWT> (required),
+    validated via check-user-authority — any authenticated user."
+
 validate_auth:
   call: http.post
   args:

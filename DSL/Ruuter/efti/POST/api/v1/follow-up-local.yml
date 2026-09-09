@@ -1,5 +1,28 @@
 declaration:
-  description: "Send follow-up message to local platform — shared by eDelivery and Authority API"
+  description: "Send follow-up message to local platform — shared by eDelivery and Authority API
+    (gate-internal, X-Internal-Service-Token; also invoked via template:). Body: uil (object,
+    required), referenceIds (array, required), message (string, required), files (array, optional)."
+
+# Shared step: reached directly (Authority API) and via template: (the -xml G2G wrapper, whose
+# body is xml-mapper's FTI025 → JSON). Only `uil` is checked — it is dereferenced unconditionally
+# below and by every caller; `referenceIds` / `message` presence is the caller's contract
+# (authority/follow-up.yml checks them for the officer-facing 400).
+validate_input:
+  switch:
+    - condition: ${incoming.body == null || incoming.body.uil == null}
+      next: bad_request
+  next: insert_log
+
+bad_request:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "The request body must be a JSON object with a 'uil' object."
+  wrapper: false
+  status: 400
+  next: end
 
 setup:
   assign:

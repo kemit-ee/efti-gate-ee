@@ -1,0 +1,52 @@
+# xroad/.guard.yml — the X-Road-Client / X-Road-Id shape checks are inline switches that run
+# before resolve_authority (the only upstream call), so the reject paths run in-process.
+mode: inprocess
+
+tests:
+  - name: no X-Road-Client -> 401
+    request:
+      method: POST
+      path: /xroad/v1/dataset
+      headers: { content-type: "application/json" }
+      body: { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "d" }, subsets: ["EU01"] }
+    expect:
+      status: 401
+      body_matches: { code: "UNAUTHORIZED" }
+
+  - name: malformed X-Road-Client (single segment) -> 401
+    request:
+      method: POST
+      path: /xroad/v1/dataset
+      headers:
+        content-type: "application/json"
+        x-road-client: "bogus"
+        x-road-id: "0a11ce5e-0001-4d1d-8f1a-0f0d00010000"
+      body: { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "d" }, subsets: ["EU01"] }
+    expect:
+      status: 401
+      body_matches: { code: "UNAUTHORIZED" }
+
+  - name: valid client, non-UUID X-Road-Id -> 400 INVALID_REQUEST_ID
+    request:
+      method: POST
+      path: /xroad/v1/dataset
+      headers:
+        content-type: "application/json"
+        x-road-client: "EE/GOV/70000094/tram"
+        x-road-id: "ITSYS-2026-000123"
+      body: { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "d" }, subsets: ["EU01"] }
+    expect:
+      status: 400
+      body_matches: { code: "INVALID_REQUEST_ID" }
+
+  - name: valid client, missing X-Road-Id -> 400 MISSING_REQUIRED_HEADER
+    request:
+      method: POST
+      path: /xroad/v1/dataset
+      headers:
+        content-type: "application/json"
+        x-road-client: "EE/GOV/70000094/tram"
+      body: { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "d" }, subsets: ["EU01"] }
+    expect:
+      status: 400
+      body_matches: { code: "MISSING_REQUIRED_HEADER" }

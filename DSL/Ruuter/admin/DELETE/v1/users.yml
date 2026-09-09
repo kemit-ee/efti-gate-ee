@@ -1,3 +1,7 @@
+declaration:
+  description: "Delete a user (admin, TARA JWT). Path: userId. No body. An admin cannot delete
+    their own account (400)."
+
 # Admin is enforced by admin/.guard.yml, which also exposes the caller row as ${caller}.
 check_not_self:
   switch:

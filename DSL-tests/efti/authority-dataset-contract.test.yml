@@ -1,0 +1,31 @@
+# efti/POST/api/v1/authority/dataset.yml validate_input — with a valid service token the guard
+# passes inline and validate_input returns a 400 before any upstream call, so this runs
+# fully in-process.
+mode: inprocess
+
+tests:
+  - name: body missing uil -> 400 BAD_REQUEST_GENERAL
+    request:
+      method: POST
+      path: /efti/api/v1/authority/dataset
+      headers:
+        content-type: "application/json"
+        x-internal-service-token: "dev-internal-service-token-change-me"
+      body: { subsets: ["EU01"] }
+    expect:
+      status: 400
+      body_matches:
+        code: "BAD_REQUEST_GENERAL"
+        type: "https://api.efti.ee/errors/bad-request"
+
+  - name: empty subsets -> 400
+    request:
+      method: POST
+      path: /efti/api/v1/authority/dataset
+      headers:
+        content-type: "application/json"
+        x-internal-service-token: "dev-internal-service-token-change-me"
+      body: { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "d" }, subsets: [] }
+    expect:
+      status: 400
+      body_matches: { code: "BAD_REQUEST_GENERAL" }

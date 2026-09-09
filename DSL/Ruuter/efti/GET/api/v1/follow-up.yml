@@ -1,3 +1,8 @@
+declaration:
+  description: "List follow-up messages for a dataset (gate-internal, X-Internal-Service-Token).
+    Path: datasetId. Query: requestId (filter to one dataset request), limit, offset — all optional.
+    No request body."
+
 get_follow_up:
   call: http.post
   args:

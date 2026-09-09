@@ -1,4 +1,4 @@
-FROM turnerrainer/ruuter:0.9.10-rc
+FROM turnerrainer/ruuter:0.9.12-rc
 
 COPY ruuter.yaml /app/ruuter.yaml
 COPY constants.ini /app/constants.ini

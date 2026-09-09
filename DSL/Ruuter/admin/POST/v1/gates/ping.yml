@@ -1,3 +1,7 @@
+declaration:
+  description: "Ping a gate over eDelivery and record ONLINE/OFFLINE (admin, TARA JWT). Path:
+    gateId. No body."
+
 setup:
   assign:
     requestId: ${incoming.headers['x-request-id']}

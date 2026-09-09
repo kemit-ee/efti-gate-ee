@@ -1,3 +1,24 @@
+declaration:
+  description: "Replace a gate (admin, TARA JWT). Path: gateId. Body: countryCode, eDeliveryUrl
+    (required); eDeliveryCert, tlsCert, status (optional)."
+
+validate_input:
+  switch:
+    - condition: ${incoming.body == null || incoming.body.countryCode == null || incoming.body.eDeliveryUrl == null}
+      next: bad_request
+  next: update_gate
+
+bad_request:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "Required fields: countryCode, eDeliveryUrl."
+  wrapper: false
+  status: 400
+  next: end
+
 update_gate:
   call: http.post
   args:

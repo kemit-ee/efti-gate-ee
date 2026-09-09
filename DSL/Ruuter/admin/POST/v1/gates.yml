@@ -1,3 +1,24 @@
+declaration:
+  description: "Create a gate (admin, TARA JWT). Body: id, countryCode, eDeliveryUrl (all
+    required); eDeliveryCert, tlsCert, status (optional)."
+
+validate_input:
+  switch:
+    - condition: ${incoming.body == null || incoming.body.id == null || incoming.body.countryCode == null || incoming.body.eDeliveryUrl == null}
+      next: bad_request
+  next: create_gate
+
+bad_request:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "Required fields: id, countryCode, eDeliveryUrl."
+  wrapper: false
+  status: 400
+  next: end
+
 create_gate:
   call: http.post
   args:

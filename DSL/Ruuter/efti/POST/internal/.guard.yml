@@ -5,6 +5,10 @@
 # so the routes are unreachable from outside the container network. `internal_requests` in
 # ruuter.yaml governs what the loopback call itself may reach. This guard exists only so the
 # directory has an explicit guard file; it does no credential check.
+declaration:
+  description: "efti/POST/internal guard. Reachability is by network isolation only (loopback
+    from this Ruuter's own .guard files); no request credential is checked here."
+
 guard_success:
   return: "success"
   status: 200
