@@ -30,17 +30,21 @@ bad_request:
 
 # X-Road-Id becomes x-request-id. That is load-bearing here rather than merely tidy: core's
 # authority/search.yml uses x-request-id as the multiplexer polling key, so a caller re-issuing the
-# request with {"poll": true} and the same X-Road-Id collects the remaining gates' results.
-# timeout must exceed core's own 65s multiplexer timeout (authority/search.yml forward_to_gates).
+# request with {"poll": true} and the same X-Road-Id collects the remaining gates' results — the
+# x-poll header below carries that intent through to core's check_poll switch (an unquoted
+# null value is dropped by the http step, not sent as "null" — Ruuter #57). Core's first call
+# now returns the local slice immediately and never blocks on peer gates, so no oversized
+# timeout is needed here.
 forward_to_core:
   call: http.post
-  timeout: 70000
+  timeout: 15000
   args:
     url: "[#RUUTER_URL]/efti/api/v1/authority/search"
     headers:
       Content-Type: application/json
       x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
       x-request-id: "${incoming.headers['x-road-id']}"
+      x-poll: ${incoming.body.poll}
     body: ${incoming.body}
   result: core_res
   next: check_core_status

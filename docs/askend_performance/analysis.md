@@ -458,8 +458,8 @@ osuti on avaldise-mootoris ja HTTP-kliendis, mitte toores CPU-kvoot.
 
 **Versioonikontroll** (`/code/Ruuter`, `/code/Resql`):
 - Ruuter: viimane on **0.9.14-rc** (efti oli 0.9.12-rc). Vahepeal 0.9.13-rc + 0.9.14-rc,
-  mõlemad puhtad fixid. `docker/ruuter/Dockerfile`, `docker/ruuter-xroad-mock/Dockerfile`,
-  `docker/dsl-tools/Dockerfile` → **0.9.14-rc**.
+  mõlemad puhtad fixid. `docker/ruuter/Dockerfile`, `docker/ruuter-xroad-mock/Dockerfile`
+  → **0.9.14-rc**.
 - ReSql: viimane väljalase on endiselt **0.2.0-alpha** (efti on sellel). `dev`-is on üks
   taggimata fix (#27 `password_env` vs URL-i userinfo) — efti kasutab credential-free
   URL-i + `password_env`, seega ei puuduta.
@@ -482,7 +482,58 @@ sihtmärgi guardi ikka (par-guard'i stackil pole, sest entry-guardid on juba pop
 edasi­saatmine load-bearing'iks**, mitte üleliigseks. Guard-failidesse lisatud märge
 leiu + fix-versiooniga.
 
-**0.9.14-rc lisaboonus:** `dsl-lint` / `dsl-test` on nüüd runtime-pildis
-(`/usr/local/bin/`, Ruuter #83) → `docker/dsl-tools/Dockerfile` + CI job saaks
-lihtsustada (`docker run --rm turnerrainer/ruuter:0.9.14-rc dsl-lint --dsl DSL`).
-Eraldi arutada / eraldi PR.
+### 6.9 — authority/search: local-first + broadcast, ei blokeeru enam (otsused 2/3/4)
+
+**Otsus 2 — `docker/dsl-tools/` maha.** 0.9.14-rc pildis on `dsl-lint` / `dsl-test`
+(`/usr/local/bin/`, Ruuter #83). `docker/dsl-tools/Dockerfile` kustutatud;
+`.github/workflows/e2e.yml` + `.gitlab-ci.yml` jooksutavad tööriistu otse
+`turnerrainer/ruuter:0.9.14-rc` pildist (`docker run --rm -v "$PWD:/workdir" ... dsl-lint …`).
+
+**Otsus 3 — topeltguard maha.** `efti/POST/api/v1/authority/.guard.yml` ja
+`efti/GET/api/v1/authority/.guard.yml` said `declaration.override_ancestors: true` —
+mõlema kontroll on ancestor-guardiga (`efti/{POST,GET}/api/v1/.guard.yml`) täpselt
+identne, seega `check_service_token` ei jookse enam kaks korda iga `authority/*`
+päringu kohta (§4j: guard'i-samm oli mõõdetavalt kallis).
+
+**Otsus 4 — `authority/search` ei blokeeru.** "local-first, then broadcast":
+
+*Enne:* lokaalne miss → `forward_to_gates` = **blokeeriv** `POST /api/v1/first/:id`
+(`timeout: 65000`); ükski gate ei vasta → 65 s → HTTP 500.
+
+*Nüüd:*
+- `local_search` alati.
+- `criteria_to_xml` → `start_broadcast` = **mitte-blokeeriv** `POST /api/v1/search/:id`
+  (multiplexer registreerib otsingu, fännib teistele gate'idele taustal, tagastab kohe).
+- `respond_local` → tagastab **selle gate'i tulemuse kohe** (`[]` või read) +
+  `x-poll-more: true`.
+- Teiste gate'ide tulemused: klient kordab päringut `X-Request-Id` + `X-Poll` +
+  `{}` kehaga → `poll_remaining` = `GET /api/v1/rest/:id`.
+
+**Multiplexer** (`code/multiplexer/src/MultiplexerRoutes.kt`):
+- `POST /api/v1/first/:id` (blokeeriv `poll(63s)` + 504) **eemaldatud**, asendatud
+  `POST /api/v1/search/:id`-ga (kohene 202, fan-out `AppScope.async`-is).
+- `GET /api/v1/rest/:id` = piiratud long-poll: kui midagi pole veel saabunud ja
+  gate'id veel vastavad, ootab esimest kuni 10 s (mitte tühja kohe); muidu
+  tagastab kohe. **Kunagi 500.** Tundmatu `searchId` → tühi + `x-poll-more:false`.
+- Testid uuendatud, `multiplexer:test` roheline.
+
+**`X-Skip-Gate-Forward` benchmark-stub (§6.1) eemaldatud** — päris tee vastab nüüd
+kohe, stubi pole vaja.
+
+**xroad/POST/v1/search.yml:** `timeout: 70000 → 15000` (core ei blokeeru enam),
+`x-poll: ${incoming.body.poll}` päis lisatud (kannab `{"poll": true}` int[ent]i core'i
+`check_poll`-ini; null-väärtus kukub http-sammus välja, Ruuter #57).
+
+**Testimuudatused:** `tests/authority/authority-api.http` — lokaalne tabamus annab
+nüüd `x-poll-more: true` (mitte `false`); lokaalse miss'i esmavastus on `[]` kohe;
+teise gate'i tulemus (`MOCK-123` / `EU-MOCK`) tuleb `X-Poll` päringus.
+`tests/authority/xroad-forward.http` — muudatust ei vaja (ei kontrolli `x-poll-more`-i).
+
+### 6.10 — Ruuteri sisemine `http.post` (otsus 1: mida saab olemasoleva koodiga)
+
+Vt eraldi kokkuvõte — Ruuteri per-request overhead'i (§6.7: `local_search` sisemine
+hüpe ~5–30× kallim kui väline kutse) saab olemasoleva koodibaasi juures leevendada:
+DSL-samme kuumal teel vähem (otsus 3 võttis guard'i-topelduse; `start_broadcast`
+lisab ühe sammu aga kaotab 65 s blokeeringu), `ruuter cpus` tõstetud (§6.6). Ruuteri
+`http.post` connection-reuse ReSql-i suunas on Ruuteri-poolne, mitte efti DSL — see
+läheb Ruuteri arendajatele (eraldi issue).

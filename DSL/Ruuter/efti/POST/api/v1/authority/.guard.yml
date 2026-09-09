@@ -20,14 +20,22 @@
 # olev `template:` sama guardi alla → lõpmatu rekursioon + protsessi crash
 # (0.9.11–0.9.12-rc). 0.9.13-rc: guard-stack (juba jooksev guard jäetakse vahele) +
 # `MAX_GUARD_DEPTH = 32`. Siinne guard on `switch`-põhine, seega fix on ohutusvõrk.
+#
+# override_ancestors: true — see guard kordab efti/POST/api/v1/.guard.yml-i
+# X-Internal-Service-Token kontrolli täpselt üks-ühele, seega ancestor-guardi
+# uuesti jooksutamine oleks lihtsalt topelttöö igal authority/* päringul
+# (mõõdetud: ~jõudlusanalüüs §4j). Asendame ancestor-ahela selle guardiga.
 # NB: `authority/*` route → `template: api/v1/*-local` läbib ikkagi lapse guardi
-# (`efti/POST/api/v1/.guard.yml` — eri võti, pole stackil), seega template-sammul
-# `x-internal-service-token` edasi­saatmine on endiselt nõutav, mitte üleliigne.
+# `efti/POST/api/v1/.guard.yml` (template-samm hindab sihtmärgi guarde eraldi,
+# guard-stackil pole neid), seega template-sammul `x-internal-service-token`
+# edasi­saatmine on endiselt nõutav, mitte üleliigne.
 
 declaration:
+  override_ancestors: true
   description: "efti/POST/api/v1/authority guard — gate-internal. Credential:
     X-Internal-Service-Token (required), must be present, non-empty, and equal
-    INTERNAL_SERVICE_TOKEN. No JWT path."
+    INTERNAL_SERVICE_TOKEN. No JWT path. Replaces the identical ancestor check
+    (efti/POST/api/v1/.guard.yml) so it does not run twice per request."
 
 check_service_token:
   switch:
