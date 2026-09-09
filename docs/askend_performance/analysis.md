@@ -241,3 +241,38 @@ Kaks eraldi asja, ära aja segamini:
 `is_latest` + tõstetud CPU-ga, ausa võrdlusega (sama päring, maht, riistvara,
 tööriist), ja lahuta DB-vahe Ruuteri-vahest. Praegused numbrid mõõdavad
 peamiselt katkist päringut ja poolt tuuma.
+
+---
+
+## 6. Muudatuste logi
+
+Iga samm siia: mida muudeti, miks, mõõdetud efekt.
+
+### 6.1 — Benchmark-stub: `X-Skip-Gate-Forward` (`authority/search.yml`)
+
+**Miks:** empty local search kukub `forward_to_gates`-i (`timeout: 65000`).
+Mõõdetud: tühja tulemuse päring **76,8 s → HTTP 500** (65 s timeout +
+`stop_in_case_of_exception: true`). See on ka omaette probleem — praegu ei tule
+"midagi ei leitud lokaalselt, teised gate'id ei vasta" korral **mingit** kasulikku
+vastust 65 s jooksul.
+
+**Muudatus:** `check_local` switch'i lisatud haru — kui päis
+`X-Skip-Gate-Forward: true`, tagasta lokaalne tulemus (siin `[]`) +
+`x-poll-more: false`, ilma multiplexerit puutumata. Gate-internal päis, päris
+kutsuja seda ei saada.
+
+| | tühja päringu latents |
+|---|---|
+| stub OFF (praegu) | 76,8 s → 500 |
+| stub ON | lokaalse päringu aeg (`get_consignments`), multiplexerit vahele jättes |
+
+Nüüd saab `get_consignments`-i koormustesti teha ilma multiplexeri mürata.
+
+**Järgmine:** eraldi otsustada, kas empty-local + no-gate-response peaks
+päris­elus ka kohe `[]` + `x-poll-more:true` tagastama (praegu 65 s / 500).
+
+### 6.2 — `EXPLAIN (ANALYZE, BUFFERS)` artefakt
+
+Salvestatud: `docs/askend_performance/explain-1m-current.txt` — praegune
+`get_consignments`-i plaan 1M real. Näitab `external merge Disk` Sort node'i ja
+`Rows Removed by Filter: 1 000 000`.

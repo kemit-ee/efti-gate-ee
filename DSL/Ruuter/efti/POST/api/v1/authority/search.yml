@@ -72,6 +72,11 @@ check_local:
   switch:
     - condition: ${local_result.response.body.length > 0}
       next: respond_local
+    # Benchmark shortcut: X-Skip-Gate-Forward:true returns the local result (empty here) with
+    # x-poll-more:false instead of fanning out to the multiplexer, so a load test can isolate
+    # the local search path. Gate-internal header, never sent by a real caller.
+    - condition: ${incoming.headers['x-skip-gate-forward'] == 'true'}
+      next: respond_local
   next: criteria-to-xml
 
 respond_local:

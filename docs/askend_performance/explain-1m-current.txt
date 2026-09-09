@@ -1,0 +1,80 @@
+=== get_consignments.sql query plan @ 1,000,001 rows ===
+dev@386c5b5, branch perf/consignments-search-analysis
+PostgreSQL 18.4 (aarch64), work_mem = 4MB, shared_buffers = 128MB (defaults)
+Query: gateId = 'EU-EE', criteria mainTransportId EQ 'BULK-500000'  (1 matching row)
+
+EXPLAIN (ANALYZE, BUFFERS, SETTINGS)
+SELECT row_id, dataset_id, platform_id, gate_id, xml, main_transport_id, created_at
+FROM (
+  SELECT DISTINCT ON (platform_id, dataset_id) *
+  FROM consignments
+  ORDER BY platform_id, dataset_id, created_at DESC
+) latest
+WHERE status != 'DELETED'
+  AND ('EU-EE' IS NULL OR gate_id = 'EU-EE')
+  AND ('EQ' = 'EQ' AND main_transport_id = 'BULK-500000')
+LIMIT 20;
+
+------------------------------------------------------------------------------------------------------
+ Limit  (cost=321479.63..432645.92 rows=20 width=223)
+        (actual time=18610.473..21922.008 rows=1.00 loops=1)
+   Buffers: shared hit=15755 read=39655, temp read=61178 written=61245
+   ->  Subquery Scan on latest  (cost=321479.63..460437.49 rows=25 width=223)
+                                (actual time=18544.548..21856.076 rows=1.00 loops=1)
+         Filter: (latest.status <> 'DELETED'
+                  AND latest.gate_id = 'EU-EE'::citext
+                  AND latest.main_transport_id = 'BULK-500000'::text)
+         Rows Removed by Filter: 1000000                <-- 999 999 rows discarded AFTER the sort
+         Buffers: shared hit=15755 read=39655, temp read=61178 written=61245
+         ->  Unique  (cost=321479.63..442938.58 rows=999938 width=595)
+                     (actual time=17882.386..21008.972 rows=1000001.00 loops=1)
+               Buffers: shared hit=15755 read=39655, temp read=61178 written=61245
+               ->  Gather Merge  (cost=321479.63..437938.89 rows=999938 width=595)
+                                 (actual time=17882.293..20522.871 rows=1000001.00 loops=1)
+                     Workers Planned: 2
+                     Workers Launched: 2
+                     Buffers: shared hit=15755 read=39655, temp read=61178 written=61245
+                     ->  Sort  (cost=320479.61..321521.21 rows=416641 width=595)
+                               (actual time=17669.193..18184.505 rows=333333.67 loops=3)
+                           Sort Key: consignments.platform_id, consignments.dataset_id,
+                                     consignments.created_at DESC
+                           Sort Method: external merge  Disk: 84040kB      <-- x3 workers ~= 245 MB
+                           Worker 0:  Sort Method: external merge  Disk: 80088kB
+                           Worker 1:  Sort Method: external merge  Disk: 80656kB
+                           Buffers: shared hit=15755 read=39655, temp read=61178 written=61245
+                           ->  Parallel Seq Scan on consignments
+                                   (cost=0.00..59430.41 rows=416641 width=595)
+                                   (actual time=9.402..4129.788 rows=333333.67 loops=3)
+                                 Buffers: shared hit=15609 read=39655
+ Planning Time: 11.500 ms
+ JIT:
+   Functions: 13
+   Timing: ... Emission 113.001 ms, Total 128.682 ms
+ Execution Time: 23337.488 ms                           <-- 23.3 s to return ONE row
+------------------------------------------------------------------------------------------------------
+
+READING:
+  Parallel Seq Scan  — full table scan, 1M rows, ~4.1 s
+  Sort               — 1M rows sorted by (platform_id, dataset_id, created_at DESC),
+                        spills ~245 MB to disk (work_mem = 4MB), ~17.6 s.  THE BOTTLENECK.
+  Unique             — DISTINCT ON dedupe: 1,000,001 in -> 1,000,001 out (1 row per group here)
+  Subquery Scan      — the criteria filter runs LAST, on the materialised 1M-row set, and throws
+                       away 999,999 of them. idx_consignments_main_transport_id is never consulted.
+
+--- Candidate A: matching index only ---
+CREATE INDEX idx_consignments_latest ON consignments (platform_id, dataset_id, created_at DESC);
+  -> Index Scan using idx_consignments_latest (Sort removed) BUT Buffers: shared read=728143
+     (random heap fetch of 1M wide rows) -> Execution Time: 26929 ms  -- WORSE, rejected.
+
+--- Candidate B: is_latest flag + query rewrite ---
+ALTER TABLE consignments ADD COLUMN is_latest boolean NOT NULL DEFAULT true;
+CREATE UNIQUE INDEX uq_consignments_latest ON consignments (platform_id, dataset_id) WHERE is_latest;
+SELECT ... FROM consignments
+WHERE is_latest AND status != 'DELETED' AND gate_id = :gateId AND main_transport_id = 'BULK-500000';
+
+ Limit
+   ->  Index Scan using idx_consignments_main_transport_id on consignments
+         Index Cond: (main_transport_id = 'BULK-500000')
+         Filter: (is_latest AND status <> 'DELETED' AND gate_id = 'EU-EE'::citext)
+         Buffers: shared read=4
+ Execution Time: 1.686 ms                               <-- ~14 000x faster, reuses an existing index
