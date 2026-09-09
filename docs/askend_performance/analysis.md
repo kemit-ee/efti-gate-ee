@@ -574,3 +574,74 @@ Täis `http-tests` **198/198**, `dsl-lint` 74/74.
 vaadatud, **muutmist ei vaja**: kõik filtreerivad juba enne `DISTINCT ON`-i
 (`WHERE dataset_id = :id` või `WHERE (dataset_id, platform_id) IN (… WHERE
 main_transport_id = :id)`), seega sort ei jookse kunagi kogu tabeli üle.
+
+---
+
+## 7. Kokkuvõttev mõõtmine — kõik parandused peal
+
+Setup: Ruuter **0.9.14-rc**, `ruuter` + `database` `cpus: 2.0`, `resql pool 75`,
+`get_consignments.sql` = **C6** (ADR-009), `authority/search` = **local-first, ei blokeeru**
+(ADR-010). Sama masin, sama `ab` sidecar.
+
+### 7a. `get_consignments` päring 1M real — C6
+
+```
+EXPLAIN (ANALYZE) @ 1 000 001 rida, gate_id='EU-EE', main_transport_id='BULK-500000':
+
+Limit → Sort (quicksort, 25 kB) → Nested Loop Anti Join
+  → Index Scan   idx_consignments_main_transport_id   (Index Cond: main_transport_id = 'BULK-500000')
+  → Index Only Scan idx_consignments_dataset_latest    (Heap Fetches: 0)
+Buffers: shared hit=16
+Execution Time: 0.219 ms
+```
+
+| | vana `DISTINCT ON` | **C6** |
+|---|---|---|
+| plaan | Parallel Seq Scan + Sort (external merge Disk 245 MB) + Unique(1M) + Filter | Nested Loop Anti Join, 2 indeks-otsingut |
+| aeg @ 1M | **23 337 ms** | **0,22 ms** |
+| I/O @ 1M | ~55 000 lehte + 245 MB temp | 16 buffer hit |
+
+**~100 000× kiirem. DB on igas mahus kriitiliselt teelt maas.**
+Artefakt: `docs/askend_performance/explain-c6-1m.txt`.
+
+### 7b. `ab` — `authority/search` (VESSEL-001 lokaalne tabamus) ja ReSql otse
+
+**1 rida:**
+
+| kiht | c=1 | c=10 | c=20 | c=50 | c=100 |
+|---|---|---|---|---|---|
+| `authority/search` (rps) | 242 | 508 | 540 | 552 | **557** |
+| p99 (ms) | 10 | 45 | 87 | 204 | 418 |
+| ReSql otse `get_consignments` (rps) | 1 374 | 5 000 | — | 1 963 | 4 126 |
+
+**1M rida** (samad numbrid — DB pole enam tegur):
+
+| kiht | c=1 | c=10 | c=20 | c=50 | c=100 |
+|---|---|---|---|---|---|
+| `authority/search` (rps) | 234 | 495 | 484 | 494 | **576** |
+| p99 (ms) | 14 | 50 | 123 | 250 | 326 |
+| ReSql otse @ 1M (rps) | — | — | **5 930** (p99 45 ms) | — | — |
+
+### 7c. Kokkuvõte — Antoni algnumbritega
+
+| | Anton (16-tuuma) | algne mõõt (0,5 vCPU, vana SQL, blokeeriv) | **nüüd** |
+|---|---|---|---|
+| `authority/search` läbilaskevõime | 70–93 req/s | ~37 req/s (lapik) | **~550 req/s** (skaleerub) |
+| `authority/search` p99 koormuse all | 1 800–4 300 ms | 2 500–4 500 ms | **~330–420 ms** |
+| `get_consignments` 1M real | 0,6 req/s | 0,14 req/s (30 s timeout'id) | **~6 000 req/s** (0,2 ms/päring) |
+| tühja lokaalse otsingu latents | — | 65–77 s → HTTP 500 | kohe `[]` + `x-poll-more` |
+
+**Jääk:** `authority/search` ~240 rps ühe lõimega vs ReSql otse ~1 400 rps → Ruuteri
+DSL püsikulu ~3 ms/päring (~5,6×, mitte enam ~50×). See on Ruuteri avaldise-mootor,
+mitte efti — ja skaleerub konkurentsiga (~550 rps hoiab). Päris hostil (rohkem
+tuumi, vähem kontentsiooni) veelgi parem.
+
+### Mida testides veel muuta (Antonile)
+
+1. `-c 250` ilma ramp-up'i / think-time'ita mõõdab küllastust — kasuta `k6`/`wrk`
+   ramp'i + think-time'iga, vaata p50/p95/p99 jaotust.
+2. Seed peab tabama (`gate_id='EU-EE'`, otsitav id bulk-hulgas) — muidu mõõdad
+   "skaneeri N rida, ära leia, kuku multiplexerisse". Vt `seed-consignments.sql`.
+3. Mõõda kihte eraldi (`ab` ReSql-i pihta vs `authority/search` pihta) — üks
+   `authority/search` number segab DB + ReSql + Ruuter + võrguhüpped kokku.
+4. Kirja täpne keskkond: Ruuteri versioon, `cpus`, `resql pool`, PG konf, compose-fail.
