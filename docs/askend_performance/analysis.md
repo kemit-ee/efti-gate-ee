@@ -100,7 +100,9 @@ kui pole hooldatud "is-latest" markerit. Mõõdetud plaan 1M real: jaotis 4c.
   `dev@386c5b5` pealt. Masin jooksutas paralleelselt ka teist stäkki → **absoluutväärtused
   on Antoni omadest kehvemad; oluline on kuju ja kihtide vahe, mitte absoluutnumber.**
 - PostgreSQL 18.4 (aarch64), `work_mem = 4MB`, `shared_buffers = 128MB` (vaikimisi).
-- `ruuter` jäetud `cpus: '0.5'` peale.
+- **Jaotised 4a–4g:** `ruuter cpus: '0.5'`, `resql pool 10` (algne seis).
+  **Jaotis 4i / 6.6 / 6.7:** `ruuter cpus: '1.0'`, `database cpus: '1.0'`,
+  `resql pool 75` (tõstetud — vt 6.6).
 - Koormus aetud sidecar-konteinerist compose-võrgus (`http://ruuter:8086` /
   `http://resql:8090`), nii et host-portide konflikti pole.
 
@@ -361,3 +363,67 @@ Rakendus (järgmine samm):
   `get_consignment_xml.sql`, `check_transport_means_registered.sql`
 - `AGENTS.md` — "No JOINs on hot path" täpsustus
 - `semantic-test.sql` → püsiv test `tests/` alla
+
+### 6.6 — Seemetamine korda + CI-ressursid tõstetud
+
+**Seemetamine** (`docs/askend_performance/seed-consignments.sql`, `run.md`):
+- baasrida `VESSEL-001` läheb sisse *päris teed pidi* — `POST sample.xml`
+  `/platforms/v1/consignments` peale (xml-mapper + `insert_consignment` teevad
+  veergude mapimise). Enne oli see kas puudu või vale `gate_id`.
+- `gate_id = 'EU-EE'` (oli Antoni failis `'EE'` — ei läbinud kunagi
+  `local_search`-i `gate_id = :gateId` filtrit, iga otsing kukkus multiplexerisse).
+- semantilised fikstuurid (`p1` re-upload `AAA→BBB`, üksik `CCC`) SQL-failis.
+- verifitseeritud: `VESSEL-001 → 1`, `AAA → 0`, `BBB → 1`, `CCC → 1`.
+
+**CI-ressursid** (`compose.yml` — need on ka CI väärtused, e2e liin jookseb
+`compose.yml` pealt):
+| teenus | enne | nüüd |
+|---|---|---|
+| `database` | limiiti polnud | `cpus: '1.0'`, `mem_limit: 1G` |
+| `ruuter` | `cpus: '0.5'`, `mem 512M` | `cpus: '1.0'`, `mem 512M` |
+| `resql` pool (`resql.yaml max_connections`) | 10 | **75** (PG default `max_connections` on 100 — jäetud puutumata, 25 jääb liquibase / tim / ad-hoc psql jaoks) |
+
+### 6.7 — Hop-latents: ruuter → resql → db (`hop-latency.sh`)
+
+Uus eraldi mõõt (`docs/askend_performance/hop-latency.sh`), järjestikku (`c=1`),
+et iga number oleks *ühe päringu maksumus*, mitte järjekorra sügavus. 3 jooksu,
+n=2000/etapp, `ruuter cpus: 1.0`, `resql pool 75`, 1 seeditud rida.
+
+| etapp | mean | p50 | p90 | p99 |
+|---|---:|---:|---:|---:|
+| `ab → ruuter /health/ready` (paljas routing) | 1,8–4,1 ms | 1–2 ms | 3–8 ms | 12–36 ms |
+| `ab → resql → db` (`get_consignments`) | 2,1–3,6 ms | 1–2 ms | 4–7 ms | 11–33 ms |
+| `ab → ruuter → resql → db` (`authority/search`) | **29–57 ms** | **18–21 ms** | 58–101 ms | 178–552 ms |
+
+**Ruuteri DSL-i püsikulu ≈ 25–50 ms päringu kohta** (p50 ~15–18 ms üle
+võrguhüpete ~3 ms). Ühe lõime läbilaskevõime 17–34 req/s.
+
+**Kuhu see aeg kaob** (Ruuteri enda per-step log, 300 järjestikust päringut):
+
+| samm | keskm. | max | märkus |
+|---|---:|---:|---|
+| `check_service_token` (guard switch, ~2× päringu kohta) | 23 ms | 5360 ms | *puhas stringivõrdlus* |
+| `local_search` (sisemine `http.post` → resql) | 67 ms | 3020 ms | **sama päring otse `ab`-ist = 2 ms** |
+| `setup` (assign, 2 muutujat) | 10 ms | 191 ms | |
+| `check_local` (1 switch) | 10 ms | 194 ms | |
+| `respond_local` (return) | 8 ms | 87 ms | |
+| `check_poll`, `validate_input` (switch) | ~5 ms | ~90 ms | |
+
+**Järeldus:** realistliku mahu juures (1 rida) **DB on ~2 ms ega ole
+pudelikael** — pudelikael on Ruuteri DSL-i täitmine, eelkõige (a) sisemine
+HTTP-hüpe ReSql-i (`local_search`, ~5–30× kallim kui sama kutse väljastpoolt) ja
+(b) guard'i avaldise-hindamine. Kõik DSL-sammud maksavad 5–70 ms, kuigi peaksid
+olema alla millisekundi → Ruuteri avaldise-mootor / HTTP-klient CPU-surve all.
+`cpus 0.5 → 1.0` ei kaotanud kõikumist (7 ms vs 75 ms järjestikused päringud) —
+osuti on avaldise-mootoris ja HTTP-kliendis, mitte toores CPU-kvoot.
+
+> NB: masin jooksutab paralleelselt muud → absoluutnumbrid mürarikkad (10 s
+> üksik­piigid). Kihtide **vahe** (DB 2 ms vs Ruuter 30 ms) on stabiilne kõigis
+> jooksudes.
+
+**Kaks eraldi telge, ära aja segi:**
+1. **maht** — `get_consignments` 1M real 23 s (§4c) → C6 ~0,1 ms (§6.4, ADR-009).
+2. **Ruuteri per-request** — `authority/search` ~30 ms / ~30 req/s ühe lõimega,
+   mahust sõltumatu. C6 seda ei paranda. Kandidaadid: Ruuteri `http.post`
+   keep-alive / pool ReSql-i suunas; guard'i lihtsustus; vähem DSL-samme
+   kuumal teel.
