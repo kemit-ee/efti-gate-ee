@@ -23,6 +23,9 @@ const val pollMoreHeader = "x-poll-more"
 class MultiplexerRoutes(private val registry: MultiplexerGateRegistry, private val http: HttpClient) {
   private val eDeliveryUrl = URI(Config["EDELIVERY_URL"])
   private val pending = Cache<UUID, PartyResponses>(90.seconds)
+  // How long GET /rest waits for the first gate response before returning empty. Bounded so a
+  // poll never hangs like the old blocking POST /first did; the caller just polls again.
+  private val restPollSeconds = Config.optional("MULTIPLEXER_REST_POLL_SECONDS")?.toLong() ?: 30L
 
   @Operation(summary = "Broadcast a search request", description = "Registers the search and fans it out to every registered gate in the background, then returns immediately. The caller polls the rest endpoint for the gates' responses (local-first, then broadcast).")
   @RequestBody(description = "eFTI search request XML document", content = [Content(mediaType = MimeTypes.xml, schema = Schema(type = "string"))])
@@ -50,7 +53,7 @@ class MultiplexerRoutes(private val registry: MultiplexerGateRegistry, private v
     }
   }
 
-  @Operation(summary = "Poll gate responses", description = "Returns the gate responses received so far as XML documents joined by '⦀'. Bounded long-poll: if nothing has arrived yet and gates are still responding, waits up to 10s for the first one rather than returning empty. Poll until x-poll-more is false. An unknown searchId (or one already drained past its TTL) returns an empty body + x-poll-more:false.")
+  @Operation(summary = "Poll gate responses", description = "Returns the gate responses received so far as XML documents joined by '⦀'. Bounded long-poll: if nothing has arrived yet and gates are still responding, waits up to restPollSeconds (MULTIPLEXER_REST_POLL_SECONDS, default 30) for the first one rather than returning empty. Poll until x-poll-more is false. An unknown searchId (or one already drained past its TTL) returns an empty body + x-poll-more:false.")
   @ApiResponse(responseCode = "200", description = "Gate XML responses separated by ⦀, or an empty body when none have arrived", headers = [Header(name = pollMoreHeader, description = "Whether more responses may still arrive", schema = Schema(type = "boolean"))], content = [Content(mediaType = MimeTypes.xml, schema = Schema(type = "string"))])
   @GET("/rest/:searchId") fun rest(@PathParam searchId: UUID, e: HttpExchange): String {
     val responses = pending[searchId]
@@ -62,7 +65,7 @@ class MultiplexerRoutes(private val registry: MultiplexerGateRegistry, private v
 
     val xmls = mutableListOf<String>()
     if (responses.xmls.isEmpty() && !responses.complete)
-      responses.xmls.poll(10, SECONDS)?.let { xmls.add(it) }
+      responses.xmls.poll(restPollSeconds, SECONDS)?.let { xmls.add(it) }
     responses.xmls.drainTo(xmls)
     e.sendPollMore(responses)
     return xmls.filter { it.isNotEmpty() }.joinToString("⦀")

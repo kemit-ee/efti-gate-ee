@@ -1,10 +1,10 @@
 declaration:
-  description: "Authority search for consignments — local-first, then broadcast. The first call
-    returns this gate's own matches immediately (never blocks on other gates) with
-    x-poll-more:true; the other gates are queried in the background and their results are
-    collected by re-issuing the request with X-Request-Id + X-Poll and an empty body {}.
-    Body: {operator, id}-shaped criteria object. Criteria fields are not enumerated here —
-    forwarded verbatim."
+  description: "Authority search for consignments — local-first, then broadcast. A local match is
+    returned at once with x-poll-more:false (this gate is authoritative for its own
+    consignments). With no local match the response is [] with x-poll-more:true and the other
+    gates are queried in the background — collect their results by re-issuing the request with
+    X-Request-Id + X-Poll and an empty body {}. Neither path ever blocks on a peer gate.
+    Body: {operator, id}-shaped criteria object; criteria fields forwarded verbatim."
 
 validate_input:
   switch:
@@ -60,7 +60,7 @@ respond_rest:
   wrapper: false
   next: end
 
-# --- first call: local-first, then kick off the broadcast ---
+# --- first call ---
 local_search:
   call: http.post
   args:
@@ -72,6 +72,22 @@ local_search:
       criteria: ${incoming.body}
   result: local_result
 
+check_local:
+  switch:
+    - condition: ${local_result.response.body.length > 0}
+      next: respond_local
+  next: criteria_to_xml
+
+# Local hit: authoritative for this gate's own consignments, return it and stop.
+respond_local:
+  return: ${local_result.response.body}
+  headers:
+    content-type: "application/json"
+    x-poll-more: false
+  wrapper: false
+  next: end
+
+# No local match -> kick off the cross-gate broadcast and answer immediately.
 criteria_to_xml:
   call: http.post
   args:
@@ -97,7 +113,7 @@ start_broadcast:
     content_type: plaintext
   result: broadcast_started
 
-respond_local:
+respond_pending:
   return: ${local_result.response.body}
   headers:
     content-type: "application/json"
