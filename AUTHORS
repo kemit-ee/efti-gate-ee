@@ -18,6 +18,38 @@ Architect and lead author
     (OpenAPI, DB schema, errors, logging, permissions, transformations),
     epics, diagrams, planning material, and editorial direction.
 
+Implementation
+--------------
+
+The gate implementation — Ruuter DSL routing, the ReSql SQL layer, the
+Kotlin services (edelivery/AS4, xml-mapper, multiplexer), the admin UI,
+database migrations, and the test suites — was built by:
+
+  Anton Keks
+    GitHub:  https://github.com/angryziber  (@angryziber)
+    Email:   anton@azib.net
+    Backend: ReSql SQL endpoints, Ruuter DSL routes, xml-mapper
+    (FTI XML↔JSON), edelivery AS4 messaging.
+
+  Sten Viljus
+    GitHub:  https://github.com/sviljus  (@sviljus)
+    Email:   sten.viljus@gmail.com
+    Database schema, ReSql SQL layer, Ruuter DSL (Authority and internal
+    APIs), the X-Road national extension, security hardening, performance
+    optimisation, specification diagrams and epics, end-to-end test suite.
+
+  Rihard Rivis
+    GitHub:  https://github.com/Rig14  (@Rig14)
+    Email:   rihard.rivis@proton.me
+    Admin UI (Svelte) — gates, platforms, users and authorities screens,
+    i18n, API client; edelivery contributions.
+
+  Rasmus Raasuke
+    GitHub:  https://github.com/rasmusraasuke  (@rasmusraasuke)
+    Email:   rasmus.raasuke@gmail.com
+    xml-mapper, multiplexer (cross-gate search fan-out), edelivery,
+    HTTP test coverage.
+
 Predecessor procurement deliverable
 -----------------------------------
 
