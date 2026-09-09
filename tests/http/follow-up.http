@@ -1,4 +1,4 @@
-#import ../admin/auth.http
+import ../admin/auth.http
 run #auth
 
 ### Remote authority sends a follow-up message for a consignment through eDelivery
