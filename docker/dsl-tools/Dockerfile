@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         git pkg-config libssl-dev ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
-ARG RUUTER_TAG=v0.9.12-rc
+ARG RUUTER_TAG=v0.9.14-rc
 RUN git clone --depth 1 --branch "${RUUTER_TAG}" https://github.com/turnerrainer/Ruuter.git .
 RUN cargo build --release --bin dsl-lint --bin dsl-test
 

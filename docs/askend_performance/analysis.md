@@ -101,7 +101,7 @@ kui pole hooldatud "is-latest" markerit. Mõõdetud plaan 1M real: jaotis 4c.
   on Antoni omadest kehvemad; oluline on kuju ja kihtide vahe, mitte absoluutnumber.**
 - PostgreSQL 18.4 (aarch64), `work_mem = 4MB`, `shared_buffers = 128MB` (vaikimisi).
 - **Jaotised 4a–4g:** `ruuter cpus: '0.5'`, `resql pool 10` (algne seis).
-  **Jaotis 4i / 6.6 / 6.7:** `ruuter cpus: '1.0'`, `database cpus: '1.0'`,
+  **Jaotised 4j / 6.6 / 6.7:** `ruuter cpus: '1.0'`, `database cpus: '1.0'`,
   `resql pool 75` (tõstetud — vt 6.6).
 - Koormus aetud sidecar-konteinerist compose-võrgus (`http://ruuter:8086` /
   `http://resql:8090`), nii et host-portide konflikti pole.
@@ -198,6 +198,32 @@ Kasutab **olemasolevat** `idx_consignments_main_transport_id`-i, loeb 4 lehte,
 1M rida ühe `INSERT ... SELECT generate_series`-iga, 24 indeksit (sh GIN):
 **312 s** (~3 200 rida/s). `ANALYZE` järel 18 s. (Antoni "~2 sek per
 konsignatsioon" oli HTTP API kaudu ükshaaval; bulk-SQL on 3 200/s.)
+
+### 4j. 3-kihiline mõõt praeguse setupiga — DB → ReSql → Ruuter
+
+Setup: `ruuter cpus 1.0`, `database cpus 1.0`, `resql pool 75`, 1 seeditud rida
+(`VESSEL-001`), **Ruuter 0.9.12-rc** (Docker Hub oli 0.9.14-rc tõmbamise ajal maas
+— vt 6.8). DB-kiht `pgbench`-iga konteinerisisese unix-socketi kaudu (HTTP-ta),
+ReSql ja Ruuter `ab`-iga compose-võrgus.
+
+| kiht | c=1 | c=10 | c=20 | c=50 |
+|---|---|---|---|---|
+| **DB otse** (`pgbench`, socket, sama `get_consignments` päring) | **3614 tps / 0,28 ms** | 2433 / 4,1 ms | 2327 / 8,6 ms | 1415 / 35 ms |
+| **ReSql** (`ab`, `POST /efti/get_consignments`) | **738 rps / 1,4 ms** | 1247 / 8 ms | 1125 / 18 ms | 570 / 88 ms |
+| **Ruuter** (`ab`, `POST /efti/api/v1/authority/search`) | **87 rps / 11,5 ms** | 145 / 69 ms | 112 / 179 ms | 119 / 421 ms |
+
+**Per-request kulu, c=1 (kõige puhtam):**
+
+| kiht | kumulatiivne | selle kihi lisa |
+|---|---:|---:|
+| DB päring ise | 0,28 ms | 0,28 ms |
+| + ReSql (HTTP + parse + bind + pool) | 1,4 ms | **~1,1 ms** |
+| + Ruuter DSL (2 nested guardi, `validate_input`, `setup`, `check_poll`, sisemine `http.post` → ReSql, `check_local`, `respond_local`) | 11,5 ms | **~10 ms** |
+
+**Ruuter on ~40× DB ja ~8× ReSql** ühe päringu kohta. Ühe lõime lagi ~87 rps;
+konkurentsi lisamine läbilaskevõimet ei tõsta (püsib 110–145 rps) — Ruuter on
+1,0-tuumaga CPU-seotud. DB 1 rea juures **ei ole tegur** (0,28 ms); tema piir
+tuleb alles mahuga (§4c: 23 s @ 1M → ADR-009 C6).
 
 ---
 
@@ -427,3 +453,34 @@ osuti on avaldise-mootoris ja HTTP-kliendis, mitte toores CPU-kvoot.
    mahust sõltumatu. C6 seda ei paranda. Kandidaadid: Ruuteri `http.post`
    keep-alive / pool ReSql-i suunas; guard'i lihtsustus; vähem DSL-samme
    kuumal teel.
+
+### 6.8 — Ruuter 0.9.12-rc → 0.9.14-rc + Ruuter #79 (@sviljus leid)
+
+**Versioonikontroll** (`/code/Ruuter`, `/code/Resql`):
+- Ruuter: viimane on **0.9.14-rc** (efti oli 0.9.12-rc). Vahepeal 0.9.13-rc + 0.9.14-rc,
+  mõlemad puhtad fixid. `docker/ruuter/Dockerfile`, `docker/ruuter-xroad-mock/Dockerfile`,
+  `docker/dsl-tools/Dockerfile` → **0.9.14-rc**.
+- ReSql: viimane väljalase on endiselt **0.2.0-alpha** (efti on sellel). `dev`-is on üks
+  taggimata fix (#27 `password_env` vs URL-i userinfo) — efti kasutab credential-free
+  URL-i + `password_env`, seega ei puuduta.
+- Docker Hub oli bumpi ajal maas (`registry-1.docker.io ... EOF`) → 0.9.14-rc pilti
+  ei saanud lokaalselt tõmmata. **4j numbrid on 0.9.12-rc pealt.** CI tõmbab 0.9.14-rc;
+  kordan mõõtmise, kui Hub taastub.
+
+**Ruuter #79** — `guard → template: → sama guard` lõpmatu rekursioon, protsessi crash
+(exit 134) 0.9.11–0.9.12-rc korral. **Reporter: @sviljus.** Parandatud **0.9.13-rc**:
+per-request guard-stack (juba jooksev guard jäetakse vahele) + `MAX_GUARD_DEPTH = 32`.
+
+Mõju efti-le: efti guard-failid (`efti/POST/api/v1/.guard.yml`,
+`efti/POST/api/v1/authority/.guard.yml`, …) on `switch`-põhised, **ei kutsu `template:`**,
+seega polnud crash'i teel. Kontrollitud Ruuteri lähtekoodist
+(`src/steps/template.rs`, `src/router/mod.rs`): route-kehas olev `template:` samm käivitab
+sihtmärgi guardi ikka (par-guard'i stackil pole, sest entry-guardid on juba pop'itud) →
+`-xml` / `authority/*` route'ide template-sammudel **jääb `x-internal-service-token`
+edasi­saatmine load-bearing'iks**, mitte üleliigseks. Guard-failidesse lisatud märge
+leiu + fix-versiooniga.
+
+**0.9.14-rc lisaboonus:** `dsl-lint` / `dsl-test` on nüüd runtime-pildis
+(`/usr/local/bin/`, Ruuter #83) → `docker/dsl-tools/Dockerfile` + CI job saaks
+lihtsustada (`docker run --rm turnerrainer/ruuter:0.9.14-rc dsl-lint --dsl DSL`).
+Eraldi arutada / eraldi PR.

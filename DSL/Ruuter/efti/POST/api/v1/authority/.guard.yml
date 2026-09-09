@@ -15,6 +15,14 @@
 # INTERNAL_SERVICE_TOKEN is unset, '[#INTERNAL_SERVICE_TOKEN]' may interpolate to an empty
 # string, and without them an absent or empty header would compare equal to it and
 # authenticate. Deny is the fall-through branch.
+#
+# Ruuter #79 (@sviljus leid, parandatud turnerrainer/ruuter 0.9.13-rc): guardi sees
+# olev `template:` sama guardi alla → lõpmatu rekursioon + protsessi crash
+# (0.9.11–0.9.12-rc). 0.9.13-rc: guard-stack (juba jooksev guard jäetakse vahele) +
+# `MAX_GUARD_DEPTH = 32`. Siinne guard on `switch`-põhine, seega fix on ohutusvõrk.
+# NB: `authority/*` route → `template: api/v1/*-local` läbib ikkagi lapse guardi
+# (`efti/POST/api/v1/.guard.yml` — eri võti, pole stackil), seega template-sammul
+# `x-internal-service-token` edasi­saatmine on endiselt nõutav, mitte üleliigne.
 
 declaration:
   description: "efti/POST/api/v1/authority guard — gate-internal. Credential:
