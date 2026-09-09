@@ -1,0 +1,160 @@
+declaration:
+  description: "Scheduled archive sweep — CronManager calls this on a timer (Bearer ARCHIVE_OPS_TOKEN).
+    Everything runs through Ruuter + ReSql: (1) copy superseded consignments rows — those whose newer
+    sibling is older than olderThanDays (default 30) — into the separate archive DB over postgres_fdw;
+    (2) read every copied row back from the archive DB and confirm it landed; (3) only if 100 % are
+    confirmed, DELETE exactly those rows from the live DB. A verification mismatch deletes nothing.
+    Body (optional): {olderThanDays: number, batchLimit: number}."
+  allowlist:
+    body:
+      - field: olderThanDays
+        type: number
+        required: false
+      - field: batchLimit
+        type: number
+        required: false
+
+# ---- 1. copy candidates into the archive DB ----
+copy_to_archive:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/archive_consignments"
+    headers:
+      Content-Type: "application/json"
+    body:
+      olderThanDays: ${incoming.body.olderThanDays}
+      batchLimit: ${incoming.body.batchLimit}
+  result: copy_result
+
+check_copy:
+  switch:
+    - condition: ${copy_result.response.status >= 400}
+      next: sweep_failed
+    - condition: ${copy_result.response.body[0].candidateCount == 0}
+      next: nothing_to_archive
+  next: verify_archive
+
+# ---- 2. read the copied rows back from the archive DB ----
+verify_archive:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/verify_archived_consignments"
+    headers:
+      Content-Type: "application/json"
+    body:
+      rowIds: ${copy_result.response.body[0].candidateRowIds}
+  result: verify_result
+
+check_verify:
+  switch:
+    - condition: ${verify_result.response.status >= 400}
+      next: verify_failed
+    - condition: ${verify_result.response.body[0].confirmedCount != copy_result.response.body[0].candidateCount}
+      next: verify_failed
+  next: delete_from_live
+
+# ---- 3. the real DELETE — only the rows just confirmed in the archive ----
+delete_from_live:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/delete_archived_consignments"
+    headers:
+      Content-Type: "application/json"
+    body:
+      rowIds: ${verify_result.response.body[0].confirmedRowIds}
+  result: delete_result
+
+check_delete:
+  switch:
+    - condition: ${delete_result.response.status >= 400}
+      next: sweep_failed
+  next: log_completed
+
+log_completed:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_job_execution_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      jobName: "archive-consignments"
+      status: "COMPLETED"
+      details:
+        candidates: ${copy_result.response.body[0].candidateCount}
+        newlyCopied: ${copy_result.response.body[0].newlyCopiedCount}
+        verified: ${verify_result.response.body[0].confirmedCount}
+        deleted: ${delete_result.response.body.length}
+  result: log_result
+
+respond_completed:
+  return:
+    candidates: ${copy_result.response.body[0].candidateCount}
+    archived: ${verify_result.response.body[0].confirmedCount}
+    deleted: ${delete_result.response.body.length}
+  headers:
+    content-type: "application/json"
+  wrapper: false
+  next: end
+
+nothing_to_archive:
+  return:
+    candidates: 0
+    archived: 0
+    deleted: 0
+  headers:
+    content-type: "application/json"
+  wrapper: false
+  next: end
+
+# --- failure branches: log FAILED (best effort), delete nothing, return 5xx ---
+verify_failed:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_job_execution_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      jobName: "archive-consignments"
+      status: "FAILED"
+      details:
+        reason: "archive verification mismatch — no rows deleted"
+        candidates: ${copy_result.response.body[0].candidateCount}
+        confirmed: ${verify_result.response.body[0].confirmedCount}
+  result: verify_failed_log
+  next: verify_failed_respond
+
+verify_failed_respond:
+  return:
+    type: "https://api.efti.ee/errors/bad-gateway"
+    code: "ARCHIVE_VERIFICATION_FAILED"
+    title: "Archive verification failed"
+    status: 502
+    detail: "The archive DB did not confirm every copied row; nothing was deleted from the live DB."
+  status: 502
+  wrapper: false
+  next: end
+
+sweep_failed:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_job_execution_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      jobName: "archive-consignments"
+      status: "FAILED"
+      details:
+        reason: "a copy / delete step returned an error"
+  result: sweep_failed_log
+  next: sweep_failed_respond
+
+sweep_failed_respond:
+  return:
+    type: "https://api.efti.ee/errors/bad-gateway"
+    code: "ARCHIVE_SWEEP_FAILED"
+    title: "Archive sweep failed"
+    status: 502
+    detail: "A ReSql step in the archive sweep returned an error. See jobs_execution_log."
+  status: 502
+  wrapper: false
+  next: end

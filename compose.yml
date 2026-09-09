@@ -22,6 +22,27 @@ services:
       retries: 20
       start_period: 10s
 
+  # Separate PostgreSQL instance holding archive.consignments cold storage. The live gate DB
+  # reaches it only through postgres_fdw; Ruuter/ReSql never connect here directly.
+  archive-database:
+    container_name: efti_archive_database
+    image: postgres:18
+    cpus: '0.5'
+    mem_limit: 512M
+    environment:
+    - POSTGRES_USER=efti
+    - POSTGRES_PASSWORD=01234
+    - POSTGRES_DB=efti_archive
+    volumes:
+    - archive-data:/var/lib/postgresql
+    - ./DSL/Liquibase/archive-init.sql:/docker-entrypoint-initdb.d/archive-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U efti -d efti_archive"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
   liquibase:
     container_name: efti_liquibase
     build:
@@ -29,6 +50,8 @@ services:
       dockerfile: docker/liquibase/Dockerfile
     depends_on:
       database:
+        condition: service_healthy
+      archive-database:
         condition: service_healthy
     volumes:
     - ./DSL/Liquibase:/liquibase/changelog:ro
@@ -56,6 +79,8 @@ services:
       start_period: 10s
     depends_on:
       database:
+        condition: service_healthy
+      archive-database:
         condition: service_healthy
       liquibase:
         condition: service_completed_successfully
@@ -197,6 +222,7 @@ services:
 
 volumes:
   data:
+  archive-data:
   tara-mock-vault:
   tim-jwt-key:
   tim-data:
