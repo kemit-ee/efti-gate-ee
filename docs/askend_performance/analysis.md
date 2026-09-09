@@ -464,8 +464,10 @@ osuti on avaldise-mootoris ja HTTP-kliendis, mitte toores CPU-kvoot.
   taggimata fix (#27 `password_env` vs URL-i userinfo) — efti kasutab credential-free
   URL-i + `password_env`, seega ei puuduta.
 - Docker Hub oli bumpi ajal maas (`registry-1.docker.io ... EOF`) → 0.9.14-rc pilti
-  ei saanud lokaalselt tõmmata. **4j numbrid on 0.9.12-rc pealt.** CI tõmbab 0.9.14-rc;
-  kordan mõõtmise, kui Hub taastub.
+  ei saanud tõmmata; ka lokaalne build `/code/Ruuter`-ist kukkus (crates.io
+  kättesaamatu build-konteinerist, TLS connect error). **4j numbrid on 0.9.12-rc
+  pealt.** CI tõmbab 0.9.14-rc; kordan mõõtmise, kui võrk taastub. 0.9.13/0.9.14
+  on korrektsusfixid, mitte jõudlustöö → 4j kihtide vahe ei muutu oluliselt.
 
 **Ruuter #79** — `guard → template: → sama guard` lõpmatu rekursioon, protsessi crash
 (exit 134) 0.9.11–0.9.12-rc korral. **Reporter: @sviljus.** Parandatud **0.9.13-rc**:
