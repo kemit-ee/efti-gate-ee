@@ -137,7 +137,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 
 1. **Append-only everywhere.** Every operational table is INSERT-only. "Updates" insert a new row with the same logical id; latest `created_at` wins.
 2. **No JOINs on hot path.** Search columns are denormalised onto `consignments` directly — the rule targets *cross-table* joins (`consignments` → `gates`/`platforms`/…). A self-correlated anti-join against `consignments` itself for append-only latest-row semantics (ADR-009) is allowed — the planner serves it as an Index Only Scan on `idx_consignments_dataset_latest`, not a materialised join.
-3. **Archival by CronManager.** Non-latest rows moved by external Quartz scheduler.
+3. **Archival by CronManager.** Non-latest rows moved by external Quartz scheduler. For `consignments` the destination is `archive.consignments` (own schema, no CHECK/FK, `row_id` PK, idempotent `ON CONFLICT DO NOTHING`) and the sweep is `archive.sweep_consignments(p_older_than interval)` — moves only rows whose superseding row is older than the retention window, so the current row (incl. a `DELETED` tombstone) always stays live. `db_archiver` executes it; `app` has no access to `archive`. Migration: `DSL/Liquibase/changelog/20260910-consignments-archive.sql`.
 
 ## Kotlin services
 
