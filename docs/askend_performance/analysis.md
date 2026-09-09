@@ -531,10 +531,10 @@ kohe, stubi pole vaja.
 `x-poll: ${incoming.body.poll}` päis lisatud (kannab `{"poll": true}` int[ent]i core'i
 `check_poll`-ini; null-väärtus kukub http-sammus välja, Ruuter #57).
 
-**Testimuudatused:** `tests/authority/authority-api.http` — lokaalne tabamus annab
-nüüd `x-poll-more: true` (mitte `false`); lokaalse miss'i esmavastus on `[]` kohe;
-teise gate'i tulemus (`MOCK-123` / `EU-MOCK`) tuleb `X-Poll` päringus.
-`tests/authority/xroad-forward.http` — muudatust ei vaja (ei kontrolli `x-poll-more`-i).
+**Testimuudatused:** `tests/authority/authority-api.http` — lokaalne tabamus jääb
+`x-poll-more: false` (autoriteetne, stopp); lokaalse miss'i esmavastus on `[]` kohe
+`x-poll-more: true`-ga; teise gate'i tulemus (`MOCK-123` / `EU-MOCK`) tuleb `X-Poll`
+päringus. `tests/authority/xroad-forward.http` — muudatust ei vaja.
 
 ### 6.10 — Ruuteri sisemine `http.post` (otsus 1: mida saab olemasoleva koodiga)
 
@@ -544,3 +544,30 @@ DSL-samme kuumal teel vähem (otsus 3 võttis guard'i-topelduse; `start_broadcas
 lisab ühe sammu aga kaotab 65 s blokeeringu), `ruuter cpus` tõstetud (§6.6). Ruuteri
 `http.post` connection-reuse ReSql-i suunas on Ruuteri-poolne, mitte efti DSL — see
 läheb Ruuteri arendajatele (eraldi issue).
+
+### 6.11 — ADR-009 rakendatud: `get_consignments.sql` → C6
+
+`DSL/Resql/efti/POST/get_consignments.sql` kirjutatud ümber (ADR-009):
+`SELECT DISTINCT ON (platform_id, dataset_id) * FROM consignments ORDER BY …` sisemine
+alampäring → `FROM consignments c` + `NOT EXISTS`-anti-join "sellele datasetile pole
+uuemat rida". Kriteeriumiplokid jäid muutmata (viitavad `c`-le). `ORDER BY` muutus
+`platform_id, dataset_id, created_at DESC → created_at DESC`.
+
+**Elav plaan** (`docs/askend_performance/explain-c6-live.txt`, 200 001 rida,
+`work_mem=4MB`):
+```
+Limit → Sort (quicksort, 25kB) → Nested Loop Anti Join
+  → Index Scan idx_consignments_main_transport_id  (Index Cond: main_transport_id = 'BULK-100000')
+  → Index Only Scan idx_consignments_dataset_latest (Heap Fetches: 0)
+Buffers: shared hit=16          (vana päring: 245 MB external merge Disk)
+Execution Time: 1.123 ms        (vana päring: 2 775 ms @200k / 23 337 ms @1M)
+```
+
+Semantiline test roheline (`C6 == C0`: vananenud `AAA` → tühi, `BBB,CCC` → mõlemad).
+Täis `http-tests` **198/198**, `dsl-lint` 74/74.
+
+**Teised `FROM consignments` lugemised** (`get_consignment_xml`, `get_consignment_by_id`,
+`get_consignments_by_transport_means`, `check_transport_means_registered`) — üle
+vaadatud, **muutmist ei vaja**: kõik filtreerivad juba enne `DISTINCT ON`-i
+(`WHERE dataset_id = :id` või `WHERE (dataset_id, platform_id) IN (… WHERE
+main_transport_id = :id)`), seega sort ei jookse kunagi kogu tabeli üle.

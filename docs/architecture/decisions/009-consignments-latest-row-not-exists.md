@@ -119,17 +119,25 @@ eraldi changeset'iga; praegu pole vaja.
 
 SQL-failide ümberkirjutus (mitte Liquibase — ReSql `.sql` endpoint'id):
 
-- `DSL/Resql/efti/POST/get_consignments.sql` — põhipäring, C6 muster
-- Üle vaadata ja sama mustrisse viia:
-  - `DSL/Resql/efti/POST/get_consignments_by_transport_means.sql`
-  - `DSL/Resql/efti/POST/get_consignment_by_id.sql`
-  - `DSL/Resql/efti/POST/get_consignment_xml.sql`
-  - `DSL/Resql/efti/POST/check_transport_means_registered.sql`
-  - `DSL/Resql/efti/POST/soft_delete_consignment.sql` (kui loeb enne kirjutamist)
+- **`DSL/Resql/efti/POST/get_consignments.sql` — TEHTUD.** C6 muster; kriteeriumiplokid
+  jäid muutmata (viitavad `c`-le, ainus tabel välises skoobis), lisatud `NOT EXISTS`
+  anti-join, `ORDER BY` `(platform_id, dataset_id, created_at DESC) → created_at DESC`.
+  Mõõdetud elavalt (`docs/askend_performance/explain-c6-live.txt`, 200k rida):
+  `Nested Loop Anti Join` (`Index Scan idx_consignments_main_transport_id` +
+  `Index Only Scan idx_consignments_dataset_latest`, Heap Fetches 0), **1,1 ms** vs
+  vana 2775 ms + 245 MB kettasort. Semantiline test roheline, `http-tests` 198/198.
+- **Teised `FROM consignments` lugemised — üle vaadatud, muutmist ei vaja:**
+  - `get_consignment_xml.sql`, `get_consignment_by_id.sql` — `WHERE dataset_id = :id`
+    kohe alguses, `DISTINCT ON` jookseb ainult ühe dataset'i ridade üle (indekseeritud).
+  - `get_consignments_by_transport_means.sql`, `check_transport_means_registered.sql` —
+    juba filter-first: sisemine `WHERE (dataset_id, platform_id) IN (SELECT … WHERE
+    main_transport_id = :id)` piirab `DISTINCT ON`-i identifikaatorit kunagi kandnud
+    dataset'idele, mitte kogu tabelile (kommentaarid failides selgitavad append-only
+    semantikat). Sama juurpõhjust siin pole.
 - `AGENTS.md` — "No JOINs on hot path" täpsustus (korreleeritud anti-join sama tabeli vastu
-  append-only semantika jaoks on lubatud)
-- Semantiline regressioonitest `docs/askend_performance/semantic-test.sql` viia
-  `tests/`-i alla püsivaks testiks
+  append-only semantika jaoks on lubatud). **TEHTUD.**
+- Semantiline regressioonitest `docs/askend_performance/semantic-test.sql` `tests/`-i alla
+  püsivaks testiks — *lahtine.*
 
-Mõõtmised ja taastootmine: `docs/askend_performance/analysis.md` §6.4,
-`docs/askend_performance/explain-candidates-1m.{sql,txt}`.
+Mõõtmised ja taastootmine: `docs/askend_performance/analysis.md` §6.4/§6.11,
+`docs/askend_performance/explain-candidates-1m.{sql,txt}`, `explain-c6-live.txt`.

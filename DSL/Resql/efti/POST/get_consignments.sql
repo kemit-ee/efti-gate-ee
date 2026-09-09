@@ -34,12 +34,22 @@ SELECT
   carried_equipment_categories,
   carried_equipment_seq,
   created_at
-FROM (
-  SELECT DISTINCT ON (platform_id, dataset_id) *
-  FROM consignments
-  ORDER BY platform_id, dataset_id, created_at DESC
-) latest
-WHERE status != 'DELETED'
+-- ADR-009: filter first against the base table, then keep only the rows that are the current
+-- version of their (platform_id, dataset_id). The self-correlated NOT EXISTS ("no newer row for
+-- this dataset") replaces the old inner `SELECT DISTINCT ON (platform_id, dataset_id) * FROM
+-- consignments ORDER BY ...`, which materialised the latest-per-dataset set over the WHOLE table
+-- on every call (1M rows -> ~23s external-merge sort). Now the criteria predicate uses its btree
+-- index and the anti-join is an Index Only Scan on idx_consignments_dataset_latest. Append-only
+-- and "no cross-table JOINs on the hot path" both preserved. Semantically identical to the old
+-- query (docs/askend_performance/semantic-test.sql).
+FROM consignments c
+WHERE c.status != 'DELETED'
+  AND NOT EXISTS (
+    SELECT 1 FROM consignments c2
+    WHERE c2.platform_id = c.platform_id
+      AND c2.dataset_id  = c.dataset_id
+      AND c2.created_at   > c.created_at
+  )
   AND (:gateId IS NULL OR gate_id = :gateId)
   AND (:criteria->>'transportMode' IS NULL
        OR :criteria->'transportMode'->>'operator' = 'EQ' AND transport_mode = :criteria->'transportMode'->>'mode'
@@ -161,5 +171,5 @@ WHERE status != 'DELETED'
        OR :criteria->'unloadingDate'->1->>'operator' = 'GT' AND unloading_date > (:criteria->'unloadingDate'->1->>'date')::timestamptz
        OR :criteria->'unloadingDate'->1->>'operator' = 'GE' AND unloading_date >= (:criteria->'unloadingDate'->1->>'date')::timestamptz
   )
-ORDER BY platform_id, dataset_id, created_at DESC
+ORDER BY created_at DESC
 LIMIT COALESCE(:limit, 100) OFFSET COALESCE(:offset, 0);
