@@ -300,10 +300,42 @@ oli 1M peal 23,3 s — `explain-1m-current.txt`. C1/C6/C3 on indeksi-otsingud �
 Täisplaanid: `docs/askend_performance/explain-candidates-1m.txt`
 (skript: `explain-candidates-1m.sql`).
 
-**Peamine järeldus:** **C1 annab ~99,96% võidust ilma skeemimuutuseta ja ilma
-insert-only rikkumiseta** (2775 ms → 1,2 ms). Ainus küsimus on semantiline
-äärejuht. C3 võidab veel ~1 ms juurde, aga maksab insert-only puhtuse. C6 on
-kiireim, aga planeerija teeb sellest anti-join'i.
+### 6.4 — C1 + C6 koos = **C6** (append-only vastus)
+
+Küsimus oli: kas C1 ja C6 koos annavad efekti, arvestades et baas on append-only?
+**Vastus: C6 ongi juba "C1 + C6".** C6 päring filtreerib esmalt kriteeriumi järgi
+(= C1 osa, kasutab `idx_consignments_main_transport_id`-i), siis `NOT EXISTS`
+kontrollib iga kandidaadi kohta "kas sellele datasetile on uuem rida" (parandab
+C1 semantilise vea).
+
+**Semantiline test** (dataset re-uploaditud: `main_transport_id` `AAA` → `BBB`):
+
+| päring | otsing "AAA" (vananenud id) | otsing "BBB"+"CCC" (praegused) |
+|---|---|---|
+| C0 praegune | `(tühi)` ✓ | `BBB,CCC` ✓ |
+| C1 filter-first | **`AAA`** ✗ (vale — vananenud rida) | — |
+| **C6 (C1 + NOT EXISTS)** | `(tühi)` ✓ | `BBB,CCC` ✓ |
+
+**C6 omadused:**
+- **Append-only puhas** — ei mingit `is_latest` veergu, ei mingit UPDATE-i,
+  `app` roll jääb SELECT+INSERT. Sobib append-only mudeliga.
+- **Semantiliselt identne C0-ga** (kontrollitud ülal).
+- **~0,09 ms** vs C0 2775 ms @200k (23 s @1M). Skaleerub tulemuste arvuga
+  (spetsiifiline vessel/container ID → 1–paar kandidaati → ~0,1 ms; lai filter
+  → rohkem indeksi-otsinguid, aga endiselt lineaarne tabamuste arvus, mitte
+  tabeli suuruses).
+
+**Ainus lahtine punkt:** planeerija plaan on `Nested Loop Anti Join`. AGENTS.md
+"No JOINs on hot path" mõte on **mitte joinida `consignments`-i teiste
+tabelitega** (`gates`/`platforms`/...) — selleks ongi väljad denormaliseeritud.
+Self-korreleeritud anti-join "viimase rea" kontrolliks on append-only logist
+praeguse seisu lugemise **olemuslik hind** (variandid: C3 markeri UPDATE / C0
+sort kõik / C6 "pole uuemat"). Vaja meeskonna otsust + kirja panna (ADR või
+AGENTS.md täpsustus).
+
+**Soovitus:** C6. Kui meeskond `NOT EXISTS` anti-join'i vastu on → C3 (`is_latest`
+trigger, väike append-only kompromiss) või kinnitada et identifikaatoriväljad ei
+muutu ja võtta C1.
 
 **C1 semantiline risk konkreetselt:** dataset X laaditakse v1 (`main_transport_id
 = 'A'`), siis v2 (`'B'`). Otsing `main_transport_id = 'A'`:
