@@ -348,3 +348,16 @@ Kui identifikaatoriväljad on `dataset_id` eluea jooksul praktikas muutumatud
 ohutu. **Vajab meeskonna kinnitust.**
 
 Tulemused (`docs/askend_performance/explain-candidates-1m.txt`): `<TODO>`
+
+### 6.5 — Otsus: läheme C6 peale (ADR-009)
+
+Sten otsustas (09.09.2026): `consignments` lugemised lähevad **C6** mustrile
+(filter-first + `NOT EXISTS` viimase-rea kontroll), `DISTINCT ON` alampäring
+kaob. Vormistatud: [`docs/architecture/decisions/009-consignments-latest-row-not-exists.md`](../architecture/decisions/009-consignments-latest-row-not-exists.md).
+
+Rakendus (järgmine samm):
+- `DSL/Resql/efti/POST/get_consignments.sql` ümber C6-le
+- üle vaadata `get_consignments_by_transport_means.sql`, `get_consignment_by_id.sql`,
+  `get_consignment_xml.sql`, `check_transport_means_registered.sql`
+- `AGENTS.md` — "No JOINs on hot path" täpsustus
+- `semantic-test.sql` → püsiv test `tests/` alla
