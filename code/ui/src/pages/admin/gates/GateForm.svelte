@@ -8,7 +8,7 @@
   import CheckboxField from 'src/forms/CheckboxField.svelte'
   import EDeliveryFields from 'src/pages/admin/EDeliveryFields.svelte'
   import CountrySelect from 'src/pages/admin/CountrySelect.svelte'
-  import {type GateRequest, type Gate, Status} from "src/api/ruuterTypes";
+  import {type Gate, type GateRequest, Status} from "src/api/ruuterTypes";
 
   export let gate: Gate
   export let onSaved = () => {}
@@ -44,10 +44,6 @@
   <FormField label={t.gates.eDeliveryUrl} type="url" bind:value={gate.eDeliveryUrl} placeholder={t.gates.eDeliveryUrlPlaceholder} {disabled}/>
 
   <EDeliveryFields bind:entity={gate} {disabled}/>
-
-  <!--TODO add xsd support
-  <SelectField label={t.gates.xsdSupport} options={t.xsdSupport} bind:value={gate.xsdSupport} {disabled}/>
-  -->
 
   {#if !disabled}
     <div class="flex gap-4 items-center">
