@@ -405,9 +405,12 @@ Rakendus (järgmine samm):
 `compose.yml` pealt):
 | teenus | enne | nüüd |
 |---|---|---|
-| `database` | limiiti polnud | `cpus: '1.0'`, `mem_limit: 1G` |
-| `ruuter` | `cpus: '0.5'`, `mem 512M` | `cpus: '1.0'`, `mem 512M` |
+| `database` | limiiti polnud | `cpus: '2.0'`, `mem_limit: 1G` |
+| `ruuter` | `cpus: '0.5'`, `mem 512M` | `cpus: '2.0'`, `mem 512M` |
 | `resql` pool (`resql.yaml max_connections`) | 10 | **75** (PG default `max_connections` on 100 — jäetud puutumata, 25 jääb liquibase / tim / ad-hoc psql jaoks) |
+| `archive-database` (uus, eraldi PG) | — | `cpus: '0.5'`, `mem 512M` |
+
+(Jaotiste 4j / 6.7 mõõtmised tehti `cpus: '1.0'` peal — vahepealne samm; number tõsteti hiljem `2.0`-le.)
 
 ### 6.7 — Hop-latents: ruuter → resql → db (`hop-latency.sh`)
 

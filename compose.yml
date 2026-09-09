@@ -4,7 +4,7 @@ services:
   database:
     container_name: efti_database
     image: postgres:18
-    cpus: '1.0'
+    cpus: '2.0'
     mem_limit: 1G
     environment:
     - POSTGRES_USER=efti
@@ -91,7 +91,7 @@ services:
       context: .
       dockerfile: docker/ruuter/Dockerfile
     platform: linux/amd64
-    cpus: '1.0'
+    cpus: '2.0'
     depends_on:
       - resql
     mem_limit: 512M
