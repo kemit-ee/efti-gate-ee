@@ -8,6 +8,7 @@ import efti.xml.fti.FTIResponseCode.Completed
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import klite.HttpExchange
+import klite.StatusCode.Companion.NotFound
 import klite.annotations.POST
 import klite.uuid
 
@@ -35,8 +36,10 @@ class SearchRoutes(val requestIdHandler: RequestIdHandler) {
       } ?: emptyList() }
 
   @Operation(description = "Map ConsignmentRow as JSON to FTI021SearchIdentifierResponse as XML. Meant for other Gate request.")
-  @POST("/response-to-xml") fun responseToXml(consignments: List<ConsignmentRow>, e: HttpExchange): String =
-    FTI021SearchIdentifierResponse(ExchangedDocument("021", e.requestId.uuid, responseCode = Completed)).render(
+  @POST("/response-to-xml") fun responseToXml(consignments: List<ConsignmentRow>, e: HttpExchange): String {
+    val note = if (consignments.isEmpty()) IncludedNote("No consignments found", NotFound) else null
+    return FTI021SearchIdentifierResponse(ExchangedDocument("021", e.requestId.uuid, responseCode = Completed, includedNote = note)).render(
       consignments.map { UniqueIDSetUniqueIDSet(UIL(it.platformId, it.datasetId, it.gateId)).render(it.xml) }
     )
+  }
 }
