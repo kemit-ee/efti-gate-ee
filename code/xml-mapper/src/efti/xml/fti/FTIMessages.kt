@@ -85,7 +85,7 @@ data class IncludedNote(
 }
 
 data class ExchangedDocument(
-  val typeCode: String, // e.g. 004
+  val typeCode: String?, // e.g. 004
   @XmlPath("RequestedSpecifiedQuery/ID") val queryId: UUID,
   val id: UUID = UUID.randomUUID(),
   val issueDateTime: DateTimeString = DateTimeString(),
@@ -97,7 +97,7 @@ data class ExchangedDocument(
   @Language("xml") fun render() = buildString {
     append("<rsm:ExchangedDocument>")
     append(id.render())
-    append("<TypeCode>$typeCode</TypeCode>")
+    typeCode?.let { append("<TypeCode>$it</TypeCode>") }
     responseCode?.let { append("<StatusCode>$it</StatusCode>") }
     append("<IssueDateTime>${issueDateTime.render()}</IssueDateTime>")
     includedNote?.let { append("<IncludedNote>${it.render()}</IncludedNote>") }
