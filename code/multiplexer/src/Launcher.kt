@@ -27,7 +27,11 @@ fun main() {
       annotated<MultiplexerRoutes>()
 
       openApi(annotations = listOf(
-        OpenAPIDefinition(info = Info(title = "Multiplexer", version = "1.0")),
+        OpenAPIDefinition(info = Info(
+          title = "Multiplexer",
+          version = "1.0",
+          description = "Internal fan-out API for querying registered eFTI gates."
+        )),
       ))
     }
 

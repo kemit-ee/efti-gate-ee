@@ -30,7 +30,11 @@ fun main() {
       annotated<FollowUpRoutes>("/followup")
 
       openApi(annotations = listOf(
-        OpenAPIDefinition(info = Info(title = "XML-Mapper", version = "1.0")),
+        OpenAPIDefinition(info = Info(
+          title = "XML-Mapper",
+          version = "1.0",
+          description = "Internal mapping API between eFTI XML messages and the gate's JSON domain models."
+        )),
       ))
     }
 

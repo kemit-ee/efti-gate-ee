@@ -1,4 +1,9 @@
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.headers.Header
+import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.Schema
+import io.swagger.v3.oas.annotations.parameters.RequestBody
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import klite.*
 import klite.StatusCode.Companion.GatewayTimeout
 import klite.annotations.GET
@@ -20,7 +25,10 @@ class MultiplexerRoutes(private val registry: MultiplexerGateRegistry, private v
   private val eDeliveryUrl = URI(Config["EDELIVERY_URL"])
   private val pending = Cache<UUID, PartyResponses>(90.seconds)
 
-  @Operation(description = "Multiplex a search request to all gates. Returns first response as XML.")
+  @Operation(summary = "Fan out a search request", description = "Sends the search request to all registered gates and returns the first available response. Poll the rest endpoint while x-poll-more is true.")
+  @RequestBody(description = "eFTI search request XML document", content = [Content(mediaType = MimeTypes.xml, schema = Schema(type = "string"))])
+  @ApiResponse(responseCode = "200", description = "The first matching response as XML", headers = [Header(name = pollMoreHeader, description = "Whether additional responses are available from the rest endpoint", schema = Schema(type = "boolean"))], content = [Content(mediaType = MimeTypes.xml, schema = Schema(type = "string"))])
+  @ApiResponse(responseCode = "504", description = "No gate response arrived before the timeout")
   @POST("/first/:searchId") fun multiplex(xml: String, @PathParam searchId: UUID, e: HttpExchange): String {
     currentThread().name = searchId.toString()
     val responses = PartyResponses()
@@ -48,7 +56,8 @@ class MultiplexerRoutes(private val registry: MultiplexerGateRegistry, private v
       ?: throw StatusCodeException(GatewayTimeout)
   }
 
-  @Operation(description = "Returns rest of the received responses as XMLs with string delimiter '⦀'. Can be polled.")
+  @Operation(summary = "Poll remaining responses", description = "Returns the remaining gate responses as XML documents separated by ⦀. Repeat while x-poll-more is true.")
+  @ApiResponse(responseCode = "200", description = "Remaining XML responses separated by ⦀, or an empty body when none remain", headers = [Header(name = pollMoreHeader, description = "Whether more responses may arrive", schema = Schema(type = "boolean"))], content = [Content(mediaType = MimeTypes.xml, schema = Schema(type = "string"))])
   @GET("/rest/:searchId") fun rest(@PathParam searchId: UUID, e: HttpExchange): String {
     val responses = pending[searchId]
 

@@ -39,7 +39,11 @@ fun main() {
       annotated<InternalRoutes>()
 
       openApi(annotations = listOf(
-        OpenAPIDefinition(info = Info(title = "eDelivery", version = "1.0")),
+        OpenAPIDefinition(info = Info(
+          title = "eDelivery",
+          version = "1.0",
+          description = "Internal eDelivery AS4 integration API used by the gate services."
+        )),
       ))
     }
 
