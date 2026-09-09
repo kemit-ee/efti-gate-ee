@@ -1,5 +1,3 @@
-# TODO: forward x-request-id all the way; including remote gates and platforms
-
 ### Setup: upload a consignment to search for
 # X-Api-Key hashed and matched against platforms.api_key_hash by consignments.guard
 POST {{RUUTER_URL}}/platforms/v1/consignments

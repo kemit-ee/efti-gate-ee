@@ -2,11 +2,16 @@ declaration:
   description: "Follow-up message through eDelivery"
   allowed_body: [xml]
 
+setup:
+  assign:
+    requestId: ${incoming.headers['x-request-id']}
+
 parse_xml:
   call: http.post
   args:
     url: "[#XML_MAPPER_URL]/api/v1/followup/request-to-json"
     headers:
+      x-request-id: ${requestId}
       Content-Type: "text/xml"
     content_type: plaintext
     body:
@@ -21,6 +26,7 @@ call_follow_up:
   # lives under this same guarded directory (efti/POST/api/v1/.guard.yml), so forward the
   # token this route was itself called with.
   headers:
+    x-request-id: ${requestId}
     x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
   body: ${followup_json.response.body}
   result: followup_response
@@ -30,6 +36,7 @@ to_xml:
   args:
     url: "[#XML_MAPPER_URL]/api/v1/followup/response-to-xml"
     headers:
+      x-request-id: ${requestId}
       Content-Type: "application/json"
     body: ${followup_response}
   result: xml_response

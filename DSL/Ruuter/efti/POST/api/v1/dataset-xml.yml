@@ -2,11 +2,16 @@ declaration:
   description: "Retrieve dataset from local platform via eDelivery"
   allowed_body: [xml]
 
+setup:
+  assign:
+    requestId: ${incoming.headers['x-request-id']}
+
 parse_request:
   call: http.post
   args:
     url: "[#XML_MAPPER_URL]/api/v1/dataset/request-to-json"
     headers:
+      x-request-id: ${requestId}
       Content-Type: "text/xml"
     content_type: plaintext
     body:
@@ -21,6 +26,7 @@ call_dataset:
   # lives under this same guarded directory (efti/POST/api/v1/.guard.yml), so forward the
   # token this route was itself called with.
   headers:
+    x-request-id: ${requestId}
     x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
   body: ${request_json.response.body}
   result: dataset_response
@@ -30,6 +36,7 @@ to_xml:
   args:
     url: "[#XML_MAPPER_URL]/api/v1/dataset/response-to-xml"
     headers:
+      x-request-id: ${requestId}
       Content-Type: "application/json"
     body: ${dataset_response}
   result: xml_response

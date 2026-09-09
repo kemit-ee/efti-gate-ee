@@ -7,6 +7,10 @@ declaration:
         In this case, datasetId must be provided as path parameter.
   allowed_body: [xml]
 
+setup:
+  assign:
+    requestId: ${incoming.headers['x-request-id']}
+
 consignment_to_json:
   call: http.post
   args:
@@ -16,6 +20,7 @@ consignment_to_json:
     content_type: plaintext
     headers:
       content-type: "text/xml"
+      x-request-id: ${requestId}
       x-gate-id: ${incoming.headers['x-gate-id'] ?? '[#OWN_GATE_ID]'}
       x-platform-id: ${(typeof platform !== 'undefined' && platform && platform.id) || null}
       x-dataset-id: ${incoming.params?.pathParams?.[0]}

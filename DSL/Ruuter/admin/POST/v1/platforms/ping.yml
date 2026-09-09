@@ -1,3 +1,7 @@
+setup:
+  assign:
+    requestId: ${incoming.headers['x-request-id']}
+
 get_platform:
   call: http.post
   args:
@@ -39,6 +43,7 @@ ping_edelivery:
     url: "[#EDELIVERY_URL]/api/v1/ping/${incoming.params.pathParams[0]}"
     headers:
       Content-Type: "application/json"
+      x-request-id: ${requestId}
     body: {}
   result: ping_result
   next: check_edelivery_ping

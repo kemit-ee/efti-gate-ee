@@ -1,6 +1,10 @@
 declaration:
   description: "Authority sends a follow-up message to a Platform via the gate (TARA JWT)"
 
+setup:
+  assign:
+    requestId: ${incoming.headers['x-request-id']}
+
 check_gate:
   switch:
     - condition: ${incoming.body.uil.gateId != '[#OWN_GATE_ID]'}
@@ -14,6 +18,7 @@ call_local_platform:
   # itself under efti/POST/api/v1/authority/.guard.yml (same X-Internal-Service-Token
   # credential as follow-up-local's own efti/POST/api/v1/.guard.yml), so forward it.
   headers:
+    x-request-id: ${requestId}
     x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
   body: ${incoming.body}
   result: followup_response
@@ -29,6 +34,7 @@ forward_to_remote_gate:
   args:
     url: "[#XML_MAPPER_URL]/api/v1/followup/request-to-xml"
     headers:
+      x-request-id: ${requestId}
       Content-Type: "application/json"
     body:
       uil: ${incoming.body.uil}
@@ -44,7 +50,7 @@ send_via_edelivery:
     url: "[#EDELIVERY_URL]/api/v1/send/${incoming.body.uil.gateId}"
     headers:
       Content-Type: "text/xml"
-      x-request-id: ${incoming.headers['x-request-id'] ?? ''}
+      x-request-id: ${requestId}
     body: ${followup_xml.response.body}
     content_type: plaintext
   result: edelivery_response
@@ -59,6 +65,7 @@ response_to_json:
   args:
     url: "[#XML_MAPPER_URL]/api/v1/followup/response-to-json"
     headers:
+      x-request-id: ${requestId}
       Content-Type: "text/xml"
     body: ${edelivery_response.response.body}
     content_type: plaintext

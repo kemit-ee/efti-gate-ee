@@ -2,6 +2,10 @@ declaration:
   description: "Accept consignment XML from Platform through eDelivery"
   allowed_body: [xml]
 
+setup:
+  assign:
+    requestId: ${incoming.headers['x-request-id']}
+
 call_consignment:
   template: v1/consignments
   request_type: "POST"
@@ -11,6 +15,7 @@ call_consignment:
   # (edelivery, over the internal network), so forward the internal-service credential
   # rather than an X-Api-Key we don't have here; platforms/.guard.yml accepts either.
   headers:
+    x-request-id: ${requestId}
     x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
   body:
     xml: ${incoming.body.xml}
@@ -21,6 +26,7 @@ to_xml:
   args:
     url: "[#XML_MAPPER_URL]/api/v1/upload/response-to-xml"
     headers:
+      x-request-id: ${requestId}
       Content-Type: "application/json"
     body: ${consignment_response}
   result: xml_response
