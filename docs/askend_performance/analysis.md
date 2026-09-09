@@ -484,6 +484,8 @@ leiu + fix-versiooniga.
 
 ### 6.9 — authority/search: local-first + broadcast, ei blokeeru enam (otsused 2/3/4)
 
+Vormistatud: [`docs/architecture/decisions/010-authority-search-non-blocking.md`](../architecture/decisions/010-authority-search-non-blocking.md).
+
 **Otsus 2 — `docker/dsl-tools/` maha.** 0.9.14-rc pildis on `dsl-lint` / `dsl-test`
 (`/usr/local/bin/`, Ruuter #83). `docker/dsl-tools/Dockerfile` kustutatud;
 `.github/workflows/e2e.yml` + `.gitlab-ci.yml` jooksutavad tööriistu otse
@@ -502,20 +504,25 @@ päringu kohta (§4j: guard'i-samm oli mõõdetavalt kallis).
 
 *Nüüd:*
 - `local_search` alati.
-- `criteria_to_xml` → `start_broadcast` = **mitte-blokeeriv** `POST /api/v1/search/:id`
-  (multiplexer registreerib otsingu, fännib teistele gate'idele taustal, tagastab kohe).
-- `respond_local` → tagastab **selle gate'i tulemuse kohe** (`[]` või read) +
-  `x-poll-more: true`.
+- **lokaalne tabamus** → `respond_local` (`x-poll-more: false`), broadcast'i ei tehta —
+  see gate on oma konsignatsioonide osas autoriteetne.
+- **lokaalne miss** → `criteria_to_xml` → `start_broadcast` = **mitte-blokeeriv**
+  `POST /api/v1/search/:id` (multiplexer registreerib, fännib taustal, tagastab kohe) →
+  `respond_pending` = `[]` + `x-poll-more: true`.
 - Teiste gate'ide tulemused: klient kordab päringut `X-Request-Id` + `X-Poll` +
   `{}` kehaga → `poll_remaining` = `GET /api/v1/rest/:id`.
 
 **Multiplexer** (`code/multiplexer/src/MultiplexerRoutes.kt`):
 - `POST /api/v1/first/:id` (blokeeriv `poll(63s)` + 504) **eemaldatud**, asendatud
-  `POST /api/v1/search/:id`-ga (kohene 202, fan-out `AppScope.async`-is).
+  `POST /api/v1/search/:id`-ga (kohene 202/204, fan-out `AppScope.async`-is).
 - `GET /api/v1/rest/:id` = piiratud long-poll: kui midagi pole veel saabunud ja
-  gate'id veel vastavad, ootab esimest kuni 10 s (mitte tühja kohe); muidu
-  tagastab kohe. **Kunagi 500.** Tundmatu `searchId` → tühi + `x-poll-more:false`.
-- Testid uuendatud, `multiplexer:test` roheline.
+  gate'id veel vastavad, ootab esimest kuni **30 s** (`MULTIPLEXER_REST_POLL_SECONDS`);
+  muidu tagastab kohe. **Kunagi 500.** Tundmatu `searchId` → tühi + `x-poll-more:false`.
+- `multiplexer:test` roheline; **täis `http-tests` 198/198**.
+
+**Testikeskkonna parandus:** `tests/admin/gates.http` lõi `EU-EE32` gate'i
+(kättesaamatu URL `eu-ee32.eftisandbox.eu`) ega kustutanud → iga hilisem broadcast
+ootas selle vastu 60 s AS4 timeout'i välja. Lisatud teardown DELETE.
 
 **`X-Skip-Gate-Forward` benchmark-stub (§6.1) eemaldatud** — päris tee vastab nüüd
 kohe, stubi pole vaja.
