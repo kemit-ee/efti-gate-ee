@@ -286,15 +286,24 @@ denormaliseeritud). Seega:
 
 | Kandidaat | JOIN? | insert-only? | semantika täpne? | 1M plaan / aeg |
 |---|:---:|:---:|:---:|---|
-| **C0 praegune** — `DISTINCT ON` üle terve tabeli, filter pärast | ei | jah | jah | Sort 245 MB kettale → **23,3 s** (mõõdetud, jaotis 4c) |
-| **C1 filter-first** — kriteerium inner `WHERE`-i, dedupe ainult tabamused | ei | jah | **ei** (vt allpool) | ootuspäraselt Index Scan `idx_consignments_main_transport_id` peal → ~ms; **mõõtmata** |
-| **C6 `NOT EXISTS`** — filter first + "pole uuemat rida sellele datasetile" | võtmesõna `JOIN` ei; **on self-korreleeritud alampäring, mida planeerija teeb anti-join'ina** → tõenäoliselt "no JOINs" mõtte vastu; meeskonna otsus | jah | jah | **mõõtmata** |
-| **C3 `is_latest` lipp** — `WHERE is_latest AND <kriteerium>` | ei | **ei** — 1 UPDATE per insert (cache-veerg; `consignments` domeeni-andmed jäävad muutumatuks, flip tehakse triggeriga, `app` jääb INSERT-only) | jah | Index Scan `main_transport_id` peal → **1,7 ms** (mõõdetud, jaotis 4f) |
+Mõõdetud **200 000 real** (1M kukutas selle masina Docker VM-i korduvalt; C0
+oli 1M peal 23,3 s — `explain-1m-current.txt`. C1/C6/C3 on indeksi-otsingud →
+~konstant tabeli suurusest sõltumata). `work_mem=4MB`, soe cache:
 
-> **C1/C6 jäid sellel masinal mõõtmata:** 1M rea laadimine 24 indeksiga (6 GIN)
-> kukutas Postgresi korduvalt kokku (Docker Desktopi VM mälupiir). Skript
-> `docs/askend_performance/explain-candidates-1m.sql` — jooksuta korralikul
-> masinal, tulemus `explain-candidates-1m.txt`-i.
+| Kandidaat | JOIN? | insert-only? | semantika täpne? | plaan | aeg @200k |
+|---|:---:|:---:|:---:|---|---|
+| **C0 praegune** | ei | jah | jah | Parallel Seq Scan + **Sort (external merge kettale)** + Unique(200k) + Filter | **2 775 ms** (~23 s @1M) |
+| **C1 filter-first** — kriteerium inner `WHERE`-i, dedupe tabamused | ei | jah | **ei** (vt allpool) | `Index Scan idx_consignments_main_transport_id` → Sort(1) → Unique | **1,2 ms** |
+| **C6 `NOT EXISTS`** — filter first + "pole uuemat rida sellele datasetile" | võtmesõna ei, **aga planeerija plaan on `Nested Loop Anti Join`** → "no JOINs" mõtte vastu; meeskonna otsus | jah | jah | Anti Join: Index Scan + `Index Only Scan idx_consignments_dataset_latest` | **0,09 ms** |
+| **C3 `is_latest` lipp** — `WHERE is_latest AND <kriteerium>` | ei | **ei** — 1 UPDATE per insert (cache-veerg; `consignments` domeeni­andmed jäävad muutumatuks, flip triggeriga, `app` jääb INSERT-only) | jah | `Index Scan idx_consignments_main_transport_id`, Filter `is_latest` | **0,14 ms** |
+
+Täisplaanid: `docs/askend_performance/explain-candidates-1m.txt`
+(skript: `explain-candidates-1m.sql`).
+
+**Peamine järeldus:** **C1 annab ~99,96% võidust ilma skeemimuutuseta ja ilma
+insert-only rikkumiseta** (2775 ms → 1,2 ms). Ainus küsimus on semantiline
+äärejuht. C3 võidab veel ~1 ms juurde, aga maksab insert-only puhtuse. C6 on
+kiireim, aga planeerija teeb sellest anti-join'i.
 
 **C1 semantiline risk konkreetselt:** dataset X laaditakse v1 (`main_transport_id
 = 'A'`), siis v2 (`'B'`). Otsing `main_transport_id = 'A'`:

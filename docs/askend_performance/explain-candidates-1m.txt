@@ -1,0 +1,112 @@
+=== Candidate query comparison @ 200,000 rows (1 matching row: BULK-100000) ===
+dev branch perf/consignments-search-analysis; PG 18.4 aarch64; work_mem=4MB; shared_buffers=128MB
+(200k not 1M — the 1M load with 24 indexes crashes this machine's Docker VM. C0 was 23.3s at 1M:
+ see explain-1m-current.txt. C1/C6/C3 are index lookups → ~constant regardless of table size.)
+
+Pager usage is off.
+Timing is on.
+SET
+Time: 1.213 ms
+######## C0 CURRENT — DISTINCT ON whole table, filter after (no JOIN, insert-only) ########
+                                                                           QUERY PLAN                                                                           
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=30141.41..57934.71 rows=5 width=27) (actual time=2728.722..2768.482 rows=1.00 loops=1)
+   Buffers: shared hit=3982, temp read=2204 written=2207
+   ->  Subquery Scan on latest  (cost=30141.41..57934.71 rows=5 width=27) (actual time=2728.715..2768.473 rows=1.00 loops=1)
+         Filter: ((latest.status <> 'DELETED'::consignment_status) AND (latest.gate_id = 'EU-EE'::citext) AND (latest.main_transport_id = 'BULK-100000'::text))
+         Rows Removed by Filter: 199999
+         Buffers: shared hit=3982, temp read=2204 written=2207
+         ->  Unique  (cost=30141.41..54434.71 rows=200000 width=466) (actual time=2020.312..2587.495 rows=200000.00 loops=1)
+               Buffers: shared hit=3982, temp read=2204 written=2207
+               ->  Gather Merge  (cost=30141.41..53434.71 rows=200000 width=466) (actual time=2020.308..2482.177 rows=200000.00 loops=1)
+                     Workers Planned: 2
+                     Workers Launched: 2
+                     Buffers: shared hit=3982, temp read=2204 written=2207
+                     ->  Sort  (cost=29141.39..29349.72 rows=83333 width=466) (actual time=1989.592..2077.834 rows=66666.67 loops=3)
+                           Sort Key: consignments.platform_id, consignments.dataset_id, consignments.created_at DESC
+                           Sort Method: external merge  Disk: 5816kB
+                           Buffers: shared hit=3982, temp read=2204 written=2207
+                           Worker 0:  Sort Method: external merge  Disk: 5760kB
+                           Worker 1:  Sort Method: external merge  Disk: 6056kB
+                           ->  Parallel Seq Scan on consignments  (cost=0.00..4669.33 rows=83333 width=466) (actual time=0.031..593.680 rows=66666.67 loops=3)
+                                 Buffers: shared hit=3836
+ Planning:
+   Buffers: shared hit=369
+ Planning Time: 7.602 ms
+ Execution Time: 2775.330 ms
+(24 rows)
+
+Time: 2790.566 ms (00:02.791)
+######## C1 FILTER-FIRST — criteria in inner WHERE, dedupe the matches (no JOIN, insert-only) ########
+   SEMANTIC CAVEAT: can return a row whose dataset was later re-uploaded WITHOUT this main_transport_id
+                                                                              QUERY PLAN                                                                               
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=8.45..8.46 rows=1 width=56) (actual time=1.178..1.179 rows=1.00 loops=1)
+   Buffers: shared hit=4
+   ->  Unique  (cost=8.45..8.46 rows=1 width=56) (actual time=1.176..1.177 rows=1.00 loops=1)
+         Buffers: shared hit=4
+         ->  Sort  (cost=8.45..8.46 rows=1 width=56) (actual time=1.175..1.176 rows=1.00 loops=1)
+               Sort Key: platform_id, dataset_id, created_at DESC
+               Sort Method: quicksort  Memory: 25kB
+               Buffers: shared hit=4
+               ->  Index Scan using idx_consignments_main_transport_id on consignments  (cost=0.42..8.44 rows=1 width=56) (actual time=1.135..1.136 rows=1.00 loops=1)
+                     Index Cond: (main_transport_id = 'BULK-100000'::text)
+                     Filter: ((status <> 'DELETED'::consignment_status) AND (gate_id = 'EU-EE'::citext))
+                     Index Searches: 1
+                     Buffers: shared hit=4
+ Planning:
+   Buffers: shared hit=21
+ Planning Time: 3.206 ms
+ Execution Time: 1.216 ms
+(17 rows)
+
+Time: 5.680 ms
+######## C6 NOT EXISTS — filter first, then "no newer row for this dataset" (no JOIN keyword; self-correlated; insert-only; exact semantics) ########
+                                                                              QUERY PLAN                                                                              
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.84..24.91 rows=1 width=27) (actual time=0.056..0.058 rows=1.00 loops=1)
+   Buffers: shared hit=7
+   ->  Nested Loop Anti Join  (cost=0.84..24.91 rows=1 width=27) (actual time=0.055..0.056 rows=1.00 loops=1)
+         Buffers: shared hit=7
+         ->  Index Scan using idx_consignments_main_transport_id on consignments c  (cost=0.42..8.44 rows=1 width=56) (actual time=0.019..0.019 rows=1.00 loops=1)
+               Index Cond: (main_transport_id = 'BULK-100000'::text)
+               Filter: ((status <> 'DELETED'::consignment_status) AND (gate_id = 'EU-EE'::citext))
+               Index Searches: 1
+               Buffers: shared hit=4
+         ->  Index Only Scan using idx_consignments_dataset_latest on consignments c2  (cost=0.42..8.44 rows=1 width=29) (actual time=0.033..0.033 rows=0.00 loops=1)
+               Index Cond: ((dataset_id = c.dataset_id) AND (platform_id = c.platform_id) AND (created_at > c.created_at))
+               Heap Fetches: 0
+               Index Searches: 1
+               Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=46
+ Planning Time: 1.476 ms
+ Execution Time: 0.085 ms
+(18 rows)
+
+Time: 2.186 ms
+######## C3 is_latest flag — WHERE is_latest AND criteria (no JOIN; breaks strict insert-only: 1 UPDATE per insert of a cache column; exact semantics) ########
+ALTER TABLE
+Time: 9.634 ms
+CREATE INDEX
+Time: 3229.566 ms (00:03.230)
+ANALYZE
+Time: 893.826 ms
+                                                                        QUERY PLAN                                                                         
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.42..8.44 rows=1 width=27) (actual time=0.081..0.084 rows=1.00 loops=1)
+   Buffers: shared hit=4
+   ->  Index Scan using idx_consignments_main_transport_id on consignments  (cost=0.42..8.44 rows=1 width=27) (actual time=0.080..0.081 rows=1.00 loops=1)
+         Index Cond: (main_transport_id = 'BULK-100000'::text)
+         Filter: (is_latest AND (status <> 'DELETED'::consignment_status) AND (gate_id = 'EU-EE'::citext))
+         Index Searches: 1
+         Buffers: shared hit=4
+ Planning:
+   Buffers: shared hit=22 read=1
+ Planning Time: 2.094 ms
+ Execution Time: 0.141 ms
+(11 rows)
+
+Time: 4.418 ms
+ALTER TABLE
+Time: 14.522 ms
