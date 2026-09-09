@@ -1,7 +1,7 @@
 declaration:
   description: "Scheduled archive sweep — CronManager calls this on a timer (Bearer ARCHIVE_OPS_TOKEN).
     Everything runs through Ruuter + ReSql: (1) copy superseded consignments rows — those whose newer
-    sibling is older than olderThanDays (default 30) — into the separate archive DB over postgres_fdw;
+    sibling is older than olderThanDays (default 2) — into the separate archive DB over postgres_fdw;
     (2) read every copied row back from the archive DB and confirm it landed; (3) only if 100 % are
     confirmed, DELETE exactly those rows from the live DB. A verification mismatch deletes nothing.
     Body (optional): {olderThanDays: number, batchLimit: number}."

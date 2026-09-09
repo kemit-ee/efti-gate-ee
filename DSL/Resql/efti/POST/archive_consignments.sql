@@ -1,7 +1,7 @@
 /*
 description: copy superseded consignments rows into the separate archive DB (over postgres_fdw)
 params:
-  olderThanDays: { type: number, default: 30 }
+  olderThanDays: { type: number, default: 2 }
   batchLimit: { type: number, default: 1000 }
 */
 -- Candidates: rows that have a NEWER sibling row for the same (platform_id, dataset_id) AND whose
@@ -20,7 +20,7 @@ candidates AS (
     WHERE n.platform_id = c.platform_id
       AND n.dataset_id  = c.dataset_id
       AND n.created_at   > c.created_at
-      AND n.created_at   < now() - make_interval(days => COALESCE(:olderThanDays, 30)::int)
+      AND n.created_at   < now() - make_interval(days => COALESCE(:olderThanDays, 2)::int)
   )
   AND NOT EXISTS (
     SELECT 1 FROM archive.consignments a WHERE a.row_id = c.row_id

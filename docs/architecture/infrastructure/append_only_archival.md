@@ -49,7 +49,7 @@ orchestrates three ReSql calls and writes `jobs_execution_log`:
 
 1. **`archive_consignments.sql`** — copies candidates into `archive.consignments` over the FDW.
    A candidate is a row with a newer sibling for the same `(platform_id, dataset_id)` **whose
-   newer sibling is itself older than `olderThanDays`** (default 30). The current row of every
+   newer sibling is itself older than `olderThanDays`** (default 2). The current row of every
    dataset — including a `DELETED` tombstone — is therefore never a candidate, so
    `get_consignment_by_id` / `get_consignments` / the X-Road reads are unaffected. Idempotent via
    `NOT EXISTS (… archive …)` (foreign tables don't take `ON CONFLICT`); a `pg_advisory_xact_lock`
