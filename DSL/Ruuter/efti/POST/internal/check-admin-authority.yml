@@ -18,11 +18,15 @@ declaration:
         type: string
         description: "Correlation id, forwarded by the calling .guard"
 
+setup:
+  assign:
+    requestId: ${incoming.headers['x-request-id']}
+
 # Reachability is governed by network isolation + `internal_requests` (see
 # DSL/Ruuter/efti/POST/internal/.guard.yml); the calling guards forward
 # x-forwarded-for / x-request-id for context.
 log_context:
-  log: "internal/check-admin-authority rid=${incoming.headers['x-request-id'] ?? '-'} from=${incoming.headers['x-forwarded-for'] ?? '-'}"
+  log: "internal/check-admin-authority rid=${requestId ?? '-'} from=${incoming.headers['x-forwarded-for'] ?? '-'}"
 
 
 check_for_bearer:

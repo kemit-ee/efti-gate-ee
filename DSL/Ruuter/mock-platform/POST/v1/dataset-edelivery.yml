@@ -2,6 +2,10 @@ declaration:
   description: "Mock platform endpoint for testing follow-up messages"
   # Handles params: /:datasetId/follow-up
 
+setup:
+  assign:
+    requestId: ${incoming.headers['x-request-id']}
+
 check_path:
   switch:
     - condition: ${incoming.params.pathParams?.[1] != 'follow-up'}
@@ -43,7 +47,7 @@ respond:
           <udt:DateTimeString format="207">202109240850+0000</udt:DateTimeString>
         </IssueDateTime>
         <RequestedSpecifiedQuery>
-          <ID schemeID="RFC 9562-4">${incoming.headers['x-request-id']}</ID>
+        <ID schemeID="RFC 9562-4">${requestId}</ID>
         </RequestedSpecifiedQuery>
       </rsm:ExchangedDocument>
 
