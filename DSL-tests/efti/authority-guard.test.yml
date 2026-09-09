@@ -1,0 +1,26 @@
+# efti/POST/api/v1/authority/.guard.yml — gate-internal, X-Internal-Service-Token only.
+# The credential check is inline (a switch against the constant), so it runs fully in-process.
+mode: inprocess
+
+tests:
+  - name: no service token -> 401 UNAUTHORIZED
+    request:
+      method: POST
+      path: /efti/api/v1/authority/dataset
+      headers: { content-type: "application/json" }
+      body: { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "d" }, subsets: ["EU01"] }
+    expect:
+      status: 401
+      body_matches: { code: "UNAUTHORIZED", status: 401 }
+
+  - name: wrong service token -> 401
+    request:
+      method: POST
+      path: /efti/api/v1/authority/dataset
+      headers:
+        content-type: "application/json"
+        x-internal-service-token: "not-the-token"
+      body: { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "d" }, subsets: ["EU01"] }
+    expect:
+      status: 401
+      body_matches: { code: "UNAUTHORIZED" }

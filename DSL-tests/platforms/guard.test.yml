@@ -1,0 +1,14 @@
+# platforms/.guard.yml — X-Api-Key OR X-Internal-Service-Token. The "neither" reject is inline
+# (check_present switch), before resolve_platform. The X-Api-Key accept path needs a ReSql
+# lookup, so only the reject case is exercised here.
+mode: inprocess
+
+tests:
+  - name: no credential -> 401
+    request:
+      method: POST
+      path: /platforms/v1/consignments
+      headers: { content-type: "text/xml" }
+    expect:
+      status: 401
+      body_matches: { status: 401, title: "Unauthorized" }

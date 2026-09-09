@@ -1,48 +1,44 @@
 #!/usr/bin/env python3
-"""Static validation of the Ruuter DSL and the SQL files.
+"""efti-specific Ruuter DSL input-contract check.
 
-Sonar does not understand the Ruuter DSL, so this is the only check that catches a broken
-flow before the image is built. Checks:
+The generic DSL checks (YAML parse, unknown step keys, dangling `next:`, empty DSL,
+unresolved `[#constant]`, missing template targets, reachability) are done by Ruuter's own
+`dsl-lint` (see `docker/dsl-tools/Dockerfile`, run in the `dsl-validate` CI job). This script
+only carries the project convention `dsl-lint` doesn't know about:
 
-  1. every Ruuter YAML file parses;
-  2. no `next` reference dangles;
-  3. the declaration block is one Rust Ruuter (0.9.x-rc) will accept;
-  4. no SQL file is empty;
-  5. INPUT CONTRACT (see docs below) — every converted route declares its inputs and
-     enforces the required ones with a `validate_input` / `check_input` step.
+  every converted route declares its inputs and enforces the required ones.
 
-(A prior port also flagged unreachable steps and assign-order hazards; both are noisy
-against this repo's switch-fall-through style and were dropped — add back deliberately.)
-
-Mock DSL files (any path containing `/mock-platform/` or `/mock/`) are excluded: deliberate stubs.
+Mock DSLs (`/mock-platform/`, `/mock/`) are excluded — deliberate stubs.
 
 Usage:
     python3 scripts/validate-dsl.py            # from the repository root
     python3 scripts/validate-dsl.py --root .
 
-Exit code 0 = all checks passed, 1 = at least one failure.
+Exit 0 = clean, 1 = at least one failure.
 
 ------------------------------------------------------------------------------------------
-Input contract (check 6)
+Input contract
 ------------------------------------------------------------------------------------------
-Empirically, `turnerrainer/ruuter:0.9.10-rc` treats a present `declaration.allowlist` block
-(any of body/header/params, and the flat `declaration.allowed_body`) as STRICT: every listed
-field is MANDATORY (missing -> HTTP 500 in a synthetic `declare` step, before any DSL step;
-`required: false` is ignored), and any field NOT listed is silently stripped. Header/param
-stripping happens before the guard runs, so an `allowlist.header` omitting a header the guard
-reads breaks the guard. No "optional field", no type enforcement.
+On `turnerrainer/ruuter:0.9.12-rc` (issue turnerrainer/Ruuter#75):
 
-So the real, well-shaped enforcement lives in a `validate_input:` (or `check_input:`) switch
-step returning `400 BAD_REQUEST_GENERAL` / `MISSING_REQUIRED_HEADER` (see docs/specs/errors.json).
-`allowlist.body` is used only on routes where every body field is always required.
+- `declaration.allowlist.body` structured entries: `required: true` → missing field is a
+  `400`; `required: false` (or unset) → optional. Body `type:` is wire-enforced (`400` on
+  mismatch). `additive: true` keeps undeclared fields visible; `strict: true` rejects them.
+- `allowlist.headers` / `.params`: filter/OpenAPI only (presence not wire-enforced), and the
+  guard chain now runs on the *raw* request so a route allowlist can't strip a header its
+  guard reads.
+- `allowlist.required_one_of` per section: OR-of-alternatives; also works on guards.
+- Legacy flat `allowed_body: [...]`: every listed field required (no metadata slot).
 
-This check applies to route files under CONVERTED_PREFIXES (grown one project per PR). For
-those files it requires:
-  a. a `declaration:` block with a non-empty `description`;
-  b. if the file reads `incoming.body`, the body contract is enforced somehow — either a
-     `validate_input` / `check_input` step, or an engine-level `allowed_body` / `allowlist.body`
-     (which 500s on a missing field);
-  c. no orphan `allowlist`/`allowed_body` entry — every declared body field is read in the file.
+A `validate_input:` / `check_input:` switch step is still the way to return a *domain* error
+code (`MISSING_SUBSET`, `FORBIDDEN_SUBSET`, `BAD_REQUEST_GENERAL` with a helpful `detail`)
+rather than the engine's generic `{"error": "Field missing: X"}`.
+
+This check, for every non-guard route file under CONVERTED_PREFIXES (minus the health probes):
+  a. a `declaration:` with a non-empty `description`;
+  b. if it reads `incoming.body`, the body contract is enforced somehow — a
+     `validate_input` / `check_input` step, or `allowed_body` / `allowlist.body`;
+  c. no orphan declared body field — every one is read in the file.
 """
 
 from __future__ import annotations
@@ -58,8 +54,7 @@ import yaml
 RUUTER_GLOB = "DSL/Ruuter/**/*.yml"
 SQL_DIRS = ("DSL/Resql", "DSL/Liquibase")
 
-# Projects whose routes must satisfy the input-contract check (check 6). Extend one entry
-# per conversion PR until every project is listed.
+# Projects whose routes must satisfy the input-contract check.
 CONVERTED_PREFIXES: tuple[str, ...] = (
     "DSL/Ruuter/xroad/",
     "DSL/Ruuter/efti/",
@@ -76,78 +71,12 @@ def is_mock(path: str) -> bool:
     return "/mock-platform/" in path or "/mock/" in path
 
 
-def ruuter_files() -> list[str]:
-    return sorted(p for p in glob.glob(RUUTER_GLOB, recursive=True) if not is_mock(p))
-
-
 def is_guard(path: str) -> bool:
     return os.path.basename(path) == ".guard.yml"
 
 
-def collect_next_refs(obj) -> set[str]:
-    refs: set[str] = set()
-    if isinstance(obj, dict):
-        for key, value in obj.items():
-            if key == "next" and isinstance(value, str):
-                refs.add(value)
-            else:
-                refs |= collect_next_refs(value)
-    elif isinstance(obj, list):
-        for item in obj:
-            refs |= collect_next_refs(item)
-    return refs
-
-
-
-
-def check_parses(paths: list[str]) -> tuple[list[str], dict[str, dict]]:
-    errors: list[str] = []
-    parsed: dict[str, dict] = {}
-    for path in paths:
-        try:
-            with open(path, encoding="utf-8") as handle:
-                data = yaml.safe_load(handle)
-        except yaml.YAMLError as exc:
-            errors.append(f"{path}: {exc}")
-            continue
-        if isinstance(data, dict):
-            parsed[path] = data
-    return errors, parsed
-
-
-def check_flow(parsed: dict[str, dict]) -> list[str]:
-    """Every `next:` target names a real step in the same file (or `end`)."""
-    errors: list[str] = []
-    for path, data in parsed.items():
-        steps = {k: v for k, v in data.items() if k != "declaration"}
-        all_refs: set[str] = set()
-        for body in steps.values():
-            all_refs |= collect_next_refs(body) - {"end"}
-        dangling = sorted(r for r in all_refs if r not in steps)
-        if dangling:
-            errors.append(f"{path}: dangling next references: {dangling}")
-    return errors
-
-
-def check_declaration(parsed: dict[str, dict]) -> list[str]:
-    """The declaration block as Rust Ruuter (0.9.x-rc) will accept it.
-
-    `version` must be a string (1.0 unquoted is a YAML float and the field is typed).
-    `call:` is only valid as `call: declare` — anything else is read as a step and the
-    container fails to boot.
-    """
-    errors: list[str] = []
-    for path, data in parsed.items():
-        decl = data.get("declaration")
-        if not isinstance(decl, dict):
-            continue
-        call = decl.get("call")
-        if call is not None and call != "declare":
-            errors.append(f"{path}: declaration has `call: {call}` — only `call: declare` is valid")
-        version = decl.get("version")
-        if version is not None and not isinstance(version, str):
-            errors.append(f"{path}: declaration version {version!r} is not a string — quote it")
-    return errors
+def ruuter_files() -> list[str]:
+    return sorted(p for p in glob.glob(RUUTER_GLOB, recursive=True) if not is_mock(p))
 
 
 def _declared_body_fields(decl: dict) -> set[str]:
@@ -163,34 +92,40 @@ def _declared_body_fields(decl: dict) -> set[str]:
     return fields
 
 
-def check_input_contract(parsed: dict[str, dict]) -> list[str]:
+def check_input_contract(paths: list[str]) -> list[str]:
     errors: list[str] = []
-    for path, data in parsed.items():
+    for path in paths:
         if is_guard(path) or not any(path.startswith(p) for p in CONVERTED_PREFIXES):
             continue
         if any(path.endswith(s) for s in INPUT_EXEMPT_SUFFIXES):
             continue
 
         raw = open(path, encoding="utf-8").read()
-        decl = data.get("declaration")
+        try:
+            data = yaml.safe_load(raw)
+        except yaml.YAMLError as exc:
+            errors.append(f"{path}: YAML parse error: {exc}")
+            continue
+        if not isinstance(data, dict):
+            errors.append(f"{path}: not a mapping")
+            continue
 
-        if not isinstance(decl, dict) or not str(decl.get("description", "")).strip():
+        decl = data.get("declaration") if isinstance(data.get("declaration"), dict) else {}
+        if not str(decl.get("description", "")).strip():
             errors.append(f"{path}: no declaration.description")
 
         reads_body = "incoming.body" in raw
         step_names = {k for k in data if k != "declaration"}
         has_validation = any(re.search(r"validate_input|check_input", n) for n in step_names)
-        decl_dict = decl if isinstance(decl, dict) else {}
-        engine_enforced = bool(decl_dict.get("allowed_body")) or bool(
-            isinstance(decl_dict.get("allowlist"), dict) and decl_dict["allowlist"].get("body")
-        )
+        allowlist = decl.get("allowlist") if isinstance(decl.get("allowlist"), dict) else {}
+        engine_enforced = bool(decl.get("allowed_body")) or bool(allowlist.get("body"))
         if reads_body and not has_validation and not engine_enforced:
             errors.append(
                 f"{path}: reads incoming.body but the body contract is unenforced "
-                "(no `validate_input` / `check_input` step and no `allowed_body` / `allowlist.body`)"
+                "(no validate_input / check_input step and no allowed_body / allowlist.body)"
             )
 
-        for field in sorted(_declared_body_fields(decl if isinstance(decl, dict) else {})):
+        for field in sorted(_declared_body_fields(decl)):
             if not re.search(rf"incoming\.body(\??\.|\[['\"]){re.escape(field)}\b", raw) \
                and f"incoming.body.{field}" not in raw:
                 errors.append(f"{path}: declares body field `{field}` but never reads it")
@@ -211,7 +146,7 @@ def check_sql_non_empty() -> tuple[list[str], int]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Static Ruuter DSL / SQL validation")
+    parser = argparse.ArgumentParser(description="efti Ruuter DSL input-contract check")
     parser.add_argument("--root", default=".", help="Repository root (default: current directory)")
     args = parser.parse_args()
     os.chdir(args.root)
@@ -221,38 +156,17 @@ def main() -> int:
         print("FAIL  no Ruuter DSL files found — is --root the repository root?")
         return 1
 
-    parse_errors, parsed = check_parses(paths)
-    ok = not parse_errors
-    flow_errors = check_flow(parsed) if ok else []
-    decl_errors = check_declaration(parsed) if ok else []
-    contract_errors = check_input_contract(parsed) if ok else []
+    contract_errors = check_input_contract(paths)
     sql_errors, sql_total = check_sql_non_empty()
 
     failed = False
-
-    def report(errs, fail_label, ok_label):
-        nonlocal failed
-        if errs:
-            failed = True
-            print(f"FAIL  {fail_label} ({len(errs)})")
-            for error in errs:
-                print(f"        {error}")
-        elif ok:
-            print(f"OK    {ok_label}")
-
-    if parse_errors:
+    if contract_errors:
         failed = True
-        print(f"FAIL  Ruuter YAML parse ({len(parse_errors)})")
-        for error in parse_errors:
+        print(f"FAIL  input contract ({len(contract_errors)})")
+        for error in contract_errors:
             print(f"        {error}")
     else:
-        print(f"OK    {len(paths)} Ruuter YAML files parse (mock files excluded)")
-
-    report(flow_errors, "Ruuter DSL flow", f"{len(parsed)} flows: no dangling next references")
-    report(decl_errors, "declaration block not Rust Ruuter compatible",
-           f"{len(parsed)} declaration blocks: call is declare-only, version is a string")
-    report(contract_errors, "input contract",
-           f"input contract satisfied for {', '.join(CONVERTED_PREFIXES)}")
+        print(f"OK    input contract satisfied for {', '.join(CONVERTED_PREFIXES)}")
 
     if sql_errors:
         failed = True
