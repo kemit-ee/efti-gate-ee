@@ -8,7 +8,7 @@
   import CheckboxField from 'src/forms/CheckboxField.svelte'
   import EDeliveryFields from 'src/pages/admin/EDeliveryFields.svelte'
   import HeadersEditor from 'src/pages/admin/platforms/HeadersEditor.svelte'
-  import {type PlatformRequest, type Platform, Status} from "src/api/ruuterTypes";
+  import {type Platform, type PlatformRequest, Status} from "src/api/ruuterTypes";
 
   export let platform: Platform
   export let onSaved = () => {}
@@ -53,9 +53,6 @@
     <EDeliveryFields bind:entity={platform}/>
   {/if}
   <HeadersEditor bind:headers={headers}/>
-  <!-- TODO add xsd version support
-  <SelectField label={t.platforms.xsdSupport} options={t.xsdSupport} bind:value={platform.xsdSupport}/>
-  -->
   <div class="flex gap-4 items-center">
     <Button type="submit" label={t.general.save} class="primary"/>
     <CheckboxField label={t.platforms.disabled} bind:checked={isPlatformDisabled} class="ml-4"/>
