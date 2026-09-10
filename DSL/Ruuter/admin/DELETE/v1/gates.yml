@@ -20,6 +20,18 @@ check_delete:
     - condition: ${!delete_result.response.body.length}
       next: not_found
 
+publish_gate_change:
+  call: http.post
+  args:
+    url: "[#PUBSUB_URL]/api/v1/publish"
+    headers:
+      Content-Type: "application/json"
+    body:
+      name: "gate-changes"
+      data:
+        event: "deleted"
+  result: publish_result
+
 respond:
   return: ""
   status: 204

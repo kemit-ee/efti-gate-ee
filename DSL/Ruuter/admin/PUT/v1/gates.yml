@@ -41,7 +41,18 @@ check_update:
   switch:
     - condition: ${update_result.response.status >= 400 || !update_result.response.body.length}
       next: update_failed
-  next: respond
+
+publish_gate_change:
+  call: http.post
+  args:
+    url: "[#PUBSUB_URL]/api/v1/publish"
+    headers:
+      Content-Type: "application/json"
+    body:
+      name: "gate-changes"
+      data:
+        event: "updated"
+  result: publish_result
 
 respond:
   return: ${update_result.response.body[0]}
