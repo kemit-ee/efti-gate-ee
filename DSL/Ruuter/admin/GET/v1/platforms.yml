@@ -20,6 +20,8 @@ fetch_single:
 
 check_single:
   switch:
+    - condition: ${single_result.response.status == 0}
+      next: upstream_unavailable
     - condition: ${!single_result.response.body.length}
       next: not_found
 
@@ -39,6 +41,11 @@ fetch_list:
       offset: "${incoming.params.offset}"
   result: list_result
 
+check_list:
+  switch:
+    - condition: ${list_result.response.status == 0}
+      next: upstream_unavailable
+
 respond_list:
   return: ${list_result.response.body}
   wrapper: false
@@ -48,3 +55,9 @@ not_found:
   return: {"error": "Not Found"}
   status: 404
   wrapper: false
+
+upstream_unavailable:
+  return: {"error": "Data layer unavailable"}
+  status: 502
+  wrapper: false
+  next: end

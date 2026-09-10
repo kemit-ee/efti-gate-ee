@@ -55,6 +55,10 @@ validate_token:
 
 check_token_info:
   switch:
+    # TIM unreachable (issue #89, status 0): the token could not be verified either way. Deny, but
+    # with an honest 503 (retry later) rather than 401 (bad credential, do not retry).
+    - condition: ${token_info.response.status == 0}
+      next: dependency_unavailable
     - condition: ${token_info.response.status >= 200 && token_info.response.status < 300}
       next: check_tara_sub
   next: unauthorized
@@ -78,6 +82,8 @@ lookup_user:
 
 check_user_found:
   switch:
+    - condition: ${user_res.response.status == 0}
+      next: dependency_unavailable
     - condition: ${user_res.response.body.length > 0}
       next: return_user
   next: unauthorized
@@ -106,3 +112,16 @@ forbidden:
     detail: "This action requires the ADMIN role."
   status: 403
   wrapper: false
+  next: end
+
+# Deny (the caller is not authenticated here) but with a 503: an upstream identity dependency
+# (TIM or the users lookup) failed at the transport layer, so this is "try again", not "bad token".
+dependency_unavailable:
+  return:
+    type: "https://api.efti.ee/errors/service-unavailable"
+    title: "Service Unavailable"
+    status: 503
+    detail: "An identity dependency is temporarily unreachable. Retry the request."
+  status: 503
+  wrapper: false
+  next: end

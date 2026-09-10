@@ -32,6 +32,8 @@ check_exists:
 
 check_found:
   switch:
+    - condition: ${exists_result.response.status == 0}
+      next: upstream_unavailable
     - condition: ${!exists_result.response.body.length}
       next: not_found
   next: update_user
@@ -52,7 +54,7 @@ update_user:
 # update_user RETURNS the new row (column list matches get_user_by_id). No re-fetch needed.
 check_update:
   switch:
-    - condition: ${update_result.response.status >= 400 || !update_result.response.body.length}
+    - condition: ${update_result.response.status == 0 || update_result.response.status >= 400 || !update_result.response.body.length}
       next: update_failed
   next: respond
 
@@ -70,5 +72,11 @@ not_found:
 update_failed:
   return: {"error": "Failed to update user"}
   status: 500
+  wrapper: false
+  next: end
+
+upstream_unavailable:
+  return: {"error": "Data layer unavailable"}
+  status: 502
   wrapper: false
   next: end

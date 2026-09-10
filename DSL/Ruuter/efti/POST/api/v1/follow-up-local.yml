@@ -45,6 +45,9 @@ insert_log:
 
 check_insert:
   switch:
+    # Transport failure reaching ReSql (issue #89, status 0) — the follow-up log write did not land.
+    - condition: ${log_result.response.status == 0}
+      next: insert_failed
     - condition: ${log_result.response.status >= 400 || !log_result.response.body.length}
       next: insert_failed
 
@@ -60,6 +63,10 @@ get_platform:
 
 check_platform:
   switch:
+    # A ReSql transport failure (issue #89, status 0) yields a non-array stub body, so the
+    # !body.length test below would misreport a data-layer outage as "platform not found" (404).
+    - condition: ${platform_result.response.status == 0}
+      next: platform_lookup_failed
     - condition: ${!platform_result.response.body.length}
       next: platform_not_found
     - condition: ${!!platform_result.response.body[0]?.eDeliveryCert}
@@ -114,3 +121,10 @@ insert_failed:
     error: "Failed to log follow-up message"
   wrapper: false
   status: 500
+  next: end
+
+platform_lookup_failed:
+  return:
+    error: "Platform lookup failed (data layer unavailable)"
+  wrapper: false
+  status: 502

@@ -18,6 +18,10 @@ get_platform:
 
 check_platform:
   switch:
+    # ReSql transport failure (issue #89, status 0) → non-array stub body; without this the
+    # !body.length test misreports a data-layer outage as 404 Platform Not Found.
+    - condition: ${platform_result.response.status == 0}
+      next: platform_lookup_failed
     - condition: ${!platform_result.response.body.length}
       next: platform_not_found
     - condition: ${!!platform_result.response.body[0]?.eDeliveryCert}
@@ -29,7 +33,7 @@ query_rest_platform:
     url: "${platform_result.response.body[0]?.baseUrl}/v1/dataset/${incoming.body.uil.datasetId}?subsets=${incoming.body.subsets.join(',')}"
     headers: "${Object.assign(platform_result.response.body[0]?.headers ?? {}, {'x-request-id': requestId})}"
   result: dataset_xml
-  next: respond
+  next: check_dataset_xml
 
 request_to_xml:
   call: http.post
@@ -40,6 +44,11 @@ request_to_xml:
       content-type: "application/json"
     body: ${incoming.body}
   result: xml_request
+
+check_xml_request:
+  switch:
+    - condition: ${xml_request.response.status == 0}
+      next: mapper_unavailable
 
 query_edelivery_platform:
   call: http.post
@@ -52,6 +61,14 @@ query_edelivery_platform:
     content_type: plaintext
     body: ${xml_request.response.body}
   result: dataset_xml
+
+# The platform call (REST platform, or the peer gate over eDelivery) failed at the transport layer
+# (issue #89, status 0): respond below echoes dataset_xml.response.status as the HTTP status, which
+# would emit a broken `status: 0`. Surface it as a real 502 instead.
+check_dataset_xml:
+  switch:
+    - condition: ${dataset_xml.response.status == 0}
+      next: platform_unavailable
 
 respond:
   return:
@@ -67,3 +84,25 @@ platform_not_found:
     error: "Platform Not Found"
   wrapper: false
   status: 404
+  next: end
+
+platform_lookup_failed:
+  return:
+    error: "Platform lookup failed (data layer unavailable)"
+  wrapper: false
+  status: 502
+  next: end
+
+mapper_unavailable:
+  return:
+    error: "XML mapper unavailable"
+  wrapper: false
+  status: 502
+  next: end
+
+platform_unavailable:
+  return:
+    error: "The platform is unreachable"
+    transportError: ${dataset_xml.response.error}
+  wrapper: false
+  status: 502
