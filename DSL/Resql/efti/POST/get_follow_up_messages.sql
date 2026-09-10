@@ -14,7 +14,7 @@ SELECT
   destination_gate_id,
   destination_platform_id,
   payload,
-  status::text,
+  status,
   failure_reason,
   received_at,
   created_at

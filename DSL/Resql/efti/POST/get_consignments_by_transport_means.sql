@@ -64,10 +64,9 @@ SELECT
   latest.status,
   latest.created_at
 FROM (
-  -- Columns are named rather than `*` for two reasons: `status::text` must happen here, because the
-  -- bare column is the consignment_status ENUM and every other read file in DSL/Resql casts it (the
-  -- Rust ReSql driver cannot map a dynamic enum OID); and naming them keeps the `xml` TEXT out of
-  -- the DISTINCT ON sort, which would otherwise carry the whole blob per candidate row for nothing.
+  -- Columns are named rather than `*` to keep the `xml` TEXT out of the DISTINCT ON sort, which
+  -- would otherwise carry the whole blob per candidate row for nothing. (ReSql 0.3.0-alpha reads
+  -- the consignment_status ENUM to its text label natively — Resql#26 — so no `::text` cast.)
   SELECT DISTINCT ON (dataset_id, platform_id)
     dataset_id,
     platform_id,
@@ -90,7 +89,7 @@ FROM (
     used_equipment_countries,
     carried_equipment_ids,
     carried_equipment_categories,
-    status::text AS status,
+    status,
     created_at
   FROM consignments
   -- Narrows candidates through the three identifier indexes WITHOUT filtering the rows the

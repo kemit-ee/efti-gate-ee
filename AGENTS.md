@@ -138,7 +138,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   `X-Resql-Error-Message` (Resql#25, 0.3.0-alpha).** DSLs must detect a ReSql failure from
   `response.status` (never `body.error` / `body.message` — that object body is gone). `!body.length`
   still works (`[].length` is 0). 0.3.0 also auto-coerces Postgres `ENUM` columns to their text
-  label on read (Resql#26), so `::text` casts on enum SELECTs are now redundant (harmless).
+  label on read (Resql#26), so enum SELECTs need no `::text` cast (the ~26 that existed were dropped).
 - Output column names are camelCased on the wire (snake_case in SQL → `camelCase` in JSON), no opt-out.
 
 ## Database rules

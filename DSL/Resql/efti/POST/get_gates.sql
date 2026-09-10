@@ -13,11 +13,11 @@ SELECT * FROM (
     e_delivery_url,
     e_delivery_cert,
     tls_cert,
-    status::text,
+    status,
     last_ping_at,
     created_at
   FROM gates
   ORDER BY id, created_at DESC
 ) latest
-WHERE :status IS NULL AND status != 'DELETED' OR status = :status
+WHERE (:status IS NULL AND status != 'DELETED') OR status = :status::gate_status
 LIMIT COALESCE(:limit, 20) OFFSET COALESCE(:offset, 0);

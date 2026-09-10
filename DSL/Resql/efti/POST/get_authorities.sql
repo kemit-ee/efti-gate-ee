@@ -11,7 +11,7 @@ SELECT * FROM (
     name,
     registry_code,
     subsets,
-    status::text,
+    status,
     created_at
   FROM authorities
   ORDER BY id, created_at DESC

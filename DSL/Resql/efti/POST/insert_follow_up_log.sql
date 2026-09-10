@@ -33,6 +33,6 @@ RETURNING
   dataset_request_id,
   destination_gate_id,
   destination_platform_id,
-  status::text,
+  status,
   received_at,
   created_at;

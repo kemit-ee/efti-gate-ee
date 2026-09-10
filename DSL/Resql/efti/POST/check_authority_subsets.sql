@@ -33,7 +33,7 @@ FROM (
     id,
     registry_code,
     subsets,
-    status::text AS status,
+    status,
     created_at
   FROM authorities
   WHERE id IN (SELECT id FROM authorities WHERE registry_code = :registry_code)

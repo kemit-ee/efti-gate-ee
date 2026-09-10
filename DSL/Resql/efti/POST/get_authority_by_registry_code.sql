@@ -30,7 +30,7 @@ FROM (
     name,
     registry_code,
     subsets,
-    status::text AS status,
+    status,
     created_at
   FROM authorities
   -- Narrows candidate ids through idx_authorities_registry_code WITHOUT filtering the rows the

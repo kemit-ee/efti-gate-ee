@@ -13,7 +13,7 @@ SELECT * FROM (
     headers,
     e_delivery_cert,
     tls_cert,
-    status::text,
+    status,
     api_key_hint,
     api_key_generated_at,
     (api_key_hash IS NOT NULL) AS has_api_key,
@@ -21,5 +21,5 @@ SELECT * FROM (
   FROM platforms
   ORDER BY id, created_at DESC
 ) latest
-WHERE :status IS NULL AND status != 'DELETED' OR status = :status
+WHERE (:status IS NULL AND status != 'DELETED') OR status = :status::gate_status
 LIMIT COALESCE(:limit, 20) OFFSET COALESCE(:offset, 0);

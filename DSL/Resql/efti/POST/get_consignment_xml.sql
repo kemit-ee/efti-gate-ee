@@ -11,7 +11,7 @@ SELECT DISTINCT ON (dataset_id)
   platform_id,
   gate_id,
   xml,
-  status::text,
+  status,
   created_at
 FROM consignments
 WHERE dataset_id = :datasetId::uuid

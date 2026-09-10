@@ -19,7 +19,7 @@ RETURNING
   headers,
   e_delivery_cert,
   tls_cert,
-  status::text,
+  status,
   api_key_hint,
   api_key_generated_at,
   created_at;

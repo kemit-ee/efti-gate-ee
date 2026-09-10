@@ -10,7 +10,7 @@ SELECT DISTINCT ON (id)
   headers,
   e_delivery_cert,
   tls_cert,
-  status::text,
+  status,
   api_key_hint,
   api_key_generated_at,
   (api_key_hash IS NOT NULL) AS has_api_key,
