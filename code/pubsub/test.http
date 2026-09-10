@@ -1,0 +1,11 @@
+### Subscribe to a topic
+GET http://localhost:8084/api/v1/subscribe/test1
+
+### Publish to a topic
+POST http://localhost:8084/api/v1/publish
+Content-Type: application/json
+
+{
+  "data": "This is a test",
+  "name": "test1"
+}

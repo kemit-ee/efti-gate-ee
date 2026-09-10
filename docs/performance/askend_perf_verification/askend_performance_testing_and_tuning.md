@@ -1,6 +1,6 @@
 # Askend: consignments search — testimine ja häälestamine
 
-Antoni koormustesti (`docs/performance/performance-report.md`) järelkontroll: mis üle
+Pikkeri koormustesti (`docs/performance/performance-report.md`) järelkontroll: mis üle
 mõõdeti, mida muudeti, kuidas ajad iga muudatuse järel muutusid. Täisdetailid, `EXPLAIN`-plaanid
 ja kordustootmise skriptid: [`analysis.md`](analysis.md).
 
@@ -8,7 +8,7 @@ ja kordustootmise skriptid: [`analysis.md`](analysis.md).
 
 ## 1. Testkeskkond
 
-| | Anton (baseline) | Askendi kordusmõõtmine |
+| | Pikker (baseline) | Askendi kordusmõõtmine |
 |---|---|---|
 | Riistvara | Intel Core Ultra 9 386H, 16 tuuma | Docker Desktop (aarch64), jagatud masin |
 | Tööriist | ApacheBench (`ab`) | `ab` + `pgbench` + `k6` |
@@ -24,7 +24,7 @@ ja kordustootmise skriptid: [`analysis.md`](analysis.md).
 
 ```mermaid
 flowchart LR
-    B["Baseline (Anton)<br/>vana SQL · ruuter 0.5 vCPU<br/>pool 10 · blokeeriv otsing<br/>seed katki"]
+    B["Baseline (Pikker)<br/>vana SQL · ruuter 0.5 vCPU<br/>pool 10 · blokeeriv otsing<br/>seed katki"]
     R1["Voor 1<br/>+ seed korda"]
     R2["Voor 2<br/>+ ruuter/db 1.0 vCPU<br/>+ pool 75"]
     R3["Voor 3<br/>+ C6 SQL (ADR-009)<br/>+ mitte-blokeeriv otsing (ADR-010)<br/>+ Ruuter 0.9.14 · guard-dedup<br/>+ ruuter/db 2.0 vCPU"]
