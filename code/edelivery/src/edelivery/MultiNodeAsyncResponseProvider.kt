@@ -2,6 +2,7 @@ package edelivery
 
 import klite.Config
 import klite.http.post
+import klite.http.timeout
 import klite.info
 import klite.sleep
 import klite.sse.Event
@@ -10,6 +11,7 @@ import klite.warn
 import java.net.URI
 import java.net.http.HttpClient
 import kotlin.concurrent.thread
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.seconds
 
 class MultiNodeAsyncResponseProvider(
@@ -41,7 +43,7 @@ class MultiNodeAsyncResponseProvider(
 
   private fun subscribeSse() {
     log.info("Subscribing to pubsub SSE stream")
-    http.getSSE(pubsubUrl.resolve("/api/v1/subscribe/async-responses")).forEach { event ->
+    http.getSSE(pubsubUrl.resolve("/api/v1/subscribe/async-responses")){ timeout(1.hours) }.forEach { event ->
       event.data?.toString()?.let { offerToFirstPending(it) }
     }
   }
