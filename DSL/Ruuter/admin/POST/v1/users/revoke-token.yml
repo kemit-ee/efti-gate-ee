@@ -14,6 +14,8 @@ check_exists:
 
 check_found:
   switch:
+    - condition: ${exists_result.response.status == 0}
+      next: upstream_unavailable
     - condition: ${!exists_result.response.body.length}
       next: not_found
   next: revoke_token
@@ -31,7 +33,7 @@ revoke_token:
 
 check_revoke:
   switch:
-    - condition: ${!revoke_result.response.body.length}
+    - condition: ${revoke_result.response.status == 0 || !revoke_result.response.body.length}
       next: revoke_failed
   next: verify_user
 
@@ -48,7 +50,7 @@ verify_user:
 
 check_verify:
   switch:
-    - condition: ${!verify_result.response.body.length}
+    - condition: ${verify_result.response.status == 0 || !verify_result.response.body.length}
       next: verify_failed
     - condition: ${verify_result.response.body[0]?.tokenRevokedAt == null}
       next: verify_failed
@@ -75,5 +77,11 @@ revoke_failed:
 verify_failed:
   return: {"error": "Token revocation could not be verified"}
   status: 500
+  wrapper: false
+  next: end
+
+upstream_unavailable:
+  return: {"error": "Data layer unavailable"}
+  status: 502
   wrapper: false
   next: end

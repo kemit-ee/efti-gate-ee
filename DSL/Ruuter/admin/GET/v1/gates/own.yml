@@ -13,6 +13,8 @@ fetch_own_gate:
 
 check_found:
   switch:
+    - condition: ${result.response.status == 0}
+      next: upstream_unavailable
     - condition: ${!result.response.body.length}
       next: not_found
 
@@ -25,3 +27,9 @@ not_found:
   return: {"error": "Not Found"}
   status: 404
   wrapper: false
+
+upstream_unavailable:
+  return: {"error": "Data layer unavailable"}
+  status: 502
+  wrapper: false
+  next: end
