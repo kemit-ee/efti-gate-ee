@@ -1,0 +1,33 @@
+=== get_consignments.sql (C6, ADR-009) — query plan @ 1,000,001 rows ===
+branch perf/consignments-search-analysis @ HEAD, Ruuter 0.9.14-rc, PostgreSQL 18.4
+database cpus: 2.0, work_mem = 4MB (default). Query: gate_id='EU-EE', main_transport_id='BULK-500000'
+
+COMPARE explain-1m-current.txt: the OLD DISTINCT-ON query on the SAME shape @ 1M was 23 337 ms
+with a 245 MB external-merge Sort over the whole table.
+
+                                                                                 QUERY PLAN                                                                                 
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=16.93..16.94 rows=1 width=433) (actual time=0.173..0.174 rows=1.00 loops=1)
+   Buffers: shared hit=16
+   ->  Sort  (cost=16.93..16.94 rows=1 width=433) (actual time=0.172..0.173 rows=1.00 loops=1)
+         Sort Key: c.created_at DESC
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=16
+         ->  Nested Loop Anti Join  (cost=0.85..16.92 rows=1 width=433) (actual time=0.146..0.146 rows=1.00 loops=1)
+               Buffers: shared hit=13
+               ->  Index Scan using idx_consignments_main_transport_id on consignments c  (cost=0.42..8.45 rows=1 width=405) (actual time=0.060..0.060 rows=1.00 loops=1)
+                     Index Cond: (main_transport_id = 'BULK-500000'::text)
+                     Filter: ((status <> 'DELETED'::consignment_status) AND (gate_id = 'EU-EE'::citext))
+                     Index Searches: 1
+                     Buffers: shared hit=4
+               ->  Index Only Scan using idx_consignments_dataset_latest on consignments c2  (cost=0.42..4.45 rows=1 width=29) (actual time=0.053..0.053 rows=0.00 loops=1)
+                     Index Cond: ((dataset_id = c.dataset_id) AND (platform_id = c.platform_id) AND (created_at > c.created_at))
+                     Heap Fetches: 0
+                     Index Searches: 1
+                     Buffers: shared hit=6
+ Planning:
+   Buffers: shared hit=733
+ Planning Time: 2.231 ms
+ Execution Time: 0.219 ms
+(22 rows)
+
