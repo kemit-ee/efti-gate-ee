@@ -132,6 +132,14 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - YAML header comment declares `description` and `params`
 - Reads resolve "latest row per logical id" either with `SELECT DISTINCT ON (id) … ORDER BY id, created_at DESC` (fine when a `WHERE` already narrows to one id / a small set) or, on the search hot path, by filtering the base table first and then a self-correlated `NOT EXISTS` "no newer row" anti-join (ADR-009, `get_consignments.sql`). A bare `DISTINCT ON` over the whole table before any filter materialises the entire latest-per-id set every call — see `docs/performance/askend_perf_verification/`.
 - The `app` role has only `SELECT, INSERT` — no UPDATE, no DELETE
+- Runs `turnerrainer/resql:0.3.0-alpha` (`docker/resql/Dockerfile`). **Error responses on a query
+  endpoint are `HTTP 4xx` (Java/Rust map every query exception to 400; 413 for oversized body, 500
+  for internal) with body `[]` and the detail in response headers `X-Resql-Error-Code` /
+  `X-Resql-Error-Message` (Resql#25, 0.3.0-alpha).** DSLs must detect a ReSql failure from
+  `response.status` (never `body.error` / `body.message` — that object body is gone). `!body.length`
+  still works (`[].length` is 0). 0.3.0 also auto-coerces Postgres `ENUM` columns to their text
+  label on read (Resql#26), so `::text` casts on enum SELECTs are now redundant (harmless).
+- Output column names are camelCased on the wire (snake_case in SQL → `camelCase` in JSON), no opt-out.
 
 ## Database rules
 
