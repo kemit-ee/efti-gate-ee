@@ -130,13 +130,13 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 
 - Files in `DSL/Resql/efti/POST/` are served as `POST /efti/<filename_without_ext>`
 - YAML header comment declares `description` and `params`
-- All reads use `SELECT DISTINCT ON (id) … ORDER BY id, created_at DESC` (append-only pattern)
+- Reads resolve "latest row per logical id" either with `SELECT DISTINCT ON (id) … ORDER BY id, created_at DESC` (fine when a `WHERE` already narrows to one id / a small set) or, on the search hot path, by filtering the base table first and then a self-correlated `NOT EXISTS` "no newer row" anti-join (ADR-009, `get_consignments.sql`). A bare `DISTINCT ON` over the whole table before any filter materialises the entire latest-per-id set every call — see `docs/performance/askend_perf_verification/`.
 - The `app` role has only `SELECT, INSERT` — no UPDATE, no DELETE
 
 ## Database rules
 
 1. **Append-only everywhere.** Every operational table is INSERT-only. "Updates" insert a new row with the same logical id; latest `created_at` wins.
-2. **No JOINs on hot path.** Search columns are denormalised onto `consignments` directly.
+2. **No JOINs on hot path.** Search columns are denormalised onto `consignments` directly — the rule targets *cross-table* joins (`consignments` → `gates`/`platforms`/…). A self-correlated anti-join against `consignments` itself for append-only latest-row semantics (ADR-009) is allowed — the planner serves it as an Index Only Scan on `idx_consignments_dataset_latest`, not a materialised join.
 3. **Archival by CronManager.** Non-latest rows moved by external Quartz scheduler.
 
 ## Kotlin services

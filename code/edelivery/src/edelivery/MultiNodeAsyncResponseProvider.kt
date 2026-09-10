@@ -1,42 +1,60 @@
 package edelivery
 
+import klite.Config
+import klite.http.post
+import klite.http.timeout
 import klite.info
-import klite.jdbc.*
-import klite.toValuesSkipping
-import javax.sql.DataSource
+import klite.sleep
+import klite.sse.Event
+import klite.sse.getSSE
+import klite.warn
+import java.net.URI
+import java.net.http.HttpClient
 import kotlin.concurrent.thread
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.seconds
 
-class MultiNodeAsyncResponseProvider(private val db: DataSource): SingleNodeAsyncResponseProvider() {
-  private val table = "async_responses"
+class MultiNodeAsyncResponseProvider(
+  private val http: HttpClient,
+  private val pubsubUrl: URI = URI(Config["PUBSUB_URL"]),
+): SingleNodeAsyncResponseProvider() {
+
   init {
-    thread(name = this::class.simpleName, isDaemon = true) {
-      db.consumeNotifications(listOf(table)) {
-        if (it.name == table) pendingResponses[RequestKey(it.parameter)]?.offer("")
+    thread(name = "${this::class.simpleName}-sse", isDaemon = true) {
+      while (true) {
+        try { subscribeSse() } catch (e: Exception) {
+          log.warn("SSE connection error, reconnecting: ${e.message}")
+          sleep(1.seconds)
+        }
       }
     }
   }
 
-  override fun waitForResponse(key: RequestKey): String {
-    log.info("Waiting for response for $key")
-    var body = super.waitForResponse(key)
-    if (body.isEmpty()) {
-      val where = listOf(RequestKey::receiverId to key.receiverId, RequestKey::requestId to key.requestId)
-      body = db.select(table, where) { getString("body") }.first()
-      db.delete(table, where)
-    }
-    return body
-  }
-
   override fun provideResponse(key: RequestKey, payload: String): Boolean {
     if (super.provideResponse(key, payload)) return true
-    sendUpdateToOtherNodes(key, payload)
+    publishToPubsub(payload)
     return true
   }
 
-  fun sendUpdateToOtherNodes(requestKey: RequestKey, payload: String) {
-    log.info("Inserting response for $requestKey")
-    db.insert(table, requestKey.toValuesSkipping(RequestKey::senderId) + ("body" to payload))
-    db.notify(table, requestKey.toString())
-    Transaction.current()?.commit()
+  private fun publishToPubsub(payload: String) {
+    log.info("Publishing response to pubsub")
+    http.post(pubsubUrl.resolve("/api/v1/publish"), Event(payload, "async-responses"))
+  }
+
+  private fun subscribeSse() {
+    log.info("Subscribing to pubsub SSE stream")
+    http.getSSE(pubsubUrl.resolve("/api/v1/subscribe/async-responses")){ timeout(1.hours) }.forEach { event ->
+      event.data?.toString()?.let { offerToFirstPending(it) }
+    }
+  }
+
+  private fun offerToFirstPending(body: String) {
+    for ((key, queue) in pendingResponses) {
+      if (queue.offer(body)) {
+        log.info("Delivered pubsub response for $key")
+        return
+      }
+    }
+    log.warn("No pending responses for pubsub message, discarding")
   }
 }

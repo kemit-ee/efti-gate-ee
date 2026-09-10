@@ -13,3 +13,4 @@ Otsused on loendurid ja ei kustutata — uus otsus ei asenda vana, vaid täienda
 | [ADR-006](006-xroad-identity-and-subsets.md) | X-Roadi identiteedimudel ja alamhulkade õigused | 2026-09-01 | täpsustamata |
 | [ADR-007](007-xroad-transport-means-response-shape.md) | `transport-means` `scope: allgates` vastuse kuju — **MUSTAND** | 2026-09-03 | täpsustamata |
 | [ADR-008](008-adopt-datamapper.md) | DataMapperi kasutuselevõtt vastuse-kujundamiseks — **MUSTAND** (seotud ADR-007-ga) | 2026-09-03 | täpsustamata |
+| [ADR-009](009-consignments-latest-row-not-exists.md) | `consignments` viimase versiooni valik `NOT EXISTS`-iga, mitte `DISTINCT ON`-iga | 2026-09-09 | Sten Viljus |
