@@ -4,6 +4,7 @@ import klite.Config
 import klite.http.post
 import klite.info
 import klite.sleep
+import klite.sse.Event
 import klite.sse.getSSE
 import klite.warn
 import java.net.URI
@@ -15,7 +16,6 @@ class MultiNodeAsyncResponseProvider(
   private val http: HttpClient,
   private val pubsubUrl: URI = URI(Config["PUBSUB_URL"]),
 ): SingleNodeAsyncResponseProvider() {
-  private var lastEventId: String? = null
 
   init {
     thread(name = "${this::class.simpleName}-sse", isDaemon = true) {
@@ -36,17 +36,12 @@ class MultiNodeAsyncResponseProvider(
 
   private fun publishToPubsub(payload: String) {
     log.info("Publishing response to pubsub")
-    http.post(pubsubUrl.resolve("/api/v1/publish/async-responses"), mapOf("data" to payload))
+    http.post(pubsubUrl.resolve("/api/v1/publish"), Event(payload, "async-responses"))
   }
 
   private fun subscribeSse() {
     log.info("Subscribing to pubsub SSE stream")
-    val url = pubsubUrl.resolve("/api/v1/subscribe/async-responses")
-    http.getSSE(url) {
-      lastEventId?.let { header("Last-Event-ID", it) }
-      this
-    }.forEach { event ->
-      lastEventId = event.id?.toString()
+    http.getSSE(pubsubUrl.resolve("/api/v1/subscribe/async-responses")).forEach { event ->
       event.data?.toString()?.let { offerToFirstPending(it) }
     }
   }
