@@ -20,3 +20,10 @@ code/.gradle/
 # lib & build files
 node_modules/
 build/
+
+# Local integration credentials
+env.local
+
+# Generated documentation and Kotlin build output
+docs/user-guide/book/
+code/*/bin/
