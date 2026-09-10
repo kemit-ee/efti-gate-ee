@@ -1,0 +1,71 @@
+declaration:
+  description: "Cold-storage retention — CronManager calls this on a slow timer (Bearer
+    ARCHIVE_OPS_TOKEN). Permanently deletes archived consignments rows older than keepDays
+    (default 2555 ≈ 7 years) from the separate archive DB. Body (optional): {keepDays: number}."
+  allowlist:
+    body:
+      - field: keepDays
+        type: number
+        required: false
+
+purge:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/archive/purge_archived_consignments"
+    headers:
+      Content-Type: "application/json"
+    body:
+      keepDays: ${incoming.body.keepDays}
+  result: purge_result
+
+check_purge:
+  switch:
+    - condition: ${purge_result.response.status >= 400}
+      next: purge_failed
+  next: log_completed
+
+log_completed:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_job_execution_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      jobName: "purge-archive"
+      status: "COMPLETED"
+      details:
+        purged: ${purge_result.response.body[0].purgedCount}
+  result: log_result
+
+respond_completed:
+  return:
+    purged: ${purge_result.response.body[0].purgedCount}
+  headers:
+    content-type: "application/json"
+  wrapper: false
+  next: end
+
+purge_failed:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_job_execution_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      jobName: "purge-archive"
+      status: "FAILED"
+      details:
+        reason: "the purge ReSql step returned an error"
+  result: purge_failed_log
+  next: purge_failed_respond
+
+purge_failed_respond:
+  return:
+    type: "https://api.efti.ee/errors/bad-gateway"
+    code: "ARCHIVE_PURGE_FAILED"
+    title: "Archive purge failed"
+    status: 502
+    detail: "The archive-DB purge step returned an error. See jobs_execution_log."
+  status: 502
+  wrapper: false
+  next: end

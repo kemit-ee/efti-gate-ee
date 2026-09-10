@@ -5,7 +5,10 @@ server:
 
 sql_dir: "./sql"
 
-project_datasource_map: {}
+# SQL files under DSL/Resql/<project>/ run against the datasource of the same name.
+# `archive/` -> the separate archive database; everything else -> `efti` (the live gate DB).
+project_datasource_map:
+  archive: archive
 
 allow_datasource_header: false
 
@@ -18,6 +21,18 @@ datasources:
     url: "postgres://database:5432/efti"
     username: "efti"
     password_env: "RESQL_EFTI_PASSWORD"
+    max_connections: 10
+    acquire_timeout_seconds: 5
+
+  # Cold storage — a physically separate PostgreSQL instance. Reached ONLY here, through
+  # ReSql, never by a foreign-data wrapper or a direct connection from anywhere else. The
+  # archive flow (DSL/Ruuter/ops/POST/v1/archive-consignments.yml) carries rows between the
+  # two datasources over Ruuter: SELECT from `efti`, INSERT into `archive`, verify against
+  # `archive`, then DELETE from `efti`.
+  - name: archive
+    url: "postgres://archive-database:5432/efti_archive"
+    username: "efti"
+    password_env: "RESQL_ARCHIVE_PASSWORD"
     max_connections: 10
     acquire_timeout_seconds: 5
 

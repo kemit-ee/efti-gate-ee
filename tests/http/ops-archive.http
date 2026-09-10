@@ -1,0 +1,69 @@
+### ops/v1/archive-consignments — no ops token -> 401
+POST {{RUUTER_URL}}/ops/v1/archive-consignments
+Content-Type: application/json
+
+{}
+
+> {%
+  client.test("no ops token rejected", () => {
+    client.assert(response.status === 401)
+    client.assert(response.body.code === "UNAUTHORIZED")
+  })
+%}
+
+### ops/v1/archive-consignments — wrong ops token -> 401
+POST {{RUUTER_URL}}/ops/v1/archive-consignments
+Content-Type: application/json
+Authorization: Bearer not-the-token
+
+{}
+
+> {%
+  client.test("wrong ops token rejected", () => {
+    client.assert(response.status === 401)
+  })
+%}
+
+### ops/v1/archive-consignments — valid token, nothing old enough to archive
+# The e2e stack never has superseded rows older than 30 days, so this exercises the happy
+# "nothing to archive" path + the ARCHIVE_OPS_TOKEN guard. The full copy -> verify -> delete
+# path is covered by docs/architecture/infrastructure/archive-flow-test.sh (needs aged fixtures).
+POST {{RUUTER_URL}}/ops/v1/archive-consignments
+Content-Type: application/json
+Authorization: Bearer dev-archive-ops-token-change-me
+
+{}
+
+> {%
+  client.test("valid ops token -> sweep runs, nothing to archive", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.candidates === 0)
+    client.assert(response.body.deleted === 0)
+  })
+%}
+
+### ops/v1/purge-archive — no token -> 401
+POST {{RUUTER_URL}}/ops/v1/purge-archive
+Content-Type: application/json
+
+{}
+
+> {%
+  client.test("purge without token rejected", () => {
+    client.assert(response.status === 401)
+  })
+%}
+
+### ops/v1/purge-archive — valid token, nothing old enough to purge
+POST {{RUUTER_URL}}/ops/v1/purge-archive
+Content-Type: application/json
+Authorization: Bearer dev-archive-ops-token-change-me
+
+{}
+
+> {%
+  client.test("valid token -> purge runs", () => {
+    client.assert(response.status === 200)
+    client.assert(typeof response.body.purged === "number")
+  })
+%}
