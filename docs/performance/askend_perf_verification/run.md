@@ -11,7 +11,7 @@ docker run --rm --network $NET -v "$PWD/code/xml-mapper/xsd/FTI004:/x" curlimage
   -H 'X-Api-Key: mock-secret-key' --data-binary @/x/sample.xml
 
 # semantic fixtures (append-only re-upload AAA->BBB, single CCC) — SQL only, no XML route for this
-docker compose -f compose.yml exec -T database psql -U efti -d efti < docs/askend_performance/seed-consignments.sql
+docker compose -f compose.yml exec -T database psql -U efti -d efti < docs/performance/askend_perf_verification/seed-consignments.sql
 
 # ab sidecar on the compose network
 docker run -d --name ab --network $NET -v "$PWD/docs/askend_performance:/d" httpd:2.4-alpine sleep infinity
@@ -26,5 +26,5 @@ docker exec ab ab -q -T application/json -p /d/resql-search.json \
   -n 2000 -c 50 http://resql:8090/efti/get_consignments
 
 # 4c/4d — 1M rows
-docker compose -f compose.yml exec -T database psql -U efti -d efti -f - < docs/askend_performance/bulk-insert-1m.sql
+docker compose -f compose.yml exec -T database psql -U efti -d efti -f - < docs/performance/askend_perf_verification/bulk-insert-1m.sql
 ```

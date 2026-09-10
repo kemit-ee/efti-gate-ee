@@ -63,4 +63,4 @@ p99 koormuse all 1 800–4 500 ms → ~330–420 ms.
 4. Dokumenteerida keskkond: Ruuteri versioon, konteinerite `cpus`/`mem`, ReSql pool,
    PostgreSQL `work_mem` / `shared_buffers`, compose-fail.
 
-Skript ja täisanalüüs: `docs/askend_performance/` (`k6-authority-search.js`, `analysis.md` §7).
+Skript ja täisanalüüs: `docs/performance/askend_perf_verification/` (`k6-authority-search.js`, `analysis.md` §7).

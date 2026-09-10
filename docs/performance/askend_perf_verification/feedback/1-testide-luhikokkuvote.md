@@ -74,5 +74,5 @@ Ruuteri, mitte meie kood, ja skaleerub. Päris serveris (rohkem tuumi) väiksem.
 ## Detailid
 
 Täisanalüüs mõõtmiste, `EXPLAIN`-plaanide ja kordustootmise skriptidega:
-`docs/askend_performance/analysis.md` (harul). ADR-009 ja ADR-010
+`docs/performance/askend_perf_verification/analysis.md` (harul). ADR-009 ja ADR-010
 `docs/architecture/decisions/`.

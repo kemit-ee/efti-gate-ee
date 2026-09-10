@@ -41,7 +41,7 @@ LIMIT COALESCE(:limit, 100) OFFSET COALESCE(:offset, 0);
 
 `DISTINCT ON (platform_id, dataset_id)` ilma `WHERE`-ta sisemises alampäringus sunnib
 PostgreSQL-i **materialiseerima kogu tabeli** viimased-per-dataset read enne, kui
-ükski kriteerium rakendub. 1 000 001 real (mõõdetud, `docs/askend_performance/explain-1m-current.txt`):
+ükski kriteerium rakendub. 1 000 001 real (mõõdetud, `docs/performance/askend_perf_verification/explain-1m-current.txt`):
 
 - `Parallel Seq Scan on consignments` — kogu tabel, ~4,1 s
 - `Sort` `(platform_id, dataset_id, created_at DESC)` — `external merge Disk`, ~245 MB kettale
@@ -55,7 +55,7 @@ Päring on lineaarne tabeli suuruse suhtes ja ei kasuta ühtegi kriteeriumi-inde
 ### Miks C6
 
 Mõõdetud kandidaadid (200 000 rida, soe vahemälu, `work_mem = 4MB`;
-`docs/askend_performance/explain-candidates-1m.txt`):
+`docs/performance/askend_perf_verification/explain-candidates-1m.txt`):
 
 | Kandidaat | Plaan | Aeg |
 |---|---|---|
@@ -64,7 +64,7 @@ Mõõdetud kandidaadid (200 000 rida, soe vahemälu, `work_mem = 4MB`;
 | **C6 filter-first + `NOT EXISTS`** | **Nested Loop Anti Join (Index Scan + Index Only Scan `idx_consignments_dataset_latest`)** | **0,09 ms** |
 | C3 `is_latest` lipuveerg + trigger | Index Scan + Filter `is_latest` | 0,14 ms |
 
-- **C1 on semantiliselt vale.** Semantiline test (`docs/askend_performance/semantic-test.sql`):
+- **C1 on semantiliselt vale.** Semantiline test (`docs/performance/askend_perf_verification/semantic-test.sql`):
   dataset laaditakse uuesti üles `AAA` → `BBB`. Otsing `AAA` järgi:
   - C0 → tühi ✓ (õige — `AAA` pole enam viimane versioon)
   - C1 → `AAA` ✗ (tagastab aegunud rea, sest viimase-versiooni kontroll puudub)
@@ -122,7 +122,7 @@ SQL-failide ümberkirjutus (mitte Liquibase — ReSql `.sql` endpoint'id):
 - **`DSL/Resql/efti/POST/get_consignments.sql` — TEHTUD.** C6 muster; kriteeriumiplokid
   jäid muutmata (viitavad `c`-le, ainus tabel välises skoobis), lisatud `NOT EXISTS`
   anti-join, `ORDER BY` `(platform_id, dataset_id, created_at DESC) → created_at DESC`.
-  Mõõdetud elavalt (`docs/askend_performance/explain-c6-live.txt`, 200k rida):
+  Mõõdetud elavalt (`docs/performance/askend_perf_verification/explain-c6-live.txt`, 200k rida):
   `Nested Loop Anti Join` (`Index Scan idx_consignments_main_transport_id` +
   `Index Only Scan idx_consignments_dataset_latest`, Heap Fetches 0), **1,1 ms** vs
   vana 2775 ms + 245 MB kettasort. Semantiline test roheline, `http-tests` 198/198.
@@ -136,8 +136,8 @@ SQL-failide ümberkirjutus (mitte Liquibase — ReSql `.sql` endpoint'id):
     semantikat). Sama juurpõhjust siin pole.
 - `AGENTS.md` — "No JOINs on hot path" täpsustus (korreleeritud anti-join sama tabeli vastu
   append-only semantika jaoks on lubatud). **TEHTUD.**
-- Semantiline regressioonitest `docs/askend_performance/semantic-test.sql` `tests/`-i alla
+- Semantiline regressioonitest `docs/performance/askend_perf_verification/semantic-test.sql` `tests/`-i alla
   püsivaks testiks — *lahtine.*
 
-Mõõtmised ja taastootmine: `docs/askend_performance/analysis.md` §6.4/§6.11,
-`docs/askend_performance/explain-candidates-1m.{sql,txt}`, `explain-c6-live.txt`.
+Mõõtmised ja taastootmine: `docs/performance/askend_perf_verification/analysis.md` §6.4/§6.11,
+`docs/performance/askend_perf_verification/explain-candidates-1m.{sql,txt}`, `explain-c6-live.txt`.
