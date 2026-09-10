@@ -645,3 +645,25 @@ tuumi, vähem kontentsiooni) veelgi parem.
 3. Mõõda kihte eraldi (`ab` ReSql-i pihta vs `authority/search` pihta) — üks
    `authority/search` number segab DB + ReSql + Ruuter + võrguhüpped kokku.
 4. Kirja täpne keskkond: Ruuteri versioon, `cpus`, `resql pool`, PG konf, compose-fail.
+
+### 7d. `k6` — realistlik profiil (ramp + think-time), latentsi jaotus
+
+`ab -c 250` mõõdab küllastust: kõik 250 päringut korraga sisse, p99 on peaaegu
+täielikult järjekorra-ootus. Realistlik koormus on ramp + think-time. `k6`
+(`docs/askend_performance/k6-authority-search.js`): VU-d 0 → 20 → 50 → 100
+(3 m 20 s), mõtlemispaus 0,5–1,5 s päringute vahel, tipp 100 samaaegset kasutajat.
+
+| stsenaarium | päringuid | fail | p50 | p90 | p95 | **p99** | max |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `authority/search`, 1 rida | 10 109 | 0 | 6,1 ms | 11,8 ms | 15,8 ms | **29,5 ms** | 381 ms |
+| `authority/search`, **1M rida** | 10 064 | 0 | 6,8 ms | 14,6 ms | 21,2 ms | **56,6 ms** | 383 ms |
+| ReSql otse `get_consignments`, 1 rida | 10 117 | 0 | 2,4 ms | 4,3 ms | 5,5 ms | **40,3 ms** | 715 ms |
+
+**Realistliku koormuse all on `authority/search` p99 ~30–57 ms**, mitte `ab`-i
+näidatud 300–4500 ms. 1M rida tõstab p99 ~30 → ~57 ms (indeksi/cache-efekt) — DB
+pole endiselt tegur. `iteration_duration` p99 ≈ 1,5 s = 1 päring + think-time,
+mitte serveri-ootus. 0 viga 30 000+ päringu peale.
+
+Läbilaskevõime selles profiilis ~50 req/s on **think-time'i, mitte serveri piir**
+(100 VU-d × ~1 s pausiga → ~50–100 req/s nõudlust). Serveri tegelik lagi tuli välja
+`ab`-i sweepis (§7b): ~550 req/s.

@@ -4,12 +4,16 @@
 # ja nimeliselt lubatud explain-*.txt artefaktid. Kõik muu siin on lokaalne kraam:
 # toored `ab` / `pgbench` väljundid, ühekordsed EXPLAIN-tõmmised, tulemuslogid.
 # Uue artefakti lisamiseks: pane whitelist'i rida või `git add -f`.
+# feedback/ — sidusrühmadele mõeldud kirjatükid (ülemus / Anton / tellija), käsitsi jagatavad.
+feedback/
+
 *
 !.gitignore
 !*.md
 !*.sh
 !*.sql
 !*.json
+!*.js
 !explain-1m-current.txt
 !explain-candidates-1m.txt
 !explain-c6-live.txt

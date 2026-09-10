@@ -6,9 +6,6 @@ docs/efti-analysis/8-codereview/eFTI_codereview_en.pdf
 CHANGES-FROM-ASKEND.md
 internal-notes/
 
-# Stakeholder-facing write-ups (boss / Anton / customer) — drafted locally, shared by hand.
-docs/pikker/
-
 
 # Operator-local issue manifest. Maintained on the developer machine for the
 # environment they're syncing against. Never committed — see
