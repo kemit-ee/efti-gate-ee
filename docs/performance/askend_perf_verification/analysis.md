@@ -301,7 +301,7 @@ päris­elus ka kohe `[]` + `x-poll-more:true` tagastama (praegu 65 s / 500).
 
 ### 6.2 — `EXPLAIN (ANALYZE, BUFFERS)` artefakt
 
-Salvestatud: `docs/askend_performance/explain-1m-current.txt` — praegune
+Salvestatud: `docs/performance/askend_perf_verification/explain-1m-current.txt` — praegune
 `get_consignments`-i plaan 1M real. Näitab `external merge Disk` Sort node'i ja
 `Rows Removed by Filter: 1 000 000`.
 
@@ -325,7 +325,7 @@ oli 1M peal 23,3 s — `explain-1m-current.txt`. C1/C6/C3 on indeksi-otsingud �
 | **C6 `NOT EXISTS`** — filter first + "pole uuemat rida sellele datasetile" | võtmesõna ei, **aga planeerija plaan on `Nested Loop Anti Join`** → "no JOINs" mõtte vastu; meeskonna otsus | jah | jah | Anti Join: Index Scan + `Index Only Scan idx_consignments_dataset_latest` | **0,09 ms** |
 | **C3 `is_latest` lipp** — `WHERE is_latest AND <kriteerium>` | ei | **ei** — 1 UPDATE per insert (cache-veerg; `consignments` domeeni­andmed jäävad muutumatuks, flip triggeriga, `app` jääb INSERT-only) | jah | `Index Scan idx_consignments_main_transport_id`, Filter `is_latest` | **0,14 ms** |
 
-Täisplaanid: `docs/askend_performance/explain-candidates-1m.txt`
+Täisplaanid: `docs/performance/askend_perf_verification/explain-candidates-1m.txt`
 (skript: `explain-candidates-1m.sql`).
 
 ### 6.4 — C1 + C6 koos = **C6** (append-only vastus)
@@ -375,7 +375,7 @@ Kui identifikaatoriväljad on `dataset_id` eluea jooksul praktikas muutumatud
 (re-upload = staatuse-muutus / parandus, mitte uus transpordivahend), on C1
 ohutu. **Vajab meeskonna kinnitust.**
 
-Tulemused (`docs/askend_performance/explain-candidates-1m.txt`): `<TODO>`
+Tulemused (`docs/performance/askend_perf_verification/explain-candidates-1m.txt`): `<TODO>`
 
 ### 6.5 — Otsus: läheme C6 peale (ADR-009)
 
@@ -392,7 +392,7 @@ Rakendus (järgmine samm):
 
 ### 6.6 — Seemetamine korda + CI-ressursid tõstetud
 
-**Seemetamine** (`docs/askend_performance/seed-consignments.sql`, `run.md`):
+**Seemetamine** (`docs/performance/askend_perf_verification/seed-consignments.sql`, `run.md`):
 - baasrida `VESSEL-001` läheb sisse *päris teed pidi* — `POST sample.xml`
   `/platforms/v1/consignments` peale (xml-mapper + `insert_consignment` teevad
   veergude mapimise). Enne oli see kas puudu või vale `gate_id`.
@@ -414,7 +414,7 @@ Rakendus (järgmine samm):
 
 ### 6.7 — Hop-latents: ruuter → resql → db (`hop-latency.sh`)
 
-Uus eraldi mõõt (`docs/askend_performance/hop-latency.sh`), järjestikku (`c=1`),
+Uus eraldi mõõt (`docs/performance/askend_perf_verification/hop-latency.sh`), järjestikku (`c=1`),
 et iga number oleks *ühe päringu maksumus*, mitte järjekorra sügavus. 3 jooksu,
 n=2000/etapp, `ruuter cpus: 1.0`, `resql pool 75`, 1 seeditud rida.
 
@@ -556,7 +556,7 @@ alampäring → `FROM consignments c` + `NOT EXISTS`-anti-join "sellele dataseti
 uuemat rida". Kriteeriumiplokid jäid muutmata (viitavad `c`-le). `ORDER BY` muutus
 `platform_id, dataset_id, created_at DESC → created_at DESC`.
 
-**Elav plaan** (`docs/askend_performance/explain-c6-live.txt`, 200 001 rida,
+**Elav plaan** (`docs/performance/askend_perf_verification/explain-c6-live.txt`, 200 001 rida,
 `work_mem=4MB`):
 ```
 Limit → Sort (quicksort, 25kB) → Nested Loop Anti Join
@@ -602,7 +602,7 @@ Execution Time: 0.219 ms
 | I/O @ 1M | ~55 000 lehte + 245 MB temp | 16 buffer hit |
 
 **~100 000× kiirem. DB on igas mahus kriitiliselt teelt maas.**
-Artefakt: `docs/askend_performance/explain-c6-1m.txt`.
+Artefakt: `docs/performance/askend_perf_verification/explain-c6-1m.txt`.
 
 ### 7b. `ab` — `authority/search` (VESSEL-001 lokaalne tabamus) ja ReSql otse
 
@@ -650,7 +650,7 @@ tuumi, vähem kontentsiooni) veelgi parem.
 
 `ab -c 250` mõõdab küllastust: kõik 250 päringut korraga sisse, p99 on peaaegu
 täielikult järjekorra-ootus. Realistlik koormus on ramp + think-time. `k6`
-(`docs/askend_performance/k6-authority-search.js`): VU-d 0 → 20 → 50 → 100
+(`docs/performance/askend_perf_verification/k6-authority-search.js`): VU-d 0 → 20 → 50 → 100
 (3 m 20 s), mõtlemispaus 0,5–1,5 s päringute vahel, tipp 100 samaaegset kasutajat.
 
 | stsenaarium | päringuid | fail | p50 | p90 | p95 | **p99** | max |

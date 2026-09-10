@@ -13,7 +13,7 @@
 # compose network with docs/askend_performance mounted at /d:
 #   docker run -d --name ab --network efti_gate_ee_default \
 #     -v "$PWD/docs/askend_performance:/d" httpd:2.4-alpine sleep infinity
-#   docker cp docs/askend_performance/hop-latency.sh ab:/hop.sh && docker exec ab sh /hop.sh
+#   docker cp docs/performance/askend_perf_verification/hop-latency.sh ab:/hop.sh && docker exec ab sh /hop.sh
 #
 # Ruuter also logs per-step timing itself; watch it alongside:
 #   docker compose -f compose.yml logs -f ruuter | grep -E 'local_search|check_|respond_|authority/search 200'

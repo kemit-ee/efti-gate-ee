@@ -1,11 +1,11 @@
 -- 1M consignments for load testing. Volume on top of the baseline data (sample.xml POST +
--- docs/askend_performance/seed-consignments.sql — see run.md).
+-- docs/performance/askend_perf_verification/seed-consignments.sql — see run.md).
 -- Corrected vs docs/performance/bulk-insert-consignments.sql:
 --   * gate_id = 'EU-EE' (was 'EE' — never matched local_search's OWN_GATE_ID filter)
 --   * single INSERT ... SELECT generate_series (was a 100-iteration DO loop)
 -- Query for an id in the set, e.g. main_transport_id = 'BULK-500000'; VESSEL-001 still
 -- resolves to exactly the one seeded row.
---   docker compose -f compose.yml exec -T database psql -U efti -d efti < docs/askend_performance/bulk-insert-1m.sql
+--   docker compose -f compose.yml exec -T database psql -U efti -d efti < docs/performance/askend_perf_verification/bulk-insert-1m.sql
 \timing on
 DELETE FROM consignments WHERE platform_id = 'bulk';
 INSERT INTO consignments (

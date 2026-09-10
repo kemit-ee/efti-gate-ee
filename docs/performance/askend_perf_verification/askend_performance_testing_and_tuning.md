@@ -227,7 +227,7 @@ konkurentsiga. Päris serveril (rohkem tuumi, väiksem kontentsioon) väiksem.
 ## 10. Mida testides veel muuta
 
 1. **Seed peab päringu tingimustele vastama** — `gate_id = 'EU-EE'`, otsitav identifikaator
-   andmehulgas. Vt [`../performance/bulk-insert-consignments-fixed.sql`](../performance/bulk-insert-consignments-fixed.sql)
+   andmehulgas. Vt [`../bulk-insert-consignments-fixed.sql`](../bulk-insert-consignments-fixed.sql)
    ja [`seed-consignments.sql`](seed-consignments.sql).
 2. **Mõõda kihte eraldi:** `ab` ReSql-i pihta (DB + päringukiht); `ab` `authority/search`
    pihta (terve marsruut); `pgbench` custom-skriptiga (DB üksi). Skript:

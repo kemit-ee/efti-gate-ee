@@ -41,7 +41,7 @@ SELECT
 -- on every call (1M rows -> ~23s external-merge sort). Now the criteria predicate uses its btree
 -- index and the anti-join is an Index Only Scan on idx_consignments_dataset_latest. Append-only
 -- and "no cross-table JOINs on the hot path" both preserved. Semantically identical to the old
--- query (docs/askend_performance/semantic-test.sql).
+-- query (docs/performance/askend_perf_verification/semantic-test.sql).
 FROM consignments c
 WHERE c.status != 'DELETED'
   AND NOT EXISTS (

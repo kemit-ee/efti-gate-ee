@@ -1,6 +1,6 @@
 -- ---------------------------------------------------------------------------
 -- Semantic fixtures for the consignments-search benchmarks
--- (docs/askend_performance/analysis.md §6.4, semantic-test.sql).
+-- (docs/performance/askend_perf_verification/analysis.md §6.4, semantic-test.sql).
 --
 -- The findable baseline row (main_transport_id = 'VESSEL-001', gate EU-EE) is NOT seeded
 -- here — it goes in the real way, by POSTing code/xml-mapper/xsd/FTI004/sample.xml through
@@ -14,8 +14,8 @@
 -- A search for 'AAA' must return nothing; 'BBB' and 'CCC' must both return.
 --
 -- Run:
---   docker compose -f compose.yml exec -T database psql -U efti -d efti < docs/askend_performance/seed-consignments.sql
--- For volume, follow with docs/askend_performance/bulk-insert-1m.sql.
+--   docker compose -f compose.yml exec -T database psql -U efti -d efti < docs/performance/askend_perf_verification/seed-consignments.sql
+-- For volume, follow with docs/performance/askend_perf_verification/bulk-insert-1m.sql.
 -- ---------------------------------------------------------------------------
 \timing on
 
