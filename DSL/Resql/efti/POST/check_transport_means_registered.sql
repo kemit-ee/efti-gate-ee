@@ -33,7 +33,7 @@ SELECT EXISTS (
       used_equipment_ids,
       carried_equipment_ids,
       transport_reg_country,
-      status::text AS status
+      status
     FROM consignments
     WHERE (dataset_id, platform_id) IN (
       SELECT dataset_id, platform_id

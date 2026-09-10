@@ -20,7 +20,7 @@ unusable. Same anti-pattern the `get_consignments` C6 rewrite fixed (ADR-009).
 ## After
 
 ```sql
-SELECT c.row_id, c.id, c.status::text AS status
+SELECT c.row_id, c.id, c.status
 FROM platforms c
 WHERE c.api_key_hash = digest(:apiKey, 'sha256')
   AND c.status != 'DELETED'

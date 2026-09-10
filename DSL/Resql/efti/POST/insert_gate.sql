@@ -24,6 +24,6 @@ RETURNING
   e_delivery_url,
   e_delivery_cert,
   tls_cert,
-  status::text,
+  status,
   last_ping_at,
   created_at;

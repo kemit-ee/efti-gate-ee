@@ -27,7 +27,7 @@ vastuse XML-ina**, mille `xml-mapper` `POST /api/v1/search/response-to-json` tei
 
 **`core` `authority/search.yml` ei anna ise järjekindlat kuju:**
 - kohalik tabamus (`respond_local`) → `get_consignments.sql` **toored read** (`row_id`, `xml`,
-  `status::text`, snake_case)
+  `status`, snake_case)
 - kaug-tabamus (`respond_first` / `respond_rest`) → `xml-mapper` `search/response-to-json` väljund
 
 Seega `allgates` haru peab kuju ise ühtlustama, kui lubadus kehtima jääb.

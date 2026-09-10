@@ -9,7 +9,7 @@ SELECT DISTINCT ON (id)
   name,
   registry_code,
   subsets,
-  status::text,
+  status,
   created_at
 FROM authorities
 WHERE id = :id

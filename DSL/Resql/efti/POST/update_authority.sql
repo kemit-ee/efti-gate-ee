@@ -28,5 +28,5 @@ RETURNING
   name,
   registry_code,
   subsets,
-  status::text,
+  status,
   created_at;

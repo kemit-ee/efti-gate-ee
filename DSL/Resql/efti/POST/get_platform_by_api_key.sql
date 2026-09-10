@@ -16,7 +16,7 @@ params:
 -- row to be BOTH non-deleted AND the newest for its id gives the same answer as
 -- taking the newest row and checking it — a rotated key or a later DELETE row is a
 -- newer sibling, so the stale match is excluded either way.
-SELECT c.row_id, c.id, c.status::text AS status
+SELECT c.row_id, c.id, c.status
 FROM platforms c
 WHERE c.api_key_hash = digest(:apiKey, 'sha256')
   AND c.status != 'DELETED'

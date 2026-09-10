@@ -15,5 +15,5 @@ FROM (
 RETURNING
   row_id,
   id,
-  status::text,
+  status,
   created_at;

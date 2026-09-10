@@ -66,5 +66,5 @@ FROM (
 RETURNING
   row_id,
   dataset_id,
-  status::text,
+  status,
   created_at;
