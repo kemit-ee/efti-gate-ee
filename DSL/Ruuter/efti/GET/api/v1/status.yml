@@ -14,6 +14,10 @@ get_consignment:
 
 check_found:
   switch:
+    # Transport failure reaching ReSql (issue #89, status 0) — a non-array stub body would otherwise
+    # make !body.length true and report a data-layer outage as 404 Not Found.
+    - condition: ${consignment_result.response.status == 0}
+      next: data_unavailable
     - condition: ${!consignment_result.response.body.length}
       next: not_found
 
@@ -26,4 +30,10 @@ respond:
 not_found:
   return: {"error": "Not Found"}
   status: 404
+  wrapper: false
+  next: end
+
+data_unavailable:
+  return: {"error": "Data layer unavailable"}
+  status: 502
   wrapper: false

@@ -17,7 +17,7 @@ jobs:
         # against — no separate tools image to build. Keep this tag in step with
         # docker/ruuter/Dockerfile.
         run: |
-          IMAGE=turnerrainer/ruuter:0.9.14-rc
+          IMAGE=turnerrainer/ruuter:0.9.15-rc
           run() { docker run --rm -v "$PWD:/workdir" -w /workdir "$IMAGE" "$@"; }
           run dsl-lint --dsl DSL/Ruuter            --constants constants.ini
           run dsl-lint --dsl DSL/Ruuter-xroad-mock --constants constants-xroad-mock.ini

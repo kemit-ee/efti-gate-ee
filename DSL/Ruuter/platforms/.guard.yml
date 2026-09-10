@@ -31,7 +31,10 @@ resolve_platform:
 # failure) makes every length comparison false, so it must land on guard_fail, not guard_success.
 check_platform:
   switch:
-    - condition: ${platform_res.response.status != 200 || !platform_res.response.body.length}
+    # A ReSql transport failure (issue #89) surfaces as status 0, already covered by `!= 200` here —
+    # the guard fails closed (401), which is the correct posture for a credential check. Called out
+    # explicitly so the availability-failure path is auditable.
+    - condition: ${platform_res.response.status == 0 || platform_res.response.status != 200 || !platform_res.response.body.length}
       next: guard_fail
     - condition: ${platform_res.response.body.length > 1}
       next: guard_multi

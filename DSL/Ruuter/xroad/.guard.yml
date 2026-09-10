@@ -118,7 +118,9 @@ resolve_authority:
 # the status check comes first.
 check_authority:
   switch:
-    - condition: ${authority_res.response.status != 200}
+    # A ReSql transport failure (issue #89) surfaces as status 0, already covered by `!= 200` — the
+    # guard fails closed (403). Called out explicitly so the availability-failure path is auditable.
+    - condition: ${authority_res.response.status == 0 || authority_res.response.status != 200}
       next: guard_forbidden
     - condition: ${!authority_res.response.body.length}
       next: guard_forbidden
