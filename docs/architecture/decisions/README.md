@@ -14,3 +14,4 @@ Otsused on loendurid ja ei kustutata — uus otsus ei asenda vana, vaid täienda
 | [ADR-007](007-xroad-transport-means-response-shape.md) | `transport-means` `scope: allgates` vastuse kuju — **MUSTAND** | 2026-09-03 | täpsustamata |
 | [ADR-008](008-adopt-datamapper.md) | DataMapperi kasutuselevõtt vastuse-kujundamiseks — **MUSTAND** (seotud ADR-007-ga) | 2026-09-03 | täpsustamata |
 | [ADR-009](009-consignments-latest-row-not-exists.md) | `consignments` viimase versiooni valik `NOT EXISTS`-iga, mitte `DISTINCT ON`-iga | 2026-09-09 | Sten Viljus |
+| [ADR-010](010-authority-search-non-blocking.md) | Authority-otsing ei blokeeru; kattuvate guard'ide dedup; DSL-tööriistad runtime-pildist | 2026-09-10 | Sten Viljus |

@@ -7,6 +7,14 @@
 # This used to be public (network isolation only, relying on edelivery being the only
 # path in). The token is defence in depth: anyone who reaches port 8086 directly no
 # longer gets a free G2G-inbound surface.
+#
+# Ruuter #79 (@sviljus leid, parandatud turnerrainer/ruuter 0.9.13-rc): kui guard
+# ise sisaldab `template:` sammu, mille sihtmärk on sama guardi all, tekkis
+# 0.9.11–0.9.12-rc korral lõpmatu rekursioon (`guard → template → sama guard → …`)
+# ja protsess crashis (exit 134). 0.9.13-rc lisas per-request guard-stacki: juba
+# stackil olev guard jäetakse vahele + kõva `MAX_GUARD_DEPTH = 32` katkesti.
+# Käesolev guard on puhas `switch` (ei kutsu `template:`), seega polnud crash'i
+# teel — fix on siin ohutusvõrk, kui keegi peaks siia guardi `template:` lisama.
 
 declaration:
   description: "efti/POST/api/v1 guard — gate-internal. Credential: X-Internal-Service-Token

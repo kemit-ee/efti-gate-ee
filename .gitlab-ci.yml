@@ -186,12 +186,13 @@ secret_detection:
   image: harbor.kemitaws.ee/base-images/devops-aio:1.0.0
   tags: ["arm64"]
   interruptible: true
-  # docker/dsl-tools/Dockerfile builds Ruuter's dsl-lint + dsl-test from the same tag as the
-  # runtime image. The runner needs a Docker daemon (same as the image-build components).
+  # dsl-lint / dsl-test ship inside the runtime image since Ruuter 0.9.14-rc
+  # (turnerrainer/Ruuter#83). Keep this tag in step with docker/ruuter/Dockerfile.
+  # The runner needs a Docker daemon (same as the image-build components).
   script:
     - set -euo pipefail
-    - docker build -t dsl-tools:local docker/dsl-tools
-    - run() { docker run --rm -v "$PWD:/workdir" -w /workdir dsl-tools:local "$@"; }
+    - IMAGE=turnerrainer/ruuter:0.9.14-rc
+    - run() { docker run --rm -v "$PWD:/workdir" -w /workdir "$IMAGE" "$@"; }
     - run dsl-lint --dsl DSL/Ruuter            --constants constants.ini
     - run dsl-lint --dsl DSL/Ruuter-xroad-mock --constants constants-xroad-mock.ini
     - run dsl-test --dsl DSL/Ruuter --tests DSL-tests --constants constants.ini

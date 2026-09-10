@@ -1,8 +1,10 @@
 declaration:
-  description: "Authority search for consignments — local first, then forward to other gates
-    (gate-internal, X-Internal-Service-Token). Body: {operator, id}-shaped criteria object; {} is
-    valid and, with X-Request-Id + X-Poll, means 'poll for the rest of a prior search'. Individual
-    criteria fields are not enumerated here — forwarded verbatim."
+  description: "Authority search for consignments — local-first, then broadcast. A local match is
+    returned at once with x-poll-more:false (this gate is authoritative for its own
+    consignments). With no local match the response is [] with x-poll-more:true and the other
+    gates are queried in the background — collect their results by re-issuing the request with
+    X-Request-Id + X-Poll and an empty body {}. Neither path ever blocks on a peer gate.
+    Body: {operator, id}-shaped criteria object; criteria fields forwarded verbatim."
 
 validate_input:
   switch:
@@ -32,6 +34,7 @@ check_poll:
       next: poll_remaining
   next: local_search
 
+# --- poll path: collect the other gates' results for a prior search ---
 poll_remaining:
   call: http.get
   args:
@@ -57,6 +60,7 @@ respond_rest:
   wrapper: false
   next: end
 
+# --- first call ---
 local_search:
   call: http.post
   args:
@@ -72,16 +76,19 @@ check_local:
   switch:
     - condition: ${local_result.response.body.length > 0}
       next: respond_local
-  next: criteria-to-xml
+  next: criteria_to_xml
 
+# Local hit: authoritative for this gate's own consignments, return it and stop.
 respond_local:
   return: ${local_result.response.body}
   headers:
+    content-type: "application/json"
     x-poll-more: false
   wrapper: false
   next: end
 
-criteria-to-xml:
+# No local match -> kick off the cross-gate broadcast and answer immediately.
+criteria_to_xml:
   call: http.post
   args:
     url: "[#XML_MAPPER_URL]/api/v1/search/request-to-xml"
@@ -91,32 +98,24 @@ criteria-to-xml:
     body: ${incoming.body}
   result: criteria_xml
 
-forward_to_gates:
+# Non-blocking: the multiplexer registers the search, fans out to the other gates in the
+# background, and returns at once. It never blocks this request on a peer gate's response —
+# those are collected via the X-Poll path above. (Was a blocking POST /api/v1/first with a
+# 65s timeout that returned HTTP 500 when no gate answered.)
+start_broadcast:
   call: http.post
-  timeout: 65000
   args:
-    url: "[#MULTIPLEXER_URL]/api/v1/first/${requestId}"
+    url: "[#MULTIPLEXER_URL]/api/v1/search/${requestId}"
     headers:
       content-type: "text/xml"
       x-request-id: ${requestId}
     body: ${criteria_xml.response.body}
     content_type: plaintext
-  result: gates_result
+  result: broadcast_started
 
-xml-to-json:
-  call: http.post
-  args:
-    url: "[#XML_MAPPER_URL]/api/v1/search/response-to-json"
-    headers:
-      x-request-id: ${requestId}
-      content-type: "text/xml"
-    body: ${gates_result.response.body}
-    content_type: plaintext
-  result: first_result
-
-respond_first:
-  return: ${first_result.response.body}
+respond_pending:
+  return: ${local_result.response.body}
   headers:
     content-type: "application/json"
-    x-poll-more: ${gates_result.response.headers['x-poll-more']}
+    x-poll-more: true
   wrapper: false
