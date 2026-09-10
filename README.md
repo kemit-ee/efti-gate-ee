@@ -7,6 +7,7 @@ This is the **eFTI Gate (EE)**: the **Estonian** national node of the EU electro
 | You want to | Read |
 |---|---|
 | 1-page visual map (themes × epics) | [`PROJECT-OVERVIEW.md`](PROJECT-OVERVIEW.md) |
+| Admin UI kasutusjuhend | [`docs/user-guide/`](docs/user-guide/) (mdBook koos Playwrighti ekraanipiltidega) |
 | Acceptance criteria, per epic | [`docs/cfr/`](docs/cfr/) (each epic opens with a Mermaid mini-diagram) |
 | Reference architecture (target design, EU regs) | [`docs/architecture/eFTI-Gate-Reference-Architecture.md`](docs/architecture/eFTI-Gate-Reference-Architecture.md) |
 | Authoritative artifact list | the table below |

@@ -1,0 +1,83 @@
+flowchart LR
+  classDef actor fill:#eef6ff,stroke:#0b66b2,color:#10243e,stroke-width:1px
+  classDef edge fill:#fff7e6,stroke:#c77700,color:#332200,stroke-width:1px
+  classDef ruuter fill:#e9f7ef,stroke:#23864a,color:#12351f,stroke-width:1px
+  classDef kotlin fill:#f3edff,stroke:#7253b5,color:#2b1f47,stroke-width:1px
+  classDef data fill:#fff0f3,stroke:#b33b5a,color:#4a1725,stroke-width:1px
+
+  subgraph USERS["Kasutajad ja välised süsteemid"]
+    ADMIN["Värava administraator"]
+    PLATFORM["eFTI platvorm"]
+    AUTHORITY["Pädeva asutuse infosüsteem"]
+    PEERS["Teiste riikide eFTI väravad"]
+  end
+
+  subgraph ENTRY["Sisenemispunktid"]
+    UI["Admin UI + nginx"]
+    SS["eFTI X-tee turvaserver"]
+    DEV["Avalik arendaja-mock\neraldi Ruuter runtime"]
+  end
+
+  subgraph RR["Ruuter runtime — projektid on loogiliselt eraldi teenused"]
+    AUTH["auth\nTARA sisselogimine ja seanss"]
+    ADMINAPI["admin\nregistrite haldus"]
+    PLATFORMAPI["platforms\nplatvormi API"]
+    XROAD["xroad\nX-tee adapter"]
+    EFTI["efti\ncore ja sisemised API-d"]
+    MOCK["mock-platform\nlokaalne näidisplatvorm"]
+  end
+
+  subgraph JVM["Kotlin-teenused"]
+    XML["xml-mapper\nXML ↔ JSON"]
+    MUX["multiplexer\notsingu fan-out"]
+    EDELIVERY["edelivery\nAS4 sõnumid"]
+    PUBSUB["pubsub\nasünkroonsed vastused"]
+  end
+
+  subgraph ID["Identiteet"]
+    TIM["TIM\ntokenid ja identiteet"]
+    TARA["TARA"]
+  end
+
+  subgraph DATA["Andmekiht"]
+    RESQL["ReSql\nSQL endpointid"]
+    DB[("PostgreSQL\nregistrid ja saadetised")]
+    LB["Liquibase\nskeemimuudatused"]
+  end
+
+  ADMIN --> UI
+  UI --> AUTH
+  UI --> ADMINAPI
+  AUTH --> TIM --> TARA
+
+  PLATFORM --> PLATFORMAPI
+  PLATFORMAPI --> XML
+  PLATFORMAPI --> RESQL
+  PLATFORMAPI --> EFTI
+
+  AUTHORITY --> SS --> XROAD
+  XROAD --> EFTI
+  XROAD --> RESQL
+
+  ADMINAPI --> RESQL
+  AUTH --> RESQL
+  EFTI --> RESQL
+  EFTI --> XML
+  EFTI --> MUX
+  MOCK --> EFTI
+
+  MUX --> EDELIVERY
+  MUX <--> PUBSUB
+  EDELIVERY <--> PUBSUB
+  EDELIVERY <--> PEERS
+
+  RESQL --> DB
+  LB --> DB
+
+  AUTHORITY -. "enne X-tee ligipääsu" .-> DEV
+
+  class ADMIN,PLATFORM,AUTHORITY,PEERS actor
+  class UI,SS,DEV edge
+  class AUTH,ADMINAPI,PLATFORMAPI,XROAD,EFTI,MOCK ruuter
+  class XML,MUX,EDELIVERY,PUBSUB kotlin
+  class RESQL,DB,LB,TIM,TARA data

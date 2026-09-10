@@ -1,0 +1,16 @@
+[book]
+title = "eFTI värava kasutusjuhend"
+authors = ["KeMIT"]
+language = "et"
+src = "src"
+
+[build]
+build-dir = "book"
+create-missing = false
+
+[output.html]
+default-theme = "light"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/kemit-ee/efti-gate-ee"
+edit-url-template = "https://github.com/kemit-ee/efti-gate-ee/edit/dev/docs/user-guide/{path}"
+site-url = "/efti-kasutusjuhend/"
