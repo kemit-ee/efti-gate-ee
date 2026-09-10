@@ -1,0 +1,50 @@
+declaration:
+  description: "Full version history of one consignment dataset (admin, TARA JWT) — the live rows
+    plus the rows already swept to the separate archive DB, newest first. Query: datasetId
+    (required). No body."
+
+validate_input:
+  switch:
+    - condition: ${incoming.params.datasetId == null || incoming.params.datasetId == ''}
+      next: bad_request
+  next: live_history
+
+bad_request:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "Query parameter datasetId is required."
+  wrapper: false
+  status: 400
+  next: end
+
+live_history:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/get_consignment_history"
+    headers:
+      Content-Type: "application/json"
+    body:
+      datasetId: ${incoming.params.datasetId}
+  result: live_result
+
+archived_history:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/archive/get_archived_consignments"
+    headers:
+      Content-Type: "application/json"
+    body:
+      datasetId: ${incoming.params.datasetId}
+  result: archived_result
+
+respond:
+  return:
+    datasetId: ${incoming.params.datasetId}
+    live: ${live_result.response.body}
+    archived: ${archived_result.response.body}
+  headers:
+    content-type: "application/json"
+  wrapper: false
