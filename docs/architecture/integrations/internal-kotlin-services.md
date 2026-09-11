@@ -2,6 +2,7 @@
 
 ## Changes
 
+- **v1.1** — Added the `pubsub` internal event bus and documented its SSE contract and transient delivery semantics.
 - _Initial state. Change tracking begins at v1.0.0._
 
 > This document describes the internal service boundary between Ruuter and the
@@ -20,9 +21,12 @@ flowchart LR
     R --> XM[xml-mapper<br/>XML ↔ JSON]
     R --> M[multiplexer<br/>fan-out search]
     R --> E[edelivery<br/>AS4 transport]
+    R --> PS[pubsub<br/>internal SSE events]
     XM --> R
     M --> E
+    M --> PS
     E --> R
+    E --> PS
     R --> DB[(ReSql / PostgreSQL)]
     E <-->|SOAP 1.2 + AS4| Peer[Peer eFTI Gate]
 ```
@@ -37,6 +41,7 @@ interfaces, not public authority or platform APIs.
 | `xml-mapper` | 8082 | Parse and generate eFTI XML for FTI004/029, FTI009/010, FTI019/021 and FTI025/030 messages; preserve the identifier criteria XML needed for storage and forwarding. | Routing, authorization, database access, or AS4 transport |
 | `multiplexer` | 8083 | Fan out an identifier-search XML request to all registered online peer gates and expose the first and remaining responses.                                          | XML parsing, gate registry persistence, or AS4 envelope handling |
 | `edelivery` | 8081 | Generate, sign, encrypt, send, receive, decrypt and dispatch AS4 messages; correlate responses to requests.                                                         | Business searches, identifier persistence, or authority authorization |
+| `pubsub` | 8084 | Broadcast transient internal events by topic to connected SSE subscribers.                                                                                          | Persistence, replay, delivery guarantees, authorization, or business processing |
 
 ## Internal HTTP surfaces
 
@@ -71,6 +76,41 @@ messages. Generated XML is returned as `application/xml`; parsed results are JSO
 The mapper owns the XSD-shaped message models and XML rendering/parsing. Ruuter
 decides which operation is needed and remains responsible for the surrounding
 business flow.
+
+## `pubsub` processing
+
+`pubsub` is a small internal event bus for coordination between services running
+in the same Compose deployment. It is available at
+`http://pubsub:8084/api/v1` and exposes:
+
+| Route | Purpose |
+|---|---|
+| `POST /publish` | Publish a JSON SSE event. The event's `name` selects the topic; if it is omitted, the topic is `message`. Returns `201 Created`. |
+| `GET /subscribe/{topic}` | Open an SSE stream for a topic. Events published while the connection is open are delivered to that subscriber. |
+
+Topics currently used by the gate are:
+
+| Topic | Publishers | Subscribers | Event meaning |
+|---|---|---|---|
+| `gate-changes` | Ruuter admin gate CRUD and ping routes | `edelivery`, `multiplexer` | Reload the latest gate registry data from ReSql. |
+| `platform-changes` | Ruuter admin platform CRUD routes | `edelivery` | Reload the latest platform registry data from ReSql. |
+| `async-responses` | `edelivery`'s multi-node response provider | `edelivery` instances | Offer an unmatched peer response to the first local pending request. |
+
+The registry is process-local and each topic owns a set of per-subscriber queues.
+Publishing is a best-effort broadcast: an event is offered to every currently
+connected subscriber, is discarded when no subscriber is connected, and is not
+persisted or replayed. A disconnected client must reconnect and refresh its
+authoritative state from ReSql where applicable.
+The service therefore provides notification, not durable messaging or a
+cross-deployment broker. The Compose topology keeps one pubsub instance for the
+gate deployment; a multi-instance deployment would need an external shared bus
+or explicit routing between pubsub instances.
+
+The long-lived consumers reconnect after SSE failures. Registry consumers treat
+an event as an invalidation signal and reload the full registry rather than
+depending on the event payload. The async-response consumer instead forwards the
+event payload to its first matching in-memory pending response queue; if no
+matching request remains, the response is discarded.
 
 ## `edelivery` processing
 
@@ -221,7 +261,7 @@ sequenceDiagram
 ```
 
 This separation keeps each concern replaceable: XSD changes belong in
-`xml-mapper`, AS4 or certificate changes belong in `edelivery`, and fan-out or
-polling policy belongs in `multiplexer`. None of the three services should access
-PostgreSQL directly; registry and persistence access is mediated by ReSql or by
-Ruuter-owned workflows.
+`xml-mapper`, AS4 or certificate changes belong in `edelivery`, fan-out or
+polling policy belongs in `multiplexer`, and transient coordination belongs in
+`pubsub`. None of the four services should access PostgreSQL directly; registry
+and persistence access is mediated by ReSql or by Ruuter-owned workflows.

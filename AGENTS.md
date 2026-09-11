@@ -12,7 +12,7 @@ Estonian national eFTI Gate (EU Regulation 2020/1056). Mediates dataset retrieva
 |-------|------|------|------|
 | **Ruuter** | Rust DSL engine | 8086 | HTTP API gateway — routes defined as YAML files. Also serves the X-Road national extension under `/xroad/` (`DSL/Ruuter/xroad/`, ADR-006) |
 | **ReSql** | Rust SQL executor | 8090 | Serves SQL files as HTTP endpoints |
-| **Kotlin services** | JVM (klite framework) | 8081–8083 | edelivery (AS4), xml-mapper (XML↔JSON), multiplexer (fan-out) |
+| **Kotlin services** | JVM (klite framework) | 8081–8084 | edelivery (AS4), xml-mapper (XML↔JSON), multiplexer (fan-out), pubsub (internal SSE event bus) |
 
 Supporting: PostgreSQL 18 (54321), TIM (8085, identity), TARA-mock (8888, OIDC), UI (8000, Vite/Svelte).
 

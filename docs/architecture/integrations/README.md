@@ -16,7 +16,7 @@
 - [eDelivery AS4 Integration](edelivery_as4.md) — AC: [`docs/cfr/integrations/edelivery_as4.md`](../../cfr/integrations/edelivery_as4.md)
 - [X-Road Integration (EE extension)](x_road_integration.md) — AC: [`docs/cfr/integrations/x_road_integration.md`](../../cfr/integrations/x_road_integration.md)
 - [eDelivery AS4 Message Flow](as4_message_flow.md) — AC: [`docs/cfr/integrations/as4_message_flow.md`](../../cfr/integrations/as4_message_flow.md)
-- [Internal Kotlin Services](internal-kotlin-services.md) — eDelivery, XML mapping and multiplexer service boundaries
+- [Internal Kotlin Services](internal-kotlin-services.md) — eDelivery, XML mapping, multiplexer and pub/sub service boundaries
 
 ---
 
