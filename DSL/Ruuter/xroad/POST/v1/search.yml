@@ -30,28 +30,34 @@ bad_request:
 
 # X-Road-Id becomes x-request-id. That is load-bearing here rather than merely tidy: core's
 # authority/search.yml uses x-request-id as the multiplexer polling key, so a caller re-issuing the
-# request with {"poll": true} and the same X-Road-Id collects the remaining gates' results.
-# timeout must exceed core's own 65s multiplexer timeout (authority/search.yml forward_to_gates).
+# request with {"poll": true} and the same X-Road-Id collects the remaining gates' results — the
+# x-poll header below carries that intent through to core's check_poll switch (an unquoted
+# null value is dropped by the http step, not sent as "null" — Ruuter #57). Core's first call
+# now returns the local slice immediately and never blocks on peer gates, so no oversized
+# timeout is needed here.
 forward_to_core:
   call: http.post
-  timeout: 70000
+  timeout: 15000
   args:
     url: "[#RUUTER_URL]/efti/api/v1/authority/search"
     headers:
       Content-Type: application/json
       x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
       x-request-id: "${incoming.headers['x-road-id']}"
+      x-poll: ${incoming.body.poll}
     body: ${incoming.body}
   result: core_res
   next: check_core_status
 
-# Only fires once core has RESPONDED. A connection refusal, DNS failure, or the 70s timeout
-# expiring raises inside the http.post above, and ruuter.yaml sets
-# stop_in_case_of_exception: true, so the run aborts and Ruuter emits its own generic 500 — not the
-# 502 GATEWAY_UNAVAILABLE this code exists to name. Not fixable with another branch here (the run
-# never reaches it); documented in ADR-006 instead.
+# Since Ruuter 0.9.15-rc (issue turnerrainer/Ruuter#89) a connection refusal, DNS failure, TLS
+# handshake error or the timeout expiring no longer aborts the run: the http.post binds a stub
+# `{status: 0, error: <kind>}` to core_res and falls through here, so the availability-failure
+# class reaches core_unavailable's semantic 502 instead of Ruuter's generic 500. Policy pre-flight
+# rejections (SSRF, host-allowlist, malformed URL, size cap) still raise.
 check_core_status:
   switch:
+    - condition: ${core_res.response.status == 0}
+      next: core_unavailable
     - condition: ${core_res.response.status >= 400}
       next: core_error
   next: respond
@@ -78,6 +84,20 @@ core_error:
     detail: "The gate's consignment search failed. The gate's own status and response are carried in coreStatus and coreResponse."
     coreStatus: ${core_res.response.status}
     coreResponse: ${core_res.response.body}
+  wrapper: false
+  status: 502
+  next: end
+
+# Transport failure reaching core (issue #89): core never produced a status. Distinct from
+# core_error so an operator sees "unreachable" rather than "core returned 5xx".
+core_unavailable:
+  return:
+    type: "https://api.efti.ee/errors/bad-gateway"
+    code: "GATEWAY_UNAVAILABLE"
+    title: "Bad Gateway"
+    status: 502
+    detail: "The gate's core consignment search is unreachable. The transport failure kind is carried in transportError."
+    transportError: ${core_res.response.error}
   wrapper: false
   status: 502
   next: end

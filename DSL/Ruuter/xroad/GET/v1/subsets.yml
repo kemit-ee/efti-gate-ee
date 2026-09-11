@@ -35,6 +35,11 @@ resolve_authority:
 # length comparison false, and must land on `forbidden`, not on `respond`.
 check_authority:
   switch:
+    # Transport failure reaching ReSql (issue #89, status 0) is a gate-side data-layer outage, not
+    # an authorisation answer — must not be reported to the caller as "you are not a competent
+    # authority". Kept ahead of the != 200 catch-all.
+    - condition: ${authority_res.response.status == 0}
+      next: entitlement_lookup_failed
     - condition: ${authority_res.response.status != 200}
       next: forbidden
     - condition: ${!authority_res.response.body.length}
@@ -64,3 +69,9 @@ ambiguous:
   return: ${JSON.parse('{"type":"https://api.efti.ee/errors/forbidden","code":"FORBIDDEN","title":"Forbidden","status":403,"detail":"The X-Road client registry code resolves to more than one active competent authority. This is a registry misconfiguration; contact the gate operator."}')}
   status: 403
   wrapper: false
+
+entitlement_lookup_failed:
+  return: ${JSON.parse('{"type":"https://api.efti.ee/errors/bad-gateway","code":"GATEWAY_UNAVAILABLE","title":"Bad Gateway","status":502,"detail":"The subset-entitlement lookup failed. This is a gate-side data-layer failure, not an authorisation decision."}')}
+  status: 502
+  wrapper: false
+  next: end

@@ -6,7 +6,7 @@ X-Api-Key: mock-secret-key
 
 < ../../code/xml-mapper/xsd/FTI004/sample.xml
 
-### Authority searches for local consignments
+### Authority searches for local consignments — a local match is returned at once, no broadcast
 POST {{RUUTER_URL}}/efti/api/v1/authority/search
 Content-Type: application/json
 X-Request-ID: 073b32bc-a081-11f1-8d67-3c9c0f2eb459
@@ -49,8 +49,7 @@ X-Api-Key: mock-secret-key
   </MainCarriageModeCodeParameterScope>
 </ParameterIDSetCriteria>
 
-### Authority searches for remote consignments (first result)
-# @timeout 70
+### Authority searches with no local match — returns [] at once, broadcast runs in the background
 POST {{RUUTER_URL}}/efti/api/v1/authority/search
 Content-Type: application/json
 X-Request-ID: 073b32bc-a081-11f1-8d67-3c9c0f2eb459
@@ -61,17 +60,15 @@ X-Internal-Service-Token: dev-internal-service-token-change-me
 }
 
 > {%
-  client.test("Local consignment", () => {
+  client.test("No local match responds immediately", () => {
     client.assert(response.status === 200)
-    client.assert(response.body[0].mainTransportId === "MOCK-123")
-    client.assert(response.body[0].gateId === "EU-MOCK")
-    client.assert(response.body[0].xml.startsWith("<ParameterIDSetCriteria"))
+    client.assert(Array.isArray(response.body) && response.body.length === 0)
     client.assert(response.headers.valueOf('x-poll-more') === 'true')
   })
 %}
 
-### Authority searches for remote consignments (rest of results)
-# @timeout 70
+### Poll for the other gates' results — EU-MOCK's MOCK-123 arrives here
+# @timeout 45
 POST {{RUUTER_URL}}/efti/api/v1/authority/search
 Content-Type: application/json
 X-Request-ID: 073b32bc-a081-11f1-8d67-3c9c0f2eb459
@@ -81,9 +78,11 @@ X-Internal-Service-Token: dev-internal-service-token-change-me
 {}
 
 > {%
-  client.test("Local consignment", () => {
+  client.test("Remote consignment via poll", () => {
     client.assert(response.status === 200)
-    client.assert(response.headers.valueOf('x-poll-more') === 'true')
+    client.assert(response.body[0].mainTransportId === "MOCK-123")
+    client.assert(response.body[0].gateId === "EU-MOCK")
+    client.assert(response.body[0].xml.startsWith("<ParameterIDSetCriteria"))
   })
 %}
 

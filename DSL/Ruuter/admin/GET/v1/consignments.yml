@@ -13,6 +13,17 @@ consignments:
       offset: ${incoming.params.offset ?? 0}
   result: search_result
 
+check_result:
+  switch:
+    - condition: ${search_result.response.status == 0}
+      next: upstream_unavailable
+
 respond:
   return: ${search_result.response.body}
   wrapper: false
+
+upstream_unavailable:
+  return: {"error": "Data layer unavailable"}
+  status: 502
+  wrapper: false
+  next: end

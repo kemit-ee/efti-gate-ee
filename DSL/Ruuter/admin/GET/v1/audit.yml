@@ -18,6 +18,17 @@ fetch_audit_log:
       offset: "${incoming.params.offset}"
   result: result
 
+check_result:
+  switch:
+    - condition: ${result.response.status == 0}
+      next: upstream_unavailable
+
 respond:
   return: ${result.response.body}
   wrapper: false
+
+upstream_unavailable:
+  return: {"error": "Data layer unavailable"}
+  status: 502
+  wrapper: false
+  next: end

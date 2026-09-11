@@ -18,7 +18,7 @@ delete_authority:
 # instead of 404.
 check_delete:
   switch:
-    - condition: ${delete_result.response.status >= 400}
+    - condition: ${delete_result.response.status == 0 || delete_result.response.status >= 400}
       next: delete_failed
     - condition: ${!delete_result.response.body.length}
       next: not_found

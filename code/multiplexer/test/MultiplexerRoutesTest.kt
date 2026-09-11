@@ -33,14 +33,22 @@ class MultiplexerRoutesTest {
 
   val xml = "<test>data</test>"
 
-  @Test fun multiplexReturnsFirstResponse() {
+  @Test fun broadcastSendsToEveryGateAndCollectsMatchingResponses() {
     val searchId = UUID.randomUUID()
     every { http.send(match<HttpRequest> { it.uri().toString().contains("/send/party-1") }, any<BodyHandler<String>>()) } returns
       mockk<HttpResponse<String>>(relaxed = true) { every { statusCode() } returns 200; every { body() } returns "<Empty/>" }
     every { http.send(match<HttpRequest> { it.uri().toString().contains("/send/party-2") }, any<BodyHandler<String>>()) } returns
       mockk<HttpResponse<String>>(relaxed = true) { every { statusCode() } returns 200; every { body() } returns "<ParameterIDSetCriteria/>" }
 
-    val result = routes.multiplex(xml, searchId, exchange)
+    routes.startSearch(xml, searchId)
+
+    // startSearch is non-blocking — it kicks an AppScope.async fan-out. Poll /rest until it lands.
+    var result = ""
+    for (i in 0 until 100) {
+      result = routes.rest(searchId, exchange)
+      if (result.isNotEmpty()) break
+      Thread.sleep(20)
+    }
 
     expect(result).toEqual("<ParameterIDSetCriteria/>")
     verify {

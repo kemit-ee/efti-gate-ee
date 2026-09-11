@@ -15,7 +15,7 @@ delete_gate:
 # body means no such gate. No re-fetch needed — the RETURNING already proves the write.
 check_delete:
   switch:
-    - condition: ${delete_result.response.status >= 400 || delete_result.response.body[0]?.status != 'DELETED'}
+    - condition: ${delete_result.response.status == 0 || delete_result.response.status >= 400 || delete_result.response.body[0]?.status != 'DELETED'}
       next: delete_failed
     - condition: ${!delete_result.response.body.length}
       next: not_found

@@ -121,6 +121,18 @@ Authorization: Bearer {{adminToken}}
   })
 %}
 
+### Teardown: remove EU-EE32 so it doesn't linger as an ONLINE gate with an unreachable
+### eDelivery URL — every later authority/search broadcast would otherwise wait out a 60s
+### AS4 timeout against https://eu-ee32.eftisandbox.eu.
+DELETE {{RUUTER_URL}}/admin/v1/gates/EU-EE32
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("EU-EE32 removed", () => {
+    client.assert(response.status === 200 || response.status === 204)
+  })
+%}
+
 ### NEGATIVE: GET without auth → 401
 GET {{RUUTER_URL}}/admin/v1/gates
 Content-Type: application/json

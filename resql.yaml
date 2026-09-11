@@ -18,7 +18,9 @@ datasources:
     url: "postgres://database:5432/efti"
     username: "efti"
     password_env: "RESQL_EFTI_PASSWORD"
-    max_connections: 10
+    # 75 of Postgres's default 100 max_connections — leaves headroom for
+    # liquibase, tim and ad-hoc psql. Was 10.
+    max_connections: 75
     acquire_timeout_seconds: 5
 
 cors:

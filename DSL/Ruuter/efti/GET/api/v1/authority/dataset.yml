@@ -62,6 +62,11 @@ request_to_xml:
     body: ${request_json}
   result: request_xml
 
+check_request_xml:
+  switch:
+    - condition: ${request_xml.response.status == 0}
+      next: mapper_unavailable
+
 send_via_edelivery:
   call: http.post
   timeout: 65000
@@ -76,6 +81,11 @@ send_via_edelivery:
 
 check_edelivery_response:
   switch:
+    # Transport failure reaching the peer gate over eDelivery (issue #89, status 0): edelivery_error
+    # echoes edelivery_response.response.status as the HTTP status, which would emit a broken
+    # `status: 0`. Route the availability-failure class to a real 502.
+    - condition: ${edelivery_response.response.status == 0}
+      next: remote_gate_unavailable
     - condition: ${edelivery_response.response.status != 200}
       next: edelivery_error
 
@@ -104,6 +114,27 @@ convert_response_to_json:
     content_type: plaintext
   result: dataset_json
 
+check_dataset_json:
+  switch:
+    - condition: ${dataset_json.response.status == 0}
+      next: mapper_unavailable
+
 respond:
   return: ${dataset_json.response.body}
   wrapper: false
+  next: end
+
+mapper_unavailable:
+  return:
+    error: "XML mapper unavailable"
+  wrapper: false
+  status: 502
+  next: end
+
+remote_gate_unavailable:
+  return:
+    error: "The remote gate is unreachable"
+    transportError: ${edelivery_response.response.error}
+  wrapper: false
+  status: 502
+  next: end

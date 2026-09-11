@@ -19,6 +19,10 @@ get_platform:
 
 check_platform_exists:
   switch:
+    # ReSql transport failure (issue #89) → don't report a data-layer outage as 404. The ping steps
+    # (check_rest_ping / check_edelivery_ping) already handle status 0 correctly: unreachable -> OFFLINE.
+    - condition: ${platform_result.response.status == 0}
+      next: upstream_unavailable
     - condition: ${!platform_result.response.body.length}
       next: platform_not_found
     - condition: ${!platform_result.response.body[0]?.eDeliveryCert}
@@ -131,5 +135,11 @@ platform_not_found:
 update_failed:
   return: {"type": "https://api.efti.ee/errors/internal-server-error", "title": "Internal Server Error", "status": 500, "detail": "Failed to update platform ping status"}
   status: 500
+  wrapper: false
+  next: end
+
+upstream_unavailable:
+  return: {"error": "Data layer unavailable"}
+  status: 502
   wrapper: false
   next: end

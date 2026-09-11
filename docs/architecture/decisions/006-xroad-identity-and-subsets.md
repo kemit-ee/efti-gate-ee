@@ -147,13 +147,22 @@ küsitlusvõtmena.
 > tarbijapoolne eeldus välja öelda: turvaserveri kaudu uuesti saadetud päring saab tavaliselt **uue**
 > `X-Road-Id`, seega küsitlemiseks peab tarbija infosüsteem id-d teadlikult samaks jätma.
 
-> ### Teadaolev piirang: `core`-i täielik katkestus annab 500, mitte 502
+> ### ~~Teadaolev piirang: `core`-i täielik katkestus annab 500, mitte 502~~ — lahendatud Ruuter 0.9.15-rc-s
 >
-> `check_core_status` rakendub alles siis, kui `core` on **vastanud**. Ühenduse tõrge, DNS-i viga või
-> 70 s ajalõpu möödumine viskab erindi `http.post`-i sees, ja `ruuter.yaml` seab
-> `stop_in_case_of_exception: true`, seega jooks katkeb ja Ruuter annab oma üldise 500 — mitte 502
-> `GATEWAY_UNAVAILABLE`, mille jaoks see kood loodi. Lisaharuga seda parandada ei saa (jooks ei jõua
-> sinna). Tuleb kinnitada, kas turvaserver kordab 5xx peale päringut.
+> **Ajalooline (Ruuter < 0.9.15-rc):** `check_core_status` rakendus alles siis, kui `core` oli
+> **vastanud**. Ühenduse tõrge, DNS-i viga või ajalõpu möödumine viskas erindi `http.post`-i sees,
+> ja `ruuter.yaml` seab `stop_in_case_of_exception: true`, seega jooks katkes ja Ruuter andis oma
+> üldise 500.
+>
+> **Nüüd (Ruuter ≥ 0.9.15-rc, turnerrainer/Ruuter#89):** transpordi tõrge ei katkesta jooksu enam —
+> `http`-samm seob `result`-i alla tüvivastuse `{status: 0, error: <liik>}` (liigid: `timeout`,
+> `connect`, `request`, `body`, `decode`, `unknown`) ja jätkab järgmise sammuga. `check_core_status`
+> switch'is on nüüd juhtiv haru `status == 0 → core_unavailable`, mis annab ausa **502
+> `GATEWAY_UNAVAILABLE`** koos `transportError` väljaga. Sama muster on rakendatud kõigil
+> gateway-marsruutidel (`xroad/POST/v1/{dataset,search,follow-up}`, `efti` authority dataset/follow-up,
+> `dataset-local` / `follow-up-local`, admin-marsruudid). Poliitika-tasemel eeltõrjed (SSRF,
+> host-allowlist, vigane URL, vastuse suuruse lagi) tõusevad endiselt erindina — need on
+> ops-otsused, mitte kättesaadavuse sündmused.
 
 **Vigade edastamine.** `core` tagastab ad-hoc kujusid (`{"error": "Platform Not Found"}`), mitte RFC
 7807. Adapter mähib need. Staatus normaliseeritakse **502 `GATEWAY_UNAVAILABLE`**-ks, mitte ei

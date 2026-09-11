@@ -22,6 +22,10 @@ check_result:
   switch:
     - condition: ${auth_result.response.status == 200}
       next: bind_caller
+    # Loopback call to check-*-authority failed at the transport layer (issue #89, status 0):
+    # guard_fail below echoes auth_result.response.status, which would emit a broken `status: 0`.
+    - condition: ${auth_result.response.status == 0}
+      next: guard_unavailable
   next: guard_fail
 
 bind_caller:
@@ -38,3 +42,14 @@ guard_fail:
   return: ${auth_result.response.body}
   status: ${auth_result.response.status}
   wrapper: false
+  next: end
+
+guard_unavailable:
+  return:
+    type: "https://api.efti.ee/errors/service-unavailable"
+    title: "Service Unavailable"
+    status: 503
+    detail: "The authentication service is temporarily unreachable. Retry the request."
+  status: 503
+  wrapper: false
+  next: end

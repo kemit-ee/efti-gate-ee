@@ -26,6 +26,13 @@ consignment_to_json:
       x-dataset-id: ${incoming.params?.pathParams?.[0]}
   result: consignment_json
 
+# Transport failure reaching xml-mapper (issue #89, status 0) — without this the stub body
+# {error,message} would be POSTed to insert_consignment as if it were the parsed consignment.
+check_json:
+  switch:
+    - condition: ${consignment_json.response.status == 0}
+      next: mapper_unavailable
+
 insert_consignment:
   call: http.post
   args:
@@ -37,7 +44,7 @@ insert_consignment:
 
 check_insert:
   switch:
-    - condition: ${insert_result.response.status >= 400 || !insert_result.response.body.length}
+    - condition: ${insert_result.response.status == 0 || insert_result.response.status >= 400 || !insert_result.response.body.length}
       next: insert_failed
 
 verify_consignment:
@@ -52,7 +59,7 @@ verify_consignment:
 
 check_verify:
   switch:
-    - condition: ${!verify_result.response.body.length}
+    - condition: ${verify_result.response.status == 0 || !verify_result.response.body.length}
       next: verify_failed
 
 respond:
@@ -71,3 +78,10 @@ verify_failed:
   return: {"error": "Consignment inserted but could not be verified"}
   status: 500
   wrapper: false
+  next: end
+
+mapper_unavailable:
+  return: {"error": "XML mapper unavailable"}
+  status: 502
+  wrapper: false
+  next: end

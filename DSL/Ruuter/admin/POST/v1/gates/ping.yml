@@ -19,6 +19,10 @@ get_gate:
 
 check_gate_exists:
   switch:
+    # ReSql transport failure (issue #89) → don't report a data-layer outage as 404. The edelivery
+    # ping itself (check_ping) already handles status 0 correctly: unreachable -> mark OFFLINE.
+    - condition: ${gate_result.response.status == 0}
+      next: upstream_unavailable
     - condition: ${!gate_result.response.body.length}
       next: gate_not_found
   next: ping_edelivery
@@ -142,5 +146,11 @@ gate_not_found:
 update_failed:
   return: {"type": "https://api.efti.ee/errors/internal-server-error", "title": "Internal Server Error", "status": 500, "detail": "Failed to update gate ping status"}
   status: 500
+  wrapper: false
+  next: end
+
+upstream_unavailable:
+  return: {"error": "Data layer unavailable"}
+  status: 502
   wrapper: false
   next: end
