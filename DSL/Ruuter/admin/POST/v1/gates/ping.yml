@@ -73,7 +73,12 @@ check_verify:
   switch:
     - condition: ${!verify_result.response.body.length}
       next: update_failed
-  next: respond_ok
+  next: set_online_path
+
+set_online_path:
+  assign:
+    ping_path: "online"
+  next: publish_ping
 
 respond_ok:
   return: ${verify_result.response.body[0]}
@@ -96,6 +101,30 @@ check_offline_update:
   switch:
     - condition: ${!offline_result.response.body.length}
       next: update_failed
+  next: set_offline_path
+
+set_offline_path:
+  assign:
+    ping_path: "offline"
+  next: publish_ping
+
+publish_ping:
+  call: http.post
+  args:
+    url: "[#PUBSUB_URL]/api/v1/publish"
+    headers:
+      Content-Type: "application/json"
+    body:
+      name: "gate-changes"
+      data:
+        event: "pinged"
+  result: publish_result
+  next: check_ping_path
+
+check_ping_path:
+  switch:
+    - condition: ${ping_path == "online"}
+      next: respond_ok
   next: gateway_unavailable
 
 gateway_unavailable:
