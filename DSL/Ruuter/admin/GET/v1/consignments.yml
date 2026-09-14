@@ -15,7 +15,7 @@ consignments:
 
 check_result:
   switch:
-    - condition: ${search_result.response.status == 0}
+    - condition: ${search_result.response.status == 0 || search_result.response.status >= 300}
       next: upstream_unavailable
 
 respond:

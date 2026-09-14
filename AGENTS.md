@@ -99,7 +99,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - Request data: `incoming.body`, `incoming.headers`, `incoming.params.pathParams`
 - `body` and `headers` are never null in Ruuter, no need to check for these
 - `allowed_body: [xml]` — wraps raw XML body as `incoming.body.xml`
-- **Input contract** (`declaration:` + `validate_input`, checked by `scripts/validate-dsl.py`; Ruuter's own `dsl-lint` runs alongside it). Every route in the six projects declares its inputs and enforces the required ones. On `ruuter:0.9.15-rc` (issue turnerrainer/Ruuter#75 landed in 0.9.12-rc):
+- **Input contract** (`declaration:` + `validate_input`, checked by `scripts/validate-dsl.py`; Ruuter's own `dsl-lint` runs alongside it). Every route in the six projects declares its inputs and enforces the required ones. On `ruuter:0.10.0-rc` (issue turnerrainer/Ruuter#75 landed in 0.9.12-rc):
   - `declaration.description` — documents every expected body field / header / query param and which are optional.
   - `declaration.allowlist.body` structured entries — `required: true` → missing field is a **400** (`{"error": "Field missing: X"}`, before the first DSL step); `required: false` / unset → optional. Body `type:` is wire-enforced (`400` on mismatch). `additive: true` keeps undeclared fields visible; `strict: true` rejects them. Legacy flat `allowed_body: [x]` = every listed field required.
   - `allowlist.headers` / `.params` — filter + OpenAPI only (presence not wire-enforced on a terminal DSL). The guard chain runs on the **raw** request, so a route allowlist can no longer strip a header its guard reads — but a *handler* that reads several headers still needs each one listed or it's stripped from its view, so we still keep header docs in prose, not `allowlist.headers`.
@@ -110,7 +110,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - `next:` step declaration is optional if it should advance to the next step in the file; otherwise, `next:` is required to call a specific step; `next: end` stops execution
 - `template: api/v1/foo` — call another DSL file as subroutine, works only in the same top-level Ruuter project. Since Ruuter 0.9.11-rc it **runs the target's guards** against the child context — forward the credential explicitly (`headers: {x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"}` on the template step), as the G2G `-xml` wrappers do.
 - **Each top-level dir under the DSL mount is a Ruuter project** (`auth/`, `admin/`, `efti/`, `platforms/`, `mock-platform/`, `xroad/`). `dsl.project:` in `ruuter.yaml` does not gate loading.
-- Ruuter runs `turnerrainer/ruuter:0.9.15-rc` (`docker/ruuter/Dockerfile`, `docker/ruuter-xroad-mock/Dockerfile`). 0.9.12-rc resolved the `declaration.allowlist` contract (issue turnerrainer/Ruuter#75): guards run before allowlist stripping, `required: false` honoured, missing-required → 400, body `type:` enforced, `allowlist.required_one_of`, guards can carry enforced declarations. 0.9.13-rc fixed **issue turnerrainer/Ruuter#79** (reporter: @sviljus) — a `guard → template: → same-guard` chain recursed forever and aborted the process; now a per-request guard stack skips an already-running guard and `MAX_GUARD_DEPTH = 32` caps exotic cycles. 0.9.14-rc ships `dsl-lint` / `dsl-test` inside the runtime image (`/usr/local/bin/`, issue #83) and drops the `"null"`-string template header (#85). 0.9.15-rc fixed **issue turnerrainer/Ruuter#89** — `http.*` transport failures (connection refused, DNS, TLS handshake, read/write timeout) are surfaced in-band as `result.response.status == 0` with `result.response.error` in `{timeout, connect, request, body, decode, unknown}` instead of aborting to a generic 500, so a `check_*` switch can return a semantic 502; policy-level pre-flight rejections (SSRF, host-allowlist, malformed URL, size cap) still raise. `/_/openapi.json` is admin-gated (`RUUTER_ADMIN_ENABLED`, unset here).
+- Ruuter runs `turnerrainer/ruuter:0.10.0-rc` (`docker/ruuter/Dockerfile`, `docker/ruuter-xroad-mock/Dockerfile`). 0.9.12-rc resolved the `declaration.allowlist` contract (issue turnerrainer/Ruuter#75): guards run before allowlist stripping, `required: false` honoured, missing-required → 400, body `type:` enforced, `allowlist.required_one_of`, guards can carry enforced declarations. 0.9.13-rc fixed **issue turnerrainer/Ruuter#79** (reporter: @sviljus) — a `guard → template: → same-guard` chain recursed forever and aborted the process; now a per-request guard stack skips an already-running guard and `MAX_GUARD_DEPTH = 32` caps exotic cycles. 0.9.14-rc ships `dsl-lint` / `dsl-test` inside the runtime image (`/usr/local/bin/`, issue #83) and drops the `"null"`-string template header (#85). 0.9.15-rc fixed **issue turnerrainer/Ruuter#89** — `http.*` transport failures (connection refused, DNS, TLS handshake, read/write timeout) are surfaced in-band as `result.response.status == 0` with `result.response.error` in `{timeout, connect, request, body, decode, unknown}` instead of aborting to a generic 500, so a `check_*` switch can return a semantic 502; policy-level pre-flight rejections (SSRF, host-allowlist, malformed URL, size cap) still raise. `/_/openapi.json` is admin-gated (`RUUTER_ADMIN_ENABLED`, unset here).
 - Guard files (Ruuter ≥ 0.9.7-rc) — every `.guard.yml` walking up from the route's directory runs, outermost-first, all must pass:
   - `<project>/.guard.yml` (**project-level**, Ruuter #39) — one file for every method in the project. Used for `admin/`, `platforms/`, and `xroad/` where the whole surface has one auth posture.
   - `<dir>/.guard.yml` (**directory-level**) — applies to every route at/under that dir. Used where posture varies by method/subtree (`efti/`).
@@ -127,6 +127,11 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   - do not leave comments in DSL files/code that belong to commit messages
 
 ## SQL conventions (ReSql)
+
+- Runtime: `turnerrainer/resql:0.4.2-alpha`, distroless UID 65532. Use `/app/resql health --url http://127.0.0.1:8090/health`; no shell/curl is available. Config/SQL files must be readable by UID 65532.
+- ReSQL is trusted only on the internal Compose network (`security.trust_network: true`); its local published port binds to 127.0.0.1. Non-2xx query responses carry `[]` plus `X-Resql-Error-Code` / `X-Resql-Error-Message`; check status before empty-row semantics.
+- TIM uses `0.4.0-alpha` with required introspection client auth. Provision `TIM_INTROSPECT_RUUTER_SECRET` outside local development. Existing `/jwt/userinfo` calls use the compatibility gate's default-off posture.
+- Ruuter 0.10.0 defaults inbound requests to 30 seconds; `ruuter.yaml` raises this to 90 seconds for the 65–70-second G2G timeout ladder. Upstream response bodies default to a 16 MiB cap.
 
 - Files in `DSL/Resql/efti/POST/` are served as `POST /efti/<filename_without_ext>`
 - YAML header comment declares `description` and `params`
@@ -173,7 +178,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - `DSL-tests/**/*.test.yml` — Ruuter `dsl-test` scenarios (`mode: inprocess` — HTTP through the
   in-process router, no compose). Use for anything reachable **before an upstream `call:`**:
   guard rejects, `validate_input` 400s. `mode: mock-http` can stand in for ReSql/xml-mapper.
-  Run via `docker run --rm -v "$PWD:/workdir" -w /workdir turnerrainer/ruuter:0.9.15-rc dsl-test --dsl DSL/Ruuter --tests DSL-tests --constants constants.ini` (the binaries ship in the runtime image since 0.9.14-rc).
+  Run via `docker run --rm -v "$PWD:/workdir" -w /workdir turnerrainer/ruuter:0.10.0-rc dsl-test --dsl DSL/Ruuter --tests DSL-tests --constants constants.ini` (the binaries ship in the runtime image since 0.9.14-rc).
 
 ## Branching
 
@@ -187,7 +192,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 
 - `.github/workflows/e2e.yml` — GitHub Actions:
   - `dsl-validate` — runs Ruuter's `dsl-lint` + `dsl-test` straight from the runtime image
-    (`turnerrainer/ruuter:0.9.15-rc`, which ships both binaries since #83) on both DSL roots +
+    (`turnerrainer/ruuter:0.10.0-rc`, which ships both binaries since #83) on both DSL roots +
     `DSL-tests/*.test.yml` (in-process scenarios) + `scripts/validate-dsl.py` (the efti-only
     input-contract convention).
   - `e2e` — builds the compose stack, runs the `tests/*/*.http` smoke suite via

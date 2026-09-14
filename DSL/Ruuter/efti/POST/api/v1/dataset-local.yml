@@ -20,7 +20,7 @@ check_platform:
   switch:
     # ReSql transport failure (issue #89, status 0) → non-array stub body; without this the
     # !body.length test misreports a data-layer outage as 404 Platform Not Found.
-    - condition: ${platform_result.response.status == 0}
+    - condition: ${platform_result.response.status == 0 || platform_result.response.status >= 300}
       next: platform_lookup_failed
     - condition: ${!platform_result.response.body.length}
       next: platform_not_found

@@ -23,6 +23,7 @@ guards:
   enforce_on_methods: [GET, POST, PUT, DELETE]
 
 incoming_requests:
+  request_timeout_ms: 90000
   allowed_method_types: [GET, POST, PUT, DELETE]
 
 internal_requests:

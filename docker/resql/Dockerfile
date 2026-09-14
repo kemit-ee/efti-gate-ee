@@ -1,6 +1,6 @@
-FROM turnerrainer/resql:0.2.0-alpha
+FROM turnerrainer/resql:0.4.2-alpha
 
-COPY --chown=resql:resql resql.yaml /app/resql.yaml
-COPY --chown=resql:resql DSL/Resql /app/sql
+COPY --chown=65532:65532 resql.yaml /app/resql.yaml
+COPY --chown=65532:65532 DSL/Resql /app/sql
 
 ENV RUST_BACKTRACE=1

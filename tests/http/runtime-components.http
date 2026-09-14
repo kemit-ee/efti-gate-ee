@@ -1,0 +1,26 @@
+### ReSQL rejects invalid parameters with its headers envelope
+POST {{RESQL_URL}}/efti/get_platform_by_id
+Content-Type: application/json
+
+{"id":"mock","unexpectedRuntimeUpgradeField":true}
+
+> {%
+  client.test("ReSQL error envelope", () => {
+    client.assert(response.status === 400);
+    client.assert(Array.isArray(response.body) && response.body.length === 0);
+    client.assert(response.headers.valueOf("X-Resql-Error-Code") != null);
+    client.assert(response.headers.valueOf("X-Resql-Error-Message") != null);
+  });
+%}
+
+### TIM introspection requires client authentication
+POST {{TIM_URL}}/introspect
+Content-Type: application/json
+
+{"token":"invalid-test-token"}
+
+> {%
+  client.test("TIM introspection denies missing client credentials", () => {
+    client.assert(response.status === 401);
+  });
+%}

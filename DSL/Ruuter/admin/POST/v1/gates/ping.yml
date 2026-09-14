@@ -21,7 +21,7 @@ check_gate_exists:
   switch:
     # ReSql transport failure (issue #89) → don't report a data-layer outage as 404. The edelivery
     # ping itself (check_ping) already handles status 0 correctly: unreachable -> mark OFFLINE.
-    - condition: ${gate_result.response.status == 0}
+    - condition: ${gate_result.response.status == 0 || gate_result.response.status >= 300}
       next: upstream_unavailable
     - condition: ${!gate_result.response.body.length}
       next: gate_not_found

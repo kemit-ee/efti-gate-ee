@@ -20,7 +20,7 @@ fetch_audit_log:
 
 check_result:
   switch:
-    - condition: ${result.response.status == 0}
+    - condition: ${result.response.status == 0 || result.response.status >= 300}
       next: upstream_unavailable
 
 respond:

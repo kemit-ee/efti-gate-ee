@@ -82,7 +82,7 @@ lookup_user:
 
 check_user_found:
   switch:
-    - condition: ${user_res.response.status == 0}
+    - condition: ${user_res.response.status == 0 || user_res.response.status >= 300}
       next: dependency_unavailable
     - condition: ${user_res.response.body.length > 0}
       next: return_user
