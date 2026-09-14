@@ -72,7 +72,9 @@ JVM 25, PostgreSQL 18, Kotlin 2.4.20 ja UI sõltuvused olid runtime-PR-i aluses 
 | DB upgrade ja koondatud init | Mõlemal 27/27 läbis | 23 SQL-regressiooni + 4 järjestuse/konkurentsi kontrolli; migratsioon on standardse changelog'i all |
 | Input-contract / diff check | Läbis | `scripts/validate-dsl.py`, `git diff --check` |
 
-DSL, SQL upgrade ja värske init on CI-s rohelised; lõplik HTTP E2E tulemus lisatakse pärast jooksu lõppu. Punaste jooksude põhjus oli CI käivitamisel vaikimisi keelatud dev-login: bake ei laadinud image'it lokaalsesse Dockerisse ning Compose ehitas selle uuesti ilma testide build-argumendita. Bake määrab nüüd `ruuter.args.DEV_LOGIN_ENABLED=true` ja `--load`; Compose käivitab `--no-build` ning käivitamise viga ei neelata. Ühendatud #153 tulemus ei asenda selle PR-i kontrolli.
+PR #155 funktsionaalse commit'i `c88783c` [täisstacki CI](https://github.com/kemit-ee/efti-gate-ee/actions/runs/34885185596) läbis 14.09.2026: 207 päringut, 0 ebaõnnestunud testiga päringut. DSL, SQL upgrade ja värske init läbisid samuti; nii pull-request'i kui push'i jooks olid rohelised. Dokumentatsiooni järelcommit'i valmidust tuleb kontrollida PR-i viimase HEAD-i check'idest.
+
+CI bake määrab nüüd `ruuter.args.DEV_LOGIN_ENABLED=true`, Compose'i teenusenimedega tagid ja `--load`; Compose käivitab `--no-build` ning käivitamise viga ei neelata. Sellega välditakse vaikset production-vaikeargumentidega uuesti ehitamist. Remote-search test seedib EU-MOCK kirje sisemise ReSQL endpoint'i kaudu ja kontrollib setup'i tulemust: platform-upload'i X-Gate-Id päis ei tohi oma-gate'i omanikukontrollist mööda minna ega foreign-gate'i kirjet luua.
 
 ### Jõudluskatse
 
