@@ -1,6 +1,8 @@
 declaration:
   description: "Developer mock — imitates POST /xroad/v1/dataset. Returns a canned FTI010 dataset
-    XML for any well-formed request. Member code 70000000 is entitled to nothing -> 403
+    XML for any well-formed request. Dataset 550e8400-e29b-41d4-a716-446655440002
+    (EU-EE/mock) returns a synthetic full-field fixture; other IDs retain the minimal fixture.
+    Member code 70000000 is entitled to nothing -> 403
     FORBIDDEN_SUBSET, so the error path is exercisable."
 
 check_subsets_present:
@@ -13,7 +15,1015 @@ check_subset_permission:
   switch:
     - condition: ${memberCode == '70000000'}
       next: forbidden_subset
+  next: select_dataset
+
+select_dataset:
+  switch:
+    - condition: ${incoming.body?.uil?.gateId == 'EU-EE' && incoming.body.uil.platformId == 'mock' && incoming.body.uil.datasetId == '550e8400-e29b-41d4-a716-446655440011'}
+      next: respond_shipment_1
+    - condition: ${incoming.body?.uil?.gateId == 'EU-EE' && incoming.body.uil.platformId == 'mock' && incoming.body.uil.datasetId == '550e8400-e29b-41d4-a716-446655440012'}
+      next: respond_shipment_2
+    - condition: ${incoming.body?.uil?.gateId == 'EU-EE' && incoming.body.uil.platformId == 'mock' && incoming.body.uil.datasetId == '550e8400-e29b-41d4-a716-446655440013'}
+      next: respond_shipment_3
+    - condition: ${incoming.body?.uil?.gateId == 'EU-EE' && incoming.body.uil.platformId == 'mock' && incoming.body.uil.datasetId == '550e8400-e29b-41d4-a716-446655440002'}
+      next: respond_rich
   next: respond
+
+respond_shipment_1:
+  return:
+    uil: ${incoming.body.uil}
+    subsets: ${incoming.body.subsets}
+    xml: |
+      <rsm:SpecifiedSupplyChainConsignment xmlns="urn:eu:move:eFTI:data:standard:ReusableAggregateBusinessInformationEntity:34" xmlns:rsm="urn:eu:move:eFTI:data:standard:FTI010GetCmdsResponse:1" xmlns:udt="urn:eu:move:eFTI:data:standard:UnqualifiedDataType:34">
+        <GrossWeightMeasure unitCode="KGM">2000</GrossWeightMeasure>
+        <NetWeightMeasure unitCode="KGM">1900</NetWeightMeasure>
+        <PackageQuantity>10</PackageQuantity>
+        <Information>Furniture</Information>
+        <ConsignorTradeParty>
+          <Name>Tallinn Mock Supplier</Name>
+          <PostalTradeAddress>
+            <StreetName>Peterburi tee 10</StreetName>
+            <CityName>Tallinn</CityName>
+            <CountryID>EE</CountryID>
+          </PostalTradeAddress>
+        </ConsignorTradeParty>
+        <ConsigneeTradeParty>
+          <Name>Narva Mock Distribution Centre</Name>
+          <PostalTradeAddress>
+            <StreetName>Kadastiku 25</StreetName>
+            <CityName>Narva</CityName>
+            <CountryID>EE</CountryID>
+          </PostalTradeAddress>
+        </ConsigneeTradeParty>
+        <CarrierTradeParty>
+          <Name>Mock Multi-pickup Carrier</Name>
+        </CarrierTradeParty>
+        <IncludedSupplyChainConsignmentItem>
+          <GoodsUnitQuantity unitCode="C62">10</GoodsUnitQuantity>
+        </IncludedSupplyChainConsignmentItem>
+        <MainCarriageLogisticsTransportMovement>
+          <ModeCode>3</ModeCode>
+          <ID>MOCK-MULTI-0914</ID>
+          <SequenceNumeric>1</SequenceNumeric>
+          <LoadingTransportEvent>
+            <ActualOccurrenceDateTime>
+              <udt:DateTimeString format="205">20260914060000</udt:DateTimeString>
+            </ActualOccurrenceDateTime>
+            <OccurrenceLogisticsLocation>
+              <Name>Tallinn warehouse</Name>
+              <PostalTradeAddress>
+                <StreetName>Peterburi tee 10</StreetName>
+                <CityName>Tallinn</CityName>
+                <CountryID>EE</CountryID>
+              </PostalTradeAddress>
+            </OccurrenceLogisticsLocation>
+          </LoadingTransportEvent>
+          <UnloadingTransportEvent>
+            <ActualOccurrenceDateTime>
+              <udt:DateTimeString format="102">20260915</udt:DateTimeString>
+            </ActualOccurrenceDateTime>
+            <OccurrenceLogisticsLocation>
+              <Name>Narva warehouse</Name>
+              <PostalTradeAddress>
+                <StreetName>Kadastiku 25</StreetName>
+                <CityName>Narva</CityName>
+                <CountryID>EE</CountryID>
+              </PostalTradeAddress>
+            </OccurrenceLogisticsLocation>
+          </UnloadingTransportEvent>
+          <UsedLogisticsTransportMeans>
+            <TypeCode>1522</TypeCode>
+            <ID schemeAgencyID="5">MOCK-PLATE-3</ID>
+            <Name>Mock three-consignment truck</Name>
+            <RegistrationTradeCountry>
+              <ID>EE</ID>
+            </RegistrationTradeCountry>
+          </UsedLogisticsTransportMeans>
+        </MainCarriageLogisticsTransportMovement>
+      </rsm:SpecifiedSupplyChainConsignment>
+  wrapper: false
+  status: 200
+  next: end
+
+respond_shipment_2:
+  return:
+    uil: ${incoming.body.uil}
+    subsets: ${incoming.body.subsets}
+    xml: |
+      <rsm:SpecifiedSupplyChainConsignment xmlns="urn:eu:move:eFTI:data:standard:ReusableAggregateBusinessInformationEntity:34" xmlns:rsm="urn:eu:move:eFTI:data:standard:FTI010GetCmdsResponse:1" xmlns:udt="urn:eu:move:eFTI:data:standard:UnqualifiedDataType:34">
+        <GrossWeightMeasure unitCode="KGM">3000</GrossWeightMeasure>
+        <NetWeightMeasure unitCode="KGM">2900</NetWeightMeasure>
+        <PackageQuantity>10</PackageQuantity>
+        <Information>Machine parts</Information>
+        <ConsignorTradeParty>
+          <Name>Tartu Mock Supplier</Name>
+          <PostalTradeAddress>
+            <StreetName>Ringtee 20</StreetName>
+            <CityName>Tartu</CityName>
+            <CountryID>EE</CountryID>
+          </PostalTradeAddress>
+        </ConsignorTradeParty>
+        <ConsigneeTradeParty>
+          <Name>Narva Mock Distribution Centre</Name>
+          <PostalTradeAddress>
+            <StreetName>Kadastiku 25</StreetName>
+            <CityName>Narva</CityName>
+            <CountryID>EE</CountryID>
+          </PostalTradeAddress>
+        </ConsigneeTradeParty>
+        <CarrierTradeParty>
+          <Name>Mock Multi-pickup Carrier</Name>
+        </CarrierTradeParty>
+        <IncludedSupplyChainConsignmentItem>
+          <GoodsUnitQuantity unitCode="C62">10</GoodsUnitQuantity>
+        </IncludedSupplyChainConsignmentItem>
+        <MainCarriageLogisticsTransportMovement>
+          <ModeCode>3</ModeCode>
+          <ID>MOCK-MULTI-0914</ID>
+          <SequenceNumeric>1</SequenceNumeric>
+          <LoadingTransportEvent>
+            <ActualOccurrenceDateTime>
+              <udt:DateTimeString format="205">20260914090000</udt:DateTimeString>
+            </ActualOccurrenceDateTime>
+            <OccurrenceLogisticsLocation>
+              <Name>Tartu warehouse</Name>
+              <PostalTradeAddress>
+                <StreetName>Ringtee 20</StreetName>
+                <CityName>Tartu</CityName>
+                <CountryID>EE</CountryID>
+              </PostalTradeAddress>
+            </OccurrenceLogisticsLocation>
+          </LoadingTransportEvent>
+          <UnloadingTransportEvent>
+            <ActualOccurrenceDateTime>
+              <udt:DateTimeString format="102">20260915</udt:DateTimeString>
+            </ActualOccurrenceDateTime>
+            <OccurrenceLogisticsLocation>
+              <Name>Narva warehouse</Name>
+              <PostalTradeAddress>
+                <StreetName>Kadastiku 25</StreetName>
+                <CityName>Narva</CityName>
+                <CountryID>EE</CountryID>
+              </PostalTradeAddress>
+            </OccurrenceLogisticsLocation>
+          </UnloadingTransportEvent>
+          <UsedLogisticsTransportMeans>
+            <TypeCode>1522</TypeCode>
+            <ID schemeAgencyID="5">MOCK-PLATE-3</ID>
+            <Name>Mock three-consignment truck</Name>
+            <RegistrationTradeCountry>
+              <ID>EE</ID>
+            </RegistrationTradeCountry>
+          </UsedLogisticsTransportMeans>
+        </MainCarriageLogisticsTransportMovement>
+      </rsm:SpecifiedSupplyChainConsignment>
+  wrapper: false
+  status: 200
+  next: end
+
+respond_shipment_3:
+  return:
+    uil: ${incoming.body.uil}
+    subsets: ${incoming.body.subsets}
+    xml: |
+      <rsm:SpecifiedSupplyChainConsignment xmlns="urn:eu:move:eFTI:data:standard:ReusableAggregateBusinessInformationEntity:34" xmlns:rsm="urn:eu:move:eFTI:data:standard:FTI010GetCmdsResponse:1" xmlns:udt="urn:eu:move:eFTI:data:standard:UnqualifiedDataType:34">
+        <GrossWeightMeasure unitCode="KGM">1500</GrossWeightMeasure>
+        <NetWeightMeasure unitCode="KGM">1400</NetWeightMeasure>
+        <PackageQuantity>10</PackageQuantity>
+        <Information>PETROL UN 1203</Information>
+        <ConsignorTradeParty>
+          <Name>Parnu Mock Supplier</Name>
+          <PostalTradeAddress>
+            <StreetName>Tallinna mnt 30</StreetName>
+            <CityName>Parnu</CityName>
+            <CountryID>EE</CountryID>
+          </PostalTradeAddress>
+        </ConsignorTradeParty>
+        <ConsigneeTradeParty>
+          <Name>Narva Mock Distribution Centre</Name>
+          <PostalTradeAddress>
+            <StreetName>Kadastiku 25</StreetName>
+            <CityName>Narva</CityName>
+            <CountryID>EE</CountryID>
+          </PostalTradeAddress>
+        </ConsigneeTradeParty>
+        <CarrierTradeParty>
+          <Name>Mock Multi-pickup Carrier</Name>
+        </CarrierTradeParty>
+        <IncludedSupplyChainConsignmentItem>
+          <GoodsUnitQuantity unitCode="C62">10</GoodsUnitQuantity>
+          <ApplicableTransportDangerousGoods>
+            <UNDGIdentificationCode>1203</UNDGIdentificationCode>
+            <TechnicalName languageID="eng">PETROL</TechnicalName>
+            <PackagingDangerLevelCode>II</PackagingDangerLevelCode>
+            <GrossWeightMeasure unitCode="KGM">1500</GrossWeightMeasure>
+            <HazardClassificationID>3</HazardClassificationID>
+            <ProperShippingName languageID="eng">PETROL</ProperShippingName>
+            <TunnelRestrictionCode>D/E</TunnelRestrictionCode>
+          </ApplicableTransportDangerousGoods>
+        </IncludedSupplyChainConsignmentItem>
+        <MainCarriageLogisticsTransportMovement>
+          <ModeCode>3</ModeCode>
+          <ID>MOCK-MULTI-0914</ID>
+          <SequenceNumeric>1</SequenceNumeric>
+          <LoadingTransportEvent>
+            <ActualOccurrenceDateTime>
+              <udt:DateTimeString format="205">20260914120000</udt:DateTimeString>
+            </ActualOccurrenceDateTime>
+            <OccurrenceLogisticsLocation>
+              <Name>Parnu warehouse</Name>
+              <PostalTradeAddress>
+                <StreetName>Tallinna mnt 30</StreetName>
+                <CityName>Parnu</CityName>
+                <CountryID>EE</CountryID>
+              </PostalTradeAddress>
+            </OccurrenceLogisticsLocation>
+          </LoadingTransportEvent>
+          <UnloadingTransportEvent>
+            <ActualOccurrenceDateTime>
+              <udt:DateTimeString format="102">20260915</udt:DateTimeString>
+            </ActualOccurrenceDateTime>
+            <OccurrenceLogisticsLocation>
+              <Name>Narva warehouse</Name>
+              <PostalTradeAddress>
+                <StreetName>Kadastiku 25</StreetName>
+                <CityName>Narva</CityName>
+                <CountryID>EE</CountryID>
+              </PostalTradeAddress>
+            </OccurrenceLogisticsLocation>
+          </UnloadingTransportEvent>
+          <UsedLogisticsTransportMeans>
+            <TypeCode>1522</TypeCode>
+            <ID schemeAgencyID="5">MOCK-PLATE-3</ID>
+            <Name>Mock three-consignment truck</Name>
+            <RegistrationTradeCountry>
+              <ID>EE</ID>
+            </RegistrationTradeCountry>
+          </UsedLogisticsTransportMeans>
+        </MainCarriageLogisticsTransportMovement>
+      </rsm:SpecifiedSupplyChainConsignment>
+  wrapper: false
+  status: 200
+  next: end
+
+respond_rich:
+  return:
+    uil: ${incoming.body.uil}
+    subsets: ${incoming.body.subsets}
+    xml: |
+      <rsm:SpecifiedSupplyChainConsignment xmlns="urn:eu:move:eFTI:data:standard:ReusableAggregateBusinessInformationEntity:34" xmlns:rsm="urn:eu:move:eFTI:data:standard:FTI010GetCmdsResponse:1" xmlns:udt="urn:eu:move:eFTI:data:standard:UnqualifiedDataType:34">
+        <CarrierAcceptanceDateTime>
+          <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+        </CarrierAcceptanceDateTime>
+        <GrossWeightMeasure unitCode="KGM">15000.00</GrossWeightMeasure>
+        <NetWeightMeasure unitCode="KGM">12000.00</NetWeightMeasure>
+        <GrossVolumeMeasure unitCode="MTQ">45.00</GrossVolumeMeasure>
+        <CODAmount currencyID="MOC">1</CODAmount>
+        <PackageQuantity>120</PackageQuantity>
+        <TransportEquipmentQuantity>1</TransportEquipmentQuantity>
+        <Information>Full-field synthetic test fixture</Information>
+        <DeclaredValueForCarriageAmount currencyID="MOC">1</DeclaredValueForCarriageAmount>
+        <PaymentArrangementCode listAgencyID="6">MOC</PaymentArrangementCode>
+        <DeliveryInformation>MOCK-DeliveryInformation</DeliveryInformation>
+        <CargoInsuranceInstructionsInformation>MOCK-CargoInsuranceInstructionsInformation</CargoInsuranceInstructionsInformation>
+        <TransshipmentPermissionIndicator>true</TransshipmentPermissionIndicator>
+        <ConsignorProvidedInformation>MOCK-ConsignorProvidedInformation</ConsignorProvidedInformation>
+        <ContractTermsInformation>MOCK-ContractTermsInformation</ContractTermsInformation>
+        <ConsignorTradeParty>
+          <ID schemeAgencyID="87">MOCK-ID</ID>
+          <Name>MOCK-Name</Name>
+          <DefinedTradeContact>
+            <TelephoneUniversalCommunication>
+              <CompleteNumber>MOCK-CompleteNumber</CompleteNumber>
+            </TelephoneUniversalCommunication>
+            <EmailURIUniversalCommunication>
+              <URIID>MOCK-URIID</URIID>
+            </EmailURIUniversalCommunication>
+          </DefinedTradeContact>
+          <PostalTradeAddress>
+            <PostcodeCode>MOCK-PostcodeCode</PostcodeCode>
+            <PostOfficeBox>MOCK-PostOfficeBo</PostOfficeBox>
+            <StreetName>MOCK-StreetName</StreetName>
+            <CityName>MOCK-CityName</CityName>
+            <CountryID>EE</CountryID>
+            <CountrySubDivisionName>MOCK-CountrySubDivisionName</CountrySubDivisionName>
+            <BuildingNumber>MOCK-BuildingNumb</BuildingNumber>
+            <DepartmentName>MOCK-DepartmentName</DepartmentName>
+            <AdditionalStreetName>MOCK-AdditionalStreetName</AdditionalStreetName>
+          </PostalTradeAddress>
+          <SpecifiedTaxRegistration>
+            <ID schemeAgencyID="97">MOCK-ID</ID>
+          </SpecifiedTaxRegistration>
+          <SpecifiedContactPerson>
+            <GivenName>MOCK-GivenName</GivenName>
+            <FamilyName>MOCK-FamilyName</FamilyName>
+          </SpecifiedContactPerson>
+          <OwnedCreditorFinancialAccount>
+            <ProprietaryID schemeAgencyID="3">MOCK-ProprietaryI</ProprietaryID>
+          </OwnedCreditorFinancialAccount>
+          <ConfirmedDocumentAuthentication>
+            <StatementCode>1</StatementCode>
+          </ConfirmedDocumentAuthentication>
+        </ConsignorTradeParty>
+        <ConsigneeTradeParty>
+          <ID schemeAgencyID="87">MOCK-ID</ID>
+          <Name>MOCK-Name</Name>
+          <DefinedTradeContact>
+            <PersonName>MOCK-PersonName</PersonName>
+            <TelephoneUniversalCommunication>
+              <CompleteNumber>MOCK-CompleteNumber</CompleteNumber>
+            </TelephoneUniversalCommunication>
+            <FaxUniversalCommunication>
+              <CompleteNumber>MOCK-CompleteNumber</CompleteNumber>
+            </FaxUniversalCommunication>
+            <EmailURIUniversalCommunication>
+              <URIID>MOCK-URIID</URIID>
+            </EmailURIUniversalCommunication>
+          </DefinedTradeContact>
+          <PostalTradeAddress>
+            <PostcodeCode>MOCK-PostcodeCode</PostcodeCode>
+            <PostOfficeBox>MOCK-PostOfficeBo</PostOfficeBox>
+            <StreetName>MOCK-StreetName</StreetName>
+            <CityName>MOCK-CityName</CityName>
+            <CountryID>EE</CountryID>
+            <CountrySubDivisionName>MOCK-CountrySubDivisionName</CountrySubDivisionName>
+            <BuildingNumber>MOCK-BuildingNumb</BuildingNumber>
+            <AdditionalStreetName>MOCK-AdditionalStreetName</AdditionalStreetName>
+          </PostalTradeAddress>
+          <SpecifiedTaxRegistration>
+            <ID schemeAgencyID="T4">MOCK-ID</ID>
+          </SpecifiedTaxRegistration>
+          <SpecifiedContactPerson>
+            <GivenName>MOCK-GivenName</GivenName>
+            <FamilyName>MOCK-FamilyName</FamilyName>
+          </SpecifiedContactPerson>
+          <ConfirmedDocumentAuthentication>
+            <StatementCode>1</StatementCode>
+          </ConfirmedDocumentAuthentication>
+        </ConsigneeTradeParty>
+        <CarrierTradeParty>
+          <ID schemeAgencyID="12">MOCK-ID</ID>
+          <Name>MOCK-Name</Name>
+          <RoleCode>EV</RoleCode>
+          <DefinedTradeContact>
+            <PersonName>MOCK-PersonName</PersonName>
+            <TelephoneUniversalCommunication>
+              <CompleteNumber>MOCK-CompleteNumber</CompleteNumber>
+            </TelephoneUniversalCommunication>
+          </DefinedTradeContact>
+          <PostalTradeAddress>
+            <PostcodeCode>MOCK-PostcodeCode</PostcodeCode>
+            <PostOfficeBox>MOCK-PostOfficeBo</PostOfficeBox>
+            <StreetName>MOCK-StreetName</StreetName>
+            <CityName>MOCK-CityName</CityName>
+            <CountryID>EE</CountryID>
+            <CountrySubDivisionName>MOCK-CountrySubDivisionName</CountrySubDivisionName>
+            <BuildingNumber>MOCK-BuildingNumb</BuildingNumber>
+            <AdditionalStreetName>MOCK-AdditionalStreetName</AdditionalStreetName>
+          </PostalTradeAddress>
+          <SpecifiedTaxRegistration>
+            <ID schemeAgencyID="T4">MOCK-ID</ID>
+          </SpecifiedTaxRegistration>
+          <SpecifiedContactPerson>
+            <GivenName>MOCK-GivenName</GivenName>
+            <FamilyName>MOCK-FamilyName</FamilyName>
+          </SpecifiedContactPerson>
+          <AgreedTradeContract>
+            <IssueDateTime>
+              <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+            </IssueDateTime>
+            <SpecifiedDurationMeasure unitCode="DAY">1</SpecifiedDurationMeasure>
+            <SignedSpecifiedLocation>
+              <Name>MOCK-Name</Name>
+            </SignedSpecifiedLocation>
+          </AgreedTradeContract>
+          <ApplicableSpecifiedLicence>
+            <ID schemeAgencyID="3">MOCK-ID</ID>
+            <TypeCode listAgencyID="2">MOC</TypeCode>
+          </ApplicableSpecifiedLicence>
+          <ConfirmedDocumentAuthentication>
+            <StatementCode>1</StatementCode>
+          </ConfirmedDocumentAuthentication>
+        </CarrierTradeParty>
+        <FreightForwarderTradeParty>
+          <Name>MOCK-Name</Name>
+          <PostalTradeAddress>
+            <PostcodeCode>MOCK-PostcodeCode</PostcodeCode>
+            <PostOfficeBox>MOCK-PostOfficeBo</PostOfficeBox>
+            <StreetName>MOCK-StreetName</StreetName>
+            <CityName>MOCK-CityName</CityName>
+            <CountryID>EE</CountryID>
+            <CountrySubDivisionName>MOCK-CountrySubDivisionName</CountrySubDivisionName>
+            <BuildingNumber>MOCK-BuildingNumb</BuildingNumber>
+            <DepartmentName>MOCK-DepartmentName</DepartmentName>
+            <AdditionalStreetName>MOCK-AdditionalStreetName</AdditionalStreetName>
+          </PostalTradeAddress>
+        </FreightForwarderTradeParty>
+        <ConnectingCarrierTradeParty>
+          <ID schemeAgencyID="87">MOCK-ID</ID>
+          <Name>MOCK-Name</Name>
+          <PostalTradeAddress>
+            <PostcodeCode>MOCK-PostcodeCode</PostcodeCode>
+            <PostOfficeBox>MOCK-PostOfficeBo</PostOfficeBox>
+            <StreetName>MOCK-StreetName</StreetName>
+            <CityName>MOCK-CityName</CityName>
+            <CountryID>EE</CountryID>
+            <CountrySubDivisionName>MOCK-CountrySubDivisionName</CountrySubDivisionName>
+            <BuildingNumber>MOCK-BuildingNumb</BuildingNumber>
+            <AdditionalStreetName>MOCK-AdditionalStreetName</AdditionalStreetName>
+          </PostalTradeAddress>
+          <ApplicableSpecifiedLicence>
+            <ID schemeAgencyID="3">MOCK-ID</ID>
+            <TypeCode listAgencyID="2">MOC</TypeCode>
+          </ApplicableSpecifiedLicence>
+        </ConnectingCarrierTradeParty>
+        <CarrierAcceptanceLogisticsLocation>
+          <ID schemeAgencyID="6">MOCK-ID</ID>
+          <Name>MOCK-Name</Name>
+          <PhysicalGeographicalCoordinate>
+            <LatitudeMeasure>1</LatitudeMeasure>
+            <LongitudeMeasure>1</LongitudeMeasure>
+          </PhysicalGeographicalCoordinate>
+          <PostalTradeAddress>
+            <PostcodeCode>MOCK-PostcodeCode</PostcodeCode>
+            <StreetName>MOCK-StreetName</StreetName>
+            <CityName>MOCK-CityName</CityName>
+            <CountryID>EE</CountryID>
+            <CountrySubDivisionName>MOCK-CountrySubDivisionName</CountrySubDivisionName>
+            <BuildingNumber>MOCK-BuildingNumb</BuildingNumber>
+            <AdditionalStreetName>MOCK-AdditionalStreetName</AdditionalStreetName>
+          </PostalTradeAddress>
+        </CarrierAcceptanceLogisticsLocation>
+        <TransshipmentLogisticsLocation>
+          <ID schemeAgencyID="6">MOCK-ID</ID>
+          <Name>MOCK-Name</Name>
+        </TransshipmentLogisticsLocation>
+        <ConsigneeReceiptLogisticsLocation>
+          <ID schemeAgencyID="6">MOCK-ID</ID>
+          <Name>MOCK-Name</Name>
+          <PhysicalGeographicalCoordinate>
+            <LatitudeMeasure>1</LatitudeMeasure>
+            <LongitudeMeasure>1</LongitudeMeasure>
+          </PhysicalGeographicalCoordinate>
+          <PostalTradeAddress>
+            <PostcodeCode>MOCK-PostcodeCode</PostcodeCode>
+            <StreetName>MOCK-StreetName</StreetName>
+            <CityName>MOCK-CityName</CityName>
+            <CountryID>EE</CountryID>
+            <CountrySubDivisionName>MOCK-CountrySubDivisionName</CountrySubDivisionName>
+            <BuildingNumber>MOCK-BuildingNumb</BuildingNumber>
+            <AdditionalStreetName>MOCK-AdditionalStreetName</AdditionalStreetName>
+          </PostalTradeAddress>
+        </ConsigneeReceiptLogisticsLocation>
+        <TransportContractReferencedDocument>
+          <URIID>MOCK-URIID</URIID>
+          <TypeCode>85</TypeCode>
+          <ID>MOCK-ID</ID>
+          <FormattedIssueDateTime>
+            <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+          </FormattedIssueDateTime>
+          <SubtypeCode>4</SubtypeCode>
+          <IssueLogisticsLocation>
+            <Name>MOCK-Name</Name>
+          </IssueLogisticsLocation>
+          <ContractualDocumentClause>
+            <Content>MOCK-Content</Content>
+          </ContractualDocumentClause>
+        </TransportContractReferencedDocument>
+        <AssociatedReferencedDocument>
+          <TypeCode>87</TypeCode>
+          <ID>MOCK-ID</ID>
+          <ReferenceTypeCode>EE</ReferenceTypeCode>
+          <IssuerTradeParty>
+            <Name>MOCK-Name</Name>
+            <SpecifiedRepresentativePerson>
+              <Name>MOCK-Name</Name>
+            </SpecifiedRepresentativePerson>
+          </IssuerTradeParty>
+          <AttachedSpecifiedBinaryFile>
+            <ID>MOCK-ID</ID>
+            <IncludedBinaryObject uri="MOCK-uri" filename="MOCK-filename">TW9jayBhdHRhY2htZW50</IncludedBinaryObject>
+          </AttachedSpecifiedBinaryFile>
+        </AssociatedReferencedDocument>
+        <DeliveryTransportEvent>
+          <ActualOccurrenceDateTime>
+            <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+          </ActualOccurrenceDateTime>
+          <ScheduledOccurrenceDateTime>
+            <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+          </ScheduledOccurrenceDateTime>
+          <RequestedOccurrenceDateTime>
+            <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+          </RequestedOccurrenceDateTime>
+          <OccurrenceLogisticsLocation>
+            <ID schemeAgencyID="3">MOCK-ID</ID>
+            <Name>MOCK-Name</Name>
+          </OccurrenceLogisticsLocation>
+          <RelatedSpecifiedObservation>
+            <ApplicableNote>
+              <Content>MOCK-Content</Content>
+              <SubjectCode>MOC</SubjectCode>
+            </ApplicableNote>
+          </RelatedSpecifiedObservation>
+          <ScheduledOccurrenceSpecifiedPeriod>
+            <DurationMeasure unitCode="DAY">1</DurationMeasure>
+            <StartDateTime>
+              <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+            </StartDateTime>
+            <EndDateTime>
+              <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+            </EndDateTime>
+            <MaximumDurationMeasure unitCode="DAY">1</MaximumDurationMeasure>
+          </ScheduledOccurrenceSpecifiedPeriod>
+        </DeliveryTransportEvent>
+        <TransportEvent>
+          <CertifyingTradeParty>
+            <ID schemeAgencyID="87">MOCK-ID</ID>
+            <SpecifiedAuthoritativeSignatoryPerson>
+              <Name>MOCK-Name</Name>
+              <ID>MOCK-ID</ID>
+            </SpecifiedAuthoritativeSignatoryPerson>
+            <ConfirmedDocumentAuthentication>
+              <ActualDateTime>
+                <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+              </ActualDateTime>
+            </ConfirmedDocumentAuthentication>
+          </CertifyingTradeParty>
+        </TransportEvent>
+        <IncludedSupplyChainConsignmentItem>
+          <GrossVolumeMeasure unitCode="MTQ">45.00</GrossVolumeMeasure>
+          <GoodsUnitQuantity unitCode="C62">1</GoodsUnitQuantity>
+          <ApplicableTransportDangerousGoods>
+            <UNDGIdentificationCode>1203</UNDGIdentificationCode>
+            <TechnicalName languageID="MOC">MOCK-TechnicalName</TechnicalName>
+            <PackagingDangerLevelCode>I</PackagingDangerLevelCode>
+            <GrossWeightMeasure unitCode="KGM">15000.00</GrossWeightMeasure>
+            <HazardTypeCode listAgencyID="6">MOCK-Ha</HazardTypeCode>
+            <HazardClassificationID>MOCK-Ha</HazardClassificationID>
+            <GrossVolumeMeasure unitCode="MTQ">45.00</GrossVolumeMeasure>
+            <NetWeightMeasure unitCode="KGM">12000.00</NetWeightMeasure>
+            <ExplosiveCargoNetWeightMeasure unitCode="KGM">1</ExplosiveCargoNetWeightMeasure>
+            <ProperShippingName languageID="MOC">MOCK-ProperShippingName</ProperShippingName>
+            <TunnelRestrictionCode>MOCK-T</TunnelRestrictionCode>
+            <SpecialProvisionID>SP310</SpecialProvisionID>
+            <HazardCategoryCode>3</HazardCategoryCode>
+            <LimitedQuantityCode>1</LimitedQuantityCode>
+            <DensityMeasure unitCode="KGM">1</DensityMeasure>
+            <MeltingPointTemperatureMeasure unitCode="CEL">1</MeltingPointTemperatureMeasure>
+            <LabelTypeCode>MOC</LabelTypeCode>
+            <ControlTemperatureMeasurement>
+              <ConditionMeasure unitCode="CEL">1</ConditionMeasure>
+              <TypeCode>T1</TypeCode>
+            </ControlTemperatureMeasurement>
+            <EmergencyTemperatureMeasurement>
+              <ConditionMeasure unitCode="CEL">1</ConditionMeasure>
+              <TypeCode>T1</TypeCode>
+            </EmergencyTemperatureMeasurement>
+            <RadioactiveMaterial>
+              <SpecialFormInformation languageID="MOC">MOCK-SpecialFormInformation</SpecialFormInformation>
+              <RadioactivePackageTransportIndexCode>MOC</RadioactivePackageTransportIndexCode>
+              <FissileCriticalitySafetyIndexNumeric>1</FissileCriticalitySafetyIndexNumeric>
+              <ApplicableSpecifiedRadioactiveIsotope>
+                <Name languageID="MOC">MOCK-Name</Name>
+                <ActivityLevelMeasure unitCode="KGM">1</ActivityLevelMeasure>
+              </ApplicableSpecifiedRadioactiveIsotope>
+            </RadioactiveMaterial>
+            <SpecifiedLogisticsPackage>
+              <ItemQuantity>1</ItemQuantity>
+              <TypeCode>MOCK-T</TypeCode>
+              <Type languageID="MOC">MOCK-Type</Type>
+              <PhysicalLogisticsShippingMarks>
+                <Marking languageID="MOC">MOCK-Marking</Marking>
+              </PhysicalLogisticsShippingMarks>
+              <AssociatedReferencedDocument>
+                <URIID>MOCK-URIID</URIID>
+                <TypeCode>4</TypeCode>
+              </AssociatedReferencedDocument>
+              <StatedSpecifiedCondition>
+                <StatementCode>29</StatementCode>
+                <Statement languageID="MOC">MOCK-Statement</Statement>
+              </StatedSpecifiedCondition>
+            </SpecifiedLogisticsPackage>
+            <StatedSpecifiedCondition>
+              <SubjectTypeCode>S1</SubjectTypeCode>
+              <StatementCode>3</StatementCode>
+              <Statement languageID="MOC">MOCK-Statement</Statement>
+              <SpecifiedCalibratedMeasurement>
+                <ValueMeasure unitCode="60">1</ValueMeasure>
+              </SpecifiedCalibratedMeasurement>
+            </StatedSpecifiedCondition>
+            <RelatedReferencedDocument>
+              <TypeCode>T10</TypeCode>
+              <AttachmentBinaryObject uri="MOCK-uri" filename="MOCK-filename">TW9jayBhdHRhY2htZW50</AttachmentBinaryObject>
+            </RelatedReferencedDocument>
+            <IncludedSpecifiedFuel>
+              <TypeCode>1</TypeCode>
+              <VolumeMeasure unitCode="MTQ">1</VolumeMeasure>
+              <WeightMeasure unitCode="KGM">1</WeightMeasure>
+              <WorkingPressureMeasure unitCode="BAR">1</WorkingPressureMeasure>
+            </IncludedSpecifiedFuel>
+            <TechnicalNameNote>
+              <Content languageID="MOC">MOCK-Content</Content>
+              <SubjectCode>3</SubjectCode>
+            </TechnicalNameNote>
+          </ApplicableTransportDangerousGoods>
+          <LinearSpatialDimension>
+            <WidthMeasure unitCode="MTR">1</WidthMeasure>
+            <LengthMeasure unitCode="MTR">1</LengthMeasure>
+            <HeightMeasure unitCode="MTR">1</HeightMeasure>
+          </LinearSpatialDimension>
+          <AssociatedReferencedLogisticsTransportEquipment>
+            <ID schemeAgencyID="12">MOCK-ID</ID>
+          </AssociatedReferencedLogisticsTransportEquipment>
+        </IncludedSupplyChainConsignmentItem>
+        <UtilizedLogisticsTransportEquipment>
+          <ID schemeAgencyID="12">MOCK-ID</ID>
+          <GrossVolumeMeasure unitCode="MTQ">45.00</GrossVolumeMeasure>
+          <CategoryCode>AE</CategoryCode>
+          <CharacteristicCode listAgencyID="5">MOCK-Chara</CharacteristicCode>
+          <UsedCapacityCode>4</UsedCapacityCode>
+          <SequenceNumeric>1</SequenceNumeric>
+          <SealQuantity>1</SealQuantity>
+          <StowagePositionID>MOCK-StowagePosit</StowagePositionID>
+          <GrossGoodsWeightMeasure unitCode="KGM">1</GrossGoodsWeightMeasure>
+          <NetGoodsWeightMeasure unitCode="KGM">1</NetGoodsWeightMeasure>
+          <GrossGoodsVolumeMeasure unitCode="MTQ">1</GrossGoodsVolumeMeasure>
+          <NetGoodsVolumeMeasure unitCode="MTQ">1</NetGoodsVolumeMeasure>
+          <ReportableQuantity>1</ReportableQuantity>
+          <LoadedTransportDangerousGoods>
+            <UNDGIdentificationCode>1203</UNDGIdentificationCode>
+            <RegulatoryAuthorityName>MOCK-RegulatoryAuthorityName</RegulatoryAuthorityName>
+            <Information languageID="MOC">Full-field synthetic test fixture</Information>
+            <HazardClassificationID>MOCK-Ha</HazardClassificationID>
+            <SupplementaryInformation languageID="MOC">MOCK-SupplementaryInformation</SupplementaryInformation>
+            <ReportableQuantity>1</ReportableQuantity>
+            <PreviousCargoInformation languageID="MOC">MOCK-PreviousCargoInformation</PreviousCargoInformation>
+            <SpecifiedLogisticsPackage>
+              <ItemQuantity>1</ItemQuantity>
+            </SpecifiedLogisticsPackage>
+            <StatedSpecifiedCondition>
+              <SubjectTypeCode>S12</SubjectTypeCode>
+              <ValueMeasure unitCode="KGM">1</ValueMeasure>
+              <ActionCode>530</ActionCode>
+              <ActionDateTime>
+                <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+              </ActionDateTime>
+              <StatementCode>18</StatementCode>
+              <Statement languageID="MOC">MOCK-Statement</Statement>
+              <SpecifiedCalibratedMeasurement>
+                <ValueMeasure unitCode="KGM">1</ValueMeasure>
+              </SpecifiedCalibratedMeasurement>
+            </StatedSpecifiedCondition>
+            <RelatedReferencedDocument>
+              <TypeCode>T3</TypeCode>
+              <ID>MOCK-ID</ID>
+              <AttachmentBinaryObject uri="MOCK-uri" filename="MOCK-filename">TW9jayBhdHRhY2htZW50</AttachmentBinaryObject>
+            </RelatedReferencedDocument>
+          </LoadedTransportDangerousGoods>
+          <AffixedLogisticsSeal>
+            <ID schemeAgencyID="3">MOCK-ID</ID>
+            <ConditionCode>3</ConditionCode>
+            <SealingPartyRoleCode>AA</SealingPartyRoleCode>
+          </AffixedLogisticsSeal>
+          <CarriedAssociatedTransportEquipment>
+            <ID schemeAgencyID="12">MOCK-ID</ID>
+            <CategoryCode>AM</CategoryCode>
+            <GrossWeightMeasure unitCode="KGM">15000.00</GrossWeightMeasure>
+            <UsedCapacityCode>4</UsedCapacityCode>
+            <SequenceNumeric>1</SequenceNumeric>
+            <VerifiedGrossWeightMeasure unitCode="KGM">1</VerifiedGrossWeightMeasure>
+            <GrossGoodsWeightMeasure unitCode="KGM">1</GrossGoodsWeightMeasure>
+            <NetGoodsWeightMeasure unitCode="KGM">1</NetGoodsWeightMeasure>
+            <GrossGoodsVolumeMeasure unitCode="MTQ">1</GrossGoodsVolumeMeasure>
+            <NetGoodsVolumeMeasure unitCode="MTQ">1</NetGoodsVolumeMeasure>
+            <GoodsItemUnitQuantity unitCode="C62">1</GoodsItemUnitQuantity>
+            <ReportableQuantity>1</ReportableQuantity>
+            <StowagePositionID>MOCK-StowagePosit</StowagePositionID>
+            <WeightVerificationMethodCode>1</WeightVerificationMethodCode>
+            <LoadedTransportDangerousGoods>
+              <UNDGIdentificationCode>1203</UNDGIdentificationCode>
+              <RegulatoryAuthorityName>MOCK-RegulatoryAuthorityName</RegulatoryAuthorityName>
+              <Information languageID="MOC">Full-field synthetic test fixture</Information>
+              <HazardClassificationID>MOCK-Ha</HazardClassificationID>
+              <SupplementaryInformation languageID="MOC">MOCK-SupplementaryInformation</SupplementaryInformation>
+              <ReportableQuantity>1</ReportableQuantity>
+              <PreviousCargoInformation languageID="MOC">MOCK-PreviousCargoInformation</PreviousCargoInformation>
+              <SpecifiedLogisticsPackage>
+                <ItemQuantity>1</ItemQuantity>
+              </SpecifiedLogisticsPackage>
+              <StatedSpecifiedCondition>
+                <SubjectTypeCode>S10</SubjectTypeCode>
+                <ValueMeasure unitCode="KGM">1</ValueMeasure>
+                <ActionCode>530</ActionCode>
+                <ActionDateTime>
+                  <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+                </ActionDateTime>
+                <StatementCode>19</StatementCode>
+                <Statement languageID="MOC">MOCK-Statement</Statement>
+              </StatedSpecifiedCondition>
+              <RelatedReferencedDocument>
+                <TypeCode>T5</TypeCode>
+                <AttachmentBinaryObject uri="MOCK-uri" filename="MOCK-filename">TW9jayBhdHRhY2htZW50</AttachmentBinaryObject>
+              </RelatedReferencedDocument>
+            </LoadedTransportDangerousGoods>
+            <AffixedLogisticsSeal>
+              <ID>MOCK-ID</ID>
+              <ConditionCode>3</ConditionCode>
+              <SealingPartyRoleCode>AA</SealingPartyRoleCode>
+              <IssuingTradeParty>
+                <Name>MOCK-Name</Name>
+              </IssuingTradeParty>
+            </AffixedLogisticsSeal>
+            <WeightVerifierTradeParty>
+              <Name>MOCK-Name</Name>
+            </WeightVerifierTradeParty>
+          </CarriedAssociatedTransportEquipment>
+          <OperatingTradeParty>
+            <ID schemeAgencyID="87">MOCK-ID</ID>
+            <Name>MOCK-Name</Name>
+            <PostalTradeAddress>
+              <PostcodeCode>MOCK-PostcodeCode</PostcodeCode>
+              <PostOfficeBox>MOCK-PostOfficeBo</PostOfficeBox>
+              <StreetName>MOCK-StreetName</StreetName>
+              <CityName>MOCK-CityName</CityName>
+              <CountryID>EE</CountryID>
+              <CountrySubDivisionName>MOCK-CountrySubDivisionName</CountrySubDivisionName>
+              <BuildingNumber>MOCK-BuildingNumb</BuildingNumber>
+              <DepartmentName>MOCK-DepartmentName</DepartmentName>
+              <AdditionalStreetName>MOCK-AdditionalStreetName</AdditionalStreetName>
+            </PostalTradeAddress>
+          </OperatingTradeParty>
+          <OwnerTradeParty>
+            <ID schemeAgencyID="87">MOCK-ID</ID>
+            <Name>MOCK-Name</Name>
+            <PostalTradeAddress>
+              <PostcodeCode>MOCK-PostcodeCode</PostcodeCode>
+              <PostOfficeBox>MOCK-PostOfficeBo</PostOfficeBox>
+              <StreetName>MOCK-StreetName</StreetName>
+              <CityName>MOCK-CityName</CityName>
+              <CountryID>EE</CountryID>
+              <CountrySubDivisionName>MOCK-CountrySubDivisionName</CountrySubDivisionName>
+              <BuildingNumber>MOCK-BuildingNumb</BuildingNumber>
+              <DepartmentName>MOCK-DepartmentName</DepartmentName>
+              <AdditionalStreetName>MOCK-AdditionalStreetName</AdditionalStreetName>
+            </PostalTradeAddress>
+          </OwnerTradeParty>
+          <RegistrationTradeCountry>
+            <ID>MO</ID>
+          </RegistrationTradeCountry>
+        </UtilizedLogisticsTransportEquipment>
+        <MainCarriageLogisticsTransportMovement>
+          <ModeCode>3</ModeCode>
+          <ID>MOCK-ID</ID>
+          <SequenceNumeric>1</SequenceNumeric>
+          <MasterResponsibleTransportPerson>
+            <ID schemeAgencyID="87">MOCK-ID</ID>
+            <BirthDateTime>
+              <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+            </BirthDateTime>
+            <GivenName>MOCK-GivenName</GivenName>
+            <FamilyName>MOCK-FamilyName</FamilyName>
+          </MasterResponsibleTransportPerson>
+          <LoadingTransportEvent>
+            <ActualOccurrenceDateTime>
+              <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+            </ActualOccurrenceDateTime>
+            <ScheduledOccurrenceDateTime>
+              <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+            </ScheduledOccurrenceDateTime>
+            <RequestedOccurrenceDateTime>
+              <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+            </RequestedOccurrenceDateTime>
+            <OccurrenceLogisticsLocation>
+              <ID schemeAgencyID="6">MOCK-ID</ID>
+              <Name>MOCK-Name</Name>
+              <PostalTradeAddress>
+                <PostcodeCode>MOCK-PostcodeCode</PostcodeCode>
+                <PostOfficeBox>MOCK-PostOfficeBo</PostOfficeBox>
+                <StreetName>MOCK-StreetName</StreetName>
+                <CityName>MOCK-CityName</CityName>
+                <CountryID>EE</CountryID>
+                <CountrySubDivisionName>MOCK-CountrySubDivisionName</CountrySubDivisionName>
+                <BuildingNumber>MOCK-BuildingNumb</BuildingNumber>
+                <DepartmentName>MOCK-DepartmentName</DepartmentName>
+                <AdditionalStreetName>MOCK-AdditionalStreetName</AdditionalStreetName>
+              </PostalTradeAddress>
+            </OccurrenceLogisticsLocation>
+            <CertifyingTradeParty>
+              <ID schemeAgencyID="87">MOCK-ID</ID>
+              <Name>MOCK-Name</Name>
+              <RoleCode>POA</RoleCode>
+              <ConfirmedDocumentAuthentication>
+                <StatementCode>1</StatementCode>
+              </ConfirmedDocumentAuthentication>
+            </CertifyingTradeParty>
+            <AdditionalSecurityMeasuresApplicableNote>
+              <Content>MOCK-Content</Content>
+              <SubjectCode>MOC</SubjectCode>
+            </AdditionalSecurityMeasuresApplicableNote>
+            <ScheduledOccurrenceSpecifiedPeriod>
+              <EndDateTime>
+                <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+              </EndDateTime>
+            </ScheduledOccurrenceSpecifiedPeriod>
+          </LoadingTransportEvent>
+          <UnloadingTransportEvent>
+            <EstimatedOccurrenceDateTime>
+              <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+            </EstimatedOccurrenceDateTime>
+            <ActualOccurrenceDateTime>
+              <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+            </ActualOccurrenceDateTime>
+            <ScheduledOccurrenceDateTime>
+              <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+            </ScheduledOccurrenceDateTime>
+            <OccurrenceLogisticsLocation>
+              <ID schemeAgencyID="6">MOCK-ID</ID>
+              <Name>MOCK-Name</Name>
+              <PostalTradeAddress>
+                <PostcodeCode>MOCK-PostcodeCode</PostcodeCode>
+                <PostOfficeBox>MOCK-PostOfficeBo</PostOfficeBox>
+                <StreetName>MOCK-StreetName</StreetName>
+                <CityName>MOCK-CityName</CityName>
+                <CountryID>EE</CountryID>
+                <CountrySubDivisionName>MOCK-CountrySubDivisionName</CountrySubDivisionName>
+                <BuildingNumber>MOCK-BuildingNumb</BuildingNumber>
+                <DepartmentName>MOCK-DepartmentName</DepartmentName>
+                <AdditionalStreetName>MOCK-AdditionalStreetName</AdditionalStreetName>
+              </PostalTradeAddress>
+            </OccurrenceLogisticsLocation>
+            <CertifyingTradeParty>
+              <ID schemeAgencyID="87">MOCK-ID</ID>
+              <Name>MOCK-Name</Name>
+              <RoleCode>POA</RoleCode>
+              <ConfirmedDocumentAuthentication>
+                <StatementCode>1</StatementCode>
+              </ConfirmedDocumentAuthentication>
+            </CertifyingTradeParty>
+          </UnloadingTransportEvent>
+          <DepartureTransportEvent>
+            <ScheduledOccurrenceDateTime>
+              <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+            </ScheduledOccurrenceDateTime>
+          </DepartureTransportEvent>
+          <UsedLogisticsTransportMeans>
+            <TypeCode>1501</TypeCode>
+            <ID schemeAgencyID="3">MOCK-PLATE-MAX</ID>
+            <Name>MOCK-Name</Name>
+            <RegistrationTradeCountry>
+              <ID>MO</ID>
+            </RegistrationTradeCountry>
+            <OwnerTradeParty>
+              <Name>MOCK-Name</Name>
+            </OwnerTradeParty>
+            <SpecifiedSpatialDimension>
+              <Description>MOCK-Description</Description>
+              <WidthMeasure unitCode="CMT">1</WidthMeasure>
+              <LengthMeasure unitCode="CMT">1</LengthMeasure>
+              <HeightMeasure unitCode="CMT">1</HeightMeasure>
+            </SpecifiedSpatialDimension>
+            <OperationalAttachedTransportEquipment>
+              <ID>MOCK-ID</ID>
+              <CategoryCode listAgencyID="6">AE</CategoryCode>
+              <UnitQuantity>1</UnitQuantity>
+            </OperationalAttachedTransportEquipment>
+          </UsedLogisticsTransportMeans>
+          <ItineraryTransportRoute>
+            <Description>MOCK-Description</Description>
+          </ItineraryTransportRoute>
+          <CallTransportEvent>
+            <OccurrenceLogisticsLocation>
+              <ID schemeAgencyID="6">MOCK-ID</ID>
+            </OccurrenceLogisticsLocation>
+          </CallTransportEvent>
+          <BorderCrossingTransportEvent>
+            <ActualOccurrenceDateTime>
+              <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+            </ActualOccurrenceDateTime>
+            <OccurrenceLogisticsLocation>
+              <Name>MOCK-Name</Name>
+            </OccurrenceLogisticsLocation>
+          </BorderCrossingTransportEvent>
+        </MainCarriageLogisticsTransportMovement>
+        <PreCarriageLogisticsTransportMovement>
+          <ModeCode>3</ModeCode>
+          <ArrivalTransportEvent>
+            <ScheduledOccurrenceDateTime>
+              <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+            </ScheduledOccurrenceDateTime>
+          </ArrivalTransportEvent>
+        </PreCarriageLogisticsTransportMovement>
+        <OnCarriageLogisticsTransportMovement>
+          <ModeCode>3</ModeCode>
+          <UnloadingTransportEvent>
+            <OccurrenceLogisticsLocation>
+              <ID schemeAgencyID="6">MOCK-ID</ID>
+              <Name>MOCK-Name</Name>
+            </OccurrenceLogisticsLocation>
+          </UnloadingTransportEvent>
+        </OnCarriageLogisticsTransportMovement>
+        <SpecifiedLogisticsTransportMovement>
+          <SpecifiedTransportEvent>
+            <TypeCode listAgencyID="6">1</TypeCode>
+            <OccurrenceLogisticsLocation>
+              <ID schemeAgencyID="6">MOCK-ID</ID>
+              <Name>MOCK-Name</Name>
+            </OccurrenceLogisticsLocation>
+          </SpecifiedTransportEvent>
+        </SpecifiedLogisticsTransportMovement>
+        <TransportService>
+          <Description>MOCK-Description</Description>
+          <ConditionTypeCode listAgencyID="6">3</ConditionTypeCode>
+        </TransportService>
+        <ApplicableLogisticsServiceCharge>
+          <ID>MOCK-I</ID>
+          <PaymentArrangementCode listAgencyID="6">MOC</PaymentArrangementCode>
+          <AppliedAmount currencyID="MOC">1</AppliedAmount>
+          <PayingPartyRoleCode>AB</PayingPartyRoleCode>
+          <CalculationBasisCode listAgencyID="ZZZ">MOC</CalculationBasisCode>
+          <CalculationBasisTradePrice>
+            <BasisQuantity unitCode="KGM">1</BasisQuantity>
+            <UnitAmount currencyID="MOC">1</UnitAmount>
+            <CategoryTypeCode listAgencyID="6">MOC</CategoryTypeCode>
+          </CalculationBasisTradePrice>
+        </ApplicableLogisticsServiceCharge>
+        <TransportLogisticsPackage>
+          <ItemQuantity>1</ItemQuantity>
+          <TypeCode>MOC</TypeCode>
+          <Type languageID="MOC">MOCK-Type</Type>
+          <Information>Full-field synthetic test fixture</Information>
+          <PhysicalLogisticsShippingMarks>
+            <Marking languageID="MOC">MOCK-Marking</Marking>
+          </PhysicalLogisticsShippingMarks>
+        </TransportLogisticsPackage>
+        <AssociatedTradeParty>
+          <ID schemeAgencyID="3">MOCK-ID</ID>
+        </AssociatedTradeParty>
+        <NatureIdentificationTransportCargo>
+          <TypeCode>MOC</TypeCode>
+          <Identification languageID="MOC">MOCK-Identification</Identification>
+          <OperationalCategoryCode>MOC</OperationalCategoryCode>
+          <StatisticalClassificationCode listAgencyID="3">MOC</StatisticalClassificationCode>
+        </NatureIdentificationTransportCargo>
+        <ApplicableCrossBorderRegulatoryProcedure>
+          <TypeCode>1</TypeCode>
+          <ImportCustomsOfficeSpecifiedLogisticsLocation>
+            <ID schemeAgencyID="140">MOCK-ID</ID>
+          </ImportCustomsOfficeSpecifiedLogisticsLocation>
+          <ExportCustomsOfficeSpecifiedLogisticsLocation>
+            <ID schemeAgencyID="140">MOCK-ID</ID>
+          </ExportCustomsOfficeSpecifiedLogisticsLocation>
+          <TransitCustomsOfficeSpecifiedLogisticsLocation>
+            <ID schemeAgencyID="140">MOCK-ID</ID>
+          </TransitCustomsOfficeSpecifiedLogisticsLocation>
+        </ApplicableCrossBorderRegulatoryProcedure>
+        <ApplicableTransportDangerousGoods>
+          <Information languageID="MOC">Full-field synthetic test fixture</Information>
+          <ExplosiveCargoNetWeightMeasure unitCode="KGM">1</ExplosiveCargoNetWeightMeasure>
+          <RadioactiveMaterial>
+            <ApplicableSpecifiedRadioactiveIsotope>
+              <ActivityLevelMeasure unitCode="2Q">1</ActivityLevelMeasure>
+            </ApplicableSpecifiedRadioactiveIsotope>
+          </RadioactiveMaterial>
+          <StatedSpecifiedCondition>
+            <SubjectTypeCode>S14</SubjectTypeCode>
+            <ValueMeasure unitCode="KGM">1</ValueMeasure>
+            <StatementCode>33</StatementCode>
+            <Statement languageID="MOC">MOCK-Statement</Statement>
+          </StatedSpecifiedCondition>
+          <RelatedReferencedDocument>
+            <TypeCode>T1</TypeCode>
+            <AttachmentBinaryObject>TW9jayBhdHRhY2htZW50</AttachmentBinaryObject>
+          </RelatedReferencedDocument>
+          <ApplicableRegulatoryExemption>
+            <ID schemeAgencyID="87">MOCK-ID</ID>
+            <TypeCode listAgencyID="87">MOC</TypeCode>
+            <ReportableExemptionCalculation>
+              <ReportableQuantity>1</ReportableQuantity>
+              <HazardCategoryCode>3</HazardCategoryCode>
+            </ReportableExemptionCalculation>
+          </ApplicableRegulatoryExemption>
+        </ApplicableTransportDangerousGoods>
+        <ConsignorProvidedBorderClearanceTransportInstructions>
+          <Description>MOCK-Description</Description>
+        </ConsignorProvidedBorderClearanceTransportInstructions>
+        <SpecifiedLogisticsRiskAnalysisResult>
+          <ConsignmentRiskRelatedCode>SHR</ConsignmentRiskRelatedCode>
+          <Description languageID="MOC">MOCK-Description</Description>
+          <LevelCode>RA</LevelCode>
+          <ScreeningMethodCode>AOM</ScreeningMethodCode>
+          <SecurityExemptionCode>MOCK</SecurityExemptionCode>
+          <Information languageID="MOC">Full-field synthetic test fixture</Information>
+        </SpecifiedLogisticsRiskAnalysisResult>
+        <NotifiedTransportationWasteMaterial>
+          <WeightMeasure unitCode="KGM">1</WeightMeasure>
+          <ID schemeAgencyID="T9">MOCK-ID</ID>
+        </NotifiedTransportationWasteMaterial>
+      </rsm:SpecifiedSupplyChainConsignment>
+  wrapper: false
+  status: 200
+  next: end
+
 
 respond:
   return:

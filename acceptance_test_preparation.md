@@ -131,6 +131,17 @@ cd code && ./gradlew edelivery:test xml-mapper:test multiplexer:test
 
 SQL-käivitaja loob oma nimega tmpfs-PostgreSQL konteineri, avaldab null host-porti ja eemaldab konteineri ka vea korral. Olemasolevaid DB-sid see ei kasuta. Mõlemad DSL CI-tööd käivitavad SQL-regressioonid ja mocki UUID-testid.
 
+## Rikkaliku X-Tee mock-dataset'i täiendus
+
+Lisatud otsepäringuks UIL `EU-EE/mock/550e8400-e29b-41d4-a716-446655440002`.
+Küsi `subsets: ["EU01", "EU02", "EU03", "EU05"]` ja tavapäraseid X-Road päiseid.
+Näidis katab FTI010 consignment'i skeemiväljad ühe esinemisega ja choice'i esimese variandiga;
+sisaldab ka ohtlikku kaupa, osapooli/kontakte, sündmusi, varustust, dokumente ja manuseid.
+Väärtused on sünteetilised, mitte pärisveose ärilise kooskõla tõend. Search/transport-means
+ja senine lihtne dataset ei muutu; subset-põhist XML-filtreerimist mock ei tee.
+Genereerimise ja täpse embedded XML-i XSD kontroll: `python3 tests/mock/dataset.py` — 2/2 läbis.
+API-kasutus on kirjeldatud `docs/developer/x_road_developer_mock.md`.
+
 ## Eraldi heakskiitu vajav migratsioonikavand
 
 Migratsioonikavandi faili lisamine PR-i peatati automaatse õiguskontrolliga. Seda ei ole `DSL/Liquibase/changelog` all ja standardne CI/Compose seda ei rakenda. Eraldatud testibaasis kontrollitud kavand:

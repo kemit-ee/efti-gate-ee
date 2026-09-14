@@ -199,6 +199,9 @@ secret_detection:
     - run dsl-test --dsl DSL/Ruuter-xroad-mock --tests DSL-mock-tests --constants constants-xroad-mock.ini
     - pip3 install --quiet pyyaml
     - python3 scripts/validate-dsl.py
+    - >-
+      docker run --rm -v "$PWD:/workdir:ro" -w /workdir python:3.12-slim
+      sh -ec 'apt-get update -qq && apt-get install -y -qq libxml2-utils && pip install --quiet pyyaml && python3 tests/mock/dataset.py'
     - python3 tests/sql/regression.py
 
 .frontend:

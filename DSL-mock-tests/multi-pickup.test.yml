@@ -1,0 +1,285 @@
+{
+  "mode": "inprocess",
+  "tests": [
+    {
+      "name": "one truck lookup exposes all three shipments",
+      "request": {
+        "method": "POST",
+        "path": "/developer/v1/transport-means",
+        "headers": {
+          "content-type": "application/json",
+          "x-road-client": "EE/GOV/70000097/test",
+          "x-road-id": "550e8400-e29b-41d4-a716-446655440099"
+        },
+        "body": {
+          "identifier": "MOCK-PLATE-3",
+          "countryCode": "EE",
+          "scope": "local"
+        }
+      },
+      "expect": {
+        "status": 200,
+        "body_matches": {
+          "found": 3,
+          "consignments": [
+            {
+              "uil": {
+                "gateId": "EU-EE",
+                "platformId": "mock",
+                "datasetId": "550e8400-e29b-41d4-a716-446655440011"
+              },
+              "mainTransportId": "MOCK-PLATE-3",
+              "mainTransportType": "1522",
+              "transportRegCountry": "EE",
+              "transportMode": "3",
+              "dangerousGoods": null,
+              "acceptanceDate": null,
+              "acceptanceCountry": null,
+              "deliveryDate": null,
+              "deliveryCountry": null,
+              "loadingDate": "2026-09-14T06:00:00Z",
+              "loadingCountry": "EE",
+              "unloadingDate": "2026-09-15T00:00:00Z",
+              "unloadingCountry": "EE",
+              "usedEquipmentIds": [],
+              "usedEquipmentCategories": [],
+              "usedEquipmentCountries": [],
+              "carriedEquipmentIds": [],
+              "carriedEquipmentCategories": [],
+              "status": "ACTIVE",
+              "createdAt": "2026-09-14T05:00:00Z"
+            },
+            {
+              "uil": {
+                "gateId": "EU-EE",
+                "platformId": "mock",
+                "datasetId": "550e8400-e29b-41d4-a716-446655440012"
+              },
+              "mainTransportId": "MOCK-PLATE-3",
+              "mainTransportType": "1522",
+              "transportRegCountry": "EE",
+              "transportMode": "3",
+              "dangerousGoods": null,
+              "acceptanceDate": null,
+              "acceptanceCountry": null,
+              "deliveryDate": null,
+              "deliveryCountry": null,
+              "loadingDate": "2026-09-14T09:00:00Z",
+              "loadingCountry": "EE",
+              "unloadingDate": "2026-09-15T00:00:00Z",
+              "unloadingCountry": "EE",
+              "usedEquipmentIds": [],
+              "usedEquipmentCategories": [],
+              "usedEquipmentCountries": [],
+              "carriedEquipmentIds": [],
+              "carriedEquipmentCategories": [],
+              "status": "ACTIVE",
+              "createdAt": "2026-09-14T05:00:00Z"
+            },
+            {
+              "uil": {
+                "gateId": "EU-EE",
+                "platformId": "mock",
+                "datasetId": "550e8400-e29b-41d4-a716-446655440013"
+              },
+              "mainTransportId": "MOCK-PLATE-3",
+              "mainTransportType": "1522",
+              "transportRegCountry": "EE",
+              "transportMode": "3",
+              "dangerousGoods": "1",
+              "acceptanceDate": null,
+              "acceptanceCountry": null,
+              "deliveryDate": null,
+              "deliveryCountry": null,
+              "loadingDate": "2026-09-14T12:00:00Z",
+              "loadingCountry": "EE",
+              "unloadingDate": "2026-09-15T00:00:00Z",
+              "unloadingCountry": "EE",
+              "usedEquipmentIds": [],
+              "usedEquipmentCategories": [],
+              "usedEquipmentCountries": [],
+              "carriedEquipmentIds": [],
+              "carriedEquipmentCategories": [],
+              "status": "ACTIVE",
+              "createdAt": "2026-09-14T05:00:00Z"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "search exposes the same three shipment UILs",
+      "request": {
+        "method": "POST",
+        "path": "/developer/v1/search",
+        "headers": {
+          "content-type": "application/json",
+          "x-road-client": "EE/GOV/70000097/test",
+          "x-road-id": "550e8400-e29b-41d4-a716-446655440099"
+        },
+        "body": {
+          "mainTransportId": {
+            "id": "MOCK-PLATE-3",
+            "operation": "EQ"
+          }
+        }
+      },
+      "expect": {
+        "status": 200,
+        "body_matches": [
+          {
+            "uil": {
+              "gateId": "EU-EE",
+              "platformId": "mock",
+              "datasetId": "550e8400-e29b-41d4-a716-446655440011"
+            },
+            "mainTransportId": "MOCK-PLATE-3",
+            "mainTransportType": "1522",
+            "transportRegCountry": "EE",
+            "transportMode": "3",
+            "dangerousGoods": null,
+            "acceptanceDate": null,
+            "acceptanceCountry": null,
+            "deliveryDate": null,
+            "deliveryCountry": null,
+            "loadingDate": "2026-09-14T06:00:00Z",
+            "loadingCountry": "EE",
+            "unloadingDate": "2026-09-15T00:00:00Z",
+            "unloadingCountry": "EE",
+            "usedEquipmentIds": [],
+            "usedEquipmentCategories": [],
+            "usedEquipmentCountries": [],
+            "carriedEquipmentIds": [],
+            "carriedEquipmentCategories": [],
+            "status": "ACTIVE",
+            "createdAt": "2026-09-14T05:00:00Z"
+          },
+          {
+            "uil": {
+              "gateId": "EU-EE",
+              "platformId": "mock",
+              "datasetId": "550e8400-e29b-41d4-a716-446655440012"
+            },
+            "mainTransportId": "MOCK-PLATE-3",
+            "mainTransportType": "1522",
+            "transportRegCountry": "EE",
+            "transportMode": "3",
+            "dangerousGoods": null,
+            "acceptanceDate": null,
+            "acceptanceCountry": null,
+            "deliveryDate": null,
+            "deliveryCountry": null,
+            "loadingDate": "2026-09-14T09:00:00Z",
+            "loadingCountry": "EE",
+            "unloadingDate": "2026-09-15T00:00:00Z",
+            "unloadingCountry": "EE",
+            "usedEquipmentIds": [],
+            "usedEquipmentCategories": [],
+            "usedEquipmentCountries": [],
+            "carriedEquipmentIds": [],
+            "carriedEquipmentCategories": [],
+            "status": "ACTIVE",
+            "createdAt": "2026-09-14T05:00:00Z"
+          },
+          {
+            "uil": {
+              "gateId": "EU-EE",
+              "platformId": "mock",
+              "datasetId": "550e8400-e29b-41d4-a716-446655440013"
+            },
+            "mainTransportId": "MOCK-PLATE-3",
+            "mainTransportType": "1522",
+            "transportRegCountry": "EE",
+            "transportMode": "3",
+            "dangerousGoods": "1",
+            "acceptanceDate": null,
+            "acceptanceCountry": null,
+            "deliveryDate": null,
+            "deliveryCountry": null,
+            "loadingDate": "2026-09-14T12:00:00Z",
+            "loadingCountry": "EE",
+            "unloadingDate": "2026-09-15T00:00:00Z",
+            "unloadingCountry": "EE",
+            "usedEquipmentIds": [],
+            "usedEquipmentCategories": [],
+            "usedEquipmentCountries": [],
+            "carriedEquipmentIds": [],
+            "carriedEquipmentCategories": [],
+            "status": "ACTIVE",
+            "createdAt": "2026-09-14T05:00:00Z"
+          }
+        ]
+      }
+    },
+    {
+      "name": "multi-pickup truck is registered",
+      "request": {
+        "method": "POST",
+        "path": "/developer/v1/transport-means",
+        "headers": {
+          "content-type": "application/json",
+          "x-road-client": "EE/GOV/70000097/test",
+          "x-road-id": "550e8400-e29b-41d4-a716-446655440099"
+        },
+        "body": {
+          "identifier": "MOCK-PLATE-3",
+          "countryCode": "EE",
+          "scope": "existence"
+        }
+      },
+      "expect": {
+        "status": 200,
+        "body_matches": {
+          "registered": true
+        }
+      }
+    },
+    {
+      "name": "multi-pickup truck does not match a foreign registration country",
+      "request": {
+        "method": "POST",
+        "path": "/developer/v1/transport-means",
+        "headers": {
+          "content-type": "application/json",
+          "x-road-client": "EE/GOV/70000097/test",
+          "x-road-id": "550e8400-e29b-41d4-a716-446655440099"
+        },
+        "body": {
+          "identifier": "MOCK-PLATE-3",
+          "countryCode": "FI",
+          "scope": "local"
+        }
+      },
+      "expect": {
+        "status": 200,
+        "body_matches": {
+          "found": 0,
+          "consignments": []
+        }
+      }
+    },
+    {
+      "name": "mock poll remains empty for the multi-pickup truck",
+      "request": {
+        "method": "POST",
+        "path": "/developer/v1/search",
+        "headers": {
+          "content-type": "application/json",
+          "x-road-client": "EE/GOV/70000097/test",
+          "x-road-id": "550e8400-e29b-41d4-a716-446655440099"
+        },
+        "body": {
+          "mainTransportId": {
+            "id": "MOCK-PLATE-3",
+            "operation": "EQ"
+          },
+          "poll": true
+        }
+      },
+      "expect": {
+        "status": 200,
+        "body_matches": []
+      }
+    }
+  ]
+}

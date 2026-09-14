@@ -185,7 +185,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   in-process router, no compose). Use for anything reachable **before an upstream `call:`**:
   guard rejects, `validate_input` 400s. `mode: mock-http` can stand in for ReSql/xml-mapper.
   Run via `docker run --rm -v "$PWD:/workdir" -w /workdir turnerrainer/ruuter:0.10.0-rc dsl-test --dsl DSL/Ruuter --tests DSL-tests --constants constants.ini` (the binaries ship in the runtime image since 0.9.14-rc).
-- `DSL-mock-tests/*.test.yml` verifies the standalone mock's UUID contract against `DSL/Ruuter-xroad-mock` and `constants-xroad-mock.ini`.
+- `DSL-mock-tests/*.test.yml` verifies standalone mock UUID and dataset permission contracts against `DSL/Ruuter-xroad-mock` and `constants-xroad-mock.ini`. Rich synthetic dataset UIL is `EU-EE/mock/550e8400-e29b-41d4-a716-446655440002`; other UILs retain the minimal response. XML is not subset-filtered. `python3 tests/mock/dataset.py` checks embedded XML against the field generator and FTI010 XSD (requires PyYAML and xmllint). Generator prints XML only: `python3 scripts/generate-rich-mock-dataset.py`.
 - `python3 tests/sql/regression.py` prepares all 42 ReSQL queries under `app` and checks append-only, credential and search semantics in its own disposable PostgreSQL 18 container (no host ports, no persistent volume). Both DSL CI jobs run it. `--performance` additionally compares custom/generic plans with origin/dev on 100,000 synthetic records after VACUUM/ANALYZE.
 
 ## Branching

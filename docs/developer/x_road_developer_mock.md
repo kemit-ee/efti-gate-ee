@@ -57,6 +57,7 @@ Samad mis päris liideses. Mockis paned need **sina ise** (päris elus paneb tur
 | Lubatud alamhulgad | `["EU01","EU02","EU03","EU05"]` (v.a `memberCode 70000000` → `[]`) |
 | Tuntud tunnus | `MOCK-PLATE-1` — annab `transport-means` / `search` tabamuse; kõik muu → tühi tulemus |
 | Tuntud `uil` | `{ "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440001" }` |
+| Rikkalik dataset | `{ "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440002" }` — täieliku väljakattuvusega sünteetiline FTI010 näidis |
 
 ---
 
@@ -213,6 +214,29 @@ Pollimispäring `{ "poll": true }` → `[]`. Vastuse päis `x-poll-more: false`.
 
 ### 5. `dataset` — andmehulga päring
 
+Maksimaalse väljakattuvusega näidise saamiseks kasuta järgmist keha (samad päised nagu allpool):
+
+```json
+{
+  "uil": { "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440002" },
+  "subsets": ["EU01", "EU02", "EU03", "EU05"]
+}
+```
+
+Rikkalik vastus sisaldab olemasoleva FTI010 XSD consignment-välju: saatjat, saajat, vedajat,
+kontakte ja aadresse, kaubaartiklit, ohtlikku kaupa, varustust, veosündmusi/asukohti,
+kaale/mahte, makseinfot ning viitedokumente ja manuseid. Näidis on sünteetiline, mitte
+äriliselt kooskõlalise pärisveose kirjeldus. Iga korduvat välja esineb üks kord ning
+choice-grupist kasutatakse esimest varianti; piiramatu korduste arvu tõttu pole lõplikku
+„kõige suuremat” dataset'i. XML valideeritakse repo FTI010 XSD vastu täielikus test-envelope'is;
+API tagastab endiselt vaid `SpecifiedSupplyChainConsignment` fragmendi JSON-i `xml` väljas.
+
+Uus näidis valitakse ainult täpse `EU-EE/mock/...0002` UIL-i puhul. Senine `...0001` ja
+muud UIL-id säilitavad lihtsa staatilise vastuse. Mock ei filtreeri XML-välju subsets'i järgi:
+kõigi nelja küsimine dokumenteerib maksimaalse päringu, kuid üks lubatud alamhulk annab sama
+rikkaliku XML-i. Õigusteta `70000000` annab ka selle ID korral 403. Uut dataset'i ei lisata
+search/transport-means tulemustesse; seda küsitakse otse UIL-i järgi.
+
 **Päring**
 ```
 POST /developer/v1/dataset
@@ -271,7 +295,8 @@ Content-Type: application/json
 ## Erinevused päris liidesest
 
 - Autentimist ei toimu — `X-Road-Client` on vaba (v.a `00000000`); ühtki registrikirjet ei kontrollita.
-- Andmed on staatilised — ainult `MOCK-PLATE-1` / teadaolev `uil` annavad sisu.
+- Andmed on staatilised: search/transport-means tunnevad `MOCK-PLATE-1`; dataset annab
+  `EU-EE/mock/...0002` korral rikkaliku näidise ja teiste UIL-ide puhul senise lihtsa näidise.
 - `dataset` alamhulgakontroll ei võrdle küsitud hulki lubatuga — `403` tuleb ainult `memberCode 70000000` puhul.
 - Fan-out'i / pollimist tegelikult ei toimu; `x-poll-more` on alati `false`.
 - Vastuseajad on kohesed; `502 GATEWAY_UNAVAILABLE` teed ei ole (päris väravas tuleb see `core` tõrke korral).

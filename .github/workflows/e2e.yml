@@ -30,6 +30,11 @@ jobs:
       - run: pip install --quiet pyyaml
       - name: efti input-contract check
         run: python3 scripts/validate-dsl.py
+      - name: rich mock dataset XSD and field-coverage checks
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libxml2-utils
+          python3 tests/mock/dataset.py
       - name: append-only SQL regression checks (disposable PostgreSQL)
         run: python3 tests/sql/regression.py
 
