@@ -146,7 +146,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 
 ## Kotlin services
 
-- Multiplexer renders String responses as raw XML (including the empty poll response), not JSON-encoded strings. Ruuter ≥ 0.10.0 decodes upstream bodies by their declared Content-Type.
+- eDelivery and multiplexer render String responses as raw XML (including the empty poll response), not JSON-encoded strings. Ruuter ≥ 0.10.0 decodes upstream bodies by their declared Content-Type.
 
 - Framework: klite (lightweight, annotation-based)
 - Build: Gradle multi-project under `code/`; `./gradlew <project>:test` for unit tests
