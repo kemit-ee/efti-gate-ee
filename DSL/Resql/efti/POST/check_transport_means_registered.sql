@@ -39,14 +39,14 @@ SELECT EXISTS (
       SELECT dataset_id, platform_id
       FROM consignments
       WHERE main_transport_id = :transport_means_id
-         OR :transport_means_id = ANY(used_equipment_ids)
-         OR :transport_means_id = ANY(carried_equipment_ids)
+         OR used_equipment_ids @> ARRAY[:transport_means_id]
+         OR carried_equipment_ids @> ARRAY[:transport_means_id]
     )
     ORDER BY dataset_id, platform_id, created_at DESC
   ) latest
   WHERE (latest.main_transport_id = :transport_means_id
-         OR :transport_means_id = ANY(latest.used_equipment_ids)
-         OR :transport_means_id = ANY(latest.carried_equipment_ids))
+         OR latest.used_equipment_ids @> ARRAY[:transport_means_id]
+         OR latest.carried_equipment_ids @> ARRAY[:transport_means_id])
     AND latest.status = 'ACTIVE'
     AND (:country_code IS NULL OR :country_code = '' OR latest.transport_reg_country = :country_code)
   LIMIT 1

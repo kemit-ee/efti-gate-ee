@@ -107,15 +107,15 @@ FROM (
     SELECT dataset_id, platform_id
     FROM consignments
     WHERE main_transport_id = :transport_means_id
-       OR :transport_means_id = ANY(used_equipment_ids)
-       OR :transport_means_id = ANY(carried_equipment_ids)
+       OR used_equipment_ids @> ARRAY[:transport_means_id]
+       OR carried_equipment_ids @> ARRAY[:transport_means_id]
   )
   ORDER BY dataset_id, platform_id, created_at DESC
 ) latest
 -- The latest row must still carry the identifier, on whichever of the three it was found.
 WHERE (latest.main_transport_id = :transport_means_id
-       OR :transport_means_id = ANY(latest.used_equipment_ids)
-       OR :transport_means_id = ANY(latest.carried_equipment_ids))
+       OR latest.used_equipment_ids @> ARRAY[:transport_means_id]
+       OR latest.carried_equipment_ids @> ARRAY[:transport_means_id])
   -- Positive allowlist, deliberately stricter than get_consignments.sql's `status != 'DELETED'`
   -- (which also returns INACTIVE). An INACTIVE consignment is not current knowledge, and a future
   -- status cannot leak by default. Consequence to be aware of: results can differ from the admin
