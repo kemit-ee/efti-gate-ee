@@ -2,7 +2,7 @@
 
 Kuupäev: 14.09.2026. Aluseks on `dev`-i ühendatud [runtime-uuenduse PR #153](https://github.com/kemit-ee/efti-gate-ee/pull/153), merge-commit `f0ce9f0`. Selle runtime-koodi viimane commit on `2a3f984`; uuenduse algne alus oli `15fade8`.
 
-Guard'i ja SQL-i järelparandused asuvad harus `codex/harden-guards-and-sql-latest-rows`. Need on eraldi PR-is, sest #153 on juba ühendatud. Allpool on ühendatud runtime-uuenduse ja uue paranduste komplekti muudatused eraldi välja toodud.
+Guard'i ja SQL-i järelparandused asuvad harus `codex/harden-guards-and-sql-latest-rows`, [draft-PR #155](https://github.com/kemit-ee/efti-gate-ee/pull/155). Need on eraldi PR-is, sest #153 on juba ühendatud. Allpool on ühendatud runtime-uuenduse ja uue paranduste komplekti muudatused eraldi välja toodud.
 
 ## Komponendid
 
@@ -68,10 +68,11 @@ JVM 25, PostgreSQL 18, Kotlin 2.4.20 ja UI sõltuvused olid runtime-PR-i aluses 
 | SQL regressioonid | 23/23 läbis | Sisaldab kõigi 42 endpointi PREPARE'i tegelike deklareeritud bind-tüüpidega `app` rolli all |
 | JVM unit testid | eDelivery, xml-mapper, multiplexer läbisid | Uued sender-ID ja HTTP header'i testid ning olemasolevad XML/wire-testid |
 | UI production build | Läbis (`npm ci` + `npm run build`) | Vite 7.3.6; olemasolev glob `as` deprecation-hoiatus |
+| Ehitatud tootmis-Ruuteri autentimistestid | 5/5 läbis | Dockerfile vaikeargumendiga image; dev-login keelamise test ei override'i konstanti |
 | Testitud migratsioonikavand | 27/27 läbis ainult ajutises baasis | 23 regressiooni + 4 migratsiooni-/konkurentsikontrolli; migratsioon ei ole rakendatud |
 | Input-contract / diff check | Läbis | `scripts/validate-dsl.py`, `git diff --check` |
 
-Paranduste PR-i full-stack CI tulemus lisatakse pärast CI lõppu. Ühendatud #153 tulemus ei asenda selle PR-i kontrolli.
+Paranduste PR-i [full-stack CI](https://github.com/kemit-ee/efti-gate-ee/actions/runs/34858408531) on käivitatud; tulemus on veel ootel. Ühendatud #153 tulemus ei asenda selle PR-i kontrolli.
 
 ### Jõudluskatse
 
