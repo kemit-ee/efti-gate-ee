@@ -1,0 +1,51 @@
+mode: mock-http
+constants:
+  TIM_URL: "{MOCK}"
+  RESQL_URL: "{MOCK}"
+
+tests:
+  - name: ambiguous active identities do not authenticate as the first row
+    setup:
+      mocks:
+        - url_matches: /jwt/userinfo
+          method: GET
+          body: { userinfo: { claims: { personalCode: "60001019906" }, issued_at: "2026-09-14T12:00:00Z" } }
+        - url_matches: /efti/check_user_auth
+          method: POST
+          body: [{ id: "one" }, { id: "two" }]
+    request:
+      method: POST
+      path: /efti/internal/check-user-authority
+      headers: { content-type: "application/json", authorization: "Bearer test" }
+      body: {}
+    expect:
+      status: 401
+
+  - name: TIM 500 is unavailable rather than an invalid credential
+    setup:
+      mocks:
+        - url_matches: /jwt/userinfo
+          method: GET
+          status: 500
+          body: { error: "unavailable" }
+    request:
+      method: POST
+      path: /efti/internal/check-admin-authority
+      headers: { content-type: "application/json", authorization: "Bearer test" }
+      body: {}
+    expect:
+      status: 503
+
+  - name: successful TIM response without identity metadata cannot authenticate
+    setup:
+      mocks:
+        - url_matches: /jwt/userinfo
+          method: GET
+          body: {}
+    request:
+      method: POST
+      path: /efti/internal/check-admin-authority
+      headers: { content-type: "application/json", authorization: "Bearer test" }
+      body: {}
+    expect:
+      status: 401

@@ -22,6 +22,7 @@ jobs:
           run dsl-lint --dsl DSL/Ruuter            --constants constants.ini
           run dsl-lint --dsl DSL/Ruuter-xroad-mock --constants constants-xroad-mock.ini
           run dsl-test --dsl DSL/Ruuter --tests DSL-tests --constants constants.ini
+          run dsl-test --dsl DSL/Ruuter-xroad-mock --tests DSL-mock-tests --constants constants-xroad-mock.ini
 
       - uses: actions/setup-python@v5
         with:
@@ -29,6 +30,8 @@ jobs:
       - run: pip install --quiet pyyaml
       - name: efti input-contract check
         run: python3 scripts/validate-dsl.py
+      - name: append-only SQL regression checks (disposable PostgreSQL)
+        run: python3 tests/sql/regression.py
 
   e2e:
     runs-on: ubuntu-latest

@@ -21,27 +21,30 @@ Reads use `DISTINCT ON (logical_id) … ORDER BY logical_id, created_at DESC` to
 -- Current state of all platforms
 SELECT DISTINCT ON (id) *
 FROM platforms
-ORDER BY id, created_at DESC;
+ORDER BY id, created_at DESC, row_id DESC;
 
 -- Current consignment for one dataset_id
 SELECT *
 FROM consignments
 WHERE dataset_id = '550e8400-e29b-41d4-a716-446655440001'
-ORDER BY created_at DESC
+  AND platform_id = 'mock'
+ORDER BY created_at DESC, row_id DESC
 LIMIT 1;
 
--- Active road consignments expiring today
-SELECT DISTINCT ON (dataset_id) *
-FROM consignments
-ORDER BY dataset_id, created_at DESC
-WHERE status = 'active' AND mode = 'road' AND expires_at < NOW();
+-- Current active consignments (illustrative; hot-path search filters candidates first)
+SELECT * FROM (
+  SELECT DISTINCT ON (dataset_id, platform_id) *
+  FROM consignments
+  ORDER BY dataset_id, platform_id, created_at DESC, row_id DESC
+) latest
+WHERE status = 'ACTIVE';
 ```
 
 The reads are still **single-table** — the no-`JOIN` rule holds. Search columns are denormalised onto `consignments` directly (`vehicle_plate`, `vehicle_country`, `mode`, `dangerous_goods`, `origin_country`, `destination_country`, `transport_date`).
 
 Indexes on every operational table follow the `(logical_id, created_at DESC)` pattern for fast latest-row lookup.
 
-**Tiebreaker on equal `created_at`.** Two writers committing in the same millisecond can produce rows whose `created_at` values are identical (PostgreSQL's `NOW()` returns transaction-start time at microsecond resolution; `clock_timestamp()` is finer-grained but still not unique). When the `(logical_id, created_at DESC)` ordering would tie, the canonical secondary key is `row_id ASC` (UUID lexical order). The full read order is `ORDER BY <logical_id>, created_at DESC, row_id ASC`. This makes "latest row wins" deterministic across nodes, even under concurrent admin edits.
+**Tiebreaker on equal `created_at`.** Reads use `ORDER BY <logical_id>, created_at DESC, row_id DESC`. UUID lexical order makes ties deterministic, not chronological: it cannot establish which concurrent edit happened last. A revision/locking migration remains subject to separate approval; see `acceptance_test_preparation.md`. Consignment logical identity is `(dataset_id, platform_id)`. The search hot path uses a self-correlated anti-join on that identity and `(created_at, row_id)` rather than materialising every current consignment.
 
 **Soft-delete-correct lookups.** When a query needs to exclude soft-deleted entities, filter `is_active = TRUE` **after** the latest-row resolution — never inside the inner `DISTINCT ON` filter. Filtering inside would let an older `is_active=TRUE` row win when the latest row is `is_active=FALSE`, defeating the soft-delete contract:
 
@@ -49,8 +52,8 @@ Indexes on every operational table follow the `(logical_id, created_at DESC)` pa
 -- Correct: latest-row resolution first, then is_active filter
 SELECT * FROM (
   SELECT DISTINCT ON (id) *
-  FROM platforms
-  ORDER BY id, created_at DESC, row_id ASC
+  FROM users
+  ORDER BY id, created_at DESC, row_id DESC
 ) latest
 WHERE latest.is_active = TRUE;
 ```

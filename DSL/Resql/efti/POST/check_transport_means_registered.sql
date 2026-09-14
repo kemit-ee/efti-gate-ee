@@ -25,24 +25,27 @@ params:
 -- Matches all three identifier families (main transport means, used equipment, carried equipment)
 -- so that a container-number check cannot answer "not registered" merely because the number is on
 -- the equipment rather than the tractor.
+WITH candidates AS MATERIALIZED (
+  SELECT DISTINCT dataset_id, platform_id
+  FROM consignments
+  WHERE main_transport_id = :transport_means_id
+     OR used_equipment_ids @> ARRAY[:transport_means_id]
+     OR carried_equipment_ids @> ARRAY[:transport_means_id]
+)
 SELECT EXISTS (
   SELECT 1
-  FROM (
-    SELECT DISTINCT ON (dataset_id, platform_id)
+  FROM candidates candidate
+  CROSS JOIN LATERAL (
+    SELECT
       main_transport_id,
       used_equipment_ids,
       carried_equipment_ids,
       transport_reg_country,
       status::text AS status
     FROM consignments
-    WHERE (dataset_id, platform_id) IN (
-      SELECT dataset_id, platform_id
-      FROM consignments
-      WHERE main_transport_id = :transport_means_id
-         OR used_equipment_ids @> ARRAY[:transport_means_id]
-         OR carried_equipment_ids @> ARRAY[:transport_means_id]
-    )
-    ORDER BY dataset_id, platform_id, created_at DESC
+    WHERE dataset_id = candidate.dataset_id AND platform_id = candidate.platform_id
+    ORDER BY created_at DESC, row_id DESC
+    LIMIT 1
   ) latest
   WHERE (latest.main_transport_id = :transport_means_id
          OR latest.used_equipment_ids @> ARRAY[:transport_means_id]

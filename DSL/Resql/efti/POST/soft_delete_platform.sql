@@ -10,7 +10,7 @@ FROM (
     id, base_url, headers, e_delivery_cert, tls_cert, api_key_hash, api_key_hint, api_key_generated_at
   FROM platforms
   WHERE id = :id
-  ORDER BY id, created_at DESC
+  ORDER BY id, created_at DESC, row_id DESC
 ) latest
 RETURNING
   row_id,

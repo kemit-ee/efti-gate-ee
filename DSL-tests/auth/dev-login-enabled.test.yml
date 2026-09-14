@@ -1,0 +1,20 @@
+mode: mock-http
+constants:
+  DEV_LOGIN_ENABLED: "true"
+  TIM_URL: "{MOCK}"
+
+tests:
+  - name: explicit development configuration permits test login
+    setup:
+      mocks:
+        - url_matches: /jwt/custom/generate
+          method: POST
+          body: { token: "development-test-token" }
+    request:
+      method: POST
+      path: /auth/dev-login
+      headers: { content-type: "application/json" }
+      body: { personalCode: "60001019906" }
+    expect:
+      status: 200
+      body: { token: "development-test-token" }

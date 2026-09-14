@@ -25,6 +25,10 @@ check_platform_exists:
       next: upstream_unavailable
     - condition: ${!platform_result.response.body.length}
       next: platform_not_found
+    - condition: ${platform_result.response.body[0]?.status == 'DELETED'}
+      next: platform_not_found
+    - condition: ${platform_result.response.body[0]?.status == 'DISABLED'}
+      next: disabled
     - condition: ${!platform_result.response.body[0]?.eDeliveryCert}
       next: ping_rest
   next: ping_edelivery
@@ -76,6 +80,8 @@ update_online:
 
 check_online_update:
   switch:
+    - condition: ${online_result.response.status == 0 || online_result.response.status >= 300}
+      next: upstream_unavailable
     - condition: ${!online_result.response.body.length}
       next: update_failed
   next: verify_online
@@ -93,6 +99,8 @@ verify_online:
 
 check_verify:
   switch:
+    - condition: ${verify_result.response.status == 0 || verify_result.response.status >= 300}
+      next: upstream_unavailable
     - condition: ${!verify_result.response.body.length}
       next: update_failed
   next: respond_ok
@@ -116,6 +124,8 @@ update_offline:
 
 check_offline_update:
   switch:
+    - condition: ${offline_result.response.status == 0 || offline_result.response.status >= 300}
+      next: upstream_unavailable
     - condition: ${!offline_result.response.body.length}
       next: update_failed
   next: gateway_unavailable
@@ -141,5 +151,11 @@ update_failed:
 upstream_unavailable:
   return: {"error": "Data layer unavailable"}
   status: 502
+  wrapper: false
+  next: end
+
+disabled:
+  return: {"error": "Disabled platform cannot be pinged"}
+  status: 409
   wrapper: false
   next: end

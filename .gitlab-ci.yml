@@ -196,8 +196,10 @@ secret_detection:
     - run dsl-lint --dsl DSL/Ruuter            --constants constants.ini
     - run dsl-lint --dsl DSL/Ruuter-xroad-mock --constants constants-xroad-mock.ini
     - run dsl-test --dsl DSL/Ruuter --tests DSL-tests --constants constants.ini
+    - run dsl-test --dsl DSL/Ruuter-xroad-mock --tests DSL-mock-tests --constants constants-xroad-mock.ini
     - pip3 install --quiet pyyaml
     - python3 scripts/validate-dsl.py
+    - python3 tests/sql/regression.py
 
 .frontend:
   stage: test

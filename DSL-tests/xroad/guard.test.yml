@@ -3,6 +3,17 @@
 mode: inprocess
 
 tests:
+  - name: UUID-shaped non-hex id is rejected before authority lookup
+    request:
+      method: POST
+      path: /xroad/v1/echo
+      headers:
+        x-road-client: "EE/GOV/70000094/tram"
+        x-road-id: "gggggggg-gggg-gggg-gggg-gggggggggggg"
+    expect:
+      status: 400
+      body_matches: { code: "INVALID_REQUEST_ID" }
+
   - name: no X-Road-Client -> 401
     request:
       method: POST

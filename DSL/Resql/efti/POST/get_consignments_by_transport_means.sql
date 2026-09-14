@@ -33,6 +33,13 @@ params:
 -- Matching is CASE-SENSITIVE: these are TEXT / TEXT[] columns, not CITEXT, so '123abc' does not match
 -- '123ABC'. Documented in openapi.yaml rather than normalised here, because changing it means a
 -- column type change or functional indexes on three columns.
+WITH candidates AS MATERIALIZED (
+  SELECT DISTINCT dataset_id, platform_id
+  FROM consignments
+  WHERE main_transport_id = :transport_means_id
+     OR used_equipment_ids @> ARRAY[:transport_means_id]
+     OR carried_equipment_ids @> ARRAY[:transport_means_id]
+)
 SELECT
   -- Built here rather than in the DSL: reshaping a result array would need .map(), which no Ruuter
   -- DSL file in this repo uses, so engine support is unproven. A JSONB column comes back as a real
@@ -63,12 +70,14 @@ SELECT
   latest.carried_equipment_categories,
   latest.status,
   latest.created_at
-FROM (
+FROM candidates candidate
+CROSS JOIN LATERAL (
   -- Columns are named rather than `*` for two reasons: `status::text` must happen here, because the
   -- bare column is the consignment_status ENUM and every other read file in DSL/Resql casts it (the
   -- Rust ReSql driver cannot map a dynamic enum OID); and naming them keeps the `xml` TEXT out of
   -- the DISTINCT ON sort, which would otherwise carry the whole blob per candidate row for nothing.
-  SELECT DISTINCT ON (dataset_id, platform_id)
+  SELECT
+    row_id,
     dataset_id,
     platform_id,
     gate_id,
@@ -93,24 +102,9 @@ FROM (
     status::text AS status,
     created_at
   FROM consignments
-  -- Narrows candidates through the three identifier indexes WITHOUT filtering the rows the
-  -- DISTINCT ON sees. A consignment qualifies if ANY of its rows ever carried this identifier; that
-  -- consignment's LATEST row is then resolved unfiltered, and the outer WHERE requires the latest
-  -- row to still carry it.
-  --
-  -- Filtering on the identifier inside this subquery would repeat the soft-delete-bypass class of
-  -- bug fixed in get_authority_by_registry_code.sql: consignments is append-only, so a dataset
-  -- re-uploaded with a corrected plate or a swapped container keeps its old row, and DISTINCT ON
-  -- over the *filtered* set would return that stale row — the consignment would keep answering to
-  -- an identifier it no longer carries.
-  WHERE (dataset_id, platform_id) IN (
-    SELECT dataset_id, platform_id
-    FROM consignments
-    WHERE main_transport_id = :transport_means_id
-       OR used_equipment_ids @> ARRAY[:transport_means_id]
-       OR carried_equipment_ids @> ARRAY[:transport_means_id]
-  )
-  ORDER BY dataset_id, platform_id, created_at DESC
+  WHERE dataset_id = candidate.dataset_id AND platform_id = candidate.platform_id
+  ORDER BY created_at DESC, row_id DESC
+  LIMIT 1
 ) latest
 -- The latest row must still carry the identifier, on whichever of the three it was found.
 WHERE (latest.main_transport_id = :transport_means_id
@@ -129,7 +123,7 @@ WHERE (latest.main_transport_id = :transport_means_id
   -- Note this filters the TRANSPORT MEANS registration country, so it is meaningful for a plate and
   -- largely meaningless for a container id; a caller searching equipment should omit it.
   AND (:country_code IS NULL OR :country_code = '' OR latest.transport_reg_country = :country_code)
-ORDER BY latest.created_at DESC
+ORDER BY latest.created_at DESC, latest.row_id DESC
 -- Server-fixed, NOT caller-supplied. A common identifier can match many consignments, and a
 -- caller-controlled limit is how an identifier lookup turns into a bulk-export tool.
 LIMIT 50;

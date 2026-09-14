@@ -24,5 +24,5 @@ WHERE (:resource::text IS NULL OR resource = :resource)
   AND (:userId::text IS NULL OR user_id = :userId::uuid)
   AND (:from::text IS NULL OR recorded_at >= :from::timestamptz)
   AND (:to::text IS NULL OR recorded_at <= :to::timestamptz)
-ORDER BY recorded_at DESC
-LIMIT COALESCE(:limit, 20) OFFSET COALESCE(:offset, 0);
+ORDER BY recorded_at DESC, row_id DESC
+LIMIT LEAST(GREATEST(COALESCE(:limit, 20), 0), 1000) OFFSET GREATEST(COALESCE(:offset, 0), 0);

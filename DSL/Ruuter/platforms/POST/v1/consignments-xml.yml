@@ -9,17 +9,19 @@ setup:
 call_consignment:
   template: v1/consignments
   request_type: "POST"
-  # Ruuter #72 (h2ck.me H1, 0.9.11-rc): template: now runs the callee's guard against
-  # the CHILD context — nothing is inherited from incoming.headers automatically. This
-  # route is itself reached only via the guarded /platforms/v1/consignments-xml entry
-  # (edelivery, over the internal network), so forward the internal-service credential
-  # rather than an X-Api-Key we don't have here; platforms/.guard.yml accepts either.
   headers:
     x-request-id: ${requestId}
-    x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
+    x-api-key: ${incoming.headers['x-api-key'] ?? null}
+    x-internal-service-token: ${incoming.headers['x-internal-service-token'] ?? null}
+    x-platform-id: ${incoming.headers['x-platform-id'] ?? null}
   body:
     xml: ${incoming.body.xml}
   result: consignment_response
+
+check_consignment:
+  switch:
+    - condition: ${!consignment_response.datasetId}
+      next: upload_failed
 
 to_xml:
   call: http.post
@@ -31,9 +33,27 @@ to_xml:
     body: ${consignment_response}
   result: xml_response
 
+check_xml:
+  switch:
+    - condition: ${xml_response.response.status == 0 || xml_response.response.status != 200}
+      next: response_failed
+
 respond:
   return: ${xml_response.response.body}
   headers:
     Content-Type: "text/xml"
   wrapper: false
   status: 201
+  next: end
+
+upload_failed:
+  return: ${consignment_response}
+  status: ${consignment_response.status || 502}
+  wrapper: false
+  next: end
+
+response_failed:
+  return: {"error": "Upload response could not be rendered"}
+  status: 502
+  wrapper: false
+  next: end

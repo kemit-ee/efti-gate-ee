@@ -1,0 +1,23 @@
+mode: inprocess
+
+tests:
+  - name: sandbox rejects non-hex UUID
+    request:
+      method: POST
+      path: /developer/v1/echo
+      headers:
+        x-road-client: "EE/GOV/70000094/tram"
+        x-road-id: "gggggggg-gggg-gggg-gggg-gggggggggggg"
+    expect:
+      status: 400
+      body_matches: { code: "INVALID_REQUEST_ID" }
+
+  - name: sandbox accepts uppercase hexadecimal UUID
+    request:
+      method: POST
+      path: /developer/v1/echo
+      headers:
+        x-road-client: "EE/GOV/70000094/tram"
+        x-road-id: "0A11CE5E-0001-4D1D-8F1A-0F0D00010000"
+    expect:
+      status: 200

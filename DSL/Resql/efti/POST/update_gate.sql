@@ -8,15 +8,21 @@ params:
   status: { type: string, default: "OFFLINE" }
   tlsCert: { type: string }
 */
-INSERT INTO gates (id, country_code, e_delivery_url, e_delivery_cert, tls_cert, status)
-VALUES (
-  :id,
+INSERT INTO gates (id, country_code, e_delivery_url, e_delivery_cert, tls_cert, status, last_ping_at)
+SELECT
+  latest.id,
   :countryCode,
   :eDeliveryUrl,
   :eDeliveryCert,
   :tlsCert,
-  COALESCE(:status, 'OFFLINE')::gate_status
-)
+  COALESCE(:status, latest.status::text)::gate_status,
+  latest.last_ping_at
+FROM (
+  SELECT DISTINCT ON (id) id, status, last_ping_at
+  FROM gates WHERE id = :id
+  ORDER BY id, created_at DESC, row_id DESC
+) latest
+WHERE latest.status != 'DELETED'
 RETURNING
   row_id,
   id,

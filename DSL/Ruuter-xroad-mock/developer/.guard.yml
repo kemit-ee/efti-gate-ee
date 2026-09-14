@@ -42,17 +42,11 @@ check_id_header:
   switch:
     - condition: ${incoming.headers['x-road-id'] == null || incoming.headers['x-road-id'] == ''}
       next: guard_missing_header
-  next: parse_id
-
-# Shape-only UUID check, identical to the real guard (8-4-4-4-12).
-parse_id:
-  assign:
-    xroad_id_parts: ${incoming.headers['x-road-id'].split('-')}
   next: validate_id_format
 
 validate_id_format:
   switch:
-    - condition: ${xroad_id_parts.length === 5 && xroad_id_parts[0].length === 8 && xroad_id_parts[1].length === 4 && xroad_id_parts[2].length === 4 && xroad_id_parts[3].length === 4 && xroad_id_parts[4].length === 12}
+    - condition: ${/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(incoming.headers['x-road-id'])}
       next: bind_member
   next: guard_invalid_id
 

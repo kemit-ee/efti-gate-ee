@@ -14,7 +14,8 @@ SELECT * FROM (
     status::text,
     created_at
   FROM authorities
-  ORDER BY id, created_at DESC
+  ORDER BY id, created_at DESC, row_id DESC
 ) latest
 WHERE status != 'DELETED'
-LIMIT COALESCE(:limit, 20) OFFSET COALESCE(:offset, 0);
+ORDER BY id
+LIMIT LEAST(GREATEST(COALESCE(:limit, 20), 0), 1000) OFFSET GREATEST(COALESCE(:offset, 0), 0);

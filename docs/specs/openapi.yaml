@@ -1600,16 +1600,30 @@ paths:
   /api/v1/consignments/{datasetId}:
     delete:
       tags: [Admin - Consignments]
-      summary: Force delete consignment (SUPER_ADMIN only)
+      summary: Soft-delete a consignment identified by its UIL (authenticated admin)
       operationId: adminDeleteConsignment
       description: |
-        Permanently deletes a consignment record from the database.
-        Only SUPER_ADMIN can perform this operation.
+        Appends a DELETED version; the runtime role never physically deletes history.
+        Requires an authenticated gate user (all provisioned users are admins).
+        platformId and gateId identify the owner so another platform's dataset with
+        the same UUID cannot be deleted accidentally.
       parameters:
         - $ref: '#/components/parameters/DatasetIdPath'
+        - name: platformId
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+          description: UIL platform identifier.
+        - name: gateId
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+          description: UIL gate identifier.
       responses:
         '204':
           description: Consignment deleted
+        '400':
+          description: Required UIL owner query parameters are missing.
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':

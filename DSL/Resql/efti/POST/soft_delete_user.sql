@@ -10,7 +10,7 @@ FROM (
     id, tara_sub, name, secret_hash, token_revoked_at
   FROM users
   WHERE id = :userId::uuid
-  ORDER BY id, created_at DESC
+  ORDER BY id, created_at DESC, row_id DESC
 ) latest
 RETURNING
   row_id,

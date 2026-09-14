@@ -1,0 +1,11 @@
+mode: inprocess
+tests:
+  - name: production defaults never mint a JWT for a supplied personal code
+    request:
+      method: POST
+      path: /auth/dev-login
+      headers: { content-type: "application/json" }
+      body: { personalCode: "60001019906" }
+    expect:
+      status: 404
+      body: { error: "Not found" }

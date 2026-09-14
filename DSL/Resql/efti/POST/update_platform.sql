@@ -35,8 +35,9 @@ FROM (
     api_key_hash, api_key_hint, api_key_generated_at
   FROM platforms
   WHERE id = :id
-  ORDER BY id, created_at DESC
+  ORDER BY id, created_at DESC, row_id DESC
 ) latest
+WHERE latest.status != 'DELETED'
 RETURNING
   row_id,
   id,

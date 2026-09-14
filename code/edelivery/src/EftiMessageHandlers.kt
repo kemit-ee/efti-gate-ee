@@ -15,7 +15,7 @@ class EftiMessageHandlers(
     "FTI010GetCmdsResponse" to ::provideResponse,
     "FTI019SearchIdentifierRequest" to { ruuterClient.searchConsignments(it.xml, it.key.senderId, it.key.requestId) },
     "FTI021SearchIdentifierResponse" to ::provideResponse,
-    "FTI004UploadIdentifierRequest" to { ruuterClient.saveConsignment(it.xml, it.key.requestId) },
+    "FTI004UploadIdentifierRequest" to { ruuterClient.saveConsignment(it.xml, it.key.requestId, it.key.receiverId) },
     "FTI029UploadIdentifierResponse" to ::provideResponse,
     "FTI025LodgeFollowUpCommRequest" to { ruuterClient.followUp(it.xml, it.key.requestId, it.key.senderId) },
     "FTI030LodgeFollowUpCommResponse" to ::provideResponse

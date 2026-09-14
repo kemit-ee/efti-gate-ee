@@ -21,7 +21,7 @@ consignment_to_json:
     headers:
       content-type: "text/xml"
       x-request-id: ${requestId}
-      x-gate-id: ${incoming.headers['x-gate-id'] ?? '[#OWN_GATE_ID]'}
+      x-gate-id: "[#OWN_GATE_ID]"
       x-platform-id: ${(typeof platform !== 'undefined' && platform && platform.id) || null}
       x-dataset-id: ${incoming.params?.pathParams?.[0]}
   result: consignment_json
@@ -30,8 +30,12 @@ consignment_to_json:
 # {error,message} would be POSTed to insert_consignment as if it were the parsed consignment.
 check_json:
   switch:
-    - condition: ${consignment_json.response.status == 0}
+    - condition: ${consignment_json.response.status == 0 || consignment_json.response.status >= 500}
       next: mapper_unavailable
+    - condition: ${consignment_json.response.status != 200}
+      next: invalid_xml
+    - condition: ${typeof platform === 'undefined' || !platform || typeof platform.id !== 'string' || typeof consignment_json.response.body?.platformId !== 'string' || typeof consignment_json.response.body?.gateId !== 'string' || consignment_json.response.body.platformId.toLowerCase() != platform.id.toLowerCase() || consignment_json.response.body.gateId.toLowerCase() != '[#OWN_GATE_ID]'.toLowerCase()}
+      next: forbidden_owner
 
 insert_consignment:
   call: http.post
@@ -55,6 +59,8 @@ verify_consignment:
       Content-Type: "application/json"
     body:
       datasetId: "${insert_result.response.body[0]?.datasetId}"
+      platformId: "${insert_result.response.body[0]?.platformId}"
+      gateId: "${insert_result.response.body[0]?.gateId}"
   result: verify_result
 
 check_verify:
@@ -69,19 +75,31 @@ respond:
   next: end
 
 insert_failed:
-  return: {"error": "Failed to insert consignment"}
+  return: {"error": "Failed to insert consignment", "status": 500}
   status: 500
   wrapper: false
   next: end
 
 verify_failed:
-  return: {"error": "Consignment inserted but could not be verified"}
+  return: {"error": "Consignment inserted but could not be verified", "status": 500}
   status: 500
   wrapper: false
   next: end
 
 mapper_unavailable:
-  return: {"error": "XML mapper unavailable"}
+  return: {"error": "XML mapper unavailable", "status": 502}
   status: 502
+  wrapper: false
+  next: end
+
+invalid_xml:
+  return: {"error": "Invalid consignment XML", "status": 400}
+  status: 400
+  wrapper: false
+  next: end
+
+forbidden_owner:
+  return: {"error": "Consignment UIL must belong to the authenticated platform and this gate", "status": 403}
+  status: 403
   wrapper: false
   next: end

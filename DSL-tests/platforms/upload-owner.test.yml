@@ -1,0 +1,103 @@
+mode: mock-http
+constants:
+  RESQL_URL: "{MOCK}"
+  XML_MAPPER_URL: "{MOCK}"
+
+tests:
+  - name: valid platform key cannot write another platform UIL
+    setup:
+      mocks:
+        - url_matches: /efti/get_platform_by_api_key
+          method: POST
+          body: [{ id: "mock" }]
+        - url_matches: /api/v1/upload/request-to-json
+          method: POST
+          body: { datasetId: "20000000-0000-0000-0000-000000000001", platformId: "foreign", gateId: "EU-EE" }
+    request:
+      method: POST
+      path: /platforms/v1/consignments
+      headers: { content-type: "text/xml", x-api-key: "valid-key" }
+      body: "<FTI004UploadIdentifierRequest/>"
+    expect:
+      status: 403
+      body_matches: { status: 403 }
+
+  - name: valid platform key cannot write a foreign gate UIL
+    setup:
+      mocks:
+        - url_matches: /efti/get_platform_by_api_key
+          method: POST
+          body: [{ id: "mock" }]
+        - url_matches: /api/v1/upload/request-to-json
+          method: POST
+          body: { datasetId: "20000000-0000-0000-0000-000000000001", platformId: "mock", gateId: "EU-FI" }
+    request:
+      method: POST
+      path: /platforms/v1/consignments
+      headers: { content-type: "text/xml", x-api-key: "valid-key" }
+      body: "<FTI004UploadIdentifierRequest/>"
+    expect:
+      status: 403
+
+  - name: XML wrapper preserves platform identity and ownership rejection
+    setup:
+      mocks:
+        - url_matches: /efti/get_platform_by_api_key
+          method: POST
+          body: [{ id: "mock" }]
+        - url_matches: /api/v1/upload/request-to-json
+          method: POST
+          body: { datasetId: "20000000-0000-0000-0000-000000000001", platformId: "foreign", gateId: "EU-EE" }
+    request:
+      method: POST
+      path: /platforms/v1/consignments-xml
+      headers: { content-type: "text/xml", x-api-key: "valid-key" }
+      body: "<FTI004UploadIdentifierRequest/>"
+    expect:
+      status: 403
+      body_matches: { status: 403 }
+
+  - name: malformed XML is rejected without attempting database insertion
+    setup:
+      mocks:
+        - url_matches: /efti/get_platform_by_api_key
+          method: POST
+          body: [{ id: "mock" }]
+        - url_matches: /api/v1/upload/request-to-json
+          method: POST
+          status: 400
+          body: { error: "Invalid XML" }
+    request:
+      method: POST
+      path: /platforms/v1/consignments
+      headers: { content-type: "text/xml", x-api-key: "valid-key" }
+      body: "<broken"
+    expect:
+      status: 400
+      body_matches: { error: "Invalid consignment XML" }
+
+  - name: service token requires eDelivery platform identity
+    request:
+      method: POST
+      path: /platforms/v1/consignments-xml
+      headers: { content-type: "text/xml", x-internal-service-token: "dev-internal-service-token-change-me" }
+      body: "<FTI004UploadIdentifierRequest/>"
+    expect:
+      status: 401
+
+  - name: eDelivery sender cannot submit another platform UIL
+    setup:
+      mocks:
+        - url_matches: /api/v1/upload/request-to-json
+          method: POST
+          body: { datasetId: "20000000-0000-0000-0000-000000000001", platformId: "foreign", gateId: "EU-EE" }
+    request:
+      method: POST
+      path: /platforms/v1/consignments-xml
+      headers:
+        content-type: "text/xml"
+        x-internal-service-token: "dev-internal-service-token-change-me"
+        x-platform-id: "mock"
+      body: "<FTI004UploadIdentifierRequest/>"
+    expect:
+      status: 403

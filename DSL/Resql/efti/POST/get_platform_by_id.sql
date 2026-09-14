@@ -17,4 +17,4 @@ SELECT DISTINCT ON (id)
   created_at
 FROM platforms
 WHERE id = :id
-ORDER BY id, created_at DESC;
+ORDER BY id, created_at DESC, row_id DESC;

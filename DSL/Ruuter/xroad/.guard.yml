@@ -80,21 +80,12 @@ check_id_header:
 # breaks every cross-gate path: core's authority/search.yml never checks the multiplexer's status and
 # its respond_first sets no `status:`, so the gate would answer 200 with a wrong body.
 #
-# Shape only. Validating hex digits needs a regex, and no DSL file in this repo uses
-# .match/.test/RegExp, so that support is unproven — this stays on .split()/.length, which are
-# proven. It catches the realistic failure ('ITSYS-2026-000123' splits into 3 parts) even though a
-# same-shaped non-hex string would still reach core.
-#
 # Applied in this project-level guard rather than per-route: one contract ("X-Road-Id is a UUID") is
 # simpler for a consumer to satisfy and document than a per-route matrix, and it means a caller
 # cannot discover their subsets with an id that would fail on their very next request.
-parse_id:
-  assign:
-    xroad_id_parts: ${incoming.headers['x-road-id'].split('-')}
-
 validate_id_format:
   switch:
-    - condition: ${xroad_id_parts.length === 5 && xroad_id_parts[0].length === 8 && xroad_id_parts[1].length === 4 && xroad_id_parts[2].length === 4 && xroad_id_parts[3].length === 4 && xroad_id_parts[4].length === 12}
+    - condition: ${/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(incoming.headers['x-road-id'])}
       next: resolve_authority
   next: guard_invalid_id
 
@@ -122,11 +113,11 @@ check_authority:
     # guard fails closed (403). Called out explicitly so the availability-failure path is auditable.
     - condition: ${authority_res.response.status == 0 || authority_res.response.status != 200}
       next: guard_forbidden
-    - condition: ${!authority_res.response.body.length}
+    - condition: ${!Array.isArray(authority_res.response.body) || authority_res.response.body.length === 0}
       next: guard_forbidden
     - condition: ${authority_res.response.body.length > 1}
       next: guard_ambiguous
-    - condition: ${authority_res.response.body.length === 1}
+    - condition: ${authority_res.response.body.length === 1 && typeof authority_res.response.body[0]?.id === 'string' && authority_res.response.body[0].id != ''}
       next: bind_authority
   next: guard_forbidden
 

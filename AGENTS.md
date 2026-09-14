@@ -120,9 +120,9 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   - `template:` calls invoke the target handler as an engine subroutine and, since Ruuter 0.9.11-rc, **run the target's guards** against the child context (pre-0.9.11 they bypassed guards). The G2G `-xml`/`-local` wrappers forward `x-internal-service-token` on the template step so the callee's `efti/POST/api/v1/.guard.yml` passes — this stays load-bearing after #79 (0.9.13-rc): #79 only skips a guard **already on the execution stack**, i.e. a `template:` *inside a guard*. Our `template:` steps sit in route bodies, where the entry guards have already popped, so the child guard runs fresh.
 - Guard map (see `docs/specs/permissions-matrix.md`):
   - `admin/` GET/POST/PUT/DELETE = authenticated (`check-admin-authority`) — one `admin/.guard.yml` covers all methods
-  - `auth/` POST = public; `auth/` GET = any authenticated user (`check-user-authority`)
+  - `auth/` POST = public; `auth/` GET = any authenticated user (`check-user-authority`). `dev-login` returns 404 unless `DEV_LOGIN_ENABLED=true`; the Docker build default is false, only `compose.override.yml` opts in for local development/CI.
   - `efti/api/v1/**` (all of it — GET, POST, and `authority/`) = **gate-internal only**, matching `X-Internal-Service-Token` (ADR-006). No TARA/JWT path anywhere under `efti/api/v1/`, not even as a fallback — this surface is reached only by other gate components (the X-Road adapter today; edelivery for the G2G-inbound `-xml`/`-local`/`ping`/`search-xml` routes; G2G inbound proper is earmarked) over the internal network, never directly by a human. `efti/GET/api/v1/test/.guard.yml` overrides back to public for the diagnostic endpoints (`baasikontoroll`, `lubatud`, `piiratud`). The token is a generic internal-service credential — `core` stays X-Road-unaware; the X-Road adapter resolves the organisation from `X-Road-Client` and enforces `authorities.subsets` before forwarding. Deny is the fall-through: an absent or empty header can never match, even if the constant were unset.
-  - `platforms/` = platform `X-Api-Key` hash (ADR-004) — one `platforms/.guard.yml`; also covers the G2G `consignments-xml`. **Deny is the fall-through branch**, each accept path an explicit positive condition, so a non-array ReSql body cannot fail open.
+  - `platforms/` = platform `X-Api-Key` hash (ADR-004), ONLINE/OFFLINE only; DISABLED/DELETED cannot authenticate. Internal eDelivery calls require a non-empty service token plus `X-Platform-Id` (the original inbound sender, response-key `receiverId`). Both upload forms check the mapped UIL against the resolved platform and `OWN_GATE_ID`. The XML wrapper forwards the incoming credentials and owner rather than replacing an API key with the service token. Guards require actual arrays and exactly one identity; a non-array ReSql body cannot fail open.
   - `xroad/` = `x-road-client` member code resolves to exactly one `ACTIVE` authority (ADR-006). One project-level `xroad/.guard.yml` for both methods; it `assign`s `${authority}` for handlers. **Deny is the fall-through branch** and each accept path an explicit positive condition, so a non-array ReSql body cannot fail open. `xroad/GET/health/.guard.yml` uses `override_ancestors` to stay public (the `efti` probes have no ancestor guard and need none). **`/xroad/**` shares port 8086 with the public gate API — the ingress MUST NOT expose it; only the Security Server may reach it.**
   - do not leave comments in DSL files/code that belong to commit messages
 
@@ -137,6 +137,10 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - YAML header comment declares `description` and `params`
 - Reads resolve "latest row per logical id" either with `SELECT DISTINCT ON (id) … ORDER BY id, created_at DESC` (fine when a `WHERE` already narrows to one id / a small set) or, on the search hot path, by filtering the base table first and then a self-correlated `NOT EXISTS` "no newer row" anti-join (ADR-009, `get_consignments.sql`). A bare `DISTINCT ON` over the whole table before any filter materialises the entire latest-per-id set every call — see `docs/performance/askend_perf_verification/`.
 - The `app` role has only `SELECT, INSERT` — no UPDATE, no DELETE
+- Resolve latest rows before filtering mutable credentials, status, registry code or identifiers. An identity change must not make historical credentials current again. User rename preserves `secret_hash`, `is_active`, `token_revoked_at`; changing `tara_sub` sets a revocation cutoff.
+- Current latest ordering is `created_at DESC, row_id DESC`, including the search anti-join's tuple comparison. UUID is a deterministic tie-breaker, not a chronological version. The tested monotonic-revision/registry-lock migration is pending explicit approval; do not claim timestamp ties or concurrent stale writes are chronologically resolved.
+- Equipment EQ uses GIN-compatible `array @> ARRAY[value]`; NE means not contained, with NULL arrays treated as empty. Identifier lookups materialise index-filtered candidate keys and resolve each latest version via a self-table LATERAL lookup, not a whole-table latest sort. This is allowed under the no-cross-table-JOIN rule.
+- Every caller-controlled page is capped at 1000; negative limits/offsets clamp to zero. Registry pages explicitly order by id; log pages order by time and row_id. Consignment versions use `(platform_id, dataset_id)`; verification includes the owner, and admin deletion requires `platformId` and `gateId` query parameters.
 
 ## Database rules
 
@@ -181,6 +185,8 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   in-process router, no compose). Use for anything reachable **before an upstream `call:`**:
   guard rejects, `validate_input` 400s. `mode: mock-http` can stand in for ReSql/xml-mapper.
   Run via `docker run --rm -v "$PWD:/workdir" -w /workdir turnerrainer/ruuter:0.10.0-rc dsl-test --dsl DSL/Ruuter --tests DSL-tests --constants constants.ini` (the binaries ship in the runtime image since 0.9.14-rc).
+- `DSL-mock-tests/*.test.yml` verifies the standalone mock's UUID contract against `DSL/Ruuter-xroad-mock` and `constants-xroad-mock.ini`.
+- `python3 tests/sql/regression.py` prepares all 42 ReSQL queries under `app` and checks append-only, credential and search semantics in its own disposable PostgreSQL 18 container (no host ports, no persistent volume). Both DSL CI jobs run it. `--performance` additionally compares custom/generic plans with origin/dev on 100,000 synthetic records after VACUUM/ANALYZE.
 
 ## Branching
 
@@ -216,7 +222,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 
 - `constants.ini` uses compose-internal URLs (`http://ruuter:8086`); `.env` uses localhost URLs
 - Constants are `COPY`-ed into the image at build time with **no env substitution**, and `compose.override.yml` syncs only `DSL/` — so changing `constants.ini` or `ruuter.yaml` needs `docker compose up --build ruuter`. A `--watch` restart will not pick it up. (Before the `xroad` project was merged into the main Ruuter this also had to be kept in sync with a second `constants-xroad.ini`; that hazard is gone.)
-- `X-Road-Id` must be a UUID: the adapter maps it to `x-request-id` and core hands that to typed `UUID` parameters (`MultiplexerRoutes.kt` `@PathParam searchId: UUID`, edelivery's `e.requestId.uuid`). The X-Road guard enforces the shape and returns 400 `INVALID_REQUEST_ID`.
+- `X-Road-Id` must be hexadecimal 8-4-4-4-12 UUID text: both real and mock guards use a tested RegExp and return 400 `INVALID_REQUEST_ID` for non-hex values. The adapter maps it to typed downstream UUID parameters.
 - Ruuter `http_codes_allow_list` must include any status you return (401, 403, 204 are not default)
 - `internal_requests.block_private_networks: false` in `ruuter.yaml` — auth DSLs call TIM/ReSQL by compose service name
 - edelivery test mode uses a hardcoded PKCS#12 keystore (see `KeyManager.kt`); production reads from `certs/own.p12`
