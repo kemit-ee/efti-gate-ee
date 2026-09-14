@@ -62,13 +62,14 @@ jobs:
       - name: Build CI images
         run: |
           docker buildx bake \
+            --load \
             --set 'ruuter.args.DEV_LOGIN_ENABLED=true' \
             --set '*.cache-from=type=gha' \
             --set '*.cache-to=type=gha,mode=max'
 
       - name: Start services
         run: |
-          docker compose -f compose.yml up -d --wait || docker compose logs
+          docker compose -f compose.yml up --no-build -d --wait || { docker compose logs; exit 1; }
 
       - name: Run http tests
         run: |

@@ -72,7 +72,7 @@ JVM 25, PostgreSQL 18, Kotlin 2.4.20 ja UI sõltuvused olid runtime-PR-i aluses 
 | DB upgrade ja koondatud init | Mõlemal 27/27 läbis | 23 SQL-regressiooni + 4 järjestuse/konkurentsi kontrolli; migratsioon on standardse changelog'i all |
 | Input-contract / diff check | Läbis | `scripts/validate-dsl.py`, `git diff --check` |
 
-Paranduste PR-i [migratsiooni ja full-stack CI](https://github.com/kemit-ee/efti-gate-ee/actions/runs/34883801643) on käivitatud; DSL, SQL upgrade ja värske init on rohelised, HTTP E2E tulemus veel ootel. Eelmise punase jooksu põhjus oli CI build'is keelatud dev-login; E2E bake määrab nüüd `ruuter.args.DEV_LOGIN_ENABLED=true`. Ühendatud #153 tulemus ei asenda selle PR-i kontrolli.
+DSL, SQL upgrade ja värske init on CI-s rohelised; lõplik HTTP E2E tulemus lisatakse pärast jooksu lõppu. Punaste jooksude põhjus oli CI käivitamisel vaikimisi keelatud dev-login: bake ei laadinud image'it lokaalsesse Dockerisse ning Compose ehitas selle uuesti ilma testide build-argumendita. Bake määrab nüüd `ruuter.args.DEV_LOGIN_ENABLED=true` ja `--load`; Compose käivitab `--no-build` ning käivitamise viga ei neelata. Ühendatud #153 tulemus ei asenda selle PR-i kontrolli.
 
 ### Jõudluskatse
 
