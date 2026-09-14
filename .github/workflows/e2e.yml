@@ -61,7 +61,12 @@ jobs:
 
       - name: Build CI images
         run: |
+          CI_TAG_ARGS=()
+          while read -r CI_BUILD_SERVICE; do
+            CI_TAG_ARGS+=(--set "$CI_BUILD_SERVICE.tags=efti_gate_ee-$CI_BUILD_SERVICE")
+          done < <(docker buildx bake --print | jq -r '.target | keys[]')
           docker buildx bake \
+            "${CI_TAG_ARGS[@]}" \
             --load \
             --set 'ruuter.args.DEV_LOGIN_ENABLED=true' \
             --set '*.cache-from=type=gha' \
