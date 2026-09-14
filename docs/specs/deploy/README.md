@@ -1,6 +1,8 @@
-# Deployment artefacts — placeholder
+# Deployment artefacts
 
-This directory will hold the runtime deployment artefacts (Helm chart values, Kubernetes manifests, docker-compose for dev) once the implementation phase is under way. Today it is intentionally a placeholder — the spec describes the deployment *shape* without committing to a specific orchestrator or CI/CD vendor.
+This directory holds the runtime deployment shape and, now that the implementation is under way, a real inventory of what a deployment needs. Helm charts / K8s manifests still live in the separate `services/efti/devops` repo (see [`resource-and-secrets-requirements.md`](resource-and-secrets-requirements.md) §7).
+
+**[`resource-and-secrets-requirements.md`](resource-and-secrets-requirements.md)** — compiled from the actual running system (`compose.yml`, `constants.ini`, `docker/*`): per-component CPU/memory, every secret (name, consumer, purpose, dev value, deploy gotcha), the two separate PostgreSQL databases, the Liquibase `dev`-context seed data that must not ship to prod, and the TIM JWT-key persistence requirement. Written for whoever does the first production deployment.
 
 ## What's documented
 
