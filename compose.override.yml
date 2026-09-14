@@ -13,7 +13,7 @@ services:
           target: /app/sql
   ruuter:
     ports:
-      - "${EFTI_RUUTER_PORT:-8086}:8086"
+      - "127.0.0.1:${EFTI_RUUTER_PORT:-8086}:8086"
     healthcheck:
       start_interval: 1s
       interval: 60s

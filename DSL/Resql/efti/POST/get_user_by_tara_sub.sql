@@ -12,5 +12,5 @@ SELECT DISTINCT ON (id)
   is_active AS is_user_active,
   created_at
 FROM users
-WHERE tara_sub = :tara_sub
-ORDER BY id, created_at DESC;
+WHERE id IN (SELECT id FROM users WHERE tara_sub = :tara_sub)
+ORDER BY id, created_at DESC, row_id DESC;

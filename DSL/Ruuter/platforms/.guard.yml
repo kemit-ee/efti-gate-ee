@@ -11,7 +11,7 @@ declaration:
 
 check_present:
   switch:
-    - condition: ${incoming.headers?.['x-internal-service-token'] == '[#INTERNAL_SERVICE_TOKEN]'}
+    - condition: ${incoming.headers?.['x-internal-service-token'] != null && incoming.headers['x-internal-service-token'] != '' && '[#INTERNAL_SERVICE_TOKEN]' != '' && incoming.headers['x-internal-service-token'] == '[#INTERNAL_SERVICE_TOKEN]'}
       next: return
     - condition: ${!incoming.headers['x-api-key']}
       next: guard_fail

@@ -19,6 +19,8 @@ declaration:
 
 validate_input:
   switch:
+    - condition: ${'[#DEV_LOGIN_ENABLED]' != 'true'}
+      next: disabled
     - condition: ${incoming.body == null || incoming.body.personalCode == null}
       next: missing_params
 
@@ -60,4 +62,9 @@ jwt_error:
 missing_params:
   status: 400
   return: {"error": "personalCode is required"}
+  wrapper: false
+
+disabled:
+  status: 404
+  return: {"error": "Not found"}
   wrapper: false
