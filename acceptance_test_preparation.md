@@ -46,12 +46,12 @@ JVM 25, PostgreSQL 18, Kotlin 2.4.20 ja UI sõltuvused olid runtime-PR-i aluses 
 - Kasutaja autentimine ja isikukoodi olemasolu/lookup leiavad esmalt isikukoodi järgi kandidaat-ID-d, seejärel iga ID viimase rea ning alles siis kontrollivad aktiivsust ja isikukoodi. Vana aktiivne rida ega parandatud isikukoodi ajalooline rida ei muutu tavapärase järjestuse korral taas kehtivaks.
 - Kasutaja nime muutmine kannab edasi `secret_hash`, `token_revoked_at` ja `is_active`. Isikukoodi muutmine määrab uue tokenitühistamise cutoff'i. Tokeni broadcast-revocation kannab edasi ka break-glass parooli hash'i.
 - Gate/platform ping ja API-võtme rotatsioon kontrollivad viimase rea staatust pärast latest-row valikut. Ping ei aktiveeri DISABLED/DELETED kirjet. Admini ping annab DELETED korral 404 ja DISABLED korral 409 enne välist ping-kutset; DB-rike kontrollitakse ka pingi kirjutus- ja verify-sammus.
-- Gate/platform/authority PUT ei loo puuduvat logical-ID-d ega taasaktiveeri juba kustutatud latest-kirjet. Üks SQL-statement teeb viimase rea kontrolli ja INSERT-i; paralleelsete stale-kirjutuste serialiseerimine on allpool kirjeldatud eraldi migratsioonikavandis.
+- Gate/platform/authority PUT ei loo puuduvat logical-ID-d ega taasaktiveeri kustutatud latest-kirjet. Registri INSERT-trigger kontrollib viimast olekut advisory transaction lock'i all ka paralleelse kirjutuse puhul.
 - Platformi API-võtme lookup kitsendab hash-indeksiga kandidaat-ID-d enne nende viimaste versioonide lahendamist. Latest-väliskiht kontrollib uuesti hash'i ja staatust, seega rotatsiooni eelne võti ei valideeru ajaloolise rea tõttu.
 - Seitsme equipment-filtri EQ kasutab `array @> ARRAY[value]`. NE tähendab väärtuse puudumist, mitte „leidub mõni erinev element”. NE käsitleb NULL-massiivi tühjana; `[A,B] NE A` on false ja `[]/NULL NE A` on true.
 - Transport-means existence/local päringud materialiseerivad kolme identifier-indeksi järgi ainult kandidaatide võtmed ja lahendavad igaühe viimase versiooni `LATERAL ... LIMIT 1` lookup'iga. See väldib kogu consignments-tabeli latest-sort'i ning säilitab corrected-ID/soft-delete semantika. Tegemist on sama tabeli lookup'iga, mitte cross-table JOIN'iga.
 - Kõigi caller-controlled `LIMIT/OFFSET` päringute limiit on maksimaalselt 1000, negatiivne limit/offset clamp'itakse nulliks. Registry listil on väliskihis `ORDER BY id`; logidel aeg ja `row_id`.
-- Latest-valik ja consignment-otsingu anti-join kasutavad sama `(created_at, row_id)` järjekorda. See eemaldab võrdse ajatempli kahe current-rea tagastamise, kuid juhuslik UUID ei tõenda nende kronoloogilist järjestust. Selle piirangu täielik lahendus vajab allpool kirjeldatud migratsiooni.
+- Latest-valik ja consignment-otsingu anti-join kasutavad sama `(created_at, revision)` järjekorda. Identity-revision eemaldab juhusliku UUID tie-breaker'i; registri järjekorranumber määratakse luku all.
 - Consignment-versiooni logical-key on `(platform_id, dataset_id)`. Upload-verify edastab ka platformi ja gate'i. Sama dataset UUID eri platformidel ei vali verify käigus teise platformi latest-rida.
 - `DELETE /admin/v1/consignments/{datasetId}` nõuab nüüd query-parameetreid `platformId` ja `gateId`. Puudumise korral on vastus 400; kirje puudumise/vale omaniku korral 404. UI ja HTTP-testid saadavad need parameetrid. Muutus on vanade dataset-only DELETE klientide jaoks sisendlepingu muudatus.
 - Sisemine `get_consignment_by_id` tagastab ilma platformi kitsenduseta ühe latest-rea iga platformi kohta. Status-route lubab valikulist UIL-i kitsendust. `get_consignment_xml` ja soft-delete SQL nõuavad täielikku omanikku; gate-filter ei saa valida vana gate'i ajaloolist rida.
@@ -64,15 +64,15 @@ JVM 25, PostgreSQL 18, Kotlin 2.4.20 ja UI sõltuvused olid runtime-PR-i aluses 
 | Runtime-PR #153 full-stack HTTP | 207 päringut, 0 ebaõnnestunud testi | `2a3f984`, [CI run](https://github.com/kemit-ee/efti-gate-ee/actions/runs/34848316005) |
 | Ruuter 0.10.0 `dsl-lint` | Põhi-DSL 74 faili: 0 viga, 20 hoiatust; mock 9 faili: 0 viga/hoiatust | Hoiatused on proosas olevad em-dash'id ja kolm varasemat unreachable setup-sammu; need ei ole puhta linti väide |
 | Ruuteri regressioonistsenaariumid | 30/30 läbis | Guard, ownership, mapperi vead, identity response, dev-login, existing runtime checks |
-| Standalone-mock UUID | 2/2 läbis | Invalid non-hex ja valid uppercase hex |
+| Standalone-mock | 10/10 läbis | UUID, rikkalik dataset, kolme saadetise lookup ja negatiivsed juhud |
 | SQL regressioonid | 23/23 läbis | Sisaldab kõigi 42 endpointi PREPARE'i tegelike deklareeritud bind-tüüpidega `app` rolli all |
 | JVM unit testid | eDelivery, xml-mapper, multiplexer läbisid | Uued sender-ID ja HTTP header'i testid ning olemasolevad XML/wire-testid |
 | UI production build | Läbis (`npm ci` + `npm run build`) | Vite 7.3.6; olemasolev glob `as` deprecation-hoiatus |
 | Ehitatud tootmis-Ruuteri autentimistestid | 5/5 läbis | Dockerfile vaikeargumendiga image; dev-login keelamise test ei override'i konstanti |
-| Testitud migratsioonikavand | 27/27 läbis ainult ajutises baasis | 23 regressiooni + 4 migratsiooni-/konkurentsikontrolli; migratsioon ei ole rakendatud |
+| DB upgrade ja koondatud init | Mõlemal 27/27 läbis | 23 SQL-regressiooni + 4 järjestuse/konkurentsi kontrolli; migratsioon on standardse changelog'i all |
 | Input-contract / diff check | Läbis | `scripts/validate-dsl.py`, `git diff --check` |
 
-Paranduste PR-i [full-stack CI](https://github.com/kemit-ee/efti-gate-ee/actions/runs/34858408531) on käivitatud; tulemus on veel ootel. Ühendatud #153 tulemus ei asenda selle PR-i kontrolli.
+Paranduste PR-i [migratsiooni ja full-stack CI](https://github.com/kemit-ee/efti-gate-ee/actions/runs/34883801643) on käivitatud; DSL, SQL upgrade ja värske init on rohelised, HTTP E2E tulemus veel ootel. Eelmise punase jooksu põhjus oli CI build'is keelatud dev-login; E2E bake määrab nüüd `ruuter.args.DEV_LOGIN_ENABLED=true`. Ühendatud #153 tulemus ei asenda selle PR-i kontrolli.
 
 ### Jõudluskatse
 
@@ -139,7 +139,10 @@ Näidis katab FTI010 consignment'i skeemiväljad ühe esinemisega ja choice'i es
 sisaldab ka ohtlikku kaupa, osapooli/kontakte, sündmusi, varustust, dokumente ja manuseid.
 Väärtused on sünteetilised, mitte pärisveose ärilise kooskõla tõend. Search/transport-means
 ja senine lihtne dataset ei muutu; subset-põhist XML-filtreerimist mock ei tee.
-Genereerimise ja täpse embedded XML-i XSD kontroll: `python3 tests/mock/dataset.py` — 2/2 läbis.
+Genereerimise, projektsioonide ja embedded XML-i XSD kontroll ning päris HTTP lookup/detail-ahel eraldatud mock-image'is — 5/5 läbis.
+Autonumber `MOCK-PLATE-3` annab kolm UIL-i (`...0011`, `...0012`, `...0013`): Tallinn/Tartu/Parnu pealelaadimised ja ühine Narva sihtkoht. Ainult `...0013` on ohtlik veos (bensiin UN 1203, ADR klass 3). Search ja local lookup tagastavad sama kolmiku; iga UIL-i dataset sisaldab õiget lähtekohta, sihtkohta ja ohtliku kauba infot.
+
+Pärast revision-indekseid korratud 100 000 rea custom/generic mõõtmine: existence 0,677/0,385 ms (19 shared hits), local 2,404/0,476 ms (29 shared hits). Latest lookup kasutab otse `idx_consignments_dataset_latest`, ilma row_id tie-sort'ita. Baseline vastavalt 18,984/31,888 ms ja 19,937/23,368 ms; arvud on sama eraldatud fixture'i üksikkatsed.
 API-kasutus on kirjeldatud `docs/developer/x_road_developer_mock.md`.
 
 ## DB-migratsioon ja värske install

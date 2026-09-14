@@ -214,6 +214,59 @@ Pollimispäring `{ "poll": true }` → `[]`. Vastuse päis `x-poll-more: false`.
 
 ### 5. `dataset` — andmehulga päring
 
+#### Use case: ühel autol kolm saadetist
+
+Eraldi autonumber **MOCK-PLATE-3**, registreerimisriik **EE**, annab kolm saadetist.
+Kõigi sihtkoht on **Narva Mock Distribution Centre, Kadastiku 25, Narva, EE**.
+
+| Dataset-ID | Pealelaadimiskoht | Pealelaadimine | Kaup | Ohtlik veos |
+|---|---|---|---|---|
+| `550e8400-e29b-41d4-a716-446655440011` | Tallinn, Peterburi tee 10 | 2026-09-14 06:00 | Furniture, 2000 kg brutokaal | Ei |
+| `550e8400-e29b-41d4-a716-446655440012` | Tartu, Ringtee 20 | 2026-09-14 09:00 | Machine parts, 3000 kg brutokaal | Ei |
+| `550e8400-e29b-41d4-a716-446655440013` | Pärnu (XML-is `Parnu`), Tallinna mnt 30 | 2026-09-14 12:00 | Bensiin, 1500 kg brutokaal | UN 1203, ADR klass 3, pakendigrupp II |
+
+Mahalaadimise kuupäev on kõigil **2026-09-15**. FTI010 selle välja date-format on `102`
+(kuupäev), mistõttu lookup'i UTC kesköö ei tähenda tegelikku kokkulepitud kellaaega.
+Need on sünteetilised katsed, mitte tegeliku ADR-veo dokumentatsioon.
+
+1. Kontrolli `POST /developer/v1/transport-means` kaudu existence'i:
+
+```http
+POST /developer/v1/transport-means
+Content-Type: application/json
+X-Road-Client: EE/GOV/70000097/test
+X-Road-Id: 550e8400-e29b-41d4-a716-446655440099
+
+{"identifier":"MOCK-PLATE-3","countryCode":"EE","scope":"existence"}
+```
+
+Oodatav `registered: true`. Sama päring `scope: "local"` annab `found: 3` ja
+kolm `consignments` kirjet. Igal on oma täielik UIL (`gateId: EU-EE`, `platformId: mock`).
+Ka `POST /developer/v1/search` keha
+`{"mainTransportId":{"id":"MOCK-PLATE-3","operation":"EQ"}}` annab sama kolmiku.
+
+2. Küsi kõik kolm detaili järjest `POST /developer/v1/dataset` kaudu:
+
+```json
+{
+  "uil": {"gateId":"EU-EE","platformId":"mock","datasetId":"550e8400-e29b-41d4-a716-446655440011"},
+  "subsets": ["EU01","EU02","EU03","EU05"]
+}
+```
+
+Kasuta samu päiseid, iga päringu jaoks oma X-Road-Id UUID-d ning asenda dataset-ID
+järgmises päringus `...0012`, seejärel `...0013`. JSON-i `xml` väljast kontrolli:
+`UsedLogisticsTransportMeans/ID` on kõigil `MOCK-PLATE-3`, `ConsigneeTradeParty` ja
+mahalaadimiskoht on samad, `ConsignorTradeParty` ja pealelaadimiskoht on erinevad.
+Ainult kolmandal on `ApplicableTransportDangerousGoods` (UN 1203, klass 3).
+
+Lookup'i `dangerousGoods` on ainult kolmandal `"1"` (gate'i HIGH indikaator), esimesel
+kahel `null`; see indikaator ei ole ADR klassi number. XML-i `HazardClassificationID` on `3`.
+`countryCode: "FI"` ei anna selle EE auto tabamust; õigusteta memberCode `70000000`
+annab local/detail-päringul 403. Poll-päring on endiselt tühi ning allgates on 501.
+
+#### Rikkaliku üksik-dataset'i päring
+
 Maksimaalse väljakattuvusega näidise saamiseks kasuta järgmist keha (samad päised nagu allpool):
 
 ```json

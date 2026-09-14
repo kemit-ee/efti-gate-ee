@@ -21,21 +21,21 @@ Reads use `DISTINCT ON (logical_id) … ORDER BY logical_id, created_at DESC` to
 -- Current state of all platforms
 SELECT DISTINCT ON (id) *
 FROM platforms
-ORDER BY id, created_at DESC, row_id DESC;
+ORDER BY id, created_at DESC, revision DESC;
 
 -- Current consignment for one dataset_id
 SELECT *
 FROM consignments
 WHERE dataset_id = '550e8400-e29b-41d4-a716-446655440001'
   AND platform_id = 'mock'
-ORDER BY created_at DESC, row_id DESC
+ORDER BY created_at DESC, revision DESC
 LIMIT 1;
 
 -- Current active consignments (illustrative; hot-path search filters candidates first)
 SELECT * FROM (
   SELECT DISTINCT ON (dataset_id, platform_id) *
   FROM consignments
-  ORDER BY dataset_id, platform_id, created_at DESC, row_id DESC
+  ORDER BY dataset_id, platform_id, created_at DESC, revision DESC
 ) latest
 WHERE status = 'ACTIVE';
 ```
@@ -44,7 +44,7 @@ The reads are still **single-table** — the no-`JOIN` rule holds. Search column
 
 Indexes on every operational table follow the `(logical_id, created_at DESC)` pattern for fast latest-row lookup.
 
-**Tiebreaker on equal `created_at`.** Reads use `ORDER BY <logical_id>, created_at DESC, row_id DESC`. UUID lexical order makes ties deterministic, not chronological: it cannot establish which concurrent edit happened last. A revision/locking migration remains subject to separate approval; see `acceptance_test_preparation.md`. Consignment logical identity is `(dataset_id, platform_id)`. The search hot path uses a self-correlated anti-join on that identity and `(created_at, row_id)` rather than materialising every current consignment.
+**Tiebreaker on equal `created_at`.** Reads use `ORDER BY <logical_id>, created_at DESC, revision DESC`. The identity revision is assigned under a per-ID advisory transaction lock for registries; triggers preserve revocation/inactivity, deleted entities and newer API keys. Consignment logical identity is `(dataset_id, platform_id)`; its search uses a self-correlated anti-join on `(created_at, revision)`. The upgrade migration is `20260914-latest-row-order.sql`, and `DSL/Liquibase/init.sql` contains the consolidated empty-database schema. Keep the external archiver's latest rule in sync.
 
 **Soft-delete-correct lookups.** When a query needs to exclude soft-deleted entities, filter `is_active = TRUE` **after** the latest-row resolution — never inside the inner `DISTINCT ON` filter. Filtering inside would let an older `is_active=TRUE` row win when the latest row is `is_active=FALSE`, defeating the soft-delete contract:
 
@@ -53,7 +53,7 @@ Indexes on every operational table follow the `(logical_id, created_at DESC)` pa
 SELECT * FROM (
   SELECT DISTINCT ON (id) *
   FROM users
-  ORDER BY id, created_at DESC, row_id DESC
+  ORDER BY id, created_at DESC, revision DESC
 ) latest
 WHERE latest.is_active = TRUE;
 ```
