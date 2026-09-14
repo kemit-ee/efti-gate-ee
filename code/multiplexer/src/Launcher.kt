@@ -2,6 +2,9 @@ import io.swagger.v3.oas.annotations.OpenAPIDefinition
 import io.swagger.v3.oas.annotations.info.Info
 import klite.Config
 import klite.Server
+import klite.HttpExchange
+import klite.MimeTypes
+import klite.StatusCode
 import klite.StatusCode.Companion.GatewayTimeout
 import klite.annotations.annotated
 import klite.http.httpClient
@@ -14,7 +17,7 @@ fun main() {
   if (Config.optional("PORT") == null) Config["PORT"] = "8083"
 
   Server().apply {
-    use<JsonBody>()
+    useOnly<MultiplexerBody>()
     register(httpClient())
 
     errors.on<InterruptedException>(GatewayTimeout)
@@ -36,5 +39,12 @@ fun main() {
     }
 
     start()
+  }
+}
+
+class MultiplexerBody: JsonBody() {
+  override fun render(e: HttpExchange, code: StatusCode, value: Any?) {
+    if (value is String) e.send(code, value, MimeTypes.xml)
+    else super.render(e, code, value)
   }
 }
