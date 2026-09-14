@@ -1,0 +1,16 @@
+mode: mock-http
+constants:
+  RESQL_URL: "{MOCK}"
+tests:
+  - name: database error makes readiness fail
+    setup:
+      mocks:
+        - url_matches: /efti/get_db_status
+          method: POST
+          status: 500
+          body: []
+    request:
+      method: GET
+      path: /efti/health/ready
+    expect:
+      status: 503
