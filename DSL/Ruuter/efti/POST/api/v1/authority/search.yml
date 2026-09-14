@@ -35,11 +35,30 @@ check_poll:
   next: local_search
 
 # --- poll path: collect the other gates' results for a prior search ---
+# The timeout must exceed the multiplexer's bounded long-poll (GET /rest waits up to
+# MULTIPLEXER_REST_POLL_SECONDS, default 30, for the first gate response) — with Ruuter's default
+# 15s the wait itself became a status-0 transport stub, the stub flowed on into rest_to_json, and
+# the poller got the xml-mapper's ParseError body back WITH STATUS 200 (the exact silent-wrong-body
+# case ADR-006 warns about). Belt to the multiplexer's suspenders: since the completion sentinel in
+# MultiplexerRoutes.startSearch a completed broadcast wakes the long-poll immediately, so the full
+# 30s wait only happens while gates are genuinely still answering.
 poll_remaining:
   call: http.get
+  timeout: 35000
   args:
     url: "[#MULTIPLEXER_URL]/api/v1/rest/${requestId}"
   result: rest_result
+  next: check_rest
+
+# Fail-closed before converting: a status-0 transport stub (Ruuter 0.9.15, issue #89) or a
+# multiplexer error must not reach the xml-mapper as if it were gate XML.
+check_rest:
+  switch:
+    - condition: ${rest_result.response.status == 0}
+      next: rest_unavailable
+    - condition: ${rest_result.response.status >= 400}
+      next: rest_unavailable
+  next: rest_to_json
 
 rest_to_json:
   call: http.post
@@ -51,6 +70,15 @@ rest_to_json:
     body: ${rest_result.response.body}
     content_type: plaintext
   result: rest_json
+  next: check_rest_json
+
+# Same discipline for the conversion itself: a mapper failure previously fell through to
+# respond_rest, which has no status: and answered 200 with the mapper's error body.
+check_rest_json:
+  switch:
+    - condition: ${rest_json.response.status != 200}
+      next: rest_conversion_failed
+  next: respond_rest
 
 respond_rest:
   return: ${rest_json.response.body}
@@ -58,6 +86,30 @@ respond_rest:
     content-type: "application/json"
     x-poll-more: ${rest_result.response.headers['x-poll-more']}
   wrapper: false
+  next: end
+
+rest_unavailable:
+  return:
+    type: "https://api.efti.ee/errors/bad-gateway"
+    code: "GATEWAY_UNAVAILABLE"
+    title: "Bad Gateway"
+    status: 502
+    detail: "Polling the cross-gate search results failed: the multiplexer is unreachable or errored."
+    multiplexerStatus: ${rest_result.response.status}
+  wrapper: false
+  status: 502
+  next: end
+
+rest_conversion_failed:
+  return:
+    type: "https://api.efti.ee/errors/bad-gateway"
+    code: "GATEWAY_UNAVAILABLE"
+    title: "Bad Gateway"
+    status: 502
+    detail: "Converting the polled cross-gate search results failed in the mapping layer."
+    mapperStatus: ${rest_json.response.status}
+  wrapper: false
+  status: 502
   next: end
 
 # --- first call ---

@@ -1,6 +1,31 @@
 # ADR-007: `transport-means` `scope: allgates` vastuse kuju
 
-**MUSTAND (otsustajad täpsustamata, 03.09.2026) — valik variantide A, B ja D vahel on lahtine.**
+**OTSUS (otsustajad täpsustamata, 11.09.2026): variant A — `xml-mapper` normaliseerimisendpoint.**
+
+> **Muudatus (11.09.2026, otsus + teostus, issue #125):** valik langes **variandile A**. Kaks
+> vahepeal selgunud fakti teravdasid valikut:
+>
+> 1. `core` `authority/search.yml` on nüüd **local-first ja mitteblokeeruv** (ADR-010):
+>    kohalik tabamus vastab kohe `x-poll-more: false`-iga; kohaliku möödalasu korral
+>    registreeritakse levipäring taustal ja esimene vastus on alati `found: 0` +
+>    `x-poll-more: true` — kaug-tulemused tulevad ainult pollimisega. See tähendab, et variant B
+>    tagastanuks `allgates` sees **kaks eri kuju** — kohaliku tabamuse toored `get_consignments`
+>    read (koos `xml` blob'iga) vs pollitud kaug-tulemuste `ConsignmentRow[]` — ehk halvem, kui
+>    käesolev ADR B-d kirjeldades eeldas.
+> 2. Normaliseerija sisend on `core` search'i **JSON-väljund**, mitte XML: kaug-XML on selleks
+>    hetkeks juba `search/response-to-json` läbinud. Uus endpoint
+>    `POST /api/v1/transport-means/normalize` võtab mõlemad kujud (klite JSON-parser ignoreerib
+>    tundmatuid võtmeid) ja emiteerib sama kureeritud projektsiooni, mille
+>    `get_consignments_by_transport_means.sql` annab — `uil` pesastatud, ilma `xml`-i ja
+>    seq-massiivideta. Kaug-ridadel puudub `createdAt`.
+>
+> Seotud otsus samas teostuses: `get_consignments.sql` sai uue kriteeriumi
+> `transportMeansOrEquipmentId` (OR üle kolme identifikaatoripere), mille `xml-mapper` levipäringu
+> XML-i jaoks **degradeerib** `MainCarriageTransportMeansIDParameterScope`-iks — FTI019-l puudub
+> OR-kriteerium, seega equipment-id sobitub ainult kohalikus registris.
+>
+> Variant D (DataMapper) jääb ADR-008 kaudu tulevikuvõimaluseks; kui ADR-008 ratifitseeritakse,
+> saab normaliseerimise sinna tõsta ilma lepingut muutmata — väline kuju on sama.
 
 Seotud: [issue #125](https://github.com/kemit-ee/efti-gate-ee/issues/125), [ADR-006](006-xroad-identity-and-subsets.md),
 [ADR-008](008-adopt-datamapper.md) (variant D eeldab seda), PR #121.
@@ -18,7 +43,7 @@ Seotud: [issue #125](https://github.com/kemit-ee/efti-gate-ee/issues/125), [ADR-
 `scope` disaini keskne lubadus: **`local` ja `allgates` vastuse kuju on identne**, nii et võrgu
 kaasamine on kliendile ühe välja muutus, mitte teine integratsioon.
 
-`scope: local` tagastab `DSL/Resql/efti/POST/get_consignments_by_vehicle.sql` **kureeritud
+`scope: local` tagastab `DSL/Resql/efti/POST/get_consignments_by_transport_means.sql` **kureeritud
 projektsiooni**: `uil` kui `jsonb_build_object`, ~20 nimetatud välja, **ei mingit `xml` blob'i**.
 
 `scope: allgates` peab tooma tulemused ka naaberväravatelt. Need lähevad läbi `core`
@@ -40,7 +65,7 @@ Uus `xml-mapper` endpoint (nt `POST /api/v1/transport-means/response-to-json`, K
 `code/xml-mapper/`), mis emiteerib **sama kureeritud projektsiooni kuju** X-Roadi otsingu vastuse
 XML-ist. `transport-means.yml` `allgates` haru:
 
-1. kohalikud read: olemasolev `get_consignments_by_vehicle.sql` projektsioon
+1. kohalikud read: olemasolev `get_consignments_by_transport_means.sql` projektsioon
 2. `core` search'i kaudu kogutud kaug-XML → uus `xml-mapper` endpoint → sama projektsioon
 3. liidab mõlemad `consignments` massiivi, `found` = pikkus, `x-poll-more` edasi
 
@@ -84,7 +109,7 @@ Eeldab [ADR-008](008-adopt-datamapper.md) (DataMapperi kasutuselevõtt). Üks Ha
 peal** → üks kureeritud kuju mõlemale, sõltumata allikast.
 
 `transport-means.yml`:
-1. kohalikud read: `get_consignments_by_vehicle.sql` (või lihtsam `get_consignments.sql`) →
+1. kohalikud read: `get_consignments_by_transport_means.sql` (või lihtsam `get_consignments.sql`) →
    DataMapper `transport_means` mall
 2. kaug-tulemused: `core` search → `xml-mapper` `search/response-to-json` → **sama** DataMapper mall
 3. liidab mõlemad, `found` = pikkus, `x-poll-more` edasi
@@ -131,7 +156,11 @@ Kolmas mõeldav lähenemine — jätta kaug-tulemused `core` search'i kujusse ja
 - **Variant B** selge `openapi.yaml` märkusega, kui `allgates` on esialgu haruldane kasutus ja
   kiire kohaletoimetamine kaalub üles kahe kuju halva.
 
-Otsust ei ole tehtud. Otsustajad: Sten Viljus + arhitektid. **Seotud otsus: [ADR-008](008-adopt-datamapper.md).**
+> **Muudatus (11.09.2026):** otsus tehtud — **variant A** (vt päise Muudatus-plokki). ADR-008 oli
+> teostuse hetkel ratifitseerimata, seega variant D ei olnud saadaval; kureeritud väljaleping on
+> välisele tarbijale (ANTS / NES) oluline, mis välistas B. Otsustajad on päises seni
+> "täpsustamata" — kinnitamine Sten Viljuse + arhitektide poolt on ootel; kinnitamisel uuenda
+> päis ja README rida.
 
 ## Tagajärjed
 
@@ -154,6 +183,16 @@ Otsust ei ole tehtud. Otsustajad: Sten Viljus + arhitektid. **Seotud otsus: [ADR
 
 ## Rakendatav changeset
 
-Vt [issue #125](https://github.com/kemit-ee/efti-gate-ee/issues/125). Käesolev ADR fikseeritakse
-(MUSTAND → OTSUS) siis, kui A/B/D valik on tehtud, enne #125 teostust. Variant D valik eeldab
-[ADR-008](008-adopt-datamapper.md) ratifitseerimist.
+Teostatud issue [#125](https://github.com/kemit-ee/efti-gate-ee/issues/125) raames (variant A):
+
+- `code/xml-mapper/src/efti/TransportMeansRoutes.kt` + `efti/domain/TransportMeansConsignment.kt` —
+  `POST /api/v1/transport-means/normalize` (mõlemad `core` search'i kujud → kureeritud projektsioon)
+- `code/xml-mapper/src/efti/xml/fti/ParameterSearchCriteria.kt` — `transportMeansOrEquipmentId`
+  kriteerium + degradeerimine `MainCarriageTransportMeansIDParameterScope`-iks levipäringu XML-is
+- `DSL/Resql/efti/POST/get_consignments.sql` — `transportMeansOrEquipmentId` (`EQ`/`NE`), OR üle
+  kolme identifikaatoripere
+- `DSL/Ruuter/xroad/POST/v1/transport-means.yml` — `allgates` haru (forward → normalize → respond,
+  `x-poll-more` edasi) + polling (`{poll: true}` sama `X-Road-Id`-ga, `x-poll` päis `core`-i poole)
+- `docs/specs/openapi.yaml`, `docs/developer/x_road_openapi.yaml`,
+  `docs/developer/x_road_authority_integration_guide.md`, ADR-006 — leping ja piirangud
+- `tests/authority/xroad-transport-means.http` — `allgates` + polling stsenaariumid

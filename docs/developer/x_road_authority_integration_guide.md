@@ -167,7 +167,8 @@ tunnus → `200` koos `found: 0` (mitte 404).
 
 Nõuab **EU02**-t `authorities.subsets`-is, muidu `403 FORBIDDEN_SUBSET`.
 
-Sobitamine on tähtsuurustundlik ja trimmimata. Kohaliku otsingu tulemus on piiratud 50 reaga.
+Sobitamine on tähtsuurustundlik ja trimmimata. Tulemuste piirid on serveripoolsed: `scope: local`
+tagastab kuni 50 rida; `allgates` kohalik osa on piiratud otsingu lehesuurusega (praegu 20).
 
 **Päring**
 ```
@@ -194,15 +195,31 @@ Content-Type: application/json
 `existence` on alla-sekundi rada ega lahku riigist — ANTS-i olemasolukontrolli jaoks. `local` ja
 `allgates` vastuse kuju on identne, nii et võrgu kaasamine on ühe välja muutus.
 
-> **⚠ `scope: allgates` ei ole PR #121-s veel teostatud.** API-leping (kolmas väärtus) on
-> paigas; fan-out'i teostus tuleb eraldi. Kuni siis tagastab `allgates` `400 BAD_REQUEST_GENERAL`
-> või käitub nagu `local` — vt marsruudi lõplikku olekut.
+**`allgates` käitumine ja pollimine.** Otsing on **local-first ja mitteblokeeruv**: kohalik
+tabamus vastab kohe (`x-poll-more: false`) ja naaberväravaid ei küsitleta; kohaliku möödalasu
+korral registreeritakse levipäring taustal ja vastus `found: 0` + `x-poll-more: true` tuleb kohe.
+Naaberväravate tulemused kogunevad taustal — küsi need kätte, korrates kutset **sama
+`X-Road-Id`-ga** ja kehaga `{ "poll": true }` (teised kehaväljad on valikulised: `identifier` ja
+`countryCode` kajastatakse vastuses, kui need ära jätad, on kaja `""`; `scope` on polli vastuses
+alati `"allgates"`, sest tegu on ristvärava tulemusega).
+NB: turvaserveri kaudu uuesti saadetud päring saab tavaliselt *uue* `X-Road-Id` — pollimiseks
+peab sinu infosüsteem id teadlikult samaks jätma. Kui ühtegi vastust pole veel saabunud, ootab
+poll esimest kuni ~30 s enne tühja vastust; kogumispuhver on ~90 s, pärast seda tagastab poll
+tühja tulemuse `x-poll-more: false`-iga.
+
+Teadaolevad piirangud:
+- naaberväravad sobitavad ainult **põhiveo veovahendi tunnust** (eFTI otsingu-XML-il puudub
+  VÕI-kriteerium) — veoseühiku tunnus sobitub kohalikus registris, aga mitte kaugväravates;
+- kaug-tulemustel puudub `createdAt`;
+- pollimisvõtmel puudub omanikukontroll (vt "Teadaolevad piirangud" / ADR-006) — poll läbib siiski
+  alati EU02 õigusekontrolli.
 
 **Vastus 200** (`scope: local`, vaikimisi)
 ```json
 {
   "identifier": "123ABC",
   "countryCode": "EE",
+  "scope": "local",
   "found": 1,
   "consignments": [
     {
@@ -226,12 +243,29 @@ Content-Type: application/json
 ```
 
 `found` võrdub alati `consignments.length`-iga. Tundmatu tunnus:
-`{ "identifier": "...", "countryCode": null, "found": 0, "consignments": [] }`.
+`{ "identifier": "...", "countryCode": null, "scope": "local", "found": 0, "consignments": [] }`.
 
 **Vastus 200** (`scope: existence`)
 ```json
-{ "identifier": "123ABC", "countryCode": "EE", "registered": true }
+{ "identifier": "123ABC", "countryCode": "EE", "scope": "existence", "registered": true }
 ```
+
+**Vastus 200** (`scope: allgates` — sama kuju mis `local`, lisaks `x-poll-more` päis)
+```
+HTTP/1.1 200 OK
+x-poll-more: true
+
+{ "identifier": "123ABC", "countryCode": "", "scope": "allgates", "found": 0, "consignments": [] }
+```
+Seejärel, sama `X-Road-Id`-ga:
+```
+POST /r1/EE/GOV/70001231/efti-gate/transport-means/v1
+Content-Type: application/json
+
+{ "poll": true, "identifier": "123ABC", "scope": "allgates" }
+```
+kuni `x-poll-more: false`; iga poll tagastab vahepeal saabunud naaberväravate tulemused samas
+kureeritud kujus.
 
 **Vead**
 
@@ -241,7 +275,7 @@ Content-Type: application/json
 | 400 | `INVALID_REQUEST_ID` | `X-Road-Id` pole UUID-kujuline |
 | 403 | `FORBIDDEN_SUBSET` | asutusel puudub EU02; keha kannab `deniedSubsets`, `permittedSubsets`, `authorityId` (otsitavat tunnust ei kajastata) |
 | 403 | `FORBIDDEN` | ei lahene üheks `ACTIVE` asutuseks |
-| 502 | `GATEWAY_UNAVAILABLE` | värava andmekiht ebaõnnestus; keha kannab `failedStep` ja `resqlStatus` |
+| 502 | `GATEWAY_UNAVAILABLE` | värava andmekiht ebaõnnestus; keha kannab `failedStep` ning rajast sõltuvalt `resqlStatus` (kohalikud rajad), `coreStatus`/`coreResponse` (`allgates` edastus), `transportError` (core kättesaamatu) või `mapperStatus` (normaliseerimine) |
 
 ---
 

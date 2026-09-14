@@ -1,5 +1,6 @@
 package efti
 
+import ch.tutteli.atrium.api.fluent.en_GB.notToContain
 import ch.tutteli.atrium.api.fluent.en_GB.toBeEmpty
 import ch.tutteli.atrium.api.fluent.en_GB.toContain
 import ch.tutteli.atrium.api.fluent.en_GB.toEqual
@@ -60,6 +61,34 @@ class SearchRoutesTest : BaseMocks() {
     expect(parsed.transportMode?.mode).toEqual(Mode("1"))
     expect(parsed.mainTransportId?.id).toEqual("VESSEL-001")
     expect(parsed.acceptanceDate.size).toEqual(1)
+  }
+
+  // transportMeansOrEquipmentId has no FTI019 representation — the broadcast degrades it to
+  // MainCarriageTransportMeansIDParameterScope (issue #125 / ADR-007).
+  @Test fun requestToXmlDegradesTransportMeansOrEquipmentId() {
+    val xml = routes.requestToXml(ParameterSearchCriteria(transportMeansOrEquipmentId = IDScope("TE-001")), exchange)
+
+    expect(xml).toContain("<MainCarriageTransportMeansIDParameterScope>")
+    expect(xml).toContain("<ID>TE-001</ID>")
+
+    val parsed = routes.requestToJson(xml, exchange)
+    expect(parsed.mainTransportId?.id).toEqual("TE-001")
+    expect(parsed.transportMeansOrEquipmentId).toEqual(null)
+  }
+
+  @Test fun requestToXmlSkipsDegradeWhenMainTransportIdPresent() {
+    val xml = routes.requestToXml(ParameterSearchCriteria(
+      mainTransportId = IDScope("VESSEL-001"),
+      transportMeansOrEquipmentId = IDScope("TE-001"),
+    ), exchange)
+
+    expect(xml).toContain("<ID>VESSEL-001</ID>")
+    expect(xml).notToContain("<ID>TE-001</ID>")
+  }
+
+  @Test fun fti019SampleParsesWithoutTransportMeansOrEquipmentId() {
+    val parsed = routes.requestToJson(File("xsd/FTI019/sample.xml").readText(), exchange)
+    expect(parsed.transportMeansOrEquipmentId).toEqual(null)
   }
 
   @Test fun responseToJson() {

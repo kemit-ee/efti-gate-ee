@@ -146,6 +146,12 @@ küsitlusvõtmena.
 > Sulgub siis, kui lahendatud asutuse id hakkab `core`-ini jõudma (vt auditi lugu). Lisaks tuleb
 > tarbijapoolne eeldus välja öelda: turvaserveri kaudu uuesti saadetud päring saab tavaliselt **uue**
 > `X-Road-Id`, seega küsitlemiseks peab tarbija infosüsteem id-d teadlikult samaks jätma.
+>
+> **Muudatus (11.09.2026, issue #125):** sama piirang kehtib nüüd ka
+> `POST /xroad/v1/transport-means` `scope: allgates` pollimisele (`{poll: true}` + sama
+> `X-Road-Id`). Marsruut leevendab veidi: poll läbib alati EU02 õigusekontrolli, seega pollida
+> saab ainult asutus, kellel endal on EU02 — aga omaniku kontrolli ei ole ka siin, teadlikult
+> (sulgub sama audit-looga).
 
 > ### ~~Teadaolev piirang: `core`-i täielik katkestus annab 500, mitte 502~~ — lahendatud Ruuter 0.9.15-rc-s
 >
@@ -356,6 +362,15 @@ andmestiku marsruut; uut õiguste päringut ei ole.
 
 **Ainult kohalik register.** Multiplekserit ei kutsuta — "meile teadaolev" tähendab meie oma
 registrit, ja ANTS-i nõue keelab ristvärava levipäringu sõnaselgelt.
+
+> **Muudatus (11.09.2026, issue #125 / ADR-007):** "ainult kohalik" kehtib nüüd **vaikimisi
+> käitumisele** — `scope: existence` ja `scope: local` (vaikeväärtus) ei kutsu multiplekserit
+> kunagi, mis täidab ANTS-i nõude sellel rajal. `scope: allgates` on **selgesõnaline opt-in**:
+> forward `core` `authority/search`-i (local-first: levipäring ainult kohaliku möödalasu korral),
+> tulemused normaliseerib `xml-mapper` samasse kureeritud projektsiooni, mida `local` tagastab
+> (ADR-007 variant A), pollimine `x-poll-more` + `{poll: true}` sama `X-Road-Id`-ga. Teadaolev
+> piirang: naaberväravad sobitavad ainult `mainTransportId`-d (FTI019-l puudub OR-kriteerium),
+> equipment-id-d sobituvad ainult kohalikus registris.
 
 **Veerg on `main_transport_id`**, mitte `vehicle_plate` — viimane esineb vanemates dokumentides, aga
 ei ole skeemis kunagi olnud. Päring on indeksitoega (`idx_consignments_main_transport_id`) ja

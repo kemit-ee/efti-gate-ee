@@ -2103,10 +2103,12 @@ paths:
   /xroad/v1/transport-means:
     post:
       tags: [X-Road]
-      summary: Look up what the gate knows about a vehicle registration number
+      summary: Look up what the gate knows about a transport-means or transport-equipment identifier
       operationId: xroadTransportMeansLookup
       description: |
-        A registration number in, the identifier-level data this gate holds against it out.
+        An identifier in — a road registration plate, a vessel IMO, an aircraft registration, or a
+        transport-equipment (container) id — the identifier-level data held against it out. Matched
+        against the main transport-means id AND the used/carried transport-equipment ids.
 
         **No dataset content is returned.** The response carries the `uil` of each matching
         consignment plus transport-means and date/country metadata. To obtain content, call
@@ -2121,14 +2123,23 @@ paths:
         **Requires `EU02`** in `authorities.subsets`: Delegated Reg 2024/2024 defines EU02 as "means
         of transport (vehicle plate, container number)", which is exactly this data.
 
-        **Local registry only** — no cross-gate broadcast.
+        **`scope` grades the request** along one axis of increasing cost:
+        - `existence` — local, sub-second boolean: `{ identifier, countryCode, scope, registered }`.
+        - `local` *(default)* — local register, full projection, synchronous.
+        - `allgates` — local first; on a local miss the identifier is broadcast to every
+          neighbouring gate. Same response shape as `local` (ADR-007). While the response header
+          `x-poll-more` is `true`, gates are still answering: poll by repeating the call with the
+          **same `X-Road-Id`** and body `{ "poll": true }`. Remote gates match the **main
+          transport-means id only** (the eFTI search XML has no OR criterion), so equipment ids
+          match locally but not remotely.
 
-        An unknown number is a **200 with `found: 0`**, not a 404: "we do not know this vehicle" is a
-        successful answer, and it doubles as an existence check.
+        An unknown identifier is a **200 with `found: 0`**, not a 404: "we do not know this
+        identifier" is a successful answer.
 
-        **Matching is exact:** case-sensitive (the column is `TEXT`, not `CITEXT`) and untrimmed, so
-        `123abc ` will not match `123ABC`. Result sets are capped at 50 by the server; the cap is not
-        caller-adjustable.
+        **Matching is exact:** case-sensitive (the columns are `TEXT`/`TEXT[]`, not `CITEXT`) and
+        untrimmed, so `123abc ` will not match `123ABC`. Result caps are server-fixed, not
+        caller-adjustable: `scope: local` returns at most 50 rows; the `allgates` local slice is
+        capped by the core search page size (currently 20).
       security:
         - xroadClient: []
       parameters:
@@ -2139,24 +2150,58 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [identifier]
-              properties:
-                identifier:
-                  type: string
-                  minLength: 1
-                  description: Vehicle registration number, matched against `consignments.main_transport_id`.
-                  example: "123ABC"
-                countryCode:
-                  type: string
-                  description: |
-                    Optional registration-country filter (`consignments.transport_reg_country`).
-                    Absent or empty means any country.
-                  example: EE
+              # anyOf, not oneOf: a poll body may repeat identifier/scope for the echo, which makes
+              # it valid against BOTH branches — oneOf would reject exactly the poll body the guide
+              # recommends.
+              anyOf:
+                - type: object
+                  title: Lookup
+                  required: [identifier]
+                  properties:
+                    identifier:
+                      type: string
+                      minLength: 1
+                      description: |
+                        Transport-means or transport-equipment identifier, matched against
+                        `consignments.main_transport_id` and the used/carried equipment id arrays.
+                      example: "123ABC"
+                    countryCode:
+                      type: string
+                      description: |
+                        Optional registration-country filter (`consignments.transport_reg_country`).
+                        Absent or empty means any country.
+                      example: EE
+                    scope:
+                      type: string
+                      enum: [existence, local, allgates]
+                      default: local
+                      description: Search scope; see the operation description.
+                - type: object
+                  title: Poll
+                  required: [poll]
+                  properties:
+                    poll:
+                      type: boolean
+                      enum: [true]
+                      description: |
+                        Poll for outstanding `allgates` results. Send with the **same `X-Road-Id`**
+                        as the original call; `identifier`/`countryCode`/`scope` are optional and
+                        only echoed back (`scope`, if sent, must still be a valid enum value).
+                        Skips the identifier requirement but not the EU02 entitlement check.
       responses:
         '200':
           description: |
-            What the gate knows. `found` always equals `consignments.length`.
+            What the gate knows. `found` always equals `consignments.length`. For
+            `scope: existence` the body is `{ identifier, countryCode, scope, registered }`
+            instead. On an `allgates` poll, `identifier`/`countryCode` echo the poll body (empty
+            string when omitted) and `scope` is always `allgates` — a poll result is a cross-gate
+            result regardless of what the poll body said.
+          headers:
+            x-poll-more:
+              description: |
+                `allgates` only — `true` while neighbouring gates are still answering; poll with
+                the same `X-Road-Id` and body `{ "poll": true }`. `false` otherwise.
+              schema: { type: string, enum: ['true', 'false'] }
           content:
             application/json:
               schema:
@@ -2166,11 +2211,19 @@ paths:
                   identifier: { type: string, example: "123ABC" }
                   countryCode:
                     type: string
-                    nullable: true
-                    description: Echo of the filter applied, `null` if none.
+                    description: Echo of the filter applied, an empty string if none.
+                  scope:
+                    type: string
+                    enum: [existence, local, allgates]
+                    description: The scope that produced this response (always `allgates` on a poll).
+                  registered:
+                    type: boolean
+                    description: "`scope: existence` only — replaces `found`/`consignments`."
                   found:
                     type: integer
-                    description: Number of matching consignments, capped at the server-fixed 50.
+                    description: |
+                      Number of matching consignments — always `consignments.length`. Server-fixed
+                      caps apply (50 for `local`, the core search page size for `allgates`).
                     example: 1
                   consignments:
                     type: array
@@ -2339,7 +2392,14 @@ paths:
           application/json:
             schema:
               type: object
-              description: Search criteria, passed through to the core Authority API unchanged.
+              description: |
+                Search criteria, passed through to the core Authority API unchanged. The full
+                criteria vocabulary is documented at `docs/developer/x_road_openapi.yaml`
+                `SearchCriteria`; notable local-register-only criteria (dropped from the
+                cross-gate broadcast): `transportMeansOrEquipmentId` (OR across the main
+                transport-means id and the used/carried equipment ids — degrades to
+                `mainTransportId` in the broadcast XML) and `status` (lifecycle filter; without
+                it everything not `DELETED` matches).
               additionalProperties: true
               example: { transportMode: "1" }
       responses:

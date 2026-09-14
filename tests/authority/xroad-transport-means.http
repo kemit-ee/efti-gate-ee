@@ -268,7 +268,11 @@ Content-Type: application/json
   })
 %}
 
-### scope allgates is in the contract but not yet built → 501
+### scope allgates: a local hit answers immediately in the same curated shape as local
+# Local-first: core's authority/search short-circuits on a local hit and never broadcasts, so this
+# is fast and x-poll-more is false. The raw local rows are normalised by the xml-mapper — same
+# field contract as scope local (ADR-007 variant A).
+# @timeout 75
 POST {{RUUTER_URL}}/xroad/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
 X-Road-Id: 0a11ce5e-000c-4d1d-8fca-0ec00000000c
@@ -277,10 +281,136 @@ Content-Type: application/json
 { "identifier": "VESSEL-001", "scope": "allgates" }
 
 > {%
-  client.test("scope allgates returns 501 NOT_IMPLEMENTED", () => {
-    client.assert(response.status === 501, "expected 501, got " + response.status)
-    client.assert(response.body.code === "NOT_IMPLEMENTED")
-    client.assert(response.body.type === "https://api.efti.ee/errors/not-implemented")
+  client.test("allgates local hit returns the curated projection with x-poll-more false", () => {
+    client.assert(response.status === 200, "expected 200, got " + response.status +
+      " body=" + JSON.stringify(response.body))
+    client.assert(response.body.scope === "allgates")
+    client.assert(response.body.identifier === "VESSEL-001")
+    client.assert(response.body.found >= 1, "the fixture is local, so the local-first path must find it; found=" + response.body.found)
+    client.assert(response.body.consignments.length === response.body.found)
+    const c = response.body.consignments[0]
+    client.assert(c.mainTransportId === "VESSEL-001")
+    client.assert(c.uil !== undefined && c.uil.datasetId !== undefined, "uil must survive normalisation")
+    client.assert(c.xml === undefined, "the raw local rows carry xml; the normaliser must drop it")
+    client.assert(c.usedEquipmentSeq === undefined, "seq arrays are not part of the curated projection")
+    client.assert(JSON.stringify(response.body).indexOf("<") === -1, "no XML markup anywhere in the response")
+    client.assert(response.headers.valueOf("x-poll-more") === "false", "a local hit never broadcasts")
+  })
+%}
+
+### scope allgates: an equipment id matches locally via the OR criterion
+# Exercises the new transportMeansOrEquipmentId criterion in get_consignments.sql end to end:
+# TE-001 sits in used_equipment_ids, not in main_transport_id.
+# @timeout 75
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0015-4d1d-8f5a-0ec000000015
+Content-Type: application/json
+
+{ "identifier": "TE-001", "scope": "allgates" }
+
+> {%
+  client.test("allgates matches equipment ids in the local register", () => {
+    client.assert(response.status === 200, "expected 200, got " + response.status +
+      " body=" + JSON.stringify(response.body))
+    client.assert(response.body.found >= 1, "TE-001 is in used_equipment_ids; found=" + response.body.found)
+    client.assert(response.body.consignments[0].usedEquipmentIds.indexOf("TE-001") !== -1)
+  })
+%}
+
+### scope allgates: a local miss starts the broadcast and answers found 0 at once
+# Core registers the broadcast with the multiplexer and returns immediately — the peers' results
+# arrive via polling, so x-poll-more is deterministically true here.
+# @timeout 75
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0016-4d1d-8f6a-0ec000000016
+Content-Type: application/json
+
+{ "identifier": "NO-SUCH-IDENTIFIER-XYZ", "scope": "allgates" }
+
+> {%
+  client.test("allgates local miss returns 200 found 0 with x-poll-more true", () => {
+    client.assert(response.status === 200, "expected 200, got " + response.status +
+      " body=" + JSON.stringify(response.body))
+    client.assert(response.body.scope === "allgates")
+    client.assert(response.body.found === 0, "no gate knows this identifier; found=" + response.body.found)
+    client.assert(Array.isArray(response.body.consignments) && response.body.consignments.length === 0)
+    client.assert(response.headers.valueOf("x-poll-more") === "true", "the broadcast was just registered — more results may come")
+  })
+%}
+
+### scope allgates: polling with the same X-Road-Id drains the remaining results
+# Reuses the X-Road-Id of the broadcast above. Repeating identifier/scope in the poll body is
+# optional; sending them keeps the echo fields meaningful. The multiplexer long-polls up to 30s
+# for the first peer response when none has arrived yet, hence the timeout.
+# @timeout 75
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0016-4d1d-8f6a-0ec000000016
+Content-Type: application/json
+
+{ "poll": true, "identifier": "NO-SUCH-IDENTIFIER-XYZ", "scope": "allgates" }
+
+> {%
+  client.test("poll returns the curated shape and the x-poll-more header", () => {
+    client.assert(response.status === 200, "expected 200, got " + response.status +
+      " body=" + JSON.stringify(response.body))
+    client.assert(response.body.scope === "allgates", "the poll body's scope is echoed")
+    client.assert(response.body.found === 0)
+    client.assert(Array.isArray(response.body.consignments))
+    client.assert(response.headers.valueOf("x-poll-more") !== null)
+    client.assert(JSON.stringify(response.body).indexOf("<") === -1, "no XML markup in a poll response either")
+  })
+%}
+
+### A bare poll skips the identifier requirement (unknown request id drains empty)
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0017-4d1d-8f7a-0ec000000017
+Content-Type: application/json
+
+{ "poll": true }
+
+> {%
+  client.test("bare poll is accepted without an identifier", () => {
+    client.assert(response.status === 200, "expected 200, got " + response.status +
+      " body=" + JSON.stringify(response.body))
+    client.assert(response.body.identifier === "", "nothing to echo — the poll body had no identifier")
+    client.assert(response.body.scope === "allgates", "a poll result is always labelled allgates, never the body's default")
+    client.assert(response.body.found === 0, "an unknown/expired request id drains empty")
+    client.assert(response.headers.valueOf("x-poll-more") === "false", "an unknown request id has nothing more to poll")
+  })
+%}
+
+### A poll is still EU02-gated — the pending queue has no ownership check (ADR-006)
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000092/tram
+X-Road-Id: 0a11ce5e-0018-4d1d-8f8a-0ec000000018
+Content-Type: application/json
+
+{ "poll": true }
+
+> {%
+  client.test("poll without EU02 gets 403 FORBIDDEN_SUBSET", () => {
+    client.assert(response.status === 403)
+    client.assert(response.body.code === "FORBIDDEN_SUBSET")
+  })
+%}
+
+### A poll with an unknown scope is still 400 — the echo field stays in the published enum
+POST {{RUUTER_URL}}/xroad/v1/transport-means
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0019-4d1d-8f9a-0ec000000019
+Content-Type: application/json
+
+{ "poll": true, "scope": "existance" }
+
+> {%
+  client.test("poll with unknown scope returns 400", () => {
+    client.assert(response.status === 400)
+    client.assert(response.body.code === "BAD_REQUEST_GENERAL")
+    client.assert(response.body.detail.indexOf("scope") !== -1)
   })
 %}
 

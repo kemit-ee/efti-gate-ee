@@ -200,15 +200,29 @@ Because `authorities` is append-only, the authority lookup
 **before** filtering on `registry_code` and `status`. Filtering inside the `DISTINCT ON` would let a
 soft-deleted authority with an older `ACTIVE` row keep authenticating.
 
-## Vehicle lookup
+## Transport-means lookup
 
-`POST /xroad/v1/transport-means` — a registration number in, the identifier-level data this gate holds out:
+`POST /xroad/v1/transport-means` — a transport-means or transport-equipment identifier in (plate,
+IMO, aircraft registration, container id), the identifier-level data the gate knows out:
 
 ```json
-{ "identifier": "123ABC", "found": 1, "consignments": [
+{ "identifier": "123ABC", "scope": "local", "found": 1, "consignments": [
   { "uil": {"gateId": "EU-EE", "platformId": "mock", "datasetId": "550e..."},
     "mainTransportId": "123ABC", "transportRegCountry": "EE", "transportMode": "3", "...": "..." } ] }
 ```
+
+`scope` grades the request: `existence` (local boolean, sub-second), `local` (default, the curated
+projection above), `allgates` (issue #125 / ADR-007 variant A). `allgates` forwards the criterion
+`transportMeansOrEquipmentId` to core `authority/search` — local-first, broadcast to neighbour
+gates only on a local miss — and normalises whatever comes back (raw local rows or remote
+`ConsignmentRow`s) through xml-mapper `POST /api/v1/transport-means/normalize` into the same
+curated shape `local` returns. `x-poll-more: true` means gates are still answering; the caller
+polls with the same `X-Road-Id` and body `{ "poll": true }` (the poll waives only the identifier
+requirement — `scope`/`countryCode` are still validated, and the EU02 entitlement check still
+applies). Known limitations: remote gates match the main
+transport-means id only (FTI019 has no OR criterion); the polling key has no ownership check
+(ADR-006). A core outage surfaces as a semantic 502 with `transportError` (Ruuter 0.9.15-rc
+binds transport failures as `status: 0` instead of aborting).
 
 **No dataset content**, and none to leak: dataset content never enters Postgres. It is fetched from
 the platform by `authority/dataset.yml` with `?subsetId=...`, which is where subset entitlement is
@@ -225,14 +239,16 @@ denormalised into the columns returned. Content is still fetched afterwards via
 > was wrong and has been retracted here and in ADR-006 — there is no bypass to defeat.
 
 Requires **`EU02`** in `authorities.subsets` (Delegated Reg 2024/2024 defines EU02 as "means of
-transport (vehicle plate, container number)" — exactly this data), else 403 `FORBIDDEN_SUBSET`.
-Local registry only, no broadcast. An unknown plate is a **200 with `found: 0`**, not a 404, which
-also gives ANTS-style existence semantics.
+transport (vehicle plate, container number)" — exactly this data), else 403 `FORBIDDEN_SUBSET` —
+for every scope, polls included. `existence` and `local` never leave the local registry; only the
+explicit `scope: allgates` opt-in broadcasts (ADR-006 amendment, 2026-09-11). An unknown
+identifier is a **200 with `found: 0`**, not a 404 — `scope: existence` is the dedicated
+ANTS-style boolean path.
 
 The column is `main_transport_id`; `consignments.vehicle_plate` named in older docs has never
 existed. Matching is case-sensitive and untrimmed — see ADR-006.
 
-## Subset-permission lookup## Subset-permission lookup
+## Subset-permission lookup
 
 `GET /xroad/v1/subsets` returns the calling organisation's own permitted subsets:
 

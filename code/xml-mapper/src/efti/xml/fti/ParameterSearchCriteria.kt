@@ -28,6 +28,14 @@ data class ParameterSearchCriteria(
   @XmlPath("CarriedTransportEquipmentIDParameterScope") val carriedEquipmentId: IDScope? = null,
   @XmlPath("CarriedTransportEquipmentCategoryCodeParameterScope") val carriedEquipmentCategory: EquipmentCategoryScope? = null,
   @XmlPath("CarriedTransportEquipmentSequenceNumberParameterScope") val carriedEquipmentSeq: SequenceScope? = null,
+  /**
+   * OR across main_transport_id / used_equipment_ids / carried_equipment_ids — a JSON-only criterion
+   * for the gate's own register (get_consignments.sql, issue #125). FTI019 has no OR criterion, so
+   * render() degrades it to MainCarriageTransportMeansIDParameterScope for the cross-gate broadcast:
+   * equipment-id matching is local-only (ADR-007). The XmlPath tag is non-standard and never present
+   * in genuine FTI019 traffic; it exists so the XML parser has a mapping for the param.
+   */
+  @XmlPath("TransportMeansOrEquipmentIDParameterScope") val transportMeansOrEquipmentId: IDScope? = null,
 ) {
   enum class DateSearchOperator(val sql: String) {
     EQ("="), GE(">="), GT(">"), LE("<="), LT("<"), NE("!=")
@@ -102,6 +110,10 @@ data class ParameterSearchCriteria(
     deliveryCountry?.let { append(it.render("DeliveryCountryParameterScope")) }
     dangerousGoodsCode?.let { append(it.render("DangerousGoodsIndicationCodeParameterScope")) }
     mainTransportId?.let { append(it.render("MainCarriageTransportMeansIDParameterScope")) }
+    // Degrade rule (issue #125 / ADR-007): no FTI019 OR-criterion exists, so the broadcast carries
+    // the identifier as the main transport means id only. Skipped when mainTransportId already
+    // rendered the tag — duplicating it would produce XSD-invalid XML.
+    if (mainTransportId == null) transportMeansOrEquipmentId?.let { append(it.render("MainCarriageTransportMeansIDParameterScope")) }
     transportMode?.let { append(it.render("MainCarriageModeCodeParameterScope")) }
     mainTransportType?.let { append(it.render("MainCarriageTransportMeansTypeCodeParameterScope")) }
     transportRegCountry?.let { append(it.render("TransportMeansRegistrationCountryParameterScope")) }

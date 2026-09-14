@@ -1,6 +1,7 @@
 import efti.DatasetRoutes
 import efti.FollowUpRoutes
 import efti.SearchRoutes
+import efti.TransportMeansRoutes
 import efti.UploadRoutes
 import efti.xml.fti.DateTimeString
 import io.swagger.v3.oas.annotations.OpenAPIDefinition
@@ -28,6 +29,7 @@ fun main() {
       annotated<SearchRoutes>("/search")
       annotated<DatasetRoutes>("/dataset")
       annotated<FollowUpRoutes>("/followup")
+      annotated<TransportMeansRoutes>("/transport-means")
 
       openApi(annotations = listOf(
         OpenAPIDefinition(info = Info(
