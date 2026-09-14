@@ -11,7 +11,7 @@ Otsused on loendurid ja ei kustutata — uus otsus ei asenda vana, vaid täienda
 | [ADR-004](004-platform-api-key.md) | Platvormide autentimine API võtmega (`X-Api-Key`) | 2026-08-25 | Rainer Türner, Sten Viljus, Anton Keks |
 | ADR-005 | Masinliidese (`m2m`) eraldamine — **üle vaadatud (Sten Viljus, Anton Keks, 03.09.2026): eraldi Ruuteri instantsi asemel eraldi projekt põhi-Ruuteris; teisele Ruuterile saab vajadusel hiljem tõsta.** Fail `dev`-is veel puudub. | 2026-08-31 / 2026-09-03 | Sten Viljus, Anton Keks |
 | [ADR-006](006-xroad-identity-and-subsets.md) | X-Roadi identiteedimudel ja alamhulkade õigused | 2026-09-01 | täpsustamata |
-| [ADR-007](007-xroad-transport-means-response-shape.md) | `transport-means` `scope: allgates` vastuse kuju — **MUSTAND** | 2026-09-03 | täpsustamata |
+| [ADR-007](007-xroad-transport-means-response-shape.md) | `transport-means` `scope: allgates` vastuse kuju — **OTSUS: variant A** (xml-mapper normaliseerimine, issue #125) | 2026-09-03 / 2026-09-11 | täpsustamata |
 | [ADR-008](008-adopt-datamapper.md) | DataMapperi kasutuselevõtt vastuse-kujundamiseks — **MUSTAND** (seotud ADR-007-ga) | 2026-09-03 | täpsustamata |
 | [ADR-009](009-consignments-latest-row-not-exists.md) | `consignments` viimase versiooni valik `NOT EXISTS`-iga, mitte `DISTINCT ON`-iga | 2026-09-09 | Sten Viljus |
 | [ADR-010](010-authority-search-non-blocking.md) | Authority-otsing ei blokeeru; kattuvate guard'ide dedup; DSL-tööriistad runtime-pildist | 2026-09-10 | Sten Viljus |

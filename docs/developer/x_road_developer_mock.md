@@ -174,7 +174,7 @@ Tundmatu tunnus → `"found": 0, "consignments": []`.
 |---|---|---|
 | 400 | `BAD_REQUEST_GENERAL` | `identifier` puudub/tühi; või `scope` tundmatu |
 | 403 | `FORBIDDEN_SUBSET` | `memberCode 70000000` (pole EU02); keha: `authorityId`, `deniedSubsets: ["EU02"]`, `permittedSubsets: []` |
-| 501 | `NOT_IMPLEMENTED` | `scope: allgates` (nagu päris liideses) |
+| 501 | `NOT_IMPLEMENTED` | `scope: allgates` — mock EI teosta fan-out'i ega pollimist (`{poll: true}`); päris värav teostab mõlemad (issue #125), nii et pollimistsüklit selle mocki vastu arendada ei saa |
 
 ---
 

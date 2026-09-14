@@ -603,14 +603,14 @@
       "type": "https://api.efti.ee/errors/not-implemented",
       "examples": [
         {
-          "scenario": "X-Road transport-means lookup requested with scope 'allgates' before cross-gate fan-out is built",
-          "request": "POST /xroad/v1/transport-means {\"identifier\":\"123ABC\",\"scope\":\"allgates\"}",
+          "scenario": "Developer-mock transport-means lookup with scope 'allgates' (the mock does not implement the fan-out; the real route does since issue #125)",
+          "request": "POST /developer/v1/transport-means {\"identifier\":\"123ABC\",\"scope\":\"allgates\"}",
           "response": {
             "type": "https://api.efti.ee/errors/not-implemented",
             "code": "NOT_IMPLEMENTED",
             "title": "Not Implemented",
             "status": 501,
-            "detail": "scope 'allgates' is part of the published contract but not yet implemented; cross-gate fan-out arrives in a follow-up. Use scope 'local' for this gate's own register."
+            "detail": "scope 'allgates' is part of the published contract but not yet implemented. Use scope 'local'."
           }
         }
       ],

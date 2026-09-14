@@ -1061,7 +1061,7 @@ kunagi õigusi. Üks projektitasemeline `xroad/.guard.yml` katab kõik meetodid;
 | `POST` | `DSL/Ruuter/xroad/POST/v1/echo.yml` | `POST /xroad/v1/echo` | Ühenduvustest — kajastab X-Road päised, lahendatud asutuse rea ja keha |
 | `GET` | `DSL/Ruuter/xroad/GET/v1/subsets.yml` | `GET /xroad/v1/subsets` | Helistaja enda lubatud alamhulgad (`authorities.subsets`) `X-Road-Client` põhjal |
 | `GET` | `DSL/Ruuter/xroad/GET/health/ready.yml` | `GET /xroad/health/ready` | Valmisoleku proov (avalik, ilma X-Road päisteta) |
-| `POST` | `DSL/Ruuter/xroad/POST/v1/transport-means.yml` | `POST /xroad/v1/transport-means` | Veovahenditunnus sisse (numbrimärk / IMO / õhusõiduki reg / konteinernumber), väravale teadaolev identifikaatori-tasemel data välja. Sobitab `main_transport_id`, `used_equipment_ids` ja `carried_equipment_ids`. `scope`: `existence` (bool, alla sekundi) \| `local` (vaikimisi) \| `allgates` (501, tuleb hiljem). Nõuab `EU02`-t; andmestiku sisu ei tagasta |
+| `POST` | `DSL/Ruuter/xroad/POST/v1/transport-means.yml` | `POST /xroad/v1/transport-means` | Veovahenditunnus sisse (numbrimärk / IMO / õhusõiduki reg / konteinernumber), väravale teadaolev identifikaatori-tasemel data välja. Sobitab `main_transport_id`, `used_equipment_ids` ja `carried_equipment_ids`. `scope`: `existence` (bool, alla sekundi) \| `local` (vaikimisi) \| `allgates` (local-first fan-out naaberväravatele, `x-poll-more` + polling `{poll: true}` sama `X-Road-Id`-ga). Nõuab `EU02`-t; andmestiku sisu ei tagasta |
 | `POST` | `DSL/Ruuter/xroad/POST/v1/dataset.yml` | `POST /xroad/v1/dataset` | Edastab `efti/POST/api/v1/authority/dataset`-ile; jõustab enne `authorities.subsets` (403 `FORBIDDEN_SUBSET`) |
 | `POST` | `DSL/Ruuter/xroad/POST/v1/search.yml` | `POST /xroad/v1/search` | Edastab `efti/POST/api/v1/authority/search`-ile; alamhulkade kontrolli ei ole (identifikaatoripäring) |
 | `POST` | `DSL/Ruuter/xroad/POST/v1/follow-up.yml` | `POST /xroad/v1/follow-up` | Edastab `efti/POST/api/v1/authority/follow-up`-ile |
@@ -1110,7 +1110,7 @@ Kõik vead järgivad RFC 7807 `application/problem+json` formaati.
 | 429 | `RATE_LIMIT_EXCEEDED` | Liiga palju päringuid |
 | 500 | `INTERNAL_ERROR` | Süsteemiviga |
 | 500 | `DATABASE_ERROR` | Andmebaasiviga |
-| 501 | *(puudub)* | Pole teostatud (nt cron admin, `xroad` `scope: allgates`) |
+| 501 | *(puudub)* | Pole teostatud (nt cron admin; developer-mock'i `scope: allgates`) |
 | 502 | `GATEWAY_UNAVAILABLE` | Partner pole kättesaadav |
 | 503 | `SERVICE_UNAVAILABLE` | Teenus pole valmis |
 | 504 | `GATE_TIMEOUT` | Partner aegus |

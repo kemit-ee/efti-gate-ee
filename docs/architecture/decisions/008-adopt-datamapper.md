@@ -6,6 +6,12 @@ Tihedalt seotud [ADR-007](007-xroad-transport-means-response-shape.md)-ga — AD
 "D" eeldab seda otsust, ja käesolev ADR sai ajendi ADR-007 vajadusest. Kui üks lükatakse
 edasi, tuleb teine üle vaadata.
 
+> **Muudatus (11.09.2026):** ADR-007 otsustati ilma käesolevata (variant A), sest see ADR oli
+> ratifitseerimata. Sellega on `xml-mapper`-is nüüd olemas üks JSON→JSON kujundusendpoint
+> (`POST /api/v1/transport-means/normalize`) — täpselt see vastutuse-segunemine, mille vastu
+> allpool argumenteeritakse. Teadlik vahefaas: kui käesolev ADR ratifitseeritakse, on
+> `/normalize` esimene kandidaat DataMapperisse tõstmiseks; väline leping ei muutu.
+
 ## Otsus
 
 Võtame kasutusele **Ruuteri/Bürokrati DataMapperi** (Node.js teenus, Handlebars-mallid

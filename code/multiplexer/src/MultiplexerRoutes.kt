@@ -50,6 +50,12 @@ class MultiplexerRoutes(private val registry: MultiplexerGateRegistry, private v
       }
       futures.forEach { it.get() }
       responses.complete = true
+      // Wake a poller blocked in rest()'s bounded long-poll: `xmls.poll(30s)` only wakes on an
+      // element, not on `complete`, so a poll issued right after the broadcast would otherwise sit
+      // out the full 30s even when every gate already answered empty — which also outlives the DSL
+      // callers' timeouts and surfaced as a spurious 502 on the transport-means poll path (#125).
+      // rest() filters empty strings out of the joined response.
+      responses.xmls.add("")
     }
   }
 

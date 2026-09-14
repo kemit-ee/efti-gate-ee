@@ -28,12 +28,17 @@ declaration:
 # null. A real JSON null in a ReSql *body* param has no precedent here (all 17 `?? null` uses in the
 # repo are in `headers:`), and if Ruuter rendered it as the string "null" every unfiltered lookup
 # would silently return found: 0. The SQL treats '' as "any country".
+#
+# poll is NOT quoted: it is only ever compared with `=== true`, so a JSON boolean must stay a
+# boolean. Anything else — "true" the string, 1, an object — fails the strict comparison and the
+# request is handled as a fresh lookup, which then demands an identifier. Fail-closed.
 setup:
   assign:
     registry_code: ${authority.registryCode}
     identifier: ${incoming.body?.identifier ?? ''}
     country_code: "${incoming.body?.countryCode ?? ''}"
     scope: "${incoming.body?.scope ?? 'local'}"
+    poll: ${incoming.body?.poll ?? false}
   next: check_input
 
 # The `.length == null` clauses are a type check built from proven constructs: a string has a numeric
@@ -54,12 +59,21 @@ setup:
 # boolean, object, empty array — is rejected.
 check_input:
   switch:
-    - condition: ${identifier == null || identifier.length == null || identifier.length == 0}
-      next: bad_request_identifier
-    - condition: ${incoming.body?.countryCode != null && incoming.body.countryCode.length == null}
-      next: bad_request_country
+    # scope and countryCode are validated for polls too — the poll bypass below only waives the
+    # identifier requirement. A poll echoes these fields back, and echoing a value the non-poll
+    # path rejects would put an out-of-enum scope in a published response field.
     - condition: ${scope != 'existence' && scope != 'local' && scope != 'allgates'}
       next: bad_request_scope
+    - condition: ${incoming.body?.countryCode != null && incoming.body.countryCode.length == null}
+      next: bad_request_country
+    # A poll ({poll: true} with the same X-Road-Id as the original allgates call) carries no
+    # identifier, so it skips the identifier check — but NOT the EU02 entitlement below: the
+    # pending multiplexer queue has no ownership check (ADR-006), so at minimum the poller must
+    # itself be entitled to EU02-class data.
+    - condition: ${poll === true}
+      next: check_subset_permission
+    - condition: ${identifier == null || identifier.length == null || identifier.length == 0}
+      next: bad_request_identifier
   next: check_subset_permission
 
 # EU02 is "means of transport (vehicle plate, container number)" per Delegated Reg 2024/2024, so
@@ -103,10 +117,12 @@ evaluate_permission:
 # local answer, not a 500 and not a cross-gate fan-out.
 route_by_scope:
   switch:
+    - condition: ${poll === true}
+      next: poll_core
     - condition: ${scope == 'existence'}
       next: lookup_existence
     - condition: ${scope == 'allgates'}
-      next: not_implemented
+      next: route_allgates
   next: lookup_local
 
 # Sub-second path: a boolean, no consignment data. The SQL wraps the same latest-row-correct query
@@ -190,19 +206,162 @@ respond_local:
   status: 200
   next: end
 
-# `allgates` is in the published contract but not yet built: it brings search.yml's multiplexer
-# machinery (fan-out, x-poll-more, polling by X-Road-Id) onto this route, which is its own issue.
-# Answering 501 with the real catalog code is honest — the value is recognised, the capability is
-# absent — and lets a consumer feature-detect instead of guessing from a 400.
-not_implemented:
+# --- scope: allgates (issue #125, ADR-007 variant A) --------------------------------------------
+#
+# Forwards to core authority/search, which is LOCAL-FIRST and NON-BLOCKING: a local hit answers
+# immediately (x-poll-more: false); a local miss registers the broadcast with the multiplexer and
+# answers [] with x-poll-more: true at once — the neighbour gates' results are collected via
+# polling. Either way the result is normalised by xml-mapper to the same curated projection
+# scope: local returns, so the response shape is identical across scopes (ADR-007). Polling:
+# repeat the call with the same X-Road-Id and body {poll: true} while x-poll-more is true;
+# repeating identifier/countryCode/scope in the poll body is optional and only affects the echo
+# fields of the response.
+#
+# The criterion is transportMeansOrEquipmentId — the same three-way OR (main transport OR used OR
+# carried equipment) the local SQL applies. Known limitation: FTI019 has no OR criterion, so for the
+# cross-gate XML the xml-mapper degrades it to MainCarriageTransportMeansIDParameterScope —
+# equipment ids match locally but not on remote gates.
+#
+# Two forward steps rather than one: a conditional body field needs a ternary, which is unproven
+# here (see the header comment), so the country filter gets its own step.
+route_allgates:
+  switch:
+    - condition: ${country_code != ''}
+      next: forward_to_core_search_with_country
+  next: forward_to_core_search
+
+# X-Road-Id becomes x-request-id — load-bearing, not tidy: core keys the multiplexer polling on it.
+# Core's first call returns the local slice immediately and never blocks on peer gates (the
+# broadcast is registered in the background), so 15s is generous — same as xroad/POST/v1/search.yml.
+forward_to_core_search:
+  call: http.post
+  timeout: 15000
+  args:
+    url: "[#RUUTER_URL]/efti/api/v1/authority/search"
+    headers:
+      Content-Type: application/json
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
+      x-request-id: "${incoming.headers['x-road-id']}"
+    body:
+      transportMeansOrEquipmentId:
+        operator: "EQ"
+        id: "${identifier}"
+      # The local slice must apply the same ACTIVE allowlist as the curated projection — without it,
+      # allgates would disclose INACTIVE consignments that local and existence deliberately hide.
+      # The xml-mapper drops this key from the broadcast XML (FTI019 has no status criterion), so
+      # remote gates are unaffected.
+      status:
+        operator: "EQ"
+        status: "ACTIVE"
+  result: core_res
+  next: check_core_search_status
+
+forward_to_core_search_with_country:
+  call: http.post
+  timeout: 15000
+  args:
+    url: "[#RUUTER_URL]/efti/api/v1/authority/search"
+    headers:
+      Content-Type: application/json
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
+      x-request-id: "${incoming.headers['x-road-id']}"
+    body:
+      transportMeansOrEquipmentId:
+        operator: "EQ"
+        id: "${identifier}"
+      transportRegCountry:
+        operator: "EQ"
+        country: "${country_code}"
+      status:
+        operator: "EQ"
+        status: "ACTIVE"
+  result: core_res
+  next: check_core_search_status
+
+# The x-poll header is what makes core poll the multiplexer instead of searching. The criteria body
+# is sent anyway: core's poll branch ignores it, and if the header were ever lost the failure mode
+# is a fresh criteria-bound search (on a bare poll the identifier is '', which matches nothing) —
+# not a criteria-less search that would match everything. The timeout ladder: the multiplexer's
+# GET /rest long-polls up to MULTIPLEXER_REST_POLL_SECONDS (default 30) for the first gate
+# response, core's poll_remaining allows 35s for that, and this step sits above both — a shorter
+# timeout would turn a healthy long-poll into a spurious 502.
+poll_core:
+  call: http.post
+  timeout: 40000
+  args:
+    url: "[#RUUTER_URL]/efti/api/v1/authority/search"
+    headers:
+      Content-Type: application/json
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
+      x-request-id: "${incoming.headers['x-road-id']}"
+      x-poll: "true"
+    body:
+      transportMeansOrEquipmentId:
+        operator: "EQ"
+        id: "${identifier}"
+      status:
+        operator: "EQ"
+        status: "ACTIVE"
+  result: core_res
+  next: check_core_search_status
+
+# Since Ruuter 0.9.15-rc (issue turnerrainer/Ruuter#89) a connection refusal, DNS failure, TLS
+# handshake error or the timeout expiring binds a stub {status: 0, error: <kind>} instead of
+# aborting the run, so the availability-failure class reaches core_search_unavailable's semantic
+# 502 — same pattern as xroad/POST/v1/search.yml's check_core_status.
+check_core_search_status:
+  switch:
+    - condition: ${core_res.response.status == 0}
+      next: core_search_unavailable
+    - condition: ${core_res.response.status >= 400}
+      next: core_search_failed
+  next: normalize_results
+
+# Core does not answer in one shape: a local hit is raw get_consignments rows, broadcast/poll
+# results are xml-mapper ConsignmentRows. The normalizer accepts both and emits the same curated
+# projection as get_consignments_by_transport_means.sql — no xml blob, uil nested — which is what
+# keeps the local <-> allgates shape promise (ADR-007 variant A).
+normalize_results:
+  call: http.post
+  args:
+    url: "[#XML_MAPPER_URL]/api/v1/transport-means/normalize"
+    headers:
+      Content-Type: application/json
+      x-request-id: "${incoming.headers['x-road-id']}"
+    body: ${core_res.response.body}
+  result: norm_res
+  next: check_normalize
+
+# Same array discipline as check_lookup: error is the fall-through, an empty array is an explicit
+# accept, and a non-empty body must prove itself an array of projections via body[0].uil.
+check_normalize:
+  switch:
+    - condition: ${norm_res.response.status != 200}
+      next: normalize_failed
+    - condition: ${norm_res.response.body != null && norm_res.response.body.length == 0}
+      next: respond_allgates
+    - condition: ${norm_res.response.body != null && norm_res.response.body.length > 0 && norm_res.response.body[0] != null && norm_res.response.body[0].uil != null}
+      next: respond_allgates
+  next: normalize_failed
+
+# Same contract fields as respond_local, plus x-poll-more so the caller knows whether gates are
+# still answering. scope is a LITERAL, not the echo: every response through this step is a
+# cross-gate result — on the fresh path ${scope} is 'allgates' anyway, and on a poll the body's
+# scope (defaulted 'local' when omitted) describes the poll request, not the result. Labelling a
+# poll result 'local' or 'existence' would put a lie in a published enum field.
+# identifier/countryCode still echo the poll body — found and consignments are the meaningful
+# fields there.
+respond_allgates:
   return:
-    type: "https://api.efti.ee/errors/not-implemented"
-    code: "NOT_IMPLEMENTED"
-    title: "Not Implemented"
-    status: 501
-    detail: "scope 'allgates' is part of the published contract but not yet implemented; cross-gate fan-out arrives in a follow-up. Use scope 'local' for this gate's own register."
+    identifier: ${identifier}
+    countryCode: ${country_code}
+    scope: "allgates"
+    found: ${norm_res.response.body.length}
+    consignments: ${norm_res.response.body}
+  headers:
+    x-poll-more: ${core_res.response.headers['x-poll-more'] ?? 'false'}
   wrapper: false
-  status: 501
+  status: 200
   next: end
 
 bad_request_identifier:
@@ -279,9 +438,9 @@ ambiguous:
   status: 403
   next: end
 
-# Three distinct failure steps rather than one shared: this route makes two ReSql calls on any given
-# request, and a shared step could not tell an operator which one failed. openapi's XRoadBadGateway
-# documents `failedStep` for exactly this.
+# Distinct failure steps rather than one shared: this route makes up to three upstream calls on any
+# given request, and a shared step could not tell an operator which one failed. openapi's
+# XRoadBadGateway documents `failedStep` for exactly this.
 entitlement_lookup_failed:
   return:
     type: "https://api.efti.ee/errors/bad-gateway"
@@ -317,6 +476,56 @@ local_lookup_failed:
     detail: "The transport-means lookup failed in the gate's data layer. This is not an authorisation decision."
     failedStep: "get_consignments_by_transport_means"
     resqlStatus: ${local_res.response.status}
+  wrapper: false
+  status: 502
+  next: end
+
+# Normalised to 502 GATEWAY_UNAVAILABLE like search.yml's core_error: errors.json binds each code to
+# exactly one status and RFC 7807 requires body status to match HTTP status, so core's real status
+# and body travel in coreStatus / coreResponse instead.
+core_search_failed:
+  return:
+    type: "https://api.efti.ee/errors/bad-gateway"
+    code: "GATEWAY_UNAVAILABLE"
+    title: "Bad Gateway"
+    status: 502
+    detail: "The gate's cross-gate consignment search failed. The gate's own status and response are carried in coreStatus and coreResponse."
+    failedStep: "authority-search"
+    coreStatus: ${core_res.response.status}
+    coreResponse: ${core_res.response.body}
+  wrapper: false
+  status: 502
+  next: end
+
+# Transport failure reaching core (issue #89): core never produced a status. Distinct from
+# core_search_failed so an operator sees "unreachable" rather than "core returned 5xx".
+core_search_unavailable:
+  return:
+    type: "https://api.efti.ee/errors/bad-gateway"
+    code: "GATEWAY_UNAVAILABLE"
+    title: "Bad Gateway"
+    status: 502
+    detail: "The gate's core consignment search is unreachable. The transport failure kind is carried in transportError."
+    failedStep: "authority-search"
+    transportError: ${core_res.response.error}
+  wrapper: false
+  status: 502
+  next: end
+
+# Known limitation: on a POLL this failure loses data — the multiplexer's GET /rest is a drain, so
+# by the time normalisation runs the peer responses are already out of the 90s buffer, and retrying
+# the poll returns empty. Accepted for now: the normaliser is a local, stateless service whose
+# failure modes are deploy-time (down, incompatible), not per-request; a fallback that returned
+# core's un-normalised body would break the one-shape contract this route exists to keep.
+normalize_failed:
+  return:
+    type: "https://api.efti.ee/errors/bad-gateway"
+    code: "GATEWAY_UNAVAILABLE"
+    title: "Bad Gateway"
+    status: 502
+    detail: "Normalising the cross-gate search results failed in the gate's mapping layer. This is not an authorisation decision. If this was a poll, the drained results are lost — the caller must re-issue the original search."
+    failedStep: "transport-means-normalize"
+    mapperStatus: ${norm_res.response.status}
   wrapper: false
   status: 502
   next: end

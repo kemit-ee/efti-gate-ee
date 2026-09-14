@@ -1,8 +1,9 @@
 port: 8088
 
-# Standalone Ruuter for the PUBLIC developer mock (/developer/**). Kept in sync with ruuter.yaml
-# so an intended status is never silently swapped for a generic error. 501 is needed for the
-# transport-means mock's `scope: allgates` NOT_IMPLEMENTED response.
+# Standalone Ruuter for the PUBLIC developer mock (/developer/**). Same rationale as ruuter.yaml's
+# list — an intended status must never be silently swapped for a generic error — but no longer
+# identical to it: 501 stays here for the transport-means mock's `scope: allgates` NOT_IMPLEMENTED
+# response, while the real route implements allgates (issue #125) and ruuter.yaml dropped 501.
 http_codes_allow_list: [200, 201, 202, 204, 400, 401, 403, 404, 409, 422, 500, 501, 502, 504]
 
 dsl:

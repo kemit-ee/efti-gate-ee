@@ -19,11 +19,10 @@ openapi: 3.0.3
 #   - X-Road-UserId is caller-asserted, never authenticated, and never grants access.
 #
 # Implementation status on `dev`:
-#   - IMPLEMENTED:  echo, subsets
-#   - CONTRACT ONLY (routes not built yet): transport-means, search, dataset, follow-up.
-#     The request/response shapes below are the agreed contract (see the guide and
-#     ADR-007); `transport-means` `scope: allgates` response shape is still open
-#     (ADR-007 variants A/B/D).
+#   - IMPLEMENTED: echo, subsets, transport-means (all three scopes, incl. allgates + polling),
+#     search, dataset, follow-up.
+#   - `transport-means` `scope: allgates` returns the same curated shape as `local`
+#     (ADR-007, decided: variant A — xml-mapper normalization).
 # ---------------------------------------------------------------------------
 
 info:
@@ -229,8 +228,13 @@ paths:
 
         Gate-side route: `POST /xroad/v1/transport-means`.
 
-        **Status:** contract only — the route is not implemented on `dev`. `scope: allgates`
-        response shape is unresolved (ADR-007).
+        `scope: allgates` is **local-first**: a local hit answers immediately with
+        `x-poll-more: false`; the neighbour-gate broadcast runs only on a local miss. While
+        `x-poll-more: true`, poll with the same `X-Road-Id` and body `{ "poll": true }`.
+        Known limitation: neighbouring gates match the identifier against the **main
+        transport-means id only** — the eFTI search XML (FTI019) has no OR criterion, so the
+        equipment-id match (`used_equipment_ids` / `carried_equipment_ids`) applies to this
+        gate's own register but not to remote results.
       parameters:
         - $ref: '#/components/parameters/XRoadClient'
         - $ref: '#/components/parameters/XRoadId'
@@ -240,7 +244,9 @@ paths:
         content:
           application/json:
             schema:
-              oneOf:
+              # anyOf, not oneOf: a poll body may repeat identifier/scope for the echo, which
+              # makes it valid against both branches.
+              anyOf:
                 - $ref: '#/components/schemas/TransportMeansRequest'
                 - $ref: '#/components/schemas/PollRequest'
             examples:
@@ -719,19 +725,23 @@ components:
             Search scope, in ascending cost:
             - `existence` — local only, `{ identifier, countryCode, registered }`, p95 < 1 s.
             - `local` *(default)* — local only, full projection, synchronous.
-            - `allgates` — local + every neighbouring gate; same shape as `local`, results
-              accumulate asynchronously (`x-poll-more` + polling). **Not implemented yet
-              (ADR-007);** until then `allgates` returns `400 BAD_REQUEST_GENERAL` or behaves
-              as `local` — see the route's final state.
+            - `allgates` — local first, neighbouring gates on a local miss; same shape as
+              `local`, results accumulate asynchronously (`x-poll-more` + polling with
+              `{ "poll": true }` and the same `X-Road-Id`).
           enum: [existence, local, allgates]
 
     TransportMeansResponse:
       type: object
-      description: "Response for `scope: local` (and, once built, `allgates`)."
+      description: |
+        Response for `scope: local` and `scope: allgates` — identical shape by design
+        (ADR-007). On an `allgates` poll, `identifier`/`countryCode` echo the poll body
+        (empty string when omitted) and `scope` is always `allgates`;
+        `found`/`consignments` are the meaningful fields. Remote rows carry no `createdAt`.
       required: [identifier, found, consignments]
       properties:
         identifier: { type: string, example: "123ABC" }
         countryCode: { type: string, nullable: true, example: "EE" }
+        scope: { type: string, enum: [local, allgates], example: "local" }
         found:
           type: integer
           description: Always equals `consignments.length`.
@@ -747,6 +757,7 @@ components:
       properties:
         identifier: { type: string, example: "123ABC" }
         countryCode: { type: string, nullable: true, example: "EE" }
+        scope: { type: string, enum: [existence], example: "existence" }
         registered: { type: boolean, example: true }
 
     TransportMeansConsignment:
@@ -789,6 +800,21 @@ components:
         mainTransportId:
           allOf: [{ $ref: '#/components/schemas/StringCriterion' }]
           description: "value key: `id`"
+        transportMeansOrEquipmentId:
+          allOf: [{ $ref: '#/components/schemas/StringCriterion' }]
+          description: |
+            value key: `id`. The only OR criterion: matches when the id is the main
+            transport-means id OR appears in used/carried equipment ids (what
+            `transport-means` `scope: allgates` sends). Local register only — for the
+            cross-gate broadcast it degrades to `mainTransportId` (FTI019 has no OR
+            criterion), so remote gates match the main transport id alone.
+        status:
+          allOf: [{ $ref: '#/components/schemas/StringCriterion' }]
+          description: |
+            value key: `status` (`ACTIVE` / `INACTIVE`). Local register only — dropped from
+            the cross-gate broadcast (FTI019 has no status criterion). Without it the search
+            returns everything not `DELETED`; `transport-means` `scope: allgates` sends
+            `EQ ACTIVE` to match the curated projection's allowlist.
         mainTransportType:
           allOf: [{ $ref: '#/components/schemas/StringCriterion' }]
           description: "value key: `code`"
@@ -847,9 +873,10 @@ components:
         code: { type: string }
         country: { type: string }
         mode: { type: string, enum: ["1","2","3","4","5"] }
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
       description: |
         Exactly one value key is set, matching the field (`id` / `code` / `country` /
-        `mode`) — see each field's note in `SearchCriteria`.
+        `mode` / `status`) — see each field's note in `SearchCriteria`.
 
     DateCriterion:
       type: object
