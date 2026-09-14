@@ -20,7 +20,7 @@ SELECT
 FROM (
   SELECT DISTINCT ON (id) id, status, last_ping_at
   FROM gates WHERE id = :id
-  ORDER BY id, created_at DESC, row_id DESC
+  ORDER BY id, created_at DESC, revision DESC
 ) latest
 WHERE latest.status != 'DELETED'
 RETURNING

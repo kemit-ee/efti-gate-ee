@@ -11,7 +11,7 @@ FROM (
     row_id, id, api_key_hash, status::text AS status
   FROM platforms
   WHERE id IN (SELECT id FROM platforms WHERE api_key_hash = digest(:apiKey, 'sha256'))
-  ORDER BY id, created_at DESC, row_id DESC
+  ORDER BY id, created_at DESC, revision DESC
 ) latest
 WHERE latest.status IN ('ONLINE', 'OFFLINE')
   AND latest.api_key_hash = digest(:apiKey, 'sha256');

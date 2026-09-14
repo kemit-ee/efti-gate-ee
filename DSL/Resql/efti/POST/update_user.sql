@@ -13,7 +13,7 @@ FROM (
   SELECT DISTINCT ON (id) id, tara_sub, secret_hash, token_revoked_at, is_active, created_at, row_id
   FROM users
   WHERE id = :id::uuid
-  ORDER BY id, created_at DESC, row_id DESC
+  ORDER BY id, created_at DESC, revision DESC
 ) latest
 -- Column list matches get_user_by_id so the update handler can return this row directly.
 RETURNING

@@ -15,7 +15,7 @@ FROM (
     id, tara_sub, name, token_revoked_at, is_active, created_at, row_id
   FROM users
   WHERE id IN (SELECT id FROM users WHERE tara_sub = :tara_sub)
-  ORDER BY id, created_at DESC, row_id DESC
+  ORDER BY id, created_at DESC, revision DESC
 ) u
 WHERE u.tara_sub = :tara_sub
   AND u.is_active = TRUE

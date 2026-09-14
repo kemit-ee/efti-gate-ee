@@ -39,7 +39,7 @@ FROM (
   -- carrying a corrected registry_code, still wins and is then rejected by the outer WHERE.
   -- Without this the subquery scans and sorts the whole table on every X-Road request.
   WHERE id IN (SELECT id FROM authorities WHERE registry_code = :registry_code)
-  ORDER BY id, created_at DESC, row_id DESC
+  ORDER BY id, created_at DESC, revision DESC
 ) a
 WHERE a.registry_code = :registry_code
   AND a.status = 'ACTIVE'

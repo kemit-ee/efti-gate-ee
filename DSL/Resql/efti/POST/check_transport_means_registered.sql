@@ -44,7 +44,7 @@ SELECT EXISTS (
       status::text AS status
     FROM consignments
     WHERE dataset_id = candidate.dataset_id AND platform_id = candidate.platform_id
-    ORDER BY created_at DESC, row_id DESC
+    ORDER BY created_at DESC, revision DESC
     LIMIT 1
   ) latest
   WHERE (latest.main_transport_id = :transport_means_id

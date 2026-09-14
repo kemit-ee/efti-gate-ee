@@ -15,6 +15,6 @@ FROM (
   SELECT DISTINCT ON (id) *
   FROM users
   WHERE id IN (SELECT id FROM users WHERE tara_sub = :tara_sub)
-  ORDER BY id, created_at DESC, row_id DESC
+  ORDER BY id, created_at DESC, revision DESC
 ) latest
 WHERE tara_sub = :tara_sub;

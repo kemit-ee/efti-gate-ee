@@ -14,7 +14,7 @@ SELECT * FROM (
     status::text,
     created_at
   FROM authorities
-  ORDER BY id, created_at DESC, row_id DESC
+  ORDER BY id, created_at DESC, revision DESC
 ) latest
 WHERE status != 'DELETED'
 ORDER BY id

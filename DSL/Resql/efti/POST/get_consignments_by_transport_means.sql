@@ -78,6 +78,7 @@ CROSS JOIN LATERAL (
   -- the DISTINCT ON sort, which would otherwise carry the whole blob per candidate row for nothing.
   SELECT
     row_id,
+    revision,
     dataset_id,
     platform_id,
     gate_id,
@@ -103,7 +104,7 @@ CROSS JOIN LATERAL (
     created_at
   FROM consignments
   WHERE dataset_id = candidate.dataset_id AND platform_id = candidate.platform_id
-  ORDER BY created_at DESC, row_id DESC
+  ORDER BY created_at DESC, revision DESC
   LIMIT 1
 ) latest
 -- The latest row must still carry the identifier, on whichever of the three it was found.
@@ -123,7 +124,7 @@ WHERE (latest.main_transport_id = :transport_means_id
   -- Note this filters the TRANSPORT MEANS registration country, so it is meaningful for a plate and
   -- largely meaningless for a container id; a caller searching equipment should omit it.
   AND (:country_code IS NULL OR :country_code = '' OR latest.transport_reg_country = :country_code)
-ORDER BY latest.created_at DESC, latest.row_id DESC
+ORDER BY latest.created_at DESC, latest.revision DESC
 -- Server-fixed, NOT caller-supplied. A common identifier can match many consignments, and a
 -- caller-controlled limit is how an identifier lookup turns into a bulk-export tool.
 LIMIT 50;

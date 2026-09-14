@@ -48,7 +48,7 @@ WHERE c.status != 'DELETED'
     SELECT 1 FROM consignments c2
     WHERE c2.platform_id = c.platform_id
       AND c2.dataset_id  = c.dataset_id
-      AND (c2.created_at, c2.row_id) > (c.created_at, c.row_id)
+      AND (c2.created_at, c2.revision) > (c.created_at, c.revision)
   )
   AND (:gateId IS NULL OR gate_id = :gateId)
   AND (:criteria->>'transportMode' IS NULL
@@ -201,5 +201,5 @@ WHERE c.status != 'DELETED'
        OR :criteria->'unloadingDate'->1->>'operator' = 'GT' AND unloading_date > (:criteria->'unloadingDate'->1->>'date')::timestamptz
        OR :criteria->'unloadingDate'->1->>'operator' = 'GE' AND unloading_date >= (:criteria->'unloadingDate'->1->>'date')::timestamptz
   )
-ORDER BY created_at DESC, row_id DESC
+ORDER BY created_at DESC, revision DESC
 LIMIT LEAST(GREATEST(COALESCE(:limit, 100), 0), 1000) OFFSET GREATEST(COALESCE(:offset, 0), 0);

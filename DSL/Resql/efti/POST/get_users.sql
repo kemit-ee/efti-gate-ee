@@ -14,7 +14,7 @@ SELECT * FROM (
     is_active AS is_user_active,
     created_at
   FROM users
-  ORDER BY id, created_at DESC, row_id DESC
+  ORDER BY id, created_at DESC, revision DESC
 ) latest
 WHERE is_user_active = true
 ORDER BY id

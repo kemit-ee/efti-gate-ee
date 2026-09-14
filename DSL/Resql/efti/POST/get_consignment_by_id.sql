@@ -18,7 +18,7 @@ FROM (
   FROM consignments
   WHERE dataset_id = :datasetId::uuid
     AND (:platformId IS NULL OR platform_id = :platformId)
-  ORDER BY dataset_id, platform_id, created_at DESC, row_id DESC
+  ORDER BY dataset_id, platform_id, created_at DESC, revision DESC
 ) latest
 WHERE :gateId IS NULL OR gate_id = :gateId
 ORDER BY platform_id;

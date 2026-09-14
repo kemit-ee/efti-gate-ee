@@ -63,7 +63,7 @@ FROM (
     *
   FROM consignments
   WHERE dataset_id = :datasetId::uuid AND platform_id = :platformId
-  ORDER BY dataset_id, platform_id, created_at DESC, row_id DESC
+  ORDER BY dataset_id, platform_id, created_at DESC, revision DESC
 ) latest
 WHERE latest.gate_id = :gateId AND latest.status != 'DELETED'
 RETURNING

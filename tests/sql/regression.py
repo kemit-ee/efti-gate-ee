@@ -286,7 +286,7 @@ class MigrationPrototype(unittest.TestCase):
                 time.sleep(0.1)
             else:
                 self.fail("Delete did not acquire the registry lock")
-            with self.assertRaisesRegex(RuntimeError, "Cannot modify deleted"):
+            with self.assertRaisesRegex(RuntimeError, "Cannot reactivate deleted"):
                 sql("SET ROLE app; INSERT INTO gates (id,country_code,e_delivery_url,status) VALUES ('EU-EE','EE','http://gate','ONLINE');")
             deleting.result()
         self.assertEqual("DELETED", sql("SELECT status FROM gates WHERE id='EU-EE' ORDER BY created_at DESC,revision DESC LIMIT 1;").strip())
@@ -324,6 +324,7 @@ def benchmark():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--performance", action="store_true", help="Also measure plans on 100,000 synthetic consignments")
+    parser.add_argument("--init", action="store_true", help="Test the consolidated fresh-install schema instead of upgrade SQL")
     parser.add_argument("--migration-prototype", action="store_true", help="Apply proposed SQL from stdin only inside the disposable database")
     options = parser.parse_args()
     prototype = sys.stdin.read() if options.migration_prototype else None
@@ -338,19 +339,21 @@ def main():
                 time.sleep(0.25)
         else:
             raise RuntimeError("Disposable PostgreSQL did not become ready")
-        for path in sorted((ROOT / "DSL/Liquibase/initial").glob("*.sql")):
+        paths = [ROOT / "DSL/Liquibase/init.sql"] if options.init else sorted((ROOT / "DSL/Liquibase/initial").glob("*.sql"))
+        for path in paths:
             try:
                 sql(path.read_text())
             except RuntimeError as error:
                 raise RuntimeError(path.name + ": " + str(error)) from error
-        sql((ROOT / "DSL/Liquibase/changelog/20260902-platform-api-key.sql").read_text())
+        if not options.init:
+            sql((ROOT / "DSL/Liquibase/changelog/20260902-platform-api-key.sql").read_text())
         migration = ROOT / "DSL/Liquibase/changelog/20260914-latest-row-order.sql"
-        if migration.exists():
+        if migration.exists() and not options.init:
             sql(migration.read_text())
         elif prototype:
             sql(prototype)
         suite = unittest.defaultTestLoader.loadTestsFromTestCase(Queries)
-        if prototype:
+        if prototype or migration.exists():
             suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(MigrationPrototype))
         result = unittest.TextTestRunner(verbosity=2).run(suite)
         if result.wasSuccessful() and options.performance:

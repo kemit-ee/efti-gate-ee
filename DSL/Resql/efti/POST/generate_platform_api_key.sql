@@ -14,7 +14,7 @@ latest AS (
     id, base_url, headers, e_delivery_cert, tls_cert, status
   FROM platforms
   WHERE id = :id
-  ORDER BY id, created_at DESC, row_id DESC
+  ORDER BY id, created_at DESC, revision DESC
 ),
 ins AS (
   INSERT INTO platforms (

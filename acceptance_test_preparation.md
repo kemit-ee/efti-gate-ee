@@ -142,18 +142,18 @@ ja senine lihtne dataset ei muutu; subset-põhist XML-filtreerimist mock ei tee.
 Genereerimise ja täpse embedded XML-i XSD kontroll: `python3 tests/mock/dataset.py` — 2/2 läbis.
 API-kasutus on kirjeldatud `docs/developer/x_road_developer_mock.md`.
 
-## Eraldi heakskiitu vajav migratsioonikavand
+## DB-migratsioon ja värske install
 
-Migratsioonikavandi faili lisamine PR-i peatati automaatse õiguskontrolliga. Seda ei ole `DSL/Liquibase/changelog` all ja standardne CI/Compose seda ei rakenda. Eraldatud testibaasis kontrollitud kavand:
+`DSL/Liquibase/changelog/20260914-latest-row-order.sql` on lisatud standardse master-changelog'i includeAll alla ning käivitub Liquibase'i update'iga. Koondatud `DSL/Liquibase/init.sql` sisaldab algset skeemi ja hilisemaid DDL-muudatusi, sh API-võtme veerge, eemaldatud vanu rolle/sertifikaadivälju ning revision/lukustusloogikat. See on tühja andmebaasi snapshot, ilma dev-seedita. Olemasolev install kasutab endiselt master-changelog'i; varem rakendatud init-changeset'ide sisu/checksum'e ei muudeta.
 
 - Lisab `revision BIGINT GENERATED ALWAYS AS IDENTITY` tabelitele `users`, `gates`, `platforms`, `authorities`, `consignments`.
 - Uuendab nende viit latest-indeksit kujule `(logical key, created_at DESC, revision DESC)` ja annab `app` rollile vastavate sequence'ide kasutusõiguse.
 - Lisab neljale registritabelile BEFORE INSERT triggeri, mis võtab logical-ID järgi advisory transaction lock'i, määrab järjestusnumbri luku all ja kontrollib seejärel värsket latest-kirjet.
 - Takistab kustutatud gate/platform/authority taasaktiveerimist paralleelse stale-write'iga; kasutajal säilitab mitteaktiivsuse ja suurima token-revocation cutoff'i; platformil ei kirjuta vanema generation-ajaga API-võti uuemat võtit üle.
-- Vajab SQL latest-võrdluste ühist üleminekut `row_id` tie-breaker'ilt `revision`-ile ja sama reeglit välises arhiveerimises.
+- SQL latest-võrdlused on üle viidud `revision`-ile. Välise arhiveerimise latest-reegel peab samuti kasutama `(created_at, revision)`.
 
-Kavandi neli lisatesti tõendasid equal-timestamp järjestust, paralleelse kustutamise järel stale-update'i keelamist, kasutaja revocation/aktiivsuse säilimist ning platformi vana võtme taastamise keelamist. 23 olemasoleva regressiooni ja nende nelja kontrolli tulemus oli 27/27.
+Migratsiooni neli lisatesti tõendasid equal-timestamp järjestust, paralleelse kustutamise järel stale-update'i keelamist, kasutaja revocation/aktiivsuse säilimist ning platformi vana võtme taastamise keelamist. 23 olemasoleva regressiooni ja nende nelja kontrolli tulemus oli 27/27. Sama regressioonikomplekt käivitatakse CI-s eraldi ka koondatud init-skeemil.
 
-Püsiva migratsiooni ADD COLUMN/index-build võtab tabelilukke ja võib olemasolevat tabelit ümber kirjutada; seda tuleb mahu järgi planeerida. Vanade võrdsete ajatemplitega kirjete tegelikku ajaloolist järjekorda ei saa tagantjärele taastada: backfill saab neile üheselt määratud järjestuse. Migratsioonifaili lisamise heakskiit ei ole tootmises käivitamise ega PR-i merge'i heakskiit.
+Migratsiooni ADD COLUMN/index-build võtab tabelilukke ja võib olemasolevat tabelit ümber kirjutada. Vanade võrdsete ajatemplitega kirjete tegelikku ajaloolist järjekorda ei saa tagantjärele taastada: backfill määrab üheselt järjekorra. Värske live-install peab saama keskkonnast õiged rollide paroolid ja saladused; snapshot'i rollide vaikimisi paroolid pärinevad olemasolevast arendusskeemist.
 
-Kuni migratsiooni pole heaks kiidetud/rakendatud, ei loeta UUID järgi tie-breaker'it kronoloogiliseks lahenduseks ega SQL latest-first üksi paralleelsete registrikirjutuste serialiseerimise tõendiks. Paranduste PR jääb selle küsimuse jaoks draft'iks.
+Revision on võrdsete created_at väärtuste järjekord; created_at jääb esmaseks latest-võtmeks. Migratsioon ja uus SQL tuleb võtta kasutusele koos. PR-i valmiduse määravad lõplikud CI kontrollid.

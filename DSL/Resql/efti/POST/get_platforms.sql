@@ -19,7 +19,7 @@ SELECT * FROM (
     (api_key_hash IS NOT NULL) AS has_api_key,
     created_at
   FROM platforms
-  ORDER BY id, created_at DESC, row_id DESC
+  ORDER BY id, created_at DESC, revision DESC
 ) latest
 WHERE :status IS NULL AND status != 'DELETED' OR status = :status
 ORDER BY id

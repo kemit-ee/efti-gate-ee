@@ -37,6 +37,8 @@ jobs:
           python3 tests/mock/dataset.py
       - name: append-only SQL regression checks (disposable PostgreSQL)
         run: python3 tests/sql/regression.py
+      - name: fresh-install schema regression checks
+        run: python3 tests/sql/regression.py --init
 
   e2e:
     runs-on: ubuntu-latest
@@ -60,6 +62,7 @@ jobs:
       - name: Build CI images
         run: |
           docker buildx bake \
+            --set 'ruuter.args.DEV_LOGIN_ENABLED=true' \
             --set '*.cache-from=type=gha' \
             --set '*.cache-to=type=gha,mode=max'
 

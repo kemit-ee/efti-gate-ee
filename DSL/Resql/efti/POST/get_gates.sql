@@ -17,7 +17,7 @@ SELECT * FROM (
     last_ping_at,
     created_at
   FROM gates
-  ORDER BY id, created_at DESC, row_id DESC
+  ORDER BY id, created_at DESC, revision DESC
 ) latest
 WHERE :status IS NULL AND status != 'DELETED' OR status = :status
 ORDER BY id
