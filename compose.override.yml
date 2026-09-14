@@ -5,7 +5,7 @@ services:
       - "${EFTI_DB_PORT:-54321}:5432"
   resql:
     ports:
-      - "${EFTI_RESQL_PORT:-8090}:8090"
+      - "127.0.0.1:${EFTI_RESQL_PORT:-8090}:8090"
     develop:
       watch:
         - action: sync+restart

@@ -1,0 +1,22 @@
+mode: mock-http
+constants:
+  RESQL_URL: "{MOCK}"
+tests:
+  - name: local database failure must not start a cross-gate broadcast
+    setup:
+      mocks:
+        - url_matches: /efti/get_consignments
+          method: POST
+          status: 500
+          body: []
+          headers: { X-Resql-Error-Code: ResqlRuntimeException }
+    request:
+      method: POST
+      path: /efti/api/v1/authority/search
+      headers:
+        content-type: application/json
+        x-internal-service-token: dev-internal-service-token-change-me
+      body: { mainTransportId: { operator: EQ, id: TEST } }
+    expect:
+      status: 502
+      body_matches: { code: GATEWAY_UNAVAILABLE }

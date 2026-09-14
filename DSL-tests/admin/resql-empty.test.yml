@@ -1,0 +1,22 @@
+mode: mock-http
+constants:
+  RUUTER_URL: "{MOCK}"
+  RESQL_URL: "{MOCK}"
+
+tests:
+  - name: successful empty array still means missing platform
+    setup:
+      mocks:
+        - url_matches: /efti/internal/check-admin-authority
+          method: POST
+          body: { id: "EE60001019906" }
+        - url_matches: /efti/get_platform_by_id
+          method: POST
+          body: []
+    request:
+      method: GET
+      path: /admin/v1/platforms/mock
+      headers: { authorization: "Bearer test" }
+    expect:
+      status: 404
+      body: { error: "Not Found" }

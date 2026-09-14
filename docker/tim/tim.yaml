@@ -27,6 +27,12 @@ security:
   require_admin_token: true
   cors_allowed_origins: []
 
+introspection:
+  required_client_auth: true
+  clients:
+    - client_id: ruuter
+      client_secret_env: TIM_INTROSPECT_RUUTER_SECRET
+
 oauth2:
   session_store: "memory"
   session_ttl_seconds: 86400

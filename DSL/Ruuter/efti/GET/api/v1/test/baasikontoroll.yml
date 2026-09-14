@@ -11,6 +11,18 @@ check_db:
     body: {}
   result: db_status
 
+check_status:
+  switch:
+    - condition: ${db_status.response.status == 0 || db_status.response.status >= 300}
+      next: unavailable
+
 respond:
   return: ${db_status.response.body}
   wrapper: false
+  next: end
+
+unavailable:
+  return: {"error": "Database unavailable"}
+  status: 503
+  wrapper: false
+  next: end

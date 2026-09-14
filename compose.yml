@@ -47,9 +47,9 @@ services:
       # references this by name via password_env rather than embedding it in
       # the datasource URL.
       - RESQL_EFTI_PASSWORD=01234
-    # The base image ships a healthcheck against :8080; ReSQL listens on :8090.
+    # The distroless image provides its own probe; ReSQL listens on :8090.
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8090/health || exit 1"]
+      test: ["CMD", "/app/resql", "health", "--url", "http://127.0.0.1:8090/health"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -196,6 +196,7 @@ services:
     environment:
       - TIM_DATABASE_URL=postgres://tim:tim-secret@tim-database:5432/tim
       - TIM_ADMIN_TOKEN=dev-tim-admin-token
+      - TIM_INTROSPECT_RUUTER_SECRET=${TIM_INTROSPECT_RUUTER_SECRET:-dev-introspect-secret}
       - TIM_TARA_CLIENT_ID=efti
       - TIM_TARA_CLIENT_SECRET=efti-secret
     volumes:

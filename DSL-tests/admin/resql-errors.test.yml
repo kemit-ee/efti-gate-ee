@@ -1,0 +1,26 @@
+mode: mock-http
+constants:
+  RUUTER_URL: "{MOCK}"
+  RESQL_URL: "{MOCK}"
+
+tests:
+  - name: database error with empty array is unavailable, not missing platform
+    setup:
+      mocks:
+        - url_matches: /efti/internal/check-admin-authority
+          method: POST
+          body: { id: "EE60001019906" }
+        - url_matches: /efti/get_platform_by_id
+          method: POST
+          status: 500
+          body: []
+          headers:
+            X-Resql-Error-Code: ResqlRuntimeException
+            X-Resql-Error-Message: database unavailable
+    request:
+      method: GET
+      path: /admin/v1/platforms/mock
+      headers: { authorization: "Bearer test" }
+    expect:
+      status: 502
+      body: { error: "Data layer unavailable" }

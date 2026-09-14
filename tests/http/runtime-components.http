@@ -1,0 +1,38 @@
+### ReSQL rejects invalid parameters with its headers envelope
+POST {{RESQL_URL}}/efti/get_platform_by_id
+Content-Type: application/json
+
+{"id":"mock","unexpectedRuntimeUpgradeField":true}
+
+> {%
+  client.test("ReSQL error envelope", () => {
+    client.assert(response.status === 400);
+    client.assert(Array.isArray(response.body) && response.body.length === 0);
+    client.assert(response.headers.valueOf("X-Resql-Error-Code") != null);
+    client.assert(response.headers.valueOf("X-Resql-Error-Message") != null);
+  });
+%}
+
+### Multiplexer returns raw XML text, not a JSON-encoded string
+GET {{MULTIPLEXER_URL}}/api/v1/rest/00000000-0000-4000-8000-000000000000
+
+> {%
+  client.test("Multiplexer XML wire contract", () => {
+    client.assert(response.status === 200);
+    client.assert(response.headers.valueOf("Content-Type").includes("xml"));
+    client.assert(response.headers.valueOf("x-poll-more") === "false");
+    client.assert(response.body === "" || response.body == null);
+  });
+%}
+
+### TIM introspection requires client authentication
+POST {{TIM_URL}}/introspect
+Content-Type: application/json
+
+{"token":"invalid-test-token"}
+
+> {%
+  client.test("TIM introspection denies missing client credentials", () => {
+    client.assert(response.status === 401);
+  });
+%}

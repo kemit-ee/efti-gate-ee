@@ -1,0 +1,9 @@
+mode: inprocess
+tests:
+  - name: known GET health route rejects POST with method contract
+    request:
+      method: POST
+      path: /efti/health/ready
+    expect:
+      status: 405
+      headers: { Allow: GET }

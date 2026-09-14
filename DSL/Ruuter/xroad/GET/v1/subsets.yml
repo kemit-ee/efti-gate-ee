@@ -38,7 +38,7 @@ check_authority:
     # Transport failure reaching ReSql (issue #89, status 0) is a gate-side data-layer outage, not
     # an authorisation answer — must not be reported to the caller as "you are not a competent
     # authority". Kept ahead of the != 200 catch-all.
-    - condition: ${authority_res.response.status == 0}
+    - condition: ${authority_res.response.status == 0 || authority_res.response.status >= 300}
       next: entitlement_lookup_failed
     - condition: ${authority_res.response.status != 200}
       next: forbidden

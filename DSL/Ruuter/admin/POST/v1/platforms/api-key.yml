@@ -16,7 +16,7 @@ check_exists:
 
 check_found:
   switch:
-    - condition: ${exists_result.response.status == 0}
+    - condition: ${exists_result.response.status == 0 || exists_result.response.status >= 300}
       next: upstream_unavailable
     - condition: ${!exists_result.response.body.length}
       next: not_found

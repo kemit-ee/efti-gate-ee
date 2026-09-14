@@ -29,6 +29,11 @@ local_search:
       criteria: ${criteria_json.response.body}
   result: local_result
 
+check_local:
+  switch:
+    - condition: ${local_result.response.status == 0 || local_result.response.status >= 300}
+      next: data_unavailable
+
 to_xml:
   call: http.post
   args:
@@ -45,3 +50,10 @@ respond:
     Content-Type: "text/xml"
   wrapper: false
   status: 200
+  next: end
+
+data_unavailable:
+  return: {"error": "Data layer unavailable"}
+  status: 502
+  wrapper: false
+  next: end

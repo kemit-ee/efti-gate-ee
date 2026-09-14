@@ -19,7 +19,7 @@ fun main() {
   }
 
   Server(requestIdGenerator = RequestIdHandler(), registry = registry).apply {
-    use<JsonBody>()
+    useOnly<EDeliveryBody>()
     register(httpClient())
     register<RuuterClient>(if (Config.isProd) RuuterClient::class else RuuterClientDev::class)
     register<PartyRegistry>(EDeliveryPartyRegistry::class)
@@ -53,5 +53,12 @@ fun main() {
     }
 
     start()
+  }
+}
+
+class EDeliveryBody: JsonBody() {
+  override fun render(e: HttpExchange, code: StatusCode, value: Any?) {
+    if (value is String) e.send(code, value, MimeTypes.xml)
+    else super.render(e, code, value)
   }
 }

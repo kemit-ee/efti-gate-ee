@@ -20,7 +20,7 @@ fetch_single:
 
 check_single:
   switch:
-    - condition: ${single_result.response.status == 0}
+    - condition: ${single_result.response.status == 0 || single_result.response.status >= 300}
       next: upstream_unavailable
     - condition: ${!single_result.response.body.length}
       next: not_found
@@ -43,7 +43,7 @@ fetch_list:
 
 check_list:
   switch:
-    - condition: ${list_result.response.status == 0}
+    - condition: ${list_result.response.status == 0 || list_result.response.status >= 300}
       next: upstream_unavailable
 
 respond_list:

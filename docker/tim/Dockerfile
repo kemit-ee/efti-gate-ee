@@ -1,4 +1,4 @@
-FROM turnerrainer/tim:0.3.0-alpha
+FROM turnerrainer/tim:0.4.0-alpha
 
 USER root
 RUN apt-get update -qq && \

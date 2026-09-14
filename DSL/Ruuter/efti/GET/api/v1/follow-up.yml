@@ -16,6 +16,18 @@ get_follow_up:
       offset: "${incoming.params.offset}"
   result: follow_up_result
 
+check_result:
+  switch:
+    - condition: ${follow_up_result.response.status == 0 || follow_up_result.response.status >= 300}
+      next: data_unavailable
+
 respond:
   return: ${follow_up_result.response.body}
   wrapper: false
+  next: end
+
+data_unavailable:
+  return: {"error": "Data layer unavailable"}
+  status: 502
+  wrapper: false
+  next: end

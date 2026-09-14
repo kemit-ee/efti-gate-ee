@@ -126,9 +126,22 @@ local_search:
 
 check_local:
   switch:
+    - condition: ${local_result.response.status == 0 || local_result.response.status >= 300}
+      next: local_unavailable
     - condition: ${local_result.response.body.length > 0}
       next: respond_local
   next: criteria_to_xml
+
+local_unavailable:
+  return:
+    type: "https://api.efti.ee/errors/bad-gateway"
+    code: "GATEWAY_UNAVAILABLE"
+    title: "Bad Gateway"
+    status: 502
+    detail: "Searching this gate's consignments failed in the data layer."
+  status: 502
+  wrapper: false
+  next: end
 
 # Local hit: authoritative for this gate's own consignments, return it and stop.
 respond_local:

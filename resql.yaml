@@ -9,6 +9,9 @@ project_datasource_map: {}
 
 allow_datasource_header: false
 
+security:
+  trust_network: true
+
 datasources:
   - name: efti
     # Credential-free URL — Resql injects username/password from password_env at
