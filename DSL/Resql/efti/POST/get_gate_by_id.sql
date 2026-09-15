@@ -15,4 +15,4 @@ SELECT DISTINCT ON (id)
   created_at
 FROM gates
 WHERE id = :id
-ORDER BY id, created_at DESC;
+ORDER BY id, created_at DESC, revision DESC;

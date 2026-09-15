@@ -1,0 +1,18 @@
+mode: mock-http
+constants:
+  RESQL_URL: "{MOCK}"
+
+tests:
+  - name: object imitating a one-element array cannot authenticate a platform
+    setup:
+      mocks:
+        - url_matches: /efti/get_platform_by_api_key
+          method: POST
+          body: { length: 1, "0": { id: "mock" } }
+    request:
+      method: POST
+      path: /platforms/v1/consignments
+      headers: { content-type: "text/xml", x-api-key: "valid-key" }
+      body: "<FTI004UploadIdentifierRequest/>"
+    expect:
+      status: 401

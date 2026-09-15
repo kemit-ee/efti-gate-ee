@@ -13,4 +13,4 @@ SELECT DISTINCT ON (id)
   created_at
 FROM users
 WHERE id = :userId::uuid
-ORDER BY id, created_at DESC;
+ORDER BY id, created_at DESC, revision DESC;

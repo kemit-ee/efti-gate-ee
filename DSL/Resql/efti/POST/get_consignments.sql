@@ -48,7 +48,7 @@ WHERE c.status != 'DELETED'
     SELECT 1 FROM consignments c2
     WHERE c2.platform_id = c.platform_id
       AND c2.dataset_id  = c.dataset_id
-      AND c2.created_at   > c.created_at
+      AND (c2.created_at, c2.revision) > (c.created_at, c.revision)
   )
   AND (:gateId IS NULL OR gate_id = :gateId)
   AND (:criteria->>'transportMode' IS NULL
@@ -118,32 +118,32 @@ WHERE c.status != 'DELETED'
        OR :criteria->'unloadingCountry'->>'operator' = 'NE' AND unloading_country != :criteria->'unloadingCountry'->>'country'
   )
   AND (:criteria->>'usedEquipmentId' IS NULL
-       OR :criteria->'usedEquipmentId'->>'operator' = 'EQ' AND :criteria->'usedEquipmentId'->>'id' = any(used_equipment_ids)
-       OR :criteria->'usedEquipmentId'->>'operator' = 'NE' AND :criteria->'usedEquipmentId'->>'id' != any(used_equipment_ids)
+       OR :criteria->'usedEquipmentId'->>'operator' = 'EQ' AND used_equipment_ids @> ARRAY[:criteria->'usedEquipmentId'->>'id']
+       OR :criteria->'usedEquipmentId'->>'operator' = 'NE' AND NOT (coalesce(used_equipment_ids, '{}') @> ARRAY[:criteria->'usedEquipmentId'->>'id'])
   )
   AND (:criteria->>'usedEquipmentCategory' IS NULL
-       OR :criteria->'usedEquipmentCategory'->>'operator' = 'EQ' AND :criteria->'usedEquipmentCategory'->>'code' = any(used_equipment_categories)
-       OR :criteria->'usedEquipmentCategory'->>'operator' = 'NE' AND :criteria->'usedEquipmentCategory'->>'code' != any(used_equipment_categories)
+       OR :criteria->'usedEquipmentCategory'->>'operator' = 'EQ' AND used_equipment_categories @> ARRAY[:criteria->'usedEquipmentCategory'->>'code']
+       OR :criteria->'usedEquipmentCategory'->>'operator' = 'NE' AND NOT (coalesce(used_equipment_categories, '{}') @> ARRAY[:criteria->'usedEquipmentCategory'->>'code'])
   )
   AND (:criteria->>'usedEquipmentCountry' IS NULL
-       OR :criteria->'usedEquipmentCountry'->>'operator' = 'EQ' AND :criteria->'usedEquipmentCountry'->>'country' = any(used_equipment_countries)
-       OR :criteria->'usedEquipmentCountry'->>'operator' = 'NE' AND :criteria->'usedEquipmentCountry'->>'country' != any(used_equipment_countries)
+       OR :criteria->'usedEquipmentCountry'->>'operator' = 'EQ' AND used_equipment_countries @> ARRAY[:criteria->'usedEquipmentCountry'->>'country']
+       OR :criteria->'usedEquipmentCountry'->>'operator' = 'NE' AND NOT (coalesce(used_equipment_countries, '{}') @> ARRAY[:criteria->'usedEquipmentCountry'->>'country'])
   )
   AND (:criteria->>'usedEquipmentSeq' IS NULL
-       OR :criteria->'usedEquipmentSeq'->>'operator' = 'EQ' AND (:criteria->'usedEquipmentSeq'->>'sequence')::integer = any(used_equipment_seq)
-       OR :criteria->'usedEquipmentSeq'->>'operator' = 'NE' AND (:criteria->'usedEquipmentSeq'->>'sequence')::integer != any(used_equipment_seq)
+       OR :criteria->'usedEquipmentSeq'->>'operator' = 'EQ' AND used_equipment_seq @> ARRAY[(:criteria->'usedEquipmentSeq'->>'sequence')::integer]
+       OR :criteria->'usedEquipmentSeq'->>'operator' = 'NE' AND NOT (coalesce(used_equipment_seq, '{}') @> ARRAY[(:criteria->'usedEquipmentSeq'->>'sequence')::integer])
   )
   AND (:criteria->>'carriedEquipmentId' IS NULL
-       OR :criteria->'carriedEquipmentId'->>'operator' = 'EQ' AND :criteria->'carriedEquipmentId'->>'id' = any(carried_equipment_ids)
-       OR :criteria->'carriedEquipmentId'->>'operator' = 'NE' AND :criteria->'carriedEquipmentId'->>'id' != any(carried_equipment_ids)
+       OR :criteria->'carriedEquipmentId'->>'operator' = 'EQ' AND carried_equipment_ids @> ARRAY[:criteria->'carriedEquipmentId'->>'id']
+       OR :criteria->'carriedEquipmentId'->>'operator' = 'NE' AND NOT (coalesce(carried_equipment_ids, '{}') @> ARRAY[:criteria->'carriedEquipmentId'->>'id'])
   )
   AND (:criteria->>'carriedEquipmentCategory' IS NULL
-       OR :criteria->'carriedEquipmentCategory'->>'operator' = 'EQ' AND :criteria->'carriedEquipmentCategory'->>'code' = any(carried_equipment_categories)
-       OR :criteria->'carriedEquipmentCategory'->>'operator' = 'NE' AND :criteria->'carriedEquipmentCategory'->>'code' != any(carried_equipment_categories)
+       OR :criteria->'carriedEquipmentCategory'->>'operator' = 'EQ' AND carried_equipment_categories @> ARRAY[:criteria->'carriedEquipmentCategory'->>'code']
+       OR :criteria->'carriedEquipmentCategory'->>'operator' = 'NE' AND NOT (coalesce(carried_equipment_categories, '{}') @> ARRAY[:criteria->'carriedEquipmentCategory'->>'code'])
   )
   AND (:criteria->>'carriedEquipmentSeq' IS NULL
-       OR :criteria->'carriedEquipmentSeq'->>'operator' = 'EQ' AND (:criteria->'carriedEquipmentSeq'->>'sequence')::integer = any(carried_equipment_seq)
-       OR :criteria->'carriedEquipmentSeq'->>'operator' = 'NE' AND (:criteria->'carriedEquipmentSeq'->>'sequence')::integer != any(carried_equipment_seq)
+       OR :criteria->'carriedEquipmentSeq'->>'operator' = 'EQ' AND carried_equipment_seq @> ARRAY[(:criteria->'carriedEquipmentSeq'->>'sequence')::integer]
+       OR :criteria->'carriedEquipmentSeq'->>'operator' = 'NE' AND NOT (coalesce(carried_equipment_seq, '{}') @> ARRAY[(:criteria->'carriedEquipmentSeq'->>'sequence')::integer])
   )
   AND (:criteria->'acceptanceDate'->>0 IS NULL
        OR :criteria->'acceptanceDate'->0->>'operator' = 'EQ' AND acceptance_date = (:criteria->'acceptanceDate'->0->>'date')::timestamptz
@@ -201,5 +201,5 @@ WHERE c.status != 'DELETED'
        OR :criteria->'unloadingDate'->1->>'operator' = 'GT' AND unloading_date > (:criteria->'unloadingDate'->1->>'date')::timestamptz
        OR :criteria->'unloadingDate'->1->>'operator' = 'GE' AND unloading_date >= (:criteria->'unloadingDate'->1->>'date')::timestamptz
   )
-ORDER BY created_at DESC
-LIMIT COALESCE(:limit, 100) OFFSET COALESCE(:offset, 0);
+ORDER BY created_at DESC, revision DESC
+LIMIT LEAST(GREATEST(COALESCE(:limit, 100), 0), 1000) OFFSET GREATEST(COALESCE(:offset, 0), 0);

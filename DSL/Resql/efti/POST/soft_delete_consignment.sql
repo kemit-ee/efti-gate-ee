@@ -2,6 +2,8 @@
 description: soft delete consignment
 params:
   datasetId: { type: string, required: true }
+  platformId: { type: string, required: true }
+  gateId: { type: string, required: true }
 */
 INSERT INTO consignments (
   dataset_id,
@@ -57,12 +59,13 @@ SELECT
   carried_equipment_categories,
   carried_equipment_seq
 FROM (
-  SELECT DISTINCT ON (dataset_id)
+  SELECT DISTINCT ON (dataset_id, platform_id)
     *
   FROM consignments
-  WHERE dataset_id = :datasetId::uuid
-  ORDER BY dataset_id, created_at DESC
+  WHERE dataset_id = :datasetId::uuid AND platform_id = :platformId
+  ORDER BY dataset_id, platform_id, created_at DESC, revision DESC
 ) latest
+WHERE latest.gate_id = :gateId AND latest.status != 'DELETED'
 RETURNING
   row_id,
   dataset_id,

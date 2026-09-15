@@ -10,7 +10,7 @@ FROM (
     id, name, registry_code, subsets
   FROM authorities
   WHERE id = :id
-  ORDER BY id, created_at DESC
+  ORDER BY id, created_at DESC, revision DESC
 ) latest
 RETURNING
   row_id,

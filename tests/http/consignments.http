@@ -53,13 +53,11 @@ X-Api-Key: mock-secret-key
 %}
 
 ### Platform uploads a new consignment over eDelivery
-# consignments-xml.yml is covered by the platforms/.guard.yml directory guard
-# (ADR-004), so it needs the X-Api-Key too. See issue: eDelivery inbound should be
-# authenticated by AS4 mTLS at the edelivery layer, not by a platform API key —
-# blocked on Ruuter #57 (per-route guard opt-out).
+# eDelivery supplies the service token and the inbound platform's party id.
 POST {{RUUTER_URL}}/platforms/v1/consignments-xml
 Content-Type: text/xml
 X-Internal-Service-Token: dev-internal-service-token-change-me
+X-Platform-Id: mock
 
 < ../../code/xml-mapper/xsd/FTI004/sample.xml
 
@@ -105,7 +103,7 @@ X-Internal-Service-Token: dev-internal-service-token-change-me
 # consignment (550e8400) — tests/authority/authority-api.http uploads that one and
 # xroad-forward.http / xroad-transport-means.http (which sort after this file) depend
 # on it staying ACTIVE.
-DELETE {{RUUTER_URL}}/admin/v1/consignments/b93232c0-f798-43b5-8e2f-6663dd4c32ca
+DELETE {{RUUTER_URL}}/admin/v1/consignments/b93232c0-f798-43b5-8e2f-6663dd4c32ca?platformId=mock&gateId=EU-EE
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 

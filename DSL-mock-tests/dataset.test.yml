@@ -1,0 +1,49 @@
+mode: inprocess
+
+tests:
+  - name: full-field dataset is available to an entitled mock authority
+    request:
+      method: POST
+      path: /developer/v1/dataset
+      headers:
+        content-type: "application/json"
+        x-road-client: "EE/GOV/70000097/test"
+        x-road-id: "550e8400-e29b-41d4-a716-446655440099"
+      body:
+        uil: {gateId: "EU-EE", platformId: "mock", datasetId: "550e8400-e29b-41d4-a716-446655440002"}
+        subsets: ["EU01", "EU02", "EU03", "EU05"]
+    expect:
+      status: 200
+      body_matches:
+        uil: {gateId: "EU-EE", platformId: "mock", datasetId: "550e8400-e29b-41d4-a716-446655440002"}
+        subsets: ["EU01", "EU02", "EU03", "EU05"]
+
+  - name: full-field dataset never bypasses subset permission rejection
+    request:
+      method: POST
+      path: /developer/v1/dataset
+      headers:
+        content-type: "application/json"
+        x-road-client: "EE/GOV/70000000/test"
+        x-road-id: "550e8400-e29b-41d4-a716-446655440099"
+      body:
+        uil: {gateId: "EU-EE", platformId: "mock", datasetId: "550e8400-e29b-41d4-a716-446655440002"}
+        subsets: ["EU01", "EU02", "EU03", "EU05"]
+    expect:
+      status: 403
+      body_matches: {code: "FORBIDDEN_SUBSET"}
+
+  - name: full-field dataset still requires a nonempty subset request
+    request:
+      method: POST
+      path: /developer/v1/dataset
+      headers:
+        content-type: "application/json"
+        x-road-client: "EE/GOV/70000097/test"
+        x-road-id: "550e8400-e29b-41d4-a716-446655440099"
+      body:
+        uil: {gateId: "EU-EE", platformId: "mock", datasetId: "550e8400-e29b-41d4-a716-446655440002"}
+        subsets: []
+    expect:
+      status: 400
+      body_matches: {code: "MISSING_SUBSET"}

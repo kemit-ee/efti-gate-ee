@@ -1,0 +1,16 @@
+mode: inprocess
+constants:
+  INTERNAL_SERVICE_TOKEN: ""
+
+tests:
+  - name: empty configured token and empty credential cannot authenticate
+    request:
+      method: POST
+      path: /platforms/v1/consignments
+      headers:
+        content-type: "text/xml"
+        x-internal-service-token: ""
+      body: "<ParameterIDSetCriteria/>"
+    expect:
+      status: 401
+      body_matches: { title: "Unauthorized" }

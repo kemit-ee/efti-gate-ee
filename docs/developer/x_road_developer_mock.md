@@ -57,6 +57,7 @@ Samad mis päris liideses. Mockis paned need **sina ise** (päris elus paneb tur
 | Lubatud alamhulgad | `["EU01","EU02","EU03","EU05"]` (v.a `memberCode 70000000` → `[]`) |
 | Tuntud tunnus | `MOCK-PLATE-1` — annab `transport-means` / `search` tabamuse; kõik muu → tühi tulemus |
 | Tuntud `uil` | `{ "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440001" }` |
+| Rikkalik dataset | `{ "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440002" }` — täieliku väljakattuvusega sünteetiline FTI010 näidis |
 
 ---
 
@@ -213,6 +214,82 @@ Pollimispäring `{ "poll": true }` → `[]`. Vastuse päis `x-poll-more: false`.
 
 ### 5. `dataset` — andmehulga päring
 
+#### Use case: ühel autol kolm saadetist
+
+Eraldi autonumber **MOCK-PLATE-3**, registreerimisriik **EE**, annab kolm saadetist.
+Kõigi sihtkoht on **Narva Mock Distribution Centre, Kadastiku 25, Narva, EE**.
+
+| Dataset-ID | Pealelaadimiskoht | Pealelaadimine | Kaup | Ohtlik veos |
+|---|---|---|---|---|
+| `550e8400-e29b-41d4-a716-446655440011` | Tallinn, Peterburi tee 10 | 2026-09-14 06:00 | Furniture, 2000 kg brutokaal | Ei |
+| `550e8400-e29b-41d4-a716-446655440012` | Tartu, Ringtee 20 | 2026-09-14 09:00 | Machine parts, 3000 kg brutokaal | Ei |
+| `550e8400-e29b-41d4-a716-446655440013` | Pärnu (XML-is `Parnu`), Tallinna mnt 30 | 2026-09-14 12:00 | Bensiin, 1500 kg brutokaal | UN 1203, ADR klass 3, pakendigrupp II |
+
+Mahalaadimise kuupäev on kõigil **2026-09-15**. FTI010 selle välja date-format on `102`
+(kuupäev), mistõttu lookup'i UTC kesköö ei tähenda tegelikku kokkulepitud kellaaega.
+Need on sünteetilised katsed, mitte tegeliku ADR-veo dokumentatsioon.
+
+1. Kontrolli `POST /developer/v1/transport-means` kaudu existence'i:
+
+```http
+POST /developer/v1/transport-means
+Content-Type: application/json
+X-Road-Client: EE/GOV/70000097/test
+X-Road-Id: 550e8400-e29b-41d4-a716-446655440099
+
+{"identifier":"MOCK-PLATE-3","countryCode":"EE","scope":"existence"}
+```
+
+Oodatav `registered: true`. Sama päring `scope: "local"` annab `found: 3` ja
+kolm `consignments` kirjet. Igal on oma täielik UIL (`gateId: EU-EE`, `platformId: mock`).
+Ka `POST /developer/v1/search` keha
+`{"mainTransportId":{"id":"MOCK-PLATE-3","operation":"EQ"}}` annab sama kolmiku.
+
+2. Küsi kõik kolm detaili järjest `POST /developer/v1/dataset` kaudu:
+
+```json
+{
+  "uil": {"gateId":"EU-EE","platformId":"mock","datasetId":"550e8400-e29b-41d4-a716-446655440011"},
+  "subsets": ["EU01","EU02","EU03","EU05"]
+}
+```
+
+Kasuta samu päiseid, iga päringu jaoks oma X-Road-Id UUID-d ning asenda dataset-ID
+järgmises päringus `...0012`, seejärel `...0013`. JSON-i `xml` väljast kontrolli:
+`UsedLogisticsTransportMeans/ID` on kõigil `MOCK-PLATE-3`, `ConsigneeTradeParty` ja
+mahalaadimiskoht on samad, `ConsignorTradeParty` ja pealelaadimiskoht on erinevad.
+Ainult kolmandal on `ApplicableTransportDangerousGoods` (UN 1203, klass 3).
+
+Lookup'i `dangerousGoods` on ainult kolmandal `"1"` (gate'i HIGH indikaator), esimesel
+kahel `null`; see indikaator ei ole ADR klassi number. XML-i `HazardClassificationID` on `3`.
+`countryCode: "FI"` ei anna selle EE auto tabamust; õigusteta memberCode `70000000`
+annab local/detail-päringul 403. Poll-päring on endiselt tühi ning allgates on 501.
+
+#### Rikkaliku üksik-dataset'i päring
+
+Maksimaalse väljakattuvusega näidise saamiseks kasuta järgmist keha (samad päised nagu allpool):
+
+```json
+{
+  "uil": { "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440002" },
+  "subsets": ["EU01", "EU02", "EU03", "EU05"]
+}
+```
+
+Rikkalik vastus sisaldab olemasoleva FTI010 XSD consignment-välju: saatjat, saajat, vedajat,
+kontakte ja aadresse, kaubaartiklit, ohtlikku kaupa, varustust, veosündmusi/asukohti,
+kaale/mahte, makseinfot ning viitedokumente ja manuseid. Näidis on sünteetiline, mitte
+äriliselt kooskõlalise pärisveose kirjeldus. Iga korduvat välja esineb üks kord ning
+choice-grupist kasutatakse esimest varianti; piiramatu korduste arvu tõttu pole lõplikku
+„kõige suuremat” dataset'i. XML valideeritakse repo FTI010 XSD vastu täielikus test-envelope'is;
+API tagastab endiselt vaid `SpecifiedSupplyChainConsignment` fragmendi JSON-i `xml` väljas.
+
+Uus näidis valitakse ainult täpse `EU-EE/mock/...0002` UIL-i puhul. Senine `...0001` ja
+muud UIL-id säilitavad lihtsa staatilise vastuse. Mock ei filtreeri XML-välju subsets'i järgi:
+kõigi nelja küsimine dokumenteerib maksimaalse päringu, kuid üks lubatud alamhulk annab sama
+rikkaliku XML-i. Õigusteta `70000000` annab ka selle ID korral 403. Uut dataset'i ei lisata
+search/transport-means tulemustesse; seda küsitakse otse UIL-i järgi.
+
 **Päring**
 ```
 POST /developer/v1/dataset
@@ -271,7 +348,8 @@ Content-Type: application/json
 ## Erinevused päris liidesest
 
 - Autentimist ei toimu — `X-Road-Client` on vaba (v.a `00000000`); ühtki registrikirjet ei kontrollita.
-- Andmed on staatilised — ainult `MOCK-PLATE-1` / teadaolev `uil` annavad sisu.
+- Andmed on staatilised: search/transport-means tunnevad `MOCK-PLATE-1`; dataset annab
+  `EU-EE/mock/...0002` korral rikkaliku näidise ja teiste UIL-ide puhul senise lihtsa näidise.
 - `dataset` alamhulgakontroll ei võrdle küsitud hulki lubatuga — `403` tuleb ainult `memberCode 70000000` puhul.
 - Fan-out'i / pollimist tegelikult ei toimu; `x-poll-more` on alati `false`.
 - Vastuseajad on kohesed; `502 GATEWAY_UNAVAILABLE` teed ei ole (päris väravas tuleb see `core` tõrke korral).

@@ -1,5 +1,11 @@
 declaration:
-  description: "Delete a consignment (admin, TARA JWT). Path: consignmentId. No body."
+  description: "Delete a consignment (admin, TARA JWT). Path: consignmentId. Query: platformId,
+    gateId (both required, the UIL owner). No body."
+
+validate_input:
+  switch:
+    - condition: ${!incoming.params.platformId || !incoming.params.gateId}
+      next: bad_request
 
 delete_consignment:
   call: http.post
@@ -9,16 +15,20 @@ delete_consignment:
       Content-Type: "application/json"
     body:
       datasetId: "${incoming.params.pathParams[0]}"
+      platformId: ${incoming.params.platformId}
+      gateId: ${incoming.params.gateId}
   result: delete_result
 
 # soft_delete_consignment RETURNS the tombstone row (row_id, dataset_id, status, created_at);
 # an empty body means no such consignment. No re-fetch needed.
 check_delete:
   switch:
-    - condition: ${delete_result.response.status == 0 || delete_result.response.status >= 400 || delete_result.response.body[0]?.status != 'DELETED'}
+    - condition: ${delete_result.response.status == 0 || delete_result.response.status >= 400}
       next: delete_failed
     - condition: ${!delete_result.response.body.length}
       next: not_found
+    - condition: ${delete_result.response.body[0]?.status != 'DELETED'}
+      next: delete_failed
 
 respond:
   return: ""
@@ -36,3 +46,10 @@ not_found:
   return: {"error": "Not Found"}
   status: 404
   wrapper: false
+  next: end
+
+bad_request:
+  return: {"error": "Required UIL query parameters: platformId, gateId"}
+  status: 400
+  wrapper: false
+  next: end

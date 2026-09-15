@@ -37,7 +37,7 @@ FROM (
     created_at
   FROM authorities
   WHERE id IN (SELECT id FROM authorities WHERE registry_code = :registry_code)
-  ORDER BY id, created_at DESC
+  ORDER BY id, created_at DESC, revision DESC
 ) a
 WHERE a.registry_code = :registry_code
   AND a.status = 'ACTIVE'

@@ -3,7 +3,7 @@ declaration:
   description: >
     Dev/CI login — mint a JWT directly without a TARA OIDC redirect.
     Returns the JWT in the response body for the frontend to store in sessionStorage.
-    For local development and automated tests only; not for production use.
+    Disabled by default. DEV_LOGIN_ENABLED=true is required for local development and CI.
   method: post
   allowlist:
     body:
@@ -19,6 +19,8 @@ declaration:
 
 validate_input:
   switch:
+    - condition: ${'[#DEV_LOGIN_ENABLED]' != 'true'}
+      next: disabled
     - condition: ${incoming.body == null || incoming.body.personalCode == null}
       next: missing_params
 
@@ -61,3 +63,10 @@ missing_params:
   status: 400
   return: {"error": "personalCode is required"}
   wrapper: false
+  next: end
+
+disabled:
+  status: 404
+  return: {"error": "Not found"}
+  wrapper: false
+  next: end

@@ -21,5 +21,5 @@ SELECT
 FROM follow_up_log
 WHERE dataset_request_id = :datasetId::uuid
   AND (:followUpId IS NULL OR :followUpId = '' OR follow_up_id = :followUpId::uuid)
-ORDER BY received_at DESC
-LIMIT COALESCE(:limit, 20) OFFSET COALESCE(:offset, 0);
+ORDER BY received_at DESC, row_id DESC
+LIMIT LEAST(GREATEST(COALESCE(:limit, 20), 0), 1000) OFFSET GREATEST(COALESCE(:offset, 0), 0);

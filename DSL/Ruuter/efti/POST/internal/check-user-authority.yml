@@ -26,11 +26,6 @@ setup:
 # Reachability is governed by network isolation + `internal_requests` (see
 # DSL/Ruuter/efti/POST/internal/.guard.yml); the calling guards forward
 # x-forwarded-for / x-request-id so this line has a bit of context on who asked.
-#
-# Why an internal HTTP route rather than a `template:` step: the Rust engine
-# (ruuter-on-rust v0.8.1-rc.3) parses `template:` but cannot execute it — the step aborts
-# with "template step invoked but the engine has no DSL tree attached". Reachability is
-# governed by `internal_requests` in ruuter.yaml.
 
 log_context:
   log: "internal/check-user-authority rid=${requestId ?? '-'} from=${incoming.headers['x-forwarded-for'] ?? '-'}"
@@ -66,7 +61,7 @@ check_token_info:
   switch:
     # TIM unreachable (issue #89, status 0): the token could not be verified either way. Deny, but
     # with an honest 503 (retry later) rather than 401 (bad credential, do not retry).
-    - condition: ${token_info.response.status == 0}
+    - condition: ${token_info.response.status == 0 || token_info.response.status >= 500}
       next: dependency_unavailable
     - condition: ${token_info.response.status >= 200 && token_info.response.status < 300}
       next: check_tara_sub
@@ -74,7 +69,7 @@ check_token_info:
 
 check_tara_sub:
   switch:
-    - condition: ${token_info.response.body.userinfo.claims.personalCode != '' && token_info.response.body.userinfo.claims.personalCode != null}
+    - condition: ${typeof token_info.response.body?.userinfo?.claims?.personalCode === 'string' && token_info.response.body.userinfo.claims.personalCode != '' && typeof token_info.response.body.userinfo.issued_at === 'string' && token_info.response.body.userinfo.issued_at != ''}
       next: lookup_user
   next: unauthorized
 
@@ -95,7 +90,7 @@ check_user_found:
   switch:
     - condition: ${user_res.response.status == 0 || user_res.response.status >= 300}
       next: dependency_unavailable
-    - condition: ${user_res.response.body.length > 0}
+    - condition: ${Array.isArray(user_res.response.body) && user_res.response.body.length === 1}
       next: return_user
   next: unauthorized
 

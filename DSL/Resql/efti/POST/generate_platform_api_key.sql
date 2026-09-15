@@ -1,6 +1,6 @@
 /*
 description: generate a new X-Api-Key for a platform (ADR-004). Appends a platforms
-  row carrying every field forward from the latest non-deleted row and replacing the
+  row carrying every field forward from the latest row unless it is deleted, replacing the
   api_key_* columns. Returns the plaintext key EXACTLY ONCE — it is stored only as a
   SHA-256 hash and cannot be retrieved again.
 params:
@@ -13,8 +13,8 @@ latest AS (
   SELECT DISTINCT ON (id)
     id, base_url, headers, e_delivery_cert, tls_cert, status
   FROM platforms
-  WHERE id = :id AND status != 'DELETED'
-  ORDER BY id, created_at DESC
+  WHERE id = :id
+  ORDER BY id, created_at DESC, revision DESC
 ),
 ins AS (
   INSERT INTO platforms (
@@ -27,6 +27,7 @@ ins AS (
     substr(encode(digest(n.k, 'sha256'), 'hex'), 1, 8),
     NOW()
   FROM latest l CROSS JOIN newkey n
+  WHERE l.status != 'DELETED'
   RETURNING id, api_key_hint, api_key_generated_at
 )
 SELECT ins.id, ins.api_key_hint, ins.api_key_generated_at, newkey.k AS api_key

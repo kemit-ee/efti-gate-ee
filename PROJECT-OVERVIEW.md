@@ -2,6 +2,8 @@
 
 Map of the 9 themes and 26 epics that make up the v2 spec. For artifacts and design rules, see [`README.md`](README.md).
 
+Current runtime components and version history: [Tehnoloogia ülevaade](docs/technology-overview.md).
+
 | # | Theme | Epic |
 |---|---|---|
 | T1 | Identity & Access | [E1 User Management & RBAC](docs/cfr/identity-and-access/user_management_and_rbac.md) |

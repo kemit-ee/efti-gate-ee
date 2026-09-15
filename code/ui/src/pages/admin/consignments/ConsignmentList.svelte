@@ -24,7 +24,8 @@
   async function onDelete(c: Consignment) {
     const id = c.datasetId
     if (!confirm(t.general.deleteConfirm + ' ' + id + '?')) return
-    await api.delete(`consignments/${id}`)
+    const owner = new URLSearchParams({platformId: c.platformId, gateId: c.gateId})
+    await api.delete(`consignments/${id}?${owner}`)
     showToast(t.general.deleted + ': ' + id)
     onDeleted(c)
   }

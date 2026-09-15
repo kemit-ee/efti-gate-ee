@@ -1,0 +1,34 @@
+mode: mock-http
+constants:
+  RESQL_URL: "{MOCK}"
+
+tests:
+  - name: object imitating a one-element array cannot authenticate an authority
+    setup:
+      mocks:
+        - url_matches: /efti/get_authority_by_registry_code
+          method: POST
+          body: { length: 1, "0": { id: "authority" } }
+    request:
+      method: POST
+      path: /xroad/v1/echo
+      headers:
+        x-road-client: "EE/GOV/70000094/tram"
+        x-road-id: "0a11ce5e-0001-4d1d-8f1a-0f0d00010000"
+    expect:
+      status: 403
+
+  - name: uppercase hexadecimal UUID is accepted by the real guard
+    setup:
+      mocks:
+        - url_matches: /efti/get_authority_by_registry_code
+          method: POST
+          body: [{ id: "authority", registryCode: "70000094", name: "Test authority" }]
+    request:
+      method: POST
+      path: /xroad/v1/echo
+      headers:
+        x-road-client: "EE/GOV/70000094/tram"
+        x-road-id: "0A11CE5E-0001-4D1D-8F1A-0F0D00010000"
+    expect:
+      status: 200

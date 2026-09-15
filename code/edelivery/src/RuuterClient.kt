@@ -13,8 +13,8 @@ open class RuuterClient(
   protected val baseUrl: URI = URI(Config["RUUTER_URL"]),
   protected val internalServiceToken: String = Config["INTERNAL_SERVICE_TOKEN"],
 ) {
-  fun saveConsignment(xml: String, requestId: UUID /* FTI004UploadIdentifierRequest */) =
-    http.sendXml(baseUrl + "/platforms/v1/consignments-xml", xml, requestId)
+  open fun saveConsignment(xml: String, requestId: UUID, platformId: PartyId /* FTI004UploadIdentifierRequest */) =
+    http.sendXml(baseUrl + "/platforms/v1/consignments-xml", xml, requestId, platformId)
 
   fun searchConsignments(xml: String, gateId: PartyId, requestId: UUID /* FTI019SearchIdentifierRequest */): String =
     http.sendXml(baseUrl + "/efti/api/v1/consignments/search-xml?gateId=$gateId", xml, requestId)
@@ -25,13 +25,11 @@ open class RuuterClient(
   open fun followUp(xml: String, requestId: UUID /* FTI025LodgeFollowUpCommRequest */, receiverId: PartyId) =
     http.sendXml(baseUrl + "/efti/api/v1/follow-up-xml", xml, requestId)
 
-  // efti/api/v1/* is gate-internal only (DSL/Ruuter/efti/POST/api/v1/.guard.yml) — every
-  // call needs the shared service token. /platforms/v1/consignments-xml is guarded
-  // separately (platform X-Api-Key) and ignores this header.
-  fun HttpClient.sendXml(url: URI, xml: String, requestId: UUID) =
+  fun HttpClient.sendXml(url: URI, xml: String, requestId: UUID, platformId: PartyId? = null) =
     post(url, xml) {
       header("Content-Type", "text/xml")
       header("X-Internal-Service-Token", internalServiceToken)
+      platformId?.let { header("X-Platform-Id", it.toString()) }
       header("x-request-id", requestId.toString())
     }.bodyOrThrow()
 }

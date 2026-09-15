@@ -12,16 +12,21 @@ params:
 -- array and falls back to binding it as JSONB, which then fails the ::text[] cast. Unpacking the
 -- JSON here keeps the empty case working. array_agg over an empty set is NULL, hence the COALESCE.
 INSERT INTO authorities (id, name, registry_code, subsets, status)
-VALUES (
-  :id,
+SELECT
+  latest.id,
   :name,
   :registryCode,
   COALESCE(
     (SELECT array_agg(elem) FROM jsonb_array_elements_text(COALESCE(:subsets, '[]')::jsonb) AS elem),
     ARRAY[]::text[]
   ),
-  COALESCE(:status, 'ACTIVE')::authority_status
-)
+  COALESCE(:status, latest.status::text)::authority_status
+FROM (
+  SELECT DISTINCT ON (id) id, status
+  FROM authorities WHERE id = :id
+  ORDER BY id, created_at DESC, revision DESC
+) latest
+WHERE latest.status != 'DELETED'
 RETURNING
   row_id,
   id,

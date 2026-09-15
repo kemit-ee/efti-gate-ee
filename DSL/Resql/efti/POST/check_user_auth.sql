@@ -12,11 +12,12 @@ SELECT
   u.name
 FROM (
   SELECT DISTINCT ON (id)
-    id, tara_sub, name, token_revoked_at, created_at
+    id, tara_sub, name, token_revoked_at, is_active, created_at, row_id
   FROM users
-  WHERE tara_sub     = :tara_sub
-    AND is_active    = TRUE
-  ORDER BY id, created_at DESC
+  WHERE id IN (SELECT id FROM users WHERE tara_sub = :tara_sub)
+  ORDER BY id, created_at DESC, revision DESC
 ) u
-WHERE u.token_revoked_at IS NULL
-   OR :token_issued_at::timestamptz > u.token_revoked_at;
+WHERE u.tara_sub = :tara_sub
+  AND u.is_active = TRUE
+  AND (u.token_revoked_at IS NULL
+       OR :token_issued_at::timestamptz > u.token_revoked_at);

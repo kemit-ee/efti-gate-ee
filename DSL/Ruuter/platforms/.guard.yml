@@ -6,13 +6,13 @@
 
 declaration:
   description: "platforms/ guard (ADR-004). Credential: X-Api-Key (required); its SHA-256 must
-    match platforms.api_key_hash on an ACTIVE platform. Also accepts X-Internal-Service-Token for
-    the G2G consignments-xml route."
+    match platforms.api_key_hash on an ONLINE/OFFLINE (not DISABLED/DELETED) platform. Also accepts X-Internal-Service-Token for
+    the G2G consignments-xml route together with X-Platform-Id supplied by eDelivery."
 
 check_present:
   switch:
-    - condition: ${incoming.headers?.['x-internal-service-token'] == '[#INTERNAL_SERVICE_TOKEN]'}
-      next: return
+    - condition: ${incoming.headers?.['x-internal-service-token'] != null && incoming.headers['x-internal-service-token'] != '' && '[#INTERNAL_SERVICE_TOKEN]' != '' && incoming.headers['x-internal-service-token'] == '[#INTERNAL_SERVICE_TOKEN]'}
+      next: check_internal_platform
     - condition: ${!incoming.headers['x-api-key']}
       next: guard_fail
 
@@ -34,17 +34,29 @@ check_platform:
     # A ReSql transport failure (issue #89) surfaces as status 0, already covered by `!= 200` here —
     # the guard fails closed (401), which is the correct posture for a credential check. Called out
     # explicitly so the availability-failure path is auditable.
-    - condition: ${platform_res.response.status == 0 || platform_res.response.status != 200 || !platform_res.response.body.length}
+    - condition: ${platform_res.response.status != 200 || !Array.isArray(platform_res.response.body) || platform_res.response.body.length === 0}
       next: guard_fail
     - condition: ${platform_res.response.body.length > 1}
       next: guard_multi
-    - condition: ${platform_res.response.body.length === 1}
+    - condition: ${platform_res.response.body.length === 1 && typeof platform_res.response.body[0]?.id === 'string' && platform_res.response.body[0].id != ''}
       next: guard_success
   next: guard_fail
 
 guard_success:
   assign:
     platform: ${platform_res.response.body[0]}
+  next: return
+
+check_internal_platform:
+  switch:
+    - condition: ${incoming.headers['x-platform-id'] == null || incoming.headers['x-platform-id'] == ''}
+      next: guard_fail
+
+bind_internal_platform:
+  assign:
+    platform:
+      id: ${incoming.headers['x-platform-id']}
+  next: return
 
 return:
   return: "success"

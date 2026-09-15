@@ -22,6 +22,7 @@ jobs:
           run dsl-lint --dsl DSL/Ruuter            --constants constants.ini
           run dsl-lint --dsl DSL/Ruuter-xroad-mock --constants constants-xroad-mock.ini
           run dsl-test --dsl DSL/Ruuter --tests DSL-tests --constants constants.ini
+          run dsl-test --dsl DSL/Ruuter-xroad-mock --tests DSL-mock-tests --constants constants-xroad-mock.ini
 
       - uses: actions/setup-python@v5
         with:
@@ -29,6 +30,15 @@ jobs:
       - run: pip install --quiet pyyaml
       - name: efti input-contract check
         run: python3 scripts/validate-dsl.py
+      - name: rich mock dataset XSD and field-coverage checks
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libxml2-utils
+          python3 tests/mock/dataset.py
+      - name: append-only SQL regression checks (disposable PostgreSQL)
+        run: python3 tests/sql/regression.py
+      - name: fresh-install schema regression checks
+        run: python3 tests/sql/regression.py --init
 
   e2e:
     runs-on: ubuntu-latest
@@ -51,13 +61,20 @@ jobs:
 
       - name: Build CI images
         run: |
+          CI_TAG_ARGS=()
+          while read -r CI_BUILD_SERVICE; do
+            CI_TAG_ARGS+=(--set "$CI_BUILD_SERVICE.tags=efti_gate_ee-$CI_BUILD_SERVICE")
+          done < <(docker buildx bake --print | jq -r '.target | keys[]')
           docker buildx bake \
+            "${CI_TAG_ARGS[@]}" \
+            --load \
+            --set 'ruuter.args.DEV_LOGIN_ENABLED=true' \
             --set '*.cache-from=type=gha' \
             --set '*.cache-to=type=gha,mode=max'
 
       - name: Start services
         run: |
-          docker compose -f compose.yml up -d --wait || docker compose logs
+          docker compose -f compose.yml up --no-build -d --wait || { docker compose logs; exit 1; }
 
       - name: Run http tests
         run: |

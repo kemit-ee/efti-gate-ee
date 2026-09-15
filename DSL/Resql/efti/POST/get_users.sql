@@ -14,7 +14,8 @@ SELECT * FROM (
     is_active AS is_user_active,
     created_at
   FROM users
-  ORDER BY id, created_at DESC
+  ORDER BY id, created_at DESC, revision DESC
 ) latest
 WHERE is_user_active = true
-LIMIT COALESCE(:limit, 20) OFFSET COALESCE(:offset, 0);
+ORDER BY id
+LIMIT LEAST(GREATEST(COALESCE(:limit, 20), 0), 1000) OFFSET GREATEST(COALESCE(:offset, 0), 0);

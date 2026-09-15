@@ -17,7 +17,8 @@ SELECT * FROM (
     last_ping_at,
     created_at
   FROM gates
-  ORDER BY id, created_at DESC
+  ORDER BY id, created_at DESC, revision DESC
 ) latest
 WHERE :status IS NULL AND status != 'DELETED' OR status = :status
-LIMIT COALESCE(:limit, 20) OFFSET COALESCE(:offset, 0);
+ORDER BY id
+LIMIT LEAST(GREATEST(COALESCE(:limit, 20), 0), 1000) OFFSET GREATEST(COALESCE(:offset, 0), 0);

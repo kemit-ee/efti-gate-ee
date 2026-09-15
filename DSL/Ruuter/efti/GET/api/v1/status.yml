@@ -1,6 +1,7 @@
 declaration:
   description: "Check whether a consignment dataset is registered at this gate and its current
-    status (gate-internal, X-Internal-Service-Token). Path: datasetId. No query params, no body."
+    status (gate-internal, X-Internal-Service-Token). Path: datasetId. Query: platformId, gateId
+    (optional UIL narrowing). Returns one current row per platform. No body."
 
 get_consignment:
   call: http.post
@@ -10,6 +11,8 @@ get_consignment:
       Content-Type: "application/json"
     body:
       datasetId: "${incoming.params.pathParams[0]}"
+      platformId: ${incoming.params.platformId ?? null}
+      gateId: ${incoming.params.gateId ?? null}
   result: consignment_result
 
 check_found:
