@@ -2,7 +2,6 @@
 
 ## Changes
 
-- **v1.1** — Added the `pubsub` internal event bus and documented its SSE contract and transient delivery semantics.
 - _Initial state. Change tracking begins at v1.0.0._
 
 > This document describes the internal service boundary between Ruuter and the
