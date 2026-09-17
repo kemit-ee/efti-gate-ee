@@ -1,6 +1,6 @@
 # Konsignatsioonide otsingu jõudlusanalüüs
 
-Järg Antoni koormustestile (`docs/performance/performance-report.md`, commitid
+Järg Pikkeri koormustestile (`docs/performance/performance-report.md`, commitid
 `c34998a` / `5d4b575` / `e24d747`). Selgitab, mida mõõdeti, mida numbrid
 tegelikult peegeldavad, ja mida muuta — nii testides kui koodis.
 
@@ -8,7 +8,7 @@ Uuesti mõõdetud `dev@386c5b5` peal, harul `perf/consignments-search-analysis`.
 
 ---
 
-## 1. Mida Anton mõõtis
+## 1. Mida Pikker mõõtis
 
 - **Tööriist:** ApacheBench (`ab`).
 - **Endpoint:** `POST /efti/api/v1/authority/search` — Authority
@@ -98,7 +98,7 @@ kui pole hooldatud "is-latest" markerit. Mõõdetud plaan 1M real: jaotis 4c.
 
 - Docker Desktop, ainult `compose.yml` (mitte `override`), kõik pildid ehitatud
   `dev@386c5b5` pealt. Masin jooksutas paralleelselt ka teist stäkki → **absoluutväärtused
-  on Antoni omadest kehvemad; oluline on kuju ja kihtide vahe, mitte absoluutnumber.**
+  on Pikkeri omadest kehvemad; oluline on kuju ja kihtide vahe, mitte absoluutnumber.**
 - PostgreSQL 18.4 (aarch64), `work_mem = 4MB`, `shared_buffers = 128MB` (vaikimisi).
 - **Jaotised 4a–4g:** `ruuter cpus: '0.5'`, `resql pool 10` (algne seis).
   **Jaotised 4j / 6.6 / 6.7:** `ruuter cpus: '1.0'`, `database cpus: '1.0'`,
@@ -106,7 +106,7 @@ kui pole hooldatud "is-latest" markerit. Mõõdetud plaan 1M real: jaotis 4c.
 - Koormus aetud sidecar-konteinerist compose-võrgus (`http://ruuter:8086` /
   `http://resql:8090`), nii et host-portide konflikti pole.
 
-### 4a. Anton uuesti — `authority/search`, 1 seeditud rida (VESSEL-001)
+### 4a. Pikker uuesti — `authority/search`, 1 seeditud rida (VESSEL-001)
 
 | `-n` | `-c` | req/s | p50 (ms) | p99 (ms) | märkus |
 |---:|---:|---:|---:|---:|---|
@@ -156,7 +156,7 @@ filtreeri 1 reani. **23 s ühe rea tagastamiseks.**
 | 10 | 5 | **0.14** | 30 519 | 9/10 ebaõnnestub (ReSql `request_timeout_seconds: 30`) |
 
 Konkureerivad päringud sordivad igaüks oma 245 MB kettale samaaegselt →
-veel hullem kui Antoni 0.6 req/s.
+veel hullem kui Pikkeri 0.6 req/s.
 
 ### 4e. Parandus A — ainult sobiv indeks (`platform_id, dataset_id, created_at DESC`)
 
@@ -193,10 +193,10 @@ Execution Time: 1.686 ms                           <-- ~14 000× kiirem
 Kasutab **olemasolevat** `idx_consignments_main_transport_id`-i, loeb 4 lehte,
 1,7 ms. Kõik 20+ kriteeriumi-indeksit lähevad tööle.
 
-### 4g. Bulk-insert'i ajakulu (Antoni lahtine TODO)
+### 4g. Bulk-insert'i ajakulu (Pikkeri lahtine TODO)
 
 1M rida ühe `INSERT ... SELECT generate_series`-iga, 24 indeksit (sh GIN):
-**312 s** (~3 200 rida/s). `ANALYZE` järel 18 s. (Antoni "~2 sek per
+**312 s** (~3 200 rida/s). `ANALYZE` järel 18 s. (Pikkeri "~2 sek per
 konsignatsioon" oli HTTP API kaudu ükshaaval; bulk-SQL on 3 200/s.)
 
 ### 4j. 3-kihiline mõõt praeguse setupiga — DB → ReSql → Ruuter
@@ -396,7 +396,7 @@ Rakendus (järgmine samm):
 - baasrida `VESSEL-001` läheb sisse *päris teed pidi* — `POST sample.xml`
   `/platforms/v1/consignments` peale (xml-mapper + `insert_consignment` teevad
   veergude mapimise). Enne oli see kas puudu või vale `gate_id`.
-- `gate_id = 'EU-EE'` (oli Antoni failis `'EE'` — ei läbinud kunagi
+- `gate_id = 'EU-EE'` (oli Pikkeri failis `'EE'` — ei läbinud kunagi
   `local_search`-i `gate_id = :gateId` filtrit, iga otsing kukkus multiplexerisse).
 - semantilised fikstuurid (`p1` re-upload `AAA→BBB`, üksik `CCC`) SQL-failis.
 - verifitseeritud: `VESSEL-001 → 1`, `AAA → 0`, `BBB → 1`, `CCC → 1`.
@@ -622,9 +622,9 @@ Artefakt: `docs/performance/askend_perf_verification/explain-c6-1m.txt`.
 | p99 (ms) | 14 | 50 | 123 | 250 | 326 |
 | ReSql otse @ 1M (rps) | — | — | **5 930** (p99 45 ms) | — | — |
 
-### 7c. Kokkuvõte — Antoni algnumbritega
+### 7c. Kokkuvõte — Pikkeri algnumbritega
 
-| | Anton (16-tuuma) | algne mõõt (0,5 vCPU, vana SQL, blokeeriv) | **nüüd** |
+| | Pikker (16-tuuma) | Pikker algne (0,5 vCPU, vana SQL, blokeeriv) | **nüüd** |
 |---|---|---|---|
 | `authority/search` läbilaskevõime | 70–93 req/s | ~37 req/s (lapik) | **~550 req/s** (skaleerub) |
 | `authority/search` p99 koormuse all | 1 800–4 300 ms | 2 500–4 500 ms | **~330–420 ms** |
@@ -636,7 +636,7 @@ DSL püsikulu ~3 ms/päring (~5,6×, mitte enam ~50×). See on Ruuteri avaldise-
 mitte efti — ja skaleerub konkurentsiga (~550 rps hoiab). Päris hostil (rohkem
 tuumi, vähem kontentsiooni) veelgi parem.
 
-### Mida testides veel muuta (Antonile)
+### Mida testides veel muuta (Pikkerile)
 
 1. `-c 250` ilma ramp-up'i / think-time'ita mõõdab küllastust — kasuta `k6`/`wrk`
    ramp'i + think-time'iga, vaata p50/p95/p99 jaotust.
