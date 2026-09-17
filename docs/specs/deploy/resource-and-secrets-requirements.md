@@ -20,7 +20,8 @@ tootmises soovita alustada "Soovituslik prod" veerust ja mõõta reaalse koormus
 | Teenus | Vajalik prod? | CPU (compose) | Mälu (compose) | Soovituslik prod (start) | Olek |
 |---|---|---|---|---|---|
 | `database` (PostgreSQL 18, `efti` DB) | JAH | 2.0 | 1 GiB | 2 vCPU / 2 GiB + eraldi ketas, **eraldi mõõdetud** ADR-009 jõudlustööga | Stateful — vajab PV/PVC-d ja backupit |
-| `resql` (ReSql 0.3.0-alpha) | JAH | — (määramata!) | — (määramata!) | 0.5 vCPU / 512 MiB | max_connections 75 (resql.yaml) — jäta PG max_connections=100 juurde varu teistele klientidele |
+| `archive-database` (PostgreSQL 18, `efti_archive` DB — saadetiste külmladu, vt issue #143/#56) | JAH | 0.5 | 512 MiB | 0.5 vCPU / 512 MiB + eraldi ketas, kasv sõltub `keepDays` retention-seadest (`purge_archived_consignments.sql`, vaikimisi 2555 päeva) | Stateful, **eraldi instants** kui `database` — vajab oma PV/PVC-d ja backupit; ligipääsetav ainult ReSql `archive` andmeallika kaudu, mitte otse |
+| `resql` (ReSql 0.3.0-alpha) | JAH | — (määramata!) | — (määramata!) | 0.5 vCPU / 512 MiB | max_connections 75 (resql.yaml) — jäta PG max_connections=100 juurde varu teistele klientidele. Kaks andmeallikat: `efti` ja `archive` |
 | `ruuter` (Ruuter 0.9.15-rc, `/efti` + `/xroad`) | JAH | 2.0 | 512 MiB | 1 vCPU / 512 MiB (koormustestitud, vt performance-dok) | — |
 | `ruuter-xroad-mock` (avalik X-Roadi arendaja-mokk, `/developer/**`) | VALIKULINE | 0.25 | 128 MiB | 0.25 vCPU / 128 MiB | Standalone, andmebaasita — vt `docs/developer/x_road_developer_mock.md`. Jäta välja, kui väliseid platvormiarendajaid ei teenindata. |
 | `tim` (Token & Identity Manager 0.3.0-alpha) | JAH | — | — | 0.5 vCPU / 256 MiB | Oma PostgreSQL DB (vt §3) |
@@ -68,12 +69,15 @@ kasuta prod-is)** → **paigalduse märkus**.
 | `RESQL_EFTI_PASSWORD` | `resql` teenus | ReSql `efti` andmeallika parool (`resql.yaml` → `password_env: RESQL_EFTI_PASSWORD`, krüptovaba URL, vt `resql.yaml` kommentaari) | `01234` | Peab kattuma `POSTGRES_PASSWORD`-iga |
 | Liquibase `password` | `liquibase` konteiner (`DSL/Liquibase/liquibase.properties`) | Migratsioonide käitamise PG parool | `01234` (kõvasti failis!) | **Prod: ÄRA jäta faili sisse.** Liquibase 4.x loeb env muutujaid `LIQUIBASE_COMMAND_URL` / `LIQUIBASE_COMMAND_USERNAME` / `LIQUIBASE_COMMAND_PASSWORD`, mis kirjutavad properties-faili väärtused üle (sama muster mis ljvis2-devops kasutab, vt `environments/dev/values/ljvis2-config.yaml` selles repos) |
 | `AUDIT_SALT` | `liquibase` (changelog property, `-DAUDIT_SALT=...`) | Isikukoodide räsimise sool `audit_log`-is | `dev-local-audit-salt-change-me-32chars` | **KRIITILINE**: kui puudub, jääb changelogisse lahendamata `${AUDIT_SALT}` literaalina ja isikukoodid räsitakse selle stringiga — kontrolli prod-is `current_setting('app.audit_salt')` ei ole `${AUDIT_SALT}` |
+| `RESQL_ARCHIVE_PASSWORD` | `resql` teenus | ReSql `archive` andmeallika parool (`resql.yaml` → `project_datasource_map`, sama muster mis `RESQL_EFTI_PASSWORD`) | `01234` | Peab kattuma `archive-database` teenuse `POSTGRES_PASSWORD`-iga (§1). **Erinev väärtus kui `RESQL_EFTI_PASSWORD`-il** — kaks eri andmebaasi, kaks eri parooli, ainult dev-is kokkulangevad `01234` mugavuse pärast |
+| `archive-database` `POSTGRES_PASSWORD` | `archive-database` teenus | `efti_archive` PG kasutaja parool | `01234` | Peab kattuma `RESQL_ARCHIVE_PASSWORD`-iga — kaks kohta, üks väärtus (samamoodi nagu `database`/`RESQL_EFTI_PASSWORD` paar) |
 
 ### 3.2 Gate-sisene teenustevaheline autentimine
 
 | Saladus | Tarbija | Otstarve | Dev väärtus | Märkus |
 |---|---|---|---|---|
 | `INTERNAL_SERVICE_TOKEN` | Ruuter (`constants.ini`, `[#INTERNAL_SERVICE_TOKEN]`); saadetakse `X-Internal-Service-Token` päisena | Jagatud saladus gate-sisesteks kõnedeks (X-Roadi adapter → `efti/api/v1/authority/**`, edaspidi ka G2G sissetulev). **Selle valdaja saab ADMIN-taseme ligipääsu kõigile authority-marsruutidele.** | `dev-internal-service-token-change-me` | **ÄRA UNUSTA**: fail on `docker/ruuter/Dockerfile`-ga image'isse `COPY`-tud, `${ENV}`-asendust `constants.ini`-s EI OLE. Väärtuse muutmiseks tuleb fail muuta ja ruuter image uuesti buildida — miski ei anna hoiatust, kui unustad. Kuni see pole lahendatud (vt ADR-006 avatud küsimused), on ainus kaitse, et `/xroad/**` ja `/efti/api/v1/authority/**` pole avalikult ligipääsetavad — vt §5 |
+| `ARCHIVE_OPS_TOKEN` | Ruuter (`constants.ini`, `[#ARCHIVE_OPS_TOKEN]`), `DSL/Ruuter/ops/.guard.yml`; välise CronManager'i saadetav `Authorization: Bearer`-päring | Ainus autentimine `POST /ops/v1/archive-consignments` ja `POST /ops/v1/purge-archive` peale — literal compare, mitte JWT. **Selle valdaja saab käivitada saadetiste külmladustamise/purge'imise mistahes ajal.** Vt `docs/architecture/infrastructure/append_only_archival.md` | `dev-archive-ops-token-change-me` | Sama probleem mis `INTERNAL_SERVICE_TOKEN`-il: `constants.ini` on image'isse `COPY`-tud, `${ENV}`-asendust ei ole — muutmiseks tuleb ruuter image uuesti buildida. `DSL/Ruuter/ops/` **ei ole nginx'i kaudu proksitud** (vt §6) — ainus kaitse on, et CronManager pöördub otse konteinerivõrgus, mitte ingressi kaudu |
 
 ### 3.3 TIM (Token & Identity Manager) — **oma eraldi PostgreSQL andmebaas**
 
@@ -134,6 +138,12 @@ sisalda (nt tühi string).
 `INTERNAL_SERVICE_TOKEN` (§3.2) on ainus kaitse `/xroad/**` ja `/efti/api/v1/authority/**` peal —
 need marsruudid jagavad Ruuteri porti 8086 avaliku gate-API-ga. Ingress/reverse-proxy **EI TOHI**
 neid avalikult eksponeerida; ainult X-Road Turvaserver tohib `/xroad/**`-ni jõuda. Vt ADR-006.
+
+`DSL/Ruuter/ops/**` (saadetiste arhiveerimine, §3.2 `ARCHIVE_OPS_TOKEN`) jagab samuti Ruuteri porti
+8086, aga pole `docker/ui/nginx.conf` kaudu proksitud (vt "Nginx proxy" `AGENTS.md`-is) — see pole
+ise kaitse, ingress/reverse-proxy peab `/ops/**` eraldi blokeerima, ligipääs ainult
+CronManager'ilt konteinerivõrgu siseselt. Vt `docs/architecture/infrastructure/append_only_archival.md`
+ja `docs/specs/deploy/cronmanager-archive.yaml`.
 
 ---
 
