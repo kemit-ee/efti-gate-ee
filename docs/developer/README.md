@@ -16,6 +16,6 @@ Väliste liidestujate dokumentatsioon: pädevad asutused (X-tee) ja eFTI platvor
 | Fail | Sisu |
 |---|---|
 | [`platform_api_integration_guide.md`](platform_api_integration_guide.md) | Juhis: identifikaatori üleslaadimine, väravalt tulevad päringud (`baseUrl` andmestiku- ja järelpärimise-otspunktid), veakoodid, onboarding'u kontrollnimekiri. **Alusta siit.** |
-| [`examples/platforms/`](examples/platforms/) | Näide-XML-id: lühike üleslaadimisvorm, andmestiku vastus. |
+| [`examples/platforms/`](examples/platforms/) | Näide-XML-id: lühike ja täis-FTI004 üleslaadimisvorm, andmestiku vastus. |
 
 Küsimused: **Sten Viljus** — <Sten.Viljus@Askend.com>.

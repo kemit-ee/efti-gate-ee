@@ -4,17 +4,16 @@ eFTI värav pakub **kahesuunalist** REST-liidest registreeritud eFTI platvormide
 kirjeldab, mida platvorm väravale saadab, ja mida platvorm ise peab väravale vastu pakkuma.
 
 > Enne alustamist: platvorm peab olema Admini kasutajaliideses registreeritud (vt
-> [`docs/user-guide/src/platforms.md`](../user-guide/src/platforms.md)) — ID, base-URL,
-> väljuvad päised ja API võti tuleb sinu gate'i operaatorilt/adminilt. Operaator loob
-> platvormi kirje ja genereerib `X-Api-Key` (`POST /admin/v1/platforms/api-key/:id`) —
-> täisvõtit näidatakse üks kord, hoia see turvaliselt.
+> [`docs/user-guide/src/platforms.md`](../user-guide/src/platforms.md)) — platvormi ID,
+> base-URL, väljuvad päised ja API võti lepitakse kokku sinu gate'i operaatoriga. Operaator
+> loob platvormi kirje ja genereerib API võtme; täisvõtit näidatakse üks kord, hoia see
+> turvaliselt.
 
 ## Ülevaade
 
 ```mermaid
 flowchart LR
-  PL["Sinu platvorm"] -->|"1: identifikaator, X-Api-Key"| GW["eFTI värav — /platforms/v1/**"]
-  GW --> DB[("Saadetiste register")]
+  PL["Sinu platvorm"] -->|"1: identifikaator, X-Api-Key"| GW["eFTI värav"]
   GW -->|"2: GET baseUrl/v1/dataset/:id (kui asutus küsib)"| PL
   GW -->|"3: POST baseUrl/v1/dataset/:id/follow-up"| PL
 ```
@@ -25,13 +24,12 @@ Kaks eraldi suunda, kaks eraldi rolli:
    (`POST /platforms/v1/consignments`). Autendid ennast oma `X-Api-Key`-ga.
 2. **Värav → platvorm** (värav algatab, sina vastad): kui pädev asutus küsib selle saadetise
    täisandmestikku või saadab järelpärimise, kutsub värav SINU `baseUrl`-i — sinu teenus peab
-   need kaks otspunkti pakkuma ja autentima gate'i väravalt saadud päistega
-   (mis on Adminis seadistatud `headers` väljal).
+   need kaks otspunkti pakkuma ja autentima gate'i väravalt saadud päistega (mis on Adminis
+   sinu platvormi kirje juures seadistatud).
 
-Töötav, käivitatav viitrealisatsioon nii 2. kui 3. sammu jaoks: **`DSL/Ruuter/mock-platform/`**
-selles repos (jookseb dev-compose'is ruuteri sees teel `http://ruuter:8086/mock-platform`,
-seemendatud platvormina `mock`, API võti `mock-secret-key`). Loe seda otse kui täpseimat
-lepingut — see juhend on selle kokkuvõte.
+Testimiseks on saadaval valmis testplatvorm (ID `mock`, API-võti `mock-secret-key`), mis
+implementeerib kõiki kolme sammu — küsi oma gate'i operaatorilt, kuidas seda oma
+arenduskeskkonnas kasutada.
 
 ---
 
@@ -43,8 +41,8 @@ Kaks kuju, sõltuvalt sellest, kuidas su platvorm väravaga ühendub:
 
 | Kuju | Millal | Path | Body |
 |---|---|---|---|
-| **Täis-FTI004** | eDelivery/AS4 kaudu ühendudes (`platforms.e_delivery_cert` seadistatud) | `/platforms/v1/consignments` | Terve `FTI004UploadIdentifierRequest` (GateID/PlatformID/DatasetID + `ParameterIDSetCriteria`) |
-| **Lühike** | Otse REST-iga ühendudes (`platforms.base_url`) | `/platforms/v1/consignments/:datasetId` — **`datasetId` on path-parameeter** | Ainult `<ParameterIDSetCriteria>` element |
+| **Täis-FTI004** | eDelivery/AS4 kaudu ühendudes | `/platforms/v1/consignments` | Terve `FTI004UploadIdentifierRequest` (GateID/PlatformID/DatasetID + `ParameterIDSetCriteria`) |
+| **Lühike** | Otse REST-iga ühendudes | `/platforms/v1/consignments/:datasetId` — **`datasetId` on path-parameeter** | Ainult `<ParameterIDSetCriteria>` element |
 
 Mõlemal juhul: `Content-Type: text/xml`, keha on **toores XML string**, mitte JSON-mähitud.
 
@@ -52,7 +50,7 @@ Mõlemal juhul: `Content-Type: text/xml`, keha on **toores XML string**, mitte J
 
 | Päis | Kohustuslik | Kirjeldus |
 |---|---|---|
-| `X-Api-Key` | jah | Sinu platvormi krediit (ADR-004) — SHA-256 võrreldakse `platforms.api_key_hash`-ga |
+| `X-Api-Key` | jah | Sinu platvormi krediit — võrreldakse registreeritud platvormi salvestatud võtmega |
 | `Content-Type` | jah | `text/xml` |
 | `X-Gate-Id` | ei | Vaikimisi selle värava enda ID. Määra ainult siis, kui laed identifikaatori teise värava jaoks üles (harv) |
 | `X-Request-ID` | ei | Korrelatsiooni-ID logides |
@@ -75,11 +73,10 @@ X-Api-Key: <sinu-võti>
 ```
 
 Täisnäited: [`examples/platforms/short-upload.xml`](examples/platforms/short-upload.xml) (see
-näide) ja täis-FTI004 vorm — vt
-[`code/xml-mapper/xsd/FTI004/sample.xml`](../../code/xml-mapper/xsd/FTI004/sample.xml).
+näide) ja [`examples/platforms/full-upload.xml`](examples/platforms/full-upload.xml) (täis-FTI004
+vorm).
 
-**Vastus (201):** väljanimed camelCase (ReSql teisendab need alati wire peal, sõltumata SQL-i
-veerunimedest):
+**Vastus (201):**
 
 ```json
 {
@@ -90,19 +87,19 @@ veerunimedest):
 
 **Oluline piirang:** dokumendis kodeeritud `PlatformID` ja `GateID` peavad ühtima autenditud
 platvormi ja selle värava enda ID-ga (case-insensitive) — muu platvormi nimel identifikaatorit
-üles laadida ei saa. Sama saadetise `dataset_id` peale saab hiljem saata uue versiooni (append-only
-registrimudel — vt [`AGENTS.md`](../../AGENTS.md) "Database rules"); viimane loomisaeg võidab.
+üles laadida ei saa. Sama saadetise identifikaatori peale saab hiljem saata uue versiooni —
+viimane loomisaeg võidab.
 
 ### Veakoodid
 
-| Staatus | Kood/põhjus | Tähendus |
+| Staatus | Põhjus | Tähendus |
 |---|---|---|
-| 401 | — | `X-Api-Key` puudub või ei vasta ühelegi aktiivsele platvormile |
-| 403 | `Forbidden` (mitu platvormi) | Sinu võtme räsi vastab enam kui ühele aktiivsele platvormile — operaatori konfiguratsiooniviga, teata gate'i operaatorile |
-| 403 | `Consignment UIL must belong to the authenticated platform and this gate` | XML-i sees kodeeritud PlatformID/GateID ei ühti autenditud platvormi või selle värava enda ID-ga |
-| 400 | `Invalid consignment XML` | XML ei vasta XSD-le või on parsimatu — kontrolli nimeruume ja kohustuslikke välju |
-| 502 | `XML mapper unavailable` | Ajutine värava-sisene tõrge — proovi uuesti |
-| 500 | `Failed to insert consignment` / `… could not be verified` | Andmebaasi tõrge — proovi uuesti, kestva tõrke korral teata operaatorile |
+| 401 | — | `X-Api-Key` puudub või ei vasta ühelegi registreeritud platvormile |
+| 403 | Mitu platvormi | Sinu võti vastab enam kui ühele registreeritud platvormile — operaatori konfiguratsiooniviga, teata gate'i operaatorile |
+| 403 | Vale omanik | XML-i sees kodeeritud PlatformID/GateID ei ühti autenditud platvormi või selle värava enda ID-ga |
+| 400 | Vigane XML | XML ei vasta XSD-le või on parsimatu — kontrolli nimeruume ja kohustuslikke välju |
+| 502 | Ajutine tõrge | Proovi uuesti |
+| 500 | Sisemine tõrge | Proovi uuesti, kestva tõrke korral teata gate'i operaatorile |
 
 ---
 
@@ -112,23 +109,20 @@ Kui pädev asutus küsib selle saadetise **täisandmestikku**, kutsub värav SIN
 
 ### `GET {baseUrl}/v1/dataset/{datasetId}?subsets=EU01,EU02,…`
 
-**Päised, mida värav saadab:** Adminis platvormi kirje `headers` väljal seadistatu (nt oma
-`X-Api-Key`, kui su teenus seda nõuab) + `X-Request-ID`.
+**Päised, mida värav saadab:** Adminis sinu platvormi kirje juures seadistatud väljuvad päised
+(nt sinu enda nõutav API võti) + `X-Request-ID`.
 
 **Sinu vastus peab olema:** `200 OK`, `Content-Type: text/xml`, toores XML — **paljas
 `<rsm:SpecifiedSupplyChainConsignment>` element** (nimeruum
 `urn:eu:move:eFTI:data:standard:FTI010GetCmdsResponse:1`), **ilma** ümbritseva
-`FTI010GetCmdsResponse`/`ExchangedDocument` mähiseta — värav lisab selle ise. Täpne kuju, mida
-väravale tagastada:
-
-[`examples/platforms/dataset-response.xml`](examples/platforms/dataset-response.xml) (lühendatud) —
-täisstruktuur: [`DSL/Ruuter/mock-platform/GET/v1/dataset.yml`](../../DSL/Ruuter/mock-platform/GET/v1/dataset.yml).
+mähiseta — värav lisab ümbritseva struktuuri ise. Täpne kuju, mida väravale tagastada, koos kõigi
+väljadega: [`examples/platforms/dataset-response.xml`](examples/platforms/dataset-response.xml).
 
 `subsets` parameeter loetleb, milliseid eFTI andmealamhulki (EU01–EU07 vms) pädev asutus küsis —
 sinu teenus võib selle järgi vastuse sisu piirata, aga see pole kohustuslik (värav ei filtreeri
 üle; vastutus jääb platvormile subsette austada).
 
-Kui su teenuse vastus ei ole `200`, transpordiviga (ühendus katkes, DNS, ajalõpp) või vigane XML,
+Kui su teenuse vastus ei ole `200`, jääb tulemata (ühendus katkes, ajalõpp) või on vigane XML,
 saab pädev asutus **502 Bad Gateway** — sinu teenuse saadavus mõjutab otseselt asutuse töövoogu.
 
 ---
@@ -139,8 +133,8 @@ Kui pädev asutus saadab saadetise kohta järelpärimise:
 
 ### `POST {baseUrl}/v1/dataset/{datasetId}/follow-up`
 
-**Päised:** Adminis seadistatud `headers` + `Content-Type: application/json` + `X-Request-ID` +
-`X-Dataset-Request-ID` (esimene `referenceIds` väärtus).
+**Päised:** Adminis seadistatud väljuvad päised + `Content-Type: application/json` +
+`X-Request-ID` + `X-Dataset-Request-ID` (esimene `referenceIds` väärtus).
 
 **Keha (JSON):**
 
@@ -154,20 +148,17 @@ Kui pädev asutus saadab saadetise kohta järelpärimise:
 ```
 
 `files` on valikuline. **Vasta `201`** — värav edastab sinu vastuse staatuse otse asutusele
-tagasi; midagi enamat väravale tagastada pole vaja. Referentsteostus:
-[`DSL/Ruuter/mock-platform/POST/v1/dataset.yml`](../../DSL/Ruuter/mock-platform/POST/v1/dataset.yml)
-(vaata `check_path` — see teenindab nii `GET /v1/dataset/:id` kui `POST /v1/:id/follow-up` samas
-failipuus, path'i teine segment eristab).
+tagasi; midagi enamat väravale tagastada pole vaja.
 
 ---
 
 ## 4. Alternatiiv: eDelivery/AS4
 
 REST (`baseUrl`) asemel saab liidestuda ka eDelivery/AS4 kaudu (mTLS, sõnumipõhine, sama muster
-mis väravatevahelisel suhtlusel) — see nõuab operaatoriga eraldi kokkulepet (sertifikaadi vahetus,
-`platforms.e_delivery_cert`). Enamikule platvormidele piisab lihtsamast REST-liidesest; AS4 on
-mõeldud juhtudele, kus platvormil on juba eDelivery access point olemas. Küsi oma gate'i
-operaatorilt, kui see on sinu jaoks vajalik.
+mis väravatevahelisel suhtlusel) — see nõuab operaatoriga eraldi kokkulepet (sertifikaadi
+vahetus). Enamikule platvormidele piisab lihtsamast REST-liidesest; AS4 on mõeldud juhtudele,
+kus platvormil on juba eDelivery access point olemas. Küsi oma gate'i operaatorilt, kui see on
+sinu jaoks vajalik.
 
 ---
 
@@ -175,15 +166,15 @@ operaatorilt, kui see on sinu jaoks vajalik.
 
 1. Lepi gate'i operaatoriga kokku platvormi ID ja REST `baseUrl` (peab olema avalikult
    ligipääsetav väravale — HTTPS soovitatav).
-2. Operaator loob platvormi kirje Adminis ja genereerib `X-Api-Key`; salvesta see turvaliselt.
-3. Kui su `baseUrl`-teenus vajab oma autentimist, anna operaatorile vastav päis-väärtus
-   (nt `X-Api-Key: <sinu-teenuse-võti>`) kirje `headers` väljale.
+2. Operaator loob platvormi kirje Adminis ja genereerib API võtme; salvesta see turvaliselt.
+3. Kui su `baseUrl`-teenus vajab oma autentimist, anna operaatorile vastav päis-väärtus, mis
+   lisatakse su platvormi kirje väljuvate päiste sekka.
 4. Implementeeri kaks otspunkti oma teenuses: `GET /v1/dataset/:datasetId` (§2) ja
-   `POST /v1/dataset/:datasetId/follow-up` (§3) — vaata `DSL/Ruuter/mock-platform/` täpse lepingu
-   jaoks.
-5. Testi kohapeal `mock`-platvormi vastu (dev-compose'is seemendatud, API võti
-   `mock-secret-key`) — laadi üles `short-upload.xml`, siis mine Admini **Saadetised** vaatesse ja
-   vaata sama identifikaatorit.
-6. Kui kõik toimib dev vastu, palu operaatorilt tootmisvõti ja korda tootmiskeskkonnas.
+   `POST /v1/dataset/:datasetId/follow-up` (§3).
+5. Testi kohapeal testplatvormi vastu (§ "Ülevaade") — laadi üles
+   [`short-upload.xml`](examples/platforms/short-upload.xml), siis kontrolli tulemust koos
+   operaatoriga Admini **Saadetised** vaates.
+6. Kui kõik toimib arenduskeskkonna vastu, palu operaatorilt tootmisvõti ja korda
+   tootmiskeskkonnas.
 
 Küsimused: **Sten Viljus** — <Sten.Viljus@Askend.com>.
