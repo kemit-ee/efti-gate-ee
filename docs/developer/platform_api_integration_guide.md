@@ -33,6 +33,67 @@ arenduskeskkonnas kasutada.
 
 ---
 
+## Sõnumivood
+
+### Saadetise identifikaatori üleslaadimine
+
+Sina algatad — värav salvestab identifikaadi ja vastab kohe.
+
+```mermaid
+sequenceDiagram
+  participant PL as Sinu platvorm
+  participant GW as eFTI värav
+
+  PL->>GW: POST .../platforms/v1/consignments (identifikaator, X-Api-Key)
+  GW->>GW: Autendib võtme, kontrollib omanikku
+  GW-->>PL: 201 + salvestatud identifikaator
+```
+
+### Kohalik pädev asutus küsib saadetise andmestikku
+
+Kui SINU riigi pädev asutus küsib väravalt selle saadetise täisandmestikku, küsib värav selle
+sinu käest — ise ta andmestikku ei säilita, ainult identifikaatorit.
+
+```mermaid
+sequenceDiagram
+  participant AS as Pädev asutus (kohalik)
+  participant GW as eFTI värav
+  participant PL as Sinu platvorm
+
+  AS->>GW: Küsib saadetise andmestikku (UIL: värav+platvorm+identifikaator)
+  GW->>PL: GET baseUrl/v1/dataset/:id?subsets=…
+  PL-->>GW: 200 + andmestiku XML
+  GW-->>AS: Andmestik
+```
+
+### Teise liikmesriigi asutus küsib andmestikku sinu saadetise kohta
+
+Kui välisriigi pädev asutus küsib SEDA saadetist läbi oma värava, jõuab päring eFTI väravate
+võrgustiku kaudu sinu väravani — ja sinu väravast SINU platvormini täpselt samamoodi nagu
+kohaliku päringu puhul. Sinu platvorm ei tea ega pea teadma, kas päring tuli kohalikult asutuselt
+või teisest liikmesriigist — mõlemal juhul kutsub SINU väravaga ühendatud eFTI värav sinu
+`baseUrl`-i.
+
+```mermaid
+sequenceDiagram
+  participant AS2 as Pädev asutus (teine liikmesriik)
+  participant GW2 as Teise riigi eFTI värav
+  participant GW as Sinu eFTI värav
+  participant PL as Sinu platvorm
+
+  AS2->>GW2: Küsib saadetise andmestikku (UIL osutab sinu väravale)
+  GW2->>GW: Väravatevaheline päring (UIL: sinu värav+platvorm+identifikaator)
+  GW->>PL: GET baseUrl/v1/dataset/:id?subsets=…
+  PL-->>GW: 200 + andmestiku XML
+  GW-->>GW2: Andmestik
+  GW2-->>AS2: Andmestik
+```
+
+Järelpärimised (follow-up, §3) käituvad samamoodi — sõltumata sellest, kas pärija on kohalik või
+teise liikmesriigi pädev asutus, jõuab järelpärimine alati sinu `baseUrl`-i kaudu sinuni.
+
+---
+
 ## 1. Saadetise identifikaatori üleslaadimine
 
 ### `POST /platforms/v1/consignments`
