@@ -28,6 +28,19 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: 'src/setup-tests.ts'
+    setupFiles: 'src/setup-tests.ts',
+    exclude: ['e2e/**', 'node_modules/**'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov', 'cobertura'],
+      include: ['src/**'],
+      exclude: ['src/setup-tests.ts', 'src/**/*.test.ts', 'src/router/RouterTest.svelte'],
+      thresholds: {
+        lines: 80,
+        statements: 80,
+        functions: 80,
+        branches: 80
+      }
+    }
   }
 })

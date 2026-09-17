@@ -5,6 +5,7 @@ val mainClassName = "LauncherKt"
 plugins {
   val kotlinVersion = "2.4.20"
   kotlin("jvm") version kotlinVersion
+  jacoco
 }
 
 allprojects {
@@ -16,9 +17,14 @@ allprojects {
 
 subprojects {
   apply(plugin = "kotlin")
+  apply(plugin = "jacoco")
 
   kotlin {
     jvmToolchain(25)
+  }
+
+  jacoco {
+    toolVersion = "0.8.13"
   }
 
   dependencies {
@@ -56,6 +62,38 @@ subprojects {
     workingDir(projectDir)
     useJUnitPlatform()
     jvmArgs("-DENV=test", "-DOWN_GATE_ID=TEST", "-XX:-OmitStackTraceInFastThrow")
+    finalizedBy(tasks.jacocoTestReport)
+  }
+
+  val coverageExcludes = listOf("Launcher.class", "Launcher\$*.class")
+
+  tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+      xml.required.set(true)
+      html.required.set(true)
+    }
+    classDirectories.setFrom(
+      files(classDirectories.files.map {
+        fileTree(it) { exclude(coverageExcludes) }
+      })
+    )
+  }
+
+  tasks.jacocoTestCoverageVerification {
+    dependsOn(tasks.jacocoTestReport)
+    classDirectories.setFrom(
+      files(classDirectories.files.map {
+        fileTree(it) { exclude(coverageExcludes) }
+      })
+    )
+    violationRules {
+      rule {
+        limit {
+          minimum = "0.80".toBigDecimal()
+        }
+      }
+    }
   }
 
   tasks.withType<KotlinCompile> {

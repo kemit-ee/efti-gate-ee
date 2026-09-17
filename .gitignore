@@ -27,3 +27,11 @@ env.local
 # Generated documentation and Kotlin build output
 docs/user-guide/book/
 code/*/bin/
+
+# Test coverage & Playwright reports
+coverage/
+code/ui/coverage/
+code/ui/test-results/
+code/ui/playwright-report/
+code/ui/blob-report/
+code/ui/playwright/.cache/
