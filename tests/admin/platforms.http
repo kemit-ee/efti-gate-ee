@@ -24,6 +24,18 @@ Authorization: Bearer {{adminToken}}
   })
 %}
 
+### Verify audit log recorded the platform creation (issue #59)
+GET {{RUUTER_URL}}/admin/v1/audit?resource=platform&resourceId=demo
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Audit log has a platform.create row", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.some(e => e.action === "platform.create" && e.resourceId === "demo"))
+  })
+%}
+
 ### List platforms
 GET {{RUUTER_URL}}/admin/v1/platforms
 Content-Type: application/json
@@ -65,6 +77,18 @@ Authorization: Bearer {{adminToken}}
   client.test("Platform updated", () => {
     client.assert(response.status === 200)
     client.assert(response.body.baseUrl === "https://demo-platform.example.com/api/v2")
+  })
+%}
+
+### Verify audit log recorded the platform update (issue #59)
+GET {{RUUTER_URL}}/admin/v1/audit?resource=platform&resourceId=demo
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Audit log has a platform.update row", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.some(e => e.action === "platform.update" && e.resourceId === "demo"))
   })
 %}
 
@@ -145,6 +169,18 @@ Authorization: Bearer {{adminToken}}
   client.test("Platform deleted", () => {
     client.assert(response.status === 200)
     client.assert(response.body.status === "DELETED")
+  })
+%}
+
+### Verify audit log recorded the platform deletion (issue #59)
+GET {{RUUTER_URL}}/admin/v1/audit?resource=platform&resourceId=demo
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Audit log has a platform.delete row", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.some(e => e.action === "platform.delete" && e.resourceId === "demo"))
   })
 %}
 

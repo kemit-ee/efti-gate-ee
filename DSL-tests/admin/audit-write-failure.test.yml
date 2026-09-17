@@ -1,0 +1,58 @@
+mode: mock-http
+constants:
+  RUUTER_URL: "{MOCK}"
+  RESQL_URL: "{MOCK}"
+  PUBSUB_URL: "{MOCK}"
+
+tests:
+  # docs/specs/logging-spec.md §5.2: the audit_log INSERT is best-effort and post-commit —
+  # a failure to write it must never fail or roll back the triggering operation.
+  - name: platform is still created when the audit-log write fails
+    setup:
+      mocks:
+        - url_matches: /efti/internal/check-admin-authority
+          method: POST
+          body: { id: "EE60001019906" }
+        - url_matches: /efti/insert_platform
+          method: POST
+          status: 201
+          body: [{ id: "demo", baseUrl: "https://demo.example.com", status: "ONLINE" }]
+        - url_matches: /efti/insert_audit_log
+          method: POST
+          status: 500
+          body: []
+          headers:
+            X-Resql-Error-Code: ResqlRuntimeException
+            X-Resql-Error-Message: database unavailable
+    request:
+      method: POST
+      path: /admin/v1/platforms
+      headers: { authorization: "Bearer test", content-type: "application/json" }
+      body: { id: "demo", baseUrl: "https://demo.example.com" }
+    expect:
+      status: 201
+      body: { id: "demo", baseUrl: "https://demo.example.com", status: "ONLINE" }
+
+  - name: user delete still succeeds when the audit-log write fails
+    setup:
+      mocks:
+        - url_matches: /efti/internal/check-admin-authority
+          method: POST
+          body: { id: "EE60001019906" }
+        - url_matches: /efti/soft_delete_user
+          method: POST
+          status: 200
+          body: [{ row_id: "11111111-1111-1111-1111-111111111111", id: "22222222-2222-2222-2222-222222222222", isUserActive: false, created_at: "2026-01-01T00:00:00Z" }]
+        - url_matches: /efti/insert_audit_log
+          method: POST
+          status: 500
+          body: []
+          headers:
+            X-Resql-Error-Code: ResqlRuntimeException
+            X-Resql-Error-Message: database unavailable
+    request:
+      method: DELETE
+      path: /admin/v1/users/22222222-2222-2222-2222-222222222222
+      headers: { authorization: "Bearer test" }
+    expect:
+      status: 204

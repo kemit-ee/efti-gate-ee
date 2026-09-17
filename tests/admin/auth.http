@@ -17,6 +17,18 @@ Content-Type: application/json
   })
 %}
 
+### Verify audit log recorded the successful login (issue #59)
+GET {{RUUTER_URL}}/admin/v1/audit?resource=user
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Audit log has a successful user.login row", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.some(e => e.action === "user.login" && e.details.outcome === "success"))
+  })
+%}
+
 ### Dev login as unprovisioned user (exists in TARA, not in gate DB)
 POST {{RUUTER_URL}}/auth/dev-login
 Content-Type: application/json
