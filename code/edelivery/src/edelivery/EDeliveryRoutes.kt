@@ -25,7 +25,8 @@ class EDeliveryRoutes(
   private val messageHandlers: MessageHandlers,
   private val eDeliveryMessageGenerator: EDeliveryMessageGenerator,
   private val eDeliveryClient: EDeliveryClient,
-  private val partyRegistry: PartyRegistry
+  private val partyRegistry: PartyRegistry,
+  private val signatureVerifier: SignatureVerifier
 ) {
   private val rootTagRegex = "<\\s*(?:\\w+:)?(\\w+)".toRegex()
   private val messagesReceived = AtomicLong().also {
@@ -49,14 +50,16 @@ class EDeliveryRoutes(
       val header = xmlParser.parse<MessageHeader>(xml)
       currentThread().name = header.conversationId.toString()
 
-      if (header.receiverId != keyManager.partyId) log.warn("Unknown receiver: ${header.receiverId}")
+      require(header.receiverId == keyManager.partyId) { "Unknown receiver: ${header.receiverId}" }
       val party = partyRegistry[header.senderId]
       e.attr("client", party.id)
 
       val encryptedSymmetricKey = header.cipherValue?.trim()
         ?.takeIf { it.isNotBlank() }?.base64Decode()
         ?: body.values.toList().getOrNull(1) as ByteArray
-      val payloadXml = decryptPayload(header, keyManager.ownPrivateKey, encryptedPayload, encryptedSymmetricKey)
+      val decrypted = decryptPayload(header, keyManager.ownPrivateKey, encryptedPayload, encryptedSymmetricKey)
+      signatureVerifier.verify(xml, decrypted.attachmentBytes, header)
+      val payloadXml = decrypted.xml
 
       val rootTag = rootTagRegex.from(payloadXml)
       val responseKey = RequestKey(header.senderId, header.conversationId, header.receiverId)
@@ -79,7 +82,9 @@ class EDeliveryRoutes(
     }
   }
 
-  private fun decryptPayload(header: MessageHeader, privateKey: PrivateKey, encryptedPayload: ByteArray, encryptedSymmetricKey: ByteArray): String {
+  private data class DecryptedPayload(val attachmentBytes: ByteArray, val xml: String)
+
+  private fun decryptPayload(header: MessageHeader, privateKey: PrivateKey, encryptedPayload: ByteArray, encryptedSymmetricKey: ByteArray): DecryptedPayload {
     val incomingIdentifier = header.keyIdentifier ?: header.serialNumber
     require(incomingIdentifier != null) {
       "No valid KeyIdentifier or X509SerialNumber found in the message header."
@@ -114,10 +119,11 @@ class EDeliveryRoutes(
     cipherAES.init(Cipher.DECRYPT_MODE, secretKey, gcmSpec)
     val decryptedBytes = cipherAES.doFinal(ciphertext)
 
-    return when (header.compressionType) {
+    val xml = when (header.compressionType) {
       "application/gzip" -> String(GZIPInputStream(ByteArrayInputStream(decryptedBytes)).readAllBytes())
       else -> String(decryptedBytes)
     }
+    return DecryptedPayload(decryptedBytes, xml)
   }
 }
 
