@@ -50,7 +50,7 @@ class EDeliveryRoutes(
       val header = xmlParser.parse<MessageHeader>(xml)
       currentThread().name = header.conversationId.toString()
 
-      require(header.receiverId == keyManager.partyId) { "Unknown receiver: ${header.receiverId}" }
+      require(keyManager.acceptsReceiver(header.receiverId)) { "Unknown receiver: ${header.receiverId}" }
       val party = partyRegistry[header.senderId]
       e.attr("client", party.id)
 
