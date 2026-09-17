@@ -47,7 +47,19 @@ Konsignatsioonide otsingu (`authority/search`) jõudluse dokumendid, **tehtud j�
 | `authority/search` p99 koormuse all | 1 800–4 500 ms | **~330–420 ms** (`ab`) / **~30–57 ms** (`k6` realistlik) |
 | tühja lokaalse otsingu latents | 65–77 s → HTTP 500 | kohe `[]` |
 
+## 5. Transport-means päringute mõõtmine (2026-09-17)
+
+`get_consignments_by_transport_means.sql` / `check_transport_means_registered.sql` jäid §1–4
+mõõtmistest välja — review'i järelkontrollil (`docs/reviews/2026-09-17-runtime-security-sql/`)
+tuvastati, et need on koodis juba candidate-narrowing + `LATERAL` mustriga, aga mõõtmata.
+
+| Fail | Sisu |
+|---|---|
+| [`askend_perf_verification/analysis.md`](askend_perf_verification/analysis.md) §8 | Sama 1M andmestik mis §4–7 (`bulk-insert-1m.sql`): kõik plaanid indeksipõhised, `BitmapOr` kolme indeksiga, ei ühtegi täistabeli skanni. |
+| [`askend_perf_verification/analysis.md`](askend_perf_verification/analysis.md) §9 | Uus segatud andmestik ([`bulk-insert-1m-mixed.sql`](askend_perf_verification/bulk-insert-1m-mixed.sql), ikka ~1M): 700k lame + 200k sügav ajalugu (10k dataset'it × 20 versiooni) + 100k lai/kombineeritud OR (2 jagatud identifikaatorit, igaüks 50k reaga). Sügav ajalugu ei ole probleem (23,9 ms); lai OR on: 2,4 s `get_consignments_by_transport_means`-il (peab lahendama kõik 50 000 candidate'i enne `ORDER BY`/`LIMIT`-i), aga ainult 48 ms `check_transport_means_registered`-il (`EXISTS`+`LIMIT 1` peatub esimesel sobival candidate'il). |
+
 ## Kordustootmise skriptid
 
 `askend_perf_verification/`: `run.md`, `seed-consignments.sql`, `bulk-insert-1m.sql`,
-`hop-latency.sh`, `k6-authority-search.js`, `semantic-test.sql`, `explain-*.txt`.
+`bulk-insert-1m-mixed.sql`, `hop-latency.sh`, `k6-authority-search.js`, `semantic-test.sql`,
+`explain-*.txt`, `explain-*.sql`.

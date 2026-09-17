@@ -667,3 +667,135 @@ mitte serveri-ootus. 0 viga 30 000+ päringu peale.
 Läbilaskevõime selles profiilis ~50 req/s on **think-time'i, mitte serveri piir**
 (100 VU-d × ~1 s pausiga → ~50–100 req/s nõudlust). Serveri tegelik lagi tuli välja
 `ab`-i sweepis (§7b): ~550 req/s.
+
+---
+
+## 8. Transport-means päringute mõõtmine — praegune kood, sama andmestik
+
+Review'i (`docs/reviews/2026-09-17-runtime-security-sql/README.md`) järelkontrollil jäi
+`get_consignments_by_transport_means.sql` / `check_transport_means_registered.sql` avatuks
+punktina "mõõtmine eespool" — koodis on juba candidate-narrowing + `LATERAL ... LIMIT 1`
+muster, aga see polnud kunagi 1M-skaalal EXPLAIN ANALYZE-iga kontrollitud.
+
+### Mis koodis on enne neid teste muutunud (baas: `15fade876`)
+
+- **`e4830d5` "perf: use array containment for transport filters"** — mõlemad failid said
+  `ANY(array)` → `@>` (F11 sama parandus, laiendatud transport-means päringutele). See on
+  **operaatori vahetus, mitte mõõdetud optimeerimine** — §3 punkt 2 hoiatab täpselt selle
+  eest ("üksnes operaatori vahetus ei tõenda kiirenemist").
+- Mõlemad failid kasutasid juba enne seda candidate-CTE + `CROSS JOIN LATERAL (... ORDER BY
+  created_at DESC, revision DESC LIMIT 1)` mustrit iga candidate'i viimase rea lahendamiseks
+  — sarnane idee C6-le, aga **per-candidate index-lookup**, mitte anti-join. Erinevalt
+  `get_consignments.sql`-ist ei ole seda kunagi 1M real mõõdetud.
+- `get_consignments_by_transport_means.sql` kasutab `WITH candidates AS MATERIALIZED`;
+  `check_transport_means_registered.sql` kasutab **tavalist alampäringut** (mitte CTE-d) —
+  vahe osutub §9-s oluliseks.
+
+### Meetod
+
+Sama andmestik ja skriptid mis C6 mõõtmiseks (§4–§7): `bulk-insert-1m.sql` (1M `BULK-<i>`,
+kõik dataset_id-d erinevad, iga real üks used/carried equipment id) + `seed-consignments.sql`.
+Uus: [`explain-transport-means-1m.sql`](explain-transport-means-1m.sql) — samad kaks päringut,
+parameetrid asendatud literaalidega, kolm juhtu: täpne main_transport_id tabamus (`BULK-500000`,
+sama identifikaator mida C6 mõõtmine kasutas), used_equipment_id tabamus (`TE-1000000`), ja
+olematu identifikaator (`NOT-PRESENT-XYZ`, halvim juhtum kolme-suunalisele OR-ile). Täisväljund:
+[`explain-transport-means-1m.txt`](explain-transport-means-1m.txt).
+
+### Tulemused
+
+| Päring | Juhtum | Plaan | Execution Time |
+|---|---|---|---|
+| `get_consignments_by_transport_means` | `BULK-500000` (1 tabamus) | `BitmapOr` (3 indeksit) → `Nested Loop` → per-candidate `Index Scan idx_consignments_dataset_latest` | **1555,8 ms**¹ |
+| `get_consignments_by_transport_means` | `TE-1000000` (1 tabamus, used_equipment) | sama plaan | **25,3 ms** |
+| `get_consignments_by_transport_means` | `NOT-PRESENT-XYZ` (0 tabamust) | sama plaan, kõik kolm bitmap-indeksiotsingut käivad ikka läbi | **24,7 ms** |
+| `check_transport_means_registered` | `BULK-500000` (registreeritud) | sama muster, `EXISTS` | **4,9 ms** |
+| `check_transport_means_registered` | `NOT-PRESENT-XYZ` (mitte registreeritud) | sama muster | **2,9 ms** |
+
+¹ Esimene päring pärast bulk-inserti + `ANALYZE` — plaani enda sõlmede kumulatiivne aeg on
+~45 ms (vt `explain-transport-means-1m.txt`), aga raporteeritud `Execution Time` on 1555 ms.
+Vahe (JIT ainult ~33 ms) sobib kokku esimese kettalt-loetud lehekülje külma puhvriga Docker
+Desktop'i virtualiseeritud failisüsteemis, mitte päringu enda kuluga — kõik hilisemad sama
+kujuga päringud (read=2–33 puhvrit) on stabiilselt 2–25 ms. Ei ole mõõdetud kui kontrollitud
+külma-cache stsenaarium; märgitud siia ausalt, kuna number on osa toorväljundist.
+
+**Järeldus:** ei ühtegi täistabeli skanni; `BitmapOr` kasutab kõiki kolme indeksit,
+`idx_consignments_dataset_latest` lahendab iga candidate'i viimase rea indeksiotsinguga.
+Erinevalt vanast `get_consignments.sql`-ist (23 337 ms enne C6-e) on need kaks päringut juba
+**enne** mõõtmist mõistlikus plaanis — F11 `@>` fix + olemasolev candidate+LATERAL muster
+katsid selle ära. See erineb sellest, mida review'i ettevaatlik sõnastus lasi karta.
+
+---
+
+## 9. Transport-means päringute mõõtmine — segatud andmestik (lai OR + realistlik ajalugu)
+
+§8 andmestikul (`bulk-insert-1m.sql`) on kaks kitsaskohta, mida ükski senine mõõtmine ei
+kata: iga rida kuulub **erinevale dataset'ile** (0 versioone dataset'i kohta peale esimese —
+päris andmed on append-only ja koguvad ajalugu) ja iga equipment-id on **globaalselt unikaalne**
+(1M rea seas ei jaga ükski kaks rida sama used/carried väärtust — päris konteinerid/haagised
+taaskasutatakse). Kumbki ei testi latest-row lahendust ega candidate-narrowing't olukorras,
+mis reaalsuses ette tuleb.
+
+### Mis andmestikus muutus ja miks
+
+Uus [`bulk-insert-1m-mixed.sql`](bulk-insert-1m-mixed.sql) asendab (mitte ei lisa) senise 1M
+lameda hulga kolme kujuga, kogumaht endiselt ~1M:
+
+| Kuju | Read | Mida testib |
+|---|---:|---|
+| **FLAT** (endine muster, vähendatud) | 700 000 | baasvõrdlus §8-ga sama masina peal |
+| **HIST** — 10 000 dataset'it × 20 versiooni | 200 000 | latest-row lahendus, kui iga candidate'i kohta on 19 aegunud rida, mida `LATERAL ... LIMIT 1` peab indeksiga vahele jätma, mitte skannima. Iga versioon kannab oma identifikaatorit (`HIST-<d>-<r>`), nii et vana identifikaatori otsing peab tagastama tühja (samasugune kontroll mis AAA→BBB fixture'is, aga 10 000× ja 20 versiooni sügavuselt) |
+| **WIDE** — 2 jagatud identifikaatorit, igaüks 50 000 real (25k used_equipment_ids, 25k carried_equipment_ids) | 100 000 | lai/kombineeritud OR: üks otsingutermin annab tuhandeid candidate'e kahe erineva veeru kaudu korraga, mitte 0-1 |
+
+`700 000 + 200 000 + 100 000 = 1 000 000` — kogumaht jäi review'i "1M+" soovituse juurde.
+Skript kontrollib ise (sanity-check'id lõpus): dataset'ite arv iga kuju kohta, ja et
+`HIST-5000-20` (uusim versioon) annab täpselt 1 tabamuse, `HIST-5000-1` (vanim) 0.
+
+### Meetod
+
+Sama liquibase-migreeritud skeem, sama `database` konteiner. Uus
+[`explain-transport-means-1m-mixed.sql`](explain-transport-means-1m-mixed.sql): täpne
+tabamus lamedas hulgas (`FLAT-500000`, baasvõrdlus §8-ga), sügava ajaloo uusim ja vanim
+versioon (`HIST-5000-20` / `HIST-5000-1`), lai OR (`WIDE-SHARED-001`, 50 000 candidate'i)
+mõlema päringu jaoks. Täisväljund:
+[`explain-transport-means-1m-mixed.txt`](explain-transport-means-1m-mixed.txt).
+
+### Tulemused
+
+| Päring | Juhtum | Candidate'e | Execution Time |
+|---|---|---:|---|
+| `get_consignments_by_transport_means` | `FLAT-500000` (1 tabamus) | 1 | 538,6 ms¹ |
+| `get_consignments_by_transport_means` | `HIST-5000-20` (uusim versioon, 19 aegunud rida samas dataset'is) | 1 | **23,9 ms** |
+| `get_consignments_by_transport_means` | `HIST-5000-1` (vanim versioon, õigesti tühi) | 1 (aga filtreeritakse välja) | **18,5 ms** |
+| `get_consignments_by_transport_means` | `WIDE-SHARED-001` (lai OR) | **50 000** | **2410,3 ms** |
+| `check_transport_means_registered` | `WIDE-SHARED-001` (sama termin, sama 50 000 candidate'i) | 50 000 (arvutatud), **1 lahendatud** | **48,4 ms** |
+
+¹ Sama esimese-päringu-pärast-ANALYZE muster mis §8 — vt allmärkus 1 seal.
+
+**Kaks järeldust, mida §8 flat andmestik varjas:**
+
+1. **Sügav ajalugu (HIST) ei ole probleem.** `idx_consignments_dataset_latest` lahendab
+   uusima rea 20-versioonilisest dataset'ist sama kiiresti (23,9 ms) kui §8 üheversioonilisest
+   (25,3 ms) — indeksiotsing jätab aegunud read vahele, ei skanni neid. Vana versiooni otsing
+   (`HIST-5000-1`) tagastab õigesti tühja (`Rows Removed by Filter: 1`), tõestades latest-row
+   korrektsust sügavama ajaloo all, mitte ainult AAA→BBB kahe-versioonilise fixture'iga.
+
+2. **Lai/kombineeritud OR on reaalne kuluartikkel — ja kaks päringut käituvad väga erinevalt
+   samal andmehulgal.** `get_consignments_by_transport_means` peab **iga** 50 000 candidate'i
+   kohta jooksutama `LATERAL ... LIMIT 1` indeksiotsingu (plaanis `loops=50000`), sest
+   `ORDER BY created_at DESC, revision DESC LIMIT 50` ei saa teada, kes on "top 50", enne kui
+   kõigi candidate'ide `created_at` on lahendatud — **2,4 sekundit** ühe päringu kohta.
+   `check_transport_means_registered` samal terminil, samal candidate-hulgal võtab **48 ms**:
+   `EXISTS ... LIMIT 1` peatub esimese candidate'i juures, kelle `LATERAL`-lahendus vastab
+   filtrile (`InitPlan`-i `Nested Loop` teeb `loops=1`, mitte 50 000) — kandidaatide
+   leidmine ise (`BitmapOr` + `HashAggregate`, ~48 ms) domineerib, mitte latest-row lahendus.
+   Erinevus tuleb täpselt sellest, mida §8 juba märkis: `get_consignments_by_transport_means`
+   kasutab `MATERIALIZED` CTE-d ja vajab järjestust; `check_transport_means_registered`
+   kasutab tavalist alampäringut ja ei vaja järjestust, mistõttu planeerija saab varakult
+   peatuda.
+
+**Soovitus (ei ole selle mõõtmise raames rakendatud):** kui lai/kombineeritud OR on reaalne
+tootmisstsenaarium (nt levinud konteineri-ID, mis esineb tuhandetes vedudes), vajab
+`get_consignments_by_transport_means.sql` eraldi kaalumist — nt `LIMIT`-i rakendamine enne
+`LATERAL`-lahendust (kaotab garantii, et tulemus on tõesti "50 uusimat", mitte "50 esimest
+candidate'i, mis juhtusid leitud olema") või candidate-hulga eelneva piiramise mingi muu
+reegliga. Vastutav otsus, mitte vaikimisi koodimuudatus.
