@@ -61,6 +61,7 @@ CONVERTED_PREFIXES: tuple[str, ...] = (
     "DSL/Ruuter/admin/",
     "DSL/Ruuter/auth/",
     "DSL/Ruuter/platforms/",
+    "DSL/Ruuter/ops/",
 )
 
 # Route files that legitimately take no request input.

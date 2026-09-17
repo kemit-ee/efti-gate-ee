@@ -1,0 +1,34 @@
+<rsm:SpecifiedSupplyChainConsignment
+    xmlns:rsm="urn:eu:move:eFTI:data:standard:FTI010GetCmdsResponse:1"
+    xmlns="urn:eu:move:eFTI:data:standard:ReusableAggregateBusinessInformationEntity:34"
+    xmlns:udt="urn:eu:move:eFTI:data:standard:UnqualifiedDataType:34">
+  <GrossWeightMeasure unitCode="KGM">15000.00</GrossWeightMeasure>
+  <NetWeightMeasure unitCode="KGM">12000.00</NetWeightMeasure>
+  <PackageQuantity>120</PackageQuantity>
+  <ConsignorTradeParty>
+    <ID schemeAgencyID="87">DE123456789012345</ID>
+    <Name>Acme Logistics GmbH</Name>
+    <PostalTradeAddress>
+      <StreetName>Hauptstrasse</StreetName>
+      <CityName>Berlin</CityName>
+      <CountryID>DE</CountryID>
+    </PostalTradeAddress>
+  </ConsignorTradeParty>
+  <ConsigneeTradeParty>
+    <ID schemeAgencyID="87">FR987654321012345</ID>
+    <Name>Speedy Imports SAS</Name>
+    <PostalTradeAddress>
+      <StreetName>Rue de la Paix</StreetName>
+      <CityName>Paris</CityName>
+      <CountryID>FR</CountryID>
+    </PostalTradeAddress>
+  </ConsigneeTradeParty>
+  <CarrierTradeParty>
+    <Name>TransEuropa Shipping BV</Name>
+  </CarrierTradeParty>
+  <MainCarriageLogisticsTransportMovement>
+    <ModeCode>1</ModeCode>
+    <ID>VOY-2021-001</ID>
+    <SequenceNumeric>1</SequenceNumeric>
+  </MainCarriageLogisticsTransportMovement>
+</rsm:SpecifiedSupplyChainConsignment>
