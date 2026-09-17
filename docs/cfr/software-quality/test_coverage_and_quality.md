@@ -3,6 +3,14 @@
 ## Changes
 
 - _Initial state. Change tracking begins at v1.0.0._
+- CI coverage tooling wired up (Jacoco for the Kotlin services, Vitest v8 coverage +
+  Playwright for `code/ui`); coverage reports now publish as CI artifacts on every
+  `backend:test` / `frontend:test` run (GitLab MR coverage visualization). The 80% gate
+  itself (`backend:coverage-gate`, and the `thresholds` block in `code/ui/vite.config.js`)
+  runs but is `allow_failure: true` for now — actual baseline line coverage is
+  xml-mapper 91.5%, edelivery 57.9%, multiplexer 43.9%, pubsub 37.5%, `core` 0% (no test
+  sources at all), and `code/ui` ~26%. Flip the gate to blocking module-by-module as each
+  one is brought over 80%, rather than all at once.
 
 > Part of [Theme: Software Quality](README.md). Architecture: [software-quality/README.md](../../architecture/software-quality/README.md) (theme-wide rules) + [software-quality/test_coverage_and_quality.md](../../architecture/software-quality/test_coverage_and_quality.md) (sub-architecture).
 
@@ -65,7 +73,7 @@
 
 ### CI gate
 
-- [ ] Coverage report published as a CI artefact on every build.
+- [x] Coverage report published as a CI artefact on every build.
 - [ ] SLO-regression performance tests gate the build (a regression fails CI).
 
 <!-- issue-body:end -->

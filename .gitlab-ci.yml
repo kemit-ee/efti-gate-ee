@@ -44,17 +44,26 @@ include:
 
   # Sonar cannot parse the Bürokratt DSL; point the backend scan at DSL so at least the
   # tree is indexed. Frontend lives under code/ui.
+  #
+  # allow_failure: true — no SONAR_HOST_URL/SONAR_TOKEN account is confirmed to exist
+  # for this project yet; the scan should still run (so it's ready the moment a token
+  # is provisioned) but must not block the pipeline until then.
+  # TODO(verify): confirm `allow_failure` is a supported input of this component version,
+  # and if not, override the generated job(s) by their real name (`sonar-scan:frontend` /
+  # `sonar-scan:backend` are guesses — check the first pipeline run) with allow_failure: true.
   - component: gitlab.kemitaws.ee/platform-internal/ci-components/sonar-scan@6.6.0
     inputs:
       name: frontend
       sources: code/ui
       quality_gate: false
+      allow_failure: true
       extra_args: "-Dsonar.exclusions=**/node_modules/**,**/dist/**"
   - component: gitlab.kemitaws.ee/platform-internal/ci-components/sonar-scan@6.6.0
     inputs:
       name: backend
       sources: DSL
       quality_gate: false
+      allow_failure: true
       extra_args: "-Dsonar.exclusions=**/draft/**,**/test/**"
   - template: Security/Secret-Detection.gitlab-ci.yml
 
@@ -229,7 +238,37 @@ secret_detection:
 "frontend:test":
   extends: .frontend
   script:
-    - npm run test:run
+    - npm run test:coverage
+  artifacts:
+    when: always
+    paths: [code/ui/coverage/]
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: code/ui/coverage/cobertura-coverage.xml
+
+# Playwright needs glibc (its bundled Chromium doesn't run on musl/alpine), so this uses
+# the official Playwright image instead of the shared .frontend node:22-alpine base.
+# Temporary onboarding state, same as the rest of .frontend: report failures, don't gate yet.
+"frontend:e2e":
+  stage: test
+  image: mcr.microsoft.com/playwright:v1.56.0-noble
+  tags: ["arm64"]
+  interruptible: true
+  allow_failure: true
+  cache:
+    key:
+      files: [code/ui/package-lock.json]
+    paths: [code/ui/node_modules/]
+  before_script:
+    - cd code/ui
+    - npm ci --prefer-offline --no-audit
+  script:
+    - CI=true npx playwright test
+  artifacts:
+    when: always
+    paths: [code/ui/playwright-report/]
+    expire_in: 7 days
 
 # Protected-ref image build already runs the vite build; MR pipelines check it separately.
 "frontend:build":
@@ -253,11 +292,35 @@ secret_detection:
     paths: [code/.gradle/, code/*/build/]
   script:
     - cd code
+    # jacocoTestReport runs automatically after `test` (finalizedBy in build.gradle.kts).
     - ./gradlew test --info
   artifacts:
     when: always
+    paths: [code/*/build/reports/jacoco/test/]
     reports:
       junit: code/*/build/test-results/test/TEST-*.xml
+      coverage_report:
+        coverage_format: jacoco
+        path: code/*/build/reports/jacoco/test/jacocoTestReport.xml
+
+# Coverage floor (Epic 18 / docs/cfr/software-quality/test_coverage_and_quality.md: >=80%
+# line coverage on business logic). Baseline as of this job's introduction is well under
+# that (core has no tests at all; multiplexer/pubsub/edelivery are 38-58% line coverage;
+# only xml-mapper clears 80%) — allow_failure: true until each module's baseline is raised,
+# then flip this to a blocking part of backend:test.
+"backend:coverage-gate":
+  stage: test
+  image: harbor.kemitaws.ee/dockerhub/library/eclipse-temurin:25-jdk-alpine
+  tags: ["arm64"]
+  interruptible: true
+  allow_failure: true
+  needs: ["backend:test"]
+  cache:
+    key: gradle-$CI_COMMIT_REF_SLUG
+    paths: [code/.gradle/, code/*/build/]
+  script:
+    - cd code
+    - ./gradlew jacocoTestCoverageVerification --info
 
 # ----------------------------------------------------------- build, package, deploy
 
