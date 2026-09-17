@@ -2,6 +2,7 @@ package edelivery
 
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import klite.Config
 import org.junit.jupiter.api.Test
 import java.io.IOException
@@ -12,13 +13,18 @@ import java.net.http.HttpResponse.BodyHandler
 import java.net.http.HttpTimeoutException
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotSame
 
 class EDeliveryClientTest {
   val keyManager = mockk<KeyManager>(relaxed = true)
+  val onChangeListener = slot<(Party) -> Unit>()
+  val partyRegistry = mockk<PartyRegistry>(relaxUnitFun = true) {
+    every { onChange(capture(onChangeListener)) } returns Unit
+  }
   val eDeliveryClient =
-    EDeliveryClient(mockk(relaxed = true), keyManager, mockk(relaxed = true), msInSec = 10L)
+    EDeliveryClient(mockk(relaxed = true), keyManager, mockk(relaxed = true), partyRegistry, msInSec = 10L)
 
-  val http = mockk<HttpClient>().also {
+  val http = mockk<HttpClient>(relaxed = true).also {
     eDeliveryClient.javaClass.getDeclaredField("http").apply { isAccessible = true }.set(eDeliveryClient, it)
   }
 
@@ -71,5 +77,14 @@ class EDeliveryClientTest {
 
     assertEquals(5, callCount)
     assertEquals("All 5 attempts failed without hitting timeout", exception.message)
+  }
+
+  @Test fun `rebuilds and closes http client when party registry changes`() {
+    onChangeListener.captured(mockk(relaxed = true))
+
+    val newHttp = eDeliveryClient.javaClass.getDeclaredField("http").apply { isAccessible = true }.get(eDeliveryClient)
+
+    assertNotSame(http, newHttp)
+    io.mockk.verify { http.shutdown() }
   }
 }

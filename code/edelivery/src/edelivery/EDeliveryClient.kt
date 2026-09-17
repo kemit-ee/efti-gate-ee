@@ -22,10 +22,23 @@ class EDeliveryClient(
   private val asyncResponseProvider: AsyncResponseProvider,
   private val keyManager: KeyManager,
   private val eDeliveryMessageGenerator: EDeliveryMessageGenerator,
+  partyRegistry: PartyRegistry,
   private val msInSec: Long = 1000L
 ) {
   private val log = logger()
-  private var http = buildHttpClient()
+  @Volatile private var http = buildHttpClient()
+
+  init {
+    // gate/platform TLS certs are baked into the trust store at build time, so a cert rotation
+    // or newly-registered gate needs a rebuilt HttpClient, not just a KeyManager cache clear.
+    partyRegistry.onChange { rebuildHttpClient() }
+  }
+
+  private fun rebuildHttpClient() {
+    val old = http
+    http = buildHttpClient()
+    old.shutdown()
+  }
   private val messagesSent = AtomicLong().also {
     Metrics.register("edelivery_messages_sent") { it.get() }
   }
