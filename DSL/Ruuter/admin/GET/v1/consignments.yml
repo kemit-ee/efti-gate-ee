@@ -18,6 +18,23 @@ check_result:
     - condition: ${search_result.response.status == 0 || search_result.response.status >= 300}
       next: upstream_unavailable
 
+# Best-effort, post-commit (docs/specs/logging-spec.md §5.2): a failure here never blocks
+# the read response; its result is intentionally unchecked. Records that a list was
+# browsed (count + filter), not the listed rows themselves.
+write_audit_log:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_audit_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      userId: "${caller.id}"
+      action: "consignment.list"
+      resource: "consignment"
+      ipAddress: "${incoming.headers['x-forwarded-for'] ?? null}"
+      details: "${JSON.stringify({ count: search_result.response.body.length, limit: incoming.params.limit, offset: incoming.params.offset })}"
+  result: audit_result
+
 respond:
   return: ${search_result.response.body}
   wrapper: false
