@@ -1,0 +1,251 @@
+Timing is on.
+                                                                                                                  QUERY PLAN                                                                                                                  
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=112829.73..112829.86 rows=50 width=91) (actual time=45.296..45.318 rows=1.00 loops=1)
+   Buffers: shared hit=207 read=33 dirtied=1
+   CTE candidates
+     ->  HashAggregate  (cost=27577.64..27677.40 rows=9976 width=21) (actual time=14.724..14.799 rows=1.00 loops=1)
+           Group Key: consignments_1.dataset_id, consignments_1.platform_id
+           Batches: 1  Memory Usage: 289kB
+           Buffers: shared hit=188 read=29
+           ->  Bitmap Heap Scan on consignments consignments_1  (cost=1855.38..27527.76 rows=9976 width=21) (actual time=14.128..14.148 rows=1.00 loops=1)
+                 Recheck Cond: ((main_transport_id = 'BULK-500000'::text) OR (used_equipment_ids @> '{BULK-500000}'::text[]) OR (carried_equipment_ids @> '{BULK-500000}'::text[]))
+                 Heap Blocks: exact=1
+                 Buffers: shared hit=188 read=29
+                 ->  BitmapOr  (cost=1855.38..1855.38 rows=10001 width=0) (actual time=12.914..12.929 rows=0.00 loops=1)
+                       Buffers: shared hit=188 read=28
+                       ->  Bitmap Index Scan on idx_consignments_main_transport_id  (cost=0.00..4.43 rows=1 width=0) (actual time=1.201..1.213 rows=1.00 loops=1)
+                             Index Cond: (main_transport_id = 'BULK-500000'::text)
+                             Index Searches: 1
+                             Buffers: shared hit=1 read=2
+                       ->  Bitmap Index Scan on idx_consignments_used_equip_ids  (cost=0.00..921.73 rows=5000 width=0) (actual time=0.156..0.157 rows=0.00 loops=1)
+                             Index Cond: (used_equipment_ids @> '{BULK-500000}'::text[])
+                             Index Searches: 1
+                             Buffers: shared hit=2 read=2
+                       ->  Bitmap Index Scan on idx_consignments_carried_equip_ids  (cost=0.00..921.73 rows=5000 width=0) (actual time=11.548..11.548 rows=0.00 loops=1)
+                             Index Cond: (carried_equipment_ids @> '{BULK-500000}'::text[])
+                             Index Searches: 1
+                             Buffers: shared hit=185 read=24
+   ->  Sort  (cost=85152.34..85177.28 rows=9976 width=91) (actual time=17.561..17.563 rows=1.00 loops=1)
+         Sort Key: latest.created_at DESC, latest.revision DESC
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=207 read=33 dirtied=1
+         ->  Nested Loop  (cost=0.42..84820.94 rows=9976 width=91) (actual time=17.202..17.272 rows=1.00 loops=1)
+               Buffers: shared hit=201 read=33 dirtied=1
+               ->  CTE Scan on candidates candidate  (cost=0.00..199.52 rows=9976 width=48) (actual time=14.740..14.803 rows=1.00 loops=1)
+                     Storage: Memory  Maximum Storage: 17kB
+                     Buffers: shared hit=188 read=29
+               ->  Subquery Scan on latest  (cost=0.42..8.47 rows=1 width=86) (actual time=1.348..1.353 rows=1.00 loops=1)
+                     Filter: ((latest.status = 'ACTIVE'::text) AND ((latest.main_transport_id = 'BULK-500000'::text) OR (latest.used_equipment_ids @> '{BULK-500000}'::text[]) OR (latest.carried_equipment_ids @> '{BULK-500000}'::text[])))
+                     Buffers: shared hit=7 read=3
+                     ->  Limit  (cost=0.42..8.45 rows=1 width=218) (actual time=1.321..1.325 rows=1.00 loops=1)
+                           Buffers: shared hit=7 read=3
+                           ->  Index Scan using idx_consignments_dataset_latest on consignments  (cost=0.42..8.45 rows=1 width=218) (actual time=1.312..1.313 rows=1.00 loops=1)
+                                 Index Cond: ((dataset_id = candidate.dataset_id) AND (platform_id = candidate.platform_id))
+                                 Index Searches: 1
+                                 Buffers: shared hit=7 read=3
+ Planning:
+   Buffers: shared hit=537 read=9
+ Planning Time: 5.371 ms
+ JIT:
+   Functions: 20
+   Options: Inlining false, Optimization false, Expressions true, Deforming true
+   Timing: Generation 5.430 ms (Deform 2.496 ms), Inlining 0.000 ms, Optimization 1.752 ms, Emission 26.072 ms, Total 33.254 ms
+ Execution Time: 1555.787 ms
+(51 rows)
+
+Time: 1590.177 ms (00:01.590)
+                                                                                                                QUERY PLAN                                                                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=111958.48..111958.61 rows=50 width=91) (actual time=22.543..22.546 rows=1.00 loops=1)
+   Buffers: shared hit=219 read=2
+   CTE candidates
+     ->  HashAggregate  (cost=26706.39..26806.15 rows=9976 width=21) (actual time=3.584..3.612 rows=1.00 loops=1)
+           Group Key: consignments_1.dataset_id, consignments_1.platform_id
+           Batches: 1  Memory Usage: 289kB
+           Buffers: shared hit=215 read=2
+           ->  Bitmap Heap Scan on consignments consignments_1  (cost=984.13..26656.51 rows=9976 width=21) (actual time=3.492..3.495 rows=1.00 loops=1)
+                 Recheck Cond: ((main_transport_id = 'TE-1000000'::text) OR (used_equipment_ids @> '{TE-1000000}'::text[]) OR (carried_equipment_ids @> '{TE-1000000}'::text[]))
+                 Heap Blocks: exact=1
+                 Buffers: shared hit=215 read=2
+                 ->  BitmapOr  (cost=984.13..984.13 rows=10001 width=0) (actual time=3.473..3.474 rows=0.00 loops=1)
+                       Buffers: shared hit=214 read=2
+                       ->  Bitmap Index Scan on idx_consignments_main_transport_id  (cost=0.00..4.43 rows=1 width=0) (actual time=0.089..0.090 rows=0.00 loops=1)
+                             Index Cond: (main_transport_id = 'TE-1000000'::text)
+                             Index Searches: 1
+                             Buffers: shared hit=3
+                       ->  Bitmap Index Scan on idx_consignments_used_equip_ids  (cost=0.00..50.48 rows=5000 width=0) (actual time=0.040..0.041 rows=1.00 loops=1)
+                             Index Cond: (used_equipment_ids @> '{TE-1000000}'::text[])
+                             Index Searches: 1
+                             Buffers: shared hit=4
+                       ->  Bitmap Index Scan on idx_consignments_carried_equip_ids  (cost=0.00..921.73 rows=5000 width=0) (actual time=3.341..3.342 rows=0.00 loops=1)
+                             Index Cond: (carried_equipment_ids @> '{TE-1000000}'::text[])
+                             Index Searches: 1
+                             Buffers: shared hit=207 read=2
+   ->  Sort  (cost=85152.34..85177.28 rows=9976 width=91) (actual time=3.727..3.728 rows=1.00 loops=1)
+         Sort Key: latest.created_at DESC, latest.revision DESC
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=219 read=2
+         ->  Nested Loop  (cost=0.42..84820.94 rows=9976 width=91) (actual time=3.672..3.700 rows=1.00 loops=1)
+               Buffers: shared hit=219 read=2
+               ->  CTE Scan on candidates candidate  (cost=0.00..199.52 rows=9976 width=48) (actual time=3.591..3.618 rows=1.00 loops=1)
+                     Storage: Memory  Maximum Storage: 17kB
+                     Buffers: shared hit=215 read=2
+               ->  Subquery Scan on latest  (cost=0.42..8.47 rows=1 width=86) (actual time=0.056..0.056 rows=1.00 loops=1)
+                     Filter: ((latest.status = 'ACTIVE'::text) AND ((latest.main_transport_id = 'TE-1000000'::text) OR (latest.used_equipment_ids @> '{TE-1000000}'::text[]) OR (latest.carried_equipment_ids @> '{TE-1000000}'::text[])))
+                     Buffers: shared hit=4
+                     ->  Limit  (cost=0.42..8.45 rows=1 width=218) (actual time=0.033..0.033 rows=1.00 loops=1)
+                           Buffers: shared hit=4
+                           ->  Index Scan using idx_consignments_dataset_latest on consignments  (cost=0.42..8.45 rows=1 width=218) (actual time=0.029..0.029 rows=1.00 loops=1)
+                                 Index Cond: ((dataset_id = candidate.dataset_id) AND (platform_id = candidate.platform_id))
+                                 Index Searches: 1
+                                 Buffers: shared hit=4
+ Planning:
+   Buffers: shared hit=2
+ Planning Time: 1.551 ms
+ JIT:
+   Functions: 20
+   Options: Inlining false, Optimization false, Expressions true, Deforming true
+   Timing: Generation 2.247 ms (Deform 1.154 ms), Inlining 0.000 ms, Optimization 1.474 ms, Emission 17.361 ms, Total 21.082 ms
+ Execution Time: 25.298 ms
+(51 rows)
+
+Time: 28.236 ms
+                                                                                                                        QUERY PLAN                                                                                                                        
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=111958.48..111958.61 rows=50 width=91) (actual time=22.116..22.119 rows=0.00 loops=1)
+   Buffers: shared hit=216
+   CTE candidates
+     ->  HashAggregate  (cost=26706.39..26806.15 rows=9976 width=21) (actual time=2.395..2.396 rows=0.00 loops=1)
+           Group Key: consignments_1.dataset_id, consignments_1.platform_id
+           Batches: 1  Memory Usage: 289kB
+           Buffers: shared hit=216
+           ->  Bitmap Heap Scan on consignments consignments_1  (cost=984.13..26656.51 rows=9976 width=21) (actual time=2.329..2.330 rows=0.00 loops=1)
+                 Recheck Cond: ((main_transport_id = 'NOT-PRESENT-XYZ'::text) OR (used_equipment_ids @> '{NOT-PRESENT-XYZ}'::text[]) OR (carried_equipment_ids @> '{NOT-PRESENT-XYZ}'::text[]))
+                 Buffers: shared hit=216
+                 ->  BitmapOr  (cost=984.13..984.13 rows=10001 width=0) (actual time=2.319..2.320 rows=0.00 loops=1)
+                       Buffers: shared hit=216
+                       ->  Bitmap Index Scan on idx_consignments_main_transport_id  (cost=0.00..4.43 rows=1 width=0) (actual time=0.022..0.022 rows=0.00 loops=1)
+                             Index Cond: (main_transport_id = 'NOT-PRESENT-XYZ'::text)
+                             Index Searches: 1
+                             Buffers: shared hit=3
+                       ->  Bitmap Index Scan on idx_consignments_used_equip_ids  (cost=0.00..50.48 rows=5000 width=0) (actual time=0.016..0.016 rows=0.00 loops=1)
+                             Index Cond: (used_equipment_ids @> '{NOT-PRESENT-XYZ}'::text[])
+                             Index Searches: 1
+                             Buffers: shared hit=4
+                       ->  Bitmap Index Scan on idx_consignments_carried_equip_ids  (cost=0.00..921.73 rows=5000 width=0) (actual time=2.279..2.279 rows=0.00 loops=1)
+                             Index Cond: (carried_equipment_ids @> '{NOT-PRESENT-XYZ}'::text[])
+                             Index Searches: 1
+                             Buffers: shared hit=209
+   ->  Sort  (cost=85152.34..85177.28 rows=9976 width=91) (actual time=2.417..2.419 rows=0.00 loops=1)
+         Sort Key: latest.created_at DESC, latest.revision DESC
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=216
+         ->  Nested Loop  (cost=0.42..84820.94 rows=9976 width=91) (actual time=2.398..2.399 rows=0.00 loops=1)
+               Buffers: shared hit=216
+               ->  CTE Scan on candidates candidate  (cost=0.00..199.52 rows=9976 width=48) (actual time=2.397..2.397 rows=0.00 loops=1)
+                     Storage: Memory  Maximum Storage: 17kB
+                     Buffers: shared hit=216
+               ->  Subquery Scan on latest  (cost=0.42..8.47 rows=1 width=86) (never executed)
+                     Filter: ((latest.status = 'ACTIVE'::text) AND ((latest.main_transport_id = 'NOT-PRESENT-XYZ'::text) OR (latest.used_equipment_ids @> '{NOT-PRESENT-XYZ}'::text[]) OR (latest.carried_equipment_ids @> '{NOT-PRESENT-XYZ}'::text[])))
+                     ->  Limit  (cost=0.42..8.45 rows=1 width=218) (never executed)
+                           ->  Index Scan using idx_consignments_dataset_latest on consignments  (cost=0.42..8.45 rows=1 width=218) (never executed)
+                                 Index Cond: ((dataset_id = candidate.dataset_id) AND (platform_id = candidate.platform_id))
+                                 Index Searches: 0
+ Planning:
+   Buffers: shared hit=2
+ Planning Time: 0.448 ms
+ JIT:
+   Functions: 20
+   Options: Inlining false, Optimization false, Expressions true, Deforming true
+   Timing: Generation 2.245 ms (Deform 1.576 ms), Inlining 0.000 ms, Optimization 0.741 ms, Emission 18.952 ms, Total 21.938 ms
+ Execution Time: 24.678 ms
+(47 rows)
+
+Time: 25.646 ms
+                                                                                                                QUERY PLAN                                                                                                                
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Result  (cost=26715.30..26715.31 rows=1 width=1) (actual time=3.516..3.518 rows=1.00 loops=1)
+   Buffers: shared hit=221
+   InitPlan 1
+     ->  Nested Loop  (cost=26706.81..111402.63 rows=9976 width=0) (actual time=3.514..3.515 rows=1.00 loops=1)
+           Buffers: shared hit=221
+           ->  HashAggregate  (cost=26706.39..26806.15 rows=9976 width=21) (actual time=3.489..3.490 rows=1.00 loops=1)
+                 Group Key: consignments.dataset_id, consignments.platform_id
+                 Batches: 1  Memory Usage: 289kB
+                 Buffers: shared hit=217
+                 ->  Bitmap Heap Scan on consignments  (cost=984.13..26656.51 rows=9976 width=21) (actual time=3.434..3.436 rows=1.00 loops=1)
+                       Recheck Cond: ((main_transport_id = 'BULK-500000'::text) OR (used_equipment_ids @> '{BULK-500000}'::text[]) OR (carried_equipment_ids @> '{BULK-500000}'::text[]))
+                       Heap Blocks: exact=1
+                       Buffers: shared hit=217
+                       ->  BitmapOr  (cost=984.13..984.13 rows=10001 width=0) (actual time=3.422..3.423 rows=0.00 loops=1)
+                             Buffers: shared hit=216
+                             ->  Bitmap Index Scan on idx_consignments_main_transport_id  (cost=0.00..4.43 rows=1 width=0) (actual time=0.032..0.032 rows=1.00 loops=1)
+                                   Index Cond: (main_transport_id = 'BULK-500000'::text)
+                                   Index Searches: 1
+                                   Buffers: shared hit=3
+                             ->  Bitmap Index Scan on idx_consignments_used_equip_ids  (cost=0.00..50.48 rows=5000 width=0) (actual time=0.013..0.013 rows=0.00 loops=1)
+                                   Index Cond: (used_equipment_ids @> '{BULK-500000}'::text[])
+                                   Index Searches: 1
+                                   Buffers: shared hit=4
+                             ->  Bitmap Index Scan on idx_consignments_carried_equip_ids  (cost=0.00..921.73 rows=5000 width=0) (actual time=3.376..3.376 rows=0.00 loops=1)
+                                   Index Cond: (carried_equipment_ids @> '{BULK-500000}'::text[])
+                                   Index Searches: 1
+                                   Buffers: shared hit=209
+           ->  Subquery Scan on latest  (cost=0.42..8.47 rows=1 width=0) (actual time=0.021..0.021 rows=1.00 loops=1)
+                 Filter: ((latest.status = 'ACTIVE'::text) AND ((latest.main_transport_id = 'BULK-500000'::text) OR (latest.used_equipment_ids @> '{BULK-500000}'::text[]) OR (latest.carried_equipment_ids @> '{BULK-500000}'::text[])))
+                 Buffers: shared hit=4
+                 ->  Limit  (cost=0.42..8.45 rows=1 width=175) (actual time=0.019..0.019 rows=1.00 loops=1)
+                       Buffers: shared hit=4
+                       ->  Index Scan using idx_consignments_dataset_latest on consignments consignments_1  (cost=0.42..8.45 rows=1 width=175) (actual time=0.017..0.018 rows=1.00 loops=1)
+                             Index Cond: ((dataset_id = consignments.dataset_id) AND (platform_id = consignments.platform_id))
+                             Index Searches: 1
+                             Buffers: shared hit=4
+ Planning:
+   Buffers: shared hit=2
+ Planning Time: 0.796 ms
+ Execution Time: 3.731 ms
+(40 rows)
+
+Time: 4.886 ms
+                                                                                                                      QUERY PLAN                                                                                                                      
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Result  (cost=26715.30..26715.31 rows=1 width=1) (actual time=2.340..2.342 rows=1.00 loops=1)
+   Buffers: shared hit=216
+   InitPlan 1
+     ->  Nested Loop  (cost=26706.81..111402.63 rows=9976 width=0) (actual time=2.339..2.341 rows=0.00 loops=1)
+           Buffers: shared hit=216
+           ->  HashAggregate  (cost=26706.39..26806.15 rows=9976 width=21) (actual time=2.338..2.339 rows=0.00 loops=1)
+                 Group Key: consignments.dataset_id, consignments.platform_id
+                 Batches: 1  Memory Usage: 289kB
+                 Buffers: shared hit=216
+                 ->  Bitmap Heap Scan on consignments  (cost=984.13..26656.51 rows=9976 width=21) (actual time=2.272..2.273 rows=0.00 loops=1)
+                       Recheck Cond: ((main_transport_id = 'NOT-PRESENT-XYZ'::text) OR (used_equipment_ids @> '{NOT-PRESENT-XYZ}'::text[]) OR (carried_equipment_ids @> '{NOT-PRESENT-XYZ}'::text[]))
+                       Buffers: shared hit=216
+                       ->  BitmapOr  (cost=984.13..984.13 rows=10001 width=0) (actual time=2.266..2.267 rows=0.00 loops=1)
+                             Buffers: shared hit=216
+                             ->  Bitmap Index Scan on idx_consignments_main_transport_id  (cost=0.00..4.43 rows=1 width=0) (actual time=0.010..0.010 rows=0.00 loops=1)
+                                   Index Cond: (main_transport_id = 'NOT-PRESENT-XYZ'::text)
+                                   Index Searches: 1
+                                   Buffers: shared hit=3
+                             ->  Bitmap Index Scan on idx_consignments_used_equip_ids  (cost=0.00..50.48 rows=5000 width=0) (actual time=0.006..0.006 rows=0.00 loops=1)
+                                   Index Cond: (used_equipment_ids @> '{NOT-PRESENT-XYZ}'::text[])
+                                   Index Searches: 1
+                                   Buffers: shared hit=4
+                             ->  Bitmap Index Scan on idx_consignments_carried_equip_ids  (cost=0.00..921.73 rows=5000 width=0) (actual time=2.249..2.249 rows=0.00 loops=1)
+                                   Index Cond: (carried_equipment_ids @> '{NOT-PRESENT-XYZ}'::text[])
+                                   Index Searches: 1
+                                   Buffers: shared hit=209
+           ->  Subquery Scan on latest  (cost=0.42..8.47 rows=1 width=0) (never executed)
+                 Filter: ((latest.status = 'ACTIVE'::text) AND ((latest.main_transport_id = 'NOT-PRESENT-XYZ'::text) OR (latest.used_equipment_ids @> '{NOT-PRESENT-XYZ}'::text[]) OR (latest.carried_equipment_ids @> '{NOT-PRESENT-XYZ}'::text[])))
+                 ->  Limit  (cost=0.42..8.45 rows=1 width=175) (never executed)
+                       ->  Index Scan using idx_consignments_dataset_latest on consignments consignments_1  (cost=0.42..8.45 rows=1 width=175) (never executed)
+                             Index Cond: ((dataset_id = consignments.dataset_id) AND (platform_id = consignments.platform_id))
+                             Index Searches: 0
+ Planning:
+   Buffers: shared hit=2
+ Planning Time: 0.226 ms
+ Execution Time: 2.400 ms
+(36 rows)
+
+Time: 2.910 ms
