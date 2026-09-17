@@ -21,6 +21,18 @@ Authorization: Bearer {{adminToken}}
   })
 %}
 
+### Verify audit log recorded the user creation (issue #59)
+GET {{RUUTER_URL}}/admin/v1/audit?resource=user&resourceId={{userId}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Audit log has a user.create row", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.some(e => e.action === "user.create" && e.resourceId === client.global.get("userId")))
+  })
+%}
+
 ### List users
 GET {{RUUTER_URL}}/admin/v1/users
 Content-Type: application/json
@@ -62,6 +74,18 @@ Authorization: Bearer {{adminToken}}
   })
 %}
 
+### Verify audit log recorded the user update (issue #59)
+GET {{RUUTER_URL}}/admin/v1/audit?resource=user&resourceId={{userId}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Audit log has a user.update row", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.some(e => e.action === "user.update" && e.resourceId === client.global.get("userId")))
+  })
+%}
+
 ### Revoke user token
 POST {{RUUTER_URL}}/admin/v1/users/revoke-token/{{userId}}
 Content-Type: application/json
@@ -93,6 +117,18 @@ Authorization: Bearer {{adminToken}}
   client.test("User deleted", () => {
     client.assert(response.status === 200)
     client.assert(response.body.isUserActive === false)
+  })
+%}
+
+### Verify audit log recorded the user deletion (issue #59)
+GET {{RUUTER_URL}}/admin/v1/audit?resource=user&resourceId={{userId}}
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Audit log has a user.delete row", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.some(e => e.action === "user.delete" && e.resourceId === client.global.get("userId")))
   })
 %}
 

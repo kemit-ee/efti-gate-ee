@@ -36,6 +36,23 @@ check_callback:
   switch:
     - condition: ${200 <= callback_result.response.status && callback_result.response.status < 300}
       next: normalize_personal_code
+  next: audit_login_failure
+
+# Best-effort, post-commit (docs/specs/logging-spec.md §5.2): audit write failures never
+# block the response; its result is intentionally unchecked. No local user row exists yet
+# at this point (TARA exchange failed), so user_id stays null.
+audit_login_failure:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_audit_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      action: "user.login"
+      resource: "user"
+      ipAddress: "${incoming.headers['x-forwarded-for'] ?? null}"
+      details: "${JSON.stringify({ outcome: 'failure', failure_reason: 'tara_callback_failed' })}"
+  result: audit_result
   next: callback_error
 
 # Step 2a: Strip the "EE" country prefix that TARA adds to the sub claim.
@@ -67,8 +84,25 @@ generate_jwt:
 check_jwt:
   switch:
     - condition: ${200 <= jwt_result.response.status && jwt_result.response.status < 300}
-      next: return_token
-  next: jwt_error
+      next: audit_login_success
+  next: audit_login_failure_jwt
+
+# Best-effort, post-commit (docs/specs/logging-spec.md §5.2): audit write failures never
+# block the response; its result is intentionally unchecked. personal_code identifies the
+# caller for GDPR Art. 30 accountability; no local `users` row is looked up on this path,
+# so user_id stays null (see admin routes for the local-user audit trail).
+audit_login_success:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_audit_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      action: "user.login"
+      resource: "user"
+      ipAddress: "${incoming.headers['x-forwarded-for'] ?? null}"
+      details: "${JSON.stringify({ outcome: 'success', personal_code: personal_code })}"
+  result: audit_result
 
 # Step 3: Return the JWT in the response body.
 # The frontend stores it in sessionStorage and sends it as Authorization: Bearer
@@ -85,6 +119,20 @@ callback_error:
   return: {"error": "Authentication failed"}
   wrapper: false
   next: end
+
+audit_login_failure_jwt:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_audit_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      action: "user.login"
+      resource: "user"
+      ipAddress: "${incoming.headers['x-forwarded-for'] ?? null}"
+      details: "${JSON.stringify({ outcome: 'failure', failure_reason: 'jwt_generation_failed', personal_code: personal_code })}"
+  result: audit_result
+  next: jwt_error
 
 jwt_error:
   status: 500

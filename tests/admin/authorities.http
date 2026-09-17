@@ -24,6 +24,18 @@ Authorization: Bearer {{adminToken}}
   })
 %}
 
+### Verify audit log recorded the authority creation (issue #59)
+GET {{RUUTER_URL}}/admin/v1/audit?resource=authority&resourceId=auth-mta
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Audit log has an authority.create row", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.some(e => e.action === "authority.create" && e.resourceId === "auth-mta"))
+  })
+%}
+
 ### List authorities
 GET {{RUUTER_URL}}/admin/v1/authorities
 Content-Type: application/json
@@ -67,6 +79,18 @@ Authorization: Bearer {{adminToken}}
   })
 %}
 
+### Verify audit log recorded the authority update (issue #59)
+GET {{RUUTER_URL}}/admin/v1/audit?resource=authority&resourceId=auth-mta
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Audit log has an authority.update row", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.some(e => e.action === "authority.update" && e.resourceId === "auth-mta"))
+  })
+%}
+
 ### Delete authority
 DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-mta
 Content-Type: application/json
@@ -87,6 +111,18 @@ Authorization: Bearer {{adminToken}}
   client.test("Authority deleted", () => {
     client.assert(response.status === 200)
     client.assert(response.body.status === "DELETED")
+  })
+%}
+
+### Verify audit log recorded the authority deletion (issue #59)
+GET {{RUUTER_URL}}/admin/v1/audit?resource=authority&resourceId=auth-mta
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("Audit log has an authority.delete row", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.some(e => e.action === "authority.delete" && e.resourceId === "auth-mta"))
   })
 %}
 

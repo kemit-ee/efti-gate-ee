@@ -2,6 +2,7 @@ mode: mock-http
 constants:
   DEV_LOGIN_ENABLED: "true"
   TIM_URL: "{MOCK}"
+  RESQL_URL: "{MOCK}"
 
 tests:
   - name: explicit development configuration permits test login
@@ -10,6 +11,9 @@ tests:
         - url_matches: /jwt/custom/generate
           method: POST
           body: { token: "development-test-token" }
+        - url_matches: /efti/insert_audit_log
+          method: POST
+          body: []
     request:
       method: POST
       path: /auth/dev-login

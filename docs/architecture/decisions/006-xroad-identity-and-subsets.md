@@ -190,10 +190,13 @@ mille `X-Road-Client` annab.
 X-Road seda päist **ei autendi** — see on helistaja enda väidetud väärtus. Ligipääsu otsust see ei
 mõjuta.
 
-Päis on ette nähtud GDPR art 30 auditi jaoks, aga **auditikirjutajat veel ei ole**: mitte ükski DSL
-ei kirjuta `audit_log` tabelisse, `insert_audit*.sql` faili ei eksisteeri (ainus viide on
-admin-liidese *lugemine* `admin/GET/v1/audit.yml`), ja `ruuter.yaml` seab
-`display_request_content: false`, seega päis ei jõua ka päringulogisse. Vt lahtisi küsimusi.
+Päis on ette nähtud GDPR art 30 auditi jaoks, aga **X-Roadi kanalile auditikirjutajat veel ei ole**:
+`DSL/Resql/efti/POST/insert_audit_log.sql` ja sellele kirjutavad sammud on lisatud admin-liidese
+CRUD-marsruutidele ja sisselogimisele (`auth/POST/callback.yml`, `auth/POST/dev-login.yml`), aga
+mitte `xroad/**` marsruutidele ega autoriteedi dataset/follow-up/search vookogudele — need vajavad
+omaette (keerukama haru- ja broadcast-loogikaga) tööd. `ruuter.yaml` seab
+`display_request_content: false`, seega `X-Road-UserId` päis ei jõua ka päringulogisse ega
+(veel) auditiritta. Vt lahtisi küsimusi.
 
 ### 5. Õiguste päring tagastab loendi, mitte jah/ei vastuse
 
@@ -395,10 +398,11 @@ funktsionaalset indeksit.
 
 ## Avatud küsimused
 
-- **Auditikirjutaja puudub.** `X-Road-UserId` (ja üldse iga autoriseerimise sündmus) tuleks
-  `audit_log` tabelisse kirjutada GDPR art 30 nõude täitmiseks — `logging-spec.md` kirjeldab välju,
-  aga kirjutavat koodi ei ole kusagil. Kuni seda ei ole, on käesoleva ADR-i auditiväide **kavatsus,
-  mitte teostus**. Kehtib kogu värava kohta, mitte ainult X-Roadi kanali kohta.
+- **Auditikirjutaja puudub X-Roadi ja autoriteedi kanalites.** Admin-liidese CRUD ja sisselogimine
+  kirjutavad nüüd `audit_log` tabelisse (`insert_audit_log.sql`), aga `X-Road-UserId` ega ükski
+  `xroad/**`/autoriteedi dataset-, follow-up- või search-sündmus (`identifier.search`,
+  `dataset.deliver`, `dataset.proxy`, `followup.send` — vt `logging-spec.md` §5) veel ei kirjuta.
+  Kuni see puudub, on käesoleva ADR-i auditiväide X-Roadi kanali kohta **kavatsus, mitte teostus**.
 - **Sisemise teenusetokeni tootmisjuurutust EI OLE OLEMAS.** `INTERNAL_SERVICE_TOKEN` on literaal
   failis `constants.ini`, mille `docker/ruuter/Dockerfile` `COPY`-b tõmmisesse. (Enne `xroad`
   projekti liitmist oli sama väärtus ka failis `constants-xroad.ini` ja pidi olema

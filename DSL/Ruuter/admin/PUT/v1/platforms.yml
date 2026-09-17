@@ -42,6 +42,23 @@ check_update:
     - condition: ${update_result.response.status == 0 || update_result.response.status >= 400 || !update_result.response.body.length}
       next: update_failed
 
+# Best-effort, post-commit (docs/specs/logging-spec.md §5.2): a failure here never
+# fails or rolls back the platform write above; its result is intentionally unchecked.
+write_audit_log:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_audit_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      userId: "${caller.id}"
+      action: "platform.update"
+      resource: "platform"
+      resourceId: "${incoming.params.pathParams[0]}"
+      ipAddress: "${incoming.headers['x-forwarded-for'] ?? null}"
+      details: "${JSON.stringify({ platform_id: incoming.params.pathParams[0], before: null, after: update_result.response.body[0] })}"
+  result: audit_result
+
 publish_platform_change:
   call: http.post
   args:

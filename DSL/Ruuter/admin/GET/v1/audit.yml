@@ -23,6 +23,23 @@ check_result:
     - condition: ${result.response.status == 0 || result.response.status >= 300}
       next: upstream_unavailable
 
+# Best-effort, post-commit (docs/specs/logging-spec.md §5.2): a failure here never blocks
+# the read response; its result is intentionally unchecked. Records that the audit trail
+# itself was browsed (count + filter), not the returned entries.
+write_audit_log:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_audit_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      userId: "${caller.id}"
+      action: "audit.list"
+      resource: "audit_log"
+      ipAddress: "${incoming.headers['x-forwarded-for'] ?? null}"
+      details: "${JSON.stringify({ count: result.response.body.length, resource: incoming.params.resource, resourceId: incoming.params.resourceId, userId: incoming.params.userId, from: incoming.params.from, to: incoming.params.to, limit: incoming.params.limit, offset: incoming.params.offset })}"
+  result: audit_result
+
 respond:
   return: ${result.response.body}
   wrapper: false
