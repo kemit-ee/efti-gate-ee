@@ -35,6 +35,9 @@ class KeyManager (private val partyRegistry: PartyRegistry) {
   val ownCertSki = certSki(ownCert)
   val ownCertSerialNumber = ownCert.serialNumber.toString()
 
+  fun acceptsReceiver(partyId: PartyId): Boolean =
+    partyId == this.partyId || (!Config.isProd && runCatching { receiverCert(partyId) == ownCert }.getOrDefault(false))
+
   init {
     log.info("partyId: $partyId, KeyIdentifier/SKI: $ownCertSki, SerialNumber: $ownCertSerialNumber")
     partyRegistry.onChange { gate -> partyCerts.remove(gate.id) }
