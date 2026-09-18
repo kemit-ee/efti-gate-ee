@@ -55,7 +55,7 @@ class PubSubRoutes(private val registry: TopicRegistry) {
       while (true) {
         val event = queue.poll(30, TimeUnit.SECONDS)
         if (event != null) {
-          exchange.send(event)
+          exchange.send(event, null)
         }
       }
     } catch (_: IOException) {

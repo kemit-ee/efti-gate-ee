@@ -1,13 +1,12 @@
 package edelivery
 
-import klite.Config
+import klite.*
+import klite.http.contentType
 import klite.http.post
 import klite.http.timeout
-import klite.info
-import klite.sleep
+import klite.json.JsonMapper
 import klite.sse.Event
 import klite.sse.getSSE
-import klite.warn
 import java.net.URI
 import java.net.http.HttpClient
 import kotlin.concurrent.thread
@@ -16,6 +15,7 @@ import kotlin.time.Duration.Companion.seconds
 
 class MultiNodeAsyncResponseProvider(
   private val http: HttpClient,
+  private val json: JsonMapper,
   private val pubsubUrl: URI = URI(Config["PUBSUB_URL"]),
 ): SingleNodeAsyncResponseProvider() {
 
@@ -38,7 +38,9 @@ class MultiNodeAsyncResponseProvider(
 
   private fun publishToPubsub(payload: String) {
     log.info("Publishing response to pubsub")
-    http.post(pubsubUrl.resolve("/api/v1/publish"), Event(payload, "async-responses"))
+    http.post(pubsubUrl.resolve("/api/v1/publish"), json.render(Event(payload, "async-responses"))) {
+      contentType(MimeTypes.json)
+    }
   }
 
   private fun subscribeSse() {
