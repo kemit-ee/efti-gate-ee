@@ -3,7 +3,7 @@
 @layer base {
   body {
     @apply text-neutral-850;
-    background-color: #F0F0F2;
+    background-color: var(--tedi-neutral-300);
   }
 
   h1, .h1 {

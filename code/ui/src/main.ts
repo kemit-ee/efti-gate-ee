@@ -1,5 +1,6 @@
 import {mount} from 'svelte'
 import './extensions/ArrayExtensions'
+import './tedi-tokens.css'
 import './global.css'
 import App from './App.svelte'
 import {initErrorHandlers} from 'src/api/errorHandlers'

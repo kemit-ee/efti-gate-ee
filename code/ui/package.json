@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "tokens:build": "node scripts/generate-tedi-tokens.mjs",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
@@ -16,6 +17,7 @@
   },
   "dependencies": {
     "@tailwindcss/forms": "^0.5.9",
+    "@tedi-design-system/core": "^6.9.0",
     "highlight.js": "^11.11.1",
     "qr-scanner": "^1.4.2",
     "qrcode": "^1.5.4",
