@@ -2,7 +2,9 @@ package edelivery
 
 import ch.tutteli.atrium.api.fluent.en_GB.toEqual
 import ch.tutteli.atrium.api.verbs.expect
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.spyk
 import klite.Config
 import org.junit.jupiter.api.Test
 
@@ -13,6 +15,21 @@ class KeyManagerTest {
   @Test fun extractSKI() {
     expect(keyManager.ownCertSki).toEqual("t8GqaKD/lNytZIjtDIqdPapkJgQ=")
     expect(keyManager.certSki(keyManager.ownCert)).toEqual("t8GqaKD/lNytZIjtDIqdPapkJgQ=")
+  }
+
+  @Test fun acceptsOwnReceiver() {
+    expect(keyManager.acceptsReceiver(keyManager.partyId)).toEqual(true)
+  }
+
+  @Test fun acceptsNonProductionAliasOnlyWhenItUsesOwnCertificate() {
+    val aliasedKeyManager = spyk(keyManager)
+    val alias = PartyId("EU-MOCK")
+    val unrelated = PartyId("EU-OTHER")
+    every { aliasedKeyManager.receiverCert(alias) } returns keyManager.ownCert
+    every { aliasedKeyManager.receiverCert(unrelated) } returns mockk()
+
+    expect(aliasedKeyManager.acceptsReceiver(alias)).toEqual(true)
+    expect(aliasedKeyManager.acceptsReceiver(unrelated)).toEqual(false)
   }
 
   @Test fun generateSKI() {

@@ -28,8 +28,9 @@ class EDeliveryRoutesTest {
   val messageGenerator = mockk<EDeliveryMessageGenerator>(relaxed = true)
   val eDeliveryClient = mockk<EDeliveryClient>(relaxed = true)
   val exchange = mockk<HttpExchange>(relaxed = true)
+  val signatureVerifier = mockk<SignatureVerifier>(relaxed = true)
 
-  val routes = EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry)
+  val routes = EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureVerifier)
 
   fun getEnvelope(cipherValue: String): String {
     val regex = Regex("(<xenc:CipherValue\\b[^>]*>)(.*?)(</xenc:CipherValue>)", setOf(RegexOption.DOT_MATCHES_ALL))
@@ -68,6 +69,8 @@ class EDeliveryRoutesTest {
     every { messageHandlers.rootTags } returns mapOf("hello" to mockHandler)
 
     routes.msh(exchange)
+
+    verify { signatureVerifier.verify(any(), any(), match { it.senderId == party.id }) }
 
     // handler runs on another thread (see `msh success`) — poll instead of racing it
     verify(timeout = 2000) {
@@ -129,7 +132,7 @@ class EDeliveryRoutesTest {
     every { receiverCert.publicKey } returns receiverKey.public
 
     val senderId = PartyId("sender1")
-    val receiverId = PartyId("receiver1")
+    val receiverId = keyManager.partyId // must match the real gate id, or the receiver check rejects the message
 
     val generatorKeyManager = mockk<KeyManager> {
       every { partyId } returns senderId
