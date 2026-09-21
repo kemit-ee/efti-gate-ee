@@ -210,25 +210,44 @@ services:
     volumes:
       - tim-data:/var/lib/postgresql
 
+  # TIM's own image is distroless since 0.4.1-alpha (no shell/apt/openssl), so
+  # the CA-trust wait/import and JWT-key generation that its entrypoint used
+  # to do at boot now happen here, into volumes `tim` mounts read-only.
+  tim-init:
+    container_name: efti_tim_init
+    build:
+      context: .
+      dockerfile: docker/tim-init/Dockerfile
+    depends_on:
+      - tara-mock
+    volumes:
+      - tara-mock-vault:/tara-mock-vault:ro
+      - tim-jwt-key:/opt/tim/keys
+      - tim-ca-bundle:/tim-ca-bundle
+
   tim:
     container_name: efti_tim
     build:
       context: .
       dockerfile: docker/tim/Dockerfile
     depends_on:
-      - tim-database
-      - tara-mock
+      tim-database:
+        condition: service_started
+      tim-init:
+        condition: service_completed_successfully
     environment:
       - TIM_DATABASE_URL=postgres://tim:tim-secret@tim-database:5432/tim
       - TIM_ADMIN_TOKEN=dev-tim-admin-token
       - TIM_INTROSPECT_RUUTER_SECRET=${TIM_INTROSPECT_RUUTER_SECRET:-dev-introspect-secret}
       - TIM_TARA_CLIENT_ID=efti
       - TIM_TARA_CLIENT_SECRET=efti-secret
+      - SSL_CERT_FILE=/tim-ca-bundle/ca-bundle.pem
     volumes:
-      - tara-mock-vault:/tara-mock-vault:ro
-      - tim-jwt-key:/opt/tim/keys
+      - tim-jwt-key:/opt/tim/keys:ro
+      - tim-ca-bundle:/tim-ca-bundle:ro
+    # The distroless image provides its own probe (no curl/shell available).
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8085/health || exit 1"]
+      test: ["CMD", "/app/tim", "healthcheck"]
       interval: 3s
       timeout: 3s
       retries: 40
@@ -237,6 +256,7 @@ services:
 volumes:
   data:
   archive-data:
+  tim-ca-bundle:
   tara-mock-vault:
   tim-jwt-key:
   tim-data:

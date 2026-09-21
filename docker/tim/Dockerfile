@@ -1,15 +1,10 @@
-FROM turnerrainer/tim:0.4.0-alpha
+FROM turnerrainer/tim:0.4.1-alpha
 
-USER root
-RUN apt-get update -qq && \
-    apt-get install -y --no-install-recommends openssl ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
+# Distroless base (gcr.io/distroless/cc-debian12:nonroot, UID 65532) since
+# 0.4.1-alpha: no shell, no apt, no tini. CA-trust setup and JWT key
+# generation that used to happen in an entrypoint.sh now happen in the
+# `tim-init` sidecar (docker/tim-init/), which writes into the volumes
+# mounted below before this container starts.
+COPY --chown=65532:65532 docker/tim/tim.yaml /app/tim.yaml
 
-RUN mkdir -p /opt/tim/keys && chmod 700 /opt/tim/keys
-
-COPY docker/tim/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-COPY docker/tim/tim.yaml /app/tim.yaml
-
-ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
+ENTRYPOINT ["/app/tim", "--config", "/app/tim.yaml"]
