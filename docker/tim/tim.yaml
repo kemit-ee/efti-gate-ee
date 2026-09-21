@@ -39,8 +39,8 @@ oauth2:
   providers:
     tara:
       name: "TARA"
-      # Docker-internal hostname; entrypoint imports the self-signed CA
-      # so TLS verification succeeds.
+      # Docker-internal hostname; the tim-init sidecar writes the self-signed
+      # CA to the bundle SSL_CERT_FILE points at so TLS verification succeeds.
       discovery_url: "https://tara-mock:8080/oidc/.well-known/openid-configuration"
       client_id_env: "TIM_TARA_CLIENT_ID"
       client_secret_env: "TIM_TARA_CLIENT_SECRET"
