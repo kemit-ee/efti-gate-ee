@@ -1,19 +1,12 @@
 declaration:
-  description: "Scheduled archive sweep — CronManager calls this on a timer (Bearer ARCHIVE_OPS_TOKEN).
+  description: "Scheduled archive sweep — CronManager calls this on a timer (?opsToken=ARCHIVE_OPS_TOKEN
+    query param; CronManager's HTTP job type has no headers/body support, see ops/.guard.yml).
     Everything goes through Ruuter + ReSql across two datasources: (1) SELECT a batch of superseded
     consignments rows from the live DB — those whose newer sibling is older than olderThanDays
     (default 2); (2) INSERT that batch into the separate archive DB; (3) read every row back from the
     archive DB and confirm it landed; (4) only if 100 % are confirmed, DELETE exactly those rows from
     the live DB. A verification mismatch deletes nothing. One batch per call — re-invoke until
-    `candidates` is 0. Body (optional): {olderThanDays: number, batchLimit: number}."
-  allowlist:
-    body:
-      - field: olderThanDays
-        type: number
-        required: false
-      - field: batchLimit
-        type: number
-        required: false
+    `candidates` is 0. Query params (optional): olderThanDays, batchLimit — both numbers."
 
 # ---- 1. pick a batch from the live DB ----
 select_batch:
@@ -23,8 +16,8 @@ select_batch:
     headers:
       Content-Type: "application/json"
     body:
-      olderThanDays: ${incoming.body.olderThanDays}
-      batchLimit: ${incoming.body.batchLimit}
+      olderThanDays: ${incoming.params.olderThanDays}
+      batchLimit: ${incoming.params.batchLimit}
   result: select_result
 
 check_batch:

@@ -34,7 +34,7 @@ Configuration via environment variables only (no config files baked into the ima
 
 ### 1.4 Archival is owned by CronManager, not by the gate process
 
-The live DB carries every event ever written; non-latest rows are archived by [CronManager](https://github.com/Buerostack/CronManager) — a separate Quartz-based scheduler service running alongside the gate. CronManager calls a gate admin endpoint (`POST /api/v1/admin/archive`, authenticated by `ARCHIVE_OPS_TOKEN`) on schedule; that endpoint runs the archival sweep. The gate process **never** schedules its own jobs. This separation lets the gate stay stateless and lets operators centralise scheduling.
+The live DB carries every event ever written; non-latest rows are archived by [CronManager](https://github.com/turnerrainer/cronmanager) — a separate scheduler service (Rust, Quartz cron-expression syntax) running alongside the gate. CronManager calls a gate ops endpoint (`POST /ops/v1/archive-consignments`, authenticated by a `?opsToken=<ARCHIVE_OPS_TOKEN>` query param — CronManager's HTTP job type has no headers/body support) on schedule; that endpoint runs the archival sweep. The gate process **never** schedules its own jobs. This separation lets the gate stay stateless and lets operators centralise scheduling.
 
 ### 1.5 Capacity model is append-only-aware
 

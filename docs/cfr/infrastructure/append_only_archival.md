@@ -27,9 +27,9 @@
 | | `FORBIDDEN` (ops-token mismatch) |
 | | Full catalog: [`errors.json`](../../specs/errors.json) |
 | **Retention contract** | 7-year minimum in archive; archival destination shape (S3 / cold Postgres / append-only FS); per-row JSON-Lines layout; environment parity: [`non-functional.md`](../../specs/non-functional.md) §3, §5 |
-| **CronManager** | [Buerostack/CronManager](https://github.com/Buerostack/CronManager) — external Quartz-based scheduler |
+| **CronManager** | [turnerrainer/cronmanager](https://github.com/turnerrainer/cronmanager) — external scheduler (Rust, Quartz cron-expression syntax); its HTTP job type has no headers/body support, so the ops token travels as a query param, not a Bearer header |
 | **CronManager YAML** | [`cronmanager-archive.yaml`](../../specs/deploy/cronmanager-archive.yaml) (default schedule `0 0 3 * * ?` — 03:00 daily) |
-| **Access-check rules** | `opsToken` security scheme — static Bearer `ARCHIVE_OPS_TOKEN` compared literally against env var; no JWT, no DB lookup: [`permissions-matrix.md`](../../specs/permissions-matrix.md) §1.1 |
+| **Access-check rules** | `opsToken` security scheme — static `?opsToken=ARCHIVE_OPS_TOKEN` query param compared literally against env var; no JWT, no DB lookup: [`permissions-matrix.md`](../../specs/permissions-matrix.md) §1.1 |
 | **Related diagrams** | [`seq-08-identifier-expiration.mmd`](../../specs/diagrams/seq-08-identifier-expiration.mmd) (sister CronManager-driven job) |
 | **Architecture** | [../../architecture/infrastructure/README.md](../../architecture/infrastructure/README.md) (theme rules) + [../../architecture/infrastructure/append_only_archival.md](../../architecture/infrastructure/append_only_archival.md) (sub-architecture) |
 

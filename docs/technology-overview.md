@@ -22,6 +22,7 @@ Seis kirjeldab repo `dev`-i runtime-uuendust PR #153 ja PR #155 muudatusi, ning 
 | Nginx | UI ja reverse proxy | määramata | `docker/ui/Dockerfile`, `nginx:stable-alpine` | 2026-08-13 | Muutuv tag; patch tuleb kontrollida paigaldatava image'i digestist/runtime'ist |
 | Liquibase | Skeemi migratsioonid | 4.29.2 | `docker/liquibase/Dockerfile`, `liquibase/liquibase:4.29.2` | 2026-08-03 | Master-changelog töötab nii värskel kui olemasoleval installil |
 | TARA mock | OIDC arendusteenus | määramata | `docker/tara-mock/Dockerfile`, `golang:latest`, `debian:bookworm-slim` | määramata | Go builder ja Debian runtime; need ei tõenda mocki eraldi release-versiooni |
+| CronManager | Ajastatud tööde (archive sweep jm) väline väljakutsuja | v0.2.2-alpha | [`turnerrainer/cronmanager`](https://github.com/turnerrainer/cronmanager), `docs/specs/deploy/cronmanager-archive.yaml` | 2026-09-21 | Ei ehitata/käivitata sellest repost — operaatori eraldi teenus. Varem ekslikult viidatud kui `Buerostack/CronManager`. HTTP-töö tüübil pole `headers:`/`body:` tuge ega käitusaegset `${...}` interpoleerimist — opsToken käib query-param'ina (`DSL/Ruuter/ops/.guard.yml`), mitte Bearer-päisena |
 
 ## Versiooniajalugu
 
@@ -58,3 +59,14 @@ TIM 0.4.0-alpha → 0.4.1-alpha on suurem muudatus: TIM-i image on nüüd **dist
 Lahendus: uus `tim-init` teenus (`docker/tim-init/`, tavaline `debian:bookworm-slim` põhine image koos `openssl`-iga) teeb kõik kolm sammu jagatud volume'itesse **enne** kui `tim` teenus üldse käivitub (`compose.yml`: `tim` `depends_on: tim-init: condition: service_completed_successfully`). CA-usaldus lahendatakse `update-ca-certificates` asemel `SSL_CERT_FILE` keskkonnamuutujaga, mis osutab `tim-init`-i kirjutatud bundle-failile — see toimib, sest reqwest/rustls-native-certs loevad seda muutujat otse (openssl-probe konventsioon), ilma OS-i paketihalduseta. Healthcheck kasutab TIM-i enda `tim healthcheck` alamkäsku `curl` asemel, samamoodi nagu ReSQL juba kasutab `/app/resql health`.
 
 Kohapeal valideeritud täisstacki käivitusega: `tim-init` kirjutab CA bundle'i ja võtme, `tim` laeb võtme, käivitub ja vastab `healthy`, ning `GET /auth/login/tara` tõi reaalselt TARA-Mock'i OIDC discovery dokumendi HTTPS üle kätte (st CA-usaldus töötab tegelikkuses, mitte ainult teoreetiliselt). Testiti ka olemasoleva (vana entrypoint'iga loodud, teise UID omanikuga) `tim-jwt-key` volume'i peal — `tim-init` parandab omandi/õigused iga käivituse juures, mitte ainult võtme esmasel loomisel, nii et olemasolevatelt keskkondadelt uuendamine ei jää katki kinni.
+
+## 2026-09-21 CronManager parandus
+
+Sama päeva jooksul selgus, et dokumentides läbivalt viidatud `Buerostack/CronManager` on vale allikas — reaalselt kasutusel on [`turnerrainer/cronmanager`](https://github.com/turnerrainer/cronmanager) (v0.2.2-alpha), sama tootja Rust-taasteostus, mis kuulub samasse "h2ck.me v1" auditi-tsükli perre nagu Ruuter/ReSQL/TIM. See ei ole selle repo poolt ehitatav/käivitatav (operaatori eraldi teenus), aga selle tegelik DSL-skeem erineb sellest, mida meie `docs/specs/deploy/cronmanager-*.yaml` failid ja `DSL/Ruuter/ops/**` marsruudid eeldasid:
+
+- HTTP-töö tüübil pole `headers:` ega `body:` tuge (bare `method`+`url`), ega käitusaegset `${...}` muutuja-interpoleerimist üheski väljas — `serde(deny_unknown_fields)` lükkab kogu töö-faili laadimisel tagasi, kui mõni väli pole tuntud.
+- See tegi meie senise disaini (`Authorization: Bearer ${ARCHIVE_OPS_TOKEN}` päisena, JSON `body:`) täiesti võimatuks. Parandus: `DSL/Ruuter/ops/.guard.yml` kontrollib nüüd `?opsToken=` **query-parameetrit**, mitte päist; `archive-consignments.yml`/`purge-archive.yml` loevad parameetrid `incoming.params.*` kaudu, mitte `incoming.body.*`.
+- `${GATE_BASE_URL}`/`${ARCHIVE_OPS_TOKEN}` platsihoidjad töö-YAML-ides on jätkuvalt ainult deploy-aegse renderdamis-sammu (Helm/Kustomize/CI) jaoks — CronManager ise neid kunagi ei asenda; see täpsustus lisati ka faili kommentaari, kuna varasem sõnastus jättis mulje, nagu CronManager teeks selle ise.
+- `cronmanager-ping-gates.yaml` ja `cronmanager-expire.yaml` viitavad marsruutidele (`/ops/v1/ping-gates`, `/ops/v1/expire-identifiers`), mida `DSL/Ruuter/ops/` all veel ei eksisteeri — märgistatud failides selgelt `*** NOT YET IMPLEMENTED ***`, eraldiseisev lünk sellest versiooniparandusest.
+
+`docs/specs/permissions-matrix.md` said uue "Changed in 1.7" kirje samas vaimus, kuid faili põhitabelid (Bearer-põhine kirjeldus, `/api/v1/admin/*` teed) jäid laiemas ulatuses üle vaatamata — see on eraldiseisev dokumentatsiooni-võla teema.

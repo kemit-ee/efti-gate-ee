@@ -1,14 +1,24 @@
 # CronManager job definitions: consignments archival sweep + retention purge
-# https://github.com/Buerostack/CronManager
+# https://github.com/turnerrainer/cronmanager
 #
 # Canonical reference for issue #143 / #56 (Append-Only Archival via CronManager).
 # Implementation: DSL/Ruuter/ops/POST/v1/{archive-consignments,purge-archive}.yml,
 # see docs/architecture/infrastructure/append_only_archival.md for the full flow.
-# Drop this file (or an operator-tuned variant) into CronManager's DSL/jobs/
-# directory; restart CronManager to load. Operators MUST inject the
-# ARCHIVE_OPS_TOKEN env var from a Kubernetes Secret — do NOT commit a token
-# in this YAML. Same value as the gate's constants.ini ARCHIVE_OPS_TOKEN
-# (see docs/specs/deploy/resource-and-secrets-requirements.md §3.2).
+#
+# turnerrainer/cronmanager's HTTP job type is bare method+url only — no `headers:`,
+# no `body:`, and no runtime env-var interpolation of job fields (confirmed against
+# its book/src/configuration.md "YAML job file shape" reference, 2026-09-21). Every
+# `${...}` placeholder below is therefore NOT resolved by CronManager itself — it
+# MUST be substituted by your deploy pipeline (Helm/Kustomize templating, envsubst,
+# a CI secret-injection step, etc.) into a rendered file BEFORE that file is placed
+# in CronManager's `dsl_path`. Never commit a rendered file with a real token — only
+# this template, with the placeholders intact, belongs in git.
+#
+# GATE_BASE_URL: the gate's internal base URL (e.g. http://ruuter:8086).
+# ARCHIVE_OPS_TOKEN: same value as the gate's constants.ini ARCHIVE_OPS_TOKEN
+# (see docs/specs/deploy/resource-and-secrets-requirements.md §3.2). Ends up in the
+# URL query string (?opsToken=...) since that's the only credential channel a bare
+# HTTP job has — see DSL/Ruuter/ops/.guard.yml for the corresponding check.
 
 efti_gate_archive_sweep:
   # Quartz cron: 03:00 every day. Operator-overridable. One batch of superseded
@@ -19,29 +29,17 @@ efti_gate_archive_sweep:
 
   type: http
   method: POST
-  url: "${GATE_BASE_URL}/ops/v1/archive-consignments"
-
-  headers:
-    Authorization: "Bearer ${ARCHIVE_OPS_TOKEN}"
-    Content-Type: "application/json"
-
-  # Optional body: defaults are olderThanDays=2, batchLimit unset (ReSql default).
-  # A row only moves once its newer sibling is at least olderThanDays old — the
-  # current row (including a DELETED tombstone) never moves.
-  body: |
-    {
-      "olderThanDays": 2
-    }
+  # olderThanDays defaults to 2 here; add &batchLimit=N to cap rows per call
+  # (ReSql picks its own default when omitted). A row only moves once its newer
+  # sibling is at least olderThanDays old — the current row (including a DELETED
+  # tombstone) never moves.
+  url: "${GATE_BASE_URL}/ops/v1/archive-consignments?opsToken=${ARCHIVE_OPS_TOKEN}&olderThanDays=2"
 
   # The route itself is a strict pipeline (select -> insert -> verify -> delete)
   # and deletes nothing on a verification mismatch, so a retry after a transient
   # failure just re-selects the same still-live batch.
-  retry:
-    max_attempts: 3
-    backoff: exponential
-    initial_delay: "30s"
-
-  timeout: "60s"
+  retryCount: 3
+  retryDelay: 30000
 
 efti_gate_archive_purge:
   # Quartz cron: 04:00 every day — after the sweep above, on a separate slower
@@ -51,20 +49,8 @@ efti_gate_archive_purge:
 
   type: http
   method: POST
-  url: "${GATE_BASE_URL}/ops/v1/purge-archive"
+  # Add &keepDays=N to override the default 2555-day (~7 year) retention.
+  url: "${GATE_BASE_URL}/ops/v1/purge-archive?opsToken=${ARCHIVE_OPS_TOKEN}"
 
-  headers:
-    Authorization: "Bearer ${ARCHIVE_OPS_TOKEN}"
-    Content-Type: "application/json"
-
-  # Optional body: default keepDays=2555. Override only for a shorter/longer
-  # legal retention period on cold storage.
-  body: |
-    {}
-
-  retry:
-    max_attempts: 3
-    backoff: exponential
-    initial_delay: "30s"
-
-  timeout: "60s"
+  retryCount: 3
+  retryDelay: 30000

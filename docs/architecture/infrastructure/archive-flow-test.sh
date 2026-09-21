@@ -29,9 +29,9 @@ INSERT INTO public.consignments (dataset_id, platform_id, gate_id, xml, status, 
 $ADB -c "TRUNCATE consignments;"
 
 echo "--- sweep (expect archived=2 deleted=2) ---"
-$CURL -X POST http://ruuter:8086/ops/v1/archive-consignments -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{}'; echo
+$CURL -X POST "http://ruuter:8086/ops/v1/archive-consignments?opsToken=$TOKEN"; echo
 echo "--- re-run (expect all 0) ---"
-$CURL -X POST http://ruuter:8086/ops/v1/archive-consignments -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{}'; echo
+$CURL -X POST "http://ruuter:8086/ops/v1/archive-consignments?opsToken=$TOKEN"; echo
 
 echo "--- live public.consignments (expect V2, V3-current, W2-tomb) ---"
 $DB -c "SELECT dataset_id, main_transport_id, status::text FROM public.consignments ORDER BY dataset_id, created_at;"
@@ -39,7 +39,7 @@ echo "--- separate archive DB (expect V1, W1) ---"
 $ADB -c "SELECT dataset_id, main_transport_id, archived_at::date FROM consignments ORDER BY dataset_id, created_at;"
 
 echo "--- purge keepDays=0 (expect purged=2) ---"
-$CURL -X POST http://ruuter:8086/ops/v1/purge-archive -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"keepDays":0}'; echo
+$CURL -X POST "http://ruuter:8086/ops/v1/purge-archive?opsToken=$TOKEN&keepDays=0"; echo
 
 echo "--- jobs_execution_log ---"
 $DB -c "SELECT job_name, status::text, details FROM jobs_execution_log ORDER BY created_at;"

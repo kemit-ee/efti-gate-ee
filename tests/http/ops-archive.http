@@ -12,9 +12,8 @@ Content-Type: application/json
 %}
 
 ### ops/v1/archive-consignments — wrong ops token -> 401
-POST {{RUUTER_URL}}/ops/v1/archive-consignments
+POST {{RUUTER_URL}}/ops/v1/archive-consignments?opsToken=not-the-token
 Content-Type: application/json
-Authorization: Bearer not-the-token
 
 {}
 
@@ -28,9 +27,10 @@ Authorization: Bearer not-the-token
 # The e2e stack never has superseded rows older than 30 days, so this exercises the happy
 # "nothing to archive" path + the ARCHIVE_OPS_TOKEN guard. The full copy -> verify -> delete
 # path is covered by docs/architecture/infrastructure/archive-flow-test.sh (needs aged fixtures).
-POST {{RUUTER_URL}}/ops/v1/archive-consignments
+# Query param, not an Authorization header — turnerrainer/cronmanager's HTTP job type has no
+# headers/body support, so the token has to travel in the URL (see DSL/Ruuter/ops/.guard.yml).
+POST {{RUUTER_URL}}/ops/v1/archive-consignments?opsToken=dev-archive-ops-token-change-me
 Content-Type: application/json
-Authorization: Bearer dev-archive-ops-token-change-me
 
 {}
 
@@ -55,9 +55,8 @@ Content-Type: application/json
 %}
 
 ### ops/v1/purge-archive — valid token, nothing old enough to purge
-POST {{RUUTER_URL}}/ops/v1/purge-archive
+POST {{RUUTER_URL}}/ops/v1/purge-archive?opsToken=dev-archive-ops-token-change-me
 Content-Type: application/json
-Authorization: Bearer dev-archive-ops-token-change-me
 
 {}
 

@@ -1,12 +1,8 @@
 declaration:
-  description: "Cold-storage retention — CronManager calls this on a slow timer (Bearer
-    ARCHIVE_OPS_TOKEN). Permanently deletes archived consignments rows older than keepDays
-    (default 2555 ≈ 7 years) from the separate archive DB. Body (optional): {keepDays: number}."
-  allowlist:
-    body:
-      - field: keepDays
-        type: number
-        required: false
+  description: "Cold-storage retention — CronManager calls this on a slow timer (?opsToken=ARCHIVE_OPS_TOKEN
+    query param; CronManager's HTTP job type has no headers/body support, see ops/.guard.yml).
+    Permanently deletes archived consignments rows older than keepDays (default 2555 ≈ 7 years) from
+    the separate archive DB. Query param (optional): keepDays — number."
 
 purge:
   call: http.post
@@ -15,7 +11,7 @@ purge:
     headers:
       Content-Type: "application/json"
     body:
-      keepDays: ${incoming.body.keepDays}
+      keepDays: ${incoming.params.keepDays}
   result: purge_result
 
 check_purge:

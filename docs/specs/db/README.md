@@ -78,7 +78,7 @@ Foreign keys between operational tables are **not used**, because logical-id col
 
 ## Archival — handled by CronManager
 
-The live database carries every event ever written; reads only need the latest row. To keep the live DB lean, **non-latest rows are archived periodically** to separate cold storage by [**CronManager**](https://github.com/Buerostack/CronManager) — a Quartz-based scheduler service deployed alongside the gate. CronManager is configured via YAML (cron expression, target URL); it calls a gate admin endpoint on schedule (e.g. nightly), and that endpoint runs the archival sweep.
+The live database carries every event ever written; reads only need the latest row. To keep the live DB lean, **non-latest rows are archived periodically** to separate cold storage by [**CronManager**](https://github.com/turnerrainer/cronmanager) — a scheduler service (Rust, Quartz cron-expression syntax) deployed alongside the gate. CronManager is configured via YAML (cron expression, target URL — no headers or request body, see `docs/specs/deploy/cronmanager-archive.yaml`); it calls a gate `ops/` endpoint on schedule (e.g. nightly), and that endpoint runs the archival sweep.
 
 The archival contract:
 

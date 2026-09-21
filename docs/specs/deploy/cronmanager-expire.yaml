@@ -1,11 +1,32 @@
 # CronManager job definition: daily cabotage-expiry sweep
-# https://github.com/Buerostack/CronManager
+# https://github.com/turnerrainer/cronmanager
+#
+# *** NOT YET IMPLEMENTED ***
+# The target route below (`/ops/v1/expire-identifiers`) does not exist in
+# DSL/Ruuter/ops/ — only archive-consignments and purge-archive are implemented
+# there today (see cronmanager-archive.yaml). This file documents the intended
+# shape for when that route is built; do not deploy it as-is, CronManager would
+# just get 404s.
 #
 # Sister job to cronmanager-archive.yaml. Marks road consignments
 # inactive once `transport_date + 14 days < NOW()` per Reg 2024/1942
-# Art 11(4) (cabotage retention). Drop into CronManager's DSL/jobs/
-# directory; restart CronManager to load. Inject BEARER_OPS_TOKEN from
-# the Kubernetes Secret — do NOT commit a token in this YAML.
+# Art 11(4) (cabotage retention).
+#
+# turnerrainer/cronmanager's HTTP job type is bare method+url only — no `headers:`,
+# no `body:`, and no runtime env-var interpolation of job fields (confirmed against
+# its book/src/configuration.md "YAML job file shape" reference, 2026-09-21). Every
+# `${...}` placeholder below is therefore NOT resolved by CronManager itself — it
+# MUST be substituted by your deploy pipeline into a rendered file BEFORE that file
+# is placed in CronManager's `dsl_path`. Never commit a rendered file with a real
+# token — only this template, with the placeholders intact, belongs in git. The
+# `dryRun` toggle this job used to send as a JSON body isn't expressible either
+# (no body support) — the eventual route would need it as a `?dryRun=true` query
+# param instead, defaulting to a real sweep when omitted.
+#
+# ARCHIVE_OPS_TOKEN: same static ops token as the archive/purge jobs, reused here
+# for consistency — would need its own DSL/Ruuter/ops/POST/v1/expire-identifiers.yml
+# route behind the existing ops/.guard.yml (?opsToken= query param, see that guard
+# for why a header credential isn't an option here).
 
 efti_gate_expire_identifiers:
   # Quartz cron: 03:45 every day. Slightly after the archive sweep
@@ -14,22 +35,7 @@ efti_gate_expire_identifiers:
 
   type: http
   method: POST
-  url: "${GATE_BASE_URL}/api/v1/admin/expire-identifiers"
+  url: "${GATE_BASE_URL}/ops/v1/expire-identifiers?opsToken=${ARCHIVE_OPS_TOKEN}"
 
-  headers:
-    Authorization: "Bearer ${BEARER_OPS_TOKEN}"
-    Content-Type: "application/json"
-
-  # Optional body. Default behaviour: full sweep, no dry-run, real "now"
-  # cutoff. Operators can override during incident replay or test.
-  body: |
-    {
-      "dryRun": false
-    }
-
-  retry:
-    max_attempts: 3
-    backoff: exponential
-    initial_delay: "30s"
-
-  timeout: "600s"
+  retryCount: 3
+  retryDelay: 30000

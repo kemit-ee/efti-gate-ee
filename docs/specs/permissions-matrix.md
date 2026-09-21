@@ -1,9 +1,23 @@
 # eFTI Gate v2.0 Permissions Matrix
 
-**Version**: 1.6 — Authority API (`efti/api/v1/*`) drops the TARA JWT path entirely; it is
-gate-internal only
-**Date**: 2026-09-04
+**Version**: 1.7 — CronManager credential correction; `/api/v1/admin/*` path is stale
+**Date**: 2026-09-21
 **Status**: Development-ready specification
+
+**Changed in 1.7** (§1.1, §3.3, §6): The `opsToken` credential this document describes
+throughout as `Authorization: Bearer <ARCHIVE_OPS_TOKEN>` is wrong — as implemented (`DSL/Ruuter/
+ops/.guard.yml`), it is a `?opsToken=<ARCHIVE_OPS_TOKEN>` **query parameter**, because
+turnerrainer/cronmanager's (the actual scheduler in use — corrected from a stale
+`Buerostack/CronManager` reference elsewhere in the docs) HTTP job type has no `headers:` or
+`body:` support at all; a header-based credential simply isn't expressible in a CronManager job
+definition. Separately, the `/api/v1/admin/archive`, `/api/v1/admin/expire-identifiers`, and
+`/api/v1/admin/ping-gates` paths below are stale: the only implemented ops routes today are
+`POST /ops/v1/archive-consignments` and `POST /ops/v1/purge-archive`
+(`DSL/Ruuter/ops/POST/v1/`, see `docs/specs/deploy/cronmanager-archive.yaml`) — `expire-identifiers`
+and `ping-gates` have no backing route yet (see the `*** NOT YET IMPLEMENTED ***` header on
+`docs/specs/deploy/cronmanager-{expire,ping-gates}.yaml`). The credential-mechanism sections below
+are left otherwise unrewritten pending a fuller pass on this file; treat the DSL under
+`DSL/Ruuter/ops/` as the source of truth over this matrix for CronManager specifically.
 
 **Changed in 1.6** (§3.2, §6): `efti/api/v1/*` — the Authority API's actual Ruuter routes
 (`efti/{GET,POST}/api/v1/*`, `efti/{GET,POST}/api/v1/authority/*`) — no longer accept a TARA

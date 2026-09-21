@@ -1,18 +1,22 @@
-# /ops/** — scheduled-job endpoints the external CronManager (Quartz) calls on a timer. Not a
-# public surface: docker/ui/nginx.conf does not proxy /ops/, and `ruuter` has no published port on
-# the public network. The sole credential is a static bearer, Authorization: Bearer ARCHIVE_OPS_TOKEN
-# — literal compare, no JWT, matching docs/architecture/identity-and-access (CronManager static token).
+# /ops/** — scheduled-job endpoints the external CronManager calls on a timer. Not a public
+# surface: docker/ui/nginx.conf does not proxy /ops/, and `ruuter` has no published port on the
+# public network. The sole credential is a static token, ?opsToken=ARCHIVE_OPS_TOKEN as a QUERY
+# PARAM — literal compare, no JWT, matching docs/architecture/identity-and-access (CronManager
+# static token). Query param, not an Authorization header, because turnerrainer/cronmanager's HTTP
+# job type has no `headers:`/`body:` support at all (bare method+url only, see
+# docs/specs/deploy/cronmanager-archive.yaml) — a header-based credential is simply not
+# expressible in a CronManager job definition.
 #
 # The non-null/non-empty checks are load-bearing: if ARCHIVE_OPS_TOKEN is unset,
-# '[#ARCHIVE_OPS_TOKEN]' interpolates to an empty string and an absent/empty header must NOT match it.
+# '[#ARCHIVE_OPS_TOKEN]' interpolates to an empty string and an absent/empty query param must NOT match it.
 
 declaration:
-  description: "ops/** guard — CronManager only. Credential: Authorization: Bearer ARCHIVE_OPS_TOKEN
-    (required, non-empty, exact match). No JWT path."
+  description: "ops/** guard — CronManager only. Credential: ?opsToken=ARCHIVE_OPS_TOKEN query
+    param (required, non-empty, exact match). No JWT path."
 
 check_ops_token:
   switch:
-    - condition: ${incoming.headers != null && incoming.headers['authorization'] != null && incoming.headers['authorization'] != '' && incoming.headers['authorization'] == 'Bearer [#ARCHIVE_OPS_TOKEN]'}
+    - condition: ${incoming.params != null && incoming.params.opsToken != null && incoming.params.opsToken != '' && incoming.params.opsToken == '[#ARCHIVE_OPS_TOKEN]'}
       next: guard_success
   next: guard_fail
 
