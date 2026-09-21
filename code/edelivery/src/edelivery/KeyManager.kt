@@ -3,6 +3,7 @@ package edelivery
 import klite.*
 import java.io.FileInputStream
 import java.security.*
+import java.security.cert.CertificateException
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
 import java.util.concurrent.ConcurrentHashMap
@@ -43,8 +44,14 @@ class KeyManager (private val partyRegistry: PartyRegistry) {
     partyRegistry.onChange { gate -> partyCerts.remove(gate.id) }
   }
 
-  fun receiverCert(partyId: PartyId) = partyCerts.getOrPut(partyId) {
-    partyRegistry[partyId].eDeliveryCert.toX509()
+  fun receiverCert(partyId: PartyId): X509Certificate {
+    val cert = partyCerts.getOrPut(partyId) { partyRegistry[partyId].eDeliveryCert.toX509() }
+    try {
+      cert.checkValidity()
+    } catch (e: CertificateException) {
+      throw SecurityException("Invalid eDelivery certificate for $partyId: ${e.message}", e)
+    }
+    return cert
   }
 
   fun certSki(cert: X509Certificate): String = gateCertSkis.getOrPut(cert) {

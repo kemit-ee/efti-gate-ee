@@ -7,6 +7,7 @@ import io.mockk.mockk
 import io.mockk.spyk
 import klite.Config
 import org.junit.jupiter.api.Test
+import kotlin.test.assertFailsWith
 
 class KeyManagerTest {
   init { Config.useEnvFile() }
@@ -32,8 +33,20 @@ class KeyManagerTest {
     expect(aliasedKeyManager.acceptsReceiver(unrelated)).toEqual(false)
   }
 
+  @Test fun rejectsExpiredReceiverCert() {
+    val expiredPartyId = PartyId("expired")
+    val party = mockk<Party> { every { eDeliveryCert } returns expiredCertPem }
+    val registry = mockk<PartyRegistry>(relaxed = true) {
+      every { this@mockk[expiredPartyId] } returns party
+    }
+    assertFailsWith<SecurityException> { KeyManager(registry).receiverCert(expiredPartyId) }
+  }
+
   @Test fun generateSKI() {
-    val cert = """
+    expect(keyManager.certSki(expiredCertPem.toX509())).toEqual("FFAdy/XBv9OZLogpN7IfBaIxtLI=")
+  }
+
+  private val expiredCertPem = """
       -----BEGIN CERTIFICATE-----
       MIIC1DCCAbygAwIBAgIEaG4t0jANBgkqhkiG9w0BAQsFADAsMQswCQYDVQQGEwJk
       ZTENMAsGA1UECwwEZWZ0aTEOMAwGA1UEAwwFZXVkZTEwHhcNMjUwNzA5MDg1MjM0
@@ -53,6 +66,4 @@ class KeyManagerTest {
       WbIKjWjnu80=
       -----END CERTIFICATE-----
     """.trimIndent()
-    expect(keyManager.certSki(cert.toX509())).toEqual("FFAdy/XBv9OZLogpN7IfBaIxtLI=")
-  }
 }
