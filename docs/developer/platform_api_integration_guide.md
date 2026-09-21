@@ -11,6 +11,8 @@ kirjeldab, mida platvorm väravale saadab, ja mida platvorm ise peab väravale v
 
 ## Ülevaade
 
+> Platvormi API XML-vorming põhineb Euroopa Komisjoni tööversioonil. Komisjoni lõplikku live skeemi ei ole veel avaldatud. Käesolev juhend ja näited kirjeldavad Eesti eFTI väravas hetkel toetatud skeemiversiooni. Skeemi elementide nimed, koodiloendid, kohustuslikkus ja valideerimisreeglid võivad komisjoni lõpliku versiooni avaldamisel muutuda. 
+
 ```mermaid
 flowchart LR
   PL["Sinu platvorm"] -->|"1: identifikaator, X-Api-Key"| GW["eFTI värav"]
