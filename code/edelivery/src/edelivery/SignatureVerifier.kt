@@ -19,6 +19,7 @@ import javax.xml.crypto.dsig.TransformService
 import javax.xml.crypto.dsig.XMLSignatureFactory
 import javax.xml.crypto.dsig.dom.DOMValidateContext
 import javax.xml.crypto.dsig.spec.TransformParameterSpec
+import javax.xml.XMLConstants
 import javax.xml.parsers.DocumentBuilderFactory
 import org.w3c.dom.Element
 import org.w3c.dom.Node
@@ -67,7 +68,17 @@ private class SwaTransformProvider : Provider(
 class SignatureVerifier(private val keyManager: KeyManager) {
   private val log = logger()
   private val xmlSignatureFactory = XMLSignatureFactory.getInstance("DOM")
-  private val documentBuilderFactory = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
+  private val documentBuilderFactory = DocumentBuilderFactory.newInstance().apply {
+    isNamespaceAware = true
+    setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
+    setFeature("http://xml.org/sax/features/external-general-entities", false)
+    setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+    setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+    setXIncludeAware(false)
+    isExpandEntityReferences = false
+    setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "")
+    setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "")
+  }
 
   init { Security.addProvider(SwaTransformProvider()) }
 
