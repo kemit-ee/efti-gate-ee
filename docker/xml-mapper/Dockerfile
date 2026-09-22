@@ -1,0 +1,34 @@
+# Repo-root context wrapper for xml-mapper.
+FROM eclipse-temurin:25-alpine AS build
+
+WORKDIR /app
+COPY code/ ./
+
+ARG PROJECT=xml-mapper
+RUN --mount=type=cache,target=/root/.gradle,id=efti-gate-ee-gradle-cache,sharing=locked \
+    ./gradlew $PROJECT:build --info
+
+FROM eclipse-temurin:25-jre-alpine
+RUN adduser -S user
+
+WORKDIR /app
+COPY code/certs certs
+RUN chmod a+r certs/own.p12
+RUN rm -fr /usr/sbin /bin/ch*
+
+ARG VERSION=dev
+ENV VERSION=$VERSION
+ENV LOGGER_SERVICE_VERSION=$VERSION
+
+ARG PROJECT=xml-mapper
+COPY --from=build /app/$PROJECT/build/libs ./
+
+USER user
+
+ENV TZ=Europe/Tallinn
+ENV JAVA_MAIN_OPTIONS="-Xss256K -XX:MaxRAMPercentage=80 -XX:+UseCompactObjectHeaders -XX:+ExitOnOutOfMemoryError --add-opens=java.net.http/jdk.internal.net.http=ALL-UNNAMED"
+CMD java $JAVA_MAIN_OPTIONS -jar *.jar
+
+ARG PORT=8082
+ENV PORT=$PORT
+EXPOSE $PORT
