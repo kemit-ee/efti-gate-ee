@@ -28,20 +28,17 @@ subprojects {
   }
 
   dependencies {
-    fun klite(module: String) = "com.github.keksworks.klite:klite-$module:63ae3830" // 2.0.6+
+    fun klite(module: String) = "com.github.keksworks.klite:klite-$module:2.0.7"
     implementation(klite("server"))
     implementation(klite("json"))
     implementation(klite("xml"))
     implementation(klite("slf4j"))
-    implementation(klite("jdbc"))
     implementation(klite("openapi"))
-    implementation("org.postgresql:postgresql:42.7.13")
 
     testImplementation(klite("jdbc-test"))
     testImplementation("org.junit.jupiter:junit-jupiter:6.0.3")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:6.0.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:6.0.3")
-    testImplementation("io.github.artsok:rerunner-jupiter:2.1.6")
     testImplementation("ch.tutteli.atrium:atrium-fluent:1.3.0-alpha-2")
     testImplementation("io.mockk:mockk:1.14.11")
   }

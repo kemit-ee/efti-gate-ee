@@ -155,7 +155,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - Framework: klite (lightweight, annotation-based)
 - Build: Gradle multi-project under `code/`; `./gradlew <project>:test` for unit tests
 - Source layout: `src/` for main, `test/` for tests (not standard `src/main/kotlin`)
-- JVM 25, Kotlin 2.4.0
+- JVM 25, Kotlin 2.4.20
 - Tests: JUnit 5, MockK, Atrium assertions
 - Test JVM args: `-DENV=test -DOWN_GATE_ID=TEST`
 

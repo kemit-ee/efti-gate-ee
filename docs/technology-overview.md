@@ -15,7 +15,7 @@ Seis kirjeldab repo `dev`-i runtime-uuendust PR #153 ja PR #155 muudatusi, ning 
 | PostgreSQL | TIM-i eraldi andmebaas | 18 (patch määramata) | `compose.yml`, `postgres:18`, `ed49344` | 2026-08-25 | Eraldi andmebaas ja volume |
 | JVM | Kotlin teenuste build/runtime | 25 (patch määramata) | `docker/code/Dockerfile`, `eclipse-temurin:25-alpine`, `25-jre-alpine` | 2026-08-03 | eDelivery, xml-mapper, multiplexer, pubsub |
 | Kotlin | JVM teenuste keel | 2.4.20 | `code/build.gradle.kts`, commit `ea7bdcb` | 2026-09-08 | JVM toolchain 25 |
-| Klite | Kotlin HTTP/XML/JSON/JDBC raamistik | commit 63ae3830 | `code/build.gradle.kts`, JitPack koordinaadid | 2026-09-10 | Commit-pin, mitte oletatud release-number |
+| Klite | Kotlin web raamistik | 2.0.7 | `code/build.gradle.kts`, JitPack koordinaadid | 2026-09-10 | |
 | Svelte | Admin UI | 5.56.4 | `code/ui/package-lock.json`, `82fb588` | 2026-08-11 | `package.json` sisaldab semver-vahemikku |
 | Vite | UI build | 7.3.6 | `code/ui/package-lock.json`, `82fb588` | 2026-08-11 | Build töötab Node 22 image'is |
 | Node.js | UI build-runtime | 22 (patch määramata) | `docker/ui/Dockerfile`, `node:22-alpine` | 2026-08-13 | Build-stage |
