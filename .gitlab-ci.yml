@@ -1,4 +1,4 @@
-# eFTI Gate (EE) source pipeline — standard-service-delivery@8.0.0.
+# eFTI Gate (EE) source pipeline — standard-service-delivery@8.0.1.
 # Nine images (liquibase is build-only; resql bakes the same RELEASE_VERSION into
 # databaseMigration). Wrapper charts live in services/efti/devops.
 #
@@ -29,7 +29,7 @@ variables:
   SECRET_DETECTION_ENABLED: "true"
 
 include:
-  - component: gitlab.kemitaws.ee/platform-internal/ci-components/standard-service-delivery@8.0.0
+  - component: gitlab.kemitaws.ee/platform-internal/ci-components/standard-service-delivery@8.0.1
     inputs:
       service_code: efti
       version_base: "0.1.0"
