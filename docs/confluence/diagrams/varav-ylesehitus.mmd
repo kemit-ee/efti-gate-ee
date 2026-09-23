@@ -1,0 +1,32 @@
+flowchart TB
+  subgraph Välised["Välised osapooled"]
+    AS["Pädev asutus"]
+    PL["eFTI platvorm"]
+    GW2["Teise riigi värav"]
+    AD["Värava haldur"]
+  end
+  subgraph Värav["Eesti eFTI värav"]
+    XR["X-tee adapter"]
+    UI["Halduskasutajaliides"]
+    TIM["Identiteedihaldus<br/>(TIM + TARA)"]
+    R["API-kiht (Ruuter)"]
+    ED["eDelivery teenus (AS4)"]
+    XM["XML-teisendaja<br/>(XSD kontroll)"]
+    MX["Multiplekser"]
+    PS["Sündmuste siin"]
+    RS["Andmepäringute kiht (ReSQL)"]
+    DB[("Andmebaas<br/>PostgreSQL")]
+    AR[("Arhiiviandmebaas")]
+  end
+  AS -- "X-tee turvaserver" --> XR --> R
+  AD --> UI --> R
+  UI -.-> TIM
+  PL -- "REST" --> R
+  PL <-- "AS4" --> ED
+  GW2 <-- "AS4" --> ED
+  ED <--> R
+  R --> XM
+  R --> MX --> ED
+  R --> RS --> DB
+  RS --> AR
+  R -.-> PS -.-> ED

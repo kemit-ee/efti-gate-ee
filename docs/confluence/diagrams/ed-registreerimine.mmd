@@ -1,0 +1,7 @@
+sequenceDiagram
+  participant PL as Platvorm (AS4 pääsupunkt)
+  participant GW as eFTI värav
+  PL->>GW: AS4: FTI004UploadIdentifierRequest
+  GW->>GW: Kontrollib allkirja, dekrüpteerib,<br/>valideerib XSD järgi, kontrollib et<br/>UIL-i platvorm = saatja
+  GW-->>PL: AS4 kviitung (receipt)
+  GW->>PL: AS4: FTI029UploadIdentifierResponse

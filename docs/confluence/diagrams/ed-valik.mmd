@@ -1,0 +1,4 @@
+flowchart LR
+  Q{"Kas platvormi kirjel on<br/>eDelivery sertifikaat?"}
+  Q -- "jah" --> A["eDelivery (AS4)<br/>baseUrl = platvormi AS4 aadress"]
+  Q -- "ei" --> B["REST<br/>baseUrl = platvormi REST API"]

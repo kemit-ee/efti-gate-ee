@@ -1,0 +1,10 @@
+sequenceDiagram
+  participant AS as Pädev asutus
+  participant GW as eFTI värav
+  participant PL as Platvorm (AS4 pääsupunkt)
+  AS->>GW: Andmestiku päring (UIL, andmeosad)
+  GW->>PL: AS4: FTI009GetCmdsRequest
+  PL-->>GW: AS4 kviitung
+  PL->>GW: AS4: FTI010GetCmdsResponse (sama ConversationId)
+  GW-->>AS: Andmestik
+  Note over GW,PL: Värav ootab vastust kuni 65 s
