@@ -149,6 +149,10 @@ services:
       - PUBSUB_URL=http://pubsub:8084
       - INTERNAL_SERVICE_TOKEN
       - LOGGER_CLASS
+      - KEYSTORE_DIR=/app/certs
+      - KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD:-changeit}
+    volumes:
+      - ./code/certs:/app/certs:ro
     build:
       context: code
       dockerfile: ../docker/code/Dockerfile
