@@ -34,7 +34,7 @@ check_gate_exists:
 ping_edelivery:
   call: http.post
   args:
-    url: "[#EDELIVERY_URL]/api/v1/ping/${incoming.params.pathParams[0]}"
+    url: "[#EDELIVERY_URL]/api/v1/ping/${encodeURIComponent(incoming.params.pathParams[0] ?? '')}"
     headers:
       Content-Type: "application/json"
       x-request-id: ${requestId}

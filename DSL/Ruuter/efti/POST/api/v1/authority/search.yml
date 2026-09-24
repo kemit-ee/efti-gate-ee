@@ -46,7 +46,7 @@ poll_remaining:
   call: http.get
   timeout: 35000
   args:
-    url: "[#MULTIPLEXER_URL]/api/v1/rest/${requestId}"
+    url: "[#MULTIPLEXER_URL]/api/v1/rest/${encodeURIComponent(requestId ?? '')}"
     headers:
       x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
   result: rest_result
@@ -174,7 +174,8 @@ criteria_to_xml:
 start_broadcast:
   call: http.post
   args:
-    url: "[#MULTIPLEXER_URL]/api/v1/search/${requestId}"
+    # requestId is caller-controlled: percent-encode it before it becomes a path segment.
+    url: "[#MULTIPLEXER_URL]/api/v1/search/${encodeURIComponent(requestId ?? '')}"
     headers:
       content-type: "text/xml"
       x-request-id: ${requestId}

@@ -76,7 +76,7 @@ send_via_edelivery:
   call: http.post
   timeout: 65000
   args:
-    url: "[#EDELIVERY_URL]/api/v1/send/${incoming.body.uil.gateId}"
+    url: "[#EDELIVERY_URL]/api/v1/send/${encodeURIComponent(incoming.body.uil.gateId ?? '')}"
     headers:
       content-type: "text/xml"
       x-request-id: ${requestId}
