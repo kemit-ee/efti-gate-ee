@@ -133,6 +133,8 @@ services:
         condition: service_healthy
 
   pubsub:
+    environment:
+      - INTERNAL_SERVICE_TOKEN
     build:
       context: code
       dockerfile: ../docker/code/Dockerfile
@@ -167,6 +169,7 @@ services:
   xml-mapper:
     environment:
       - LOGGER_CLASS
+      - INTERNAL_SERVICE_TOKEN
     build:
       context: code
       dockerfile: ../docker/code/Dockerfile
@@ -182,6 +185,7 @@ services:
       - RESQL_URL=http://resql:8090
       - EDELIVERY_URL=http://edelivery:8081
       - PUBSUB_URL=http://pubsub:8084
+      - INTERNAL_SERVICE_TOKEN
     build:
       context: code
       dockerfile: ../docker/code/Dockerfile

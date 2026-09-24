@@ -42,6 +42,7 @@ request_to_xml:
     headers:
       x-request-id: ${requestId}
       content-type: "application/json"
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
     body: ${incoming.body}
   result: xml_request
 
@@ -58,6 +59,7 @@ query_edelivery_platform:
     headers:
       content-type: "text/xml"
       x-request-id: ${requestId}
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
     content_type: plaintext
     body: ${xml_request.response.body}
   result: dataset_xml

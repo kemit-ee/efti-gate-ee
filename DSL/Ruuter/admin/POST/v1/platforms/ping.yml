@@ -56,6 +56,7 @@ ping_edelivery:
     headers:
       Content-Type: "application/json"
       x-request-id: ${requestId}
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
     body: {}
   result: ping_result
   next: check_edelivery_ping

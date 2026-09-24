@@ -27,6 +27,7 @@ fun main() {
     }
 
     context("/api/v1") {
+      before(InternalServiceTokenAuth())
       annotated<MultiplexerRoutes>()
 
       openApi(annotations = listOf(

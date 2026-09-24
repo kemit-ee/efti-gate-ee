@@ -15,6 +15,7 @@ Content-Type: application/json
 
 ### Multiplexer returns raw XML text, not a JSON-encoded string
 GET {{MULTIPLEXER_URL}}/api/v1/rest/00000000-0000-4000-8000-000000000000
+X-Internal-Service-Token: {{INTERNAL_SERVICE_TOKEN}}
 
 > {%
   client.test("Multiplexer XML wire contract", () => {
@@ -22,6 +23,28 @@ GET {{MULTIPLEXER_URL}}/api/v1/rest/00000000-0000-4000-8000-000000000000
     client.assert(response.headers.valueOf("Content-Type").includes("xml"));
     client.assert(response.headers.valueOf("x-poll-more") === "false");
     client.assert(response.body === "" || response.body == null);
+  });
+%}
+
+### Internal Kotlin routes reject a missing service token
+GET {{MULTIPLEXER_URL}}/api/v1/rest/00000000-0000-4000-8000-000000000000
+
+> {%
+  client.test("Multiplexer requires the internal service token", () => {
+    client.assert(response.status === 401);
+  });
+%}
+
+### Internal Kotlin routes reject a wrong service token
+POST {{EDELIVERY_URL}}/api/v1/send/nonexistent
+X-Internal-Service-Token: definitely-not-the-token
+Content-Type: text/xml
+
+<hello/>
+
+> {%
+  client.test("eDelivery send requires the internal service token", () => {
+    client.assert(response.status === 401);
   });
 %}
 

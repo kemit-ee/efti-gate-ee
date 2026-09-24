@@ -29,7 +29,7 @@ class MultiplexerRoutesTest {
   }
   val http = mockk<HttpClient>()
   val exchange = mockk<HttpExchange>(relaxed = true)
-  val routes = MultiplexerRoutes(registry, http)
+  val routes = MultiplexerRoutes(registry, http, "test-service-token")
 
   val xml = "<test>data</test>"
 
@@ -52,8 +52,14 @@ class MultiplexerRoutesTest {
 
     expect(result).toEqual("<ParameterIDSetCriteria/>")
     verify {
-      http.send(match<HttpRequest> { it.uri().toString().contains("/send/party-1") }, any<BodyHandler<String>>())
-      http.send(match<HttpRequest> { it.uri().toString().contains("/send/party-2") }, any<BodyHandler<String>>())
+      http.send(match<HttpRequest> {
+        it.uri().toString().contains("/send/party-1") &&
+          it.headers().firstValue("X-Internal-Service-Token").orElse("") == "test-service-token"
+      }, any<BodyHandler<String>>())
+      http.send(match<HttpRequest> {
+        it.uri().toString().contains("/send/party-2") &&
+          it.headers().firstValue("X-Internal-Service-Token").orElse("") == "test-service-token"
+      }, any<BodyHandler<String>>())
     }
   }
 

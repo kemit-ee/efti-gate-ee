@@ -38,6 +38,7 @@ ping_edelivery:
     headers:
       Content-Type: "application/json"
       x-request-id: ${requestId}
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
     body: {}
   result: ping_result
   next: check_ping
@@ -128,6 +129,7 @@ publish_ping:
     url: "[#PUBSUB_URL]/api/v1/publish"
     headers:
       Content-Type: "application/json"
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
     body:
       name: "gate-changes"
       data:

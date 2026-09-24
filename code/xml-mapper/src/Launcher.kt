@@ -25,6 +25,7 @@ fun main() {
     metrics()
 
     context("/api/v1") {
+      before(InternalServiceTokenAuth())
       annotated<UploadRoutes>("/upload")
       annotated<SearchRoutes>("/search")
       annotated<DatasetRoutes>("/dataset")

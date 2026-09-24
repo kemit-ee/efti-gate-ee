@@ -17,6 +17,7 @@ class MultiNodeAsyncResponseProvider(
   private val http: HttpClient,
   private val json: JsonMapper,
   private val pubsubUrl: URI = URI(Config["PUBSUB_URL"]),
+  private val internalServiceToken: String = Config.optional("INTERNAL_SERVICE_TOKEN").orEmpty(),
 ): SingleNodeAsyncResponseProvider() {
 
   init {
@@ -40,12 +41,16 @@ class MultiNodeAsyncResponseProvider(
     log.info("Publishing response to pubsub")
     http.post(pubsubUrl.resolve("/api/v1/publish"), json.render(Event(payload, "async-responses"))) {
       contentType(MimeTypes.json)
+      header("X-Internal-Service-Token", internalServiceToken)
     }
   }
 
   private fun subscribeSse() {
     log.info("Subscribing to pubsub SSE stream")
-    http.getSSE(pubsubUrl.resolve("/api/v1/subscribe/async-responses")){ timeout(1.hours) }.forEach { event ->
+    http.getSSE(pubsubUrl.resolve("/api/v1/subscribe/async-responses")) {
+      timeout(1.hours)
+      header("X-Internal-Service-Token", internalServiceToken)
+    }.forEach { event ->
       event.data?.toString()?.let { offerToFirstPending(it) }
     }
   }

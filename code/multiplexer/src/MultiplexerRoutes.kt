@@ -20,7 +20,11 @@ import kotlin.time.Duration.Companion.seconds
 
 const val pollMoreHeader = "x-poll-more"
 
-class MultiplexerRoutes(private val registry: MultiplexerGateRegistry, private val http: HttpClient) {
+class MultiplexerRoutes(
+  private val registry: MultiplexerGateRegistry,
+  private val http: HttpClient,
+  private val internalServiceToken: String = Config.optional("INTERNAL_SERVICE_TOKEN").orEmpty(),
+) {
   private val eDeliveryUrl = URI(Config["EDELIVERY_URL"])
   private val pending = Cache<UUID, PartyResponses>(90.seconds)
   // How long GET /rest waits for the first gate response before returning empty. Bounded so a
@@ -40,6 +44,7 @@ class MultiplexerRoutes(private val registry: MultiplexerGateRegistry, private v
         AppScope.async("+$gateId") {
           val response = http.post(eDeliveryUrl + "/api/v1/send/$gateId", xml) {
             header("x-request-id", searchId.toString())
+            header("X-Internal-Service-Token", internalServiceToken)
             timeout(62.seconds)
           }
           if (response.statusCode() == 200) {

@@ -21,6 +21,7 @@ consignment_to_json:
     headers:
       content-type: "text/xml"
       x-request-id: ${requestId}
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
       x-gate-id: "[#OWN_GATE_ID]"
       x-platform-id: ${(typeof platform !== 'undefined' && platform && platform.id) || null}
       x-dataset-id: ${incoming.params?.pathParams?.[0]}

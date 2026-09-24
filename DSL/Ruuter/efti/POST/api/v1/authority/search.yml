@@ -47,6 +47,8 @@ poll_remaining:
   timeout: 35000
   args:
     url: "[#MULTIPLEXER_URL]/api/v1/rest/${requestId}"
+    headers:
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
   result: rest_result
   next: check_rest
 
@@ -67,6 +69,7 @@ rest_to_json:
     headers:
       x-request-id: ${requestId}
       content-type: "text/xml"
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
     body: ${rest_result.response.body}
     content_type: plaintext
   result: rest_json
@@ -160,6 +163,7 @@ criteria_to_xml:
     headers:
       x-request-id: ${requestId}
       content-type: "application/json"
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
     body: ${incoming.body}
   result: criteria_xml
 
@@ -174,6 +178,7 @@ start_broadcast:
     headers:
       content-type: "text/xml"
       x-request-id: ${requestId}
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
     body: ${criteria_xml.response.body}
     content_type: plaintext
   result: broadcast_started

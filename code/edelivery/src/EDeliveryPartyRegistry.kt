@@ -15,6 +15,7 @@ import kotlin.time.Duration.Companion.seconds
 class EDeliveryPartyRegistry(
   private val resqlClient: ResqlClient,
   private val http: HttpClient,
+  private val internalServiceToken: String = Config.optional("INTERNAL_SERVICE_TOKEN").orEmpty(),
 ): PartyRegistry {
   private val log = logger()
   private val pubsubUrl: URI = URI(Config["PUBSUB_URL"])
@@ -33,7 +34,10 @@ class EDeliveryPartyRegistry(
           log.info("Subscribing to pubsub SSE stream for $topic")
           // reload before (re)subscribing: catches up on any change missed while disconnected
           reload()
-          http.getSSE(pubsubUrl.resolve("/api/v1/subscribe/$topic")) { timeout(1.hours) }.forEach {
+          http.getSSE(pubsubUrl.resolve("/api/v1/subscribe/$topic")) {
+            timeout(1.hours)
+            header("X-Internal-Service-Token", internalServiceToken)
+          }.forEach {
             log.info("$topic event received, refetching parties")
             reload()
           }

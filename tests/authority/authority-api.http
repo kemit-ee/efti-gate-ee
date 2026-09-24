@@ -10,7 +10,7 @@ X-Api-Key: mock-secret-key
 POST {{RUUTER_URL}}/efti/api/v1/authority/search
 Content-Type: application/json
 X-Request-ID: 073b32bc-a081-11f1-8d67-3c9c0f2eb459
-X-Internal-Service-Token: dev-internal-service-token-change-me
+X-Internal-Service-Token: {{INTERNAL_SERVICE_TOKEN}}
 
 {
   "mainTransportId": {"operator": "EQ", "id": "VESSEL-001"}
@@ -62,7 +62,7 @@ Content-Type: application/json
 POST {{RUUTER_URL}}/efti/api/v1/authority/search
 Content-Type: application/json
 X-Request-ID: 073b32bc-a081-11f1-8d67-3c9c0f2eb459
-X-Internal-Service-Token: dev-internal-service-token-change-me
+X-Internal-Service-Token: {{INTERNAL_SERVICE_TOKEN}}
 
 {
   "mainTransportId": {"operator": "EQ", "id": "MOCK-123"}
@@ -82,7 +82,7 @@ POST {{RUUTER_URL}}/efti/api/v1/authority/search
 Content-Type: application/json
 X-Request-ID: 073b32bc-a081-11f1-8d67-3c9c0f2eb459
 X-Poll: true
-X-Internal-Service-Token: dev-internal-service-token-change-me
+X-Internal-Service-Token: {{INTERNAL_SERVICE_TOKEN}}
 
 {}
 
@@ -98,7 +98,7 @@ X-Internal-Service-Token: dev-internal-service-token-change-me
 ### Authority queries local dataset
 GET {{RUUTER_URL}}/efti/api/v1/authority/dataset/EU-EE/mock/550e8400-e29b-41d4-a716-446655440000?subsets=EE01,EU01
 X-Request-ID: 327b4aea-a081-11f1-a87b-3c9c0f2eb459
-X-Internal-Service-Token: dev-internal-service-token-change-me
+X-Internal-Service-Token: {{INTERNAL_SERVICE_TOKEN}}
 
 > {%
   client.test("Local platform dataset", () => {
@@ -111,7 +111,7 @@ X-Internal-Service-Token: dev-internal-service-token-change-me
 ### Authority queries remote dataset through another gate
 GET {{RUUTER_URL}}/efti/api/v1/authority/dataset/EU-MOCK/mock/550e8400-e29b-41d4-a716-446655440000?subsets=EE01,EU01
 X-Request-ID: 327b4aea-a081-11f1-a87b-3c9c0f2eb459
-X-Internal-Service-Token: dev-internal-service-token-change-me
+X-Internal-Service-Token: {{INTERNAL_SERVICE_TOKEN}}
 
 > {%
   client.test("Remote platform dataset", () => {
@@ -125,7 +125,7 @@ X-Internal-Service-Token: dev-internal-service-token-change-me
 POST {{RUUTER_URL}}/efti/api/v1/authority/follow-up
 Content-Type: application/json
 X-Request-ID: 327b4aea-a081-11f1-a87b-3c9c0f2eb459
-X-Internal-Service-Token: dev-internal-service-token-change-me
+X-Internal-Service-Token: {{INTERNAL_SERVICE_TOKEN}}
 
 {
   "uil": {
@@ -151,7 +151,7 @@ X-Internal-Service-Token: dev-internal-service-token-change-me
 POST {{RUUTER_URL}}/efti/api/v1/authority/follow-up
 Content-Type: application/json
 X-Request-ID: 327b4aea-a081-11f1-a87b-3c9c0f2eb459
-X-Internal-Service-Token: dev-internal-service-token-change-me
+X-Internal-Service-Token: {{INTERNAL_SERVICE_TOKEN}}
 
 {
   "uil": {
@@ -177,7 +177,7 @@ X-Internal-Service-Token: dev-internal-service-token-change-me
 POST {{RUUTER_URL}}/efti/api/v1/authority/follow-up
 Content-Type: application/json
 X-Request-ID: 327b4aea-a081-11f1-a87b-3c9c0f2eb459
-X-Internal-Service-Token: dev-internal-service-token-change-me
+X-Internal-Service-Token: {{INTERNAL_SERVICE_TOKEN}}
 
 {
   "uil": {
