@@ -95,6 +95,8 @@ services:
     depends_on:
       - resql
     mem_limit: 512M
+    volumes:
+      - ./constants.ini:/app/constants.ini:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8086/efti/health/ready || exit 1"]
       interval: 5s
