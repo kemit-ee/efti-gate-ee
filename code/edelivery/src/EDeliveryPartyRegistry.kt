@@ -12,8 +12,8 @@ class EDeliveryPartyRegistry(
   private val changeListeners = CopyOnWriteArrayList<(Party) -> Unit>()
 
   init {
-    pubSubClient.subscribe("gate-changes", ::reload)
-    pubSubClient.subscribe("platform-changes", ::reload)
+    pubSubClient.subscribe("gate-changes") { reload() }
+    pubSubClient.subscribe("platform-changes") { reload() }
   }
 
   fun reload() {

@@ -1,5 +1,6 @@
 package edelivery
 
+import PubSubClient
 import klite.Config
 import klite.DependencyInjectingRegistry
 import klite.Server
@@ -45,8 +46,8 @@ class MultiNodeAsyncResponseProviderTest {
       start(gracefulStopDelaySec = 0)
     }
     pubsubUrl = URI("http://localhost:${server.address.port}")
-    nodeA = MultiNodeAsyncResponseProvider(httpClient(), JsonMapper(), pubsubUrl)
-    nodeB = MultiNodeAsyncResponseProvider(httpClient(), JsonMapper(), pubsubUrl)
+    nodeA = MultiNodeAsyncResponseProvider(PubSubClient(pubsubUrl, httpClient(), JsonMapper()))
+    nodeB = MultiNodeAsyncResponseProvider(PubSubClient(pubsubUrl, httpClient(), JsonMapper()))
     // SSE subscriptions are established asynchronously in init; publishing
     // before both nodes are subscribed would be lost (no replay), so wait.
     Thread.sleep(2000)
