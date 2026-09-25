@@ -11,9 +11,11 @@ declaration:
       - field: olderThanDays
         type: number
         required: false
+        description: "Age threshold in days for a superseded row's newer sibling before it becomes archivable. Defaults to 2 when omitted."
       - field: batchLimit
         type: number
         required: false
+        description: "Maximum number of candidate rows to move in this call. Re-invoke until `candidates` is 0."
 
 # ---- 1. pick a batch from the live DB ----
 select_batch:

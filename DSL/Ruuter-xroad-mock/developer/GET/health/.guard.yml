@@ -2,6 +2,8 @@
 # demand X-Road headers on GET /developer/health/*. override_ancestors replaces the project
 # guard for this subtree only (mirrors DSL/Ruuter/xroad/GET/health/.guard.yml).
 declaration:
+  description: "Overrides the project-level developer/.guard.yml to keep GET /developer/health/*
+    public, mirroring DSL/Ruuter/xroad/GET/health/.guard.yml."
   override_ancestors: true
 
 allow:

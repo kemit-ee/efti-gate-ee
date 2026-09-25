@@ -7,6 +7,7 @@ declaration:
       - field: keepDays
         type: number
         required: false
+        description: "Retention window in days; rows older than this are permanently deleted. Defaults to 2555 (~7 years) when omitted."
 
 purge:
   call: http.post

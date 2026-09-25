@@ -4,6 +4,8 @@
 # requires it — the parent's own comment always intended this file to exist; it just hadn't
 # been written yet.
 declaration:
+  description: "Overrides the parent efti/GET/api/v1/.guard.yml to keep the public diagnostic
+    endpoints (baasikontoroll, lubatud, piiratud) reachable without X-Internal-Service-Token."
   override_ancestors: true
 
 allow:
