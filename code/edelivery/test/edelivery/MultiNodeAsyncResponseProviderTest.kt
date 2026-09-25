@@ -46,8 +46,8 @@ class MultiNodeAsyncResponseProviderTest {
       start(gracefulStopDelaySec = 0)
     }
     pubsubUrl = URI("http://localhost:${server.address.port}")
-    nodeA = MultiNodeAsyncResponseProvider(PubSubClient(pubsubUrl, httpClient(), JsonMapper()))
-    nodeB = MultiNodeAsyncResponseProvider(PubSubClient(pubsubUrl, httpClient(), JsonMapper()))
+    nodeA = MultiNodeAsyncResponseProvider(PubSubClient(pubsubUrl, null, httpClient(), JsonMapper()))
+    nodeB = MultiNodeAsyncResponseProvider(PubSubClient(pubsubUrl, null, httpClient(), JsonMapper()))
     // SSE subscriptions are established asynchronously in init; publishing
     // before both nodes are subscribed would be lost (no replay), so wait.
     Thread.sleep(2000)

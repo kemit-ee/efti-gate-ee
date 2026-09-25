@@ -11,6 +11,7 @@ import kotlin.time.Duration.Companion.seconds
 
 class PubSubClient(
   private val baseUrl: URI? = Config.optional("PUBSUB_URL")?.let { URI(it) },
+  private val internalServiceToken: String? = Config.optional("INTERNAL_SERVICE_TOKEN"),
   private val http: HttpClient,
   private val json: JsonMapper,
 ) {
@@ -18,7 +19,10 @@ class PubSubClient(
 
   fun publish(event: Event) {
     if (baseUrl == null) return log.warn("PUBSUB_URL not configured, skipping publish to ${event.name}")
-    http.post(baseUrl + "/api/v1/publish", json.render(event)) { contentType(MimeTypes.json) }
+    http.post(baseUrl + "/api/v1/publish", json.render(event)) {
+      internalServiceToken?.let { header("X-Internal-Service-Token", it) }
+      contentType(MimeTypes.json)
+    }
   }
 
   fun subscribe(topic: String, consumer: (e: Event?) -> Unit) {
@@ -27,7 +31,7 @@ class PubSubClient(
       while (!Thread.interrupted()) {
         try {
           log.info("Subscribing to pubsub SSE stream for $topic")
-          http.getSSE(baseUrl + "/api/v1/subscribe/$topic").forEach {
+          http.getSSE(baseUrl + "/api/v1/subscribe/$topic") { internalServiceToken?.let { header("X-Internal-Service-Token", it) }; this }.forEach {
             log.info("$topic event received, invoking consumer")
             consumer(it)
           }

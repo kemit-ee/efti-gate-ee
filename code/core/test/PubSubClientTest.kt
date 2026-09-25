@@ -20,12 +20,11 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit.SECONDS
 
 class PubSubClientTest {
+  private val internalToken = "token"
   private val baseUrl = URI("http://pubsub:8080")
   private val http = mockk<HttpClient>()
-  private val json = mockk<JsonMapper> {
-    every { render(any()) } returns """{"data":"hello","name":"events"}"""
-  }
-  private val client = PubSubClient(baseUrl, http, json)
+  private val json = JsonMapper()
+  private val client = PubSubClient(baseUrl, internalToken, http, json)
   // keep pipe writers alive so the SSE body blocks instead of hitting EOF and reconnecting
   private val openPipes = mutableListOf<PipedOutputStream>()
 
@@ -58,11 +57,10 @@ class PubSubClientTest {
           it.headers().firstValue("Content-Type").orElse("") == "application/json"
       }, any<BodyHandler<String>>())
     }
-    verify { json.render(event) }
   }
 
   @Test fun `publish skips when PUBSUB_URL is not configured`() {
-    val unconfigured = PubSubClient(null, http, json)
+    val unconfigured = PubSubClient(null, null, http, json)
 
     unconfigured.publish(Event("hello", name = "events"))
 
@@ -113,7 +111,7 @@ class PubSubClientTest {
   }
 
   @Test fun `subscribe skips when PUBSUB_URL is not configured`() {
-    val unconfigured = PubSubClient(null, http, json)
+    val unconfigured = PubSubClient(null, null, http, json)
     val received = CopyOnWriteArrayList<Event?>()
 
     unconfigured.subscribe("events") { received.add(it) }
