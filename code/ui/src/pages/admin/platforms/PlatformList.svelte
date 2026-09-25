@@ -33,7 +33,6 @@
       showToast(platform.id + ' ' + t.general.pinged)
     } catch (e: any) {
       if (platform.status !== Status.DISABLED) platforms = platforms.map(g => g.id === platform.id ? { ...g, status: Status.OFFLINE } : g)
-      throw e
     }
   }
 </script>

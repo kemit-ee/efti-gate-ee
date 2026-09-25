@@ -135,10 +135,8 @@
     "platformId": "Platvormi ID",
     "createdAt": "Loodud",
     "updatedAt": "Uuendatud",
-    "filter": "Filtreeri...",
     "ui": "UI",
     "xml": "XML",
-    "showCabotage": "Näita ainult kabotaaži",
     "viewQrCode": "Vaata QR-koodi",
     "uilQrCode": "UIL QR-kood"
   },
