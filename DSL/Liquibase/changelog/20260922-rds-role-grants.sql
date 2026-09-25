@@ -1,5 +1,5 @@
 --liquibase formatted sql
---changeset efti:20260922-rds-role-grants
+--changeset efti:20260922-rds-role-grants splitStatements:false
 --comment Map RDS create_default_users roles onto schema grant targets (app / db_archiver).
 
 DO $$
