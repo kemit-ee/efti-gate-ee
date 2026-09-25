@@ -95,6 +95,8 @@ services:
     depends_on:
       - resql
     mem_limit: 512M
+    volumes:
+      - ./constants.ini:/app/constants.ini:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8086/efti/health/ready || exit 1"]
       interval: 5s
@@ -133,6 +135,8 @@ services:
         condition: service_healthy
 
   pubsub:
+    environment:
+      - INTERNAL_SERVICE_TOKEN
     build:
       context: code
       dockerfile: ../docker/code/Dockerfile
@@ -149,6 +153,10 @@ services:
       - PUBSUB_URL=http://pubsub:8084
       - INTERNAL_SERVICE_TOKEN
       - LOGGER_CLASS
+      - KEYSTORE_DIR=/app/certs
+      - KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD:-changeit}
+    volumes:
+      - ./code/certs:/app/certs:ro
     build:
       context: code
       dockerfile: ../docker/code/Dockerfile
@@ -163,6 +171,7 @@ services:
   xml-mapper:
     environment:
       - LOGGER_CLASS
+      - INTERNAL_SERVICE_TOKEN
     build:
       context: code
       dockerfile: ../docker/code/Dockerfile
@@ -178,6 +187,7 @@ services:
       - RESQL_URL=http://resql:8090
       - EDELIVERY_URL=http://edelivery:8081
       - PUBSUB_URL=http://pubsub:8084
+      - INTERNAL_SERVICE_TOKEN
     build:
       context: code
       dockerfile: ../docker/code/Dockerfile

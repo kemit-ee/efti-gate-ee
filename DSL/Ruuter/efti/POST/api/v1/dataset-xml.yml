@@ -13,6 +13,7 @@ parse_request:
     headers:
       x-request-id: ${requestId}
       Content-Type: "text/xml"
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
     content_type: plaintext
     body:
       text: ${incoming.body.xml}
@@ -38,6 +39,7 @@ to_xml:
     headers:
       x-request-id: ${requestId}
       Content-Type: "application/json"
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
     body: ${dataset_response}
   result: xml_response
 

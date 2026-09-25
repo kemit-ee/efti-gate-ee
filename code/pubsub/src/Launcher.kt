@@ -22,6 +22,7 @@ fun main() {
     }
 
     context("/api/v1") {
+      before(InternalServiceTokenAuth())
       annotated<PubSubRoutes>()
 
       openApi(annotations = listOf(

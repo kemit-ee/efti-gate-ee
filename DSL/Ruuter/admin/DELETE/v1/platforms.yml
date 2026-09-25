@@ -43,6 +43,7 @@ publish_platform_change:
     url: "[#PUBSUB_URL]/api/v1/publish"
     headers:
       Content-Type: "application/json"
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
     body:
       name: "platform-changes"
       data:

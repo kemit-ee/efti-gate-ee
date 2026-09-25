@@ -30,7 +30,7 @@ check_platform:
 query_rest_platform:
   call: http.get
   args:
-    url: "${platform_result.response.body[0]?.baseUrl}/v1/dataset/${incoming.body.uil.datasetId}?subsets=${incoming.body.subsets.join(',')}"
+    url: "${platform_result.response.body[0]?.baseUrl}/v1/dataset/${encodeURIComponent(incoming.body.uil.datasetId ?? '')}?subsets=${encodeURIComponent((incoming.body.subsets ?? []).join(','))}"
     headers: "${Object.assign(platform_result.response.body[0]?.headers ?? {}, {'x-request-id': requestId})}"
   result: dataset_xml
   next: check_dataset_xml
@@ -42,6 +42,7 @@ request_to_xml:
     headers:
       x-request-id: ${requestId}
       content-type: "application/json"
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
     body: ${incoming.body}
   result: xml_request
 
@@ -58,6 +59,7 @@ query_edelivery_platform:
     headers:
       content-type: "text/xml"
       x-request-id: ${requestId}
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
     content_type: plaintext
     body: ${xml_request.response.body}
   result: dataset_xml

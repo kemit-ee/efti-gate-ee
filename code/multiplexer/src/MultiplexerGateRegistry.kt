@@ -16,6 +16,7 @@ const val gateChangeEvent = "gate-changes"
 class MultiplexerGateRegistry(
   private val resqlClient: ResqlClient,
   private val http: HttpClient,
+  private val internalServiceToken: String = Config.optional("INTERNAL_SERVICE_TOKEN").orEmpty(),
 ) {
   private val log = logger()
   private val ownGateId: PartyId = Config.partyId
@@ -39,7 +40,10 @@ class MultiplexerGateRegistry(
 
   private fun subscribeToGateChanges() {
     log.info("Subscribing to pubsub SSE stream for gate changes")
-    http.getSSE(pubsubUrl.resolve("/api/v1/subscribe/$gateChangeEvent")) { timeout(1.hours) }.forEach { event ->
+    http.getSSE(pubsubUrl.resolve("/api/v1/subscribe/$gateChangeEvent")) {
+      timeout(1.hours)
+      header("X-Internal-Service-Token", internalServiceToken)
+    }.forEach { event ->
       log.info("Gate change event received, refetching gates")
       gateCache = loadGates()
     }

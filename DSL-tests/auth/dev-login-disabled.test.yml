@@ -1,4 +1,6 @@
 mode: inprocess
+constants:
+  DEV_LOGIN_ENABLED: "false"
 tests:
   - name: production defaults never mint a JWT for a supplied personal code
     request:

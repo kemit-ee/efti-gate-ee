@@ -1,0 +1,6 @@
+flowchart LR
+  AS["Pädev asutus<br/>(PPA, MTA, Transpordiamet)"] -- "X-tee" --> GW["Eesti eFTI värav"]
+  PL["eFTI platvorm<br/>(veo- ja logistikatarkvara)"] -- "1. veose registreerimine<br/>REST või eDelivery" --> GW
+  GW -- "3. andmete pärimine,<br/>4. järelpärimine" --> PL
+  GW <-- "2. otsing, 3. päring<br/>eDelivery AS4" --> GW2["Teise liikmesriigi<br/>eFTI värav"]
+  AD["Värava haldur"] -- "TARA sisselogimine" --> GW

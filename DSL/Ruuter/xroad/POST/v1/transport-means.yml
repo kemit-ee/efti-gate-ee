@@ -328,6 +328,7 @@ normalize_results:
     headers:
       Content-Type: application/json
       x-request-id: "${incoming.headers['x-road-id']}"
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
     body: ${core_res.response.body}
   result: norm_res
   next: check_normalize

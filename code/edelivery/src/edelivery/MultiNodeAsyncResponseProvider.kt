@@ -16,13 +16,9 @@ class MultiNodeAsyncResponseProvider(
 
   override fun provideResponse(key: RequestKey, payload: String): Boolean {
     if (super.provideResponse(key, payload)) return true
-    publishToPubsub(payload)
-    return true
-  }
-
-  private fun publishToPubsub(payload: String) {
     log.info("Publishing response to pubsub")
     pubSubClient.publish(Event(payload, name = "async-responses"))
+    return true
   }
 
   private fun offerToFirstPending(body: String) {

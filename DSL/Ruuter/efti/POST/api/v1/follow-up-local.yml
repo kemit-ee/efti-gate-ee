@@ -75,7 +75,7 @@ check_platform:
 forward_to_rest_platform:
   call: http.post
   args:
-    url: "${platform_result.response.body[0]?.baseUrl}/v1/dataset/${incoming.body.uil.datasetId}/follow-up"
+    url: "${platform_result.response.body[0]?.baseUrl}/v1/dataset/${encodeURIComponent(incoming.body.uil.datasetId ?? '')}/follow-up"
     headers: "${Object.assign(platform_result.response.body[0]?.headers ?? {}, {'Content-Type': 'application/json', 'X-Dataset-Request-ID': incoming.body.referenceIds[0], 'x-request-id': requestId})}"
     body: ${incoming.body}
   result: platform_response
@@ -88,6 +88,7 @@ request_to_xml:
     headers:
       x-request-id: ${requestId}
       content-type: "application/json"
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
     body: ${incoming.body}
   result: xml_request
 
@@ -99,6 +100,7 @@ forward_to_edelivery_platform:
     headers:
       content-type: "text/xml"
       x-request-id: ${requestId}
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
     content_type: plaintext
     body: ${xml_request.response.body}
   result: platform_response

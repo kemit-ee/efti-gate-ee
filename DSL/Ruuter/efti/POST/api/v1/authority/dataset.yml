@@ -63,6 +63,7 @@ request_to_xml:
     headers:
       x-request-id: ${requestId}
       content-type: "application/json"
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
     body: ${incoming.body}
   result: request_xml
 
@@ -75,10 +76,11 @@ send_via_edelivery:
   call: http.post
   timeout: 65000
   args:
-    url: "[#EDELIVERY_URL]/api/v1/send/${incoming.body.uil.gateId}"
+    url: "[#EDELIVERY_URL]/api/v1/send/${encodeURIComponent(incoming.body.uil.gateId ?? '')}"
     headers:
       content-type: "text/xml"
       x-request-id: ${requestId}
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
     body: ${request_xml.response.body}
     content_type: plaintext
   result: edelivery_response
@@ -114,6 +116,7 @@ convert_response_to_json:
     headers:
       x-request-id: ${requestId}
       content-type: "text/xml"
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
     body: ${dataset_response.xml}
     content_type: plaintext
   result: dataset_json

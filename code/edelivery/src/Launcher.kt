@@ -36,6 +36,7 @@ fun main() {
 
     // Internal
     context("/api/v1") {
+      before(InternalServiceTokenAuth())
       annotated<InternalRoutes>()
 
       openApi(annotations = listOf(

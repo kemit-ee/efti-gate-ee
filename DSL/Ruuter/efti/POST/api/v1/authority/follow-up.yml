@@ -55,6 +55,7 @@ forward_to_remote_gate:
     headers:
       x-request-id: ${requestId}
       Content-Type: "application/json"
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
     body:
       uil: ${incoming.body.uil}
       referenceIds: ${incoming.body.referenceIds}
@@ -71,10 +72,11 @@ send_via_edelivery:
   call: http.post
   timeout: 65000
   args:
-    url: "[#EDELIVERY_URL]/api/v1/send/${incoming.body.uil.gateId}"
+    url: "[#EDELIVERY_URL]/api/v1/send/${encodeURIComponent(incoming.body.uil.gateId ?? '')}"
     headers:
       Content-Type: "text/xml"
       x-request-id: ${requestId}
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
     body: ${followup_xml.response.body}
     content_type: plaintext
   result: edelivery_response
@@ -96,6 +98,7 @@ response_to_json:
     headers:
       x-request-id: ${requestId}
       Content-Type: "text/xml"
+      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
     body: ${edelivery_response.response.body}
     content_type: plaintext
   result: remote_json

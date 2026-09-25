@@ -225,6 +225,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - `X-Road-Id` must be hexadecimal 8-4-4-4-12 UUID text: both real and mock guards use a tested RegExp and return 400 `INVALID_REQUEST_ID` for non-hex values. The adapter maps it to typed downstream UUID parameters.
 - Ruuter `http_codes_allow_list` must include any status you return (401, 403, 204 are not default)
 - `internal_requests.block_private_networks: false` in `ruuter.yaml` — auth DSLs call TIM/ReSQL by compose service name
-- edelivery test mode uses a hardcoded PKCS#12 keystore (see `KeyManager.kt`); production reads from `certs/own.p12`
+- edelivery test mode uses a hardcoded PKCS#12 keystore (see `KeyManager.kt`); otherwise the AS4 keystore is read from `$KEYSTORE_DIR/own.p12` (default `certs`, password `$KEYSTORE_PASSWORD`). It is **not** baked into the image (`docker/code/Dockerfile`) and `code/certs` is a `.dockerignore` entry — compose mounts `./code/certs:/app/certs:ro` into `edelivery`; in production mount a per-environment keystore/Secret instead
 - `PartyId` equality is case-insensitive (`.equals(ignoreCase = true)`)
+- Caller-controlled values are never interpolated raw into an outbound `url:`. Percent-encode path segments / query values with `encodeURIComponent(...)` (`uil.datasetId`/`subsets`/`gateId`, `requestId`, admin ping path params), so `..`, `/`, `?` or `&` cannot alter the target. The engine's Boa/QuickJS contexts are full ECMAScript, so the global is available even though it is not in the documented expression subset.
 - user does not have role related fields. if user exist then they are admin. that's it.
