@@ -53,10 +53,15 @@ services:
       database:
         condition: service_healthy
     volumes:
+    # A subdirectory, not /liquibase itself: that's the image's own liquibase
+    # install (docker-entrypoint.sh, lib/, internal/...) and a bind mount there
+    # would hide it instead of layering like the Dockerfile's COPY does.
     - ./DSL/Liquibase:/liquibase/changelog:ro
     environment:
     - AUDIT_SALT=${AUDIT_SALT:-dev-local-audit-salt-change-me-32chars}
-    command: --defaultsFile=/liquibase/changelog/liquibase.properties update -DAUDIT_SALT=${AUDIT_SALT:-dev-local-audit-salt-change-me-32chars}
+    # searchPath in liquibase.properties targets the image COPY layout
+    # (DSL/Liquibase/ -> /liquibase/); override it for this bind-mounted layout.
+    command: --defaultsFile=/liquibase/changelog/liquibase.properties --search-path=/liquibase/changelog update -DAUDIT_SALT=${AUDIT_SALT:-dev-local-audit-salt-change-me-32chars}
 
   resql:
     container_name: efti_resql

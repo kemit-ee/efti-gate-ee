@@ -14,27 +14,35 @@ if [ -n "$TARA_MOCK_CA_PATH" ]; then
     TARA_CA="$TARA_MOCK_CA_PATH"
 fi
 
-echo "[tim-init] Waiting for TARA-Mock CA certificate at ${TARA_CA}..."
-until [ -f "$TARA_CA" ]; do
-    if [ "$WAITED" -ge "$MAX_WAIT" ]; then
-        echo "[tim-init] ERROR: TARA-Mock CA not found after ${MAX_WAIT}s — aborting."
-        exit 1
-    fi
-    sleep 1
-    WAITED=$((WAITED + 1))
-done
+# Compose + tara-mock: wait for the CA and bundle it. AWS / real TARA: skip
+# (set SKIP_TARA_MOCK_CA=1, or leave the vault path absent so the wait is optional).
+if [ "${SKIP_TARA_MOCK_CA:-}" = "1" ]; then
+    echo "[tim-init] SKIP_TARA_MOCK_CA=1 — not importing tara-mock CA."
+elif [ ! -e "$(dirname "$TARA_CA")" ] && [ ! -f "$TARA_CA" ]; then
+    echo "[tim-init] No tara-mock vault at $(dirname "$TARA_CA") — skipping CA import (real TARA)."
+else
+    echo "[tim-init] Waiting for TARA-Mock CA certificate at ${TARA_CA}..."
+    until [ -f "$TARA_CA" ]; do
+        if [ "$WAITED" -ge "$MAX_WAIT" ]; then
+            echo "[tim-init] ERROR: TARA-Mock CA not found after ${MAX_WAIT}s — aborting."
+            exit 1
+        fi
+        sleep 1
+        WAITED=$((WAITED + 1))
+    done
 
-# Distroless TIM can't run update-ca-certificates, so instead of importing
-# the mock CA into an OS trust store, point TIM's TLS client at a bundle
-# file directly via SSL_CERT_FILE (openssl-probe/rustls-native-certs honour
-# this env var without needing OS package support). This container's own
-# environment only ever talks to tara-mock over TLS, so the mock CA alone
-# is a sufficient bundle here.
-echo "[tim-init] Writing CA bundle for TIM at /tim-ca-bundle/ca-bundle.pem..."
-mkdir -p /tim-ca-bundle
-cp "$TARA_CA" /tim-ca-bundle/ca-bundle.pem
-chown 65532:65532 /tim-ca-bundle/ca-bundle.pem
-chmod 644 /tim-ca-bundle/ca-bundle.pem
+    # Distroless TIM can't run update-ca-certificates, so instead of importing
+    # the mock CA into an OS trust store, point TIM's TLS client at a bundle
+    # file directly via SSL_CERT_FILE (openssl-probe/rustls-native-certs honour
+    # this env var without needing OS package support). This container's own
+    # environment only ever talks to tara-mock over TLS, so the mock CA alone
+    # is a sufficient bundle here.
+    echo "[tim-init] Writing CA bundle for TIM at /tim-ca-bundle/ca-bundle.pem..."
+    mkdir -p /tim-ca-bundle
+    cp "$TARA_CA" /tim-ca-bundle/ca-bundle.pem
+    chown 65532:65532 /tim-ca-bundle/ca-bundle.pem
+    chmod 644 /tim-ca-bundle/ca-bundle.pem
+fi
 
 # Generate the RSA signing key if not already present (dev / CI convenience).
 KEY=/opt/tim/keys/jwt-private.pem

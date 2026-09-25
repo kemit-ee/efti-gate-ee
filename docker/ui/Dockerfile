@@ -4,12 +4,13 @@ WORKDIR /app
 COPY code/ui/package.json code/ui/package-lock.json ./
 RUN npm ci
 COPY code/ui/ ./
-ARG VITE_USE_PROD_TARA_URL
+# Default true for AWS Harbor builds (compose overrides when needed).
+ARG VITE_USE_PROD_TARA_URL=true
 RUN npm run build
 
 FROM nginx:stable-alpine
 
-ARG VITE_USE_PROD_TARA_URL
+ARG VITE_USE_PROD_TARA_URL=true
 COPY --from=build /app/build /usr/share/nginx/html
 COPY docker/ui/nginx.conf /etc/nginx/conf.d/default.conf
 RUN if [ "$VITE_USE_PROD_TARA_URL" = "true" ]; then \

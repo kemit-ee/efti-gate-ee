@@ -19,3 +19,14 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE        ON FUNCTIONS TO a
 
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, DELETE ON TABLES    TO db_archiver;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT  ON SEQUENCES TO db_archiver;
+
+-- RDS create_default_users roles inherit the schema grants above (resql = efti_rw).
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'efti_rw') THEN
+    EXECUTE 'GRANT app TO efti_rw';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'efti_ro') THEN
+    EXECUTE 'GRANT db_archiver TO efti_ro';
+  END IF;
+END $$;
