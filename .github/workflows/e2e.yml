@@ -40,6 +40,44 @@ jobs:
       - name: fresh-install schema regression checks
         run: python3 tests/sql/regression.py --init
 
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: code/ui/package-lock.json
+
+      - name: Install dependencies
+        working-directory: code/ui
+        run: npm ci --prefer-offline --no-audit
+
+      - name: svelte-check
+        # Mirrors .gitlab-ci.yml's frontend:check. Temporary onboarding state, same as
+        # frontend:test below: report failures, don't gate PRs yet (see
+        # docs — module-by-module coverage baseline is still being raised).
+        continue-on-error: true
+        working-directory: code/ui
+        run: npm run check
+
+      - name: vitest (with coverage)
+        continue-on-error: true
+        working-directory: code/ui
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: code/ui/coverage/
+          retention-days: 7
+
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 20
