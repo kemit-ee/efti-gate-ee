@@ -75,8 +75,6 @@ generate_jwt:
       content:
         sub: ${raw_user_id}
         personalCode: ${personal_code}
-        firstName: ${callback_result.response.body.user_profile.first_name}
-        lastName: ${callback_result.response.body.user_profile.last_name}
       expirationInMinutes: 480
       JWTName: "eftiJwtCookie"
   result: jwt_result
