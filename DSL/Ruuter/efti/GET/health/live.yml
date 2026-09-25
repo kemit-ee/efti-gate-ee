@@ -1,3 +1,7 @@
+declaration:
+  description: "Liveness probe — returns 200 as soon as Ruuter is up, without checking any
+    dependency. No inputs."
+
 respond:
   return: "OK"
   status: 200

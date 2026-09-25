@@ -1,3 +1,7 @@
+declaration:
+  description: "Readiness probe — returns 200 only if the database is reachable, 503 otherwise.
+    No inputs."
+
 check_db:
   call: http.post
   args:

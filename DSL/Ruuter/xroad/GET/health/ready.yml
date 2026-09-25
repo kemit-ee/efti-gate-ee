@@ -2,6 +2,11 @@
 # Public by construction: the project-level xroad/.guard.yml is overridden for xroad/GET/health/
 # (see the .guard.yml there), the same way the efti probes stay public. Served on the main Ruuter
 # (port 8086) at /xroad/health/ready; kept for the Security Server's own probing.
+declaration:
+  description: "X-Road readiness probe — returns 200 only if the database is reachable, 503
+    otherwise. Public despite living under xroad/ (xroad/GET/health/.guard.yml overrides the
+    project guard). No inputs."
+
 check_db:
   call: http.post
   args:

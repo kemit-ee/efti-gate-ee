@@ -16,6 +16,13 @@
 #
 # The resolved member code is exposed to handlers as ${memberCode}.
 
+declaration:
+  description: "Project-level guard for the public developer mock (/developer/**). Mirrors
+    DSL/Ruuter/xroad/.guard.yml's X-Road-Client / X-Road-Id shape checks (same status codes and
+    RFC 7807 bodies), but resolves the caller against a hard-coded rule instead of the authorities
+    table: memberCode 00000000 -> 403 FORBIDDEN, 70000000 -> resolves with no subsets, any other
+    well-formed value -> resolves as the mock authority 'auth-mock'. Exposes ${memberCode}."
+
 log_context:
   log: "developer-mock client=${incoming.headers['x-road-client'] ?? '-'} xroad-id=${incoming.headers['x-road-id'] ?? '-'}"
   next: check_client_header

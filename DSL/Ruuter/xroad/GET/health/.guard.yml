@@ -2,6 +2,8 @@
 # demand an X-Road-Client header on GET /xroad/health/*. override_ancestors replaces
 # the project guard for this subtree only (Ruuter #39 / task 020).
 declaration:
+  description: "Overrides the project-level xroad/.guard.yml to keep GET /xroad/health/* public,
+    since the Security Server's own probing cannot supply an X-Road-Client header."
   override_ancestors: true
 
 allow:
