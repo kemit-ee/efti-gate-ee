@@ -62,7 +62,9 @@ subprojects {
     finalizedBy(tasks.jacocoTestReport)
   }
 
-  val coverageExcludes = listOf("Launcher.class", "Launcher\$*.class")
+  // Launcher.kt has no class named Launcher -- its top-level main() compiles to the
+  // synthetic facade LauncherKt (Kotlin's file-class convention for top-level functions).
+  val coverageExcludes = listOf("Launcher.class", "Launcher\$*.class", "LauncherKt.class", "LauncherKt\$*.class")
 
   tasks.jacocoTestReport {
     dependsOn(tasks.test)
