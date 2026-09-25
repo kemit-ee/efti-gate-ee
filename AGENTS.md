@@ -206,6 +206,11 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   - `e2e` — builds the compose stack, runs the `tests/*/*.http` smoke suite via
     `docker compose run --rm http-tests`. This is the gate on PRs. `dsl-test` is the fast
     in-process check; `tests/*.http` is the full-stack integration gate.
+  - `backend` — `code/`'s `./gradlew test` (blocking, mirrors `.gitlab-ci.yml`'s `backend:test`)
+    + `./gradlew jacocoTestCoverageVerification` (80% per-module line threshold,
+    `continue-on-error: true`, mirrors `backend:coverage-gate` — reports, doesn't gate PRs yet
+    while multiplexer/pubsub/edelivery are still under 80%; `core` cleared it). JUnit + jacoco
+    reports uploaded as an artifact.
 - `.gitlab-ci.yml` — kemitaws platform pipeline (mirror): `secret_detection` + `validate:dsl`
   (same `dsl-lint` / `dsl-test` / `validate-dsl.py` as above) + sonar → nine
   `image-build`s (ruuter, ruuter-xroad-mock, resql, liquibase, tim, ui, edelivery, xml-mapper,
