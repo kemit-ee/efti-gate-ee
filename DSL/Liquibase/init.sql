@@ -644,3 +644,6 @@ CREATE TRIGGER protect_users_append BEFORE INSERT ON users FOR EACH ROW EXECUTE 
 CREATE TRIGGER protect_gates_append BEFORE INSERT ON gates FOR EACH ROW EXECUTE FUNCTION protect_registry_append();
 CREATE TRIGGER protect_platforms_append BEFORE INSERT ON platforms FOR EACH ROW EXECUTE FUNCTION protect_registry_append();
 CREATE TRIGGER protect_authorities_append BEFORE INSERT ON authorities FOR EACH ROW EXECUTE FUNCTION protect_registry_append();
+
+-- Source: 20260925-consignments-created-index.sql
+CREATE INDEX idx_consignments_created_latest ON consignments (created_at DESC, revision DESC);

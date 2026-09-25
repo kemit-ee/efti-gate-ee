@@ -17,7 +17,10 @@ WITH candidates AS (
       AND n.created_at   > c.created_at
       AND n.created_at   < now() - make_interval(days => COALESCE(:olderThanDays, 2)::int)
   )
-  ORDER BY c.created_at
+  -- An expression, not the bare column: ordered by idx_consignments_created_latest the planner walks
+  -- every current row oldest-first probing for a newer sibling, and the last call of an archive run,
+  -- which finds none, then reads the whole table row by row.
+  ORDER BY c.created_at + interval '0'
   LIMIT COALESCE(:batchLimit, 100)
 )
 SELECT

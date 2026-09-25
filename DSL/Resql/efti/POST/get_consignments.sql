@@ -201,5 +201,21 @@ WHERE c.status != 'DELETED'
        OR :criteria->'unloadingDate'->1->>'operator' = 'GT' AND unloading_date > (:criteria->'unloadingDate'->1->>'date')::timestamptz
        OR :criteria->'unloadingDate'->1->>'operator' = 'GE' AND unloading_date >= (:criteria->'unloadingDate'->1->>'date')::timestamptz
   )
-ORDER BY created_at DESC, revision DESC
+-- Newest-first walks idx_consignments_created_latest and stops at LIMIT, which is what makes a
+-- broad search (no criteria, gateId, a country, any NE) cheap. The trap is an EQ on an array
+-- column: the GIN `@>` selectivity estimate for a rare element is the 0.5% default, so the planner
+-- expects a hit every ~200 index rows and walks the whole table for an id that occurs once. Such an
+-- EQ turns the sort key into an expression the index cannot supply, so the GIN bitmap is used and
+-- only its matches are sorted. ReSql plans with the bound values, so the CASE folds at plan time.
+ORDER BY CASE WHEN 'EQ' IN (:criteria->'transportMeansOrEquipmentId'->>'operator',
+                            :criteria->'usedEquipmentId'->>'operator',
+                            :criteria->'usedEquipmentCategory'->>'operator',
+                            :criteria->'usedEquipmentCountry'->>'operator',
+                            :criteria->'usedEquipmentSeq'->>'operator',
+                            :criteria->'carriedEquipmentId'->>'operator',
+                            :criteria->'carriedEquipmentCategory'->>'operator',
+                            :criteria->'carriedEquipmentSeq'->>'operator')
+              THEN created_at + interval '0'
+              ELSE created_at END DESC,
+         revision DESC
 LIMIT LEAST(GREATEST(COALESCE(:limit, 100), 0), 1000) OFFSET GREATEST(COALESCE(:offset, 0), 0);
