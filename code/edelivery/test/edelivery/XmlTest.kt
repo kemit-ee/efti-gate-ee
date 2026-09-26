@@ -34,4 +34,14 @@ class XmlTest {
     expect(xml.extractXmlTag("consignment"))
       .toEqual("<consignment xmlns=\"http://efti.eu/v1/consignment/common\">data</consignment>")
   }
+
+  @Test fun extractIncludedNoteContentReturnsTheNestedContentElement() {
+    val xml = "<root><IncludedNote><Content type=\"text\">Some note text</Content></IncludedNote></root>"
+    expect(xml.extractIncludedNoteContent()).toEqual("Some note text")
+  }
+
+  @Test fun extractIncludedNoteContentFallsBackToTheWholeNoteWhenThereIsNoContentChild() {
+    val xml = "<root><IncludedNote>Plain text, no Content wrapper</IncludedNote></root>"
+    expect(xml.extractIncludedNoteContent()).toEqual("<IncludedNote>Plain text, no Content wrapper</IncludedNote>")
+  }
 }

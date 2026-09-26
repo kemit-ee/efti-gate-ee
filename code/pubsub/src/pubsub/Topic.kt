@@ -20,6 +20,8 @@ class Topic(val name: String) {
   fun unsubscribe(queue: LinkedBlockingQueue<Event>) {
     subscribers.remove(queue)
   }
+
+  fun subscriberCount() = subscribers.size
 }
 
 class TopicRegistry {

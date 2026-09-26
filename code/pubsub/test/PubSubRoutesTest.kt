@@ -1,8 +1,14 @@
 import ch.tutteli.atrium.api.fluent.en_GB.toEqual
 import ch.tutteli.atrium.api.verbs.expect
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
+import io.mockk.verify
 import klite.HttpExchange
 import klite.sse.Event
+import klite.sse.send
+import klite.sse.startEventStream
 import org.junit.jupiter.api.Test
 import pubsub.PubSubRoutes
 import pubsub.Topic
@@ -52,5 +58,46 @@ class PubSubRoutesTest {
     topic.publish(Event(data = "hello", name = "test"))
     val event = queue.poll(100, TimeUnit.MILLISECONDS)
     expect(event).toEqual(null)
+  }
+
+  @Test fun subscribeDeliversPublishedEventsThenUnsubscribesOnDisconnect() {
+    // startEventStream/send are extension functions (compiled to static methods, not
+    // HttpExchange members), so a relaxed mock of the interface alone won't intercept
+    // them -- they need mockkStatic on the file they're compiled into.
+    mockkStatic("klite.sse.SSEKt")
+    try {
+      var sendCalled = false
+      every { exchange.startEventStream() } returns mockk(relaxed = true)
+      every { exchange.send(any<Event>(), null) } answers {
+        sendCalled = secondArg<Event>().data == "hello" && secondArg<Event>().id == 7
+      }
+
+      val topic = registry.getOrCreate("live")
+      val thread = Thread { routes.subscribe("live", exchange) }
+      thread.isDaemon = true
+      thread.start()
+
+      awaitSubscriberCount(topic, 1)
+      topic.publish(Event(data = "hello", name = "live", id = 7))
+
+      Thread.sleep(200) // let the subscriber loop pick up and deliver the event
+      thread.interrupt()
+      thread.join(2000)
+
+      expect(thread.isAlive).toEqual(false)
+      expect(sendCalled).toEqual(true)
+      verify { exchange.startEventStream() }
+      awaitSubscriberCount(topic, 0)
+    } finally {
+      unmockkStatic("klite.sse.SSEKt")
+    }
+  }
+
+  private fun awaitSubscriberCount(topic: Topic, expected: Int, timeoutMs: Long = 2000) {
+    val deadline = System.currentTimeMillis() + timeoutMs
+    while (topic.subscriberCount() != expected && System.currentTimeMillis() < deadline) {
+      Thread.sleep(10)
+    }
+    expect(topic.subscriberCount()).toEqual(expected)
   }
 }
