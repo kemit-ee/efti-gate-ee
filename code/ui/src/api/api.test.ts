@@ -1,4 +1,4 @@
-import api, {headers, setToken, clearToken} from './api'
+import api, {headers, getToken, setToken, clearToken} from './api'
 import type {MockInstance} from 'vitest'
 
 const successfulResponse = {status: 200, headers: {get: () => undefined}, json: () => 'data'} as any
@@ -155,5 +155,77 @@ describe('api', () => {
       await promise
       expect(button.disabled).to.be.false
     })
+  })
+})
+
+describe('token storage', () => {
+  afterEach(() => sessionStorage.clear())
+
+  it('stores, reads and clears the token', () => {
+    expect(getToken()).to.equal(null)
+    setToken('jwt-token')
+    expect(getToken()).to.equal('jwt-token')
+    clearToken()
+    expect(getToken()).to.equal(null)
+  })
+})
+
+describe('Api path/body/error handling not covered above', () => {
+  function mockFetch(response: Partial<Response> | Promise<Response>) {
+    return vi.spyOn(window, 'fetch').mockImplementation(() => response instanceof Promise ? response : Promise.resolve(response as Response))
+  }
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    clearToken()
+  })
+
+  it('prefixes relative paths but leaves absolute paths untouched', async () => {
+    const fetch = mockFetch({ok: true, status: 200, json: async () => ({})} as Response)
+    await api.get('gates')
+    expect(fetch.mock.calls[0][0]).to.equal('/admin/v1/gates')
+
+    await api.get('/auth/user')
+    expect(fetch.mock.calls[1][0]).to.equal('/auth/user')
+  })
+
+  it('serializes a plain object body as JSON but passes strings/FormData/File through as-is', async () => {
+    const fetch = mockFetch({ok: true, status: 200, json: async () => ({})} as Response)
+
+    await api.post('gates', {id: 'EE'})
+    expect((fetch.mock.calls[0][1] as RequestInit).body).to.equal('{"id":"EE"}')
+
+    await api.post('gates', 'raw-string')
+    expect((fetch.mock.calls[1][1] as RequestInit).body).to.equal('raw-string')
+
+    const form = new FormData()
+    await api.post('gates', form)
+    expect((fetch.mock.calls[2][1] as RequestInit).body).to.equal(form)
+  })
+
+  it('throws even on a 2xx response that carries an error field', async () => {
+    mockFetch({ok: true, status: 200, json: async () => ({error: 'MISSING_SUBSET'})} as Response)
+    await expect(api.get('gates')).rejects.toMatchObject({message: 'MISSING_SUBSET'})
+  })
+
+  it('exposes put as a JSON request too', async () => {
+    const fetch = mockFetch({ok: true, status: 200, json: async () => ({saved: true})} as Response)
+    expect(await api.put('gates/EE', {id: 'EE'})).to.deep.equal({saved: true})
+    expect(fetch.mock.calls[0][1]).to.include({method: 'PUT'})
+  })
+
+  it('requestXml resolves with the raw text on a successful response', async () => {
+    mockFetch({ok: true, status: 200, text: async () => '<Response/>'} as Response)
+    expect(await api.requestXml('efti/dataset-xml')).to.equal('<Response/>')
+  })
+
+  it('requestXml extracts the message from a JSON error body', async () => {
+    mockFetch({ok: false, status: 502, text: async () => '{"message":"upstream unavailable"}'} as Response)
+    await expect(api.requestXml('efti/dataset-xml')).rejects.toMatchObject({message: 'upstream unavailable'})
+  })
+
+  it('requestXml falls back to a generic technical error for a non-JSON error body', async () => {
+    mockFetch({ok: false, status: 502, text: async () => ''} as Response)
+    await expect(api.requestXml('efti/dataset-xml')).rejects.toMatchObject({message: 'Technical error, please try again'})
   })
 })

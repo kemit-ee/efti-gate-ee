@@ -69,4 +69,19 @@ describe('xmlParser', () => {
   it('handles invalid XML', () => {
     expect(parseXmlToJson('<invalid>')).toBeNull()
   })
+
+  it('handles malformed XML that DOMParser reports as a parser error', () => {
+    expect(parseXmlToJson('<a><b></a>')).toBeNull()
+  })
+
+  it('collects three or more repeated sibling elements into a single array', () => {
+    const json = parseXmlToJson('<root><item>a</item><item>b</item><item>c</item></root>')
+    expect(json.item).toEqual(['a', 'b', 'c'])
+  })
+
+  it('puts direct text alongside child elements under a "value" key (mixed content)', () => {
+    const json = parseXmlToJson('<root><child>x</child>some text</root>')
+    expect(json.value).toBe('some text')
+    expect(json.child).toBe('x')
+  })
 })

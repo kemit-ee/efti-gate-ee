@@ -47,4 +47,36 @@ describe('SortableTable', () => {
     const {container} = render(SortableTable, {items: [], columns: []})
     expect(container.querySelector('tbody')!.textContent).to.contain(enDict.general.noItems)
   })
+
+  it('right-aligns every column from rightAlignFrom onward', () => {
+    const items = [{a: 1, b: 'x', c: 'y'}]
+    const columns: any[] = ['a', 'b', 'c']
+    const {container} = render(SortableTable, {items, columns, rightAlignFrom: 'b' as any})
+
+    const cells = container.querySelectorAll('td')
+    expect(cells[0].classList.contains('text-right')).to.equal(false)
+    expect(cells[1].classList.contains('text-right')).to.equal(true)
+    expect(cells[2].classList.contains('text-right')).to.equal(true)
+  })
+
+  it('shows a spinner while more local pages remain to be rendered (no onLoadMore)', () => {
+    const items = Array.from({length: 150}, (_, i) => ({a: i}))
+    const {container} = render(SortableTable, {items, columns: ['a'] as any, renderMax: 100})
+
+    expect(container.querySelector('tbody .spinner')).to.exist
+  })
+
+  it('shows a spinner while the server has more pages (via onLoadMore/hasMore)', () => {
+    const items = [{a: 1}]
+    const {container} = render(SortableTable, {items, columns: ['a'] as any, onLoadMore: () => {}, hasMore: true})
+
+    expect(container.querySelector('tbody .spinner')).to.exist
+  })
+
+  it('does not show a spinner once onLoadMore reports there is nothing more', () => {
+    const items = [{a: 1}]
+    const {container} = render(SortableTable, {items, columns: ['a'] as any, onLoadMore: () => {}, hasMore: false})
+
+    expect(container.querySelector('tbody .spinner')).to.equal(null)
+  })
 })

@@ -1,8 +1,9 @@
-import {fireEvent, render} from '@testing-library/svelte'
+import {fireEvent, render, waitFor} from '@testing-library/svelte'
 import Navbar from './Navbar.svelte'
 import api, {clearToken} from 'src/api/api'
 import type {User} from 'src/api/ruuterTypes'
 import {activePath} from 'src/router'
+import {lang} from 'i18n'
 
 vi.mock('src/api/api', () => ({default: {post: vi.fn().mockResolvedValue(undefined)}, clearToken: vi.fn()}))
 
@@ -61,5 +62,48 @@ describe('Navbar', () => {
     expect(window.location.href).to.equal('/')
 
     window.location = originalLocation
+  })
+
+  it('shows the hamburger menu on mobile and starts with it collapsed', async () => {
+    mockMatchMedia(true)
+    const {getByText, queryByText} = render(Navbar, {routes, user})
+
+    await waitFor(() => expect(queryByText('Gates')).to.equal(null))
+    await fireEvent.click(getByText('Menu'))
+    await waitFor(() => expect(getByText('Gates')).to.exist)
+  })
+
+  it('shows a mobile logout row and collapses the menu after clicking a link', async () => {
+    mockMatchMedia(true)
+    const {getByText, queryByText} = render(Navbar, {routes, user})
+    await fireEvent.click(getByText('Menu'))
+    await waitFor(() => getByText('Gates'))
+
+    await fireEvent.click(getByText('Gates'))
+
+    await waitFor(() => expect(queryByText('Gates')).to.equal(null))
+  })
+
+  it('reacts to a matchMedia change event (viewport resize)', async () => {
+    const {trigger} = mockMatchMedia(false)
+    const {getByText, queryByText} = render(Navbar, {routes, user})
+    getByText('Gates') // desktop: menu already open
+
+    trigger(true) // becomes mobile -> menu auto-collapses
+    await waitFor(() => expect(queryByText('Gates')).to.equal(null))
+  })
+
+  it('switches the language, persisting the choice and reloading', async () => {
+    const reload = vi.fn()
+    vi.stubGlobal('location', {...window.location, reload})
+    const {container} = render(Navbar, {routes, user: undefined})
+    const otherLang = (['et', 'en'] as const).find(l => l !== lang)!
+
+    const select = container.querySelector('select') as HTMLSelectElement
+    await fireEvent.change(select, {target: {value: otherLang}})
+
+    expect(localStorage['lang']).to.equal(otherLang)
+    expect(reload).toHaveBeenCalled()
+    vi.unstubAllGlobals()
   })
 })
