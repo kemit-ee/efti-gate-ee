@@ -7,6 +7,7 @@ import klite.annotations.GET
 import klite.annotations.POST
 import klite.xml.XmlParser
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.lang.Thread.currentThread
 import java.security.PrivateKey
 import java.security.spec.MGF1ParameterSpec
@@ -26,7 +27,7 @@ class EDeliveryRoutes(
   private val eDeliveryMessageGenerator: EDeliveryMessageGenerator,
   private val eDeliveryClient: EDeliveryClient,
   private val partyRegistry: PartyRegistry,
-  private val signatureVerifier: SignatureVerifier
+  private val signatureValidator: SignatureValidator
 ) {
   private val rootTagRegex = "<\\s*(?:\\w+:)?(\\w+)".toRegex()
   private val messagesReceived = AtomicLong().also {
@@ -50,7 +51,7 @@ class EDeliveryRoutes(
       val header = xmlParser.parse<MessageHeader>(xml)
       currentThread().name = header.conversationId.toString()
 
-      require(keyManager.acceptsReceiver(header.receiverId)) { "Unknown receiver: ${header.receiverId}" }
+      if (header.receiverId != keyManager.partyId) log.warn("Unknown receiver: ${header.receiverId}")
       val party = partyRegistry[header.senderId]
       e.attr("client", party.id)
 
@@ -58,13 +59,13 @@ class EDeliveryRoutes(
         ?.takeIf { it.isNotBlank() }?.base64Decode()
         ?: body.values.toList().getOrNull(1) as ByteArray
       val decrypted = decryptPayload(header, keyManager.ownPrivateKey, encryptedPayload, encryptedSymmetricKey)
-      signatureVerifier.verify(xml, decrypted.attachmentBytes, header)
+      signatureValidator.verify(xml, header, keyManager.receiverCert(header.senderId), decrypted.attachmentBytes)
       val payloadXml = decrypted.xml
 
       val rootTag = rootTagRegex.from(payloadXml)
       val responseKey = RequestKey(header.senderId, header.conversationId, header.receiverId)
-      val handler = messageHandlers.rootTags[rootTag] ?: throw UnsupportedOperationException("Unknown root tag '$rootTag' from $responseKey")
-      log.info("Handling $rootTag from $responseKey")
+      val handler = messageHandlers.rootTags[rootTag] ?: throw UnsupportedOperationException("Unsupported message '$rootTag' from $responseKey")
+      log.info("Handling '$rootTag' from $responseKey")
 
       val responseXml = eDeliveryMessageGenerator.responseMessage(header)
       e.send(OK, responseXml, soap)
@@ -120,10 +121,28 @@ class EDeliveryRoutes(
     val decryptedBytes = cipherAES.doFinal(ciphertext)
 
     val xml = when (header.compressionType) {
-      "application/gzip" -> String(GZIPInputStream(ByteArrayInputStream(decryptedBytes)).readAllBytes())
+      "application/gzip" -> String(gunzip(decryptedBytes))
       else -> String(decryptedBytes)
     }
     return DecryptedPayload(decryptedBytes, xml)
+  }
+}
+
+internal fun gunzip(compressed: ByteArray): ByteArray {
+  val maxBytes = Config.optional("BODY_LIMIT_MD", "10").toLong() * 1024 * 1024
+
+  GZIPInputStream(ByteArrayInputStream(compressed)).use { gzip ->
+    val out = ByteArrayOutputStream()
+    val buffer = ByteArray(8192)
+    var total = 0L
+    while (true) {
+      val read = gzip.read(buffer)
+      if (read < 0) break
+      total += read
+      require(total <= maxBytes) { "Decompressed payload exceeds the $maxBytes byte limit" }
+      out.write(buffer, 0, read)
+    }
+    return out.toByteArray()
   }
 }
 

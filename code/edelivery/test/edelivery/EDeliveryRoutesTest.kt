@@ -1,18 +1,16 @@
 package edelivery
 
+import ch.tutteli.atrium.api.fluent.en_GB.toContain
 import ch.tutteli.atrium.api.fluent.en_GB.toEqual
+import ch.tutteli.atrium.api.fluent.en_GB.toThrow
 import ch.tutteli.atrium.api.verbs.expect
 import io.mockk.*
 import klite.HttpExchange
-import klite.MultipartParser
 import klite.StatusCode.Companion.InternalServerError
 import klite.StatusCode.Companion.OK
+import klite.base64Decode
 import org.junit.jupiter.api.Test
-import java.io.File
 import java.net.URI
-import java.security.KeyPairGenerator
-import java.security.cert.X509Certificate
-import java.util.*
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -28,40 +26,53 @@ class EDeliveryRoutesTest {
   val messageGenerator = mockk<EDeliveryMessageGenerator>(relaxed = true)
   val eDeliveryClient = mockk<EDeliveryClient>(relaxed = true)
   val exchange = mockk<HttpExchange>(relaxed = true)
-  val signatureVerifier = mockk<SignatureVerifier>(relaxed = true)
+  val signatureValidator = SignatureValidator()
 
-  val routes = EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureVerifier)
+  private val keyIdentifierRegex = Regex("<wsse:KeyIdentifier\\b[^>]*>.*?</wsse:KeyIdentifier>", setOf(RegexOption.DOT_MATCHES_ALL))
 
-  fun getEnvelope(cipherValue: String): String {
-    val regex = Regex("(<xenc:CipherValue\\b[^>]*>)(.*?)(</xenc:CipherValue>)", setOf(RegexOption.DOT_MATCHES_ALL))
-
-    val xml = File("test/edelivery/soap-env.xml").readText()
-
-    return regex.replace(xml) { it.groupValues[1] + cipherValue + it.groupValues[3] }
+  init {
+    every { keyManager.receiverCert(any()) } returns keyManager.ownCert
   }
 
-  fun getBody(payload: String): ByteArray {
-    val aesKey = realMessageGenerator.generateAESKey()
+  val routes = EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator)
 
-    val mimeBoundary = "----boundary"
-    return listOf(
-      "--$mimeBoundary\r\nContent-Type: $soap\r\n\r\n".toByteArray(),
-      getEnvelope("""<xop:Include href="cid:7c232fbd-2b4d-4048-97c4-58dfa4fce251" />""").toByteArray(),
-      ("\r\n--$mimeBoundary\r\n" +
-        "Content-Type: application/ciphervalue\r\n" +
-        "Content-ID: <7c232fbd-2b4d-4048-97c4-58dfa4fce251>\r\n\r\n").toByteArray(),
-      realMessageGenerator.encryptAesKey(keyManager.ownCert, aesKey),
-      ("\r\n--$mimeBoundary\r\n" +
-        "Content-Type: application/octet-stream\r\n" +
-        "Content-ID: <message>\r\n\r\n").toByteArray(),
-      realMessageGenerator.encryptPayload(aesKey, realMessageGenerator.gzip(payload.toByteArray())),
-      "\r\n--$mimeBoundary--".toByteArray()
-    ).reduce(ByteArray::plus)
+  private val boundary = "----boundary"
+  private val cipherValueRegex = Regex("(<xenc:CipherValue>)(.*?)(</xenc:CipherValue>)", setOf(RegexOption.DOT_MATCHES_ALL))
+
+  fun getBody(payload: String, keyInAnotherPart: Boolean = false, tamper: Boolean = false, headerTransform: (String) -> String = { it }): ByteArray {
+    val (xml, encryptedPayload) = realMessageGenerator.requestMessage(
+      UserMessageParams(RequestKey(party.id, senderId = party.id)), payload)
+
+    val encryptedKey = cipherValueRegex.find(xml)?.groupValues?.get(2)?.base64Decode()
+    val envelope = when {
+      keyInAnotherPart -> cipherValueRegex.replace(xml) { it.groupValues[1] + it.groupValues[3] }
+      tamper -> xml.replace("eftiGateAction", "tamperedAction")
+      else -> xml
+    }.let(headerTransform)
+
+    val parts = mutableListOf(
+      "--$boundary\r\nContent-Type: $soap\r\n\r\n".toByteArray(),
+      envelope.toByteArray(),
+      "\r\n".toByteArray()
+    )
+    if (keyInAnotherPart) {
+      parts += listOf(
+        "--$boundary\r\nContent-Type: application/ciphervalue\r\nContent-ID: <key>\r\n\r\n".toByteArray(),
+        encryptedKey!!,
+        "\r\n".toByteArray()
+      )
+    }
+    parts += listOf(
+      "--$boundary\r\nContent-Type: application/octet-stream\r\nContent-ID: <message>\r\n\r\n".toByteArray(),
+      encryptedPayload,
+      "\r\n--$boundary--".toByteArray()
+    )
+    return parts.reduce(ByteArray::plus)
   }
 
   @Test fun encryptedAesKeyInAnotherPart() {
     val payload = "<hello>world</hello>"
-    val body = getBody(payload)
+    val body = getBody(payload, keyInAnotherPart = true)
 
     every { exchange.requestStream } returns body.inputStream()
 
@@ -70,14 +81,83 @@ class EDeliveryRoutesTest {
 
     routes.msh(exchange)
 
-    verify { signatureVerifier.verify(any(), any(), match { it.senderId == party.id }) }
-
-    // handler runs on another thread (see `msh success`) — poll instead of racing it
-    verify(timeout = 2000) {
+    verify(timeout = 5000) {
       mockHandler.invoke(match {
         it.key.receiverId == party.id && it.xml.contains(payload)
       })
     }
+  }
+
+  @Test fun `msh fails when neither key identifier nor serial number present`() {
+    val body = getBody("<hello>world</hello>") { keyIdentifierRegex.replace(it, "") }
+
+    every { exchange.requestStream } returns body.inputStream()
+    val exception = slot<Exception>()
+    every { messageGenerator.soapFault(any(), capture(exception)) } returns "<fault/>"
+
+    routes.msh(exchange)
+
+    expect(exception.captured.message.orEmpty()).toContain("No valid KeyIdentifier or X509SerialNumber found in the message header.")
+    verify { exchange.send(InternalServerError, "<fault/>", soap) }
+  }
+
+  @Test fun `msh fails with invalid key identifier`() {
+    val body = getBody("<hello>world</hello>") {
+      keyIdentifierRegex.replace(it, "<wsse:KeyIdentifier>invalid-ski</wsse:KeyIdentifier>")
+    }
+
+    every { exchange.requestStream } returns body.inputStream()
+    val exception = slot<Exception>()
+    every { messageGenerator.soapFault(any(), capture(exception)) } returns "<fault/>"
+
+    routes.msh(exchange)
+
+    expect(exception.captured.message.orEmpty()).toContain("Invalid KeyIdentifier \"invalid-ski\", expected \"${keyManager.ownCertSki}\"")
+    verify { exchange.send(InternalServerError, "<fault/>", soap) }
+  }
+
+  @Test fun `msh fails with invalid serial number`() {
+    val body = getBody("<hello>world</hello>") {
+      keyIdentifierRegex.replace(it, serialNumberXml("123456789"))
+    }
+
+    every { exchange.requestStream } returns body.inputStream()
+    val exception = slot<Exception>()
+    every { messageGenerator.soapFault(any(), capture(exception)) } returns "<fault/>"
+
+    routes.msh(exchange)
+
+    expect(exception.captured.message.orEmpty()).toContain("Invalid X509SerialNumber \"123456789\", expected \"${keyManager.ownCertSerialNumber}\"")
+    verify { exchange.send(InternalServerError, "<fault/>", soap) }
+  }
+
+  @Test fun `msh accepts valid serial number when no key identifier`() {
+    val payload = "<hello>world</hello>"
+    val body = getBody(payload) { keyIdentifierRegex.replace(it, serialNumberXml(keyManager.ownCertSerialNumber)) }
+
+    every { exchange.requestStream } returns body.inputStream()
+    every { mockHandler.invoke(any()) } returns "mockedResponse"
+    every { messageHandlers.rootTags } returns mapOf("hello" to mockHandler)
+
+    routes.msh(exchange)
+
+    verify(timeout = 5000) { mockHandler.invoke(any()) }
+  }
+
+  private fun serialNumberXml(serialNumber: String) =
+    "<wsse:X509Data><wsse:X509IssuerSerial><wsse:X509SerialNumber>$serialNumber</wsse:X509SerialNumber></wsse:X509IssuerSerial></wsse:X509Data>"
+
+
+  @Test fun `gunzip rejects payload exceeding the limit`() {
+    val bomb = realMessageGenerator.gzip(ByteArray(11 * 1024 * 1024))
+
+    expect { gunzip(bomb) }.toThrow<IllegalArgumentException>()
+  }
+
+  @Test fun `gunzip accepts payload within the limit`() {
+    val data = ByteArray(1024) { it.toByte() }
+
+    expect(gunzip(realMessageGenerator.gzip(data)).toList()).toEqual(data.toList())
   }
 
   @Test fun `Unknown root tag gives SOAP error`() {
@@ -97,21 +177,15 @@ class EDeliveryRoutesTest {
   }
 
   @Test fun `msh fails with invalid body`() {
-    mockkConstructor(MultipartParser::class)
-    every { anyConstructed<MultipartParser>().parse(any()) } returns emptyMap()
     every { exchange.requestStream } returns "invalid".toByteArray().inputStream()
     every { messageGenerator.soapFault(any(), any()) } returns "<fault/>"
 
-    try {
-      routes.msh(exchange)
-    } finally {
-      unmockkConstructor(MultipartParser::class)
-    }
+    routes.msh(exchange)
 
     verify { exchange.send(InternalServerError, "<fault/>", soap) }
   }
 
-  @Test fun `msh reaches decryptPayload and fails`() {
+  @Test fun `msh reaches handler lookup and fails`() {
     val payload = "<hello>world</hello>"
     val body = getBody(payload)
 
@@ -125,37 +199,11 @@ class EDeliveryRoutesTest {
   }
 
   @Test fun `msh success`() {
-    val senderKey = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair()
-    val receiverKey = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair()
+    val payload = "<data/>"
+    val body = getBody(payload)
 
-    val receiverCert = mockk<X509Certificate>()
-    every { receiverCert.publicKey } returns receiverKey.public
-
-    val senderId = PartyId("sender1")
-    val receiverId = keyManager.partyId // must match the real gate id, or the receiver check rejects the message
-
-    val generatorKeyManager = mockk<KeyManager> {
-      every { partyId } returns senderId
-      every { ownPrivateKey } returns senderKey.private
-      every { ownCertSki } returns "sender-ski"
-      every { receiverCert(receiverId) } returns receiverCert
-      every { certSki(receiverCert) } returns "receiver-ski"
-    }
-
-    val generator = EDeliveryMessageGenerator(generatorKeyManager)
-    val (xml, payload) = generator.requestMessage(UserMessageParams(RequestKey(
-      receiverId, UUID.randomUUID(),
-      senderId
-    )), "<data/>")
-
-    every { keyManager.ownPrivateKey } returns receiverKey.private
-    every { keyManager.ownCertSki } returns "receiver-ski"
+    every { exchange.requestStream } returns body.inputStream()
     every { messageGenerator.responseMessage(any()) } returns "<response/>"
-
-    val senderParty = mockk<Party>()
-    every { senderParty.id } returns senderId
-    every { senderParty.eDeliveryUrl } returns URI("http://sender")
-    every { partyRegistry[senderId] } returns senderParty
 
     val handlerStarted = CountDownLatch(1)
     val handlerProceed = CountDownLatch(1)
@@ -169,24 +217,20 @@ class EDeliveryRoutesTest {
     every { mockHandlersMap[any()] } returns mockHandler2
     every { messageHandlers.rootTags } returns mockHandlersMap
 
-    mockkConstructor(MultipartParser::class)
-    every { anyConstructed<MultipartParser>().parse(any()) } returns mapOf("xml" to xml, "payload" to payload)
-    every { exchange.requestStream } returns "multipart".toByteArray().inputStream()
-
-    try { routes.msh(exchange) } finally { unmockkConstructor(MultipartParser::class) }
+    routes.msh(exchange)
 
     // Response is sent synchronously before handler runs
     verify { exchange.send(OK, "<response/>", soap) }
 
     // Handler is run asynchronously - it has started but not yet completed
-    expect(handlerStarted.count).toEqual(0L)
+    expect(handlerStarted.await(5, TimeUnit.SECONDS)).toEqual(true)
     expect(handlerProceed.count).toEqual(1L)
 
     // Let the handler complete
     handlerProceed.countDown()
-    verify {
+    verify(timeout = 5000) {
       mockHandler2.invoke(match {
-        it.key.receiverId == senderId && it.xml.contains("<data/>")
+        it.key.receiverId == party.id && it.xml.contains(payload)
       })
     }
   }

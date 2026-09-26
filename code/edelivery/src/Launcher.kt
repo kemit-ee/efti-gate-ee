@@ -50,6 +50,7 @@ fun main() {
 
     // Internet-facing
     context("/services") {
+      bodySizeLimit()
       annotated<EDeliveryRoutes>()
     }
 
