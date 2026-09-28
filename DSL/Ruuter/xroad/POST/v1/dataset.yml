@@ -11,61 +11,36 @@ declaration:
   # branches below unreachable) and strips everything else — and a proxy should not silently strip
   # fields core validates itself. `check_input` below is the contract instead.
 
-# The project-level xroad/.guard.yml has already validated the X-Road-Client shape, confirmed it
-# resolves to exactly one ACTIVE authority, and bound the row as ${authority}. Read the registry code
-# off that rather than re-parsing the header, so the parsing rule lives in exactly one place.
-setup:
-  assign:
-    registry_code: ${authority.registryCode}
-
-# Body contract. A missing/non-object body is a generic 400; a present body missing `uil` is a
-# generic 400; missing/empty `subsets` keeps its specific MISSING_SUBSET code (openapi.yaml requires
-# minItems 1 on subsetId, and '{}' <@ anything is TRUE in Postgres so an empty list would otherwise
-# pass the containment test below). `subsets` sent as a non-array is caught downstream in
-# evaluate_permission — telling a string from an array needs Array.isArray, unproven in this engine.
+# Body contract. A missing/non-object body or a missing `uil` is a generic 400; missing/empty
+# `subsets` keeps its specific MISSING_SUBSET code (openapi.yaml requires minItems 1 on subsetId, and
+# an empty list would otherwise pass the containment test below). `subsets` that is not an array of
+# strings is the caller's error, so also a 400 rather than a 403 blaming their entitlement.
 check_input:
   switch:
     - condition: ${incoming.body == null || incoming.body.uil == null}
       next: bad_request
     - condition: ${incoming.body.subsets == null || incoming.body.subsets.length == 0}
       next: missing_subset
+    - condition: ${!Array.isArray(incoming.body.subsets) || !incoming.body.subsets.every(s => typeof s === 'string')}
+      next: bad_request
 
-check_subset_permission:
-  call: http.post
-  args:
-    url: "[#RESQL_URL]/efti/check_authority_subsets"
-    headers:
-      Content-Type: application/json
-    body:
-      registry_code: "${registry_code}"
-      requested_subsets: ${incoming.body.subsets}
-  result: subset_res
+# The subset check reads the authority row xroad/.guard.yml already resolved and bound as
+# ${authority} (latest row, ACTIVE, exactly one match) instead of querying authorities again. A missing or non-array `subsets` on that
+# row permits nothing.
+resolve_permitted_subsets:
+  assign:
+    permitted_subsets: ${Array.isArray(authority.subsets) && authority.subsets || []}
 
-# Deny is the fall-through branch and every accept path is an explicit positive condition: a
-# non-array ReSql body (500 error object, param-validation failure) makes every length comparison
-# false and must land on a denial, never on the forward.
+resolve_denied_subsets:
+  assign:
+    denied_subsets: ${incoming.body.subsets.filter((s, i, a) => a.indexOf(s) === i && !permitted_subsets.includes(s))}
+
+# Deny is the fall-through branch and every accept path is an explicit positive condition.
 evaluate_permission:
   switch:
-    # ReSql rejected the request body — e.g. `subsets` sent as a string instead of an array, which
-    # check_subsets_present cannot catch ("EU01".length is 4, so it looks non-empty, and telling a
-    # string from an array would need Array.isArray, unproven in this engine). That is the caller's
-    # error, so it must be a 400, not a 403 blaming their entitlement.
-    - condition: ${subset_res.response.status === 400}
-      next: bad_request
-    # Any other non-200 is a data-layer failure, not an authorisation answer. Kept separate from
-    # `forbidden` so an operator debugging a ReSql outage is not pointed at the caller's identity.
-    - condition: ${subset_res.response.status != 200}
-      next: resql_error
-    - condition: ${subset_res.response.body == null || subset_res.response.body.length == 0}
-      next: forbidden
-    # authorityId must be present for this to be a real row set: a non-array body (say a string)
-    # also reports a length > 1, and would otherwise be misreported as a registry misconfiguration.
-    # Every branch here denies either way; this only keeps the diagnostic honest.
-    - condition: ${subset_res.response.body.length > 1 && subset_res.response.body[0] != null && subset_res.response.body[0].authorityId != null}
-      next: ambiguous
-    - condition: ${subset_res.response.body.length === 1 && subset_res.response.body[0] != null && subset_res.response.body[0].allowed == true}
+    - condition: ${Array.isArray(denied_subsets) && denied_subsets.length === 0}
       next: forward_to_core
-    - condition: ${subset_res.response.body.length === 1 && subset_res.response.body[0] != null && subset_res.response.body[0].allowed == false}
+    - condition: ${Array.isArray(denied_subsets) && denied_subsets.length > 0}
       next: forbidden_subset
   next: forbidden
 
@@ -164,29 +139,26 @@ forbidden_subset:
     title: "Subset Access Denied"
     status: 403
     detail: "The requesting authority is not permitted to access one or more of the requested eFTI subsets."
-    authorityId: ${subset_res.response.body[0].authorityId}
-    deniedSubsets: ${subset_res.response.body[0].deniedSubsets}
-    permittedSubsets: ${subset_res.response.body[0].subsets}
+    authorityId: ${authority.id}
+    deniedSubsets: ${denied_subsets}
+    permittedSubsets: ${permitted_subsets}
   wrapper: false
   status: 403
   next: end
 
-# Residual denial: the subset lookup returned no row, or a row whose `allowed` was neither true nor
-# false. Both mean the caller's organisation could not be resolved to a single ACTIVE authority —
-# transport failures are handled by resql_error above, so this detail is accurate.
+# Residual denial: evaluate_permission could not prove either outcome.
 forbidden:
   return:
     type: "https://api.efti.ee/errors/forbidden"
     code: "FORBIDDEN"
     title: "Forbidden"
     status: 403
-    detail: "The X-Road client does not resolve to an active competent authority."
+    detail: "The subset permission of the X-Road client could not be established."
   wrapper: false
   status: 403
   next: end
 
-# Shared by check_input (missing body / missing uil) and evaluate_permission (ReSql rejected a
-# non-array `subsets`).
+# Shared by check_input: missing body, missing uil, or `subsets` that is not an array of strings.
 bad_request:
   return:
     type: "https://api.efti.ee/errors/bad-request"
@@ -196,27 +168,4 @@ bad_request:
     detail: "The request body is missing or malformed. It must be a JSON object with 'uil' (object) and 'subsets' (non-empty array of subset codes)."
   wrapper: false
   status: 400
-  next: end
-
-resql_error:
-  return:
-    type: "https://api.efti.ee/errors/bad-gateway"
-    code: "GATEWAY_UNAVAILABLE"
-    title: "Bad Gateway"
-    status: 502
-    detail: "The subset-permission lookup failed. This is a gate-side data-layer failure, not an authorisation decision."
-    resqlStatus: ${subset_res.response.status}
-  wrapper: false
-  status: 502
-  next: end
-
-ambiguous:
-  return:
-    type: "https://api.efti.ee/errors/forbidden"
-    code: "FORBIDDEN"
-    title: "Forbidden"
-    status: 403
-    detail: "The X-Road client registry code resolves to more than one active competent authority. This is a registry misconfiguration; contact the gate operator."
-  wrapper: false
-  status: 403
   next: end

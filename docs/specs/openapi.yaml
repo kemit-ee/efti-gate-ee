@@ -2832,10 +2832,10 @@ components:
         HTTP status, to tell "unknown platform" from "gate broken".
 
         The same code and status are also used when a **gate-side data-layer call** fails rather than
-        core — a subset-entitlement lookup or a vehicle lookup. Those variants carry `resqlStatus`
-        instead of `coreStatus`/`coreResponse`, and on `/xroad/v1/transport-means` also a `failedStep`
-        (`check_authority_subsets` or `get_consignments_by_transport_means`) so an operator can tell which of
-        the route's two queries failed.
+        core — a transport-means lookup. Those variants carry `resqlStatus` instead of
+        `coreStatus`/`coreResponse`, and on `/xroad/v1/transport-means` also a `failedStep`
+        (`check_transport_means_registered` or `get_consignments_by_transport_means`) so an operator can
+        tell which of the route's queries failed.
 
         **Not** emitted when core is unreachable or the 70 s timeout expires: that raises inside the
         forwarding step and, with `stop_in_case_of_exception: true`, Ruuter emits its own generic
