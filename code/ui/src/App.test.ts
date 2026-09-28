@@ -4,6 +4,7 @@ import api, {getToken} from 'src/api/api'
 import {currentUser} from 'src/stores/session'
 import {get} from 'svelte/store'
 import {activePath} from 'src/router'
+import {t} from 'i18n'
 
 vi.mock('src/api/api', () => ({default: {get: vi.fn()}, getToken: vi.fn()}))
 
@@ -29,6 +30,7 @@ describe('App', () => {
       matches: false, media: query, addEventListener: vi.fn(), removeEventListener: vi.fn()
     })) as any
     vi.spyOn(window, 'fetch').mockResolvedValue({
+      ok: true,
       json: () => Promise.resolve({authorization_url: 'https://tara-mock:8080/oidc/authorize?x=1'})
     } as any)
   })
@@ -73,5 +75,27 @@ describe('App', () => {
 
     expect(api.get).not.toHaveBeenCalled()
     expect(window.fetch).not.toHaveBeenCalled()
+  })
+
+  it('shows a TARA-unreachable message and stops instead of looping when TIM cannot be reached', async () => {
+    vi.mocked(getToken).mockReturnValue(null)
+    vi.spyOn(window, 'fetch').mockRejectedValue(new TypeError('Failed to fetch'))
+
+    const {findByText} = render(App)
+
+    await findByText(t.auth.taraUnavailable)
+    expect(window.fetch).toHaveBeenCalledTimes(1)
+    expect(window.location.href).to.equal('')
+  })
+
+  it('shows a TARA-unreachable message when TIM responds without an authorization_url', async () => {
+    vi.mocked(getToken).mockReturnValue(null)
+    vi.spyOn(window, 'fetch').mockResolvedValue({ok: false, json: () => Promise.resolve({error: 'misconfigured'})} as any)
+
+    const {findByText} = render(App)
+
+    await findByText(t.auth.taraUnavailable)
+    expect(window.fetch).toHaveBeenCalledTimes(1)
+    expect(window.location.href).to.equal('')
   })
 })

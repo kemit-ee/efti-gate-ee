@@ -144,6 +144,7 @@
     "authenticating": "Authenticating",
     "missingCodeOrState": "Missing code or state parameter",
     "unsuccessful": "Unsuccessful authentication",
-    "logout": "Log out"
+    "logout": "Log out",
+    "taraUnavailable": "Cannot connect to TARA. Please check that TARA is configured, then reload the page."
   }
 }

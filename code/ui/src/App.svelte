@@ -22,7 +22,8 @@
   ]
 
   let user: User | undefined
-  $: if (!user && $activePath !== '/callback') getUser()
+  let authError: string | null = null
+  $: if (!user && !authError && $activePath !== '/callback') getUser()
 
   async function getUser() {
     if (!getToken()) {
@@ -38,12 +39,22 @@
     }
   }
 
+  // A misconfigured or unreachable TARA/TIM must not send the user back into getUser() on every
+  // failed attempt: without `authError` gating the reactive statement above, a fetch failure here,
+  // a non-JSON/error response from TIM, or a response missing authorization_url would leave `user`
+  // unset forever, and every re-render (e.g. from an unrelated store update) would retrigger this
+  // same request indefinitely.
   async function redirectToTara() {
-    const res = await fetch(`/tim/auth/login/tara?redirect_uri=${location.origin}/callback`)
-    const data: TaraLoginResponse = await res.json()
-    location.href = import.meta.env.VITE_USE_PROD_TARA_URL === 'true'
-      ? data.authorization_url
-      : data.authorization_url.replace('https://tara-mock:8080', '/tara')
+    try {
+      const res = await fetch(`/tim/auth/login/tara?redirect_uri=${location.origin}/callback`)
+      const data: TaraLoginResponse = await res.json()
+      if (!res.ok || !data?.authorization_url) throw new Error('TIM did not return an authorization_url')
+      location.href = import.meta.env.VITE_USE_PROD_TARA_URL === 'true'
+        ? data.authorization_url
+        : data.authorization_url.replace('https://tara-mock:8080', '/tara')
+    } catch {
+      authError = t.auth.taraUnavailable
+    }
   }
 </script>
 
@@ -53,6 +64,11 @@
 
 <Toasts/>
 
+{#if authError}
+  <main class="min-h-screen p-4 md:p-6 flex items-center justify-center text-center">
+    <p>{authError}</p>
+  </main>
+{:else}
 <Router>
   <Navbar {routes} {user}/>
   <main class="min-h-screen p-4 md:p-6 !pt-24">
@@ -62,3 +78,4 @@
     <Route path="/callback" component={AuthCallbackPage}/>
   </main>
 </Router>
+{/if}
