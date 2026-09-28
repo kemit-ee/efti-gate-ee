@@ -32,8 +32,7 @@ sequenceDiagram
     Adapter->>Adapter: Guard: validate headers, parse memberCode
     Adapter->>Resql: get_authority_by_registry_code(memberCode)
     Resql-->>Adapter: ACTIVE authority row + subsets
-    Adapter->>Resql: check_authority_subsets (dataset only)
-    Resql-->>Adapter: allowed / deniedSubsets
+    Adapter->>Adapter: Subset check against ${authority}.subsets (dataset, transport-means)
     Adapter->>Core: REST call + X-Internal-Service-Token, x-request-id = X-Road-Id
     Core-->>Adapter: JSON / XML response
     Adapter-->>SS: JSON response (or RFC 7807 problem detail)
@@ -175,17 +174,18 @@ fall-through fails **open** on exactly that input.
 
 **`FORBIDDEN_SUBSET` is enforced by the route, not the guard.** The guard authenticates the
 organisation; only `POST /xroad/v1/dataset` accepts a subset parameter, so that route applies the
-check itself via `DSL/Resql/efti/POST/check_authority_subsets.sql`. Any future route taking subsets
-must do the same — the guard will not do it for them.
+check itself against the authority row the guard already bound as `${authority}` — no second
+`authorities` query. Any future route taking subsets must do the same — the guard will not do it for
+them.
 
-The check lives in SQL (`:requested_subsets <@ a.subsets`) rather than the DSL because no Ruuter DSL
-file in the repo uses `.every` / `.includes` / arrow functions, so the engine's JS array support is
-unproven, while ReSql already handles `{type: array}` params and `::text[]` casts.
+The check runs in the DSL (`subsets.filter(s => !permitted.includes(s))`). It originally lived in a
+separate `check_authority_subsets.sql` because the engine's JS array support was unproven;
+`DSL-tests/xroad/subset-permission.test.yml` now pins it on `ruuter:0.10.1-rc`.
 
 Two traps, both commented in the code:
 
-- **`'{}' <@ anything` is TRUE**, so an empty subset list would pass the containment test. The route
-  rejects an empty or absent list *before* calling SQL — 400 `MISSING_SUBSET`, matching
+- **An empty list is always contained**, so an empty subset list would pass the containment test. The
+  route rejects an empty or absent list *before* the check — 400 `MISSING_SUBSET`, matching
   `openapi.yaml`'s `minItems: 1` on `subsetId`.
 - **A partially permitted request is denied whole.** `["EU01","EU06"]` where only EU01 is permitted
   returns 403, not a silent narrowing to EU01 — narrowing would answer a question the caller did not

@@ -1,0 +1,162 @@
+# Subset entitlement on /xroad/v1/dataset and /xroad/v1/transport-means is decided from the authority
+# row xroad/.guard.yml resolves, with no second authorities lookup. Only the guard's ReSql call and
+# the downstream call are mocked.
+mode: mock-http
+constants:
+  RESQL_URL: "{MOCK}"
+  RUUTER_URL: "{MOCK}"
+
+tests:
+  - name: dataset with every requested subset permitted is forwarded to core
+    setup:
+      mocks:
+        - url_matches: /efti/get_authority_by_registry_code
+          method: POST
+          body: [{ id: "authority", registryCode: "70000094", subsets: ["EU01", "EU02"] }]
+        - url_matches: /efti/api/v1/authority/dataset
+          method: POST
+          body: { forwarded: true }
+    request:
+      method: POST
+      path: /xroad/v1/dataset
+      headers:
+        content-type: "application/json"
+        x-road-client: "EE/GOV/70000094/tram"
+        x-road-id: "0a11ce5e-0001-4d1d-8f1a-0f0d00010000"
+      body: { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "d" }, subsets: ["EU01", "EU02", "EU01"] }
+    expect:
+      status: 200
+      body: { forwarded: true }
+
+  - name: dataset with a subset outside the authority's set is 403 FORBIDDEN_SUBSET
+    setup:
+      mocks:
+        - url_matches: /efti/get_authority_by_registry_code
+          method: POST
+          body: [{ id: "authority", registryCode: "70000094", subsets: ["EU01"] }]
+    request:
+      method: POST
+      path: /xroad/v1/dataset
+      headers:
+        content-type: "application/json"
+        x-road-client: "EE/GOV/70000094/tram"
+        x-road-id: "0a11ce5e-0001-4d1d-8f1a-0f0d00010000"
+      body: { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "d" }, subsets: ["EU01", "EU06", "EU06"] }
+    expect:
+      status: 403
+      body_matches:
+        code: "FORBIDDEN_SUBSET"
+        authorityId: "authority"
+        deniedSubsets: ["EU06"]
+        permittedSubsets: ["EU01"]
+
+  - name: dataset for an authority row without subsets permits nothing
+    setup:
+      mocks:
+        - url_matches: /efti/get_authority_by_registry_code
+          method: POST
+          body: [{ id: "authority", registryCode: "70000094", subsets: null }]
+    request:
+      method: POST
+      path: /xroad/v1/dataset
+      headers:
+        content-type: "application/json"
+        x-road-client: "EE/GOV/70000094/tram"
+        x-road-id: "0a11ce5e-0001-4d1d-8f1a-0f0d00010000"
+      body: { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "d" }, subsets: ["EU01"] }
+    expect:
+      status: 403
+      body_matches: { code: "FORBIDDEN_SUBSET", deniedSubsets: ["EU01"], permittedSubsets: [] }
+
+  - name: dataset with subsets as a string is 400
+    setup:
+      mocks:
+        - url_matches: /efti/get_authority_by_registry_code
+          method: POST
+          body: [{ id: "authority", registryCode: "70000094", subsets: ["EU01"] }]
+    request:
+      method: POST
+      path: /xroad/v1/dataset
+      headers:
+        content-type: "application/json"
+        x-road-client: "EE/GOV/70000094/tram"
+        x-road-id: "0a11ce5e-0001-4d1d-8f1a-0f0d00010000"
+      body: { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "d" }, subsets: "EU01" }
+    expect:
+      status: 400
+      body_matches: { code: "BAD_REQUEST_GENERAL" }
+
+  - name: dataset with a non-string subset element is 400
+    setup:
+      mocks:
+        - url_matches: /efti/get_authority_by_registry_code
+          method: POST
+          body: [{ id: "authority", registryCode: "70000094", subsets: ["EU01"] }]
+    request:
+      method: POST
+      path: /xroad/v1/dataset
+      headers:
+        content-type: "application/json"
+        x-road-client: "EE/GOV/70000094/tram"
+        x-road-id: "0a11ce5e-0001-4d1d-8f1a-0f0d00010000"
+      body: { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "d" }, subsets: ["EU01", 1] }
+    expect:
+      status: 400
+      body_matches: { code: "BAD_REQUEST_GENERAL" }
+
+  - name: transport-means without EU02 is 403 FORBIDDEN_SUBSET
+    setup:
+      mocks:
+        - url_matches: /efti/get_authority_by_registry_code
+          method: POST
+          body: [{ id: "authority", registryCode: "70000094", subsets: ["EU01"] }]
+    request:
+      method: POST
+      path: /xroad/v1/transport-means
+      headers:
+        content-type: "application/json"
+        x-road-client: "EE/GOV/70000094/tram"
+        x-road-id: "0a11ce5e-0001-4d1d-8f1a-0f0d00010000"
+      body: { identifier: "123ABC", scope: "existence" }
+    expect:
+      status: 403
+      body_matches: { code: "FORBIDDEN_SUBSET", authorityId: "authority", deniedSubsets: ["EU02"], permittedSubsets: ["EU01"] }
+
+  - name: transport-means for an authority row without subsets is 403 FORBIDDEN
+    setup:
+      mocks:
+        - url_matches: /efti/get_authority_by_registry_code
+          method: POST
+          body: [{ id: "authority", registryCode: "70000094" }]
+    request:
+      method: POST
+      path: /xroad/v1/transport-means
+      headers:
+        content-type: "application/json"
+        x-road-client: "EE/GOV/70000094/tram"
+        x-road-id: "0a11ce5e-0001-4d1d-8f1a-0f0d00010000"
+      body: { identifier: "123ABC", scope: "existence" }
+    expect:
+      status: 403
+      body_matches: { code: "FORBIDDEN" }
+
+  - name: transport-means with EU02 proceeds to the lookup
+    setup:
+      mocks:
+        - url_matches: /efti/get_authority_by_registry_code
+          method: POST
+          body: [{ id: "authority", registryCode: "70000094", subsets: ["EU02"] }]
+        - url_matches: /efti/check_transport_means_registered
+          method: POST
+          body: [{ registered: true }]
+    request:
+      method: POST
+      path: /xroad/v1/transport-means
+      headers:
+        content-type: "application/json"
+        x-road-client: "EE/GOV/70000094/tram"
+        x-road-id: "0a11ce5e-0001-4d1d-8f1a-0f0d00010000"
+      body: { identifier: "123ABC", scope: "existence" }
+    expect:
+      status: 200
+      body_matches: { identifier: "123ABC", scope: "existence", registered: true }

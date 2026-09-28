@@ -266,16 +266,21 @@ Kontrolli teeb **marsruut, mitte guard**: guard autendib organisatsiooni, aga al
 võtab vastu ainult `POST /xroad/v1/dataset`, seega teeb kontrolli see marsruut ise. Iga uus alamhulga
 parameetrit võttev marsruut peab sama tegema — guard ei tee seda tema eest.
 
-Kontroll on SQL-is, mitte DSL-is: Postgresi massiivi sisalduvuse operaator
-(`:requested_subsets <@ a.subsets` failis `check_authority_subsets.sql`) teeb selle ühe avaldisega,
-samas kui ükski Ruuteri DSL fail repos ei kasuta `.every` / `.includes` / noolefunktsioone, seega
-mootori JS-massiivi tugi on tõestamata. ReSql oskab juba `{ type: array }` parameetreid ja `::text[]`
-teisendusi (`insert_authority.sql`).
+Kontroll loeb guardi juba lahendatud autoriteedi rida (`${authority}`, viimane rida, `ACTIVE`,
+täpselt üks vaste) ja arvutab keelatud alamhulgad DSL-is
+(`subsets.filter(s => !permitted.includes(s))`). Teist `authorities` päringut ei tehta.
+
+> **Muudatus (28.09.2026):** algselt tehti kontroll eraldi SQL-päringuga
+> (`:requested_subsets <@ a.subsets` failis `check_authority_subsets.sql`), sest mootori
+> JS-massiivi tugi (`.every` / `.includes` / noolefunktsioonid) oli tõestamata. See luges sama
+> `authorities` rea, mille guard oli juba lahendanud — üks lisapäring iga X-Road päringu kohta.
+> `turnerrainer/ruuter:0.10.1-rc` toetab neid konstruktsioone (`DSL-tests/xroad/subset-permission.test.yml`),
+> seega SQL-fail eemaldati.
 
 Kaks lõksu, mis on koodis kommenteeritud:
 
-- **`'{}' <@ ükskõik mis` on TRUE.** Tühi alamhulkade loend läbiks sisalduvuse testi. Seega lükkab
-  marsruut tühja või puuduva loendi tagasi **enne** SQL-i kutsumist — **400** `MISSING_SUBSET`
+- **Tühi loend on alati sisaldunud.** Tühi alamhulkade loend läbiks sisalduvuse testi. Seega lükkab
+  marsruut tühja või puuduva loendi tagasi **enne** kontrolli — **400** `MISSING_SUBSET`
   (`openapi.yaml` nõuab `subsetId`-l `minItems: 1`).
 - **Osaliselt lubatud päring keelatakse tervikuna.** `["EU01","EU06"]`, kus ainult EU01 on lubatud,
   annab 403 — mitte vaikset EU01-ni kärpimist. Kärpimine annaks helistajale vastuse, mida ta ei
@@ -360,7 +365,7 @@ Selleks on eraldi ReSql fail `get_consignments_by_transport_means.sql`, mitte ol
 
 **Õigus: nõutav on `EU02`.** Delegeeritud määruse 2024/2024 järgi on EU02 "means of transport
 (vehicle plate, container number)" — ehk täpselt see andmeklass, mida see päring tagastab. Ilma
-selleta **403 `FORBIDDEN_SUBSET`**. Kasutab sama `check_authority_subsets.sql` sisalduvustesti, mis
+selleta **403 `FORBIDDEN_SUBSET`**. Kasutab sama guardi lahendatud `${authority}.subsets` väärtust, mis
 andmestiku marsruut; uut õiguste päringut ei ole.
 
 **Ainult kohalik register.** Multiplekserit ei kutsuta — "meile teadaolev" tähendab meie oma
