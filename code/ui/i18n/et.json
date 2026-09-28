@@ -144,6 +144,7 @@
     "authenticating": "Autentimine käib",
     "missingCodeOrState": "Puudub code või state parameeter",
     "unsuccessful": "Autentimine ebaõnnestus",
-    "logout": "Logi välja"
+    "logout": "Logi välja",
+    "taraUnavailable": "Ei suuda ühenduda TARA'ga. Palun kontrollige, kas TARA on seadistatud, ja proovige lehte hiljem uuesti värskendada."
   }
 }
