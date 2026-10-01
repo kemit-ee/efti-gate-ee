@@ -62,7 +62,7 @@ INSERT-õigus, saab seega registri üle kirjutada. Ainult route'i eemaldamisest 
 - Registri muutmine käib PR-i, ülevaatuse, allkirjastamise ja deploy kaudu. Hädaolukorraks
   (nt lekkinud platvormi võti) on vaja kiiret hotfix-release'i teed, muidu hakatakse registrit
   käsitsi DB-s parandama.
-- Muudetavad failid: admin DSL-marsruudid (~1100 rida), vastav SQL, `tests/admin/{gates,platforms,authorities}.http`
+- Muudetavad failid: admin DSL-marsruudid, vastav SQL, `tests/admin/{gates,platforms,authorities}.http`
   (asendatakse negatiivsetega), UI vormid `code/ui/src/pages/admin/{gates,platforms,authorities}`.
 
 ## Kaalutud alternatiivid
@@ -72,7 +72,7 @@ INSERT-õigus, saab seega registri üle kirjutada. Ainult route'i eemaldamisest 
   (nagu `archive`) ja route'i guard nõuab internal tokenit.
 - **Kotlin-teenused loevad faile otse.** Annab kaks andmeallikat, sest guardid vajavad DB-d.
 - **Register Ruuteri konstantides.** Konstandid on lamedad `KEY=value`, nimekirjade jaoks
-  tuleks guardid ümber kirjutada, mis on just see koodimuudatus, mida tahame vältida.
+  tuleks guardid ümber kirjutada, mis ei tundu mõistliku koodimuudatusena ehk mida tahaks vältida.
 
 ## Avatud küsimused
 
