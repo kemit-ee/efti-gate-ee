@@ -2,7 +2,7 @@
 
 **Staatus: OTSUSTAMISEL** (arutelu: Sten Viljus, Rainer Türner). See on mustand, mitte vastu võetud otsus.
 
-Seotud issue'd: turnerrainer/eFTI#101 (A7), turnerrainer/eFTI#119 (A7-IMPL).
+Seotud issue'd: kemit-ee/efti-gate-ee#187 (A7), kemit-ee/efti-gate-ee#190 (A7-IMPL).
 
 ## Probleem
 
@@ -86,4 +86,4 @@ INSERT-õigus, saab seega registri üle kirjutada. Ainult route'i eemaldamisest 
 
 - [ADR-002](002-status-over-isactive.md), [ADR-004](004-platform-api-key.md),
   [ADR-006](006-xroad-identity-and-subsets.md)
-- turnerrainer/eFTI#101, turnerrainer/eFTI#119
+- kemit-ee/efti-gate-ee#187, kemit-ee/efti-gate-ee#190
