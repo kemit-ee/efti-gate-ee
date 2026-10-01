@@ -41,7 +41,6 @@ jobs:
         run: python3 tests/sql/regression.py --init
 
   backend:
-  frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -84,6 +83,14 @@ jobs:
           path: |
             code/*/build/test-results/test/
             code/*/build/reports/jacoco/test/
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
