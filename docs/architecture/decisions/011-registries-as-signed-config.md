@@ -64,7 +64,6 @@ INSERT-õigus, saab seega registri üle kirjutada. Ainult route'i eemaldamisest 
   käsitsi DB-s parandama.
 - Muudetavad failid: admin DSL-marsruudid (~1100 rida), vastav SQL, `tests/admin/{gates,platforms,authorities}.http`
   (asendatakse negatiivsetega), UI vormid `code/ui/src/pages/admin/{gates,platforms,authorities}`.
-- Hinnang: umbes 4–7 arendaja-päeva, sõltuvalt signeerimisskeemi otsusest.
 
 ## Kaalutud alternatiivid
 
