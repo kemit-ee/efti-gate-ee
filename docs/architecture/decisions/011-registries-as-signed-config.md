@@ -62,6 +62,10 @@ INSERT-õigus, saab seega registri üle kirjutada. Ainult route'i eemaldamisest 
 - Registri muutmine käib PR-i, ülevaatuse, allkirjastamise ja deploy kaudu. Hädaolukorraks
   (nt lekkinud platvormi võti) on vaja kiiret hotfix-release'i teed, muidu hakatakse registrit
   käsitsi DB-s parandama.
+- Nõrk koht: DB sisu ei ole ise signeeritud, ainus kaitse on laaduri kirjutusõigus. Lugemisel
+  allkirja kontrollimine ei ole mõistlik. DB-admini või varukoopia taastamise kaudu tehtud
+  muudatust leevendab perioodiline võrdlus (DB vs manifest) häirega, mis tuvastab lahknevuse,
+  aga ei takista seda.
 - Muudetavad failid: admin DSL-marsruudid, vastav SQL, `tests/admin/{gates,platforms,authorities}.http`
   (asendatakse negatiivsetega), UI vormid `code/ui/src/pages/admin/{gates,platforms,authorities}`.
 
@@ -71,8 +75,19 @@ INSERT-õigus, saab seega registri üle kirjutada. Ainult route'i eemaldamisest 
   token on eluks ajaks kättesaadav. Kui siiski, siis eraldi ReSql datasource eraldi rolliga
   (nagu `archive`) ja route'i guard nõuab internal tokenit.
 - **Kotlin-teenused loevad faile otse.** Annab kaks andmeallikat, sest guardid vajavad DB-d.
-- **Register Ruuteri konstantides.** Konstandid on lamedad `KEY=value`, nimekirjade jaoks
-  tuleks guardid ümber kirjutada, mis ei tundu mõistliku koodimuudatusena ehk mida tahaks vältida.
+- **Register Ruuteri konstantides.** Laadur genereeriks `constants.ini` faili (mis on käitusajal
+  mount'itud) ja guardid loeksid registrit `[#NAME]` konstantidest, mitte DB-st. Muudatus
+  jõustuks Ruuteri restardiga. Võimalik, aga ei võitnud: väärtused on lamedad stringid, seega
+  nimekirjad oleksid JSON-stringid, mida guard parsib avaldises (kasutust ei ole selles repos
+  kinnitatud); mitmerealised PEM-id ini-faili ei sobi; konstandid katavad ainult Ruuteri, Kotlini
+  teenused (edelivery, multiplexer) vajaksid eraldi teed. Guardid tuleks ümber kirjutada.
+- **Registriteenus.** Väike teenus laeb signeeritud manifesti käivitusel, kontrollib allkirja
+  üks kord, hoiab andmeid mälus ja pakub neid ainult lugemiseks HTTP-ga kõigile tarbijatele
+  (guardid, edelivery, multiplexer, GUI). Ei ole DB-d registri jaoks ja failide, runtime'i ja GUI
+  vahel ei saa lahknevust tekkida. Ei võitnud: guardid ja registrit lugevad SQL-id tuleks
+  asendada HTTP-kutsetega ning teenus muutub kriitiliseks sõltuvuseks; DB annab juba olemasoleva
+  ühise lugemistee. Jääb valikuks, kui DB sisu signeerimata olek (vt Tagajärjed) osutub
+  vastuvõetamatuks.
 
 ## Avatud küsimused
 
