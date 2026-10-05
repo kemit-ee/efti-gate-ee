@@ -152,6 +152,16 @@ class Queries(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "permission denied"):
                 sql("SET ROLE app; " + statement)
 
+    def test_history_is_paginated_and_omits_xml(self):
+        for day in range(1, 6):
+            self.consignment(stamp="2026-09-0" + str(day))
+        page = call("get_consignment_history", datasetId=DATASET_ID, limit=2, offset=1)
+        self.assertEqual(2, len(page))
+        self.assertTrue(all("xml" not in row for row in page))
+        self.assertEqual(["2026-09-04", "2026-09-03"], [row["created_at"][:10] for row in page])
+        self.assertEqual(5, len(call("get_consignment_history", datasetId=DATASET_ID)))
+        self.assertEqual(0, len(call("get_consignment_history", datasetId=DATASET_ID, limit=-5, offset=-5)))
+
     def test_all_endpoint_files_prepare_under_app_role(self):
         for path in sorted((ROOT / "DSL/Resql/efti/POST").glob("*.sql")):
             with self.subTest(endpoint=path.stem):

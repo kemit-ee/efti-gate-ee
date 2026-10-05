@@ -1,7 +1,7 @@
 declaration:
   description: "Full version history of one consignment dataset (admin, TARA JWT) — the live rows
-    plus the rows already swept to the separate archive DB, newest first. Query: datasetId
-    (required). No body."
+    plus the rows already swept to the separate archive DB, newest first, metadata only (no xml).
+    Query: datasetId (required), limit, offset (optional; each side is capped at 1000, default 100). No body."
 
 validate_input:
   switch:
@@ -28,6 +28,8 @@ live_history:
       Content-Type: "application/json"
     body:
       datasetId: ${incoming.params.datasetId}
+      limit: "${incoming.params.limit}"
+      offset: "${incoming.params.offset}"
   result: live_result
 
 archived_history:
@@ -38,6 +40,8 @@ archived_history:
       Content-Type: "application/json"
     body:
       datasetId: ${incoming.params.datasetId}
+      limit: "${incoming.params.limit}"
+      offset: "${incoming.params.offset}"
   result: archived_result
 
 respond:
