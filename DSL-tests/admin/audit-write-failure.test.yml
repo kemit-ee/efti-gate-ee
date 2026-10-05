@@ -2,7 +2,6 @@ mode: mock-http
 constants:
   RUUTER_URL: "{MOCK}"
   RESQL_URL: "{MOCK}"
-  PUBSUB_URL: "{MOCK}"
 
 tests:
   # docs/specs/logging-spec.md §5.2: the audit_log INSERT is best-effort and post-commit —

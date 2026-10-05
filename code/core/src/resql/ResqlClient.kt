@@ -42,4 +42,15 @@ class ResqlClient(
   }.associateBy { it.id }.also { log.info("Fetched platforms: ${it.keys}") }
 
   fun getParties(): Map<PartyId, EDeliveryParty> = getGates() + getPlatforms()
+
+  fun insertAsyncResponse(requestKey: String, body: String) {
+    http.post(baseUrl + "/insert_async_response", jsonMapper.render(mapOf("requestKey" to requestKey, "body" to body))).bodyOrThrow()
+  }
+
+  fun claimAsyncResponse(requestKey: String): String? {
+    val res = http.post(baseUrl + "/claim_async_response", jsonMapper.render(mapOf("requestKey" to requestKey)))
+    return jsonMapper.parse<List<AsyncResponseRow>>(res.bodyOrThrow()).firstOrNull()?.body
+  }
 }
+
+data class AsyncResponseRow(val body: String)

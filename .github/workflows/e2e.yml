@@ -69,7 +69,7 @@ jobs:
 
       - name: gradlew jacocoTestCoverageVerification
         # Mirrors .gitlab-ci.yml's backend:coverage-gate: allow_failure until every module's
-        # 80% line-coverage baseline is raised (core cleared it; multiplexer/pubsub/edelivery
+        # 80% line-coverage baseline is raised (core cleared it; multiplexer/edelivery
         # are still 38-58%, see that job's comment) — report, don't gate PRs yet.
         continue-on-error: true
         working-directory: code

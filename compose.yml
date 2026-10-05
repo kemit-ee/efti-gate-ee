@@ -139,23 +139,11 @@ services:
       ruuter-xroad-mock:
         condition: service_healthy
 
-  pubsub:
-    environment:
-      - INTERNAL_SERVICE_TOKEN
-    build:
-      context: code
-      dockerfile: ../docker/code/Dockerfile
-      args:
-        - PROJECT=pubsub
-        - PORT=8084
-    mem_limit: 128M
-
   edelivery:
     environment:
       - OWN_GATE_ID
       - RESQL_URL=http://resql:8090
       - RUUTER_URL=http://ruuter:8086
-      - PUBSUB_URL=http://pubsub:8084
       - INTERNAL_SERVICE_TOKEN
       - LOGGER_CLASS
       - KEYSTORE_DIR=/app/certs
@@ -170,7 +158,6 @@ services:
         - PORT=8081
     depends_on:
       - resql
-      - pubsub
     mem_limit: 512M
 
   xml-mapper:
@@ -191,7 +178,6 @@ services:
       - OWN_GATE_ID
       - RESQL_URL=http://resql:8090
       - EDELIVERY_URL=http://edelivery:8081
-      - PUBSUB_URL=http://pubsub:8084
       - INTERNAL_SERVICE_TOKEN
     build:
       context: code
@@ -201,7 +187,6 @@ services:
         - PORT=8083
     depends_on:
       - resql
-      - pubsub
     mem_limit: 512M
 
   tara-mock:
