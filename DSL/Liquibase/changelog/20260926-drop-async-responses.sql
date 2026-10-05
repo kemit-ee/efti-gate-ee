@@ -1,0 +1,31 @@
+--liquibase formatted sql
+
+-- Drop unused `async_responses`. Cross-node AS4 response handoff uses the
+-- internal pubsub SSE bus (MultiNodeAsyncResponseProvider), not this table.
+-- A stored row cannot reattach a reply to a dead HTTP connection, and all DB
+-- traffic goes through ReSql (no LISTEN/NOTIFY), so the table is dead weight.
+
+--changeset efti:drop-async-responses
+DROP TABLE IF EXISTS async_responses;
+--rollback CREATE TABLE async_responses (
+--rollback   row_id       UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+--rollback   receiver_id  CITEXT       NOT NULL,
+--rollback   request_id   TEXT         NOT NULL,
+--rollback   body         TEXT         NOT NULL,
+--rollback   consumed_at  TIMESTAMPTZ,
+--rollback   consumed_by  UUID,
+--rollback   created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+--rollback );
+--rollback COMMENT ON TABLE  async_responses IS 'Multi-node coordination for incoming eDelivery AS4 async responses. Append-only on storage (consumed_at=NULL rows). Consumption is a NEW row with consumed_at populated.';
+--rollback COMMENT ON COLUMN async_responses.row_id      IS 'Synthetic primary key';
+--rollback COMMENT ON COLUMN async_responses.receiver_id IS 'Gate or platform that should receive this response';
+--rollback COMMENT ON COLUMN async_responses.request_id  IS 'Correlation ID matching the original outgoing request';
+--rollback COMMENT ON COLUMN async_responses.body        IS 'Raw response payload (XML)';
+--rollback COMMENT ON COLUMN async_responses.consumed_at IS 'When the response was consumed. NULL = pending pickup.';
+--rollback COMMENT ON COLUMN async_responses.consumed_by IS 'Gate node identity that claimed this response. NULL on storage rows.';
+--rollback COMMENT ON COLUMN async_responses.created_at  IS 'When this row was inserted';
+--rollback CREATE INDEX idx_async_responses_pending ON async_responses (receiver_id, request_id, created_at DESC) WHERE consumed_at IS NULL;
+--rollback CREATE INDEX idx_async_responses_created ON async_responses (created_at);
+--rollback CREATE UNIQUE INDEX idx_async_responses_claim ON async_responses (receiver_id, request_id) WHERE consumed_at IS NOT NULL;
+--rollback GRANT SELECT, INSERT ON async_responses TO app;
+--rollback GRANT SELECT, DELETE ON async_responses TO db_archiver;

@@ -513,46 +513,6 @@ CREATE INDEX idx_audit_log_action        ON audit_log (action, recorded_at DESC)
 CREATE INDEX idx_audit_log_resource      ON audit_log (resource, resource_id);
 CREATE INDEX idx_audit_log_recorded      ON audit_log (recorded_at DESC);
 
--- ----------------------------------------------------------------------------
--- 4.6 async_responses — eDelivery AS4 async response coordination
--- ----------------------------------------------------------------------------
--- Multi-node deployments: a remote gate's async AS4 response may arrive on a
--- different node than the one that sent the request. The receiving node
--- INSERTs the response here (consumed_at NULL); the originating node polls
--- for it. The "claim" — making sure exactly one node consumes each response
--- — is the partial UNIQUE index below: the first node to INSERT a row with
--- consumed_at=NOW() wins; subsequent INSERTs for the same (receiver_id,
--- request_id) hit the unique violation and the would-be claimer falls
--- through to the next pending response. Append-only on the storage side;
--- the unique index applies only to consumption rows.
-
-CREATE TABLE async_responses (
-  row_id       UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
-  receiver_id  CITEXT       NOT NULL,
-  request_id   TEXT         NOT NULL,
-  body         TEXT         NOT NULL,
-  consumed_at  TIMESTAMPTZ,                            -- NULL = stored event; non-NULL = consumed event
-  consumed_by  UUID,                                   -- gate node identity that claimed the response
-  created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
-);
-
-COMMENT ON TABLE  async_responses IS 'Multi-node coordination for incoming eDelivery AS4 async responses. Append-only on storage (consumed_at=NULL rows). Consumption is a NEW row with the same (receiver_id, request_id), consumed_at populated, and consumed_by set to the claiming node id. The unique partial index `idx_async_responses_claim` ensures exactly one consumption row per (receiver_id, request_id); racing INSERTs from multiple nodes serialise on this index.';
-COMMENT ON COLUMN async_responses.row_id      IS 'Synthetic primary key';
-COMMENT ON COLUMN async_responses.receiver_id IS 'Gate or platform that should receive this response';
-COMMENT ON COLUMN async_responses.request_id  IS 'Correlation ID matching the original outgoing request';
-COMMENT ON COLUMN async_responses.body        IS 'Raw response payload (XML)';
-COMMENT ON COLUMN async_responses.consumed_at IS 'When the response was consumed by its handler. NULL = pending pickup.';
-COMMENT ON COLUMN async_responses.consumed_by IS 'Gate node identity (e.g. pod name UUID) that claimed this response. NULL on storage rows; set on consumption rows.';
-COMMENT ON COLUMN async_responses.created_at  IS 'When this row was inserted';
-
-CREATE INDEX idx_async_responses_pending  ON async_responses (receiver_id, request_id, created_at DESC) WHERE consumed_at IS NULL;
-CREATE INDEX idx_async_responses_created  ON async_responses (created_at);
--- The claim primitive: at most one consumption row per (receiver_id, request_id).
--- Two nodes racing to claim the same pending response: the second INSERT hits
--- this unique violation, the application catches it and moves on to the next
--- pending response.
-CREATE UNIQUE INDEX idx_async_responses_claim ON async_responses (receiver_id, request_id) WHERE consumed_at IS NOT NULL;
-
 -- ============================================================================
 -- 5. DATABASE ROLES + GRANTS
 -- ============================================================================
@@ -610,7 +570,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT  ON SEQUENCES TO d
 GRANT SELECT, INSERT ON
   gates, platforms, authorities, users, consignments,
   request_id_cache, sessions, jobs_execution_log,
-  follow_up_log, audit_log, async_responses
+  follow_up_log, audit_log
   TO app;
 
 -- Explicit grants for `db_archiver` — SELECT + DELETE on operational tables
@@ -620,7 +580,7 @@ GRANT SELECT, INSERT ON
 GRANT SELECT, DELETE ON
   gates, platforms, authorities, users, consignments,
   request_id_cache, sessions, jobs_execution_log,
-  follow_up_log, async_responses
+  follow_up_log
   TO db_archiver;
 GRANT SELECT ON audit_log TO db_archiver;
 
