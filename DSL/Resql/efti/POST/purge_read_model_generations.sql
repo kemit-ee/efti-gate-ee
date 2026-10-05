@@ -1,28 +1,49 @@
 /*
-description: ADR-012 read-model retention — physically removes snapshot rows of generations older than the
-  newest keepGenerations published ones, and the superseded pointer rows. The current generation is never
-  removed. Called only by POST /ops/v1/refresh-read-models (CronManager path, same as the archive sweep).
+description: ADR-012 read-model retention - physically removes snapshot rows of generations older than the
+  newest keepGenerations published ones (per read model) and the superseded pointer rows. The current
+  generation is never removed. Called only by POST /ops/v1/refresh-read-models (CronManager path, same as
+  the archive sweep).
 params:
   keepGenerations: { type: number, default: 2 }
 */
-WITH cutoff AS (
-  SELECT min(generation) AS oldest_kept FROM (
-    SELECT generation FROM read_model_pointer
-    WHERE model = 'consignment_counts'
-    ORDER BY revision DESC
-    LIMIT GREATEST(COALESCE(:keepGenerations, 2), 1)
-  ) kept
+WITH keep AS (
+  SELECT GREATEST(COALESCE(:keepGenerations, 2), 1) AS n
 ),
-purged_rows AS (
+cutoff AS (
+  SELECT model, min(generation) AS oldest_kept FROM (
+    SELECT model, generation, row_number() OVER (PARTITION BY model ORDER BY revision DESC) AS rn
+    FROM read_model_pointer
+  ) ranked, keep
+  WHERE ranked.rn <= keep.n
+  GROUP BY model
+),
+purged_counts AS (
   DELETE FROM rm_consignment_counts
-  WHERE generation < (SELECT oldest_kept FROM cutoff)
+  WHERE generation < (SELECT oldest_kept FROM cutoff WHERE model = 'consignment_counts')
+  RETURNING 1
+),
+purged_gates AS (
+  DELETE FROM rm_gates
+  WHERE generation < (SELECT oldest_kept FROM cutoff WHERE model = 'gates')
+  RETURNING 1
+),
+purged_platforms AS (
+  DELETE FROM rm_platforms
+  WHERE generation < (SELECT oldest_kept FROM cutoff WHERE model = 'platforms')
+  RETURNING 1
+),
+purged_authorities AS (
+  DELETE FROM rm_authorities
+  WHERE generation < (SELECT oldest_kept FROM cutoff WHERE model = 'authorities')
   RETURNING 1
 ),
 purged_pointers AS (
-  DELETE FROM read_model_pointer
-  WHERE model = 'consignment_counts'
-    AND generation < (SELECT oldest_kept FROM cutoff)
+  DELETE FROM read_model_pointer p
+  USING cutoff c
+  WHERE p.model = c.model AND p.generation < c.oldest_kept
   RETURNING 1
 )
-SELECT (SELECT count(*) FROM purged_rows) AS purged_rows,
-       (SELECT count(*) FROM purged_pointers) AS purged_pointers;
+SELECT
+  (SELECT count(*) FROM purged_counts) + (SELECT count(*) FROM purged_gates)
+    + (SELECT count(*) FROM purged_platforms) + (SELECT count(*) FROM purged_authorities) AS purged_rows,
+  (SELECT count(*) FROM purged_pointers) AS purged_pointers;

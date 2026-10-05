@@ -91,7 +91,7 @@ check_verify:
 set_online_path:
   assign:
     ping_path: "online"
-  next: publish_ping
+  next: refresh_registry_lists
 
 respond_ok:
   return: ${verify_result.response.body[0]}
@@ -121,7 +121,20 @@ check_offline_update:
 set_offline_path:
   assign:
     ping_path: "offline"
+  next: refresh_registry_lists
+
+# Best-effort, post-commit: the registry list read model (ADR-012) catches up right after the write; a
+# failure here never fails the write, and POST /ops/v1/refresh-read-models is the safety net.
+refresh_registry_lists:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/refresh_registry_lists"
+    headers:
+      Content-Type: "application/json"
+    body: {}
+  result: refresh_registry_lists_result
   next: publish_ping
+
 
 publish_ping:
   call: http.post

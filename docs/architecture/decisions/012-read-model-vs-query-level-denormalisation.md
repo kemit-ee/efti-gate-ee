@@ -75,6 +75,10 @@ Päringutaseme lahendus jääb DENORM-1 jaoks (border-check), kui mõõtmine tõ
 
 Border-check on sihtpiirist (p95 < 1 s) mitu suurusjärku allpool, seega DENORM-1 jääb päringutasemele. Piirang: mõõtmine ei kata samaaegset kirjutuskoormust ega pikki versiooniajalugusid.
 
+## DENORM-5 rakendus
+
+Admin registrinimekirjad (gates, platforms, authorities) loevad generatsiooni-snapshotist. Viivituse (nähtavuse lag pärast kirjutust) kõrvaldab refresh, mida iga admin-kirjutus-route kutsub kohe pärast kirjutust (best effort); cron on varuvariant. Tagajärg: iga kirjutus lisab uue generatsiooni (3 tabelit × registri suurus), mille cron purge'ib. Get-by-id, marsruutimine, autentimine ja õigused loevad endiselt allikatabelitest.
+
 ## Lahtised küsimused
 
 - Kas versioonitud INSERT-only read-model (ilma generatsioonideta) annab piisavalt kasu võrreldes `LATERAL`-iga? Eeldatavasti mitte.

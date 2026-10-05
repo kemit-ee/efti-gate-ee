@@ -104,7 +104,20 @@ check_verify:
       next: upstream_unavailable
     - condition: ${!verify_result.response.body.length}
       next: update_failed
+  next: refresh_registry_lists_online
+
+# Best-effort, post-commit: the registry list read model (ADR-012) catches up right after the write; a
+# failure here never fails the write, and POST /ops/v1/refresh-read-models is the safety net.
+refresh_registry_lists_online:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/refresh_registry_lists"
+    headers:
+      Content-Type: "application/json"
+    body: {}
+  result: refresh_registry_lists_online_result
   next: respond_ok
+
 
 respond_ok:
   return: ${verify_result.response.body[0]}
@@ -129,7 +142,20 @@ check_offline_update:
       next: upstream_unavailable
     - condition: ${!offline_result.response.body.length}
       next: update_failed
+  next: refresh_registry_lists_offline
+
+# Best-effort, post-commit: the registry list read model (ADR-012) catches up right after the write; a
+# failure here never fails the write, and POST /ops/v1/refresh-read-models is the safety net.
+refresh_registry_lists_offline:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/refresh_registry_lists"
+    headers:
+      Content-Type: "application/json"
+    body: {}
+  result: refresh_registry_lists_offline_result
   next: gateway_unavailable
+
 
 gateway_unavailable:
   return: {"type": "https://api.efti.ee/errors/bad-gateway", "title": "Bad Gateway", "status": 502, "detail": "Platform ping failed — eDelivery unreachable, status set to OFFLINE"}

@@ -89,7 +89,7 @@ def call(endpoint_name, **params):
 
 class Queries(unittest.TestCase):
     def setUp(self):
-        sql("TRUNCATE users, gates, platforms, authorities, consignments, follow_up_log, audit_log, rm_consignment_counts, read_model_pointer;")
+        sql("TRUNCATE users, gates, platforms, authorities, consignments, follow_up_log, audit_log, rm_consignment_counts, rm_gates, rm_platforms, rm_authorities, read_model_pointer;")
 
     def user(self, tara="old", active=True, stamp="2026-09-01", revoked=None):
         revoked_sql = "NULL" if revoked is None else "'" + revoked + "'"
@@ -161,6 +161,46 @@ class Queries(unittest.TestCase):
         self.assertEqual(["2026-09-04", "2026-09-03"], [row["created_at"][:10] for row in page])
         self.assertEqual(5, len(call("get_consignment_history", datasetId=DATASET_ID)))
         self.assertEqual(0, len(call("get_consignment_history", datasetId=DATASET_ID, limit=-5, offset=-5)))
+
+    def refresh_registries(self):
+        sql("SET ROLE app; " + (ROOT / "DSL/Resql/efti/POST/refresh_registry_lists.sql").read_text().split("*/", 1)[1])
+
+    def test_registry_lists_follow_latest_rows_after_refresh(self):
+        sql("INSERT INTO gates (id,country_code,e_delivery_url,status,created_at) VALUES ('EU-EE','EE','http://a','ONLINE','2026-09-01');")
+        sql("INSERT INTO gates (id,country_code,e_delivery_url,status,created_at) VALUES ('EU-FI','FI','http://b','ONLINE','2026-09-01');")
+        self.assertEqual([], call("list_gates"))
+        self.refresh_registries()
+        self.assertEqual(["EU-EE", "EU-FI"], [row["id"] for row in call("list_gates")])
+        sql("INSERT INTO gates (id,country_code,e_delivery_url,status,created_at) VALUES ('EU-FI','FI','http://b','DELETED','2026-09-02');")
+        sql("INSERT INTO gates (id,country_code,e_delivery_url,status,created_at) VALUES ('EU-EE','EE','http://moved','ONLINE','2026-09-02');")
+        self.assertEqual("http://a", call("list_gates")[0]["e_delivery_url"])
+        self.refresh_registries()
+        self.assertEqual([("EU-EE", "http://moved")], [(row["id"], row["e_delivery_url"]) for row in call("list_gates")])
+        self.assertEqual(["EU-FI"], [row["id"] for row in call("list_gates", status="DELETED")])
+
+    def test_platform_list_read_model_never_carries_key_hash(self):
+        self.platform(key="secret-key")
+        self.refresh_registries()
+        row = call("list_platforms")[0]
+        self.assertTrue(row["has_api_key"])
+        self.assertNotIn("api_key_hash", row)
+        self.assertNotIn("secret-key", json.dumps(row))
+
+    def test_authority_list_read_model_pagination_is_bounded(self):
+        for n in range(3):
+            sql(f"INSERT INTO authorities (id,name,registry_code,subsets) VALUES ('auth-{n}','A{n}','{n}',ARRAY['EU02']);")
+        self.refresh_registries()
+        self.assertEqual(["auth-1"], [row["id"] for row in call("list_authorities", limit=1, offset=1)])
+        self.assertEqual([], call("list_authorities", limit=-1, offset=-1))
+
+    def test_registry_purge_keeps_current_generation(self):
+        sql("INSERT INTO gates (id,country_code,e_delivery_url,status) VALUES ('EU-EE','EE','http://a','ONLINE');")
+        for _ in range(4):
+            self.refresh_registries()
+        query, signature, arguments = endpoint("purge_read_model_generations", {"keepGenerations": 1})
+        sql("RESET ROLE; PREPARE q" + signature + " AS " + query + "; EXECUTE q" + arguments + ";")
+        self.assertEqual("1", sql("SELECT count(DISTINCT generation) FROM rm_gates;").strip())
+        self.assertEqual(["EU-EE"], [row["id"] for row in call("list_gates")])
 
     def test_all_endpoint_files_prepare_under_app_role(self):
         for path in sorted((ROOT / "DSL/Resql/efti/POST").glob("*.sql")):
@@ -418,6 +458,7 @@ def main():
             sql(prototype)
         if not options.init:
             sql((ROOT / "DSL/Liquibase/changelog/20261005-read-model-generations.sql").read_text())
+            sql((ROOT / "DSL/Liquibase/changelog/20261006-read-model-registries.sql").read_text())
         suite = unittest.defaultTestLoader.loadTestsFromTestCase(Queries)
         if prototype or migration.exists():
             suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(MigrationPrototype))

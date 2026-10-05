@@ -51,7 +51,7 @@ respond_single:
 fetch_list:
   call: http.post
   args:
-    url: "[#RESQL_URL]/efti/get_platforms"
+    url: "[#RESQL_URL]/efti/list_platforms"
     headers:
       Content-Type: "application/json"
     body:

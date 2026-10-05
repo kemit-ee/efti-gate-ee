@@ -1,7 +1,7 @@
 declaration:
   description: "ADR-012 read-model refresh — CronManager calls this on a timer (Bearer ARCHIVE_OPS_TOKEN).
-    (1) Writes a new full snapshot generation of the consignment-counts read model and publishes it in
-    the same SQL statement (readers never see a partial snapshot; overlapping runs are serialised by an
+    (1) Writes new full snapshot generations of the consignment-counts and registry-list read models, each published in
+    the same SQL statement as its snapshot (readers never see a partial snapshot; overlapping runs are serialised by an
     advisory lock). (2) Deletes generations older than keepGenerations. The source tables stay canonical;
     the read model can always be rebuilt. Body (optional): {keepGenerations: number}."
   allowlist:
@@ -23,6 +23,21 @@ refresh:
 check_refresh:
   switch:
     - condition: ${refresh_result.response.status == 0 || refresh_result.response.status >= 400}
+      next: refresh_failed
+  next: refresh_registries
+
+refresh_registries:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/refresh_registry_lists"
+    headers:
+      Content-Type: "application/json"
+    body: {}
+  result: registries_result
+
+check_registries:
+  switch:
+    - condition: ${registries_result.response.status == 0 || registries_result.response.status >= 400}
       next: refresh_failed
   next: purge
 
