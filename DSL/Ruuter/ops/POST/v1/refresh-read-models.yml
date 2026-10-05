@@ -1,0 +1,108 @@
+declaration:
+  description: "ADR-012 read-model refresh — CronManager calls this on a timer (Bearer ARCHIVE_OPS_TOKEN).
+    (1) Writes a new full snapshot generation of the consignment-counts read model and publishes it in
+    the same SQL statement (readers never see a partial snapshot; overlapping runs are serialised by an
+    advisory lock). (2) Deletes generations older than keepGenerations. The source tables stay canonical;
+    the read model can always be rebuilt. Body (optional): {keepGenerations: number}."
+  allowlist:
+    body:
+      - field: keepGenerations
+        type: number
+        required: false
+        description: "How many of the newest published generations to keep. Defaults to 2; the current generation is never removed."
+
+refresh:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/refresh_consignment_counts"
+    headers:
+      Content-Type: "application/json"
+    body: {}
+  result: refresh_result
+
+check_refresh:
+  switch:
+    - condition: ${refresh_result.response.status == 0 || refresh_result.response.status >= 400}
+      next: refresh_failed
+  next: purge
+
+purge:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/purge_read_model_generations"
+    headers:
+      Content-Type: "application/json"
+    body:
+      keepGenerations: ${incoming.body.keepGenerations}
+  result: purge_result
+
+check_purge:
+  switch:
+    - condition: ${purge_result.response.status == 0 || purge_result.response.status >= 400}
+      next: purge_failed
+  next: log_completed
+
+log_completed:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_job_execution_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      jobName: "refresh-read-models"
+      status: "COMPLETED"
+      details:
+        generation: ${refresh_result.response.body[0].generation}
+        rows: ${refresh_result.response.body[0].rowCount}
+        purgedRows: ${purge_result.response.body[0].purgedRows}
+  result: log_result
+
+respond_completed:
+  return:
+    generation: ${refresh_result.response.body[0].generation}
+    rows: ${refresh_result.response.body[0].rowCount}
+    purgedRows: ${purge_result.response.body[0].purgedRows}
+  headers:
+    content-type: "application/json"
+  wrapper: false
+  next: end
+
+refresh_failed:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_job_execution_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      jobName: "refresh-read-models"
+      status: "FAILED"
+      details:
+        reason: "the snapshot ReSql step returned an error — previous generation stays current"
+  result: refresh_failed_log
+  next: failed_respond
+
+purge_failed:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_job_execution_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      jobName: "refresh-read-models"
+      status: "FAILED"
+      details:
+        reason: "snapshot published, but the old-generation purge step returned an error"
+        generation: ${refresh_result.response.body[0].generation}
+  result: purge_failed_log
+  next: failed_respond
+
+failed_respond:
+  return:
+    type: "https://api.efti.ee/errors/bad-gateway"
+    code: "READ_MODEL_REFRESH_FAILED"
+    title: "Read-model refresh failed"
+    status: 502
+    detail: "A ReSql step in the read-model refresh returned an error. See jobs_execution_log."
+  status: 502
+  wrapper: false
+  next: end

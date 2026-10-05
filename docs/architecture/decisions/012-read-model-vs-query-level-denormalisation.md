@@ -62,6 +62,19 @@ Päringutaseme lahendus jääb DENORM-1 jaoks (border-check), kui mõõtmine tõ
 - Uued tabelid lisatakse Liquibase migratsiooni ja `DSL/Liquibase/init.sql`-i (hoitakse sünkroonis) ning kaetakse `tests/sql/regression.py` kontrollidega.
 - `AGENTS.md` "Database rules" täiendatakse, kui variant C kinnitatakse (read-model tabelid on samuti INSERT-only; generatsioonide puhastus käib arhiveerimise mehhanismiga).
 
+## Mõõtmistulemus (otsuse 1 täitmine)
+
+`python3 tests/sql/regression.py --performance --rows 1000000` (sünteetiline, üks versioon dataset'i kohta, soe vahemälu; baseline = `origin/dev`):
+
+| Päring | Täitmisaeg |
+|---|---|
+| `check_transport_means_registered` (border-check) | 0,38–0,45 ms |
+| `get_consignments_by_transport_means` | 0,13–0,18 ms |
+| `refresh_consignment_counts` (täis-snapshot) | ~1,7 s |
+| `get_consignment_counts` (read-model lugemine) | 0,2 ms |
+
+Border-check on sihtpiirist (p95 < 1 s) mitu suurusjärku allpool, seega DENORM-1 jääb päringutasemele. Piirang: mõõtmine ei kata samaaegset kirjutuskoormust ega pikki versiooniajalugusid.
+
 ## Lahtised küsimused
 
 - Kas versioonitud INSERT-only read-model (ilma generatsioonideta) annab piisavalt kasu võrreldes `LATERAL`-iga? Eeldatavasti mitte.

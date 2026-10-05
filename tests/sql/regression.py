@@ -89,7 +89,7 @@ def call(endpoint_name, **params):
 
 class Queries(unittest.TestCase):
     def setUp(self):
-        sql("TRUNCATE users, gates, platforms, authorities, consignments, follow_up_log, audit_log;")
+        sql("TRUNCATE users, gates, platforms, authorities, consignments, follow_up_log, audit_log, rm_consignment_counts, read_model_pointer;")
 
     def user(self, tara="old", active=True, stamp="2026-09-01", revoked=None):
         revoked_sql = "NULL" if revoked is None else "'" + revoked + "'"
@@ -103,6 +103,54 @@ class Queries(unittest.TestCase):
     def consignment(self, identifier="MATCH", status="ACTIVE", stamp="2026-09-01", platform="mock", equipment="{}", country="EE"):
         sql(f"INSERT INTO consignments (dataset_id,platform_id,gate_id,xml,status,main_transport_id,used_equipment_ids,transport_reg_country,created_at) "
             f"VALUES ('{DATASET_ID}','{platform}','EU-EE','<criteria/>','{status}','{identifier}','{equipment}','{country}','{stamp}');")
+
+    def refresh_counts(self):
+        sql("SET ROLE app; " + (ROOT / "DSL/Resql/efti/POST/refresh_consignment_counts.sql").read_text().split("*/", 1)[1])
+
+    def counts(self):
+        return {(row["gate_id"], row["platform_id"], row["status"]): row["consignment_count"] for row in call("get_consignment_counts")}
+
+    def test_read_model_counts_only_current_rows(self):
+        self.consignment(identifier="A", stamp="2026-09-01")
+        self.consignment(identifier="A", status="INACTIVE", stamp="2026-09-02")
+        self.assertEqual([], call("get_consignment_counts"))
+        self.refresh_counts()
+        self.assertEqual({("EU-EE", "mock", "INACTIVE"): 1}, self.counts())
+
+    def test_read_model_excludes_deleted_datasets(self):
+        self.consignment(stamp="2026-09-01")
+        self.consignment(status="DELETED", stamp="2026-09-02")
+        self.refresh_counts()
+        self.assertEqual({}, self.counts())
+
+    def test_read_model_serves_new_generation_only_after_refresh(self):
+        self.consignment(stamp="2026-09-01")
+        self.refresh_counts()
+        sql(f"INSERT INTO consignments (dataset_id,platform_id,gate_id,xml,status,created_at) "
+            f"VALUES ('{uuid.uuid4()}','mock','EU-EE','<x/>','ACTIVE','2026-09-03');")
+        self.assertEqual({("EU-EE", "mock", "ACTIVE"): 1}, self.counts())
+        self.refresh_counts()
+        self.assertEqual({("EU-EE", "mock", "ACTIVE"): 2}, self.counts())
+        self.assertEqual(1, len({row["generation"] for row in call("get_consignment_counts")}))
+
+    def test_read_model_purge_keeps_current_generation(self):
+        self.consignment()
+        for _ in range(4):
+            self.refresh_counts()
+        purge = (ROOT / "DSL/Resql/efti/POST/purge_read_model_generations.sql").read_text()
+        query, signature, arguments = endpoint("purge_read_model_generations", {"keepGenerations": 1}, purge)
+        sql("RESET ROLE; PREPARE q" + signature + " AS " + query + "; EXECUTE q" + arguments + ";")
+        self.assertEqual("1", sql("SELECT count(DISTINCT generation) FROM rm_consignment_counts;").strip())
+        self.assertEqual("1", sql("SELECT count(*) FROM read_model_pointer;").strip())
+        self.assertEqual({("EU-EE", "mock", "ACTIVE"): 1}, self.counts())
+
+    def test_read_model_app_role_cannot_update_or_delete(self):
+        self.consignment()
+        self.refresh_counts()
+        for statement in ("UPDATE rm_consignment_counts SET consignment_count = 0;", "DELETE FROM rm_consignment_counts;",
+                          "UPDATE read_model_pointer SET generation = 0;", "DELETE FROM read_model_pointer;"):
+            with self.assertRaisesRegex(RuntimeError, "permission denied"):
+                sql("SET ROLE app; " + statement)
 
     def test_all_endpoint_files_prepare_under_app_role(self):
         for path in sorted((ROOT / "DSL/Resql/efti/POST").glob("*.sql")):
@@ -298,15 +346,15 @@ class MigrationPrototype(unittest.TestCase):
         self.assertEqual(1, len(call("get_platform_by_api_key", apiKey="current-key")))
 
 
-def benchmark():
+def benchmark(rows):
     sql("TRUNCATE consignments; INSERT INTO consignments (dataset_id,platform_id,gate_id,xml,used_equipment_ids,created_at) "
-        "SELECT md5(n::text)::uuid,'mock','EU-EE','<criteria/>',ARRAY['CONTAINER-' || n::text],now() FROM generate_series(1,100000) n;")
+        "SELECT md5(n::text)::uuid,'mock','EU-EE','<criteria/>',ARRAY['CONTAINER-' || n::text],now() FROM generate_series(1," + str(rows) + ") n;")
     sql("VACUUM (ANALYZE) consignments;")
     for name in ["check_transport_means_registered", "get_consignments_by_transport_means"]:
         for baseline in [True, False]:
             source = subprocess.run(["git", "show", "origin/dev:DSL/Resql/efti/POST/" + name + ".sql"],
                                     cwd=ROOT, check=True, capture_output=True, text=True).stdout if baseline else None
-            query, signature, arguments = endpoint(name, {"transport_means_id": "CONTAINER-50000"}, source)
+            query, signature, arguments = endpoint(name, {"transport_means_id": "CONTAINER-" + str(rows // 2)}, source)
             for mode in ["force_custom_plan", "force_generic_plan"]:
                 plan = json.loads(sql("SET ROLE app; SET plan_cache_mode=" + mode + "; PREPARE q" + signature +
                                       " AS " + query + "; EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) EXECUTE q" + arguments + ";"))[0]
@@ -316,14 +364,20 @@ def benchmark():
                     for child in node.get("Plans", []):
                         visit(child)
                 visit(plan["Plan"])
-                print(json.dumps({"query": name, "baseline": baseline, "mode": mode, "rows": 100000,
+                print(json.dumps({"query": name, "baseline": baseline, "mode": mode, "rows": rows,
                                   "execution_ms": plan["Execution Time"], "shared_hit_blocks": plan["Plan"]["Shared Hit Blocks"],
                                   "nodes": nodes}), flush=True)
+    refresh = json.loads(sql("SET ROLE app; EXPLAIN (ANALYZE,FORMAT JSON) " + (ROOT / "DSL/Resql/efti/POST/refresh_consignment_counts.sql").read_text().split("*/", 1)[1].strip().rstrip(";") + ";"))[0]
+    print(json.dumps({"query": "refresh_consignment_counts", "rows": rows, "execution_ms": refresh["Execution Time"]}), flush=True)
+    query, signature, arguments = endpoint("get_consignment_counts", {})
+    plan = json.loads(sql("SET ROLE app; PREPARE q" + signature + " AS " + query + "; EXPLAIN (ANALYZE,FORMAT JSON) EXECUTE q" + arguments + ";"))[0]
+    print(json.dumps({"query": "get_consignment_counts", "rows": rows, "execution_ms": plan["Execution Time"]}), flush=True)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--performance", action="store_true", help="Also measure plans on 100,000 synthetic consignments")
+    parser.add_argument("--performance", action="store_true", help="Also measure plans on synthetic consignments (--rows, default 100,000)")
+    parser.add_argument("--rows", type=int, default=100000, help="Synthetic consignment rows for --performance")
     parser.add_argument("--init", action="store_true", help="Test the consolidated fresh-install schema instead of upgrade SQL")
     parser.add_argument("--migration-prototype", action="store_true", help="Apply proposed SQL from stdin only inside the disposable database")
     options = parser.parse_args()
@@ -352,12 +406,14 @@ def main():
             sql(migration.read_text())
         elif prototype:
             sql(prototype)
+        if not options.init:
+            sql((ROOT / "DSL/Liquibase/changelog/20261005-read-model-generations.sql").read_text())
         suite = unittest.defaultTestLoader.loadTestsFromTestCase(Queries)
         if prototype or migration.exists():
             suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(MigrationPrototype))
         result = unittest.TextTestRunner(verbosity=2).run(suite)
         if result.wasSuccessful() and options.performance:
-            benchmark()
+            benchmark(options.rows)
         raise SystemExit(not result.wasSuccessful())
     finally:
         docker("rm", "-f", CONTAINER)
