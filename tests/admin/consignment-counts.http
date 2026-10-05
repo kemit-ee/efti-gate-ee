@@ -1,0 +1,45 @@
+### admin/v1/consignment-counts — no token -> 401
+GET {{RUUTER_URL}}/admin/v1/consignment-counts
+
+> {%
+  client.test("counts without credentials rejected", () => {
+    client.assert(response.status === 401)
+  })
+%}
+
+### Setup: upload a dataset so there is something to count
+POST {{RUUTER_URL}}/platforms/v1/consignments
+Content-Type: text/xml
+X-Api-Key: mock-secret-key
+
+< ../../code/xml-mapper/xsd/FTI004/sample.xml
+
+### Setup: publish a read-model generation
+POST {{RUUTER_URL}}/ops/v1/refresh-read-models
+Content-Type: application/json
+Authorization: Bearer dev-archive-ops-token-change-me
+
+{}
+
+### Counts from the published generation (admin, TARA JWT)
+GET {{RUUTER_URL}}/admin/v1/consignment-counts?status=ACTIVE
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("counts served from read model", () => {
+    client.assert(response.status === 200)
+    client.assert(Array.isArray(response.body) && response.body.length >= 1)
+    client.assert(response.body[0].status === "ACTIVE")
+    client.assert(response.body[0].consignmentCount >= 1)
+  })
+%}
+
+### Invalid status -> 400
+GET {{RUUTER_URL}}/admin/v1/consignment-counts?status=DELETED
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("invalid status rejected", () => {
+    client.assert(response.status === 400)
+  })
+%}
