@@ -1,5 +1,8 @@
 # Add more config for localhost development, e.g. port bindings
 services:
+  pubsub:
+    environment:
+      - INTERNAL_SERVICE_TOKEN=${INTERNAL_SERVICE_TOKEN:-dev-internal-service-token-change-me}
   database:
     ports:
       - "${EFTI_DB_PORT:-54321}:5432"
@@ -38,18 +41,21 @@ services:
       - 8081:8081
       - 5051:5051
     environment:
+      - INTERNAL_SERVICE_TOKEN=${INTERNAL_SERVICE_TOKEN:-dev-internal-service-token-change-me}
       - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5051
   xml-mapper:
     ports:
       - 8082:8082
       - 5052:5052
     environment:
+      - INTERNAL_SERVICE_TOKEN=${INTERNAL_SERVICE_TOKEN:-dev-internal-service-token-change-me}
       - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5052
   multiplexer:
     ports:
       - 8083:8083
       - 5053:5053
     environment:
+      - INTERNAL_SERVICE_TOKEN=${INTERNAL_SERVICE_TOKEN:-dev-internal-service-token-change-me}
       - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5053
   ui:
     ports:
