@@ -2,11 +2,11 @@
 
 **Staatus: OTSUSTAMISEL** (arutelu: Sten Viljus, Rainer Türner). See on mustand, mitte vastu võetud otsus.
 
-Seotud issue'd: kemit-ee/efti-gate-ee#180 (A6), #181–#185 (DENORM-1…5). Seotud ADR: ADR-009.
+Seotud issue'd: kemit-ee/efti-gate-ee#246 (A6), #247–#251 (DENORM-1…5; varasemad #180–#185 on suletud ja asendatud). Seotud ADR: ADR-009.
 
 ## Probleem
 
-Kliendi nõue on denormaliseeritud tabelid kuumadele lugemistele. Issue #180 jagab selle kaheks kihiks:
+Kliendi nõue on denormaliseeritud tabelid kuumadele lugemistele. Issue #246 jagab selle kaheks kihiks:
 
 1. append-only allikatabelid monotoonsete revisjonidega — **olemas**;
 2. denormaliseeritud tabelid, mida kuumad lugemised kasutavad, et revisjoniajalugu ei skannitaks — **puudub**.
@@ -54,11 +54,11 @@ Päringutaseme lahendus jääb DENORM-1 jaoks (border-check), kui mõõtmine tõ
    - **Generatsiooni-snapshot** (DENORM-4 kokkuvõtted, DENORM-5 nimekirjad): CronManager → Ruuter → ReSql lisab terve uue snapshoti `generation = N` (INSERT-only). Eraldi väike INSERT-only osuti-tabel ütleb kehtiva generatsiooni (`ORDER BY generation DESC LIMIT 1`); osuti lisatakse alles pärast täielikku snapshoti kirjutust, nii et lugeja ei näe poolikut. Lugemine on `WHERE generation = :g AND key = :k` ühe PK-otsinguga, sõltumatu ajaloo pikkusest. Vanad generatsioonid kustutab CronManager (Quartz) Ruuteri + ReSql kaudu, nagu arhiveerimisel (`purge-archive` muster); kustutatakse ainult generatsioonid, mis on kehtivast vanemad.
    - **Hukka mõistetud:** eraldi roll `UPDATE` õigusega ja `MATERIALIZED VIEW ... REFRESH` (vajab omanikuõigust ja DB-objekti haldust, mis on vastuolus "ei mingeid DB-funktsioone" reegliga).
 4. **Refresh-cadence** iga tabeli kohta fikseeritakse DSL/dokumentatsioonis ja peab olema lühem kui rangeim tarbija tolerants.
-5. **Nõude sulgemine.** Kliendiga kinnitatakse kirjalikult, et variant C (mõõdetud päringutase DENORM-1 jaoks + tabelid ülejäänule) täidab nõude. Ilma selle kinnituseta jääb #180 lahtiseks.
+5. **Nõude sulgemine.** Kliendiga kinnitatakse kirjalikult, et variant C (mõõdetud päringutase DENORM-1 jaoks + tabelid ülejäänule) täidab nõude. Ilma selle kinnituseta jääb #246 lahtiseks.
 
 ## Tagajärjed
 
-- #181 suletakse mõõtmistulemustega (kui sihtpiir täidetud); #182, #184, #185 jäävad ehitatavaks; #183 ootab ADR-011 otsust.
+- #247 suletakse mõõtmistulemustega (kui sihtpiir täidetud); #248, #250, #251 jäävad ehitatavaks; #249 ootab ADR-011 otsust.
 - Uued tabelid lisatakse Liquibase migratsiooni ja `DSL/Liquibase/init.sql`-i (hoitakse sünkroonis) ning kaetakse `tests/sql/regression.py` kontrollidega.
 - `AGENTS.md` "Database rules" täiendatakse, kui variant C kinnitatakse (read-model tabelid on samuti INSERT-only; generatsioonide puhastus käib arhiveerimise mehhanismiga).
 
