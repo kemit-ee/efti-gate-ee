@@ -1,11 +1,11 @@
 {
   "info": {
     "name": "eFTI Gate — X-Road developer mock",
-    "description": "Public sandbox that imitates the eFTI Gate X-Road authority surface with canned responses. See docs/developer/x_road_developer_mock.md and x_road_authority_integration_guide.md.\n\nSet the `baseUrl` collection variable:\n  - eu-ee.pikker.dev (default, current deployment)\n  - https://dev.efti.ee once that domain is pointed at the deployment\n  - http://localhost:8088 for a local `docker compose up`\n\n`X-Road-Id` uses Postman's `{{$guid}}` so every request gets a fresh UUID.\n\nSpecial `X-Road-Client` member codes:\n  00000000 -> 403 FORBIDDEN (guard)\n  70000000 -> resolves with no subset entitlement (FORBIDDEN_SUBSET path)\n  anything else well-formed -> mock authority auth-mock, subsets EU01,EU02,EU03,EU05\n\nQuestions: Sten Viljus <Sten.Viljus@Askend.com>.",
+    "description": "Public sandbox that imitates the eFTI Gate X-Road authority surface with canned responses. See docs/developer/x_road_developer_mock.md and x_road_authority_integration_guide.md.\n\nSet the `baseUrl` collection variable:\n  - https://eftidev.kemitaws.ee (default)\n  - http://localhost:8088 for a local `docker compose up`\n\n`X-Road-Id` uses Postman's `{{$guid}}` so every request gets a fresh UUID.\n\nSpecial `X-Road-Client` member codes:\n  00000000 -> 403 FORBIDDEN (guard)\n  70000000 -> resolves with no subset entitlement (FORBIDDEN_SUBSET path)\n  anything else well-formed -> mock authority auth-mock, subsets EU01,EU02,EU03,EU05\n\nQuestions: Sten Viljus <Sten.Viljus@Askend.com>.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "baseUrl", "value": "https://eu-ee.pikker.dev", "type": "string" },
+    { "key": "baseUrl", "value": "https://eftidev.kemitaws.ee", "type": "string" },
     { "key": "xRoadClient", "value": "EE/GOV/70000097/tram", "type": "string" }
   ],
   "item": [
