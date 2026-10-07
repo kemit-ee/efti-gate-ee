@@ -89,7 +89,7 @@ def call(endpoint_name, **params):
 
 class Queries(unittest.TestCase):
     def setUp(self):
-        sql("TRUNCATE users, gates, platforms, authorities, consignments, follow_up_log, audit_log, rm_consignment_counts, rm_gates, rm_platforms, rm_authorities, read_model_pointer;")
+        sql("TRUNCATE users, gates, platforms, authorities, consignments, follow_up_log, audit_log, rm_consignment_counts, rm_consignment_summary, rm_gates, rm_platforms, rm_authorities, read_model_pointer;")
 
     def user(self, tara="old", active=True, stamp="2026-09-01", revoked=None):
         revoked_sql = "NULL" if revoked is None else "'" + revoked + "'"
@@ -201,6 +201,58 @@ class Queries(unittest.TestCase):
         sql("RESET ROLE; PREPARE q" + signature + " AS " + query + "; EXECUTE q" + arguments + ";")
         self.assertEqual("1", sql("SELECT count(DISTINCT generation) FROM rm_gates;").strip())
         self.assertEqual(["EU-EE"], [row["id"] for row in call("list_gates")])
+
+    def refresh_summary(self):
+        sql("SET ROLE app; " + (ROOT / "DSL/Resql/efti/POST/refresh_consignment_summary.sql").read_text().split("*/", 1)[1])
+
+    def summary_consignment(self, stamp, dataset=None, status="ACTIVE", loading="EE", dangerous="1", mode="R"):
+        sql(f"INSERT INTO consignments (dataset_id,platform_id,gate_id,xml,status,loading_country,dangerous_goods,transport_mode,created_at) "
+            f"VALUES ('{dataset or uuid.uuid4()}','mock','EU-EE','<x/>','{status}','{loading}','{dangerous}','{mode}','{stamp}');")
+
+    def summary(self, subsets, **params):
+        return {(row["subset"] or "", row["dimension"], "" if row["dim_value"] is None else str(row["dim_value"])): row["consignment_count"]
+                for row in call("get_consignment_summary", subsets=subsets, **params)}
+
+    def test_summary_only_returns_dimensions_of_the_authoritys_subsets(self):
+        self.summary_consignment("2026-09-01")
+        self.refresh_summary()
+        self.assertEqual({("", "total", ""): 1}, self.summary([]))
+        eu03 = self.summary(["EU03"])
+        self.assertEqual({("", "total", ""): 1, ("EU03", "loading_country", "EE"): 1, ("EU03", "unloading_country", ""): 1}, eu03)
+        everything = self.summary(["EU02", "EU03", "EU04"])
+        self.assertEqual(1, everything[("EU02", "dangerous_goods", "1")])
+        self.assertEqual(1, everything[("EU04", "transport_mode", "R")])
+        self.assertTrue(all(key[0] in ("", "EU02", "EU03", "EU04") for key in everything))
+
+    def test_summary_uses_manual_day_range_inclusively(self):
+        for day in ("2026-09-01", "2026-09-05", "2026-09-10"):
+            self.summary_consignment(day)
+        self.refresh_summary()
+        self.assertEqual(3, self.summary([])[("", "total", "")])
+        self.assertEqual(2, self.summary([], **{"from": "2026-09-05"})[("", "total", "")])
+        self.assertEqual(1, self.summary([], **{"from": "2026-09-05", "to": "2026-09-05"})[("", "total", "")])
+        self.assertEqual({}, self.summary([], **{"from": "2026-10-01"}))
+
+    def test_summary_counts_current_active_versions_only(self):
+        dataset = uuid.uuid4()
+        self.summary_consignment("2026-09-01", dataset=dataset)
+        self.summary_consignment("2026-09-02", dataset=dataset, loading="FI")
+        self.summary_consignment("2026-09-02", status="INACTIVE")
+        gone = uuid.uuid4()
+        self.summary_consignment("2026-09-01", dataset=gone)
+        self.summary_consignment("2026-09-03", dataset=gone, status="DELETED")
+        self.refresh_summary()
+        counts = self.summary(["EU03"])
+        self.assertEqual(1, counts[("", "total", "")])
+        self.assertEqual(1, counts[("EU03", "loading_country", "FI")])
+        self.assertNotIn(("EU03", "loading_country", "EE"), counts)
+
+    def test_summary_is_empty_before_first_refresh_and_bounded(self):
+        self.summary_consignment("2026-09-01")
+        self.assertEqual({}, self.summary(["EU02", "EU03", "EU04"]))
+        self.refresh_summary()
+        self.assertEqual(1, len(call("get_consignment_summary", subsets=["EU02", "EU03", "EU04"], limit=1)))
+        self.assertEqual([], call("get_consignment_summary", subsets=[], limit=-1, offset=-1))
 
     def test_all_endpoint_files_prepare_under_app_role(self):
         for path in sorted((ROOT / "DSL/Resql/efti/POST").glob("*.sql")):
@@ -459,6 +511,7 @@ def main():
         if not options.init:
             sql((ROOT / "DSL/Liquibase/changelog/20261005-read-model-generations.sql").read_text())
             sql((ROOT / "DSL/Liquibase/changelog/20261006-read-model-registries.sql").read_text())
+            sql((ROOT / "DSL/Liquibase/changelog/20261007-read-model-consignment-summary.sql").read_text())
         suite = unittest.defaultTestLoader.loadTestsFromTestCase(Queries)
         if prototype or migration.exists():
             suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(MigrationPrototype))

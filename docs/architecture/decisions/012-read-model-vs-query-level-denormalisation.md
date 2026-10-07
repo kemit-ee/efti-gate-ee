@@ -79,6 +79,10 @@ Border-check on sihtpiirist (p95 < 1 s) mitu suurusjärku allpool, seega DENORM-
 
 Admin registrinimekirjad (gates, platforms, authorities) loevad generatsiooni-snapshotist. Viivituse (nähtavuse lag pärast kirjutust) kõrvaldab refresh, mida iga admin-kirjutus-route kutsub kohe pärast kirjutust (best effort); cron on varuvariant. Tagajärg: iga kirjutus lisab uue generatsiooni (3 tabelit × registri suurus), mille cron purge'ib. Get-by-id, marsruutimine, autentimine ja õigused loevad endiselt allikatabelitest.
 
+## DENORM-4 rakendus
+
+Authority-põhine kokkuvõte: loendused päeva kaupa (registreerimispäev) dimensioonide kaupa, iga dimensioon seotud eFTI subset'iga (EU02 ohtlikud veosed, EU03 laadimis-/mahalaadimisriik, EU04 transpordiliik/-tüüp/registreerimisriik); subset'ita rida on kõigile lubatud kogusumma. Periood on käsitsi vahemik (`from`/`to`, kaasa arvatud). Autoriteet ja tema `subsets` loetakse alati allikatabelist `authorities`, mitte read-model'ist; read-model annab ainult arve. EU01, EU06 ja EU07 jaoks ei ole `consignments`-il denormaliseeritud veerge, seega neile kokkuvõtet ei ole.
+
 ## Lahtised küsimused
 
 - Kas versioonitud INSERT-only read-model (ilma generatsioonideta) annab piisavalt kasu võrreldes `LATERAL`-iga? Eeldatavasti mitte.

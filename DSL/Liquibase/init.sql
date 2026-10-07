@@ -741,3 +741,19 @@ COMMENT ON TABLE rm_authorities IS 'ADR-012 read model for GET /admin/v1/authori
 
 GRANT SELECT, INSERT ON rm_gates, rm_platforms, rm_authorities TO app;
 GRANT SELECT, DELETE ON rm_gates, rm_platforms, rm_authorities TO db_archiver;
+
+-- Source: 20261007-read-model-consignment-summary.sql
+CREATE TABLE rm_consignment_summary (
+  generation        BIGINT NOT NULL,
+  subset            TEXT   NOT NULL,
+  dimension         TEXT   NOT NULL,
+  dim_value         TEXT   NOT NULL,
+  day               DATE   NOT NULL,
+  consignment_count BIGINT NOT NULL,
+  PRIMARY KEY (generation, subset, dimension, dim_value, day)
+);
+
+COMMENT ON TABLE rm_consignment_summary IS 'ADR-012 read model: current ACTIVE consignments counted per registration day, per dimension value. subset names the eFTI subset (EU02..EU04) that entitles an authority to the dimension; the empty subset is the ungated total. Derivative of consignments; the caller''s entitlement is always read from authorities.';
+
+GRANT SELECT, INSERT ON rm_consignment_summary TO app;
+GRANT SELECT, DELETE ON rm_consignment_summary TO db_archiver;

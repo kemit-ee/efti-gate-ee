@@ -1,0 +1,110 @@
+declaration:
+  description: "Consignment counts for one authority (admin, TARA JWT), served from the ADR-012 read model and
+    limited to what the authority's eFTI subsets entitle it to: the ungated total plus the dimensions of its
+    subsets (EU02 dangerous goods, EU03 loading/unloading country, EU04 transport mode/type/registration
+    country). The authority and its subsets are read from the source table, not the read model. Query:
+    authorityId (required); from, to (optional YYYY-MM-DD manual range over the registration day, inclusive);
+    dimension, limit, offset (optional). No body."
+
+validate_input:
+  switch:
+    - condition: ${incoming.params.authorityId == null || incoming.params.authorityId == ''}
+      next: missing_authority
+    - condition: ${incoming.params.from != null && incoming.params.from != '' && !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(incoming.params.from)}
+      next: bad_range
+    - condition: ${incoming.params.to != null && incoming.params.to != '' && !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(incoming.params.to)}
+      next: bad_range
+    - condition: ${incoming.params.from != null && incoming.params.from != '' && incoming.params.to != null && incoming.params.to != '' && incoming.params.from > incoming.params.to}
+      next: bad_range
+  next: fetch_authority
+
+missing_authority:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "Query parameter authorityId is required."
+  wrapper: false
+  status: 400
+  next: end
+
+bad_range:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "Query parameters from and to must be YYYY-MM-DD dates with from not after to."
+  wrapper: false
+  status: 400
+  next: end
+
+fetch_authority:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/get_authority_by_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      id: "${incoming.params.authorityId}"
+  result: authority_result
+
+check_authority:
+  switch:
+    - condition: ${authority_result.response.status == 0 || authority_result.response.status >= 300}
+      next: upstream_unavailable
+    - condition: ${!authority_result.response.body.length || authority_result.response.body[0].status != 'ACTIVE'}
+      next: not_found
+
+fetch_summary:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/get_consignment_summary"
+    headers:
+      Content-Type: "application/json"
+    body:
+      subsets: ${authority_result.response.body[0].subsets}
+      from: "${incoming.params.from}"
+      to: "${incoming.params.to}"
+      dimension: "${incoming.params.dimension}"
+      limit: "${incoming.params.limit}"
+      offset: "${incoming.params.offset}"
+  result: summary_result
+
+check_summary:
+  switch:
+    - condition: ${summary_result.response.status == 0 || summary_result.response.status >= 300}
+      next: upstream_unavailable
+
+write_audit_log:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_audit_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      userId: "${caller.id}"
+      action: "consignment-summary.read"
+      resource: "authority"
+      resourceId: "${incoming.params.authorityId}"
+      ipAddress: "${incoming.headers['x-forwarded-for'] ?? null}"
+      details: "${JSON.stringify({ authority_id: incoming.params.authorityId, from: incoming.params.from, to: incoming.params.to, dimension: incoming.params.dimension, count: summary_result.response.body.length })}"
+  result: audit_result
+
+respond:
+  return: ${summary_result.response.body}
+  wrapper: false
+  next: end
+
+not_found:
+  return: {"error": "Not Found"}
+  status: 404
+  wrapper: false
+  next: end
+
+upstream_unavailable:
+  return: {"error": "Data layer unavailable"}
+  status: 502
+  wrapper: false
+  next: end
