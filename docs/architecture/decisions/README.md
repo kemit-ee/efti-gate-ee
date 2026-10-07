@@ -16,3 +16,4 @@ Otsused on loendurid ja ei kustutata — uus otsus ei asenda vana, vaid täienda
 | [ADR-009](009-consignments-latest-row-not-exists.md) | `consignments` viimase versiooni valik `NOT EXISTS`-iga, mitte `DISTINCT ON`-iga | 2026-09-09 | Sten Viljus |
 | [ADR-010](010-authority-search-non-blocking.md) | Authority-otsing ei blokeeru; kattuvate guard'ide dedup; DSL-tööriistad runtime-pildist | 2026-09-10 | Sten Viljus |
 | [ADR-011](011-registries-as-signed-config.md) | Registrid (gate'id, platvormid, asutused) allkirjastatud konfiguratsioonina, release'iga jõustuvad — **OTSUSTAMISEL** | 2026-10-01 | Sten Viljus, Rainer Türner |
+| [ADR-012](012-read-model-vs-query-level-denormalisation.md) | Kuumade lugemiste denormaliseerimine: päringutaseme lahendus vs read-model tabelid — **OTSUSTAMISEL** | 2026-10-05 | Sten Viljus, Rainer Türner |

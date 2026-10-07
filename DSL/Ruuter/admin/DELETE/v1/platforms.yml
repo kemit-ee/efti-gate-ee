@@ -37,6 +37,18 @@ write_audit_log:
       details: "${JSON.stringify({ platform_id: incoming.params.pathParams[0], before: null, after: null })}"
   result: audit_result
 
+# Best-effort, post-commit: the registry list read model (ADR-012) catches up right after the write; a
+# failure here never fails the write, and POST /ops/v1/refresh-read-models is the safety net.
+refresh_registry_lists:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/refresh_registry_lists"
+    headers:
+      Content-Type: "application/json"
+    body: {}
+  result: refresh_registry_lists_result
+
+
 respond:
   return: ""
   status: 204

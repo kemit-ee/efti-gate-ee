@@ -45,3 +45,15 @@ GET {{RUUTER_URL}}/admin/v1/consignment-history?datasetId=550e8400-e29b-41d4-a71
     client.assert(response.status === 401 || response.status === 403)
   })
 %}
+
+### History is paginated and carries no xml payload
+GET {{RUUTER_URL}}/admin/v1/consignment-history?datasetId=550e8400-e29b-41d4-a716-446655440000&limit=1
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("history page is bounded, metadata only", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.live.length === 1)
+    client.assert(response.body.live[0].xml === undefined)
+  })
+%}

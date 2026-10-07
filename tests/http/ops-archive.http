@@ -67,3 +67,30 @@ Authorization: Bearer dev-archive-ops-token-change-me
     client.assert(typeof response.body.purged === "number")
   })
 %}
+
+### ops/v1/refresh-read-models — no token -> 401
+POST {{RUUTER_URL}}/ops/v1/refresh-read-models
+Content-Type: application/json
+
+{}
+
+> {%
+  client.test("refresh without token rejected", () => {
+    client.assert(response.status === 401)
+  })
+%}
+
+### ops/v1/refresh-read-models — valid token publishes a new generation
+POST {{RUUTER_URL}}/ops/v1/refresh-read-models
+Content-Type: application/json
+Authorization: Bearer dev-archive-ops-token-change-me
+
+{}
+
+> {%
+  client.test("refresh publishes a generation", () => {
+    client.assert(response.status === 200)
+    client.assert(typeof response.body.generation === "number")
+    client.assert(typeof response.body.rows === "number")
+  })
+%}

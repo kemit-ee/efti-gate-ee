@@ -89,7 +89,7 @@ def call(endpoint_name, **params):
 
 class Queries(unittest.TestCase):
     def setUp(self):
-        sql("TRUNCATE users, gates, platforms, authorities, consignments, follow_up_log, audit_log, async_responses;")
+        sql("TRUNCATE users, gates, platforms, authorities, consignments, follow_up_log, audit_log, async_responses, rm_consignment_counts, rm_consignment_summary, rm_gates, rm_platforms, rm_authorities, read_model_pointer;")
 
     def user(self, tara="old", active=True, stamp="2026-09-01", revoked=None):
         revoked_sql = "NULL" if revoked is None else "'" + revoked + "'"
@@ -103,6 +103,156 @@ class Queries(unittest.TestCase):
     def consignment(self, identifier="MATCH", status="ACTIVE", stamp="2026-09-01", platform="mock", equipment="{}", country="EE"):
         sql(f"INSERT INTO consignments (dataset_id,platform_id,gate_id,xml,status,main_transport_id,used_equipment_ids,transport_reg_country,created_at) "
             f"VALUES ('{DATASET_ID}','{platform}','EU-EE','<criteria/>','{status}','{identifier}','{equipment}','{country}','{stamp}');")
+
+    def refresh_counts(self):
+        sql("SET ROLE app; " + (ROOT / "DSL/Resql/efti/POST/refresh_consignment_counts.sql").read_text().split("*/", 1)[1])
+
+    def counts(self):
+        return {(row["gate_id"], row["platform_id"], row["status"]): row["consignment_count"] for row in call("get_consignment_counts")}
+
+    def test_read_model_counts_only_current_rows(self):
+        self.consignment(identifier="A", stamp="2026-09-01")
+        self.consignment(identifier="A", status="INACTIVE", stamp="2026-09-02")
+        self.assertEqual([], call("get_consignment_counts"))
+        self.refresh_counts()
+        self.assertEqual({("EU-EE", "mock", "INACTIVE"): 1}, self.counts())
+
+    def test_read_model_excludes_deleted_datasets(self):
+        self.consignment(stamp="2026-09-01")
+        self.consignment(status="DELETED", stamp="2026-09-02")
+        self.refresh_counts()
+        self.assertEqual({}, self.counts())
+
+    def test_read_model_serves_new_generation_only_after_refresh(self):
+        self.consignment(stamp="2026-09-01")
+        self.refresh_counts()
+        sql(f"INSERT INTO consignments (dataset_id,platform_id,gate_id,xml,status,created_at) "
+            f"VALUES ('{uuid.uuid4()}','mock','EU-EE','<x/>','ACTIVE','2026-09-03');")
+        self.assertEqual({("EU-EE", "mock", "ACTIVE"): 1}, self.counts())
+        self.refresh_counts()
+        self.assertEqual({("EU-EE", "mock", "ACTIVE"): 2}, self.counts())
+        self.assertEqual(1, len({row["generation"] for row in call("get_consignment_counts")}))
+
+    def test_read_model_purge_keeps_current_generation(self):
+        self.consignment()
+        for _ in range(4):
+            self.refresh_counts()
+        purge = (ROOT / "DSL/Resql/efti/POST/purge_read_model_generations.sql").read_text()
+        query, signature, arguments = endpoint("purge_read_model_generations", {"keepGenerations": 1}, purge)
+        sql("RESET ROLE; PREPARE q" + signature + " AS " + query + "; EXECUTE q" + arguments + ";")
+        self.assertEqual("1", sql("SELECT count(DISTINCT generation) FROM rm_consignment_counts;").strip())
+        self.assertEqual("1", sql("SELECT count(*) FROM read_model_pointer;").strip())
+        self.assertEqual({("EU-EE", "mock", "ACTIVE"): 1}, self.counts())
+
+    def test_read_model_app_role_cannot_update_or_delete(self):
+        self.consignment()
+        self.refresh_counts()
+        for statement in ("UPDATE rm_consignment_counts SET consignment_count = 0;", "DELETE FROM rm_consignment_counts;",
+                          "UPDATE read_model_pointer SET generation = 0;", "DELETE FROM read_model_pointer;"):
+            with self.assertRaisesRegex(RuntimeError, "permission denied"):
+                sql("SET ROLE app; " + statement)
+
+    def test_history_is_paginated_and_omits_xml(self):
+        for day in range(1, 6):
+            self.consignment(stamp="2026-09-0" + str(day))
+        page = call("get_consignment_history", datasetId=DATASET_ID, limit=2, offset=1)
+        self.assertEqual(2, len(page))
+        self.assertTrue(all("xml" not in row for row in page))
+        self.assertEqual(["2026-09-04", "2026-09-03"], [row["created_at"][:10] for row in page])
+        self.assertEqual(5, len(call("get_consignment_history", datasetId=DATASET_ID)))
+        self.assertEqual(0, len(call("get_consignment_history", datasetId=DATASET_ID, limit=-5, offset=-5)))
+
+    def refresh_registries(self):
+        sql("SET ROLE app; " + (ROOT / "DSL/Resql/efti/POST/refresh_registry_lists.sql").read_text().split("*/", 1)[1])
+
+    def test_registry_lists_follow_latest_rows_after_refresh(self):
+        sql("INSERT INTO gates (id,country_code,e_delivery_url,status,created_at) VALUES ('EU-EE','EE','http://a','ONLINE','2026-09-01');")
+        sql("INSERT INTO gates (id,country_code,e_delivery_url,status,created_at) VALUES ('EU-FI','FI','http://b','ONLINE','2026-09-01');")
+        self.assertEqual([], call("list_gates"))
+        self.refresh_registries()
+        self.assertEqual(["EU-EE", "EU-FI"], [row["id"] for row in call("list_gates")])
+        sql("INSERT INTO gates (id,country_code,e_delivery_url,status,created_at) VALUES ('EU-FI','FI','http://b','DELETED','2026-09-02');")
+        sql("INSERT INTO gates (id,country_code,e_delivery_url,status,created_at) VALUES ('EU-EE','EE','http://moved','ONLINE','2026-09-02');")
+        self.assertEqual("http://a", call("list_gates")[0]["e_delivery_url"])
+        self.refresh_registries()
+        self.assertEqual([("EU-EE", "http://moved")], [(row["id"], row["e_delivery_url"]) for row in call("list_gates")])
+        self.assertEqual(["EU-FI"], [row["id"] for row in call("list_gates", status="DELETED")])
+
+    def test_platform_list_read_model_never_carries_key_hash(self):
+        self.platform(key="secret-key")
+        self.refresh_registries()
+        row = call("list_platforms")[0]
+        self.assertTrue(row["has_api_key"])
+        self.assertNotIn("api_key_hash", row)
+        self.assertNotIn("secret-key", json.dumps(row))
+
+    def test_authority_list_read_model_pagination_is_bounded(self):
+        for n in range(3):
+            sql(f"INSERT INTO authorities (id,name,registry_code,subsets) VALUES ('auth-{n}','A{n}','{n}',ARRAY['EU02']);")
+        self.refresh_registries()
+        self.assertEqual(["auth-1"], [row["id"] for row in call("list_authorities", limit=1, offset=1)])
+        self.assertEqual([], call("list_authorities", limit=-1, offset=-1))
+
+    def test_registry_purge_keeps_current_generation(self):
+        sql("INSERT INTO gates (id,country_code,e_delivery_url,status) VALUES ('EU-EE','EE','http://a','ONLINE');")
+        for _ in range(4):
+            self.refresh_registries()
+        query, signature, arguments = endpoint("purge_read_model_generations", {"keepGenerations": 1})
+        sql("RESET ROLE; PREPARE q" + signature + " AS " + query + "; EXECUTE q" + arguments + ";")
+        self.assertEqual("1", sql("SELECT count(DISTINCT generation) FROM rm_gates;").strip())
+        self.assertEqual(["EU-EE"], [row["id"] for row in call("list_gates")])
+
+    def refresh_summary(self):
+        sql("SET ROLE app; " + (ROOT / "DSL/Resql/efti/POST/refresh_consignment_summary.sql").read_text().split("*/", 1)[1])
+
+    def summary_consignment(self, stamp, dataset=None, status="ACTIVE", loading="EE", dangerous="1", mode="R"):
+        sql(f"INSERT INTO consignments (dataset_id,platform_id,gate_id,xml,status,loading_country,dangerous_goods,transport_mode,created_at) "
+            f"VALUES ('{dataset or uuid.uuid4()}','mock','EU-EE','<x/>','{status}','{loading}','{dangerous}','{mode}','{stamp}');")
+
+    def summary(self, subsets, **params):
+        return {(row["subset"] or "", row["dimension"], "" if row["dim_value"] is None else str(row["dim_value"])): row["consignment_count"]
+                for row in call("get_consignment_summary", subsets=subsets, **params)}
+
+    def test_summary_only_returns_dimensions_of_the_authoritys_subsets(self):
+        self.summary_consignment("2026-09-01")
+        self.refresh_summary()
+        self.assertEqual({("", "total", ""): 1}, self.summary([]))
+        eu03 = self.summary(["EU03"])
+        self.assertEqual({("", "total", ""): 1, ("EU03", "loading_country", "EE"): 1, ("EU03", "unloading_country", ""): 1}, eu03)
+        everything = self.summary(["EU02", "EU03", "EU04"])
+        self.assertEqual(1, everything[("EU02", "dangerous_goods", "1")])
+        self.assertEqual(1, everything[("EU04", "transport_mode", "R")])
+        self.assertTrue(all(key[0] in ("", "EU02", "EU03", "EU04") for key in everything))
+
+    def test_summary_uses_manual_day_range_inclusively(self):
+        for day in ("2026-09-01", "2026-09-05", "2026-09-10"):
+            self.summary_consignment(day)
+        self.refresh_summary()
+        self.assertEqual(3, self.summary([])[("", "total", "")])
+        self.assertEqual(2, self.summary([], **{"from": "2026-09-05"})[("", "total", "")])
+        self.assertEqual(1, self.summary([], **{"from": "2026-09-05", "to": "2026-09-05"})[("", "total", "")])
+        self.assertEqual({}, self.summary([], **{"from": "2026-10-01"}))
+
+    def test_summary_counts_current_active_versions_only(self):
+        dataset = uuid.uuid4()
+        self.summary_consignment("2026-09-01", dataset=dataset)
+        self.summary_consignment("2026-09-02", dataset=dataset, loading="FI")
+        self.summary_consignment("2026-09-02", status="INACTIVE")
+        gone = uuid.uuid4()
+        self.summary_consignment("2026-09-01", dataset=gone)
+        self.summary_consignment("2026-09-03", dataset=gone, status="DELETED")
+        self.refresh_summary()
+        counts = self.summary(["EU03"])
+        self.assertEqual(1, counts[("", "total", "")])
+        self.assertEqual(1, counts[("EU03", "loading_country", "FI")])
+        self.assertNotIn(("EU03", "loading_country", "EE"), counts)
+
+    def test_summary_is_empty_before_first_refresh_and_bounded(self):
+        self.summary_consignment("2026-09-01")
+        self.assertEqual({}, self.summary(["EU02", "EU03", "EU04"]))
+        self.refresh_summary()
+        self.assertEqual(1, len(call("get_consignment_summary", subsets=["EU02", "EU03", "EU04"], limit=1)))
+        self.assertEqual([], call("get_consignment_summary", subsets=[], limit=-1, offset=-1))
 
     def test_all_endpoint_files_prepare_under_app_role(self):
         for path in sorted((ROOT / "DSL/Resql/efti/POST").glob("*.sql")):
@@ -326,15 +476,15 @@ class MigrationPrototype(unittest.TestCase):
         self.assertEqual(1, len(call("get_platform_by_api_key", apiKey="current-key")))
 
 
-def benchmark():
+def benchmark(rows):
     sql("TRUNCATE consignments; INSERT INTO consignments (dataset_id,platform_id,gate_id,xml,used_equipment_ids,created_at) "
-        "SELECT md5(n::text)::uuid,'mock','EU-EE','<criteria/>',ARRAY['CONTAINER-' || n::text],now() FROM generate_series(1,100000) n;")
+        "SELECT md5(n::text)::uuid,'mock','EU-EE','<criteria/>',ARRAY['CONTAINER-' || n::text],now() FROM generate_series(1," + str(rows) + ") n;")
     sql("VACUUM (ANALYZE) consignments;")
     for name in ["check_transport_means_registered", "get_consignments_by_transport_means"]:
         for baseline in [True, False]:
             source = subprocess.run(["git", "show", "origin/dev:DSL/Resql/efti/POST/" + name + ".sql"],
                                     cwd=ROOT, check=True, capture_output=True, text=True).stdout if baseline else None
-            query, signature, arguments = endpoint(name, {"transport_means_id": "CONTAINER-50000"}, source)
+            query, signature, arguments = endpoint(name, {"transport_means_id": "CONTAINER-" + str(rows // 2)}, source)
             for mode in ["force_custom_plan", "force_generic_plan"]:
                 plan = json.loads(sql("SET ROLE app; SET plan_cache_mode=" + mode + "; PREPARE q" + signature +
                                       " AS " + query + "; EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) EXECUTE q" + arguments + ";"))[0]
@@ -344,14 +494,20 @@ def benchmark():
                     for child in node.get("Plans", []):
                         visit(child)
                 visit(plan["Plan"])
-                print(json.dumps({"query": name, "baseline": baseline, "mode": mode, "rows": 100000,
+                print(json.dumps({"query": name, "baseline": baseline, "mode": mode, "rows": rows,
                                   "execution_ms": plan["Execution Time"], "shared_hit_blocks": plan["Plan"]["Shared Hit Blocks"],
                                   "nodes": nodes}), flush=True)
+    refresh = json.loads(sql("SET ROLE app; EXPLAIN (ANALYZE,FORMAT JSON) " + (ROOT / "DSL/Resql/efti/POST/refresh_consignment_counts.sql").read_text().split("*/", 1)[1].strip().rstrip(";") + ";"))[0]
+    print(json.dumps({"query": "refresh_consignment_counts", "rows": rows, "execution_ms": refresh["Execution Time"]}), flush=True)
+    query, signature, arguments = endpoint("get_consignment_counts", {})
+    plan = json.loads(sql("SET ROLE app; PREPARE q" + signature + " AS " + query + "; EXPLAIN (ANALYZE,FORMAT JSON) EXECUTE q" + arguments + ";"))[0]
+    print(json.dumps({"query": "get_consignment_counts", "rows": rows, "execution_ms": plan["Execution Time"]}), flush=True)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--performance", action="store_true", help="Also measure plans on 100,000 synthetic consignments")
+    parser.add_argument("--performance", action="store_true", help="Also measure plans on synthetic consignments (--rows, default 100,000)")
+    parser.add_argument("--rows", type=int, default=100000, help="Synthetic consignment rows for --performance")
     parser.add_argument("--init", action="store_true", help="Test the consolidated fresh-install schema instead of upgrade SQL")
     parser.add_argument("--migration-prototype", action="store_true", help="Apply proposed SQL from stdin only inside the disposable database")
     options = parser.parse_args()
@@ -382,12 +538,16 @@ def main():
                 sql((ROOT / "DSL/Liquibase/changelog" / name).read_text())
         elif prototype:
             sql(prototype)
+        if not options.init:
+            sql((ROOT / "DSL/Liquibase/changelog/20261005-read-model-generations.sql").read_text())
+            sql((ROOT / "DSL/Liquibase/changelog/20261006-read-model-registries.sql").read_text())
+            sql((ROOT / "DSL/Liquibase/changelog/20261007-read-model-consignment-summary.sql").read_text())
         suite = unittest.defaultTestLoader.loadTestsFromTestCase(Queries)
         if prototype or migration.exists():
             suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(MigrationPrototype))
         result = unittest.TextTestRunner(verbosity=2).run(suite)
         if result.wasSuccessful() and options.performance:
-            benchmark()
+            benchmark(options.rows)
         raise SystemExit(not result.wasSuccessful())
     finally:
         docker("rm", "-f", CONTAINER)

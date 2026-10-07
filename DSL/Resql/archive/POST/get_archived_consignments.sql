@@ -1,8 +1,11 @@
 /*
-description: (archive DB) read the archived (cold-storage) rows for a dataset. Used by the
-  history-read fallback — the caller merges these with the live current row(s).
+description: (archive DB) one page of the archived (cold-storage) versions of a dataset. Used by the
+  history-read fallback — the caller merges these with the live current row(s). Metadata only, the xml
+  payload is deliberately not projected.
 params:
   datasetId: { type: string, required: true }
+  limit: { type: number, default: 100 }
+  offset: { type: number, default: 0 }
 */
 SELECT
   row_id::text,
@@ -10,7 +13,6 @@ SELECT
   platform_id,
   gate_id,
   status,
-  xml,
   transport_mode,
   main_transport_id,
   main_transport_type,
@@ -20,4 +22,5 @@ SELECT
   archived_at
 FROM consignments
 WHERE dataset_id = :datasetId::uuid
-ORDER BY created_at DESC;
+ORDER BY created_at DESC, row_id DESC
+LIMIT LEAST(GREATEST(COALESCE(:limit, 100), 0), 1000) OFFSET GREATEST(COALESCE(:offset, 0), 0);

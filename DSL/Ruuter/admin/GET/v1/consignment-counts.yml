@@ -1,0 +1,65 @@
+declaration:
+  description: "Current consignment counts per gate, platform and status (admin, TARA JWT), served from the
+    ADR-012 read model — staleness-tolerant, refreshed by CronManager. Query: gateId, platformId, status
+    (ACTIVE|INACTIVE), limit, offset (all optional). No body. The response carries the generation it was read from."
+
+validate_input:
+  switch:
+    - condition: ${incoming.params.status != null && incoming.params.status != '' && incoming.params.status != 'ACTIVE' && incoming.params.status != 'INACTIVE'}
+      next: bad_request
+  next: fetch_counts
+
+bad_request:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "Query parameter status must be ACTIVE or INACTIVE."
+  wrapper: false
+  status: 400
+  next: end
+
+fetch_counts:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/get_consignment_counts"
+    headers:
+      Content-Type: "application/json"
+    body:
+      gateId: "${incoming.params.gateId}"
+      platformId: "${incoming.params.platformId}"
+      status: "${incoming.params.status}"
+      limit: "${incoming.params.limit}"
+      offset: "${incoming.params.offset}"
+  result: counts_result
+
+check_counts:
+  switch:
+    - condition: ${counts_result.response.status == 0 || counts_result.response.status >= 300}
+      next: upstream_unavailable
+
+write_audit_log:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_audit_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      userId: "${caller.id}"
+      action: "consignment-counts.list"
+      resource: "consignment-counts"
+      ipAddress: "${incoming.headers['x-forwarded-for'] ?? null}"
+      details: "${JSON.stringify({ count: counts_result.response.body.length, limit: incoming.params.limit, offset: incoming.params.offset })}"
+  result: audit_result
+
+respond:
+  return: ${counts_result.response.body}
+  wrapper: false
+  next: end
+
+upstream_unavailable:
+  return: {"error": "Data layer unavailable"}
+  status: 502
+  wrapper: false
+  next: end

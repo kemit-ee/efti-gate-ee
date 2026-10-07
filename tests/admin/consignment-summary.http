@@ -1,0 +1,122 @@
+import ./auth.http
+run #auth
+
+### Setup: authority entitled to EU03 only
+POST {{RUUTER_URL}}/admin/v1/authorities
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "id": "auth-summary-eu03",
+  "name": "Summary test EU03",
+  "registryCode": "70000771",
+  "subsets": ["EU03"],
+  "status": "ACTIVE"
+}
+
+### Setup: authority with no subsets
+POST {{RUUTER_URL}}/admin/v1/authorities
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "id": "auth-summary-none",
+  "name": "Summary test none",
+  "registryCode": "70000772",
+  "subsets": [],
+  "status": "ACTIVE"
+}
+
+### Setup: upload a dataset so there is something to count
+POST {{RUUTER_URL}}/platforms/v1/consignments
+Content-Type: text/xml
+X-Api-Key: mock-secret-key
+
+< ../../code/xml-mapper/xsd/FTI004/sample.xml
+
+### Setup: publish a read-model generation
+POST {{RUUTER_URL}}/ops/v1/refresh-read-models
+Content-Type: application/json
+Authorization: Bearer dev-archive-ops-token-change-me
+
+{}
+
+> {%
+  client.test("refresh publishes", () => {
+    client.assert(response.status === 200)
+  })
+%}
+
+### EU03 authority sees the total and EU03 dimensions only
+GET {{RUUTER_URL}}/admin/v1/consignment-summary?authorityId=auth-summary-eu03
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("summary limited to the authority's subsets", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.some(r => r.dimension === "total" && r.consignmentCount >= 1))
+    client.assert(response.body.every(r => r.subset === "" || r.subset === "EU03"))
+  })
+%}
+
+### Authority without subsets sees only the ungated total
+GET {{RUUTER_URL}}/admin/v1/consignment-summary?authorityId=auth-summary-none
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("no subsets means total only", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.length >= 1)
+    client.assert(response.body.every(r => r.dimension === "total"))
+  })
+%}
+
+### Manual range in the past excludes today's consignments
+GET {{RUUTER_URL}}/admin/v1/consignment-summary?authorityId=auth-summary-none&from=2000-01-01&to=2000-12-31
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("range with no consignments is empty", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.length === 0)
+  })
+%}
+
+### Missing authorityId -> 400
+GET {{RUUTER_URL}}/admin/v1/consignment-summary
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("authorityId required", () => {
+    client.assert(response.status === 400)
+  })
+%}
+
+### Malformed or reversed range -> 400
+GET {{RUUTER_URL}}/admin/v1/consignment-summary?authorityId=auth-summary-none&from=2026-10-05&to=2026-10-01
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("reversed range rejected", () => {
+    client.assert(response.status === 400)
+  })
+%}
+
+### Unknown authority -> 404
+GET {{RUUTER_URL}}/admin/v1/consignment-summary?authorityId=does-not-exist
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("unknown authority", () => {
+    client.assert(response.status === 404)
+  })
+%}
+
+### No token -> 401
+GET {{RUUTER_URL}}/admin/v1/consignment-summary?authorityId=auth-summary-none
+
+> {%
+  client.test("summary requires admin", () => {
+    client.assert(response.status === 401)
+  })
+%}

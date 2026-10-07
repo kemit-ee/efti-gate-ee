@@ -628,6 +628,105 @@ CREATE TRIGGER protect_authorities_append BEFORE INSERT ON authorities FOR EACH 
 -- Source: 20260925-consignments-created-index.sql
 CREATE INDEX idx_consignments_created_latest ON consignments (created_at DESC, revision DESC);
 
+-- Source: 20261005-read-model-generations.sql
+CREATE SEQUENCE read_model_generation_seq;
+
+CREATE TABLE read_model_pointer (
+  revision     BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  model        TEXT        NOT NULL,
+  generation   BIGINT      NOT NULL,
+  published_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE read_model_pointer IS 'ADR-012: the current generation of each read model is the row with the highest revision for that model. INSERT-only; a snapshot is published by inserting a row in the same statement that wrote it.';
+
+CREATE INDEX idx_read_model_pointer_model ON read_model_pointer (model, revision DESC);
+
+CREATE TABLE rm_consignment_counts (
+  generation        BIGINT             NOT NULL,
+  gate_id           CITEXT             NOT NULL,
+  platform_id       CITEXT             NOT NULL,
+  status            consignment_status NOT NULL,
+  consignment_count BIGINT             NOT NULL,
+  created_at        TIMESTAMPTZ        NOT NULL DEFAULT now(),
+  PRIMARY KEY (generation, gate_id, platform_id, status)
+);
+
+COMMENT ON TABLE rm_consignment_counts IS 'ADR-012 read model: number of current (latest-row) consignments per gate, platform and status, one full snapshot per generation. Derivative of consignments; rebuilt by POST /ops/v1/refresh-read-models.';
+
+GRANT USAGE, SELECT ON SEQUENCE read_model_generation_seq TO app;
+GRANT USAGE, SELECT ON SEQUENCE read_model_pointer_revision_seq TO app;
+GRANT SELECT, INSERT ON read_model_pointer TO app;
+GRANT SELECT, DELETE ON read_model_pointer TO db_archiver;
+GRANT SELECT, INSERT ON rm_consignment_counts TO app;
+GRANT SELECT, DELETE ON rm_consignment_counts TO db_archiver;
+
+-- Source: 20261006-read-model-registries.sql
+CREATE TABLE rm_gates (
+  generation      BIGINT      NOT NULL,
+  id              CITEXT      NOT NULL,
+  row_id          UUID        NOT NULL,
+  country_code    CHAR(2)     NOT NULL,
+  e_delivery_url  TEXT,
+  e_delivery_cert TEXT,
+  tls_cert        TEXT,
+  status          TEXT        NOT NULL,
+  last_ping_at    TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (generation, id)
+);
+
+CREATE TABLE rm_platforms (
+  generation           BIGINT      NOT NULL,
+  id                   CITEXT      NOT NULL,
+  row_id               UUID        NOT NULL,
+  base_url             TEXT,
+  headers              JSONB       NOT NULL,
+  e_delivery_cert      TEXT,
+  tls_cert             TEXT,
+  status               TEXT        NOT NULL,
+  api_key_hint         TEXT,
+  api_key_generated_at TIMESTAMPTZ,
+  has_api_key          BOOLEAN     NOT NULL,
+  created_at           TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (generation, id)
+);
+
+CREATE TABLE rm_authorities (
+  generation    BIGINT      NOT NULL,
+  id            CITEXT      NOT NULL,
+  row_id        UUID        NOT NULL,
+  name          TEXT        NOT NULL,
+  registry_code TEXT        NOT NULL,
+  subsets       TEXT[]      NOT NULL,
+  status        TEXT        NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (generation, id)
+);
+
+COMMENT ON TABLE rm_gates IS 'ADR-012 read model for GET /admin/v1/gates (list). Derivative of gates; never used for outbound routing or authorisation.';
+COMMENT ON TABLE rm_platforms IS 'ADR-012 read model for GET /admin/v1/platforms (list). Carries no api_key_hash. Derivative of platforms; never used for authentication.';
+COMMENT ON TABLE rm_authorities IS 'ADR-012 read model for GET /admin/v1/authorities (list). Derivative of authorities; never used for subset entitlement.';
+
+GRANT SELECT, INSERT ON rm_gates, rm_platforms, rm_authorities TO app;
+GRANT SELECT, DELETE ON rm_gates, rm_platforms, rm_authorities TO db_archiver;
+
+-- Source: 20261007-read-model-consignment-summary.sql
+CREATE TABLE rm_consignment_summary (
+  generation        BIGINT NOT NULL,
+  subset            TEXT   NOT NULL,
+  dimension         TEXT   NOT NULL,
+  dim_value         TEXT   NOT NULL,
+  day               DATE   NOT NULL,
+  consignment_count BIGINT NOT NULL,
+  PRIMARY KEY (generation, subset, dimension, dim_value, day)
+);
+
+COMMENT ON TABLE rm_consignment_summary IS 'ADR-012 read model: current ACTIVE consignments counted per registration day, per dimension value. subset names the eFTI subset (EU02..EU04) that entitles an authority to the dimension; the empty subset is the ungated total. Derivative of consignments; the caller''s entitlement is always read from authorities.';
+
+GRANT SELECT, INSERT ON rm_consignment_summary TO app;
+GRANT SELECT, DELETE ON rm_consignment_summary TO db_archiver;
+
 -- Source: DSL/Liquibase/changelog/20261005-async-responses.sql
 CREATE TABLE async_responses (
   row_id       UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
