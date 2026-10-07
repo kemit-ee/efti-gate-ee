@@ -58,19 +58,6 @@ write_audit_log:
       details: "${JSON.stringify({ platform_id: incoming.body.id, before: null, after: insert_result.response.body[0] })}"
   result: audit_result
 
-publish_platform_change:
-  call: http.post
-  args:
-    url: "[#PUBSUB_URL]/api/v1/publish"
-    headers:
-      Content-Type: "application/json"
-      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
-    body:
-      name: "platform-changes"
-      data:
-        event: "created"
-  result: publish_result
-
 respond:
   return: ${insert_result.response.body[0]}
   status: 201

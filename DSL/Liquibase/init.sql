@@ -492,37 +492,6 @@ CREATE INDEX idx_audit_log_recorded      ON audit_log (recorded_at DESC);
 GRANT SELECT, INSERT ON audit_log TO app;
 GRANT SELECT ON audit_log TO db_archiver;
 
--- Source: DSL/Liquibase/initial/012-async-responses.sql
--- ----------------------------------------------------------------------------
--- 4.6 async_responses
--- ----------------------------------------------------------------------------
-
-CREATE TABLE async_responses (
-  row_id       UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
-  receiver_id  CITEXT       NOT NULL,
-  request_id   TEXT         NOT NULL,
-  body         TEXT         NOT NULL,
-  consumed_at  TIMESTAMPTZ,
-  consumed_by  UUID,
-  created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
-);
-
-COMMENT ON TABLE  async_responses IS 'Multi-node coordination for incoming eDelivery AS4 async responses. Append-only on storage (consumed_at=NULL rows). Consumption is a NEW row with consumed_at populated.';
-COMMENT ON COLUMN async_responses.row_id      IS 'Synthetic primary key';
-COMMENT ON COLUMN async_responses.receiver_id IS 'Gate or platform that should receive this response';
-COMMENT ON COLUMN async_responses.request_id  IS 'Correlation ID matching the original outgoing request';
-COMMENT ON COLUMN async_responses.body        IS 'Raw response payload (XML)';
-COMMENT ON COLUMN async_responses.consumed_at IS 'When the response was consumed. NULL = pending pickup.';
-COMMENT ON COLUMN async_responses.consumed_by IS 'Gate node identity that claimed this response. NULL on storage rows.';
-COMMENT ON COLUMN async_responses.created_at  IS 'When this row was inserted';
-
-CREATE INDEX idx_async_responses_pending ON async_responses (receiver_id, request_id, created_at DESC) WHERE consumed_at IS NULL;
-CREATE INDEX idx_async_responses_created ON async_responses (created_at);
-CREATE UNIQUE INDEX idx_async_responses_claim ON async_responses (receiver_id, request_id) WHERE consumed_at IS NOT NULL;
-
-GRANT SELECT, INSERT ON async_responses TO app;
-GRANT SELECT, DELETE ON async_responses TO db_archiver;
-
 -- Source: 20260902-drop-platform-cert-fields.sql
 -- Drop cert_subject and cert_serial columns from platforms (no longer needed).
 -- The idx_platforms_cert_lookup index is dropped automatically with the columns.
@@ -658,3 +627,24 @@ CREATE TRIGGER protect_authorities_append BEFORE INSERT ON authorities FOR EACH 
 
 -- Source: 20260925-consignments-created-index.sql
 CREATE INDEX idx_consignments_created_latest ON consignments (created_at DESC, revision DESC);
+
+-- Source: DSL/Liquibase/changelog/20261005-async-responses.sql
+CREATE TABLE async_responses (
+  row_id       UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
+  request_key  TEXT         NOT NULL,
+  body         TEXT         NOT NULL,
+  claimed      BOOLEAN      NOT NULL DEFAULT FALSE,
+  created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE  async_responses IS 'Cross-node hand-off of incoming eDelivery AS4 responses. The node that receives a reply with no local waiter inserts it; the node holding the open request claims it atomically by request_key. Rows are short-lived and purged by ops/v1/purge-async-responses.';
+COMMENT ON COLUMN async_responses.request_key IS 'RequestKey.toString() of the original outgoing request (receiverId:requestId:senderId)';
+COMMENT ON COLUMN async_responses.body        IS 'Raw response payload (XML)';
+COMMENT ON COLUMN async_responses.claimed     IS 'FALSE = stored response. TRUE = claim row inserted by the waiting node; the partial unique index makes the claim atomic (exactly one claimer per request_key).';
+
+CREATE INDEX idx_async_responses_key     ON async_responses (request_key, created_at DESC);
+CREATE UNIQUE INDEX idx_async_responses_claim ON async_responses (request_key) WHERE claimed;
+CREATE INDEX idx_async_responses_created ON async_responses (created_at);
+
+GRANT SELECT, INSERT ON async_responses TO app;
+GRANT SELECT, DELETE ON async_responses TO db_archiver;

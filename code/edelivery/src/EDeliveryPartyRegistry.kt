@@ -6,14 +6,13 @@ import java.util.concurrent.CopyOnWriteArrayList
 
 class EDeliveryPartyRegistry(
   private val resqlClient: ResqlClient,
-  pubSubClient: PubSubClient,
+  refreshInterval: kotlin.time.Duration = registryRefreshInterval,
 ): PartyRegistry {
   @Volatile var parties = resqlClient.getParties()
   private val changeListeners = CopyOnWriteArrayList<(Party) -> Unit>()
 
   init {
-    pubSubClient.subscribe("gate-changes") { reload() }
-    pubSubClient.subscribe("platform-changes") { reload() }
+    refreshPeriodically("party-registry-refresh", refreshInterval) { reload() }
   }
 
   fun reload() {
