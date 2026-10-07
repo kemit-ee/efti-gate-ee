@@ -8,7 +8,7 @@ Seis kirjeldab repo `dev`-i runtime-uuendust PR #153 ja PR #155 muudatusi, ning 
 
 | Tehnoloogia / komponent | Otstarve | Versioon | Versiooni allikas | Kasutusel alates | Märkused |
 |---|---|---|---|---|---|
-| Ruuter | HTTP gateway ja YAML DSL | 0.10.1-rc | `docker/ruuter/Dockerfile`, `turnerrainer/ruuter:0.10.1-rc` | 2026-09-21 | Ka standalone X-Tee mock kasutab sama runtime'i. Lisab graceful SIGTERM shutdown'i ja multipart-piirid (mitteoluline, kuna ükski DSL route multipart-keha ei aktsepteeri) |
+| Ruuter | HTTP gateway ja YAML DSL | 0.11.0-rc | `docker/ruuter/Dockerfile`, `turnerrainer/ruuter:0.11.0-rc` | 2026-10-07 | Ka standalone X-Tee mock kasutab sama runtime'i. Lisab `parallel_http` (piiratud paralleelne fan-out), `detach` (taustatöö pärast vastust) ja `declaration.proxy` (streaming pass-through `multipart/related` proxy, AS4 jaoks); olemasolevad route'id ei muutu |
 | ReSQL | SQL endpointide HTTP executor | 0.4.3-alpha | `docker/resql/Dockerfile`, `turnerrainer/resql:0.4.3-alpha` | 2026-09-21 | Distroless UID 65532, sisemine trust-network; CLI health-probe. Puhtalt lisanduv bump (Traceparent header, graceful pool-close) |
 | TIM | Token & Identity Manager | 0.4.1-alpha | `docker/tim/Dockerfile`, `turnerrainer/tim:0.4.1-alpha` | 2026-09-21 | Ruuteri introspection-klient autentitakse eraldi saladusega. **Image on nüüd distroless** (UID 65532) — CA-usaldus ja JWT-võtme genereerimine kolisid eraldi `tim-init` konteinerisse (`docker/tim-init/`), mis kirjutab TARA-Mock'i self-signed CA `SSL_CERT_FILE` kaudu ja genereerib RSA-võtme jagatud volume'itesse enne `tim` teenuse käivitumist |
 | PostgreSQL | Gate'i andmebaas | 18 (patch määramata) | `compose.yml`, `postgres:18`, `748f99e` | 2026-08-03 | Muutuv major-tag; runtime app-rollil SELECT/INSERT |
@@ -29,7 +29,7 @@ Seis kirjeldab repo `dev`-i runtime-uuendust PR #153 ja PR #155 muudatusi, ning 
 |---|---|---|---|---|
 | Ruuter | 0.9.15-rc | 2026-09-10 | 2026-09-14 | `7d6c5d3`; asendatud runtime-PR #153 commit'is `c678bc5` |
 | Ruuter | 0.10.0-rc | 2026-09-14 | 2026-09-21 | `c678bc5`, mõlemad Ruuteri Dockerfile'id |
-| Ruuter | 0.10.1-rc | 2026-09-21 | | Patch-bump, mõlemad Ruuteri Dockerfile'id + `.github/workflows/e2e.yml` + `.gitlab-ci.yml` |
+| Ruuter | 0.11.0-rc | 2026-09-21 | | Patch-bump, mõlemad Ruuteri Dockerfile'id + `.github/workflows/e2e.yml` + `.gitlab-ci.yml` |
 | ReSQL | 0.2.0-alpha | 2026-09-07 | 2026-09-14 | `ff56a3c`; PR #153 eelne `docker/resql/Dockerfile` |
 | ReSQL | 0.4.2-alpha | 2026-09-14 | 2026-09-21 | `c678bc5` |
 | ReSQL | 0.4.3-alpha | 2026-09-21 | | Patch-bump |
