@@ -23,12 +23,11 @@ fun main() {
     register(httpClient())
     register<RuuterClient>(if (Config.isProd) RuuterClient::class else RuuterClientDev::class)
     register<PartyRegistry>(EDeliveryPartyRegistry::class)
-    register<AsyncResponseProvider>(MultiNodeAsyncResponseProvider::class)
+    register<AsyncResponseProvider>(DbAsyncResponseProvider::class)
     register<MessageHandlers>(EftiMessageHandlers::class)
 
     errors.on<TimeoutException>(StatusCode.GatewayTimeout)
 
-    metrics()
 
     context("/health") {
       get { "OK" }

@@ -12,7 +12,6 @@ import java.net.http.HttpRequest.BodyPublishers.ofByteArrays
 import java.net.http.HttpResponse
 import java.net.http.HttpTimeoutException
 import java.util.UUID.randomUUID
-import java.util.concurrent.atomic.AtomicLong
 import kotlin.text.RegexOption.DOT_MATCHES_ALL
 import kotlin.time.Duration.Companion.seconds
 
@@ -39,22 +38,14 @@ class EDeliveryClient(
     http = buildHttpClient()
     old.shutdown()
   }
-  private val messagesSent = AtomicLong().also {
-    Metrics.register("edelivery_messages_sent") { it.get() }
-  }
 
   private fun buildHttpClient() = httpClient { sslContext(keyManager.buildGatesTrustStore()) }.apply {
     try {
       val impl = javaClass.getDeclaredField("impl").apply { isAccessible = true }.get(this)
       fun <T> Any.get(field: String) = javaClass.getDeclaredField(field).apply { isAccessible = true }.get(impl) as T
 
-      Metrics.register("edelivery_client") { mapOf(
-        "pendingRequests" to impl.get<Collection<*>>("pendingRequests").size,
-        "openedConnections" to impl.get<Collection<*>>("openedConnections").size,
-        "pendingOperationCount" to impl.get<AtomicLong>("pendingOperationCount").get(),
-      ) }
     } catch (e: Exception) {
-      logger<EDeliveryClient>().warn("Could not register metrics: ${e.message}")
+      logger<EDeliveryClient>().warn("Error while building http client: ${e.message}")
     }
   }
 
@@ -105,7 +96,6 @@ class EDeliveryClient(
     val res = sendWithRetry(url, body)
 
     val resBody = res.body()
-    messagesSent.incrementAndGet()
     return if (res.statusCode() in 200..299) resBody else {
       val reason = listOfNotNull(errorDetailRegex.from(resBody)?.trim(), faultReasonRegex.from(resBody)?.trim()).joinToString(" - ")
       throw IOException("eDelivery request failed with status ${res.statusCode()}: " + (reason.takeIf { it.isNotBlank() } ?: resBody))

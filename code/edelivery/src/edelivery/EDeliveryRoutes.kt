@@ -11,7 +11,6 @@ import java.io.ByteArrayOutputStream
 import java.lang.Thread.currentThread
 import java.security.PrivateKey
 import java.security.spec.MGF1ParameterSpec
-import java.util.concurrent.atomic.AtomicLong
 import java.util.zip.GZIPInputStream
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
@@ -30,9 +29,6 @@ class EDeliveryRoutes(
   private val signatureValidator: SignatureValidator
 ) {
   private val rootTagRegex = "<\\s*(?:\\w+:)?(\\w+)".toRegex()
-  private val messagesReceived = AtomicLong().also {
-    Metrics.register("edelivery_messages_received") { it.get() }
-  }
 
   private val xmlParser = XmlParser()
   private val log = logger()
@@ -43,7 +39,6 @@ class EDeliveryRoutes(
   fun msh(e: HttpExchange) {
     val bodyBytes = e.requestStream.readBytes()
     try {
-      messagesReceived.incrementAndGet()
       val body = MultipartParser().parse(bodyBytes.inputStream())
       val xml = body.values.first() as String
       val encryptedPayload = body.values.last() as ByteArray

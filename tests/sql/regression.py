@@ -89,7 +89,7 @@ def call(endpoint_name, **params):
 
 class Queries(unittest.TestCase):
     def setUp(self):
-        sql("TRUNCATE users, gates, platforms, authorities, consignments, follow_up_log, audit_log, rm_consignment_counts, rm_consignment_summary, rm_gates, rm_platforms, rm_authorities, read_model_pointer;")
+        sql("TRUNCATE users, gates, platforms, authorities, consignments, follow_up_log, audit_log, async_responses, rm_consignment_counts, rm_consignment_summary, rm_gates, rm_platforms, rm_authorities, read_model_pointer;")
 
     def user(self, tara="old", active=True, stamp="2026-09-01", revoked=None):
         revoked_sql = "NULL" if revoked is None else "'" + revoked + "'"
@@ -395,6 +395,34 @@ class Queries(unittest.TestCase):
         self.assertIsNotNone(row["token_revoked_at"])
         self.assertEqual([], call("check_user_auth", tara_sub="new", token_issued_at="2026-09-01"))
 
+    def test_async_response_is_claimed_exactly_once(self):
+        key = "EU-PEER:30000000-0000-0000-0000-000000000001:EU-EE"
+        self.assertEqual([], call("claim_async_response", requestKey=key))
+        call("insert_async_response", requestKey=key, body="<FTI010/>")
+        self.assertEqual([{"body": "<FTI010/>"}], call("claim_async_response", requestKey=key))
+        self.assertEqual([], call("claim_async_response", requestKey=key))
+
+    def test_async_response_claims_are_per_request_key(self):
+        one, two = "EU-PEER:30000000-0000-0000-0000-000000000001:EU-EE", "EU-PEER:30000000-0000-0000-0000-000000000002:EU-EE"
+        call("insert_async_response", requestKey=one, body="one")
+        call("insert_async_response", requestKey=two, body="two")
+        self.assertEqual([{"body": "two"}], call("claim_async_response", requestKey=two))
+        self.assertEqual([{"body": "one"}], call("claim_async_response", requestKey=one))
+
+    def test_async_response_concurrent_claims_have_one_winner(self):
+        key = "EU-PEER:30000000-0000-0000-0000-000000000003:EU-EE"
+        call("insert_async_response", requestKey=key, body="<once/>")
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            results = list(pool.map(lambda _: call("claim_async_response", requestKey=key), range(8)))
+        self.assertEqual(1, sum(1 for rows in results if rows))
+
+    def test_expired_async_responses_are_purged_by_archiver_role(self):
+        sql("INSERT INTO async_responses (request_key, body, created_at) VALUES ('old', 'x', now() - interval '1 hour'), ('fresh', 'y', now());")
+        query, signature, arguments = endpoint("delete_expired_async_responses", {"keepMinutes": 10})
+        out = sql("SET ROLE db_archiver; PREPARE q" + signature + " AS " + query + "; EXECUTE q" + arguments + ";").strip()
+        self.assertEqual("1", out)
+        self.assertEqual("fresh", sql("SELECT request_key FROM async_responses;").strip())
+
     def test_disabled_platform_key_is_denied(self):
         self.platform(status="DISABLED")
         self.assertEqual([], call("get_platform_by_api_key", apiKey="old-key"))
@@ -506,6 +534,8 @@ def main():
         migration = ROOT / "DSL/Liquibase/changelog/20260914-latest-row-order.sql"
         if migration.exists() and not options.init:
             sql(migration.read_text())
+            for name in ["20260926-drop-async-responses.sql", "20261005-async-responses.sql"]:
+                sql((ROOT / "DSL/Liquibase/changelog" / name).read_text())
         elif prototype:
             sql(prototype)
         if not options.init:

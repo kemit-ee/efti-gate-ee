@@ -133,22 +133,8 @@ refresh_registry_lists:
       Content-Type: "application/json"
     body: {}
   result: refresh_registry_lists_result
-  next: publish_ping
-
-
-publish_ping:
-  call: http.post
-  args:
-    url: "[#PUBSUB_URL]/api/v1/publish"
-    headers:
-      Content-Type: "application/json"
-      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
-    body:
-      name: "gate-changes"
-      data:
-        event: "pinged"
-  result: publish_result
   next: check_ping_path
+
 
 check_ping_path:
   switch:

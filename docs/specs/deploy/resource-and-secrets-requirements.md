@@ -30,11 +30,10 @@ tootmises soovita alustada "Soovituslik prod" veerust ja mõõta reaalse koormus
 | `edelivery` (Kotlin/klite, AS4 G2G) | JAH | — | 512 MiB | 0.5 vCPU / 512 MiB | — |
 | `xml-mapper` (Kotlin/klite, XML↔JSON) | JAH | — | 512 MiB | 0.5 vCPU / 512 MiB | — |
 | `multiplexer` (Kotlin/klite, otsingu fan-out) | JAH | — | 512 MiB | 0.5 vCPU / 512 MiB | — |
-| `pubsub` (Kotlin/klite, väravate/platvormide muudatuste levitus) | JAH | — | 128 MiB | 0.25 vCPU / 128 MiB | — |
 | `liquibase` (migratsioonijooksja) | JAH, ühekordne | — | — | 0.5 vCPU / 256 MiB | Job/init-container, mitte pikaajaline teenus |
 | `tara-mock` | EI (ainult dev/test) | — | — | — | Tootmises kasutatakse päris TARA teenust (vt §4) |
 
-**Tähelepanek:** `resql`, `tim`, `tim-database`, `ui`, `xml-mapper`, `multiplexer`, `pubsub`-il
+**Tähelepanek:** `resql`, `tim`, `tim-database`, `ui`, `xml-mapper`, `multiplexer`-il
 puuduvad `compose.yml`-is CPU piirid täielikult (ainult osadel on `mem_limit`). Enne prod-i
 dimensioneerimist tuleks kas (a) käivitada `docker stats` all koormustest ja panna paika reaalsed
 piirid, või (b) alustada "Soovituslik prod" veeru väärtustest ja mõõta Kubernetese
@@ -50,7 +49,7 @@ väärtust:
 | Muutuja | Kirjeldus | Dev väärtus |
 |---|---|---|
 | `OWN_GATE_ID` | Selle värava X-Road/eFTI identifikaator | `EU-EE` |
-| `RUUTER_URL`, `RESQL_URL`, `EDELIVERY_URL`, `XML_MAPPER_URL`, `MULTIPLEXER_URL`, `PUBSUB_URL`, `TIM_URL` | Teenustevahelised URL-id (K8s-is Service DNS-nimed) | `http://<service>:<port>` |
+| `RUUTER_URL`, `RESQL_URL`, `EDELIVERY_URL`, `XML_MAPPER_URL`, `MULTIPLEXER_URL`, `TIM_URL` | Teenustevahelised URL-id (K8s-is Service DNS-nimed) | `http://<service>:<port>` |
 | `LOGGER_CLASS` | Kotlin-teenuste logimistase/formaat | määramata (vaikimisi) |
 | `VITE_USE_PROD_TARA_URL` | UI build-arg, kas UI viitab reaalsele TARA-le | `true` (image-build juba seab) |
 

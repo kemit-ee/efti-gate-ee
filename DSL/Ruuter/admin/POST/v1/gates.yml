@@ -58,19 +58,6 @@ write_audit_log:
       details: "${JSON.stringify({ gate_id: incoming.body.id, before: null, after: insert_result.response.body[0] })}"
   result: audit_result
 
-publish_gate_change:
-  call: http.post
-  args:
-    url: "[#PUBSUB_URL]/api/v1/publish"
-    headers:
-      Content-Type: "application/json"
-      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
-    body:
-      name: "gate-changes"
-      data:
-        event: "created"
-  result: publish_result
-
 # Best-effort, post-commit: the registry list read model (ADR-012) catches up right after the write; a
 # failure here never fails the write, and POST /ops/v1/refresh-read-models is the safety net.
 refresh_registry_lists:
