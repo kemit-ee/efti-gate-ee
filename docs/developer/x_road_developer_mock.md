@@ -1,4 +1,4 @@
-# X-tee arendaja-mock (`dev.efti.ee/developer/`)
+# X-tee arendaja-mock (`eftidev.kemitaws.ee/developer/`)
 
 Avalik liivakast, mis matkib eFTI värava X-tee pakkuja-liidest
 ([`x_road_authority_integration_guide.md`](x_road_authority_integration_guide.md),
@@ -15,7 +15,7 @@ lekitada päris saadetiste andmeid ega jõuda privilegeeritud teeni. Päris `/xr
 kunagi avalikult marsruuditav (ADR-006) — mock on see, mille vastu arendaja testib.
 
 ```
-Arendaja klient ──HTTP──> https://dev.efti.ee/developer/v1/{operatsioon}
+Arendaja klient ──HTTP──> https://eftidev.kemitaws.ee/developer/v1/{operatsioon}
                           (nginx → xtee-mock-teenus, konserveeritud vastus)
 ```
 
@@ -23,8 +23,7 @@ Arendaja klient ──HTTP──> https://dev.efti.ee/developer/v1/{operatsioon}
 
 | | |
 |---|---|
-| Avalik baas-URL (sihtdomeen) | `https://dev.efti.ee/developer/` |
-| Avalik baas-URL (praegune juurutus) | `https://eu-ee.pikker.dev/developer/` |
+| Avalik baas-URL | `https://eftidev.kemitaws.ee/developer/` |
 | Tervisekontroll | `GET /developer/health/ready` → `200 "OK"` (päiseid ei vaja) |
 
 
@@ -358,8 +357,8 @@ Content-Type: application/json
 
 [`eFTI-developer-mock.postman_collection.json`](eFTI-developer-mock.postman_collection.json) —
 kõik 20 päringut (6 operatsiooni õnnelikud teed + veajuhud + tervisekontroll), kaustadesse
-jaotatud, testiskriptidega. `baseUrl` muutuja vaikeväärtus on `https://eu-ee.pikker.dev`;
-vaheta `https://dev.efti.ee` või `http://localhost:8088` vastu. `X-Road-Id` kasutab
+jaotatud, testiskriptidega. `baseUrl` muutuja vaikeväärtus on `https://eftidev.kemitaws.ee`;
+lokaalseks kasutuseks vaheta see `http://localhost:8088` vastu. `X-Road-Id` kasutab
 Postmani `{{$guid}}`-i, seega iga päring saab värske UUID-i.
 
 Impordi: Postman → File → Import → vali fail. Käivita üksik päring või terve kollektsioon

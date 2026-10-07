@@ -440,15 +440,15 @@ Kõva core-katkestus (ühendus keeldub, DNS, 70 s timeout) tuleb 500-na, mitte 5
 
 Kui X-tee juurdepääsu, turvaserverit ega asutuse registreeringut veel ei ole, ehita ja testi
 oma klienti avaliku mock-teenuse vastu, mis matkib seda liidest konserveeritud vastustega.
-Sihtdomeen on `https://dev.efti.ee/developer/`, esialgu on ta üleval aadressil
-**`https://eu-ee.pikker.dev/developer/v1/{serviceCode}`**. Vt
+Mock on üleval aadressil
+**`https://eftidev.kemitaws.ee/developer/v1/{serviceCode}`**. Vt
 [`x_road_developer_mock.md`](x_road_developer_mock.md) — sisendid, vastused ja erilised
 testkoodid (nt `memberCode 70000000` alamhulga-vea jaoks).
 
 **Postmani kollektsioon:**
 [`eFTI-developer-mock.postman_collection.json`](eFTI-developer-mock.postman_collection.json) —
 kõik kuus operatsiooni + vea- ja tervisekontrolli päringud, `baseUrl` muutujaga
-(vaikimisi `https://eu-ee.pikker.dev`). Impordi Postmani (File → Import) ja jooksuta.
+(vaikimisi `https://eftidev.kemitaws.ee`). Impordi Postmani (File → Import) ja jooksuta.
 
 ## Küsimused
 
