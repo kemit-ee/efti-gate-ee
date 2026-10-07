@@ -28,7 +28,6 @@ fun main() {
 
     errors.on<TimeoutException>(StatusCode.GatewayTimeout)
 
-    metrics()
 
     context("/health") {
       get { "OK" }

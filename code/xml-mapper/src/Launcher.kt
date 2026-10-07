@@ -1,8 +1,4 @@
-import efti.DatasetRoutes
-import efti.FollowUpRoutes
-import efti.SearchRoutes
-import efti.TransportMeansRoutes
-import efti.UploadRoutes
+import efti.*
 import efti.xml.fti.DateTimeString
 import io.swagger.v3.oas.annotations.OpenAPIDefinition
 import io.swagger.v3.oas.annotations.info.Info
@@ -22,7 +18,6 @@ fun main() {
     }
 
     useOnly<JsonOrXmlBody>()
-    metrics()
 
     context("/api/v1") {
       before(InternalServiceTokenAuth())
