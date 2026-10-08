@@ -1,5 +1,6 @@
 mode: mock-http
 constants:
+  REGISTRY_URL: "{MOCK}"
   RESQL_URL: "{MOCK}"
   XML_MAPPER_URL: "{MOCK}"
 
@@ -7,9 +8,9 @@ tests:
   - name: valid platform key cannot write another platform UIL
     setup:
       mocks:
-        - url_matches: /efti/get_platform_by_api_key
-          method: POST
-          body: [{ id: "mock" }]
+        - url_matches: /platforms.json
+          method: GET
+          body: [{ id: "mock", baseUrl: "http://mock", headers: {}, eDeliveryCert: null, tlsCert: null, status: "ONLINE", apiKey: "valid-key" }]
         - url_matches: /api/v1/upload/request-to-json
           method: POST
           body: { datasetId: "20000000-0000-0000-0000-000000000001", platformId: "foreign", gateId: "EU-EE" }
@@ -25,9 +26,9 @@ tests:
   - name: valid platform key cannot write a foreign gate UIL
     setup:
       mocks:
-        - url_matches: /efti/get_platform_by_api_key
-          method: POST
-          body: [{ id: "mock" }]
+        - url_matches: /platforms.json
+          method: GET
+          body: [{ id: "mock", baseUrl: "http://mock", headers: {}, eDeliveryCert: null, tlsCert: null, status: "ONLINE", apiKey: "valid-key" }]
         - url_matches: /api/v1/upload/request-to-json
           method: POST
           body: { datasetId: "20000000-0000-0000-0000-000000000001", platformId: "mock", gateId: "EU-FI" }
@@ -42,9 +43,9 @@ tests:
   - name: XML wrapper preserves platform identity and ownership rejection
     setup:
       mocks:
-        - url_matches: /efti/get_platform_by_api_key
-          method: POST
-          body: [{ id: "mock" }]
+        - url_matches: /platforms.json
+          method: GET
+          body: [{ id: "mock", baseUrl: "http://mock", headers: {}, eDeliveryCert: null, tlsCert: null, status: "ONLINE", apiKey: "valid-key" }]
         - url_matches: /api/v1/upload/request-to-json
           method: POST
           body: { datasetId: "20000000-0000-0000-0000-000000000001", platformId: "foreign", gateId: "EU-EE" }
@@ -60,9 +61,9 @@ tests:
   - name: malformed XML is rejected without attempting database insertion
     setup:
       mocks:
-        - url_matches: /efti/get_platform_by_api_key
-          method: POST
-          body: [{ id: "mock" }]
+        - url_matches: /platforms.json
+          method: GET
+          body: [{ id: "mock", baseUrl: "http://mock", headers: {}, eDeliveryCert: null, tlsCert: null, status: "ONLINE", apiKey: "valid-key" }]
         - url_matches: /api/v1/upload/request-to-json
           method: POST
           status: 400

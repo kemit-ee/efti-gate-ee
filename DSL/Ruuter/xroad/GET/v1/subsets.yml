@@ -1,60 +1,67 @@
 declaration:
   description: "X-Road subset-permission discovery (ADR-006). Returns the eFTI subsets the calling
-    organisation is permitted to request, resolved from the X-Road-Client header via
-    authorities.registry_code to authorities.subsets. The registry code is taken from the
-    Security-Server-established header only, never from the request, so a caller can never ask
-    about another organisation's entitlement. Callers answer their own yes/no questions locally
-    from this list — a dataset request may name up to seven subsets, and one call covers all of
-    them."
+    organisation is permitted to request, resolved from the X-Road-Client memberCode via the
+    authority's `registryCode` to its `subsets` in registry/authorities/*.json (the ADR-015 registry
+    service). The registry code is taken from the Security-Server-established header only, never
+    from the request, so a caller can never ask about another organisation's entitlement. Callers
+    answer their own yes/no questions locally from this list — a dataset request may name up to
+    seven subsets, and one call covers all of them."
   # Inputs: X-Road-Client (memberCode resolves the calling organisation) and X-Road-Id are
   # validated by xroad/.guard.yml. No body, no query params. No allowlist block — an
   # allowlist.header strips every header not listed, including the ones the guard reads.
 
-# The guard has already validated the header shape, confirmed an ACTIVE authority exists, and
-# exposed it as ${authority}. This handler still re-resolves rather than reading ${authority}:
-# it discloses subset entitlements, and the authority could be soft-deleted between the guard's
-# lookup and this one. Deliberately NOT factored into an internal loopback DSL either: a route
-# under xroad/POST/internal/ would sit outside every guard and be reachable from outside,
-# letting anyone enumerate registry codes to harvest authority names and subsets. One extra
-# ReSql call is cheaper than that exposure.
+# The guard has already validated the header shape and confirmed the memberCode resolves to an
+# authority. This handler still re-resolves rather than reading ${authority}: it discloses subset
+# entitlements, so it does not depend on another DSL's context for its authorisation decision, and
+# the registry service may have been restarted (picking up an edited registry/**) between the two
+# lookups. Deliberately NOT factored into an internal loopback DSL either: a route under
+# xroad/POST/internal/ would sit outside every guard and be reachable from outside, letting anyone
+# enumerate registry codes to harvest authority names and subsets. One extra registry call is
+# cheaper than that exposure.
 resolve_authority:
-  call: http.post
+  call: http.get
   args:
-    url: "[#RESQL_URL]/efti/get_authority_by_registry_code"
+    url: "[#REGISTRY_URL]/authorities.json"
     headers:
-      Content-Type: application/json
-    body:
-      registry_code: "${incoming.headers['x-road-client'].split('/')[2]}"
+      Content-Type: "application/json"
   result: authority_res
+  next: match_authority
 
-# Defence in depth. The guard already rejected 0 rows and >1 rows, but this handler discloses
-# subset entitlements, so it re-checks rather than trusting the guard: the authority could be
-# soft-deleted between the two lookups, and a >1 row count must never resolve to body[0] because
-# that would hand one organisation another's entitlement. Deny is the fall-through branch and
-# every accept path is an explicit positive condition — a non-array ReSql body makes every
-# length comparison false, and must land on `forbidden`, not on `respond`.
+match_authority:
+  assign:
+    # `|| []` rather than a ternary: a bare `: ` inside an unquoted YAML scalar is a mapping
+    # separator, so `? :` cannot be written here. An empty array is truthy, so a real match set
+    # passes through unchanged.
+    authority_matches: ${(Array.isArray(authority_res.response.body) && authority_res.response.body.filter(a => (a.registryCode ?? '') === incoming.headers['x-road-client'].split('/')[2])) || []}
+  next: check_authority
+
+# Defence in depth. The guard already rejected an unresolvable and an ambiguous memberCode, but this
+# handler discloses subset entitlements, so it re-checks rather than trusting the guard: a match set
+# larger than one must never resolve to matches[0], because that would hand one organisation
+# another's entitlement. Deny is the fall-through branch and every accept path is an explicit
+# positive condition — a non-array body yields [] from match_authority, so it lands on `forbidden`.
 check_authority:
   switch:
-    # Transport failure reaching ReSql (issue #89, status 0) is a gate-side data-layer outage, not
-    # an authorisation answer — must not be reported to the caller as "you are not a competent
-    # authority". Kept ahead of the != 200 catch-all.
+    # A registry transport failure (status 0) is a gate-side outage, not an authorisation answer —
+    # it must not be reported to the caller as "you are not a competent authority". Kept ahead of
+    # the != 200 catch-all.
     - condition: ${authority_res.response.status == 0 || authority_res.response.status >= 300}
       next: entitlement_lookup_failed
     - condition: ${authority_res.response.status != 200}
       next: forbidden
-    - condition: ${!authority_res.response.body.length}
+    - condition: ${authority_matches.length === 0}
       next: forbidden
-    - condition: ${authority_res.response.body.length > 1}
+    - condition: ${authority_matches.length > 1}
       next: ambiguous
-    - condition: ${authority_res.response.body.length === 1}
+    - condition: ${authority_matches.length === 1}
       next: respond
   next: forbidden
 
 respond:
   return:
-    registryCode: ${authority_res.response.body[0]?.registryCode}
-    authorityId: ${authority_res.response.body[0]?.id}
-    subsets: ${authority_res.response.body[0]?.subsets}
+    registryCode: ${authority_matches[0]?.registryCode}
+    authorityId: ${authority_matches[0]?.id}
+    subsets: ${authority_matches[0]?.subsets}
   wrapper: false
   status: 200
   next: end

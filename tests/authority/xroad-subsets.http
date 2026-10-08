@@ -8,8 +8,9 @@ run #auth
 # exists. The file only READS those fixtures — asserting each one is present before exercising it —
 # and nothing here creates or deletes registry rows.
 #
-# Registry codes used here are 70000091 (the ambiguity pair), 70000095 (the deleted tombstone),
-# 70000096 (no entitlement) and 70000097 (the happy path); echo uses 70000099.
+# Registry codes used here are 70000091 (the ambiguity pair), 70000096 (no entitlement) and
+# 70000097 (the happy path); echo uses 70000099. A code no authority in the registry declares
+# resolves to nothing, which is the only "revoked" state left — there is no tombstone.
 
 ### Fixture: registry/authorities/auth-xroad-subsets.json (applied by registry-sync at startup)
 GET {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-subsets
@@ -127,40 +128,8 @@ X-Road-Id: 0a11ce5e-0006-4d1d-8f6a-0ec200000006
   })
 %}
 
-### Regression: a DELETED authority must not authenticate
-# authorities is append-only, so deleting an authority inserts a tombstone row with status='DELETED'
-# that carries the same registry_code, leaving the authority's older ACTIVE row behind.
-# get_authority_by_registry_code resolves the latest row per logical id BEFORE applying registry_code
-# and status, so the tombstone wins and the code resolves to nothing — the stale ACTIVE row is never
-# resurrected. Declaratively: the committed fixture IS the tombstone (registryCode 70000095, status
-# DELETED), so the 403 below is asserted on every run without creating or deleting anything. A
-# fixture that was still ACTIVE would authenticate here, so the GET is the regression.
-### Fixture: registry/authorities/auth-xroad-deleted.json (applied by registry-sync at startup)
-GET {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-deleted
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-> {%
-  client.test("auth-xroad-deleted fixture is present and soft-deleted", () => {
-    client.assert(response.status === 200)
-    client.assert(response.body.status === "DELETED")
-  })
-%}
-
-###
-GET {{RUUTER_URL}}/xroad/v1/subsets
-X-Road-Client: EE/GOV/70000095/tram
-X-Road-Id: 0a11ce5e-0008-4d1d-8f8a-0ec200000008
-
-> {%
-  client.test("Soft-deleted authority no longer authenticates", () => {
-    client.assert(response.status === 403)
-    client.assert(response.body.code === "FORBIDDEN")
-  })
-%}
-
-### Regression: a registry code shared by two ACTIVE authorities must be denied, not guessed
-# authorities.registry_code has no unique constraint, so a registry can carry two ACTIVE rows with the
+### Regression: a registry code shared by two authorities must be denied, not guessed
+# authorities.registry_code has no unique constraint, so a registry can carry two rows with the
 # same code. Returning either one would hand one organisation the other's subset entitlement, so both
 # the guard and the handler must reject a >1 row count. The ambiguity is a permanent registry fixture
 # pair — auth-xroad-ambig-a (EU01, EU02) and auth-xroad-ambig-b (EU03), both on 70000091 — so this case
@@ -172,10 +141,9 @@ Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
 > {%
-  client.test("auth-xroad-ambig-a fixture is present and ACTIVE", () => {
+  client.test("auth-xroad-ambig-a fixture is present", () => {
     client.assert(response.status === 200)
     client.assert(response.body.registryCode === "70000091")
-    client.assert(response.body.status === "ACTIVE")
   })
 %}
 
@@ -185,10 +153,9 @@ Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
 > {%
-  client.test("auth-xroad-ambig-b fixture is present and ACTIVE", () => {
+  client.test("auth-xroad-ambig-b fixture is present", () => {
     client.assert(response.status === 200)
     client.assert(response.body.registryCode === "70000091")
-    client.assert(response.body.status === "ACTIVE")
   })
 %}
 

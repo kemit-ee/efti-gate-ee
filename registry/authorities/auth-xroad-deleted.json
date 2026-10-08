@@ -1,9 +1,0 @@
-{
-  "id": "auth-xroad-deleted",
-  "name": "X-Road Soft-Delete Fixture",
-  "registryCode": "70000095",
-  "subsets": [
-    "EU02"
-  ],
-  "status": "DELETED"
-}

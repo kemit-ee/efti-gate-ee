@@ -1,6 +1,6 @@
 <script lang="ts">
   import SortableTable from 'src/components/SortableTable.svelte'
-  import {formatDateTime, t} from 'i18n'
+  import {t} from 'i18n'
   import Button from 'src/components/Button.svelte'
   import {type Gate, Status} from 'src/api/ruuterTypes'
 
@@ -14,7 +14,7 @@
     <td>{g.countryCode}</td>
     <td><a href={g.eDeliveryUrl} target="_blank">{g.eDeliveryUrl}</a></td>
     <td>
-      <div title={t.general.lastPingedAt + formatDateTime(g.lastPingAt)} class="flex items-center gap-2">
+      <div class="flex items-center gap-2">
         <div class="h-4 w-4 rounded-full {g.status === Status.ONLINE ? 'bg-success-500' : g.status === Status.DISABLED ? 'bg-warning-500' :  'bg-danger-500'}" ></div>
         <span>{t.statuses[g.status]}</span>
       </div>

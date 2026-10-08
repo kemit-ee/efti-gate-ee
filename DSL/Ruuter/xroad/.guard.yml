@@ -8,9 +8,10 @@
 # Identity model: this project is the PROVIDER-side X-Road adapter, called by our own Security
 # Server (turvaserver). The Security Server establishes the caller ORGANISATION by mTLS and
 # forwards it as X-Road-Client = instance/memberClass/memberCode[/subsystemCode]. The memberCode
-# is the Estonian Business Registry code, which resolves to authorities.registry_code, and
-# authorities.subsets is the authorisation source. X-Road-UserId is caller-asserted and NOT
-# authenticated by X-Road, so it never grants access.
+# is the Estonian Business Registry code, which resolves to `registryCode` on an authority in
+# registry/authorities/*.json (served by the ADR-015 registry service), and the authority's
+# `subsets` is the authorisation source. X-Road-UserId is caller-asserted and NOT authenticated by
+# X-Road, so it never grants access.
 #
 # !! X-Road-Client is an ORDINARY HEADER that this guard trusts unconditionally, because the
 # !! Security Server already authenticated the caller. The whole model therefore depends on
@@ -88,40 +89,48 @@ validate_id_format:
   next: guard_invalid_id
 
 resolve_authority:
-  call: http.post
+  call: http.get
   args:
-    url: "[#RESQL_URL]/efti/get_authority_by_registry_code"
+    url: "[#REGISTRY_URL]/authorities.json"
     headers:
-      Content-Type: application/json
+      Content-Type: "application/json"
       x-request-id: ${incoming.headers['x-request-id'] ?? null}
-    body:
-      registry_code: "${xroad_parts[2]}"
   result: authority_res
+  next: match_authority
+
+# The memberCode is matched against the registry's registryCode. There is no status to filter on any
+# more (ADR-015 dropped authorities.status): an authority is active because its file exists under
+# registry/authorities/, and revoking one means deleting that file.
+match_authority:
+  assign:
+    authority_matches: ${(Array.isArray(authority_res.response.body) && authority_res.response.body.filter(a => (a.registryCode ?? '') === xroad_parts[2])) || []}
+  next: check_authority
 
 # DENY IS THE FALL-THROUGH BRANCH, and every accept path is an explicit positive condition.
-# This ordering is load-bearing. If ReSql returns a non-array body (a 500 error object, a
-# param-validation failure), then `body.length` is undefined and every comparison against it is
-# false — so the request must land on guard_forbidden, not on guard_success. Writing this as a
-# single negative condition with guard_success as the fall-through fails OPEN on exactly that
-# input. Non-2xx internal responses do not raise; they populate response.status/body, which is why
-# the status check comes first.
+# This ordering is load-bearing. If the registry returns a non-array body (an error object, a
+# truncated response), then `length` is undefined and every comparison against it is false — so the
+# request must land on guard_forbidden, not on guard_success. Writing this as a single negative
+# condition with guard_success as the fall-through fails OPEN on exactly that input. Non-2xx
+# responses do not raise; they populate response.status/body, which is why the status check comes
+# first. `authority_matches` is [] for a non-array body (see match_authority), so the length checks
+# below are safe either way.
 check_authority:
   switch:
-    # A ReSql transport failure (issue #89) surfaces as status 0, already covered by `!= 200` — the
-    # guard fails closed (403). Called out explicitly so the availability-failure path is auditable.
+    # A registry transport failure surfaces as status 0, already covered by `!= 200` — the guard
+    # fails closed (403). Called out explicitly so the availability-failure path is auditable.
     - condition: ${authority_res.response.status == 0 || authority_res.response.status != 200}
       next: guard_forbidden
-    - condition: ${!Array.isArray(authority_res.response.body) || authority_res.response.body.length === 0}
+    - condition: ${authority_matches.length === 0}
       next: guard_forbidden
-    - condition: ${authority_res.response.body.length > 1}
+    - condition: ${authority_matches.length > 1}
       next: guard_ambiguous
-    - condition: ${authority_res.response.body.length === 1 && typeof authority_res.response.body[0]?.id === 'string' && authority_res.response.body[0].id != ''}
+    - condition: ${typeof authority_matches[0]?.id === 'string' && authority_matches[0].id != ''}
       next: bind_authority
   next: guard_forbidden
 
 bind_authority:
   assign:
-    authority: ${authority_res.response.body[0]}
+    authority: ${authority_matches[0]}
 
 guard_success:
   return: "success"
@@ -175,11 +184,12 @@ guard_forbidden:
   wrapper: false
   next: end
 
-# Registry misconfiguration: authorities.registry_code has no unique constraint and the admin
-# create route does not check for duplicates, so two ACTIVE authorities can share a code. Denying
-# is the only safe answer — picking either row would hand one organisation the other's subset
-# entitlement. Mirrors guard_multi / FORBIDDEN_MULTI_PLATFORM in the platform guard; a dedicated
-# FORBIDDEN_MULTI_AUTHORITY catalog code is proposed in ADR-006's open questions.
+# Registry misconfiguration: `registryCode` is not unique across registry/authorities/*.json, so
+# two authority files can declare the same code. Denying is the only safe answer — picking either
+# one would hand one organisation the other's subset entitlement. Mirrors guard_multi /
+# FORBIDDEN_MULTI_PLATFORM in the platform guard; a dedicated FORBIDDEN_MULTI_AUTHORITY catalog code
+# is proposed in ADR-006's open questions. With the registry in git this is visible in review
+# rather than appearing as a race between two API calls.
 guard_ambiguous:
   return:
     type: "https://api.efti.ee/errors/forbidden"

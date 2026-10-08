@@ -13,7 +13,6 @@ Authorization: Bearer {{adminToken}}
     const ids = response.body.map(p => p.id)
     client.assert(ids.includes("mock"))
     client.assert(ids.includes("mock-edelivery"))
-    client.assert(response.body.every(p => p.status !== "DELETED"))
   })
 %}
 
@@ -32,23 +31,20 @@ Authorization: Bearer {{adminToken}}
   })
 %}
 
-### The platform credential is a hint, never the hash (ADR-004 / ADR-014)
+### The platform credential never leaves the admin read surface (ADR-015)
 GET {{RUUTER_URL}}/admin/v1/platforms/mock
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
 > {%
-  client.test("API key hint exposed, hash hidden", () => {
+  client.test("API key stripped, hasApiKey derived", () => {
     client.assert(response.status === 200)
     client.assert(response.body.hasApiKey === true)
-    client.assert(response.body.apiKeyHint === "ae2f98d4")
-    client.assert(response.body.apiKeyHint.length === 8)
-    client.assert(response.body.apiKeyHash === undefined)
     client.assert(response.body.apiKey === undefined)
   })
 %}
 
-### A platform without apiKeyHash has no inbound credential
+### A platform that declares no apiKey has no inbound credential
 GET {{RUUTER_URL}}/admin/v1/platforms/mock-edelivery
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
@@ -60,7 +56,7 @@ Authorization: Bearer {{adminToken}}
     client.assert(response.body.baseUrl === "http://edelivery:8081/services/msh")
     client.assert(response.body.status === "ONLINE")
     client.assert(response.body.hasApiKey === false)
-    client.assert(response.body.apiKeyHint === null || response.body.apiKeyHint === undefined)
+    client.assert(response.body.apiKey === undefined)
   })
 %}
 

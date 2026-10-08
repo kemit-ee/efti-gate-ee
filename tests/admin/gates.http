@@ -13,7 +13,6 @@ Authorization: Bearer {{adminToken}}
     const ids = response.body.map(g => g.id)
     client.assert(ids.includes("EU-EE"))
     client.assert(ids.includes("EU-MOCK"))
-    client.assert(response.body.every(g => g.status !== "DELETED"))
   })
 %}
 
@@ -29,7 +28,6 @@ Authorization: Bearer {{adminToken}}
     client.assert(response.body.countryCode === "EE")
     client.assert(response.body.status === "ONLINE")
     client.assert(response.body.eDeliveryUrl === "http://edelivery:8081/services/msh")
-    client.assert(response.body.lastPingAt === null || response.body.lastPingAt === undefined)
   })
 %}
 

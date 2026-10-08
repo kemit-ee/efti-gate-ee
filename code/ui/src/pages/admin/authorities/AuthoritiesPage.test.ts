@@ -2,12 +2,12 @@ import {fireEvent, render, screen, waitFor} from '@testing-library/svelte'
 import AuthoritiesPage from './AuthoritiesPage.svelte'
 import api from 'src/api/api'
 import type {Authority} from 'src/api/ruuterTypes'
-import {Status, SubsetCode} from 'src/api/ruuterTypes'
+import {SubsetCode} from 'src/api/ruuterTypes'
 
 vi.mock('src/api/api', () => ({default: {get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn()}}))
 
 function newAuthority(): Authority {
-  return {id: 'PRIA', name: 'Agriculture Registry', registryCode: '70006440', subsets: [SubsetCode.EU01], status: Status.ONLINE, createdAt: '2026-01-01T00:00:00Z'}
+  return {id: 'PRIA', name: 'Agriculture Registry', registryCode: '70006440', subsets: [SubsetCode.EU01]}
 }
 
 describe('AuthoritiesPage', () => {
@@ -29,6 +29,16 @@ describe('AuthoritiesPage', () => {
     await screen.findByText('PRIA')
     screen.getByText('Authorities (1)')
     screen.getByText('EU01')
+  })
+
+  it('shows no status, an authority either exists in the registry or does not', async () => {
+    render(AuthoritiesPage)
+    await screen.findByText('PRIA')
+
+    expect(screen.queryByText('Status')).to.equal(null)
+    expect(screen.queryByText('ONLINE')).to.equal(null)
+    expect(screen.queryByText('ACTIVE')).to.equal(null)
+    expect(screen.queryByText('DELETED')).to.equal(null)
   })
 
   it('does not offer adding an authority, the registry is declarative', async () => {
@@ -57,6 +67,7 @@ describe('AuthoritiesPage', () => {
     expect((screen.getByLabelText('Authority name') as HTMLInputElement).disabled).to.equal(true)
     expect((screen.getByLabelText('Registry code') as HTMLInputElement).disabled).to.equal(true)
     expect(subsetInput.disabled).to.equal(true)
+    expect(screen.queryByText('Status')).to.equal(null)
     expect(screen.queryByRole('button', {name: '+'})).to.equal(null)
     expect(screen.queryAllByRole('button', {name: '×'}).length).to.equal(0)
     expect(screen.queryByRole('button', {name: 'Save'})).to.equal(null)

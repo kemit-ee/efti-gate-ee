@@ -1,5 +1,7 @@
 # ADR-014: Registrid git-kataloogist `registry/` — deklaratiivne sync ReSQL-i kaudu
 
+**ASENDATUD (08.10.2026, Anton Keks) — vt [ADR-015](015-registry-as-file-server.md).** See ADR jääb ajalukku: registri allikas (`registry/**`) ja admin-kirjutusradade eemaldamine kehtivad endiselt, aga andmebaasi vahekiht (registritabelid, `sync_*`, read-modelid) kustutati ja register on nüüd failiserver. Loe punkte 2–4 ja 8 koos ADR-015-ga.
+
 **Otsus (08.10.2026, Anton Keks):** [ADR-011](011-registries-as-signed-config.md) rakendatakse
 **lihtsustatud kujul**: register elab repos kataloogis `registry/` **JSON-failidena** (üks fail iga
 gate'i, platvormi ja asutuse kohta, failinimi = `id`), allkirjastatud manifesti ja eraldi

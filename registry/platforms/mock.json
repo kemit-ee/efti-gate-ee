@@ -7,5 +7,5 @@
   "eDeliveryCert": null,
   "tlsCert": null,
   "status": "ONLINE",
-  "apiKeyHash": "ae2f98d4ec4a4a9763cf1641979fdb5c925223ed05d1ab863bbf18100213ad25"
+  "apiKey": "mock-secret-key"
 }

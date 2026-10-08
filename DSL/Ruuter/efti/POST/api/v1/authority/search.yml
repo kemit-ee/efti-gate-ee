@@ -167,30 +167,28 @@ criteria_to_xml:
     body: ${incoming.body}
   result: criteria_xml
 
-# The peer registry is the gate table itself: every ONLINE gate except this one. Fetched fresh per
-# search (the retired multiplexer cached it for 60s). limit is raised from ReSql's default 20 so a
-# large registry is not silently truncated.
+# The peer registry is registry/gates/*.json, served by the ADR-015 registry service: this gate's
+# peers are the ONLINE gates other than this one. Fetched fresh per search (the retired multiplexer
+# cached it for 60s).
 get_peer_gates:
-  call: http.post
+  call: http.get
   args:
-    url: "[#RESQL_URL]/efti/get_gates"
+    url: "[#REGISTRY_URL]/gates.json"
     headers:
       Content-Type: "application/json"
-    body:
-      status: "ONLINE"
-      limit: 1000
   result: gates_result
   next: check_gates
 
 check_gates:
   switch:
-    - condition: ${gates_result.response.status != 200}
+    # A non-array body (an error object, a truncated response) must not silently become "no peers".
+    - condition: ${gates_result.response.status != 200 || !Array.isArray(gates_result.response.body)}
       next: broadcast_unavailable
   next: assign_peers
 
 assign_peers:
   assign:
-    peer_gates: "${gates_result.response.body.filter(g => g.id !== '[#OWN_GATE_ID]')}"
+    peer_gates: "${gates_result.response.body.filter(g => g.status === 'ONLINE' && g.id !== '[#OWN_GATE_ID]')}"
   next: register_pending
 
 register_pending:

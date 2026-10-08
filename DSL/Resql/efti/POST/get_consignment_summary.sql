@@ -1,8 +1,8 @@
 /*
 description: ADR-012 read model - consignment counts for an authority, summed over a manual day range, from the
   latest published generation. Only the ungated total and the dimensions whose eFTI subset is in subsets are
-  returned; the caller passes the authority's subsets read from the source authorities table (this read model is
-  never the entitlement source). Staleness-tolerant reporting.
+  returned; the caller passes the authority's subsets from its registry entry (this read model is never the
+  entitlement source). Staleness-tolerant reporting.
 params:
   subsets: { type: array, items: { type: string } }
   from: { type: string }

@@ -1,13 +1,18 @@
-# Platform API-key guard (ADR-004) — one project-level guard (Ruuter #39) for the whole
-# platforms surface — covers consignments.yml (direct platform upload) and consignments-xml.yml
-# (eDelivery-delivered upload). The X-Api-Key header must be present and its SHA-256 must match
-# api_key_hash on an active platform. The key itself is never stored — it is generated via
-# POST /admin/v1/platforms/api-key/:id and shown once.
+# Platform API-key guard (ADR-004, amended by ADR-015) — one project-level guard (Ruuter #39) for the
+# whole platforms surface — covers consignments.yml (direct platform upload) and consignments-xml.yml
+# (eDelivery-delivered upload). The X-Api-Key header must be present and must equal the apiKey
+# declared for an ONLINE platform in registry/platforms/<id>.json, served by the registry service.
+#
+# The credential is compared in plaintext inside the DSL because Ruuter's expression engine has no
+# hash function at all (no crypto / crypto.subtle / TextEncoder — verified against the running
+# engine). ADR-004's "store only the SHA-256" rule was therefore dropped in ADR-015: the registry is
+# a secret store and must never be reachable outside the Compose network.
 
 declaration:
-  description: "platforms/ guard (ADR-004). Credential: X-Api-Key (required); its SHA-256 must
-    match platforms.api_key_hash on an ONLINE/OFFLINE (not DISABLED/DELETED) platform. Also accepts X-Internal-Service-Token for
-    the G2G consignments-xml route together with X-Platform-Id supplied by eDelivery."
+  description: "platforms/ guard (ADR-004/ADR-015). Credential: X-Api-Key (required); it must equal
+    the apiKey of an ONLINE platform in registry/platforms/*.json — DISABLED does not authenticate.
+    Also accepts X-Internal-Service-Token for the G2G consignments-xml route together with
+    X-Platform-Id supplied by eDelivery."
 
 check_present:
   switch:
@@ -16,35 +21,45 @@ check_present:
     - condition: ${!incoming.headers['x-api-key']}
       next: guard_fail
 
-resolve_platform:
-  call: http.post
+resolve_platforms:
+  call: http.get
   args:
-    url: "[#RESQL_URL]/efti/get_platform_by_api_key"
+    url: "[#REGISTRY_URL]/platforms.json"
     headers:
-      Content-Type: application/json
-    body:
-      apiKey: ${incoming.headers['x-api-key']}
-  result: platform_res
+      Content-Type: "application/json"
+  result: platforms_res
 
 # DENY IS THE FALL-THROUGH BRANCH and every accept path is an explicit positive condition — same
-# posture as the X-Road guard. A non-array ReSql body (a 500 error object, a param-validation
-# failure) makes every length comparison false, so it must land on guard_fail, not guard_success.
+# posture as the X-Road guard. A non-array body (an error object, a truncated response) makes every
+# length comparison false, so it must land on guard_fail, not guard_success.
+check_platforms:
+  switch:
+    # A registry transport failure surfaces as status 0, already covered by `!= 200` here — the guard
+    # fails closed (401), the correct posture for a credential check. Called out explicitly so the
+    # availability-failure path is auditable.
+    - condition: ${platforms_res.response.status != 200 || !Array.isArray(platforms_res.response.body)}
+      next: guard_fail
+  next: match_platform
+
+# Only ONLINE platforms authenticate (DISABLED is a full stop), and a null apiKey can never equal the
+# header, so a platform with no configured credential is unreachable by construction.
+match_platform:
+  assign:
+    platform_matches: ${platforms_res.response.body.filter(p => p.apiKey != null && p.apiKey === incoming.headers['x-api-key'] && p.status === 'ONLINE')}
+
 check_platform:
   switch:
-    # A ReSql transport failure (issue #89) surfaces as status 0, already covered by `!= 200` here —
-    # the guard fails closed (401), which is the correct posture for a credential check. Called out
-    # explicitly so the availability-failure path is auditable.
-    - condition: ${platform_res.response.status != 200 || !Array.isArray(platform_res.response.body) || platform_res.response.body.length === 0}
-      next: guard_fail
-    - condition: ${platform_res.response.body.length > 1}
+    - condition: ${platform_matches.length > 1}
       next: guard_multi
-    - condition: ${platform_res.response.body.length === 1 && typeof platform_res.response.body[0]?.id === 'string' && platform_res.response.body[0].id != ''}
+    - condition: ${platform_matches.length === 1 && typeof platform_matches[0]?.id === 'string' && platform_matches[0].id != ''}
       next: guard_success
   next: guard_fail
 
 guard_success:
   assign:
-    platform: ${platform_res.response.body[0]}
+    # apiKey is stripped before the platform is exposed: ${platform} flows through the shared
+    # execution context into the handler, and the credential must not travel past this guard.
+    platform: ${Object.fromEntries(Object.entries(platform_matches[0]).filter(([key]) => key !== 'apiKey'))}
   next: return
 
 check_internal_platform:

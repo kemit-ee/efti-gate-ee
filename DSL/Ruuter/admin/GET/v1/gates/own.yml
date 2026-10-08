@@ -1,25 +1,27 @@
 declaration:
-  description: "Get this gate's own record, resolved from OWN_GATE_ID (admin, TARA JWT). No inputs."
+  description: "Get this gate's own record, resolved from OWN_GATE_ID (admin, TARA JWT). No inputs.
+    Data comes from the ADR-015 `registry` service (the git folder registry/gates/*.json), not
+    from a ReSql read model."
 
 fetch_own_gate:
-  call: http.post
+  call: http.get
   args:
-    url: "[#RESQL_URL]/efti/get_gate_by_id"
-    headers:
-      Content-Type: "application/json"
-    body:
-      id: "[#OWN_GATE_ID]"
+    url: "[#REGISTRY_URL]/gates/[#OWN_GATE_ID].json"
   result: result
+  next: check_found
 
 check_found:
   switch:
-    - condition: ${result.response.status == 0 || result.response.status >= 300}
+    - condition: ${result.response.status == 0}
       next: upstream_unavailable
-    - condition: ${!result.response.body.length}
+    - condition: ${result.response.status == 404}
       next: not_found
+    - condition: ${result.response.status != 200 || !result.response.body || result.response.body.id == null}
+      next: upstream_unavailable
+  next: respond
 
 respond:
-  return: ${result.response.body[0]}
+  return: ${result.response.body}
   wrapper: false
   next: end
 

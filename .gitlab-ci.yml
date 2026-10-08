@@ -1,6 +1,6 @@
 # eFTI Gate (EE) source pipeline — standard-service-delivery@8.0.1.
 # Ten images (liquibase is build-only; resql bakes the same RELEASE_VERSION into
-# databaseMigration; registry-sync is the one-shot ADR-014 registry loader). Wrapper
+# databaseMigration; registry is the ADR-015 registry file server). Wrapper
 # charts live in services/efti/devops.
 #
 # Required subgroup variables: SERVICECODE, GITOPS_TOKEN, DTRACK_API_KEY.
@@ -66,9 +66,9 @@ include:
         - name: xml-mapper
           image_repository: xml-mapper/images
           dockerfile: docker/xml-mapper/Dockerfile
-        - name: registry-sync
-          image_repository: registry-sync/images
-          dockerfile: docker/registry-sync/Dockerfile
+        - name: registry
+          image_repository: registry/images
+          dockerfile: docker/registry/Dockerfile
       components:
         - name: efti-config
         - name: resql
@@ -78,7 +78,7 @@ include:
         - name: ui
         - name: edelivery
         - name: xml-mapper
-        - name: registry-sync
+        - name: registry
       deploy:
         - environment: dev
           mode: auto

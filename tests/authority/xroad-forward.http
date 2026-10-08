@@ -4,8 +4,8 @@ run #auth
 # X-Road → core forwarding + subset enforcement (ADR-006).
 #
 # Registry code 70000094 is distinct from the codes used by xroad-echo.http (70000099) and
-# xroad-subsets.http (70000095-97): get_authority_by_registry_code denies a code matching more than
-# one ACTIVE authority, so a collision would fail loudly rather than silently pick a row.
+# xroad-subsets.http (70000091, 70000096-97): the guard denies a code that more than one authority in
+# registry/authorities/*.json declares, so a collision would fail loudly rather than silently pick a row.
 
 ### Fixture: registry/authorities/auth-xroad-fwd.json (applied by registry-sync at startup)
 GET {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-fwd

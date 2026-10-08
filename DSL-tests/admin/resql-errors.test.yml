@@ -1,22 +1,40 @@
+# GET /admin/v1/platforms/:id now reads the ADR-015 registry service: only a 200 carrying a platform
+# with an id is a platform. An empty/unusable body and an unreachable registry are both outages —
+# never a missing platform.
 mode: mock-http
 constants:
   RUUTER_URL: "{MOCK}"
+  REGISTRY_URL: "{MOCK}"
   RESQL_URL: "{MOCK}"
 
 tests:
-  - name: database error with empty array is unavailable, not missing platform
+  - name: a registry response without an id is unavailable, not a missing platform
     setup:
       mocks:
         - url_matches: /efti/internal/check-admin-authority
           method: POST
           body: { id: "EE60001019906" }
-        - url_matches: /efti/get_platform_by_id
+        - url_matches: /platforms/mock.json
+          method: GET
+          status: 200
+          body: {}
+    request:
+      method: GET
+      path: /admin/v1/platforms/mock
+      headers: { authorization: "Bearer test" }
+    expect:
+      status: 502
+      body: { error: "Data layer unavailable" }
+
+  # mock-http cannot synthesize a transport failure — a `status: 0` mock is served as 200 — so the
+  # registry read is simply left unmocked, which is the closest this mode gets to an unreachable
+  # registry. The route must answer 502, not the 404 of an unknown platform.
+  - name: an unreachable registry is unavailable, not a missing platform
+    setup:
+      mocks:
+        - url_matches: /efti/internal/check-admin-authority
           method: POST
-          status: 500
-          body: []
-          headers:
-            X-Resql-Error-Code: ResqlRuntimeException
-            X-Resql-Error-Message: database unavailable
+          body: { id: "EE60001019906" }
     request:
       method: GET
       path: /admin/v1/platforms/mock

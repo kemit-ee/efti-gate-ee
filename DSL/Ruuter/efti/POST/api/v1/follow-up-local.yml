@@ -52,31 +52,30 @@ check_insert:
       next: insert_failed
 
 get_platform:
-  call: http.post
+  call: http.get
   args:
-    url: "[#RESQL_URL]/efti/get_platform_by_id"
+    url: "[#REGISTRY_URL]/platforms/${encodeURIComponent(incoming.body.uil.platformId ?? '')}.json"
     headers:
       Content-Type: "application/json"
-    body:
-      id: "${incoming.body.uil.platformId}"
   result: platform_result
 
 check_platform:
   switch:
-    # A ReSql transport failure (issue #89, status 0) yields a non-array stub body, so the
-    # !body.length test below would misreport a data-layer outage as "platform not found" (404).
+    # A registry transport failure is a gate-side outage, so the not-found test below would
+    # otherwise misreport it as "platform not found" (404). The registry answers 404 for an id it
+    # does not serve.
     - condition: ${platform_result.response.status == 0 || platform_result.response.status >= 300}
       next: platform_lookup_failed
-    - condition: ${!platform_result.response.body.length}
+    - condition: ${!platform_result.response.body || platform_result.response.body.id == null}
       next: platform_not_found
-    - condition: ${!!platform_result.response.body[0]?.eDeliveryCert}
+    - condition: ${!!platform_result.response.body.eDeliveryCert}
       next: request_to_xml
 
 forward_to_rest_platform:
   call: http.post
   args:
-    url: "${platform_result.response.body[0]?.baseUrl}/v1/dataset/${encodeURIComponent(incoming.body.uil.datasetId ?? '')}/follow-up"
-    headers: "${Object.assign(platform_result.response.body[0]?.headers ?? {}, {'Content-Type': 'application/json', 'X-Dataset-Request-ID': incoming.body.referenceIds[0], 'x-request-id': requestId})}"
+    url: "${platform_result.response.body.baseUrl}/v1/dataset/${encodeURIComponent(incoming.body.uil.datasetId ?? '')}/follow-up"
+    headers: "${Object.assign(platform_result.response.body.headers ?? {}, {'Content-Type': 'application/json', 'X-Dataset-Request-ID': incoming.body.referenceIds[0], 'x-request-id': requestId})}"
     body: ${incoming.body}
   result: platform_response
   next: respond
@@ -96,7 +95,7 @@ forward_to_edelivery_platform:
   call: http.post
   timeout: 65000
   args:
-    url: "[#EDELIVERY_URL]/api/v1/send/${platform_result.response.body[0].id}"
+    url: "[#EDELIVERY_URL]/api/v1/send/${platform_result.response.body.id}"
     headers:
       content-type: "text/xml"
       x-request-id: ${requestId}

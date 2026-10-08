@@ -1,13 +1,14 @@
 mode: mock-http
 constants:
+  REGISTRY_URL: "{MOCK}"
   RESQL_URL: "{MOCK}"
 
 tests:
   - name: object imitating a one-element array cannot authenticate an authority
     setup:
       mocks:
-        - url_matches: /efti/get_authority_by_registry_code
-          method: POST
+        - url_matches: /authorities.json
+          method: GET
           body: { length: 1, "0": { id: "authority" } }
     request:
       method: POST
@@ -21,9 +22,9 @@ tests:
   - name: uppercase hexadecimal UUID is accepted by the real guard
     setup:
       mocks:
-        - url_matches: /efti/get_authority_by_registry_code
-          method: POST
-          body: [{ id: "authority", registryCode: "70000094", name: "Test authority" }]
+        - url_matches: /authorities.json
+          method: GET
+          body: [{ id: "authority", name: "Test authority", registryCode: "70000094", subsets: ["EU01"] }]
     request:
       method: POST
       path: /xroad/v1/echo

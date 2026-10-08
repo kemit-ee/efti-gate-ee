@@ -90,24 +90,27 @@ services:
       liquibase:
         condition: service_completed_successfully
 
-  # One-shot ADR-014 loader: applies the git registry folder (registry/**) to the database through
-  # ReSql on every startup, refreshes the admin read models and then verifies the result. Fail-closed
-  # — `ruuter` and `edelivery` wait for it, so a malformed registry file stops the stack from
-  # starting instead of booting half of it.
-  registry-sync:
-    container_name: efti_registry_sync
+  # ADR-015 registry service: serves the git registry folder (registry/**) as JSON over HTTP.
+  # Content is loaded and validated once at startup, so a broken file stops the stack from starting.
+  # INTERNAL ONLY — platform entries carry their live `apiKey` in plaintext, so this port must never
+  # be published or proxied (the same posture as resql, which also has no public port here).
+  registry:
+    container_name: efti_registry
     build:
       context: .
-      dockerfile: docker/registry-sync/Dockerfile
+      dockerfile: docker/registry/Dockerfile
     environment:
-      - RESQL_URL=http://resql:8090
       - REGISTRY_DIR=/registry
+      - REGISTRY_PORT=8080
     volumes:
       - ./registry:/registry:ro
-    depends_on:
-      resql:
-        condition: service_healthy
-    restart: "no"
+    # The distroless-style probe: python3 is the only binary guaranteed in the image.
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2).read()"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
 
   ruuter:
     container_name: efti_ruuter
@@ -119,8 +122,8 @@ services:
     depends_on:
       resql:
         condition: service_healthy
-      registry-sync:
-        condition: service_completed_successfully
+      registry:
+        condition: service_healthy
     mem_limit: 512M
     volumes:
       - ./constants.ini:/app/constants.ini:ro
@@ -165,6 +168,7 @@ services:
     environment:
       - OWN_GATE_ID
       - RESQL_URL=http://resql:8090
+      - REGISTRY_URL=http://registry:8080
       - RUUTER_URL=http://ruuter:8086
       - INTERNAL_SERVICE_TOKEN
       - LOGGER_CLASS
@@ -181,8 +185,8 @@ services:
     depends_on:
       resql:
         condition: service_healthy
-      registry-sync:
-        condition: service_completed_successfully
+      registry:
+        condition: service_healthy
     mem_limit: 512M
 
   xml-mapper:

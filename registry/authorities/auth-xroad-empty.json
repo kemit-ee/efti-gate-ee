@@ -2,6 +2,5 @@
   "id": "auth-xroad-empty",
   "name": "X-Road Empty Subsets Authority",
   "registryCode": "70000096",
-  "subsets": [],
-  "status": "ACTIVE"
+  "subsets": []
 }

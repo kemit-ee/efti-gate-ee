@@ -18,22 +18,11 @@ export type Subset = string
 
 export interface Gate {
   id: string
-  rowId: string
   countryCode: CountryCode
   eDeliveryUrl: string
   eDeliveryCert?: string
   tlsCert?: string
   status: Status
-  lastPingAt?: string
-  createdAt: string
-}
-export interface GateRequest {
-  id: string
-  countryCode: string
-  eDeliveryUrl: string
-  eDeliveryCert?: string
-  tlsCert?: string
-  status?: Status
 }
 
 export interface Platform {
@@ -43,26 +32,7 @@ export interface Platform {
   eDeliveryCert?: string
   tlsCert?: string
   status: Status
-  apiKeyHint?: string
-  apiKeyGeneratedAt?: string
   hasApiKey?: boolean
-  createdAt: string
-}
-
-export interface PlatformApiKey {
-  id: string
-  apiKey: string
-  apiKeyHint: string
-  apiKeyGeneratedAt: string
-}
-
-export interface PlatformRequest {
-  id: string
-  baseUrl: string
-  headers?: Record<string, string>
-  eDeliveryCert?: string
-  tlsCert?: string
-  status?: Status
 }
 
 export interface Authority {
@@ -70,16 +40,6 @@ export interface Authority {
   name: string
   registryCode: string
   subsets: SubsetCode[]
-  status: Status
-  createdAt: string
-}
-
-export interface AuthorityRequest {
-  id: string
-  name: string
-  registryCode: string
-  subsets: SubsetCode[]
-  status?: Status
 }
 
 export interface User {

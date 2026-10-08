@@ -1,5 +1,8 @@
 # ADR-004: Platvormide autentimine API võtmega (`X-Api-Key`)
 
+> **Muudetud [ADR-015](015-registry-as-file-server.md)-ga (08.10.2026):** platvormi võti on nüüd `registry/platforms/<id>.json` failis **avattekstina** (`apiKey`), sest Ruuteri avaldisemootoris ei ole räsimisfunktsiooni. SHA-256 `api_key_hash` ja `X-Api-Key` hash-võrdlus on maha jäetud; võtme väljastamise endpoint'i ei ole. Võtme hoidmine saladusena on nüüd `registry/` kataloogi (Secret-mount) ja võrguisolatsiooni vastutus.
+
+
 **Otsus (Rainer Türner, Sten Viljus, Anton Keks, 25.08.2026):**
 
 ## Otsus

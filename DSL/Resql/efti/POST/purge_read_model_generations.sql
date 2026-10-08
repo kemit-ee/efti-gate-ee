@@ -27,21 +27,6 @@ purged_summary AS (
   WHERE generation < (SELECT oldest_kept FROM cutoff WHERE model = 'consignment_summary')
   RETURNING 1
 ),
-purged_gates AS (
-  DELETE FROM rm_gates
-  WHERE generation < (SELECT oldest_kept FROM cutoff WHERE model = 'gates')
-  RETURNING 1
-),
-purged_platforms AS (
-  DELETE FROM rm_platforms
-  WHERE generation < (SELECT oldest_kept FROM cutoff WHERE model = 'platforms')
-  RETURNING 1
-),
-purged_authorities AS (
-  DELETE FROM rm_authorities
-  WHERE generation < (SELECT oldest_kept FROM cutoff WHERE model = 'authorities')
-  RETURNING 1
-),
 purged_pointers AS (
   DELETE FROM read_model_pointer p
   USING cutoff c
@@ -49,6 +34,5 @@ purged_pointers AS (
   RETURNING 1
 )
 SELECT
-  (SELECT count(*) FROM purged_counts) + (SELECT count(*) FROM purged_gates)
-    + (SELECT count(*) FROM purged_summary) + (SELECT count(*) FROM purged_platforms) + (SELECT count(*) FROM purged_authorities) AS purged_rows,
+  (SELECT count(*) FROM purged_counts) + (SELECT count(*) FROM purged_summary) AS purged_rows,
   (SELECT count(*) FROM purged_pointers) AS purged_pointers;

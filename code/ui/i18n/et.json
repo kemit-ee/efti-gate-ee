@@ -14,7 +14,6 @@
     "systemManagerName": "KEMIT",
     "language": "Keel",
     "revokeToken": "Tühista token",
-    "lastPingedAt": "Viimati pingitud: ",
     "menu": "Menüü",
     "save": "Salvesta",
     "admin": "Admin",
@@ -65,6 +64,7 @@
     "status": "Olek",
     "consignments": "Saadetised",
     "apiKey": "API võti",
+    "apiKeyConfigured": "Võti seadistatud",
     "apiKeyNone": "Võtit pole"
   },
   "authorities": {

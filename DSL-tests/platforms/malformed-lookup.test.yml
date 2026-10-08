@@ -1,13 +1,14 @@
 mode: mock-http
 constants:
+  REGISTRY_URL: "{MOCK}"
   RESQL_URL: "{MOCK}"
 
 tests:
   - name: object imitating a one-element array cannot authenticate a platform
     setup:
       mocks:
-        - url_matches: /efti/get_platform_by_api_key
-          method: POST
+        - url_matches: /platforms.json
+          method: GET
           body: { length: 1, "0": { id: "mock" } }
     request:
       method: POST

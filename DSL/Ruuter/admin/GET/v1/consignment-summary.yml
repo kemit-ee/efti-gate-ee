@@ -41,21 +41,24 @@ bad_range:
   next: end
 
 fetch_authority:
-  call: http.post
+  call: http.get
   args:
-    url: "[#RESQL_URL]/efti/get_authority_by_id"
+    url: "[#REGISTRY_URL]/authorities/${encodeURIComponent(incoming.params.authorityId ?? '')}.json"
     headers:
       Content-Type: "application/json"
-    body:
-      id: "${incoming.params.authorityId}"
   result: authority_result
 
 check_authority:
   switch:
-    - condition: ${authority_result.response.status == 0 || authority_result.response.status >= 300}
+    # A registry transport failure is a gate-side outage (502); 404 means this gate does not serve
+    # that authority at all. There is no status field to test any more (ADR-015): an authority is
+    # active because its registry file exists.
+    - condition: ${authority_result.response.status == 0}
       next: upstream_unavailable
-    - condition: ${!authority_result.response.body.length || authority_result.response.body[0].status != 'ACTIVE'}
+    - condition: ${authority_result.response.status == 404}
       next: not_found
+    - condition: ${authority_result.response.status != 200 || !authority_result.response.body || authority_result.response.body.id == null}
+      next: upstream_unavailable
 
 fetch_summary:
   call: http.post
@@ -64,7 +67,7 @@ fetch_summary:
     headers:
       Content-Type: "application/json"
     body:
-      subsets: ${authority_result.response.body[0].subsets}
+      subsets: ${authority_result.response.body.subsets}
       from: "${incoming.params.from}"
       to: "${incoming.params.to}"
       dimension: "${incoming.params.dimension}"

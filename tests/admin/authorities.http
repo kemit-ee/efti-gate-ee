@@ -16,8 +16,6 @@ Authorization: Bearer {{adminToken}}
     client.assert(ids.includes("auth-xroad-empty"))
     client.assert(ids.includes("auth-summary-eu03"))
     client.assert(ids.includes("auth-summary-none"))
-    client.assert(response.body.every(a => a.status !== "DELETED"))
-    client.assert(!ids.includes("auth-xroad-deleted"))
   })
 %}
 
@@ -34,7 +32,6 @@ Authorization: Bearer {{adminToken}}
     client.assert(response.body.registryCode === "70000099")
     client.assert(response.body.subsets.length === 1)
     client.assert(response.body.subsets.includes("EU01"))
-    client.assert(response.body.status === "ACTIVE")
   })
 %}
 
@@ -63,20 +60,6 @@ Authorization: Bearer {{adminToken}}
     client.assert(response.status === 200)
     client.assert(response.body.registryCode === "70000096")
     client.assert(response.body.subsets.length === 0)
-    client.assert(response.body.status === "ACTIVE")
-  })
-%}
-
-### A registry tombstone is visible by id but filtered out of the list
-GET {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-deleted
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-> {%
-  client.test("auth-xroad-deleted is a DELETED tombstone", () => {
-    client.assert(response.status === 200)
-    client.assert(response.body.id === "auth-xroad-deleted")
-    client.assert(response.body.status === "DELETED")
   })
 %}
 
@@ -96,7 +79,7 @@ Content-Type: application/json
 POST {{RUUTER_URL}}/admin/v1/authorities
 Content-Type: application/json
 
-{"id": "NOAUTH", "name": "No Auth", "registryCode": "00000000", "subsets": ["EU01"], "status": "ACTIVE"}
+{"id": "NOAUTH", "name": "No Auth", "registryCode": "00000000", "subsets": ["EU01"]}
 
 > {%
   client.test("POST /admin/v1/authorities rejected — registry is read-only (405)", () => {

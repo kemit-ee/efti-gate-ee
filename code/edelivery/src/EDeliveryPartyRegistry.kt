@@ -1,14 +1,14 @@
 import edelivery.Party
 import edelivery.PartyId
 import edelivery.PartyRegistry
-import resql.ResqlClient
+import registry.RegistryClient
 import java.util.concurrent.CopyOnWriteArrayList
 
 class EDeliveryPartyRegistry(
-  private val resqlClient: ResqlClient,
+  private val registryClient: RegistryClient,
   refreshInterval: kotlin.time.Duration = registryRefreshInterval,
 ): PartyRegistry {
-  @Volatile var parties = resqlClient.getParties()
+  @Volatile var parties = registryClient.getParties()
   private val changeListeners = CopyOnWriteArrayList<(Party) -> Unit>()
 
   init {
@@ -16,7 +16,7 @@ class EDeliveryPartyRegistry(
   }
 
   fun reload() {
-    parties = resqlClient.getParties()
+    parties = registryClient.getParties()
     // notify for every current party rather than diffing: listeners only evict/rebuild caches, so
     // over-notifying on an infrequent registry change is cheap and can't miss a rotated cert.
     parties.values.forEach { party -> changeListeners.forEach { it(party) } }

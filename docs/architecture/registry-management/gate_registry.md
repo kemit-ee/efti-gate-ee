@@ -1,9 +1,10 @@
-# Architecture: Gate Registry Management (Configuration-Driven)
+# Architecture: Gate Registry Management (Configuration-Driven, no database)
 
 ## Changes
 
 - _Initial state. Change tracking begins at v1.0.0._
-- **2026-10-08 — rewritten for [ADR-014](../../architecture/decisions/014-registry-as-git-folder.md).** The gate registry is no longer mutated through the Admin API: it is declared in `registry/gates/<id>.json` and applied by the one-shot `registry-sync` container at startup. The admin `POST`/`PUT`/`DELETE` and `ping` routes are deleted, so the lifecycle below is driven by git rather than by HTTP.
+- **2026-10-08 — [ADR-014](../../architecture/decisions/014-registry-as-git-folder.md):** the registry moved out of the Admin API into the git folder `registry/gates/`.
+- **2026-10-08 — [ADR-015](../../architecture/decisions/015-registry-as-file-server.md):** the database step is gone. The `gates` table, its read model and the `gate_status` type are **dropped**; the folder is served over HTTP by the `registry` service and read by Ruuter and `edelivery`.
 
 > Sub-architecture for the Gate Registry Management surface. For overarching rules see [theme README](README.md). AC are in [`../../cfr/registry-management/gate_registry.md`](../../cfr/registry-management/gate_registry.md).
 
@@ -14,30 +15,40 @@ stateDiagram-v2
     [*] --> ONLINE: add registry/gates/<id>.json (status ONLINE)
     ONLINE --> DISABLED: commit status DISABLED
     DISABLED --> ONLINE: commit status ONLINE
-    ONLINE --> [*]: delete registry/gates/<id>.json
-    DISABLED --> [*]: delete registry/gates/<id>.json
-    [*] --> ONLINE: re-add the file (DELETED is revived)
+    ONLINE --> [*]: delete the file, then restart the registry service
+    DISABLED --> [*]: delete the file, then restart the registry service
+    [* --> ONLINE]: re-add the file (the id is free again)
     note right of ONLINE
-        Included in broadcasts;
-        gateRegistry.online() returns
+        Included in broadcasts
     end note
     note right of DISABLED
         Excluded from broadcasts
     end note
 ```
 
-There is no `OFFLINE` transition. `status` is a **commit**, not a health observation: the ping job that used to flip `ONLINE`/`OFFLINE` every five minutes no longer exists, and `gates.last_ping_at` is vestigial and stays `NULL`.
+There is no `OFFLINE` transition and no tombstone: `status` is a **commit**, and an unregistered gate
+is simply absent. Nothing pings a peer any more.
 
-## How a change reaches the database
+## How a change reaches the consumers
 
 1. A PR adds, edits or deletes a file under `registry/gates/`.
-2. On the next startup the `registry-sync` container validates the file, posts the whole registry to `POST /efti/sync_gates`, refreshes the admin read models and reads the registry back to verify it.
-3. `ruuter` and `edelivery` start only after that container exits successfully, so a malformed gate entry stops the deployment instead of reaching `edelivery`.
+2. `docker compose restart registry` makes the service re-read and revalidate the folder, or the
+   service is restarted as part of a deployment.
+3. Ruuter reads `GET /gates.json` (for the admin list and the peer fan-out) or
+   `GET /gates/<id>.json` (for get-by-id and `gates/own`) and filters in the DSL;
+   `edelivery` reads `/gates.json` into its AS4 party map.
 
-`sync_gates` is append-only and only writes when something actually changed, so restarting a node does not grow the table. Deleting a file appends a `DELETED` tombstone; re-adding it appends a new `ONLINE` row (ADR-014 relaxed the reactivation guard for this).
+A file that fails validation stops the service from starting, so a broken gate entry cannot reach
+`edelivery`.
 
 ## Rationale
 
-The gate registry is **contractual state**: a gate's AS4 URL and certificate decide where signed messages go, so changing them is a signing act, not a runtime mutation. Making the folder the only writer means every change is reviewed, versioned and released, and there is no REST path — authenticated or otherwise — that can repoint a peer. The tables stay append-only, so the full history of URLs, certificates and status flips is still auditable.
+The gate registry is **contractual state**: a gate's AS4 URL and certificate decide where signed
+messages go, so changing them is a signing act. Keeping the folder as the only store — rather than
+projecting it into a table — removes the second copy entirely: there is no read model to refresh, no
+append-only revision history to archive, no tombstone semantics, and no way for the database to
+disagree with the repository.
 
-Every node still caches the latest row per gate, and the per-id advisory transaction lock in `protect_registry_append()` keeps concurrent appends serialised, so multi-node deployments and the reader-side caches behave exactly as before.
+The cost is explicit: the registry is now on the request path (every peer fan-out and every admin
+read calls the service), and the append-only audit trail of gate changes is git rather than
+`created_at`-ordered rows. See ADR-015 "Tagajärjed ja hinnad".

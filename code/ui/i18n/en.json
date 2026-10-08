@@ -15,7 +15,6 @@
     "language": "Language",
     "menu": "Menu",
     "revokeToken": "Revoke token",
-    "lastPingedAt": "Last pinged at: ",
     "save": "Save",
     "admin": "Admin",
     "saved": "Saved",
@@ -65,6 +64,7 @@
     "status": "Status",
     "consignments": "Consignments",
     "apiKey": "API key",
+    "apiKeyConfigured": "Key configured",
     "apiKeyNone": "No key"
   },
   "authorities": {

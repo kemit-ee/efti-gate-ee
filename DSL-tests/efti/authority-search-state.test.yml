@@ -4,6 +4,7 @@ mode: mock-http
 # the detached fan-out are asserted here — the full broadcast (eDelivery + xml-mapper) is covered
 # end to end by tests/authority/*.http.
 constants:
+  REGISTRY_URL: "{MOCK}"
   RESQL_URL: "{MOCK}"
   XML_MAPPER_URL: "{MOCK}"
 tests:
@@ -63,8 +64,8 @@ tests:
           method: POST
           status: 200
           body: "<xml/>"
-        - url_matches: /efti/get_gates
-          method: POST
+        - url_matches: /gates.json
+          method: GET
           status: 500
           body: []
     request:

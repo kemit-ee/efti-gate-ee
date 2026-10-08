@@ -11,6 +11,17 @@ services:
         - action: sync+restart
           path: ./DSL/Resql
           target: /app/sql
+
+  # Loopback-only, for debugging. The registry holds live platform API keys, so it deliberately has
+  # no public binding anywhere (compose.yml publishes nothing) — keep any manual binding on 127.0.0.1.
+  registry:
+    ports:
+      - "127.0.0.1:${EFTI_REGISTRY_PORT:-8080}:8080"
+    develop:
+      # The service loads the registry once at startup, so a file edit needs a restart to apply.
+      watch:
+        - action: restart
+          path: ./registry
   ruuter:
     ports:
       - "127.0.0.1:${EFTI_RUUTER_PORT:-8086}:8086"

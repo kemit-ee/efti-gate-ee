@@ -86,26 +86,29 @@ kasuta prod-is)** → **paigalduse märkus**.
 | `TIM_TARA_CLIENT_ID` / `TIM_TARA_CLIENT_SECRET` | `tim` (`oauth2.providers.tara.client_id_env`/`client_secret_env`) | OIDC klient TARA vastu | `efti` / `efti-secret` (dev-is TARA-Mock vastu) | **Prod: reaalne TARA registreering** (RIA), mitte mock. Vt ka `allowed_redirect_uris` `tim.yaml`-is — prod domeen tuleb sinna lisada |
 | TIM JWT allkirjastamisvõti | `tim` (`jwt.private_key_path: /opt/tim/keys/jwt-private.pem`, RSA, PKCS8 PEM, `key_id: efti-rs-1`) | Kasutajate sessiooni-JWT allkirjastamine | **Dev-is `docker/tim/entrypoint.sh` genereerib selle ISE**, kui faili pole (`openssl genpkey`) | **KRIITILINE PROD-NÕUE**: kui seda ei tehta persistentseks Secretiks/volumeks, genereeritakse iga taaskäivituse peale UUS võti ja kõik olemasolevad sessioonid/JWT-d muutuvad kehtetuks — kõik kasutajad logitakse välja iga podi restardi peale. Genereeri võti üks kord väljaspool konteinerit, pane K8s Secretina, mountida `/opt/tim/keys/jwt-private.pem` peale (samamoodi nagu ljvis2-devops `tim-jwt-key` ExternalSecret) |
 
-### 3.4 Sertifikaadid — **EI OLE deploy-saladused**
+### 3.4 `registry/` — **üks mount, mis on ühtaegu konfiguratsioon ja saladus**
 
-`gates.e_delivery_cert` / `gates.tls_cert` ja `platforms.e_delivery_cert` / `platforms.tls_cert`
-(PEM-tekstina Postgres-veerus, vt `DSL/Liquibase/initial/002-gates.sql` ja `003-platforms.sql`) on
-**operatiivsed andmed, mida admin laeb üles Admini kasutajaliidese kaudu** pärast paigaldust
-(Väravad / Platvormid vaated, vt `docs/user-guide/src/{gates,platforms}.md`), mitte K8s Secretid ega
-midagi, mis paigalduse ajal seadistatakse. Ära neid CI/CD saladuste loendisse pane.
+**Muutunud ADR-015-ga.** Väravate, platvormide ja asutuste register ei ole enam andmebaasis
+(registritabelid kustutati) ega tule Admin-liidese kaudu: see on repos/paigalduses olev kataloog
+`registry/{gates,platforms,authorities}/<id>.json`, mida serveerib `registry` teenus (ilma avaldatud
+pordita) ja millele järgivad ruuter/edelivery käivitusel.
 
-Samamoodi platvormi `X-Api-Key` (ADR-004) — see genereeritakse runtime'is
-`POST /admin/v1/platforms/api-key/:id` kaudu, salvestatakse ainult SHA-256 räsina
-(`platforms.api_key_hash`); täisvõtit näidatakse admin-liideses ühe korra ja see pole
-paigaldussaladus.
+- `registry/gates/<id>.json` `eDeliveryCert` / `tlsCert` ja `registry/platforms/<id>.json`
+  sertifikaadid on endiselt **operatiivsed andmed**, aga nüüd failina, mitte DB-veeruna.
+- **Platvormi `X-Api-Key` on nüüd AVATEKST** (`registry/platforms/<id>.json` väli `apiKey`).
+  ADR-004 "ainult SHA-256" reegel jäeti maha, sest Ruuteri avaldisemootoris ei ole
+  räsimisfunktsiooni. **Seetõttu tuleb `registry/` paigaldada K8s Secret'ist (mitte ConfigMap'ist)**
+  ja `registry` teenuse porti ei tohi kunagi ingressi/reverse proxy kaudu avada. See on ainus
+  koht selles repos, kus konfiguratsioonifail ise on saladus.
+- Platvormi võtme rotatsioon = commit + `registry` teenuse restart; runtime-endpoint'i ei ole.
 
 ---
 
 ## 4. Kaks eraldi andmebaasi — ära aja segi
 
 ```
-database        (PostgreSQL 18, DB "efti")  ← gate'i enda andmed: väravad, platvormid,
-                                                pädevad asutused, kasutajad, saadetised, audit
+database        (PostgreSQL 18, DB "efti")  ← gate'i enda andmed: kasutajad, saadetised, audit
+                                                (registrid EI ole enam siin — vt §3.4, ADR-015)
 tim-database     (PostgreSQL 18, DB "tim")   ← TIM'i sessioonid/kasutajad (autentimise siseasi)
 ```
 

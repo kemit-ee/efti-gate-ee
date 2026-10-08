@@ -57,127 +57,12 @@ $$;
 
 COMMENT ON FUNCTION get_app_user() IS 'Returns the current session''s logical actor UUID (users.row_id). Used to populate `created_by` on registry INSERTs. NULL for system actions (background jobs, anonymous events).';
 
--- Source: DSL/Liquibase/initial/002-gates.sql
--- ----------------------------------------------------------------------------
--- 3.1 gates
--- ----------------------------------------------------------------------------
-
-CREATE TYPE gate_status AS ENUM (
-  'ONLINE',
-  'OFFLINE',
-  'DISABLED',
-  'DELETED'
-);
-
-COMMENT ON TYPE gate_status IS 'Operational status of an eFTI gate or platform node';
-
-CREATE TABLE gates (
-  row_id          UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
-  id              CITEXT       NOT NULL,
-  country_code    CHAR(2)      NOT NULL,
-  e_delivery_url  TEXT,
-  e_delivery_cert TEXT,
-  tls_cert        TEXT,
-  status          gate_status  NOT NULL,
-  last_ping_at    TIMESTAMPTZ,
-  created_by      UUID        DEFAULT get_app_user(),
-  created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-
-  CONSTRAINT gates_country_format CHECK (country_code ~ '^[A-Z]{2}$')
-);
-
-COMMENT ON TABLE  gates IS 'Registry of eFTI gates (own + remote peers). Append-only: each registry change (status flip, ping, URL/cert update) is a new row with the same id. The latest row by created_at is the gate''s current state. Cron-archived by CronManager.';
-COMMENT ON COLUMN gates.row_id          IS 'Synthetic primary key, unique per row (one entity has many rows over time)';
-COMMENT ON COLUMN gates.id              IS 'Logical gate identifier in eu-{cc}{nn} format (e.g. eu-ee01). Many rows can share this id over time; latest wins.';
-COMMENT ON COLUMN gates.country_code    IS 'ISO 3166-1 alpha-2 country code';
-COMMENT ON COLUMN gates.e_delivery_url  IS 'AS4 access-point URL for inbound G2G messages';
-COMMENT ON COLUMN gates.e_delivery_cert IS 'Public certificate (PEM) used to verify AS4 messages from this gate';
-COMMENT ON COLUMN gates.tls_cert        IS 'Public TLS certificate (PEM) used to verify the gate''s HTTPS endpoint';
-COMMENT ON COLUMN gates.status          IS 'Current gate operational status: ONLINE — active and available; OFFLINE — ping failed; DISABLED — administratively disabled (visible in list); DELETED — soft deletion (removed by operator, row retained for audit).';
-COMMENT ON COLUMN gates.last_ping_at    IS 'Timestamp of the latest successful ping that produced this row. NULL if this row pre-dates first ping.';
-COMMENT ON COLUMN gates.created_by      IS 'Denormalised users.row_id of the actor. NULL for system events (ping job, registry sync).';
-COMMENT ON COLUMN gates.created_at      IS 'When this row was inserted. Latest created_at per id is the current state.';
-
-CREATE INDEX idx_gates_id_latest ON gates (id, created_at DESC);
-CREATE INDEX idx_gates_status    ON gates (status);
-CREATE INDEX idx_gates_country   ON gates (country_code);
-
-GRANT SELECT, INSERT ON gates TO app;
-GRANT SELECT, DELETE ON gates TO db_archiver;
-
--- Source: DSL/Liquibase/initial/003-platforms.sql
--- ----------------------------------------------------------------------------
--- 3.2 platforms
--- ----------------------------------------------------------------------------
-
-CREATE TABLE platforms (
-  row_id          UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
-  id              CITEXT       NOT NULL,
-  base_url        TEXT,
-  headers         JSONB        NOT NULL DEFAULT '{}'::jsonb,
-  e_delivery_cert TEXT,
-  tls_cert        TEXT,
-  status          gate_status  NOT NULL DEFAULT 'ONLINE',
-  created_by      UUID        DEFAULT get_app_user(),
-  created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
-);
-
-COMMENT ON TABLE  platforms IS 'Registry of eFTI platforms registered with this gate. Append-only: each edit is a new row sharing the same id; latest wins.';
-COMMENT ON COLUMN platforms.row_id              IS 'Synthetic primary key, unique per row';
-COMMENT ON COLUMN platforms.id                  IS 'Logical platform identifier (e.g. plt-xxx-001). Many rows can share this id over time.';
-COMMENT ON COLUMN platforms.base_url            IS 'Platform''s REST API base URL';
-COMMENT ON COLUMN platforms.headers             IS 'Custom headers (e.g. API key) the gate sends with platform requests';
-COMMENT ON COLUMN platforms.e_delivery_cert     IS 'Public certificate (PEM) for AS4 communication with this platform';
-COMMENT ON COLUMN platforms.tls_cert            IS 'Public TLS certificate (PEM) for HTTPS communication';
-COMMENT ON COLUMN platforms.status              IS 'Current platform operational status: ONLINE — active and available; OFFLINE — ping failed; DISABLED — administratively disabled (visible in list); DELETED — soft deletion (removed by operator, row retained for audit).';
-COMMENT ON COLUMN platforms.created_by          IS 'users.row_id of the actor that wrote this row';
-COMMENT ON COLUMN platforms.created_at          IS 'When this row was inserted';
-
-CREATE INDEX idx_platforms_id_latest   ON platforms (id, created_at DESC);
-CREATE INDEX idx_platforms_status      ON platforms (status);
-
-GRANT SELECT, INSERT ON platforms TO app;
-GRANT SELECT, DELETE ON platforms TO db_archiver;
-
--- Source: DSL/Liquibase/initial/004-authorities.sql
--- ----------------------------------------------------------------------------
--- 3.3 authorities
--- ----------------------------------------------------------------------------
-
-CREATE TYPE authority_status AS ENUM (
-  'ACTIVE',
-  'DELETED'
-);
-
-COMMENT ON TYPE authority_status IS 'Lifecycle status of a competent authority. ACTIVE — visible and operational; DELETED — soft-deleted (removed by operator, row retained for audit).';
-
-CREATE TABLE authorities (
-  row_id        UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
-  id            CITEXT       NOT NULL,
-  name          TEXT         NOT NULL,
-  registry_code TEXT         NOT NULL,
-  subsets       TEXT[]       NOT NULL DEFAULT ARRAY[]::TEXT[],
-  status        authority_status NOT NULL DEFAULT 'ACTIVE',
-  created_by    UUID        DEFAULT get_app_user(),
-  created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
-);
-
-COMMENT ON TABLE  authorities IS 'Registry of competent authorities. Append-only: each edit is a new row sharing the same id; latest wins.';
-COMMENT ON COLUMN authorities.row_id        IS 'Synthetic primary key, unique per row';
-COMMENT ON COLUMN authorities.id            IS 'Logical authority identifier (e.g. auth-mta). Many rows over time.';
-COMMENT ON COLUMN authorities.name          IS 'Human-readable name (e.g. "Estonian Tax and Customs Board")';
-COMMENT ON COLUMN authorities.registry_code IS 'Estonian Business Registry code of the authority, used for access control';
-COMMENT ON COLUMN authorities.subsets       IS 'eFTI subsets this authority is permitted to request. Constrained to EU01..EU07.';
-COMMENT ON COLUMN authorities.status        IS 'Current authority status: ACTIVE — visible and operational; DELETED — soft-deleted (removed by operator, row retained for audit).';
-COMMENT ON COLUMN authorities.created_by    IS 'users.row_id of the actor that wrote this row';
-COMMENT ON COLUMN authorities.created_at    IS 'When this row was inserted';
-
-CREATE INDEX idx_authorities_id_latest       ON authorities (id, created_at DESC);
-CREATE INDEX idx_authorities_registry_code   ON authorities (registry_code);
-CREATE INDEX idx_authorities_status          ON authorities (status);
-
-GRANT SELECT, INSERT ON authorities TO app;
-GRANT SELECT, DELETE ON authorities TO db_archiver;
+-- The former 3.1 gates / 3.2 platforms / 3.3 authorities tables (initial/002-gates.sql,
+-- 003-platforms.sql, 004-authorities.sql) and the gate_status / authority_status enums are
+-- intentionally absent from this snapshot: ADR-015 moved all three registries out of the database
+-- into registry/{gates,platforms,authorities}/<id>.json, served over HTTP by the `registry`
+-- service. See registry/README.md, and the 20261009-drop-registry-tables section at the end of
+-- this file.
 
 -- Source: DSL/Liquibase/initial/005-users.sql
 -- ----------------------------------------------------------------------------
@@ -492,43 +377,13 @@ CREATE INDEX idx_audit_log_recorded      ON audit_log (recorded_at DESC);
 GRANT SELECT, INSERT ON audit_log TO app;
 GRANT SELECT ON audit_log TO db_archiver;
 
--- Source: 20260902-drop-platform-cert-fields.sql
--- Drop cert_subject and cert_serial columns from platforms (no longer needed).
--- The idx_platforms_cert_lookup index is dropped automatically with the columns.
-
-ALTER TABLE platforms DROP COLUMN IF EXISTS cert_subject;
-ALTER TABLE platforms DROP COLUMN IF EXISTS cert_serial;
-
-DROP INDEX IF EXISTS idx_platforms_cert_lookup;
-
--- Source: 20260902-platform-api-key.sql
---liquibase formatted sql
-
---changeset efti:platform-api-key
--- ADR-004 (2026-08-25 — Rainer Türner, Sten Viljus, Anton Keks): platforms
--- authenticate to the gate with an API key in the X-Api-Key header. The key is
--- never stored in clear — only its SHA-256 hash (api_key_hash). api_key_hint is
--- the first 8 hex chars of that hash, shown in the admin UI so an operator can
--- tell which key is active without being able to recover it. The plaintext key is
--- returned exactly once, at generation time.
+-- The 20260902-drop-platform-cert-fields.sql and 20260902-platform-api-key.sql changesets only
+-- ever ALTERed the `platforms` table, which ADR-015 dropped (see the 20261009 section at the end
+-- of this file). The pgcrypto extension they installed outlives them: nothing in this repo calls
+-- digest()/gen_random_bytes() any more, but the extension is not dropped either.
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 GRANT EXECUTE ON FUNCTION digest(text, text) TO app;
 GRANT EXECUTE ON FUNCTION gen_random_bytes(integer) TO app;
-
-ALTER TABLE platforms
-  ADD COLUMN api_key_hash         BYTEA,
-  ADD COLUMN api_key_hint         TEXT,
-  ADD COLUMN api_key_generated_at TIMESTAMPTZ;
-
-COMMENT ON COLUMN platforms.api_key_hash         IS 'SHA-256 of the platform''s X-Api-Key credential. Never store or log the key itself.';
-COMMENT ON COLUMN platforms.api_key_hint         IS 'First 8 hex chars of api_key_hash — a non-reversible label for the admin UI.';
-COMMENT ON COLUMN platforms.api_key_generated_at IS 'When the current API key was generated.';
-
-CREATE INDEX idx_platforms_api_key_hash ON platforms (api_key_hash);
-
---rollback DROP INDEX IF EXISTS idx_platforms_api_key_hash;
---rollback ALTER TABLE platforms DROP COLUMN IF EXISTS api_key_hash, DROP COLUMN IF EXISTS api_key_hint, DROP COLUMN IF EXISTS api_key_generated_at;
-
 
 -- Source: 20260903-drop-follow-up-log-requesting-user-id.sql
 --liquibase formatted sql
@@ -571,59 +426,34 @@ ALTER TABLE users DROP COLUMN IF EXISTS is_admin;
 
 --changeset efti:latest-row-order splitStatements:false
 ALTER TABLE users ADD COLUMN revision BIGINT GENERATED ALWAYS AS IDENTITY;
-ALTER TABLE gates ADD COLUMN revision BIGINT GENERATED ALWAYS AS IDENTITY;
-ALTER TABLE platforms ADD COLUMN revision BIGINT GENERATED ALWAYS AS IDENTITY;
-ALTER TABLE authorities ADD COLUMN revision BIGINT GENERATED ALWAYS AS IDENTITY;
 ALTER TABLE consignments ADD COLUMN revision BIGINT GENERATED ALWAYS AS IDENTITY;
 
 DROP INDEX idx_users_id_latest;
-DROP INDEX idx_gates_id_latest;
-DROP INDEX idx_platforms_id_latest;
-DROP INDEX idx_authorities_id_latest;
 DROP INDEX idx_consignments_dataset_latest;
 CREATE INDEX idx_users_id_latest ON users (id, created_at DESC, revision DESC);
-CREATE INDEX idx_gates_id_latest ON gates (id, created_at DESC, revision DESC);
-CREATE INDEX idx_platforms_id_latest ON platforms (id, created_at DESC, revision DESC);
-CREATE INDEX idx_authorities_id_latest ON authorities (id, created_at DESC, revision DESC);
 CREATE INDEX idx_consignments_dataset_latest ON consignments (dataset_id, platform_id, created_at DESC, revision DESC);
-GRANT USAGE, SELECT ON SEQUENCE users_revision_seq, gates_revision_seq,
-  platforms_revision_seq, authorities_revision_seq, consignments_revision_seq TO app;
+GRANT USAGE, SELECT ON SEQUENCE users_revision_seq, consignments_revision_seq TO app;
 
+-- The trigger body as 20261009 leaves it: `users` is the only table it serves. See the
+-- 20261009-drop-registry-tables section at the end of this file.
 CREATE FUNCTION protect_registry_append() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
   previous JSONB;
   id_type TEXT;
 BEGIN
   PERFORM pg_advisory_xact_lock(hashtextextended(TG_TABLE_SCHEMA || '.' || TG_TABLE_NAME || ':' || lower(NEW.id::text), 0));
-  id_type := CASE WHEN TG_TABLE_NAME = 'users' THEN 'uuid' ELSE 'citext' END;
+  id_type := 'uuid';
   EXECUTE format('SELECT to_jsonb(t) FROM %I.%I t WHERE id = $1::%s ORDER BY created_at DESC, revision DESC LIMIT 1', TG_TABLE_SCHEMA, TG_TABLE_NAME, id_type)
     INTO previous USING NEW.id::text;
   NEW.revision := nextval(pg_get_serial_sequence(format('%I.%I', TG_TABLE_SCHEMA, TG_TABLE_NAME), 'revision'));
-  IF TG_TABLE_NAME = 'users' THEN
-    IF previous IS NOT NULL THEN
-      NEW.is_active := NEW.is_active AND (previous->>'is_active')::boolean;
-      NEW.token_revoked_at := GREATEST(NEW.token_revoked_at, (previous->>'token_revoked_at')::timestamptz);
-    END IF;
-  ELSE
-    IF previous->>'status' = 'DELETED' AND NEW.status::text <> 'DELETED' THEN
-      RAISE EXCEPTION 'Cannot reactivate deleted % %', TG_TABLE_NAME, NEW.id USING ERRCODE = '23514';
-    END IF;
-    IF TG_TABLE_NAME = 'platforms' THEN
-      IF (previous->>'api_key_generated_at')::timestamptz IS NOT NULL
-        AND (NEW.api_key_generated_at IS NULL OR NEW.api_key_generated_at < (previous->>'api_key_generated_at')::timestamptz) THEN
-        NEW.api_key_hash := (previous->>'api_key_hash')::bytea;
-        NEW.api_key_hint := previous->>'api_key_hint';
-        NEW.api_key_generated_at := (previous->>'api_key_generated_at')::timestamptz;
-      END IF;
-    END IF;
+  IF previous IS NOT NULL THEN
+    NEW.is_active := NEW.is_active AND (previous->>'is_active')::boolean;
+    NEW.token_revoked_at := GREATEST(NEW.token_revoked_at, (previous->>'token_revoked_at')::timestamptz);
   END IF;
   RETURN NEW;
 END $$;
 
 CREATE TRIGGER protect_users_append BEFORE INSERT ON users FOR EACH ROW EXECUTE FUNCTION protect_registry_append();
-CREATE TRIGGER protect_gates_append BEFORE INSERT ON gates FOR EACH ROW EXECUTE FUNCTION protect_registry_append();
-CREATE TRIGGER protect_platforms_append BEFORE INSERT ON platforms FOR EACH ROW EXECUTE FUNCTION protect_registry_append();
-CREATE TRIGGER protect_authorities_append BEFORE INSERT ON authorities FOR EACH ROW EXECUTE FUNCTION protect_registry_append();
 
 -- Source: 20260925-consignments-created-index.sql
 CREATE INDEX idx_consignments_created_latest ON consignments (created_at DESC, revision DESC);
@@ -660,56 +490,6 @@ GRANT SELECT, INSERT ON read_model_pointer TO app;
 GRANT SELECT, DELETE ON read_model_pointer TO db_archiver;
 GRANT SELECT, INSERT ON rm_consignment_counts TO app;
 GRANT SELECT, DELETE ON rm_consignment_counts TO db_archiver;
-
--- Source: 20261006-read-model-registries.sql
-CREATE TABLE rm_gates (
-  generation      BIGINT      NOT NULL,
-  id              CITEXT      NOT NULL,
-  row_id          UUID        NOT NULL,
-  country_code    CHAR(2)     NOT NULL,
-  e_delivery_url  TEXT,
-  e_delivery_cert TEXT,
-  tls_cert        TEXT,
-  status          TEXT        NOT NULL,
-  last_ping_at    TIMESTAMPTZ,
-  created_at      TIMESTAMPTZ NOT NULL,
-  PRIMARY KEY (generation, id)
-);
-
-CREATE TABLE rm_platforms (
-  generation           BIGINT      NOT NULL,
-  id                   CITEXT      NOT NULL,
-  row_id               UUID        NOT NULL,
-  base_url             TEXT,
-  headers              JSONB       NOT NULL,
-  e_delivery_cert      TEXT,
-  tls_cert             TEXT,
-  status               TEXT        NOT NULL,
-  api_key_hint         TEXT,
-  api_key_generated_at TIMESTAMPTZ,
-  has_api_key          BOOLEAN     NOT NULL,
-  created_at           TIMESTAMPTZ NOT NULL,
-  PRIMARY KEY (generation, id)
-);
-
-CREATE TABLE rm_authorities (
-  generation    BIGINT      NOT NULL,
-  id            CITEXT      NOT NULL,
-  row_id        UUID        NOT NULL,
-  name          TEXT        NOT NULL,
-  registry_code TEXT        NOT NULL,
-  subsets       TEXT[]      NOT NULL,
-  status        TEXT        NOT NULL,
-  created_at    TIMESTAMPTZ NOT NULL,
-  PRIMARY KEY (generation, id)
-);
-
-COMMENT ON TABLE rm_gates IS 'ADR-012 read model for GET /admin/v1/gates (list). Derivative of gates; never used for outbound routing or authorisation.';
-COMMENT ON TABLE rm_platforms IS 'ADR-012 read model for GET /admin/v1/platforms (list). Carries no api_key_hash. Derivative of platforms; never used for authentication.';
-COMMENT ON TABLE rm_authorities IS 'ADR-012 read model for GET /admin/v1/authorities (list). Derivative of authorities; never used for subset entitlement.';
-
-GRANT SELECT, INSERT ON rm_gates, rm_platforms, rm_authorities TO app;
-GRANT SELECT, DELETE ON rm_gates, rm_platforms, rm_authorities TO db_archiver;
 
 -- Source: 20261007-read-model-consignment-summary.sql
 CREATE TABLE rm_consignment_summary (
@@ -769,34 +549,17 @@ GRANT SELECT, INSERT ON search_results TO app;
 GRANT SELECT, DELETE ON search_results TO db_archiver;
 
 -- Source: DSL/Liquibase/changelog/20261008-registry-sync.sql
--- ADR-014: the DELETED-reactivation guard now covers `users` only. gates/platforms/authorities are
--- declaratively re-applied from registry/** by the registry-sync container on every startup, where
--- reviving a removed entry is the intended behaviour — raising here would turn a legitimate
--- commit into a boot failure. A re-added file must bring the entity back.
-CREATE OR REPLACE FUNCTION protect_registry_append() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE
-  previous JSONB;
-  id_type TEXT;
-BEGIN
-  PERFORM pg_advisory_xact_lock(hashtextextended(TG_TABLE_SCHEMA || '.' || TG_TABLE_NAME || ':' || lower(NEW.id::text), 0));
-  id_type := CASE WHEN TG_TABLE_NAME = 'users' THEN 'uuid' ELSE 'citext' END;
-  EXECUTE format('SELECT to_jsonb(t) FROM %I.%I t WHERE id = $1::%s ORDER BY created_at DESC, revision DESC LIMIT 1', TG_TABLE_SCHEMA, TG_TABLE_NAME, id_type)
-    INTO previous USING NEW.id::text;
-  NEW.revision := nextval(pg_get_serial_sequence(format('%I.%I', TG_TABLE_SCHEMA, TG_TABLE_NAME), 'revision'));
-  IF TG_TABLE_NAME = 'users' THEN
-    IF previous IS NOT NULL THEN
-      NEW.is_active := NEW.is_active AND (previous->>'is_active')::boolean;
-      NEW.token_revoked_at := GREATEST(NEW.token_revoked_at, (previous->>'token_revoked_at')::timestamptz);
-    END IF;
-  ELSIF TG_TABLE_NAME = 'platforms' THEN
-    IF (previous->>'api_key_generated_at')::timestamptz IS NOT NULL
-      AND (NEW.api_key_generated_at IS NULL OR NEW.api_key_generated_at < (previous->>'api_key_generated_at')::timestamptz) THEN
-      NEW.api_key_hash := (previous->>'api_key_hash')::bytea;
-      NEW.api_key_hint := previous->>'api_key_hint';
-      NEW.api_key_generated_at := (previous->>'api_key_generated_at')::timestamptz;
-    END IF;
-  END IF;
-  RETURN NEW;
-END $$;
+-- ADR-014: this changeset relaxed protect_registry_append()'s DELETED-reactivation guard to cover
+-- `users` only, because gates/platforms/authorities were re-applied declaratively from registry/**
+-- on every startup. What survives of it here is the users branch: 20261009 dropped those tables and
+-- with them the platforms api_key carry-forward branch this changeset still carried. The current
+-- function definition is in the 20260914-latest-row-order section above.
 
-COMMENT ON FUNCTION protect_registry_append() IS 'BEFORE INSERT trigger shared by users, gates, platforms and authorities: serialises appends per logical id with an advisory transaction lock, assigns the revision, and enforces the per-table append invariants. Since ADR-014 the DELETED-reactivation guard covers users only — gates/platforms/authorities are declaratively re-applied from registry/** on every startup, where reviving a removed entry is the intended behaviour. For platforms it still carries api_key_hash/hint/generated_at forward unless the insert supplies an equal-or-newer key.';
+-- Source: DSL/Liquibase/changelog/20261009-drop-registry-tables.sql
+-- ADR-015: the gates, platforms and authorities tables, the gate_status / authority_status enums
+-- and the rm_gates / rm_platforms / rm_authorities read models that mirrored them are
+-- intentionally absent from this snapshot — the three registries are served from
+-- registry/{gates,platforms,authorities}/<id>.json instead (see registry/README.md). This section
+-- exists so the gap above is legible: the tables were created by install and then dropped by this
+-- changeset. protect_registry_append() is users-only (definition above), while read_model_pointer,
+-- read_model_generation_seq and the pgcrypto extension are kept.

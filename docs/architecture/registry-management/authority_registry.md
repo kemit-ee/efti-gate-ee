@@ -1,9 +1,10 @@
-# Architecture: Authority Registry Management (Configuration-Driven)
+# Architecture: Authority Registry Management (Configuration-Driven, no database)
 
 ## Changes
 
 - _Initial state. Change tracking begins at v1.0.0._
-- **2026-10-08 — rewritten for [ADR-014](../../architecture/decisions/014-registry-as-git-folder.md).** The authority registry is no longer mutated through the Admin API: it is declared in `registry/authorities/<id>.json` and applied by the one-shot `registry-sync` container at startup. The admin `POST`/`PUT`/`DELETE` routes are deleted.
+- **2026-10-08 — [ADR-014](../../architecture/decisions/014-registry-as-git-folder.md):** the registry moved out of the Admin API into the git folder `registry/authorities/`.
+- **2026-10-08 — [ADR-015](../../architecture/decisions/015-registry-as-file-server.md):** the `authorities` table, its read model and the `authority_status` type are **dropped**, and so is the `status` field itself. The folder is served over HTTP by the `registry` service.
 
 > Sub-architecture for the Authority Registry Management surface. For overarching rules see [theme README](README.md). AC are in [`../../cfr/registry-management/authority_registry.md`](../../cfr/registry-management/authority_registry.md).
 
@@ -11,37 +12,41 @@
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Active: add registry/authorities/<id>.json (status ACTIVE)
+    [*] --> Active: add registry/authorities/<id>.json
     Active --> Active: commit changed subsets / name / registryCode
-    Active --> Deleted: delete the file, or commit status DELETED
-    Deleted --> Active: change the status back, or re-add the file
+    Active --> [*]: delete the file, then restart the registry service
     note right of Active
         X-Road guard resolves the authority
-        by registry_code on every request
-    end note
-    note right of Deleted
-        Tombstone: never authenticates,
-        id is kept for audit
+        by registryCode on every request
     end note
 ```
 
-Two ways to revoke an authority, and they are not equivalent in intent:
+There is no `DELETED` state and no tombstone. An authority exists because its file exists, and
+revoking one means deleting the file — so the id and the `registryCode` become free again. The only
+record that an authority was ever registered is git history.
 
-- **delete the file** — the id is gone from the registry and a `DELETED` tombstone is appended. Re-adding the file revives it.
-- **commit `status: DELETED`** — an explicit, permanent tombstone. The file documents that the authority exists but must never authenticate; it is stable (declared `DELETED` equals stored `DELETED`, so nothing is rewritten on restarts).
-
-Either way the runtime effect is identical: the X-Road guard resolves authorities with `WHERE status = 'ACTIVE'`, so a `DELETED` row can never authenticate.
-
-## How a change reaches the database
+## How a change reaches the consumers
 
 1. A PR adds, edits or deletes a file under `registry/authorities/`.
-2. The `registry-sync` container validates it, posts the registry to `POST /efti/sync_authorities`, refreshes the admin read models and verifies the result.
-3. `ruuter` and `edelivery` start only after that container exits successfully.
+2. `docker compose restart registry` (or a deployment) makes the service re-read and revalidate.
+3. The X-Road guard and `xroad/GET/v1/subsets` read `GET /authorities.json` and match `registryCode`
+   in the DSL; `admin/GET/v1/consignment-summary` reads `GET /authorities/<id>.json` for the
+   `subsets` that dimension the authority's summary.
 
-`subsets` are normalised (de-duplicated, sorted ascending) on the way in, so re-ordering the same set is not a change and does not append a revision.
+`subsets` is a plain array in the file, so its order is whatever the file says — there is no
+normalisation step left anywhere.
 
 ## Rationale
 
-Authorities are the **subset-permission roots**: a caller's permitted subsets must always be a subset of their authority's, and the X-Road guard reads that entitlement from the database on every request — there is no cache to invalidate and no propagation delay, so a change takes effect with the revision that carries it, i.e. at startup.
+Authorities are the **subset-permission roots**: a caller's permitted subsets must always be a subset
+of their authority's. The X-Road guard resolves that entitlement on every request straight from the
+served registry, so there is no cache and no propagation delay — a change takes effect with the
+service restart that carries it.
 
-That is why the registry must be a reviewed artefact rather than a live REST resource. An authority row that is wrong in the permissive direction (an extra subset, an empty `subsets` array where entitlement was expected, a registry code typo that collides with another authority) hands one organisation another's data. The guard already fails closed on an ambiguous `registry_code` (more than one `ACTIVE` match is denied, not guessed), which is what makes a duplicate a detectable configuration bug rather than a silent impersonation — and with the registry in git, a duplicate is visible in review instead of appearing as a race between two API calls.
+That is also why the registry must be a reviewed artefact: a row wrong in the permissive direction
+(an extra subset, an empty `subsets` where entitlement was expected, a `registryCode` typo that
+collides with another authority) hands one organisation another's data. The guard fails closed on an
+ambiguous code — more than one match is denied, never guessed — which is what turns a duplicate into
+a detectable configuration bug rather than a silent impersonation. With the registry in git that
+duplicate is visible in review, and two files sharing a code are denied by construction rather than
+depending on how the rows happened to be written.

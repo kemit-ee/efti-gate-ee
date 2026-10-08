@@ -21,5 +21,6 @@
   {#if eDelivery}
     <EDeliveryFields bind:entity={platform} {disabled}/>
   {/if}
+  <FormField label={t.platforms.apiKey} value={platform.hasApiKey ? t.platforms.apiKeyConfigured : t.platforms.apiKeyNone} disabled/>
   <HeadersEditor bind:headers {disabled}/>
 </div>

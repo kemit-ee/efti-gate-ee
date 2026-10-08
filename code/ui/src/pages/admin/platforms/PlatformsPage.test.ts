@@ -10,7 +10,7 @@ function newPlatform(): Platform {
   return {
     id: 'mock', baseUrl: 'https://mock.example/api', headers: {'X-Api-Key': 'secret'},
     eDeliveryCert: '-BEGIN CERTIFICATE-\nabc\n-END CERTIFICATE-',
-    status: Status.ONLINE, createdAt: '2026-01-01T00:00:00Z',
+    status: Status.ONLINE,
   }
 }
 
@@ -65,6 +65,7 @@ describe('PlatformsPage', () => {
     expect((screen.getByLabelText('Base URL') as HTMLInputElement).disabled).to.equal(true)
     expect(key.disabled).to.equal(true)
     expect(value.disabled).to.equal(true)
+    expect((screen.getByLabelText('API key') as HTMLInputElement).value).to.equal('No key')
     expect(screen.queryByRole('button', {name: '+'})).to.equal(null)
     expect(screen.queryAllByRole('button', {name: '×'}).length).to.equal(0)
     expect(document.querySelectorAll('input[type=file]').length).to.equal(0)
@@ -75,12 +76,34 @@ describe('PlatformsPage', () => {
     expect(api.delete).not.toHaveBeenCalled()
   })
 
-  it('shows an existing API key fingerprint read-only, without generating a new one', async () => {
-    mockPlatformsOf([{...newPlatform(), apiKeyHint: 'supe', apiKeyGeneratedAt: '2026-01-01T00:00:00Z', hasApiKey: true}])
+  it('shows whether an inbound API key is configured, without exposing or generating one', async () => {
+    mockPlatformsOf([{...newPlatform(), hasApiKey: true}])
     render(PlatformsPage)
 
-    await screen.findByText('supe…')
+    await screen.findByText('mock')
+    await screen.findByText('Key configured')
     expect(screen.queryByRole('button', {name: 'Generate API key'})).to.equal(null)
+    expect(api.post).not.toHaveBeenCalled()
+  })
+
+  it('shows a platform without a configured inbound API key', async () => {
+    render(PlatformsPage)
+
+    await screen.findByText('mock')
+    await screen.findByText('No key')
+    expect(screen.queryByText('Key configured')).to.equal(null)
+  })
+
+  it('shows the API key as configured in read-only details', async () => {
+    mockPlatformsOf([{...newPlatform(), hasApiKey: true}])
+    render(PlatformsPage)
+    await screen.findByText('mock')
+
+    await fireEvent.click(screen.getByRole('button', {name: 'Details'}))
+
+    await waitFor(() => expect((screen.getByLabelText('API key') as HTMLInputElement).value).to.equal('Key configured'))
+    expect((screen.getByLabelText('API key') as HTMLInputElement).disabled).to.equal(true)
+    expect(document.querySelectorAll('input[type=file]').length).to.equal(0)
     expect(api.post).not.toHaveBeenCalled()
   })
 

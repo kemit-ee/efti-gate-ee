@@ -1,8 +1,10 @@
 # Subset entitlement on /xroad/v1/dataset and /xroad/v1/transport-means is decided from the authority
-# row xroad/.guard.yml resolves, with no second authorities lookup. Only the guard's ReSql call and
-# the downstream call are mocked.
+# entry xroad/.guard.yml resolves out of the ADR-015 registry service (registry/authorities/*.json),
+# with no second authorities lookup. Only the guard's registry read and the downstream call are mocked
+# — the forward goes to core through RUUTER_URL, so that too must point at the mock.
 mode: mock-http
 constants:
+  REGISTRY_URL: "{MOCK}"
   RESQL_URL: "{MOCK}"
   RUUTER_URL: "{MOCK}"
 
@@ -10,9 +12,9 @@ tests:
   - name: dataset with every requested subset permitted is forwarded to core
     setup:
       mocks:
-        - url_matches: /efti/get_authority_by_registry_code
-          method: POST
-          body: [{ id: "authority", registryCode: "70000094", subsets: ["EU01", "EU02"] }]
+        - url_matches: /authorities.json
+          method: GET
+          body: [{ id: "authority", name: "Test authority", registryCode: "70000094", subsets: ["EU01", "EU02"] }]
         - url_matches: /efti/api/v1/authority/dataset
           method: POST
           body: { forwarded: true }
@@ -31,9 +33,9 @@ tests:
   - name: dataset with a subset outside the authority's set is 403 FORBIDDEN_SUBSET
     setup:
       mocks:
-        - url_matches: /efti/get_authority_by_registry_code
-          method: POST
-          body: [{ id: "authority", registryCode: "70000094", subsets: ["EU01"] }]
+        - url_matches: /authorities.json
+          method: GET
+          body: [{ id: "authority", name: "Test authority", registryCode: "70000094", subsets: ["EU01"] }]
     request:
       method: POST
       path: /xroad/v1/dataset
@@ -50,12 +52,12 @@ tests:
         deniedSubsets: ["EU06"]
         permittedSubsets: ["EU01"]
 
-  - name: dataset for an authority row without subsets permits nothing
+  - name: dataset for an authority record without subsets permits nothing
     setup:
       mocks:
-        - url_matches: /efti/get_authority_by_registry_code
-          method: POST
-          body: [{ id: "authority", registryCode: "70000094", subsets: null }]
+        - url_matches: /authorities.json
+          method: GET
+          body: [{ id: "authority", name: "Test authority", registryCode: "70000094", subsets: null }]
     request:
       method: POST
       path: /xroad/v1/dataset
@@ -71,9 +73,9 @@ tests:
   - name: dataset with subsets as a string is 400
     setup:
       mocks:
-        - url_matches: /efti/get_authority_by_registry_code
-          method: POST
-          body: [{ id: "authority", registryCode: "70000094", subsets: ["EU01"] }]
+        - url_matches: /authorities.json
+          method: GET
+          body: [{ id: "authority", name: "Test authority", registryCode: "70000094", subsets: ["EU01"] }]
     request:
       method: POST
       path: /xroad/v1/dataset
@@ -89,9 +91,9 @@ tests:
   - name: dataset with a non-string subset element is 400
     setup:
       mocks:
-        - url_matches: /efti/get_authority_by_registry_code
-          method: POST
-          body: [{ id: "authority", registryCode: "70000094", subsets: ["EU01"] }]
+        - url_matches: /authorities.json
+          method: GET
+          body: [{ id: "authority", name: "Test authority", registryCode: "70000094", subsets: ["EU01"] }]
     request:
       method: POST
       path: /xroad/v1/dataset
@@ -107,9 +109,9 @@ tests:
   - name: transport-means without EU02 is 403 FORBIDDEN_SUBSET
     setup:
       mocks:
-        - url_matches: /efti/get_authority_by_registry_code
-          method: POST
-          body: [{ id: "authority", registryCode: "70000094", subsets: ["EU01"] }]
+        - url_matches: /authorities.json
+          method: GET
+          body: [{ id: "authority", name: "Test authority", registryCode: "70000094", subsets: ["EU01"] }]
     request:
       method: POST
       path: /xroad/v1/transport-means
@@ -122,12 +124,12 @@ tests:
       status: 403
       body_matches: { code: "FORBIDDEN_SUBSET", authorityId: "authority", deniedSubsets: ["EU02"], permittedSubsets: ["EU01"] }
 
-  - name: transport-means for an authority row without subsets is 403 FORBIDDEN
+  - name: transport-means for an authority record without subsets is 403 FORBIDDEN
     setup:
       mocks:
-        - url_matches: /efti/get_authority_by_registry_code
-          method: POST
-          body: [{ id: "authority", registryCode: "70000094" }]
+        - url_matches: /authorities.json
+          method: GET
+          body: [{ id: "authority", name: "Test authority", registryCode: "70000094" }]
     request:
       method: POST
       path: /xroad/v1/transport-means
@@ -143,9 +145,9 @@ tests:
   - name: transport-means with EU02 proceeds to the lookup
     setup:
       mocks:
-        - url_matches: /efti/get_authority_by_registry_code
-          method: POST
-          body: [{ id: "authority", registryCode: "70000094", subsets: ["EU02"] }]
+        - url_matches: /authorities.json
+          method: GET
+          body: [{ id: "authority", name: "Test authority", registryCode: "70000094", subsets: ["EU02"] }]
         - url_matches: /efti/check_transport_means_registered
           method: POST
           body: [{ registered: true }]

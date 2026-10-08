@@ -12,7 +12,7 @@ run #auth
 #   carried_equipment_ids  TE-003, TE-004
 #   transport_reg_country  DE
 #
-# Registry codes 70000093 / 70000092 are unused elsewhere (echo 70000099, subsets 70000095-97,
+# Registry codes 70000093 / 70000092 are unused elsewhere (echo 70000099, subsets 70000091/70000096-97,
 # forward 70000094, admin 70000001/00000000).
 #
 # Every X-Road-Id must be a real UUID — the guard rejects anything else with 400 INVALID_REQUEST_ID.

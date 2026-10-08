@@ -8,9 +8,9 @@ vi.mock('src/api/api', () => ({default: {get: vi.fn(), post: vi.fn(), put: vi.fn
 
 function newGate(): Gate {
   return {
-    id: 'EU-EE', rowId: 'row-1', countryCode: CountryCode.EE, eDeliveryUrl: 'https://gate-ee.example/msh',
+    id: 'EU-EE', countryCode: CountryCode.EE, eDeliveryUrl: 'https://gate-ee.example/msh',
     eDeliveryCert: '-BEGIN CERTIFICATE-\nabc\n-END CERTIFICATE-',
-    status: Status.ONLINE, createdAt: '2026-01-01T00:00:00Z',
+    status: Status.ONLINE,
   }
 }
 
@@ -43,6 +43,13 @@ describe('GatesPage', () => {
     expect(screen.queryByRole('button', {name: 'Add'})).to.equal(null)
     expect(screen.queryByRole('button', {name: 'Edit'})).to.equal(null)
     expect(screen.queryByRole('button', {name: 'Delete'})).to.equal(null)
+  })
+
+  it('shows the status without any last-ping information', async () => {
+    render(GatesPage)
+    await screen.findByText('EU-EE')
+
+    expect(screen.getByText('ONLINE').parentElement?.getAttribute('title')).to.equal(null)
   })
 
   it('shows a gate in read-only details without calling the API', async () => {

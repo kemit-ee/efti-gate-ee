@@ -1,9 +1,10 @@
-# Architecture: Platform Registry Management (Configuration-Driven)
+# Architecture: Platform Registry Management (Configuration-Driven, no database)
 
 ## Changes
 
 - _Initial state. Change tracking begins at v1.0.0._
-- **2026-10-08 — rewritten for [ADR-014](../../architecture/decisions/014-registry-as-git-folder.md).** The platform registry is no longer mutated through the Admin API: it is declared in `registry/platforms/<id>.json` and applied by the one-shot `registry-sync` container at startup. The admin `POST`/`PUT`/`DELETE`, `ping` and `api-key` routes are deleted.
+- **2026-10-08 — [ADR-014](../../architecture/decisions/014-registry-as-git-folder.md):** the registry moved out of the Admin API into the git folder `registry/platforms/`.
+- **2026-10-08 — [ADR-015](../../architecture/decisions/015-registry-as-file-server.md):** the `platforms` table, its read model and the `api_key_hash`/`api_key_hint`/`api_key_generated_at` columns are **dropped**. The folder is served over HTTP by the `registry` service, and the platform credential is now a **plaintext `apiKey` in the file** — ADR-004's hash-only rule is dropped because Ruuter's expression engine has no hash function.
 
 > Sub-architecture for the Platform Registry Management surface. For overarching rules see [theme README](README.md). AC are in [`../../cfr/registry-management/platform_registry.md`](../../cfr/registry-management/platform_registry.md).
 
@@ -12,35 +13,51 @@
 ```mermaid
 stateDiagram-v2
     [*] --> ONLINE: add registry/platforms/<id>.json (status ONLINE)
-    ONLINE --> ONLINE: commit a changed baseUrl / headers / certificate / API-key hash
+    ONLINE --> ONLINE: commit a changed baseUrl / headers / certificate / apiKey
     ONLINE --> DISABLED: commit status DISABLED
     DISABLED --> ONLINE: commit status ONLINE
-    ONLINE --> DELETED: delete registry/platforms/<id>.json
-    DELETED --> ONLINE: re-add the file
+    ONLINE --> [*]: delete the file, then restart the registry service
     note right of ONLINE
         Onboarded into eDelivery's party map
-        (only if an AS4 certificate is present)
-    end note
-    note right of DELETED
-        Latest row status='DELETED',
-        tombstone kept for audit
+        only if an AS4 certificate is present
     end note
 ```
 
-## How a change reaches the database
+There is no `DELETED` state and no tombstone: absence is deletion.
+
+## How a change reaches the consumers
 
 1. A PR adds, edits or deletes a file under `registry/platforms/`.
-2. The `registry-sync` container validates it, posts the registry to `POST /efti/sync_platforms`, refreshes the admin read models and verifies the result.
-3. `edelivery` starts only afterwards and loads the resulting parties into its registry, refreshing every `REGISTRY_REFRESH_SECONDS`.
+2. `docker compose restart registry` (or a deployment) makes the service re-read and revalidate.
+3. Ruuter reads `GET /platforms.json` (guards, list) or `GET /platforms/<id>.json` (details, dataset
+   and follow-up forwarding) and filters in the DSL; `edelivery` reads `/platforms.json` into its AS4
+   party map and refreshes it every `REGISTRY_REFRESH_SECONDS`.
 
-A platform row that is unchanged is not rewritten, so restarts do not append revisions. A platform with no `eDeliveryCert` never reaches `edelivery`'s party map, which is why the REST-only `mock` platform can authenticate without being a valid AS4 peer.
+A platform with no `eDeliveryCert` never reaches `edelivery`'s party map, which is why the REST-only
+`mock` platform can authenticate without being a valid AS4 peer.
 
 ## Authentication credential
 
-`platforms.api_key_hash` is the SHA-256 of the platform's inbound `X-Api-Key`, and it comes from `apiKeyHash` in the registry file — the plaintext key is never stored anywhere. There is no longer an endpoint that mints a key: rotating one means choosing a new secret, committing `sha256sum` of it, and handing the secret to the platform operator out of band.
+`apiKey` in the registry file is the platform's inbound `X-Api-Key`. `platforms/.guard.yml` reads
+`/platforms.json`, keeps platforms where `apiKey` equals the header **and** `status === 'ONLINE'`,
+and denies everything else — a null `apiKey` can never match, so an uncredentialed platform is
+unreachable by construction.
 
-The sync treats a changed hash as a rotation (stamping `api_key_generated_at` with the current time) and a file that omits `apiKeyHash` as "leave the existing credential alone" — it neither clears the key nor reports the platform as changed, so a deployment that manages keys out of band is not churned by every restart.
+Because this is a live secret in a served folder:
+
+- the `registry` service must never be exposed beyond the internal network (no published port in
+  `compose.yml`, no ingress rule, not proxied by the UI);
+- the admin read routes strip `apiKey` from every response and expose a derived `hasApiKey` boolean;
+- the guard strips `apiKey` from the platform object it passes on to handlers through `${platform}`.
+
+Rotation is a commit plus a restart; the new secret is handed to the platform operator out of band.
+There is no runtime endpoint that mints or rotates keys any more.
 
 ## Rationale
 
-Platform metadata (base URL, headers, certificates, credential hash) drives Platform-API authentication and the forwarding target for dataset and follow-up requests. All of it is contractual: a wrong base URL or a poisoned certificate is a routing or trust failure, exactly the class of change that should require review rather than a live REST call. Append-only INSERTs still preserve every change as auditable history, and the reader-side caches (`edelivery`'s party registry, the admin read models) keep working against the same tables.
+Platform metadata (base URL, headers, certificates, credential) drives Platform-API authentication
+and the forwarding target for dataset and follow-up requests. All of it is contractual: a wrong base
+URL or a poisoned certificate is a routing or trust failure. Keeping it declarative removes the
+second copy in the database and makes the credential visible in review — at the cost of the
+credential being plaintext in the repository and on the wire, which is the deliberate trade recorded
+in ADR-015.

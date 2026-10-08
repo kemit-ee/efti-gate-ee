@@ -7,31 +7,29 @@ setup:
     requestId: ${incoming.headers['x-request-id']}
 
 get_platform:
-  call: http.post
+  call: http.get
   args:
-    url: "[#RESQL_URL]/efti/get_platform_by_id"
+    url: "[#REGISTRY_URL]/platforms/${encodeURIComponent(incoming.body.uil.platformId ?? '')}.json"
     headers:
       Content-Type: "application/json"
-    body:
-      id: "${incoming.body.uil.platformId}"
   result: platform_result
 
 check_platform:
   switch:
-    # ReSql transport failure (issue #89, status 0) → non-array stub body; without this the
-    # !body.length test misreports a data-layer outage as 404 Platform Not Found.
+    # A registry transport failure is a gate-side outage; without this the 404 test below would
+    # misreport it as "Platform Not Found". The registry answers 404 for an unknown id.
     - condition: ${platform_result.response.status == 0 || platform_result.response.status >= 300}
       next: platform_lookup_failed
-    - condition: ${!platform_result.response.body.length}
+    - condition: ${!platform_result.response.body || platform_result.response.body.id == null}
       next: platform_not_found
-    - condition: ${!!platform_result.response.body[0]?.eDeliveryCert}
+    - condition: ${!!platform_result.response.body.eDeliveryCert}
       next: request_to_xml
 
 query_rest_platform:
   call: http.get
   args:
-    url: "${platform_result.response.body[0]?.baseUrl}/v1/dataset/${encodeURIComponent(incoming.body.uil.datasetId ?? '')}?subsets=${encodeURIComponent((incoming.body.subsets ?? []).join(','))}"
-    headers: "${Object.assign(platform_result.response.body[0]?.headers ?? {}, {'x-request-id': requestId})}"
+    url: "${platform_result.response.body.baseUrl}/v1/dataset/${encodeURIComponent(incoming.body.uil.datasetId ?? '')}?subsets=${encodeURIComponent((incoming.body.subsets ?? []).join(','))}"
+    headers: "${Object.assign(platform_result.response.body.headers ?? {}, {'x-request-id': requestId})}"
   result: dataset_xml
   next: check_dataset_xml
 
@@ -55,7 +53,7 @@ query_edelivery_platform:
   call: http.post
   timeout: 65000
   args:
-    url: "[#EDELIVERY_URL]/api/v1/send/${platform_result.response.body[0].id}"
+    url: "[#EDELIVERY_URL]/api/v1/send/${platform_result.response.body.id}"
     headers:
       content-type: "text/xml"
       x-request-id: ${requestId}

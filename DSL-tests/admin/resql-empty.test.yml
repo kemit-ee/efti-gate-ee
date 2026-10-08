@@ -1,18 +1,23 @@
+# GET /admin/v1/platforms/:id reads the ADR-015 registry service (registry/platforms/<id>.json), not
+# ReSql, so a missing entity arrives as a real 404 — which is the route's own "not found" — while
+# anything else must stay an outage. Only the guard's ReSql call and the registry read are mocked.
 mode: mock-http
 constants:
   RUUTER_URL: "{MOCK}"
+  REGISTRY_URL: "{MOCK}"
   RESQL_URL: "{MOCK}"
 
 tests:
-  - name: successful empty array still means missing platform
+  - name: an unknown platform id is a missing platform, not an outage
     setup:
       mocks:
         - url_matches: /efti/internal/check-admin-authority
           method: POST
           body: { id: "EE60001019906" }
-        - url_matches: /efti/get_platform_by_id
-          method: POST
-          body: []
+        - url_matches: /platforms/mock.json
+          method: GET
+          status: 404
+          body: {}
     request:
       method: GET
       path: /admin/v1/platforms/mock
