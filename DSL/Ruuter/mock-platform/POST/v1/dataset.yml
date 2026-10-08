@@ -1,6 +1,19 @@
 declaration:
   description: "Mock platform endpoint for testing follow-up messages"
   # Handles params: /:datasetId/follow-up
+  internal: false
+  returns:
+    - field: datasetId
+      type: string
+    - field: message
+      type: string
+  additive: true
+  allowlist:
+    body:
+      - field: message
+        type: string
+    params:
+      - field: pathParams
 
 check_path:
   switch:

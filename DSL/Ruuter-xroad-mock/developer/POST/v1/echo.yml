@@ -1,6 +1,18 @@
 declaration:
   description: "Developer mock — imitates POST /xroad/v1/echo. Echoes the X-Road headers and the
     request body, plus a canned authority row derived from the X-Road-Client member code."
+  internal: false
+  returns:
+    - field: xRoadClient
+      type: string
+    - field: xRoadId
+      type: string
+    - field: xRoadUserId
+      type: string
+    - field: authority
+      type: string
+    - field: echo
+      type: string
 
 route:
   switch:

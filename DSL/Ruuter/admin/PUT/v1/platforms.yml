@@ -1,6 +1,45 @@
 declaration:
   description: "Replace a platform (admin, TARA JWT). Path: platformId. Body: baseUrl (required);
     headers (object, optional), eDeliveryCert, tlsCert, status (optional)."
+  internal: false
+  returns:
+    - field: rowId
+      type: string
+    - field: id
+      type: string
+    - field: baseUrl
+      type: string
+    - field: headers
+      type: object
+    - field: eDeliveryCert
+      type: string
+    - field: tlsCert
+      type: string
+    - field: status
+      type: string
+    - field: apiKeyHint
+      type: string
+    - field: apiKeyGeneratedAt
+      type: string
+    - field: hasApiKey
+      type: boolean
+    - field: createdAt
+      type: string
+  additive: true
+  allowlist:
+    body:
+      - field: baseUrl
+        type: string
+      - field: eDeliveryCert
+        type: string
+      - field: headers
+        type: object
+      - field: status
+        type: string
+      - field: tlsCert
+        type: string
+    params:
+      - field: pathParams
 
 validate_input:
   switch:

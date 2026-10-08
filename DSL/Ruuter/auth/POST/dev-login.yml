@@ -1,7 +1,7 @@
 declaration:
   version: "1.0"
   description: >
-    Dev/CI login — mint a JWT directly without a TARA OIDC redirect.
+    Dev/CI login - mint a JWT directly without a TARA OIDC redirect.
     Returns the JWT in the response body for the frontend to store in sessionStorage.
     Disabled by default. DEV_LOGIN_ENABLED=true is required for local development and CI.
   method: post
@@ -16,6 +16,10 @@ declaration:
       - field: lastName
         type: string
         description: "Family name"
+  internal: false
+  returns:
+    - field: token
+      type: string
 
 validate_input:
   switch:

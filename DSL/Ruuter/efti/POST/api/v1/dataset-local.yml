@@ -1,6 +1,16 @@
 declaration:
   description: "Query local platform for a dataset — shared by eDelivery and Authority API"
-  allowed_body: [uil, subsets]
+  internal: false
+  returns: []
+  additive: true
+  allowlist:
+    body:
+      - field: uil
+        type: object
+        required: true
+      - field: subsets
+        type: array
+        required: true
 
 setup:
   assign:

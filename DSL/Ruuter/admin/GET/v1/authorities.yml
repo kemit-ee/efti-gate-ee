@@ -1,6 +1,28 @@
 declaration:
   description: "List authorities, or get one by id (admin, TARA JWT). Path: authorityId (optional —
     absent lists). Query: limit, offset (optional). No body."
+  internal: false
+  returns:
+    - field: rowId
+      type: string
+    - field: id
+      type: string
+    - field: name
+      type: string
+    - field: registryCode
+      type: string
+    - field: subsets
+      type: array
+    - field: status
+      type: string
+    - field: createdAt
+      type: string
+  additive: true
+  allowlist:
+    params:
+      - field: pathParams
+      - field: limit
+      - field: offset
 
 route:
   switch:

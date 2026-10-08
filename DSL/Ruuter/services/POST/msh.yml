@@ -28,3 +28,5 @@ declaration:
     # Longer than edelivery's EDELIVERY_TIMEOUT_SECONDS default (60 s) so a slow upstream
     # surfaces edelivery's own response rather than a self-inflicted proxy timeout.
     request_timeout_ms: 65000
+  internal: false
+  returns: []

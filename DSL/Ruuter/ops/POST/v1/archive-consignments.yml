@@ -1,10 +1,10 @@
 declaration:
   description: "Scheduled archive sweep — CronManager calls this on a timer (Bearer ARCHIVE_OPS_TOKEN).
     Everything goes through Ruuter + ReSql across two datasources: (1) SELECT a batch of superseded
-    consignments rows from the live DB — those whose newer sibling is older than olderThanDays
+    consignments rows from the live DB - those whose newer sibling is older than olderThanDays
     (default 2); (2) INSERT that batch into the separate archive DB; (3) read every row back from the
     archive DB and confirm it landed; (4) only if 100 % are confirmed, DELETE exactly those rows from
-    the live DB. A verification mismatch deletes nothing. One batch per call — re-invoke until
+    the live DB. A verification mismatch deletes nothing. One batch per call - re-invoke until
     `candidates` is 0. Body (optional): {olderThanDays: number, batchLimit: number}."
   allowlist:
     body:
@@ -16,6 +16,14 @@ declaration:
         type: number
         required: false
         description: "Maximum number of candidate rows to move in this call. Re-invoke until `candidates` is 0."
+  internal: false
+  returns:
+    - field: candidates
+      type: integer
+    - field: archived
+      type: integer
+    - field: deleted
+      type: integer
 
 # ---- 1. pick a batch from the live DB ----
 select_batch:

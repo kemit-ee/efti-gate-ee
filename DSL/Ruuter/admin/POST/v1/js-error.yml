@@ -1,6 +1,8 @@
 declaration:
   description: "Accept frontend JS error reports for logging (admin, TARA JWT). Body: a free-form
-    JSON object — logged verbatim, no field contract."
+    JSON object - logged verbatim, no field contract."
+  internal: false
+  returns: []
 
 validate_input:
   switch:

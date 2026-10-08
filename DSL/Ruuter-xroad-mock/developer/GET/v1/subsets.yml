@@ -1,6 +1,14 @@
 declaration:
   description: "Developer mock — imitates GET /xroad/v1/subsets. Returns the canned subset
     entitlement for the calling member code."
+  internal: false
+  returns:
+    - field: registryCode
+      type: string
+    - field: authorityId
+      type: string
+    - field: subsets
+      type: array
 
 route:
   switch:

@@ -1,6 +1,29 @@
 declaration:
   description: "Create a user (admin, TARA JWT). Body: taraSub, name (both required). A duplicate
     active taraSub returns 409."
+  internal: false
+  returns:
+    - field: rowId
+      type: string
+    - field: id
+      type: string
+    - field: taraSub
+      type: string
+    - field: name
+      type: string
+    - field: tokenRevokedAt
+      type: string
+    - field: isUserActive
+      type: boolean
+    - field: createdAt
+      type: string
+  additive: true
+  allowlist:
+    body:
+      - field: taraSub
+        type: string
+      - field: name
+        type: string
 
 validate_input:
   switch:

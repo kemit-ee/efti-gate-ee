@@ -7,6 +7,10 @@ declaration:
       - field: authorization
         type: string
         description: "Bearer <gate JWT>"
+  internal: false
+  returns:
+    - field: message
+      type: string
 
 check_bearer:
   switch:

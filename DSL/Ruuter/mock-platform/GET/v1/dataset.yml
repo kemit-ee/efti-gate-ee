@@ -1,5 +1,7 @@
 declaration:
   description: "Mock platform endpoint returning sample FTI010 dataset"
+  internal: false
+  returns: []
 
 check_api_key:
   switch:

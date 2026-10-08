@@ -1,5 +1,7 @@
 declaration:
   description: "Mock platform health check for ping"
+  internal: false
+  returns: []
 
 respond:
   return: "OK"

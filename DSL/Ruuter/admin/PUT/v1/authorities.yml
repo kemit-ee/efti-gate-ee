@@ -1,6 +1,35 @@
 declaration:
   description: "Replace a competent authority (admin, TARA JWT). Path: authorityId. Body: name,
-    registryCode (required); subsets (array, optional — defaults []); status (optional)."
+    registryCode (required); subsets (array, optional - defaults []); status (optional)."
+  internal: false
+  returns:
+    - field: rowId
+      type: string
+    - field: id
+      type: string
+    - field: name
+      type: string
+    - field: registryCode
+      type: string
+    - field: subsets
+      type: array
+    - field: status
+      type: string
+    - field: createdAt
+      type: string
+  additive: true
+  allowlist:
+    body:
+      - field: name
+        type: string
+      - field: registryCode
+        type: string
+      - field: status
+        type: string
+      - field: subsets
+        type: array
+    params:
+      - field: pathParams
 
 validate_input:
   switch:

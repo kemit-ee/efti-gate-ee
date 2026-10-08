@@ -1,6 +1,14 @@
 declaration:
   description: "Delete a consignment (admin, TARA JWT). Path: consignmentId. Query: platformId,
     gateId (both required, the UIL owner). No body."
+  internal: false
+  returns: []
+  additive: true
+  allowlist:
+    params:
+      - field: platformId
+      - field: gateId
+      - field: pathParams
 
 validate_input:
   switch:

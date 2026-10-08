@@ -1,6 +1,41 @@
 declaration:
   description: "Create a gate (admin, TARA JWT). Body: id, countryCode, eDeliveryUrl (all
     required); eDeliveryCert, tlsCert, status (optional)."
+  internal: false
+  returns:
+    - field: rowId
+      type: string
+    - field: id
+      type: string
+    - field: countryCode
+      type: string
+    - field: eDeliveryUrl
+      type: string
+    - field: eDeliveryCert
+      type: string
+    - field: tlsCert
+      type: string
+    - field: status
+      type: string
+    - field: lastPingAt
+      type: string
+    - field: createdAt
+      type: string
+  additive: true
+  allowlist:
+    body:
+      - field: id
+        type: string
+      - field: countryCode
+        type: string
+      - field: eDeliveryUrl
+        type: string
+      - field: eDeliveryCert
+        type: string
+      - field: status
+        type: string
+      - field: tlsCert
+        type: string
 
 validate_input:
   switch:

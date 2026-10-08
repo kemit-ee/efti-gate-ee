@@ -5,7 +5,14 @@ declaration:
       * the full FTI004UploadIdentifierRequest (if coming via eDelivery)
       * just the ParameterIDSetCriteria element (for direct platform upload via REST).
         In this case, datasetId must be provided as path parameter.
-  allowed_body: [xml]
+  internal: false
+  returns: []
+  additive: true
+  allowlist:
+    body:
+      - field: xml
+        type: string
+        required: true
 
 setup:
   assign:

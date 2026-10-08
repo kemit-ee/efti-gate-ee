@@ -1,7 +1,21 @@
 declaration:
   description: "Generate a new X-Api-Key for a platform (admin). Returns the plaintext
-    key once — it is stored only as a SHA-256 hash (ADR-004)."
+    key once - it is stored only as a SHA-256 hash (ADR-004)."
   # Route: POST /admin/v1/platforms/api-key/:id
+  internal: false
+  returns:
+    - field: id
+      type: string
+    - field: apiKey
+      type: string
+    - field: apiKeyHint
+      type: string
+    - field: apiKeyGeneratedAt
+      type: string
+  additive: true
+  allowlist:
+    params:
+      - field: pathParams
 
 check_exists:
   call: http.post
@@ -39,7 +53,7 @@ check_generated:
   switch:
     - condition: ${key_result.response.status == 0 || key_result.response.status >= 400 || !key_result.response.body.length}
       next: generate_failed
-  next: respond
+  next: refresh_registry_lists
 
 # Best-effort, post-commit: the registry list read model (ADR-012) catches up right after the write; a
 # failure here never fails the write, and POST /ops/v1/refresh-read-models is the safety net.
@@ -51,7 +65,7 @@ refresh_registry_lists:
       Content-Type: "application/json"
     body: {}
   result: refresh_registry_lists_result
-
+  next: respond
 
 respond:
   return:

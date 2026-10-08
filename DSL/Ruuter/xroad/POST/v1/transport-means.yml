@@ -1,7 +1,7 @@
 declaration:
   description: "X-Road transport-means lookup (ADR-006). A transport-means identifier comes in — a
     road registration plate, a vessel IMO, an aircraft registration, or a transport-equipment
-    (container) id — and the identifier-level data this gate holds against it comes back.
+    (container) id - and the identifier-level data this gate holds against it comes back.
     Mode-neutral by design: one service covers all of them.
 
     Returns NO dataset content. The caller uses a returned uil with POST /xroad/v1/dataset to fetch
@@ -12,6 +12,25 @@ declaration:
     local) < local (full local projection, default) < allgates (cross-gate fan-out, async)."
   # No allowed_body, for the same reason as dataset.yml: the field-list form is used once in the
   # whole repo and its filter-vs-require semantics are unproven.
+  internal: false
+  returns:
+    - field: identifier
+      type: string
+    - field: countryCode
+      type: string
+    - field: scope
+      type: string
+    - field: registered
+      type: boolean
+    - field: found
+      type: integer
+    - field: consignments
+      type: array
+  additive: true
+  allowlist:
+    body:
+      - field: countryCode
+        type: string
 
 # The project-level xroad/.guard.yml has already validated the X-Road-Client shape, confirmed a
 # UUID-shaped X-Road-Id, resolved exactly one ACTIVE authority, and bound the row as ${authority}.

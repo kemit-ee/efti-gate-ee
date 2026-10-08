@@ -1,6 +1,20 @@
 declaration:
   description: "Developer mock — imitates POST /xroad/v1/transport-means. Canned identifier-level
     projection for MOCK-PLATE-1 and MOCK-PLATE-3 (three shipments); found: 0 otherwise."
+  internal: false
+  returns:
+    - field: identifier
+      type: string
+    - field: countryCode
+      type: string
+    - field: scope
+      type: string
+    - field: registered
+      type: boolean
+    - field: found
+      type: integer
+    - field: consignments
+      type: array
 
 setup:
   assign:

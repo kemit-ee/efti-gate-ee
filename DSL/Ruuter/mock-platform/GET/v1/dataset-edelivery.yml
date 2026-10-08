@@ -1,5 +1,7 @@
 declaration:
   description: "Mock platform endpoint returning sample FTI010 dataset (for edelivery)"
+  internal: false
+  returns: []
 
 setup:
   assign:

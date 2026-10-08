@@ -9,6 +9,10 @@ declaration:
         type: number
         required: false
         description: "Retention window in minutes; search rows older than this are permanently deleted. Defaults to 10 when omitted."
+  internal: false
+  returns:
+    - field: purged
+      type: integer
 
 purge:
   call: http.post

@@ -1,6 +1,35 @@
 declaration:
   description: "Create a competent authority (admin, TARA JWT). Body: id, name, registryCode
-    (all required); subsets (array, optional — defaults to []); status (optional — defaults ACTIVE)."
+    (all required); subsets (array, optional - defaults to []); status (optional - defaults ACTIVE)."
+  internal: false
+  returns:
+    - field: rowId
+      type: string
+    - field: id
+      type: string
+    - field: name
+      type: string
+    - field: registryCode
+      type: string
+    - field: subsets
+      type: array
+    - field: status
+      type: string
+    - field: createdAt
+      type: string
+  additive: true
+  allowlist:
+    body:
+      - field: id
+        type: string
+      - field: name
+        type: string
+      - field: registryCode
+        type: string
+      - field: status
+        type: string
+      - field: subsets
+        type: array
 
 validate_input:
   switch:
