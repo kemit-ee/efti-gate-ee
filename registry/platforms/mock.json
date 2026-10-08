@@ -1,0 +1,11 @@
+{
+  "id": "mock",
+  "baseUrl": "http://ruuter:8086/mock-platform",
+  "headers": {
+    "X-Api-Key": "mock-secret-key"
+  },
+  "eDeliveryCert": null,
+  "tlsCert": null,
+  "status": "ONLINE",
+  "apiKeyHash": "ae2f98d4ec4a4a9763cf1641979fdb5c925223ed05d1ab863bbf18100213ad25"
+}

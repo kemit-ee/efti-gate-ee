@@ -4,32 +4,18 @@
   import GateForm from 'src/pages/admin/gates/GateForm.svelte'
   import {onMount} from 'svelte'
   import api from 'src/api/api'
-  import Button from 'src/components/Button.svelte'
   import Modal from 'src/components/Modal.svelte'
   import type {Gate} from "src/api/ruuterTypes";
   import OwnGateButton from "src/pages/admin/gates/OwnGateButton.svelte";
 
   let gates: Gate[]
-  let editGate: Gate | false = false
+  let detailsGate: Gate | false = false
 
   onMount(load)
 
   async function load() {
     gates = await api.get<Gate[]>('gates')
     await api.get('gates/own')
-  }
-
-  function add() {
-    editGate = {} as Gate
-  }
-
-  function onEdit(gate: Gate) {
-    editGate = gate
-  }
-
-  function onSaved() {
-    editGate = false
-    load()
   }
 </script>
 
@@ -39,14 +25,13 @@
   </h1>
   <div>
     <OwnGateButton/>
-    <Button label={t.general.add} onclick={add} class="primary"/>
   </div>
 </div>
 
-<GateList bind:gates onEdit={onEdit} onDeleted={load}/>
+<GateList {gates} onDetails={gate => detailsGate = gate}/>
 
-<Modal bind:show={editGate} title={t.gates.gate}>
-  {#if editGate}
-    <GateForm gate={editGate} {onSaved}/>
+<Modal bind:show={detailsGate} title={t.gates.gate}>
+  {#if detailsGate}
+    <GateForm gate={detailsGate} disabled/>
   {/if}
 </Modal>

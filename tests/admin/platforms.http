@@ -1,130 +1,39 @@
 import ./auth.http
 run #auth
 
-### Create platform
-POST {{RUUTER_URL}}/admin/v1/platforms
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-{
-  "id": "demo",
-  "baseUrl": "https://demo-platform.example.com/api",
-  "headers": {"X-Api-Key": "test-key-123"},
-  "eDeliveryCert": "-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----",
-  "tlsCert": "-----BEGIN CERTIFICATE-----\ntest-tls-cert\n-----END CERTIFICATE-----",
-  "status": "ONLINE"
-}
-
-> {%
-  client.test("Platform created", () => {
-    client.assert(response.status === 201)
-    client.assert(response.body.id === "demo")
-    client.assert(response.body.baseUrl === "https://demo-platform.example.com/api")
-    client.assert(response.body.status === "ONLINE")
-  })
-%}
-
-### Verify audit log recorded the platform creation (issue #59)
-GET {{RUUTER_URL}}/admin/v1/audit?resource=platform&resourceId=demo
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-> {%
-  client.test("Audit log has a platform.create row", () => {
-    client.assert(response.status === 200)
-    client.assert(response.body.some(e => e.action === "platform.create" && e.resourceId === "demo"))
-  })
-%}
-
-### List platforms
+### List platforms — registry/platforms/*.json is the source of truth (ADR-014)
 GET {{RUUTER_URL}}/admin/v1/platforms
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
 > {%
-  client.test("Platforms listed", () => {
+  client.test("Platforms listed from the registry fixtures", () => {
     client.assert(response.status === 200)
-    client.assert(response.body.length >= 1)
+    client.assert(Array.isArray(response.body))
+    const ids = response.body.map(p => p.id)
+    client.assert(ids.includes("mock"))
+    client.assert(ids.includes("mock-edelivery"))
+    client.assert(response.body.every(p => p.status !== "DELETED"))
   })
 %}
 
-### Get single platform
-GET {{RUUTER_URL}}/admin/v1/platforms/demo
+### Get the mock platform (registry/platforms/mock.json)
+GET {{RUUTER_URL}}/admin/v1/platforms/mock
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
 > {%
-  client.test("Single platform found", () => {
+  client.test("Mock platform read back from the registry", () => {
     client.assert(response.status === 200)
-    client.assert(response.body.id === "demo")
+    client.assert(response.body.id === "mock")
+    client.assert(response.body.baseUrl === "http://ruuter:8086/mock-platform")
+    client.assert(response.body.status === "ONLINE")
+    client.assert(response.body.headers["X-Api-Key"] === "mock-secret-key")
   })
 %}
 
-### Update platform
-PUT {{RUUTER_URL}}/admin/v1/platforms/demo
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-{
-  "baseUrl": "https://demo-platform.example.com/api/v2",
-  "headers": {"X-Api-Key": "updated-key-456"},
-  "eDeliveryCert": "-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----",
-  "tlsCert": "-----BEGIN CERTIFICATE-----\ntest-tls-cert\n-----END CERTIFICATE-----",
-  "status": "ONLINE"
-}
-
-> {%
-  client.test("Platform updated", () => {
-    client.assert(response.status === 200)
-    client.assert(response.body.baseUrl === "https://demo-platform.example.com/api/v2")
-  })
-%}
-
-### Verify audit log recorded the platform update (issue #59)
-GET {{RUUTER_URL}}/admin/v1/audit?resource=platform&resourceId=demo
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-> {%
-  client.test("Audit log has a platform.update row", () => {
-    client.assert(response.status === 200)
-    client.assert(response.body.some(e => e.action === "platform.update" && e.resourceId === "demo"))
-  })
-%}
-
-### Generate API key for platform (ADR-004)
-# The gate stores only digest(key,'sha256') in platforms.api_key_hash, never the
-# key itself — the plaintext is returned once here and never again. The
-# consignments.guard hashes the incoming X-Api-Key and matches it against that
-# hash (it used to compare plaintext against platforms.headers->>'X-Api-Key').
-POST {{RUUTER_URL}}/admin/v1/platforms/api-key/demo
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-> {%
-  client.test("API key generated", () => {
-    client.assert(response.status === 201)
-    client.assert(response.body.id === "demo")
-    client.assert(/^[0-9a-f]{48}$/.test(response.body.apiKey))
-    client.assert(response.body.apiKeyHint.length === 8)
-    client.global.set("demoApiKey", response.body.apiKey)
-  })
-%}
-
-### Regenerating replaces the key
-POST {{RUUTER_URL}}/admin/v1/platforms/api-key/demo
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-> {%
-  client.test("API key regenerated", () => {
-    client.assert(response.status === 201)
-    client.assert(response.body.apiKey !== client.global.get("demoApiKey"))
-  })
-%}
-
-### Platform now shows a key hint, never the hash
-GET {{RUUTER_URL}}/admin/v1/platforms/demo
+### The platform credential is a hint, never the hash (ADR-004 / ADR-014)
+GET {{RUUTER_URL}}/admin/v1/platforms/mock
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
@@ -132,89 +41,28 @@ Authorization: Bearer {{adminToken}}
   client.test("API key hint exposed, hash hidden", () => {
     client.assert(response.status === 200)
     client.assert(response.body.hasApiKey === true)
+    client.assert(response.body.apiKeyHint === "ae2f98d4")
     client.assert(response.body.apiKeyHint.length === 8)
     client.assert(response.body.apiKeyHash === undefined)
     client.assert(response.body.apiKey === undefined)
   })
 %}
 
-### Generate API key for unknown platform → 404
-POST {{RUUTER_URL}}/admin/v1/platforms/api-key/does-not-exist
+### A platform without apiKeyHash has no inbound credential
+GET {{RUUTER_URL}}/admin/v1/platforms/mock-edelivery
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
 > {%
-  client.test("API key generate 404 for unknown platform", () => {
-    client.assert(response.status === 404)
-  })
-%}
-
-### Delete platform
-DELETE {{RUUTER_URL}}/admin/v1/platforms/demo
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-> {%
-  client.test("Platform deleted", () => {
-    client.assert(response.status === 204)
-  })
-%}
-
-### Verify platform deleted
-GET {{RUUTER_URL}}/admin/v1/platforms/demo
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-> {%
-  client.test("Platform deleted", () => {
+  client.test("Mock eDelivery platform read back from the registry", () => {
     client.assert(response.status === 200)
-    client.assert(response.body.status === "DELETED")
-  })
-%}
-
-### Verify audit log recorded the platform deletion (issue #59)
-GET {{RUUTER_URL}}/admin/v1/audit?resource=platform&resourceId=demo
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-> {%
-  client.test("Audit log has a platform.delete row", () => {
-    client.assert(response.status === 200)
-    client.assert(response.body.some(e => e.action === "platform.delete" && e.resourceId === "demo"))
-  })
-%}
-
-### Ping platform (REST — mock-platform health endpoint)
-POST {{RUUTER_URL}}/admin/v1/platforms
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-{
-  "id": "ping-test",
-  "baseUrl": "http://ruuter:8086/mock-platform/health",
-  "status": "ONLINE"
-}
-
-> {%
-  client.test("Platform created for ping", () => {
-    client.assert(response.status === 201)
-  })
-%}
-
-### Check ping result
-POST {{RUUTER_URL}}/admin/v1/platforms/ping/ping-test
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-> {%
-  client.test("Platform pinged (REST)", () => {
+    client.assert(response.body.id === "mock-edelivery")
+    client.assert(response.body.baseUrl === "http://edelivery:8081/services/msh")
     client.assert(response.body.status === "ONLINE")
+    client.assert(response.body.hasApiKey === false)
+    client.assert(response.body.apiKeyHint === null || response.body.apiKeyHint === undefined)
   })
 %}
-
-DELETE {{RUUTER_URL}}/admin/v1/platforms/ping-test
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
 
 ### NEGATIVE: GET without auth → 401
 GET {{RUUTER_URL}}/admin/v1/platforms
@@ -226,14 +74,38 @@ Content-Type: application/json
   })
 %}
 
-### NEGATIVE: POST without auth → 401
+### NEGATIVE: the platform write API is gone (ADR-014) — registry is read-only
+# The path IS still routed, but only for GET, so a write method is "method not allowed"
+# rather than "not found", and no guard runs to produce 401/403.
 POST {{RUUTER_URL}}/admin/v1/platforms
 Content-Type: application/json
 
 {"id": "NOAUTH", "baseUrl": "https://x.example.com", "status": "ONLINE"}
 
 > {%
-  client.test("POST platform without auth rejected", () => {
-    client.assert(response.status === 401 || response.status === 403)
+  client.test("POST /admin/v1/platforms rejected — registry is read-only (405)", () => {
+    client.assert(response.status === 405)
+  })
+%}
+
+### NEGATIVE: keys are declared in the registry, so there is no rotate endpoint
+POST {{RUUTER_URL}}/admin/v1/platforms/api-key/mock
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("POST /admin/v1/platforms/api-key/mock rejected — read-only (405)", () => {
+    client.assert(response.status === 405)
+  })
+%}
+
+### NEGATIVE: status is registry-owned, so there is no ping endpoint
+POST {{RUUTER_URL}}/admin/v1/platforms/ping/mock
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.test("POST /admin/v1/platforms/ping/mock rejected — read-only (405)", () => {
+    client.assert(response.status === 405)
   })
 %}

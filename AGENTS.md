@@ -6,7 +6,7 @@ Estonian national eFTI Gate (EU Regulation 2020/1056). Mediates dataset retrieva
 
 ## Architecture at a glance
 
-10 Docker Compose services. Three runtime layers:
+11 Docker Compose services. Three runtime layers:
 
 | Layer | Tech | Port | Role |
 |-------|------|------|------|
@@ -45,11 +45,11 @@ DSL/
       POST/api/v1/      # G2G endpoints: dataset, follow-up, consignments-xml
       POST/internal/     # Auth helpers: check-admin-authority, check-user-authority
       GET/api/v1/        # gates/own, consignments, status, follow-up, test
-    admin/              # Admin CRUD routes (served under /admin/)
+    admin/              # Admin routes (served under /admin/) — READ-ONLY for the three registries
       GET/v1/           # List/get: gates, platforms, authorities, users, audit, consignments, consignment-counts + consignment-summary (read models); gates/platforms/authorities lists read models
-      POST/v1/          # Create: gates, platforms, authorities, users + ping, revoke-token, js-error
-      PUT/v1/           # Update: gates, platforms, authorities, users
-      DELETE/v1/        # Delete: gates, platforms, authorities, users, consignments
+      POST/v1/          # users, users/revoke-token, js-error (NO registry writes — see "Registries" below)
+      PUT/v1/           # users
+      DELETE/v1/        # users, consignments
     auth/               # Authentication routes (served under /auth/)
       GET/              # user (current user profile)
       POST/             # callback, logout, dev-login
@@ -67,6 +67,10 @@ DSL/
                         #   See docs/developer/x_road_developer_mock.md.
   Resql/efti/POST/      # SQL endpoint files (*.sql)
   Liquibase/            # DB migrations (initial/ + changelog/)
+registry/               # SOURCE OF TRUTH for gates/platforms/authorities (ADR-014).
+  gates/<id>.json       #   One JSON per entity, file name = id, certs inline PEM. Mounted read-only
+  platforms/<id>.json   #   into the one-shot `registry-sync` container. See registry/README.md.
+  authorities/<id>.json #
 code/
   edelivery/            # AS4 messaging service
   xml-mapper/           # XML↔JSON conversion (FTI004/009/010/019/021/025/029/030)
@@ -74,13 +78,43 @@ code/
 tests/                  # IntelliJ HTTP Client test files (*.http) with assertions
 ```
 
+## Registries (ADR-014) — declarative, not HTTP
+
+The gates/platforms/authorities registries have **one writer**: the git folder `registry/`, applied at
+startup by the one-shot `registry-sync` service (`docker/registry-sync/`, plain python3 + stdlib).
+
+- `registry/gates|platforms|authorities/<id>.json`, file name must equal `id`, certificates inline as
+  PEM strings, a platform's credential only as `apiKeyHash` (SHA-256 hex, never the plaintext).
+  Format + per-field tables: `registry/README.md`. Rationale: `docs/architecture/decisions/014-registry-as-git-folder.md`
+  (implements the draft ADR-011).
+- **There is no HTTP write path.** The admin `POST`/`PUT`/`DELETE` routes for these three registries —
+  including `ping` and `api-key` — do not exist, and neither do their ReSql endpoints
+  (`insert_*`, `update_*`, `soft_delete_*`, `update_*_ping`, `generate_platform_api_key`). Only `GET`
+  remains, and the Admin UI is read-only for them. `users` and `consignments` keep their admin writes.
+- Data flow: `registry-sync` validates every file, POSTs one batch per registry to
+  `efti/sync_{gates,platforms,authorities}` (new ReSql endpoints, param `entities` = a JSON **string**),
+  calls `efti/refresh_registry_lists`, then reads the registries back and **fails if they don't match**.
+  `ruuter` and `edelivery` `depends_on: registry-sync: service_completed_successfully`, so a malformed
+  file or a mismatch stops the stack from starting (fail-closed).
+- Sync semantics are append-only and **only-write-when-changed**: new → INSERT; changed → new revision;
+  unchanged → nothing (a restart must not grow the table); file removed → `DELETED` tombstone;
+  file re-added → **revived**. That revival is why `20261008-registry-sync.sql` scoped
+  `protect_registry_append()`'s "Cannot reactivate deleted" guard to `users` only.
+- `status` is fully registry-owned (`ONLINE`/`DISABLED`, authorities `ACTIVE`/`DELETED`). There is no
+  ping job: the admin ping routes, the CronManager job definition and `edelivery`'s internal
+  `POST /api/v1/ping/:partyId` are all deleted, and `gates.last_ping_at` stays `NULL`.
+- A platform file that **omits** `apiKeyHash` leaves the stored credential untouched and is not counted
+  as a change; a changed hash is a rotation (`api_key_generated_at = now()`, hint = first 8 hex chars).
+- Detected at startup, not by tests: a bad field name/typo in a registry file aborts the boot with the
+  file and field named, because the loader rejects unknown keys.
+
 ## Nginx proxy (UI)
 
 The UI container (`docker/ui/nginx.conf`) proxies browser requests to backend services:
 
 | Location | Backend | Purpose |
 |----------|---------|---------|
-| `/admin/` | `http://ruuter:8086` | Admin CRUD (gates, platforms, authorities, users) |
+| `/admin/` | `http://ruuter:8086` | Admin API — read-only registries (gates, platforms, authorities) + users/consignments |
 | `/auth/` | `http://ruuter:8086` | Authentication (user, callback, logout, dev-login) |
 | `/tim/` | `http://tim:8085/` | Token & Identity Manager |
 | `/tara/` | `https://tara-mock:8080/` | TARA OIDC mock |
@@ -90,7 +124,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 
 ## DSL conventions (Ruuter)
 
-- Routes map 1:1 to file paths: `POST /admin/v1/gates` → `DSL/Ruuter/admin/POST/v1/gates.yml`
+- Routes map 1:1 to file paths: `GET /admin/v1/gates` → `DSL/Ruuter/admin/GET/v1/gates.yml`
 - Auth routes: `POST /auth/callback` → `DSL/Ruuter/auth/POST/callback.yml`
 - Internal routes: `POST /efti/internal/check-admin-authority` → `DSL/Ruuter/efti/POST/internal/check-admin-authority.yml`
 - Constants from `constants.ini` referenced as `[#VARIABLE]` (e.g., `[#OWN_GATE_ID]`, `[#EDELIVERY_URL]`)
@@ -117,7 +151,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   - Per-route sibling guards (`<route>.guard.yml` next to `<route>.yml`) — not used here; behaviour is version-specific (broken in 0.9.4-rc, fixed in 0.9.6-rc #41).
   - `template:` calls invoke the target handler as an engine subroutine and, since Ruuter 0.9.11-rc, **run the target's guards** against the child context (pre-0.9.11 they bypassed guards). The G2G `-xml`/`-local` wrappers forward `x-internal-service-token` on the template step so the callee's `efti/POST/api/v1/.guard.yml` passes — this stays load-bearing after #79 (0.9.13-rc): #79 only skips a guard **already on the execution stack**, i.e. a `template:` *inside a guard*. Our `template:` steps sit in route bodies, where the entry guards have already popped, so the child guard runs fresh.
 - Guard map (see `docs/specs/permissions-matrix.md`):
-  - `admin/` GET/POST/PUT/DELETE = authenticated (`check-admin-authority`) — one `admin/.guard.yml` covers all methods
+  - `admin/` GET/POST/PUT/DELETE = authenticated (`check-admin-authority`) — one `admin/.guard.yml` covers all methods. For gates/platforms/authorities only GET exists ([ADR-014](docs/architecture/decisions/014-registry-as-git-folder.md) removed the write routes), so the method list is wider than the actual registry surface by design.
   - `auth/` POST = public; `auth/` GET = any authenticated user (`check-user-authority`). `dev-login` returns 404 unless `DEV_LOGIN_ENABLED=true`; the Docker build default is false, only `compose.override.yml` opts in for local development/CI.
   - `efti/api/v1/**` (all of it — GET, POST, and `authority/`) = **gate-internal only**, matching `X-Internal-Service-Token` (ADR-006). No TARA/JWT path anywhere under `efti/api/v1/`, not even as a fallback — this surface is reached only by other gate components (the X-Road adapter today; edelivery for the G2G-inbound `-xml`/`-local`/`ping`/`search-xml` routes; G2G inbound proper is earmarked) over the internal network, never directly by a human. `efti/GET/api/v1/test/.guard.yml` overrides back to public for the diagnostic endpoints (`baasikontoroll`, `lubatud`, `piiratud`). The token is a generic internal-service credential — `core` stays X-Road-unaware; the X-Road adapter resolves the organisation from `X-Road-Client` and enforces `authorities.subsets` before forwarding. Deny is the fall-through: an absent or empty header can never match, even if the constant were unset. The Kotlin services (`InternalServiceTokenAuth`) likewise fail closed on an empty token; only `compose.override.yml` (local development/CI) defaults `INTERNAL_SERVICE_TOKEN` to `dev-internal-service-token-change-me` for the Kotlin services that take it (edelivery, xml-mapper), so `compose.yml` alone (production-like) never ships a known token.
   - `platforms/` = platform `X-Api-Key` hash (ADR-004), ONLINE/OFFLINE only; DISABLED/DELETED cannot authenticate. Internal eDelivery calls require a non-empty service token plus `X-Platform-Id` (the original inbound sender, response-key `receiverId`). Both upload forms check the mapped UIL against the resolved platform and `OWN_GATE_ID`. The XML wrapper forwards the incoming credentials and owner rather than replacing an API key with the service token. Guards require actual arrays and exactly one identity; a non-array ReSql body cannot fail open.
@@ -137,7 +171,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - The `app` role has only `SELECT, INSERT` — no UPDATE, no DELETE
 - Cross-gate search state (`search_results`, K4/ADR-013) is append-only and ephemeral: `insert_search_pending` / `insert_search_complete` write rows (`pending` → `complete` with a JSONB `ConsignmentRow[]`), `get_search_result` reads the latest per `search_id`, and `delete_expired_search_results` (db_archiver role, via `POST /ops/v1/purge-search-results`) purges rows older than `keepMinutes` (default 10). It is not `async_responses`, which is a 1:1 claim/drain hand-off for AS4 replies.
 - Resolve latest rows before filtering mutable credentials, status, registry code or identifiers. An identity change must not make historical credentials current again. User rename preserves `secret_hash`, `is_active`, `token_revoked_at`; changing `tara_sub` sets a revocation cutoff.
-- Latest ordering is `created_at DESC, revision DESC`, including the search anti-join. `20260914-latest-row-order.sql` adds identity revisions and serializes registry appends with advisory transaction locks, preserving inactive users/revocation markers, deleted registry entities and newer API keys. `DSL/Liquibase/init.sql` is the consolidated empty-database schema; keep it synchronized with DDL migrations. Existing Liquibase installs use the unchanged master history (no checksum rewrites). Both CI jobs also run `python3 tests/sql/regression.py --init`.
+- Latest ordering is `created_at DESC, revision DESC`, including the search anti-join. `20260914-latest-row-order.sql` adds identity revisions and serializes registry appends with advisory transaction locks, preserving inactive users/revocation markers, deleted registry entities and newer API keys; `20261008-registry-sync.sql` (ADR-014) narrows the `DELETED`-reactivation guard to `users`, because `gates`/`platforms`/`authorities` are re-applied declaratively from `registry/**` and must be revivable by re-adding a file. `DSL/Liquibase/init.sql` is the consolidated empty-database schema; keep it synchronized with DDL migrations. Existing Liquibase installs use the unchanged master history (no checksum rewrites). Both CI jobs also run `python3 tests/sql/regression.py --init`.
 - Equipment EQ uses GIN-compatible `array @> ARRAY[value]`; NE means not contained, with NULL arrays treated as empty. The existence check (`check_transport_means_registered.sql`) materialises index-filtered candidate keys and resolves each latest version via a self-table LATERAL lookup; the identifier projection (`get_consignments_by_transport_means.sql`) sorts the index matches in a subquery and applies the ADR-009 "no newer row" anti-join over that ordered stream up to its 50-row cut. Neither sorts the whole table; both are allowed under the no-cross-table-JOIN rule.
 - `idx_consignments_created_latest (created_at DESC, revision DESC)` lets a broad `get_consignments` search walk newest-first and stop at LIMIT. GIN `@>` estimates a rare element at 0.5%, so an array EQ criterion would make the planner walk that index for an id that occurs once: `get_consignments` turns its sort key into an expression when any array criterion is EQ (the CASE folds at plan time, ReSql binds values), and `select_archivable_consignments` always orders by an expression. `python3 tests/sql/regression.py --init` and the E2E suite cover both.
 - Every caller-controlled page is capped at 1000; negative limits/offsets clamp to zero. Registry pages explicitly order by id; log pages order by time and row_id. Consignment versions use `(platform_id, dataset_id)`; verification includes the owner, and admin deletion requires `platformId` and `gateId` query parameters.
@@ -147,7 +181,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 1. **Append-only everywhere.** Every operational table is INSERT-only. "Updates" insert a new row with the same logical id; latest `created_at` wins.
 2. **No JOINs on hot path.** Search columns are denormalised onto `consignments` directly — the rule targets *cross-table* joins (`consignments` → `gates`/`platforms`/…). A self-correlated anti-join against `consignments` itself for append-only latest-row semantics (ADR-009) is allowed — the planner serves it as an Index Only Scan on `idx_consignments_dataset_latest`, not a materialised join.
 3. **Archival by CronManager.** Non-latest rows moved by external Quartz scheduler — through **Ruuter + ReSql**, never a DB function or a foreign-data wrapper. Cold storage for `consignments` is a **separate PostgreSQL instance** (`archive-database` / DB `efti_archive`, table in `DSL/Liquibase/archive-init.sql` — plain types, no CHECK/FK, `row_id` PK). ReSql has a second datasource `archive`; SQL under `DSL/Resql/archive/` runs against it (`resql.yaml` `project_datasource_map`). CronManager calls `POST /ops/v1/archive-consignments` (`Authorization: Bearer ARCHIVE_OPS_TOKEN`, guard `DSL/Ruuter/ops/.guard.yml`; one batch per call, re-invoke until `candidates` is 0). The route carries rows between the datasources: `efti/select_archivable_consignments.sql` (superseded rows whose newer sibling is older than `olderThanDays`, default 2 — the current row incl. a `DELETED` tombstone never moves) → `archive/insert_archived_consignments.sql` (idempotent, `ON CONFLICT (row_id) DO NOTHING`) → `archive/verify_archived_consignments.sql` (read back from the archive DB) → **only on 100 % confirmation** → `efti/delete_consignments.sql`, a real DELETE guarded by `EXISTS (newer sibling)`. A mismatch logs `FAILED` and deletes nothing. `POST /ops/v1/purge-archive` → `archive/purge_archived_consignments.sql` (retention, `keepDays` default 2555). Full history: `GET /admin/v1/consignment-history?datasetId=…[&limit=&offset=]` — metadata only (no `xml`), each side (live, archived) paginated and capped at 1000, because an uploader controls how many versions a dataset has.
-4. **Read models are INSERT-only generation snapshots (ADR-012).** Derivative tables `rm_*` carry a `generation`; `read_model_pointer` (INSERT-only, highest `revision` per `model` wins) names the current one. One SQL statement (`efti/refresh_consignment_counts.sql`) writes the snapshot and the pointer row atomically under an advisory xact lock, so readers see the old or the complete new generation. `POST /ops/v1/refresh-read-models` (CronManager, `ARCHIVE_OPS_TOKEN`) refreshes and then runs `efti/purge_read_model_generations.sql` (DELETE of generations older than `keepGenerations`, default 2). Reads (`efti/get_consignment_counts.sql`, served by `GET /admin/v1/consignment-counts`) select `generation = (latest pointer)` by primary key. Never route security-critical or verify-after-write reads through a read model. Authority consignment summary (`GET /admin/v1/consignment-summary?authorityId=&from=&to=`, manual inclusive day range over the registration day) reads `efti/get_consignment_summary.sql` from `rm_consignment_summary` (refreshed by `efti/refresh_consignment_summary.sql` via the cron route): the route resolves the authority and its `subsets` from the source `authorities` table and the query returns only the ungated total plus the dimensions of those subsets (EU02 dangerous goods, EU03 loading/unloading country, EU04 transport mode/type/registration country). Admin registry lists (`GET /admin/v1/{gates,platforms,authorities}` without an id) read `efti/list_{gates,platforms,authorities}.sql` from `rm_gates`/`rm_platforms`/`rm_authorities`; every admin write route (POST/PUT/DELETE, `gates|platforms/ping`, `platforms/api-key`) calls `efti/refresh_registry_lists.sql` right after the write (best effort, so the list lags by ~0), and `POST /ops/v1/refresh-read-models` is the safety net. Get-by-id, routing, authentication and entitlement keep reading the source tables. DENORM-1 border-check stays query-level (0.4 ms at 1M rows, `python3 tests/sql/regression.py --performance --rows 1000000`).
+4. **Read models are INSERT-only generation snapshots (ADR-012).** Derivative tables `rm_*` carry a `generation`; `read_model_pointer` (INSERT-only, highest `revision` per `model` wins) names the current one. One SQL statement (`efti/refresh_consignment_counts.sql`) writes the snapshot and the pointer row atomically under an advisory xact lock, so readers see the old or the complete new generation. `POST /ops/v1/refresh-read-models` (CronManager, `ARCHIVE_OPS_TOKEN`) refreshes and then runs `efti/purge_read_model_generations.sql` (DELETE of generations older than `keepGenerations`, default 2). Reads (`efti/get_consignment_counts.sql`, served by `GET /admin/v1/consignment-counts`) select `generation = (latest pointer)` by primary key. Never route security-critical or verify-after-write reads through a read model. Authority consignment summary (`GET /admin/v1/consignment-summary?authorityId=&from=&to=`, manual inclusive day range over the registration day) reads `efti/get_consignment_summary.sql` from `rm_consignment_summary` (refreshed by `efti/refresh_consignment_summary.sql` via the cron route): the route resolves the authority and its `subsets` from the source `authorities` table and the query returns only the ungated total plus the dimensions of those subsets (EU02 dangerous goods, EU03 loading/unloading country, EU04 transport mode/type/registration country). Admin registry lists (`GET /admin/v1/{gates,platforms,authorities}` without an id) read `efti/list_{gates,platforms,authorities}.sql` from `rm_gates`/`rm_platforms`/`rm_authorities`; the read model is refreshed by `efti/refresh_registry_lists.sql`, which the `registry-sync` container calls after the startup sync (ADR-014) and `POST /ops/v1/refresh-read-models` is the safety net — there is no per-write refresh any more, because there are no registry write routes. Get-by-id, routing, authentication and entitlement keep reading the source tables. DENORM-1 border-check stays query-level (0.4 ms at 1M rows, `python3 tests/sql/regression.py --performance --rows 1000000`).
 
 ## Kotlin services
 
@@ -172,14 +206,25 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 
 ## Dev seed data (context:dev)
 
-- Users: Super Admin (60001019906)
-- Platform: `mock` → `http://ruuter:8086/mock-platform` with `X-Api-Key: mock-secret-key`
+- Users: Super Admin (60001019906) — still a Liquibase `context:dev` changeset (ADR-011 §9 keeps users on the API).
+- **Gates, platforms and authorities are no longer seeded by Liquibase.** They are committed registry
+  files applied by `registry-sync` at startup: `registry/gates/{EU-EE,EU-MOCK}.json`,
+  `registry/platforms/{mock,mock-edelivery}.json` (`mock` → `http://ruuter:8086/mock-platform`,
+  headers `X-Api-Key: mock-secret-key`, `apiKeyHash` = SHA-256 of `mock-secret-key`), and 11
+  `registry/authorities/auth-*.json` fixtures used by `tests/authority/*` and
+  `tests/admin/consignment-summary.http`.
 - TARA identities: `docker/tara-mock/identities.json`
 
 ## Testing
 
 - `tests/*/*.http` — IntelliJ HTTP Client format; run all with `docker compose run --rm http-tests`
   - `TEST_FILES=tests/admin/gates.http` can be prefixed to run only specific tests
+  - `tests/admin/{gates,platforms,authorities}.http` are **read-only** registry tests (ADR-014): they
+    assert the `registry/**` fixtures through the admin GET surface and assert that a write method on
+    the registry paths is rejected with **405** (the path is still routed — for GET — so Ruuter answers
+    "method not allowed" and never runs a guard, meaning no 401/403). Anything they need must be a
+    committed registry file, not a runtime create.
+  - `tests/authority/*.http` likewise read their authority prerequisites from `registry/authorities/`.
 - In these files, every new request starts with ### 
 - Env file: `tests/http-client.env.json` (local/docker environments)
 - Assertions: `> {% client.test("name", () => { client.assert(...) }) %}`
@@ -189,7 +234,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   guard rejects, `validate_input` 400s. `mode: mock-http` can stand in for ReSql/xml-mapper.
   Run via `docker run --rm -v "$PWD:/workdir" -w /workdir turnerrainer/ruuter:0.12.1-rc dsl-test --dsl DSL/Ruuter --tests DSL-tests --constants constants.ini` (the binaries ship in the runtime image since 0.9.14-rc).
 - `DSL-mock-tests/*.test.yml` verifies standalone mock UUID and dataset permission contracts against `DSL/Ruuter-xroad-mock` and `constants-xroad-mock.ini`. Rich synthetic dataset UIL is `EU-EE/mock/550e8400-e29b-41d4-a716-446655440002`; other UILs retain the minimal response. XML is not subset-filtered. `python3 tests/mock/dataset.py` checks embedded XML against the field generator and FTI010 XSD (requires PyYAML and xmllint). Generator prints XML only: `python3 scripts/generate-rich-mock-dataset.py`.
-- `python3 tests/sql/regression.py` prepares all ReSQL queries under `app` and checks append-only, credential and search semantics in its own disposable PostgreSQL 18 container (no host ports, no persistent volume). Both DSL CI jobs run it. `--performance` additionally compares custom/generic plans with origin/dev on 100,000 synthetic records after VACUUM/ANALYZE.
+- `python3 tests/sql/regression.py` prepares all ReSQL queries under `app` and checks append-only, credential, search and registry-sync semantics in its own disposable PostgreSQL 18 container (no host ports, no persistent volume). Both DSL CI jobs run it. Its `sync_*` tests are the real specification check for ADR-014 (idempotence, changed-only revision, tombstone, revival, API-key hash handling). `--performance` additionally compares custom/generic plans with origin/dev on 100,000 synthetic records after VACUUM/ANALYZE.
 
 ## Branching
 
@@ -221,11 +266,13 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
     while per-module coverage baselines are still being raised (see
     `docker/ui/Dockerfile`, which only runs `npm run build`, never tests).
 - `.gitlab-ci.yml` — kemitaws platform pipeline (mirror): `secret_detection` + `validate:dsl`
-  (same `dsl-lint` / `dsl-test` / `validate-dsl.py` as above) + sonar → eight
-  `image-build`s (ruuter, ruuter-xroad-mock, resql, liquibase, tim, ui, edelivery, xml-mapper)
-  → SBOM/trivy → `package:charts` trigger into the `efti` devops repo →
+  (same `dsl-lint` / `dsl-test` / `validate-dsl.py` as above) + sonar → nine
+  `image-build`s (ruuter, ruuter-xroad-mock, resql, liquibase, tim, ui, edelivery, xml-mapper,
+  registry-sync) → SBOM/trivy → `package:charts` trigger into the `efti` devops repo →
   `release-pin` into `environments/dev/release.yaml`. Runs on the default branch and `release/*`.
   Header comment lists the CI/CD variables and the values still to confirm against the devops repo.
+  **`registry-sync` needs a matching wrapper chart component in `services/efti/devops`** — the
+  `components:` list is mirrored from there, and without it the deployment never seeds the registry.
 
 ## Post-change
 
@@ -241,5 +288,5 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - `internal_requests.block_private_networks: false` in `ruuter.yaml` — auth DSLs call TIM/ReSQL by compose service name
 - edelivery test mode uses a hardcoded PKCS#12 keystore (see `KeyManager.kt`); otherwise the AS4 keystore is read from `$KEYSTORE_DIR/own.p12` (default `certs`, password `$KEYSTORE_PASSWORD`). It is **not** baked into the image (`docker/code/Dockerfile`) and `code/certs` is a `.dockerignore` entry — compose mounts `./code/certs:/app/certs:ro` into `edelivery`; in production mount a per-environment keystore/Secret instead
 - `PartyId` equality is case-insensitive (`.equals(ignoreCase = true)`)
-- Caller-controlled values are never interpolated raw into an outbound `url:`. Percent-encode path segments / query values with `encodeURIComponent(...)` (`uil.datasetId`/`subsets`/`gateId`, `requestId`, admin ping path params), so `..`, `/`, `?` or `&` cannot alter the target. The engine's Boa/QuickJS contexts are full ECMAScript, so the global is available even though it is not in the documented expression subset.
+- Caller-controlled values are never interpolated raw into an outbound `url:`. Percent-encode path segments / query values with `encodeURIComponent(...)` (`uil.datasetId`/`subsets`/`gateId`, `requestId`, admin get-by-id path params), so `..`, `/`, `?` or `&` cannot alter the target. The engine's Boa/QuickJS contexts are full ECMAScript, so the global is available even though it is not in the documented expression subset.
 - user does not have role related fields. if user exist then they are admin. that's it.

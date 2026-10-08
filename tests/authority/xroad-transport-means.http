@@ -17,62 +17,27 @@ run #auth
 #
 # Every X-Road-Id must be a real UUID — the guard rejects anything else with 400 INVALID_REQUEST_ID.
 
-### Cleanup: EU02-entitled authority
-DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-tm
-Authorization: Bearer {{adminToken}}
-
-> {%
-  client.test("Cleanup EU02 authority ok", () => {
-    client.assert(response.status === 204 || response.status === 404)
-  })
-%}
-
-### Cleanup: authority without EU02
-DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-tm-no-eu02
-Authorization: Bearer {{adminToken}}
-
-> {%
-  client.test("Cleanup non-EU02 authority ok", () => {
-    client.assert(response.status === 204 || response.status === 404)
-  })
-%}
-
-### Setup: authority entitled to EU02 (means of transport)
-POST {{RUUTER_URL}}/admin/v1/authorities
+### Fixture: registry/authorities/auth-xroad-tm.json (applied by registry-sync at startup)
+GET {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-tm
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
-{
-  "id": "auth-xroad-tm",
-  "name": "X-Road Transport Means Authority",
-  "registryCode": "70000093",
-  "subsets": ["EU01", "EU02"],
-  "status": "ACTIVE"
-}
-
 > {%
-  client.test("EU02 authority created", () => {
-    client.assert(response.status === 201)
+  client.test("auth-xroad-tm fixture is present", () => {
+    client.assert(response.status === 200)
     client.assert(response.body.registryCode === "70000093")
   })
 %}
 
-### Setup: authority NOT entitled to EU02
-POST {{RUUTER_URL}}/admin/v1/authorities
+### Fixture: registry/authorities/auth-xroad-tm-no-eu02.json (applied by registry-sync at startup)
+GET {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-tm-no-eu02
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
-{
-  "id": "auth-xroad-tm-no-eu02",
-  "name": "X-Road Transport Means Authority Without EU02",
-  "registryCode": "70000092",
-  "subsets": ["EU01"],
-  "status": "ACTIVE"
-}
-
 > {%
-  client.test("Non-EU02 authority created", () => {
-    client.assert(response.status === 201)
+  client.test("auth-xroad-tm-no-eu02 fixture is present", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.registryCode === "70000092")
   })
 %}
 
@@ -551,25 +516,5 @@ Content-Type: application/json
   client.test("Unknown registry code returns 403 FORBIDDEN", () => {
     client.assert(response.status === 403)
     client.assert(response.body.code === "FORBIDDEN")
-  })
-%}
-
-### Teardown: EU02 authority
-DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-tm
-Authorization: Bearer {{adminToken}}
-
-> {%
-  client.test("Teardown EU02 authority", () => {
-    client.assert(response.status === 204)
-  })
-%}
-
-### Teardown: non-EU02 authority
-DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-tm-no-eu02
-Authorization: Bearer {{adminToken}}
-
-> {%
-  client.test("Teardown non-EU02 authority", () => {
-    client.assert(response.status === 204)
   })
 %}

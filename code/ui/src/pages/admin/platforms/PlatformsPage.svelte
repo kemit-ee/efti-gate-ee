@@ -4,31 +4,17 @@
   import api from 'src/api/api'
   import {t} from 'i18n'
   import Modal from 'src/components/Modal.svelte'
-  import Button from 'src/components/Button.svelte'
   import PlatformForm from 'src/pages/admin/platforms/PlatformForm.svelte'
   import type {Platform} from "src/api/ruuterTypes";
   import OwnGateButton from "src/pages/admin/gates/OwnGateButton.svelte";
 
   let platforms: Platform[]
-  let editPlatform: Platform | false = false
+  let detailsPlatform: Platform | false = false
 
   onMount(load)
 
   async function load() {
     platforms = await api.get<Platform[]>('platforms')
-  }
-
-  function add() {
-    editPlatform = {} as Platform
-  }
-
-  function onEdit(platform: Platform) {
-    editPlatform = platform
-  }
-
-  function onSaved() {
-    editPlatform = false
-    load()
   }
 </script>
 
@@ -39,14 +25,13 @@
   </h1>
   <div>
     <OwnGateButton/>
-    <Button label={t.general.add} onclick={add} class="primary"/>
   </div>
 </div>
 
-<PlatformList {platforms} onEdit={onEdit} onDeleted={load} onChanged={load}/>
+<PlatformList {platforms} onDetails={platform => detailsPlatform = platform}/>
 
-<Modal bind:show={editPlatform} title={t.platforms.platform}>
-  {#if editPlatform}
-    <PlatformForm platform={editPlatform} {onSaved}/>
+<Modal bind:show={detailsPlatform} title={t.platforms.platform}>
+  {#if detailsPlatform}
+    <PlatformForm platform={detailsPlatform} disabled/>
   {/if}
 </Modal>

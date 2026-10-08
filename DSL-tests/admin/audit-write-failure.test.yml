@@ -6,32 +6,6 @@ constants:
 tests:
   # docs/specs/logging-spec.md §5.2: the audit_log INSERT is best-effort and post-commit —
   # a failure to write it must never fail or roll back the triggering operation.
-  - name: platform is still created when the audit-log write fails
-    setup:
-      mocks:
-        - url_matches: /efti/internal/check-admin-authority
-          method: POST
-          body: { id: "EE60001019906" }
-        - url_matches: /efti/insert_platform
-          method: POST
-          status: 201
-          body: [{ id: "demo", baseUrl: "https://demo.example.com", status: "ONLINE" }]
-        - url_matches: /efti/insert_audit_log
-          method: POST
-          status: 500
-          body: []
-          headers:
-            X-Resql-Error-Code: ResqlRuntimeException
-            X-Resql-Error-Message: database unavailable
-    request:
-      method: POST
-      path: /admin/v1/platforms
-      headers: { authorization: "Bearer test", content-type: "application/json" }
-      body: { id: "demo", baseUrl: "https://demo.example.com" }
-    expect:
-      status: 201
-      body: { id: "demo", baseUrl: "https://demo.example.com", status: "ONLINE" }
-
   - name: user delete still succeeds when the audit-log write fails
     setup:
       mocks:

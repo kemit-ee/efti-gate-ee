@@ -42,7 +42,7 @@ The numbers below adopt the **EU-wide-passthrough scenario** because (a) it dime
 | G2G AS4 inbound | 0.5 / sec | 2 / sec | EU-wide aggregate from peer gates. |
 | DB row growth (`consignments`) | ~250 K / day | — | First-INSERT at 2 reg/sec × 86 400 s ≈ 170 K, plus ~80 K/day of state-transition rows (expiration → `inactive`, re-uploads, status flips). Append-only, so each transition is its own row. |
 | DB row growth (`identifiers`) | ~300 K / day | — | ~1.5 identifiers per consignment on average; both initial registration and re-upload INSERT new rows. |
-| DB row growth (`gates`) | ~290 rows/day **per gate** | — | Ping cadence is one INSERT every 5 min ⇒ 288 rows/day per gate. Across all peer gates whose pings this gate stores in its local registry copy, the total is `peer_gate_count × 288`. For ~30 EU gates that is ~8 700 rows/day in this table; if peer-ping rows are not replicated locally, only the ~290 self-ping rows remain. |
+| DB row growth (`gates`) | ~0 | — | No ping job any more ([ADR-014](../../architecture/decisions/014-registry-as-git-folder.md)): `gates`, `platforms` and `authorities` are declared in `registry/**` and the loader writes a row only when a committed file actually changed. Steady state is one row per registry change, not 288/day per gate. |
 | DB row growth (`sessions`) | ~5 K / day | — | Append-only: one INSERT on login, one INSERT on logout / token revocation. |
 | DB row growth (`async_responses` + `request_id_cache`) | ~50 K / day combined | — | Receive INSERT + consume INSERT per async response; correlation-id cache entries (TTL 10 min per `schema.sql`, then archived). |
 | DB row growth (`audit_log`) | ~30 K / day | — | One row per Authority action + admin mutation; **not archived** (retained on the live DB for ≥ 7 years per §5; operator may extend indefinitely). |
@@ -112,7 +112,7 @@ The gate runtime is **stateless** — no in-memory request state, no sticky sess
 | `TIM_DB_PASSWORD` | Password for TIM's own PostgreSQL instance (sessions and token blacklist). Not the eFTI database. | required, no default |
 | `JWT_TTL_MINUTES` | Session-token lifetime, applied by TIM as `legacy-portal-integration.sessionTimeoutMinutes`. Bounds how long an unrevoked session lasts; it is **not** the revocation-latency knob, since revocation is immediate (`permissions-matrix.md` §6). | 30 (TIM's own default) |
 | `SECURITY_ALLOWLIST_JWT` | Comma-separated hostnames/IPs TIM will answer `/jwt/*` for. Must include `ruuter`. Hostname-based, so it is only meaningful on a non-routable internal network. | required, no default |
-| `ARCHIVE_OPS_TOKEN` | The static Bearer secret accepted on `/api/v1/admin/archive`, `/expire-identifiers`, `/ping-gates`. 256-bit random; provisioned via Kubernetes Secret. | required, no default |
+| `ARCHIVE_OPS_TOKEN` | The static Bearer secret accepted on `/api/v1/admin/archive` and `/expire-identifiers`. 256-bit random; provisioned via Kubernetes Secret. | required, no default |
 | `LOCAL_ADMIN_FALLBACK_ENABLED` | If `true`, `POST /api/v1/auth/local-token` returns 200 with a gate-signed JWT instead of 503. | `false` |
 | `BREAK_GLASS_JWT_SIGNING_KEY` | PEM-encoded RSA private key the gate uses to sign break-glass JWTs (only consulted when `LOCAL_ADMIN_FALLBACK_ENABLED=true`). | optional |
 | `BREAK_GLASS_JWT_TTL_SECONDS` | Hardcoded ceiling 600. Operator may shorten further. | 600 |
@@ -124,7 +124,6 @@ The gate runtime is **stateless** — no in-memory request state, no sticky sess
 | `RATE_LIMIT_PER_MINUTE` | Per-source rate limit at the reverse-proxy layer (subject definition in §4.2). | 100 |
 | `GATE_BROADCAST_TIMEOUT_MS` | Per-gate timeout on Authority broadcast searches. Surfaces as `504 GATE_TIMEOUT` for that one peer; the broadcast continues for the remaining peers. | 8000 |
 | `PLATFORM_TIMEOUT_MS` | Per-platform timeout on dataset retrieval. Surfaces as `504 PLATFORM_TIMEOUT`. | 30000 |
-| `PING_TIMEOUT_SECONDS` | Per-gate timeout on the CronManager-driven `/admin/ping-gates` probe. A timeout flips `gates.status` to `OFFLINE` for that peer; does not fail the sweep. | 10 |
 | `AUTHORITY_QUERY_AUDIT` | When `enabled` (default), every authority access produces a 7-year-retained `audit_log` row per `logging-spec.md` §5. When `disabled`, audit rows are skipped — operationally permitted only in non-production environments to control the live-DB growth rate. Disabling in production violates GDPR Art 30 retention. | enabled |
 | `TARA_OIDC_DISCOVERY_REFRESH_HOURS` | The OIDC discovery document (`/.well-known/openid-configuration`) is re-fetched at this cadence. The JWKS cache TTL (`TARA_JWKS_CACHE_SECONDS`) is independent and shorter. | 24 |
 

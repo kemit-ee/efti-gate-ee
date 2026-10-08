@@ -29,8 +29,6 @@
     "optional": "Valikuline",
     "close": "Sulge",
     "noItems": "Ühtegi kirjet ei leitud",
-    "ping": "Ping",
-    "pinged": "ping edukas",
     "countryCode": "Riik",
     "test": "Test",
     "running": "Käib",
@@ -39,8 +37,7 @@
     "runTests": "Käivita testid",
     "error": "Viga",
     "back": "Tagasi",
-    "copy": "Kopeeri",
-    "copied": "Kopeeritud"
+    "details": "Detailid"
   },
   "gates": {
     "title": "Väravad",
@@ -50,9 +47,7 @@
     "eDeliveryUrl": "eDelivery URL",
     "eDeliveryUrlPlaceholder": "https://some.host/services/msh",
     "status": "Olek",
-    "disabled": "Välja lülitatud",
     "xsdSupport": "XSD tugi",
-    "added": "Värav edukalt registreeritud",
     "ownGateDescription": "Teave selle värava kohta. Kasutage seda oma eDelivery juurdepääsupunkti seadistamiseks"
   },
   "platforms": {
@@ -67,17 +62,10 @@
     "tlsCert": "TLS sertifikaat",
     "headers": "Päised",
     "xsdSupport": "XSD tugi",
-    "added": "Platvorm edukalt registreeritud",
-    "disabled": "Välja lülitatud",
     "status": "Olek",
     "consignments": "Saadetised",
     "apiKey": "API võti",
-    "generateApiKey": "Genereeri API võti",
-    "apiKeyGeneratedAt": "Võti genereeritud",
-    "apiKeyNone": "Võtit pole",
-    "apiKeyModalTitle": "API võti genereeritud",
-    "apiKeyModalWarning": "Kopeeri võti kohe. Pärast selle akna sulgemist pole seda enam võimalik näha.",
-    "apiKeyRegenerateConfirm": "Genereerida uus API võti? Praegune võti lakkab kohe töötamast."
+    "apiKeyNone": "Võtit pole"
   },
   "authorities": {
     "title": "Pädevad asutused",
@@ -85,8 +73,7 @@
     "name": "Asutuse nimi",
     "authority": "Asutus",
     "registryCode": "Registrikood",
-    "subsets": "Lubatud alamhulgad",
-    "added": "Asutus edukalt registreeritud"
+    "subsets": "Lubatud alamhulgad"
   },
   "users": {
     "title": "Kasutajad",

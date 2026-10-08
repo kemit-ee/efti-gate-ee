@@ -1,37 +1,15 @@
 import ../admin/auth.http
 run #auth
 
-### Setup: ensure test authority exists
-DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-test
+### Fixture: registry/authorities/auth-xroad-test.json (applied by registry-sync at startup)
+GET {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-test
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
 > {%
-  // 204 (deleted) or 404 (didn't exist) — both are fine
-  client.test("Cleanup ok", () => {
-    client.assert(response.status === 204 || response.status === 404)
-  })
-%}
-
-###
-
-POST {{RUUTER_URL}}/admin/v1/authorities
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-{
-  "id": "auth-xroad-test",
-  "name": "X-Road Test Authority",
-  "registryCode": "70000099",
-  "subsets": ["EU01"],
-  "status": "ACTIVE"
-}
-
-> {%
-  client.test("Test authority created", () => {
-    client.assert(response.status === 201)
+  client.test("auth-xroad-test fixture is present", () => {
+    client.assert(response.status === 200)
     client.assert(response.body.registryCode === "70000099")
-    client.global.set("xroadTestRegistryCode", response.body.registryCode)
   })
 %}
 
@@ -128,16 +106,5 @@ Content-Type: application/json
   client.test("Member-level 3-part client is accepted", () => {
     client.assert(response.status === 200)
     client.assert(response.body.authority.registryCode === "70000099")
-  })
-%}
-
-### Teardown: remove test authority
-DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-test
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-> {%
-  client.test("Teardown ok", () => {
-    client.assert(response.status === 204)
   })
 %}

@@ -26,12 +26,4 @@ class InternalRoutes(
     val party = partyRegistry[partyId]
     return eDeliveryClient.sendAndReceive(party.eDeliveryUrl, UserMessageParams(RequestKey(partyId, e.requestId.uuid)), xml)
   }
-
-  @Operation(summary = "Ping an eDelivery party", description = "Sends an eDelivery ping to verify connectivity with the selected party.")
-  @ApiResponse(responseCode = "204", description = "The party responded successfully")
-  @POST("/ping/:partyId") fun ping(@PathParam partyId: PartyId) {
-    partyRegistry.reload()
-    val party = partyRegistry[partyId]
-    eDeliveryClient.ping(party)
-  }
 }

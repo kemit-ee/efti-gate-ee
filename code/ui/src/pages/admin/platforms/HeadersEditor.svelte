@@ -4,6 +4,7 @@
   import FormField from 'src/forms/FormField.svelte'
 
   export let headers: [string, string][]
+  export let disabled = false
 
   function addHeader() {
     headers = [...headers, ['', '']]
@@ -20,14 +21,18 @@
 <div class="flex flex-col gap-4">
   {#each headers as h, i}
     <div class="flex w-full justify-between">
-      <FormField label={t.platforms.key} bind:value={h[0]} id="key-{i}"/>
-      <FormField label={t.platforms.value} bind:value={h[1]} id="value-{i}"/>
-      <div class="flex items-end">
-        <Button label="×" onclick={() => removeHeader(h)} class="danger" title={t.general.remove}/>
-      </div>
+      <FormField label={t.platforms.key} bind:value={h[0]} id="key-{i}" {disabled}/>
+      <FormField label={t.platforms.value} bind:value={h[1]} id="value-{i}" {disabled}/>
+      {#if !disabled}
+        <div class="flex items-end">
+          <Button label="×" onclick={() => removeHeader(h)} class="danger" title={t.general.remove}/>
+        </div>
+      {/if}
     </div>
   {/each}
-  <div>
-    <Button label="+" onclick={addHeader} title={t.general.add}/>
-  </div>
+  {#if !disabled}
+    <div>
+      <Button label="+" onclick={addHeader} title={t.general.add}/>
+    </div>
+  {/if}
 </div>

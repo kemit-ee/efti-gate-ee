@@ -5,37 +5,26 @@
   import {onMount} from 'svelte'
   import Modal from 'src/components/Modal.svelte'
   import AuthorityForm from 'src/pages/admin/authorities/AuthorityForm.svelte'
-  import Button from 'src/components/Button.svelte'
-  import type {Authority, Subset} from "src/api/ruuterTypes";
+  import type {Authority} from "src/api/ruuterTypes";
 
   let authorities: Authority[]
-  let editAuthority: Authority | false = false
+  let detailsAuthority: Authority | false = false
 
   onMount(load)
 
   async function load() {
     authorities = await api.get('authorities')
   }
-
-  function add() {
-    editAuthority = {subsets: [] as Subset[]} as Authority
-  }
-
-  function onSaved() {
-    editAuthority = false
-    load()
-  }
 </script>
 
 <h1 class="flex justify-between items-center gap-8 mb-6">
   {t.authorities.title} ({authorities?.length})
-  <Button label={t.general.add} onclick={add} class="primary"/>
 </h1>
 
-<AuthorityList {authorities} onEdit={a => editAuthority = a} onDeleted={load}/>
+<AuthorityList {authorities} onDetails={a => detailsAuthority = a}/>
 
-<Modal bind:show={editAuthority} title={t.authorities.authority}>
-  {#if editAuthority}
-    <AuthorityForm authority={editAuthority} {onSaved}/>
+<Modal bind:show={detailsAuthority} title={t.authorities.authority}>
+  {#if detailsAuthority}
+    <AuthorityForm authority={detailsAuthority} disabled/>
   {/if}
 </Modal>

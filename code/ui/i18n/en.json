@@ -29,8 +29,6 @@
     "optional": "Optional",
     "close": "Close",
     "noItems": "No items found",
-    "ping": "Ping",
-    "pinged": "pinged successfully",
     "countryCode": "Country",
     "test": "Test",
     "running": "Running",
@@ -39,8 +37,7 @@
     "runTests": "Run tests",
     "error": "Error",
     "back": "Back",
-    "copy": "Copy",
-    "copied": "Copied"
+    "details": "Details"
   },
   "gates": {
     "title": "Gates",
@@ -50,9 +47,7 @@
     "eDeliveryUrl": "eDelivery URL",
     "eDeliveryUrlPlaceholder": "https://some.host/services/msh",
     "status": "Status",
-    "disabled": "Disabled",
     "xsdSupport": "XSD Support",
-    "added": "Gate registered successfully",
     "ownGateDescription": "Information about this gate. Use this to configure your eDelivery access point"
   },
   "platforms": {
@@ -67,17 +62,10 @@
     "tlsCert": "TLS certificate",
     "headers": "Headers",
     "xsdSupport": "XSD Support",
-    "added": "Platform registered successfully",
-    "disabled": "Disabled",
     "status": "Status",
     "consignments": "Consignments",
     "apiKey": "API key",
-    "generateApiKey": "Generate API key",
-    "apiKeyGeneratedAt": "Key generated",
-    "apiKeyNone": "No key",
-    "apiKeyModalTitle": "API key generated",
-    "apiKeyModalWarning": "Copy this key now. Once you close this dialog it cannot be shown again.",
-    "apiKeyRegenerateConfirm": "Generate a new API key? The current key stops working immediately."
+    "apiKeyNone": "No key"
   },
   "authorities": {
     "title": "Authorities",
@@ -85,8 +73,7 @@
     "name": "Authority name",
     "authority": "Authority",
     "registryCode": "Registry code",
-    "subsets": "Allowed subsets",
-    "added": "Authority registered successfully"
+    "subsets": "Allowed subsets"
   },
   "users": {
     "title": "Users",

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <bytecodeTargetLevel>
+      <module name="code.multiplexer" target="25" />
+      <module name="code.multiplexer.main" target="25" />
+      <module name="code.multiplexer.test" target="25" />
+      <module name="code.pubsub" target="25" />
+      <module name="code.pubsub.main" target="25" />
+      <module name="code.pubsub.test" target="25" />
+    </bytecodeTargetLevel>
+  </component>
+</project>

@@ -1,17 +1,24 @@
-import {render, waitFor, fireEvent, screen} from '@testing-library/svelte'
+import {fireEvent, render, screen, waitFor} from '@testing-library/svelte'
 import PlatformsPage from './PlatformsPage.svelte'
 import api from 'src/api/api'
-import {Status} from 'src/api/ruuterTypes'
 import type {Platform} from 'src/api/ruuterTypes'
-import {toastStore} from 'src/stores/toasts'
-import {get} from 'svelte/store'
+import {Status} from 'src/api/ruuterTypes'
 
 vi.mock('src/api/api', () => ({default: {get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn()}}))
 
 function newPlatform(): Platform {
   return {
-    id: 'mock', baseUrl: 'https://mock.example/api', status: Status.ONLINE, createdAt: '2026-01-01T00:00:00Z',
+    id: 'mock', baseUrl: 'https://mock.example/api', headers: {'X-Api-Key': 'secret'},
+    eDeliveryCert: '-BEGIN CERTIFICATE-\nabc\n-END CERTIFICATE-',
+    status: Status.ONLINE, createdAt: '2026-01-01T00:00:00Z',
   }
+}
+
+function mockPlatformsOf(platforms: Platform[]) {
+  vi.mocked(api.get).mockImplementation((path: string) => {
+    if (path === 'platforms') return Promise.resolve(platforms)
+    return Promise.reject(new Error(`unexpected GET ${path}`))
+  })
 }
 
 describe('PlatformsPage', () => {
@@ -20,11 +27,7 @@ describe('PlatformsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     platform = newPlatform()
-    vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path === 'platforms') return Promise.resolve([platform])
-      if (path === 'gates/own') return Promise.resolve({id: 'EU-EE', status: Status.ONLINE})
-      return Promise.reject(new Error(`unexpected GET ${path}`))
-    })
+    mockPlatformsOf([platform])
   })
 
   it('loads platforms on mount', async () => {
@@ -35,128 +38,61 @@ describe('PlatformsPage', () => {
     screen.getByText('Platforms (1)')
   })
 
-  it('adds a new platform', async () => {
-    vi.mocked(api.post).mockResolvedValue({})
+  it('does not offer creating, pinging, rotating keys or deleting, the registry is declarative', async () => {
     render(PlatformsPage)
     await screen.findByText('mock')
 
-    await fireEvent.click(screen.getByRole('button', {name: 'Add'}))
-    await fireEvent.input(screen.getByLabelText('Platform ID'), {target: {value: 'new-platform'}})
-    await fireEvent.input(screen.getByLabelText('Base URL'), {target: {value: 'https://new.example/api'}})
-
-    await fireEvent.click(screen.getByRole('button', {name: 'Save'}))
-
-    await waitFor(() => expect(api.post).toHaveBeenCalledWith('platforms', expect.objectContaining({
-      id: 'new-platform', baseUrl: 'https://new.example/api',
-    })))
+    for (const name of ['Add', 'Edit', 'Delete', 'Ping', 'Generate API key']) {
+      expect(screen.queryByRole('button', {name})).to.equal(null)
+    }
   })
 
-  it('an eDelivery-enabled platform requires a cert and is saved with it', async () => {
-    vi.mocked(api.post).mockResolvedValue({})
+  it('shows a platform in read-only details without calling the API', async () => {
     render(PlatformsPage)
     await screen.findByText('mock')
 
-    await fireEvent.click(screen.getByRole('button', {name: 'Add'}))
-    await fireEvent.input(screen.getByLabelText('Platform ID'), {target: {value: 'new-platform'}})
-    await fireEvent.input(screen.getByLabelText('Base URL'), {target: {value: 'https://new.example/api'}})
-    await fireEvent.click(screen.getByLabelText('EDelivery'))
-    await fireEvent.input(screen.getByLabelText('eDelivery certificate'), {target: {value: '-BEGIN CERTIFICATE-\nabc\n-END CERTIFICATE-'}})
+    await fireEvent.click(screen.getByRole('button', {name: 'Details'}))
 
-    await fireEvent.click(screen.getByRole('button', {name: 'Save'}))
+    await waitFor(() => expect((screen.getByLabelText('Base URL') as HTMLInputElement).value).to.equal('https://mock.example/api'))
+    const key = screen.getByLabelText('Key') as HTMLInputElement
+    const value = screen.getByLabelText('Value') as HTMLInputElement
 
-    await waitFor(() => expect(api.post).toHaveBeenCalledWith('platforms', expect.objectContaining({
-      eDeliveryCert: '-BEGIN CERTIFICATE-\nabc\n-END CERTIFICATE-',
-    })))
-  })
+    expect((screen.getByLabelText('Platform ID') as HTMLInputElement).value).to.equal('mock')
+    expect(key.value).to.equal('X-Api-Key')
+    expect(value.value).to.equal('secret')
 
-  it('adds and removes a custom header', async () => {
-    vi.mocked(api.post).mockResolvedValue({})
-    render(PlatformsPage)
-    await screen.findByText('mock')
-
-    await fireEvent.click(screen.getByRole('button', {name: 'Add'}))
-    await fireEvent.input(screen.getByLabelText('Platform ID'), {target: {value: 'new-platform'}})
-    await fireEvent.input(screen.getByLabelText('Base URL'), {target: {value: 'https://new.example/api'}})
-    await fireEvent.click(screen.getByRole('button', {name: '+'}))
-    await fireEvent.input(screen.getByLabelText('Key'), {target: {value: 'X-Api-Key'}})
-    await fireEvent.input(screen.getByLabelText('Value'), {target: {value: 'secret'}})
-
-    await fireEvent.click(screen.getByRole('button', {name: 'Save'}))
-
-    await waitFor(() => expect(api.post).toHaveBeenCalledWith('platforms', expect.objectContaining({
-      headers: {'X-Api-Key': 'secret'},
-    })))
-  })
-
-  it('edits an existing platform', async () => {
-    vi.mocked(api.put).mockResolvedValue({})
-    render(PlatformsPage)
-    await screen.findByText('mock')
-
-    await fireEvent.click(screen.getByRole('button', {name: 'Edit'}))
     expect((screen.getByLabelText('Platform ID') as HTMLInputElement).disabled).to.equal(true)
-    await fireEvent.input(screen.getByLabelText('Base URL'), {target: {value: 'https://mock-new.example/api'}})
-    await fireEvent.click(screen.getByRole('button', {name: 'Save'}))
+    expect((screen.getByLabelText('Base URL') as HTMLInputElement).disabled).to.equal(true)
+    expect(key.disabled).to.equal(true)
+    expect(value.disabled).to.equal(true)
+    expect(screen.queryByRole('button', {name: '+'})).to.equal(null)
+    expect(screen.queryAllByRole('button', {name: '×'}).length).to.equal(0)
+    expect(document.querySelectorAll('input[type=file]').length).to.equal(0)
+    expect(screen.queryByRole('button', {name: 'Save'})).to.equal(null)
 
-    await waitFor(() => expect(api.put).toHaveBeenCalledWith('platforms/mock', expect.objectContaining({
-      baseUrl: 'https://mock-new.example/api',
-    })))
+    expect(api.post).not.toHaveBeenCalled()
+    expect(api.put).not.toHaveBeenCalled()
+    expect(api.delete).not.toHaveBeenCalled()
   })
 
-  it('generates an API key and shows it in a modal, closing reloads the list', async () => {
-    vi.mocked(api.post).mockResolvedValue({id: 'mock', apiKey: 'super-secret-key', apiKeyHint: 'supe', apiKeyGeneratedAt: '2026-01-01T00:00:00Z'})
+  it('shows an existing API key fingerprint read-only, without generating a new one', async () => {
+    mockPlatformsOf([{...newPlatform(), apiKeyHint: 'supe', apiKeyGeneratedAt: '2026-01-01T00:00:00Z', hasApiKey: true}])
     render(PlatformsPage)
-    await screen.findByText('mock')
 
-    await fireEvent.click(screen.getByRole('button', {name: 'Generate API key'}))
-
-    await waitFor(() => expect(api.post).toHaveBeenCalledWith('platforms/api-key/mock'))
-    await screen.findByText('super-secret-key')
-
-    await fireEvent.click(screen.getByRole('button', {name: 'Close'}))
-    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2)) // initial load + reload after closing the modal
-  })
-
-  it('regenerating an existing key requires confirmation', async () => {
-    platform.hasApiKey = true
-    vi.spyOn(window, 'confirm').mockReturnValue(false)
-    render(PlatformsPage)
-    await screen.findByText('mock')
-
-    await fireEvent.click(screen.getByRole('button', {name: 'Generate API key'}))
-
+    await screen.findByText('supe…')
+    expect(screen.queryByRole('button', {name: 'Generate API key'})).to.equal(null)
     expect(api.post).not.toHaveBeenCalled()
   })
 
-  it('pings a platform and shows a toast on success', async () => {
-    vi.mocked(api.post).mockResolvedValue({...platform, status: Status.ONLINE})
+  it('shows a platform without eDelivery certificates in read-only details', async () => {
+    mockPlatformsOf([{...newPlatform(), baseUrl: 'https://plain.example/api', eDeliveryCert: undefined}])
     render(PlatformsPage)
     await screen.findByText('mock')
 
-    await fireEvent.click(screen.getByRole('button', {name: 'Ping'}))
+    await fireEvent.click(screen.getByRole('button', {name: 'Details'}))
 
-    await waitFor(() => expect(api.post).toHaveBeenCalledWith('platforms/ping/mock'))
-    await waitFor(() => expect(get(toastStore).some(t => t.message.includes('pinged'))).to.equal(true))
-  })
-
-  it('falls back to OFFLINE when a ping fails', async () => {
-    vi.mocked(api.post).mockRejectedValue(new Error('unreachable'))
-    render(PlatformsPage)
-    await screen.findByText('mock')
-
-    await fireEvent.click(screen.getByRole('button', {name: 'Ping'}))
-
-    await waitFor(() => screen.getByText('OFFLINE'))
-  })
-
-  it('deletes a platform after confirmation', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
-    vi.mocked(api.delete).mockResolvedValue({})
-    render(PlatformsPage)
-    await screen.findByText('mock')
-
-    await fireEvent.click(screen.getByRole('button', {name: 'Delete'}))
-
-    await waitFor(() => expect(api.delete).toHaveBeenCalledWith('platforms/mock'))
+    await waitFor(() => expect((screen.getByLabelText('Base URL') as HTMLInputElement).value).to.equal('https://plain.example/api'))
+    expect(screen.queryByLabelText('eDelivery certificate')).to.equal(null)
+    expect((screen.getByLabelText('EDelivery') as HTMLInputElement).checked).to.equal(false)
   })
 })

@@ -90,6 +90,25 @@ services:
       liquibase:
         condition: service_completed_successfully
 
+  # One-shot ADR-014 loader: applies the git registry folder (registry/**) to the database through
+  # ReSql on every startup, refreshes the admin read models and then verifies the result. Fail-closed
+  # — `ruuter` and `edelivery` wait for it, so a malformed registry file stops the stack from
+  # starting instead of booting half of it.
+  registry-sync:
+    container_name: efti_registry_sync
+    build:
+      context: .
+      dockerfile: docker/registry-sync/Dockerfile
+    environment:
+      - RESQL_URL=http://resql:8090
+      - REGISTRY_DIR=/registry
+    volumes:
+      - ./registry:/registry:ro
+    depends_on:
+      resql:
+        condition: service_healthy
+    restart: "no"
+
   ruuter:
     container_name: efti_ruuter
     build:
@@ -98,7 +117,10 @@ services:
     platform: linux/amd64
     cpus: '2.0'
     depends_on:
-      - resql
+      resql:
+        condition: service_healthy
+      registry-sync:
+        condition: service_completed_successfully
     mem_limit: 512M
     volumes:
       - ./constants.ini:/app/constants.ini:ro
@@ -157,7 +179,10 @@ services:
         - PROJECT=edelivery
         - PORT=8081
     depends_on:
-      - resql
+      resql:
+        condition: service_healthy
+      registry-sync:
+        condition: service_completed_successfully
     mem_limit: 512M
 
   xml-mapper:

@@ -1,31 +1,11 @@
 <script lang="ts">
-  import api from 'src/api/api'
   import SortableTable from 'src/components/SortableTable.svelte'
-  import {showToast} from 'src/stores/toasts'
   import {formatDateTime, t} from 'i18n'
   import Button from 'src/components/Button.svelte'
   import {type Gate, Status} from 'src/api/ruuterTypes'
 
   export let gates: Gate[]
-  export let onEdit: (gate: Gate) => void
-  export let onDeleted: (gate: Gate) => void
-
-  async function ping(gate: Gate) {
-    try {
-      gate = await api.post<Gate>(`gates/ping/${gate.id}`)
-      gates = gates.replaceById(gate)
-      showToast(gate.id + ' ' + t.general.pinged)
-    } catch (e: any) {
-      if (gate.status !== Status.DISABLED) gates = gates.map(g => g.id === gate.id ? { ...g, status: Status.OFFLINE } : g)
-    }
-  }
-
-  async function onDelete(gate: Gate) {
-    if (!confirm(t.general.deleteConfirm + ' ' + gate.id + '?')) return
-    await api.delete(`gates/${gate.id}`)
-    showToast(t.general.deleted + ': ' + gate.id)
-    onDeleted(gate)
-  }
+  export let onDetails: (gate: Gate) => void
 </script>
 
 <SortableTable items={gates} labels={t.gates} columns={['id', [t.general.countryCode, 'countryCode'], 'eDeliveryUrl', 'status', '']} let:item={g}>
@@ -41,9 +21,7 @@
     </td>
     <td>
       <div class="flex flex-wrap justify-end gap-2">
-        <Button label={t.general.edit} onclick={() => onEdit(g)} size="sm"/>
-        <Button label={t.general.ping} onclick={() => ping(g)} size="sm"/>
-        <Button label={t.general.delete} onclick={() => onDelete(g)} size="sm" class="danger"/>
+        <Button label={t.general.details} onclick={() => onDetails(g)} size="sm"/>
       </div>
     </td>
   </tr>

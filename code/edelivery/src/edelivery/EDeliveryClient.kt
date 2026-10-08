@@ -63,22 +63,6 @@ class EDeliveryClient(
     "Content-ID: <message>\r\n\r\n").toByteArray()
   private val mimeEnd = ("\r\n--$mimeBoundary--").toByteArray()
 
-  fun ping(party: Party) {
-    val pingMessage = "<hello>world</hello>"
-    val requestKey = RequestKey(party.id)
-    val params = UserMessageParams(
-      requestKey,
-      action = "http://docs.oasis-open.org/ebxml-msg/ebms/v3.0/ns/core/200704/test",
-      service = "http://docs.oasis-open.org/ebxml-msg/ebms/v3.0/ns/core/200704/service",
-      serviceType = null
-    )
-    val response = send(party.eDeliveryUrl, params, pingMessage)
-    val regex = Regex("<[^:]*:?RefToMessageId>(.*?)</[^:]*:?RefToMessageId>")
-    val refToMessageId = regex.find(response)?.groupValues?.get(1)
-    val returnedRequestId = refToMessageId?.split("@")?.first()?.uuid
-    require(returnedRequestId == requestKey.requestId) { "Returned wrong requestId. Expected ${requestKey.requestId}, got $returnedRequestId. Response content: $response" }
-  }
-
   fun send(endpoint: URI, params: UserMessageParams, payload: String): String {
     log.info("Sending message to $endpoint: $payload")
     val message = eDeliveryMessageGenerator.requestMessage(params, payload)

@@ -5,8 +5,10 @@
 -- authenticate to the gate with an API key in the X-Api-Key header. The key is
 -- never stored in clear — only its SHA-256 hash (api_key_hash). api_key_hint is
 -- the first 8 hex chars of that hash, shown in the admin UI so an operator can
--- tell which key is active without being able to recover it. The plaintext key is
--- returned exactly once, at generation time.
+-- tell which key is active without being able to recover it.
+-- Since ADR-014 the hash (and therefore the key) is declared in
+-- registry/platforms/<id>.json and applied by the registry-sync container; the
+-- admin route that used to mint keys at runtime no longer exists.
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 GRANT EXECUTE ON FUNCTION digest(text, text) TO app;
 GRANT EXECUTE ON FUNCTION gen_random_bytes(integer) TO app;
@@ -24,14 +26,3 @@ CREATE INDEX idx_platforms_api_key_hash ON platforms (api_key_hash);
 
 --rollback DROP INDEX IF EXISTS idx_platforms_api_key_hash;
 --rollback ALTER TABLE platforms DROP COLUMN IF EXISTS api_key_hash, DROP COLUMN IF EXISTS api_key_hint, DROP COLUMN IF EXISTS api_key_generated_at;
-
---changeset efti:platform-api-key-mock-seed context:dev
--- Give the seeded mock platform a known key hash so the http tests keep working.
--- Matches the plaintext the test files send (X-Api-Key: mock-secret-key).
-UPDATE platforms
-   SET api_key_hash         = digest('mock-secret-key', 'sha256'),
-       api_key_hint         = substr(encode(digest('mock-secret-key', 'sha256'), 'hex'), 1, 8),
-       api_key_generated_at = NOW()
- WHERE id = 'mock';
-
---rollback UPDATE platforms SET api_key_hash = NULL, api_key_hint = NULL, api_key_generated_at = NULL WHERE id = 'mock';

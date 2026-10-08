@@ -1,128 +1,82 @@
 import ./auth.http
 run #auth
 
-### Create authority
-POST {{RUUTER_URL}}/admin/v1/authorities
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-{
-  "id": "auth-mta",
-  "name": "Estonian Tax and Customs Board",
-  "registryCode": "70000001",
-  "subsets": ["EU01", "EU02", "EU03"],
-  "status": "ACTIVE"
-}
-
-> {%
-  client.test("Authority created", () => {
-    client.assert(response.status === 201)
-    client.assert(response.body.id === "auth-mta")
-    client.assert(response.body.name === "Estonian Tax and Customs Board")
-    client.assert(response.body.registryCode === "70000001")
-    client.assert(response.body.status === "ACTIVE")
-  })
-%}
-
-### Verify audit log recorded the authority creation (issue #59)
-GET {{RUUTER_URL}}/admin/v1/audit?resource=authority&resourceId=auth-mta
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-> {%
-  client.test("Audit log has an authority.create row", () => {
-    client.assert(response.status === 200)
-    client.assert(response.body.some(e => e.action === "authority.create" && e.resourceId === "auth-mta"))
-  })
-%}
-
-### List authorities
+### List authorities — registry/authorities/*.json is the source of truth (ADR-014)
 GET {{RUUTER_URL}}/admin/v1/authorities
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
 > {%
-  client.test("Authorities listed", () => {
+  client.test("Authorities listed from the registry fixtures", () => {
     client.assert(response.status === 200)
-    client.assert(response.body.length >= 1)
+    client.assert(Array.isArray(response.body))
+    const ids = response.body.map(a => a.id)
+    client.assert(ids.includes("auth-xroad-test"))
+    client.assert(ids.includes("auth-xroad-subsets"))
+    client.assert(ids.includes("auth-xroad-empty"))
+    client.assert(ids.includes("auth-summary-eu03"))
+    client.assert(ids.includes("auth-summary-none"))
+    client.assert(response.body.every(a => a.status !== "DELETED"))
+    client.assert(!ids.includes("auth-xroad-deleted"))
   })
 %}
 
-### Get single authority
-GET {{RUUTER_URL}}/admin/v1/authorities/auth-mta
+### Get a single authority (registry/authorities/auth-xroad-test.json)
+GET {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-test
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
 > {%
-  client.test("Single authority found", () => {
+  client.test("auth-xroad-test read back from the registry", () => {
     client.assert(response.status === 200)
-    client.assert(response.body.id === "auth-mta")
+    client.assert(response.body.id === "auth-xroad-test")
+    client.assert(response.body.name === "X-Road Test Authority")
+    client.assert(response.body.registryCode === "70000099")
+    client.assert(response.body.subsets.length === 1)
+    client.assert(response.body.subsets.includes("EU01"))
+    client.assert(response.body.status === "ACTIVE")
   })
 %}
 
-### Update authority
-PUT {{RUUTER_URL}}/admin/v1/authorities/auth-mta
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-{
-  "name": "Estonian Tax and Customs Board",
-  "registryCode": "70000001",
-  "subsets": ["EU01", "EU02", "EU03", "EU04"],
-  "status": "ACTIVE"
-}
-
-> {%
-  client.test("Authority updated", () => {
-    client.assert(response.status === 200)
-    client.assert(response.body.subsets.length === 4)
-  })
-%}
-
-### Verify audit log recorded the authority update (issue #59)
-GET {{RUUTER_URL}}/admin/v1/audit?resource=authority&resourceId=auth-mta
+### An authority entitled to several subsets keeps them all
+GET {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-subsets
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
 > {%
-  client.test("Audit log has an authority.update row", () => {
+  client.test("auth-xroad-subsets keeps its declared subsets", () => {
     client.assert(response.status === 200)
-    client.assert(response.body.some(e => e.action === "authority.update" && e.resourceId === "auth-mta"))
+    client.assert(response.body.registryCode === "70000097")
+    client.assert(response.body.subsets.length === 2)
+    client.assert(response.body.subsets.includes("EU01"))
+    client.assert(response.body.subsets.includes("EU05"))
   })
 %}
 
-### Delete authority
-DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-mta
+### An authority entitled to nothing declares an empty subset list
+GET {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-empty
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
 > {%
-  client.test("Authority deleted", () => {
-    client.assert(response.status === 204)
+  client.test("auth-xroad-empty has no subsets", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.registryCode === "70000096")
+    client.assert(response.body.subsets.length === 0)
+    client.assert(response.body.status === "ACTIVE")
   })
 %}
 
-### Verify authority deleted
-GET {{RUUTER_URL}}/admin/v1/authorities/auth-mta
+### A registry tombstone is visible by id but filtered out of the list
+GET {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-deleted
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
 > {%
-  client.test("Authority deleted", () => {
+  client.test("auth-xroad-deleted is a DELETED tombstone", () => {
     client.assert(response.status === 200)
+    client.assert(response.body.id === "auth-xroad-deleted")
     client.assert(response.body.status === "DELETED")
-  })
-%}
-
-### Verify audit log recorded the authority deletion (issue #59)
-GET {{RUUTER_URL}}/admin/v1/audit?resource=authority&resourceId=auth-mta
-Content-Type: application/json
-Authorization: Bearer {{adminToken}}
-
-> {%
-  client.test("Audit log has an authority.delete row", () => {
-    client.assert(response.status === 200)
-    client.assert(response.body.some(e => e.action === "authority.delete" && e.resourceId === "auth-mta"))
   })
 %}
 
@@ -136,14 +90,16 @@ Content-Type: application/json
   })
 %}
 
-### NEGATIVE: POST without auth → 401
+### NEGATIVE: the authority write API is gone (ADR-014) — registry is read-only
+# The path IS still routed, but only for GET, so a write method is "method not allowed"
+# rather than "not found", and no guard runs to produce 401/403.
 POST {{RUUTER_URL}}/admin/v1/authorities
 Content-Type: application/json
 
 {"id": "NOAUTH", "name": "No Auth", "registryCode": "00000000", "subsets": ["EU01"], "status": "ACTIVE"}
 
 > {%
-  client.test("POST authority without auth rejected", () => {
-    client.assert(response.status === 401 || response.status === 403)
+  client.test("POST /admin/v1/authorities rejected — registry is read-only (405)", () => {
+    client.assert(response.status === 405)
   })
 %}

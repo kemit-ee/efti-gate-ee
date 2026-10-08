@@ -6,6 +6,7 @@ No published ports or persistent volumes are used. Run from the repository root:
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 import csv
+import hashlib
 import io
 import json
 import re
@@ -22,6 +23,12 @@ ROOT = Path(__file__).resolve().parents[2]
 CONTAINER = "efti-guard-sql-tests-" + uuid.uuid4().hex[:12]
 USER_ID = "10000000-0000-0000-0000-000000000001"
 DATASET_ID = "20000000-0000-0000-0000-000000000001"
+PLATFORM_API_KEY = "mock-secret-key"
+PLATFORM_API_KEY_HASH = hashlib.sha256(PLATFORM_API_KEY.encode()).hexdigest()
+
+
+def truncate_registries():
+    sql("TRUNCATE users, gates, platforms, authorities, consignments, follow_up_log, audit_log, async_responses, search_results, rm_consignment_counts, rm_consignment_summary, rm_gates, rm_platforms, rm_authorities, read_model_pointer;")
 
 
 def docker(*args, **kwargs):
@@ -36,11 +43,22 @@ def sql(statement, csv_output=False):
         raise RuntimeError(error.stderr) from error
 
 
+def declared_params(source):
+    """The endpoint's `params` mapping from its YAML header.
+
+    The description is free-form prose and not necessarily valid YAML on its own (a multi-line
+    scalar may contain ': '), so only the params mapping is parsed."""
+    header = re.search(r"/\*(.*?)\*/", source, re.S).group(1)
+    if "\nparams:" not in header:
+        return {}
+    return (yaml.safe_load("params:" + header.split("\nparams:", 1)[1]) or {}).get("params") or {}
+
+
 def endpoint(name, params, source=None):
     if source is None:
         source = (ROOT / "DSL/Resql/efti/POST" / (name + ".sql")).read_text()
     header = re.search(r"/\*(.*?)\*/", source, re.S)
-    declarations = yaml.safe_load(header.group(1)).get("params", {})
+    declarations = declared_params(source)
     names = list(declarations)
     scalar_types = {"number": "bigint", "integer": "bigint", "object": "jsonb", "uuid": "uuid", "datetime": "timestamptz", "boolean": "boolean"}
     types = []
@@ -89,7 +107,7 @@ def call(endpoint_name, **params):
 
 class Queries(unittest.TestCase):
     def setUp(self):
-        sql("TRUNCATE users, gates, platforms, authorities, consignments, follow_up_log, audit_log, async_responses, search_results, rm_consignment_counts, rm_consignment_summary, rm_gates, rm_platforms, rm_authorities, read_model_pointer;")
+        truncate_registries()
 
     def user(self, tara="old", active=True, stamp="2026-09-01", revoked=None):
         revoked_sql = "NULL" if revoked is None else "'" + revoked + "'"
@@ -297,22 +315,10 @@ class Queries(unittest.TestCase):
         self.assertEqual([], call("get_platform_by_api_key", apiKey="old-key"))
         self.assertEqual(1, len(call("get_platform_by_api_key", apiKey="new-key")))
 
-    def test_deleted_platform_key_ping_and_rotation_are_denied(self):
+    def test_deleted_platform_key_is_denied(self):
         self.platform()
         self.platform(status="DELETED", stamp="2026-09-02")
         self.assertEqual([], call("get_platform_by_api_key", apiKey="old-key"))
-        self.assertEqual([], call("update_platform_ping", id="mock", status="ONLINE"))
-        self.assertEqual([], call("generate_platform_api_key", id="mock"))
-
-    def test_ping_does_not_enable_disabled_platform(self):
-        self.platform(status="DISABLED")
-        self.assertEqual([], call("update_platform_ping", id="mock", status="ONLINE"))
-
-    def test_ping_does_not_enable_deleted_or_disabled_gate(self):
-        for status in ["DELETED", "DISABLED"]:
-            with self.subTest(status=status):
-                sql(f"INSERT INTO gates (id,country_code,e_delivery_url,status) VALUES ('EU-{status}','EE','http://gate','{status}');")
-                self.assertEqual([], call("update_gate_ping", id="EU-" + status, status="ONLINE"))
 
     def test_duplicate_key_returns_all_platforms_for_guard_to_deny(self):
         self.platform(platform="one")
@@ -445,17 +451,170 @@ class Queries(unittest.TestCase):
         self.platform(status="DISABLED")
         self.assertEqual([], call("get_platform_by_api_key", apiKey="old-key"))
 
-    def test_registry_put_does_not_recreate_missing_or_deleted_ids(self):
-        self.platform(status="DELETED")
-        sql("INSERT INTO gates (id,country_code,e_delivery_url,status) VALUES ('EU-EE','EE','http://gate','DELETED');")
-        sql("INSERT INTO authorities (id,name,registry_code,status) VALUES ('authority','Test','70000000','DELETED');")
-        calls = [("update_gate", {"countryCode": "EE", "eDeliveryUrl": "http://gate"}, "EU-EE"),
-                 ("update_platform", {"baseUrl": "http://platform"}, "mock"),
-                 ("update_authority", {"name": "Changed", "registryCode": "70000000"}, "authority")]
-        for name, params, deleted in calls:
-            for identifier in [deleted, "missing"]:
-                with self.subTest(endpoint=name, id=identifier):
-                    self.assertEqual([], call(name, id=identifier, **params))
+
+class RegistrySync(unittest.TestCase):
+    """ADR-014: gates, platforms and authorities are declared in registry/** and reconciled by the
+    sync_* endpoints. Declarative, idempotent and append-only: a new or changed declaration appends
+    a revision, an unchanged one writes nothing, an undeclared live entity gets a DELETED tombstone
+    and a re-declared entity is revived (20261008 relaxed the reactivation guard to cover users)."""
+
+    def setUp(self):
+        truncate_registries()
+
+    def sync(self, name, entities):
+        return call(name, entities=json.dumps(entities))[0]
+
+    def declared_gate(self, id, url="http://gate", status="ONLINE"):
+        return {"id": id, "countryCode": "EE", "eDeliveryUrl": url, "eDeliveryCert": None, "tlsCert": None, "status": status}
+
+    def declared_platform(self, id, base_url="http://platform", status="ONLINE", api_key_hash=None):
+        entity = {"id": id, "baseUrl": base_url, "headers": {}, "eDeliveryCert": None, "tlsCert": None, "status": status}
+        if api_key_hash is not None:
+            entity["apiKeyHash"] = api_key_hash
+        return entity
+
+    def declared_authority(self, id, subsets=(), status="ACTIVE"):
+        return {"id": id, "name": "Authority " + id, "registryCode": "70000000", "subsets": list(subsets), "status": status}
+
+    def registry(self):
+        return [("sync_gates", "get_gates", self.declared_gate("EU-EE")),
+                ("sync_platforms", "get_platforms", self.declared_platform("mock")),
+                ("sync_authorities", "get_authorities", self.declared_authority("auth-a", subsets=["EU01"]))]
+
+    def ids(self, endpoint, **params):
+        return [row["id"] for row in call(endpoint, **params)]
+
+    def rows(self, table, id):
+        return int(sql(f"SELECT count(*) FROM {table} WHERE id = '{id}';"))
+
+    def latest(self, table, id, column):
+        return sql(f"SELECT {column} FROM {table} WHERE id = '{id}' ORDER BY created_at DESC, revision DESC LIMIT 1;").strip()
+
+    def subsets(self, id):
+        return sql(f"SELECT array_to_string(subsets, ',') FROM authorities WHERE id = '{id}' ORDER BY created_at DESC, revision DESC LIMIT 1;").strip()
+
+    def test_fresh_sync_inserts_every_declared_entity(self):
+        self.assertEqual({"declared": 2, "upserted": 2, "deleted": 0},
+                         self.sync("sync_gates", [self.declared_gate("EU-EE"), self.declared_gate("EU-MOCK")]))
+        self.assertEqual({"declared": 1, "upserted": 1, "deleted": 0},
+                         self.sync("sync_platforms", [self.declared_platform("mock")]))
+        self.assertEqual({"declared": 2, "upserted": 2, "deleted": 0},
+                         self.sync("sync_authorities", [self.declared_authority("auth-a"), self.declared_authority("auth-b", subsets=["EU02"])]))
+        self.assertEqual(["EU-EE", "EU-MOCK"], self.ids("get_gates"))
+        self.assertEqual(["mock"], self.ids("get_platforms"))
+        self.assertEqual(["auth-a", "auth-b"], self.ids("get_authorities"))
+
+    def test_empty_registry_declares_and_writes_nothing(self):
+        self.assertEqual({"declared": 0, "upserted": 0, "deleted": 0}, self.sync("sync_gates", []))
+        self.assertEqual("0", sql("SELECT count(*) FROM gates;").strip())
+
+    def test_repeated_sync_writes_nothing(self):
+        for name, _, entity in self.registry():
+            with self.subTest(endpoint=name):
+                self.assertEqual({"declared": 1, "upserted": 1, "deleted": 0}, self.sync(name, [entity]))
+                before = [sql(f"SELECT count(*) FROM {table};").strip() for table in ("gates", "platforms", "authorities")]
+                self.assertEqual({"declared": 1, "upserted": 0, "deleted": 0}, self.sync(name, [entity]))
+                self.assertEqual(before, [sql(f"SELECT count(*) FROM {table};").strip() for table in ("gates", "platforms", "authorities")])
+
+    def test_changed_gate_url_appends_one_revision(self):
+        self.sync("sync_gates", [self.declared_gate("EU-EE", url="http://old")])
+        self.assertEqual({"declared": 1, "upserted": 1, "deleted": 0},
+                         self.sync("sync_gates", [self.declared_gate("EU-EE", url="http://new")]))
+        self.assertEqual(2, self.rows("gates", "EU-EE"))
+        self.assertEqual("http://new", call("get_gate_by_id", id="EU-EE")[0]["e_delivery_url"])
+
+    def test_changed_platform_base_url_appends_one_revision(self):
+        self.sync("sync_platforms", [self.declared_platform("mock")])
+        self.assertEqual({"declared": 1, "upserted": 1, "deleted": 0},
+                         self.sync("sync_platforms", [self.declared_platform("mock", base_url="http://moved")]))
+        self.assertEqual(2, self.rows("platforms", "mock"))
+        self.assertEqual("http://moved", call("get_platform_by_id", id="mock")[0]["base_url"])
+
+    def test_declared_status_is_registry_owned_and_only_deleted_is_hidden(self):
+        self.sync("sync_gates", [self.declared_gate("EU-EE")])
+        self.assertEqual({"declared": 1, "upserted": 1, "deleted": 0},
+                         self.sync("sync_gates", [self.declared_gate("EU-EE", status="DISABLED")]))
+        self.assertEqual("DISABLED", call("get_gate_by_id", id="EU-EE")[0]["status"])
+        self.assertEqual([("EU-EE", "DISABLED")], [(row["id"], row["status"]) for row in call("get_gates")])
+        self.assertEqual(["EU-EE"], self.ids("get_gates", status="DISABLED"))
+        self.assertEqual({"declared": 1, "upserted": 0, "deleted": 0},
+                         self.sync("sync_gates", [self.declared_gate("EU-EE", status="DISABLED")]))
+        self.assertEqual("DISABLED", self.latest("gates", "EU-EE", "status"))
+        self.assertEqual({"declared": 1, "upserted": 1, "deleted": 0},
+                         self.sync("sync_platforms", [self.declared_platform("mock", status="DISABLED")]))
+        self.assertEqual([("mock", "DISABLED")], [(row["id"], row["status"]) for row in call("get_platforms")])
+
+    def test_removed_entity_is_tombstoned_and_leaves_the_list(self):
+        for name, list_endpoint, entity in self.registry():
+            with self.subTest(endpoint=name):
+                table = name.removeprefix("sync_")
+                self.sync(name, [entity])
+                self.assertEqual([entity["id"]], self.ids(list_endpoint))
+                self.assertEqual({"declared": 0, "upserted": 0, "deleted": 1}, self.sync(name, []))
+                self.assertEqual([], self.ids(list_endpoint))
+                self.assertEqual("DELETED", self.latest(table, entity["id"], "status"))
+                self.assertEqual(2, self.rows(table, entity["id"]))
+
+    def test_readded_entity_is_revived(self):
+        for name, list_endpoint, entity in self.registry():
+            with self.subTest(endpoint=name):
+                table = name.removeprefix("sync_")
+                self.sync(name, [entity])
+                self.assertEqual({"declared": 0, "upserted": 0, "deleted": 1}, self.sync(name, []))
+                self.assertEqual([], self.ids(list_endpoint))
+                self.assertEqual({"declared": 1, "upserted": 1, "deleted": 0}, self.sync(name, [entity]))
+                self.assertEqual([entity["id"]], self.ids(list_endpoint))
+                self.assertEqual(entity["status"], self.latest(table, entity["id"], "status"))
+                self.assertEqual(3, self.rows(table, entity["id"]))
+
+    def test_declared_tombstone_is_stable(self):
+        for name, list_endpoint, entity in self.registry():
+            with self.subTest(endpoint=name):
+                declared = dict(entity, status="DELETED")
+                self.assertEqual({"declared": 1, "upserted": 1, "deleted": 0}, self.sync(name, [declared]))
+                self.assertEqual([], self.ids(list_endpoint))
+                self.assertEqual({"declared": 1, "upserted": 0, "deleted": 0}, self.sync(name, [declared]))
+                self.assertEqual(1, self.rows(name.removeprefix("sync_"), entity["id"]))
+
+    def test_declared_api_key_hash_authenticates_the_platform(self):
+        self.assertEqual({"declared": 1, "upserted": 1, "deleted": 0},
+                         self.sync("sync_platforms", [self.declared_platform("mock", api_key_hash=PLATFORM_API_KEY_HASH)]))
+        self.assertEqual(PLATFORM_API_KEY_HASH, self.latest("platforms", "mock", "encode(api_key_hash, 'hex')"))
+        self.assertEqual(PLATFORM_API_KEY_HASH[:8], call("get_platform_by_id", id="mock")[0]["api_key_hint"])
+        self.assertEqual(["mock"], [row["id"] for row in call("get_platform_by_api_key", apiKey=PLATFORM_API_KEY)])
+
+    def test_a_changed_api_key_hash_is_a_rotation_stamped_now(self):
+        self.sync("sync_platforms", [self.declared_platform("mock", api_key_hash=PLATFORM_API_KEY_HASH)])
+        rotated = hashlib.sha256(b"rotated-key").hexdigest()
+        self.assertEqual({"declared": 1, "upserted": 1, "deleted": 0},
+                         self.sync("sync_platforms", [self.declared_platform("mock", api_key_hash=rotated)]))
+        self.assertEqual(2, self.rows("platforms", "mock"))
+        self.assertEqual([], call("get_platform_by_api_key", apiKey=PLATFORM_API_KEY))
+        self.assertEqual(["mock"], [row["id"] for row in call("get_platform_by_api_key", apiKey="rotated-key")])
+        self.assertEqual(rotated[:8], call("get_platform_by_id", id="mock")[0]["api_key_hint"])
+        self.assertEqual("t", sql("SELECT max(api_key_generated_at) > min(api_key_generated_at) FROM platforms WHERE id = 'mock';").strip())
+
+    def test_omitting_api_key_hash_preserves_the_credential_without_a_revision(self):
+        self.sync("sync_platforms", [self.declared_platform("mock", api_key_hash=PLATFORM_API_KEY_HASH)])
+        issued_at = self.latest("platforms", "mock", "api_key_generated_at")
+        self.assertEqual({"declared": 1, "upserted": 0, "deleted": 0}, self.sync("sync_platforms", [self.declared_platform("mock")]))
+        self.assertEqual(1, self.rows("platforms", "mock"))
+        self.assertEqual(PLATFORM_API_KEY_HASH, self.latest("platforms", "mock", "encode(api_key_hash, 'hex')"))
+        self.assertEqual(issued_at, self.latest("platforms", "mock", "api_key_generated_at"))
+        self.assertEqual(["mock"], [row["id"] for row in call("get_platform_by_api_key", apiKey=PLATFORM_API_KEY)])
+
+    def test_reordered_subsets_are_normalised_and_a_real_change_appends_a_revision(self):
+        self.assertEqual({"declared": 1, "upserted": 1, "deleted": 0},
+                         self.sync("sync_authorities", [self.declared_authority("auth-a", subsets=["EU03", "EU01", "EU03"])]))
+        self.assertEqual("EU01,EU03", self.subsets("auth-a"))
+        self.assertEqual({"declared": 1, "upserted": 0, "deleted": 0},
+                         self.sync("sync_authorities", [self.declared_authority("auth-a", subsets=["EU01", "EU03"])]))
+        self.assertEqual(1, self.rows("authorities", "auth-a"))
+        self.assertEqual({"declared": 1, "upserted": 1, "deleted": 0},
+                         self.sync("sync_authorities", [self.declared_authority("auth-a", subsets=["EU01", "EU04"])]))
+        self.assertEqual(2, self.rows("authorities", "auth-a"))
+        self.assertEqual("EU01,EU04", self.subsets("auth-a"))
+        self.assertEqual("{EU01,EU04}", call("get_authority_by_id", id="auth-a")[0]["subsets"])
 
 
 class MigrationPrototype(unittest.TestCase):
@@ -472,20 +631,22 @@ class MigrationPrototype(unittest.TestCase):
         sql(f"SET ROLE app; INSERT INTO users (id,tara_sub,name,is_active) VALUES ('{USER_ID}','old','Stale update',true);")
         self.assertEqual("f|2026-09-01", sql(f"SELECT is_active,token_revoked_at::date FROM users WHERE id='{USER_ID}' ORDER BY created_at DESC,revision DESC LIMIT 1;").strip())
 
-    def test_concurrent_append_waits_for_delete_and_cannot_resurrect(self):
-        sql("INSERT INTO gates (id,country_code,e_delivery_url,status) VALUES ('EU-EE','EE','http://gate','ONLINE');")
+    def test_concurrent_append_waits_for_delete_and_cannot_resurrect_a_user(self):
+        # 20261008/ADR-014 relaxed the reactivation guard to cover users only, so the untouched
+        # half of this invariant is tested here; reviving a removed gate/platform/authority is
+        # the intended registry-sync behaviour (see RegistrySync.test_readded_entity_is_revived).
+        sql(f"INSERT INTO users (id,tara_sub,name,is_active) VALUES ('{USER_ID}','old','First',true);")
         with ThreadPoolExecutor(max_workers=1) as pool:
-            deleting = pool.submit(sql, "SET ROLE app; BEGIN; INSERT INTO gates (id,country_code,e_delivery_url,status) VALUES ('EU-EE','EE','http://gate','DELETED'); SELECT pg_sleep(2); COMMIT;")
+            deleting = pool.submit(sql, f"SET ROLE app; BEGIN; INSERT INTO users (id,tara_sub,name,is_active) VALUES ('{USER_ID}','old','Deleted',false); SELECT pg_sleep(2); COMMIT;")
             for _ in range(30):
                 if int(sql("SELECT count(*) FROM pg_locks WHERE locktype='advisory' AND granted;")):
                     break
                 time.sleep(0.1)
             else:
                 self.fail("Delete did not acquire the registry lock")
-            with self.assertRaisesRegex(RuntimeError, "Cannot reactivate deleted"):
-                sql("SET ROLE app; INSERT INTO gates (id,country_code,e_delivery_url,status) VALUES ('EU-EE','EE','http://gate','ONLINE');")
+            sql(f"SET ROLE app; INSERT INTO users (id,tara_sub,name,is_active) VALUES ('{USER_ID}','old','Stale update',true);")
             deleting.result()
-        self.assertEqual("DELETED", sql("SELECT status FROM gates WHERE id='EU-EE' ORDER BY created_at DESC,revision DESC LIMIT 1;").strip())
+        self.assertEqual("f", sql(f"SELECT is_active FROM users WHERE id='{USER_ID}' ORDER BY created_at DESC,revision DESC LIMIT 1;").strip())
 
     def test_stale_platform_append_cannot_restore_previous_key(self):
         sql("INSERT INTO platforms (id,status,api_key_hash,api_key_generated_at) VALUES ('mock','ONLINE',digest('current-key','sha256'),'2026-09-02');")
@@ -560,7 +721,9 @@ def main():
             sql((ROOT / "DSL/Liquibase/changelog/20261005-read-model-generations.sql").read_text())
             sql((ROOT / "DSL/Liquibase/changelog/20261006-read-model-registries.sql").read_text())
             sql((ROOT / "DSL/Liquibase/changelog/20261007-read-model-consignment-summary.sql").read_text())
+            sql((ROOT / "DSL/Liquibase/changelog/20261008-registry-sync.sql").read_text())
         suite = unittest.defaultTestLoader.loadTestsFromTestCase(Queries)
+        suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(RegistrySync))
         if prototype or migration.exists():
             suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(MigrationPrototype))
         result = unittest.TextTestRunner(verbosity=2).run(suite)

@@ -1,31 +1,31 @@
 import ./auth.http
 run #auth
 
-### Setup: authority entitled to EU03 only
-POST {{RUUTER_URL}}/admin/v1/authorities
+### Fixture: authority entitled to EU03 only (registry/authorities/auth-summary-eu03.json)
+GET {{RUUTER_URL}}/admin/v1/authorities/auth-summary-eu03
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
-{
-  "id": "auth-summary-eu03",
-  "name": "Summary test EU03",
-  "registryCode": "70000771",
-  "subsets": ["EU03"],
-  "status": "ACTIVE"
-}
+> {%
+  client.test("EU03 authority fixture is present", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.registryCode === "70000771")
+    client.assert(response.body.subsets.includes("EU03"))
+  })
+%}
 
-### Setup: authority with no subsets
-POST {{RUUTER_URL}}/admin/v1/authorities
+### Fixture: authority with no subsets (registry/authorities/auth-summary-none.json)
+GET {{RUUTER_URL}}/admin/v1/authorities/auth-summary-none
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
-{
-  "id": "auth-summary-none",
-  "name": "Summary test none",
-  "registryCode": "70000772",
-  "subsets": [],
-  "status": "ACTIVE"
-}
+> {%
+  client.test("No-subsets authority fixture is present", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.registryCode === "70000772")
+    client.assert(response.body.subsets.length === 0)
+  })
+%}
 
 ### Setup: upload a dataset so there is something to count
 POST {{RUUTER_URL}}/platforms/v1/consignments

@@ -6,7 +6,9 @@
   import type {Subset} from 'src/api/ruuterTypes'
 
   export let subsets: Subset[]
-  $: if (subsets.length < 1) add()
+  export let disabled = false
+
+  $: if (subsets.length < 1 && !disabled) add()
 
   $: subsets, validate()
 
@@ -36,7 +38,7 @@
   <span>{t.authorities.subsets}</span>
   {#each subsets as subset, i}
     <div class="flex gap-2 subset">
-      <FormField maxlength={5} list="estonia-subsets" bind:value={subset}/>
+      <FormField maxlength={5} list="estonia-subsets" bind:value={subset} {disabled}/>
       <datalist id="estonia-subsets">
         <option value="EE01"></option>
         <option value="EE02"></option>
@@ -52,12 +54,14 @@
         <option value="EU06"></option>
         <option value="EU07"></option>
       </datalist>
-      {#if subsets.length > 1}
+      {#if !disabled && subsets.length > 1}
         <Button label="×" onclick={() => remove(i)} title={t.general.remove} class="danger"/>
       {/if}
     </div>
   {/each}
-  <div class="flex gap-6 items-center">
-    <Button label="+" onclick={add} title={t.general.add}/>
-  </div>
+  {#if !disabled}
+    <div class="flex gap-6 items-center">
+      <Button label="+" onclick={add} title={t.general.add}/>
+    </div>
+  {/if}
 </div>

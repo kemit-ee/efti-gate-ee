@@ -7,32 +7,14 @@ run #auth
 # xroad-subsets.http (70000095-97): get_authority_by_registry_code denies a code matching more than
 # one ACTIVE authority, so a collision would fail loudly rather than silently pick a row.
 
-### Setup: clean up any leftover from an aborted run
-DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-fwd
-Authorization: Bearer {{adminToken}}
-
-> {%
-  client.test("Cleanup ok", () => {
-    client.assert(response.status === 204 || response.status === 404)
-  })
-%}
-
-### Setup: authority permitted EU01 and EU02 only
-POST {{RUUTER_URL}}/admin/v1/authorities
+### Fixture: registry/authorities/auth-xroad-fwd.json (applied by registry-sync at startup)
+GET {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-fwd
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
 
-{
-  "id": "auth-xroad-fwd",
-  "name": "X-Road Forwarding Test Authority",
-  "registryCode": "70000094",
-  "subsets": ["EU01", "EU02"],
-  "status": "ACTIVE"
-}
-
 > {%
-  client.test("Forwarding test authority created", () => {
-    client.assert(response.status === 201)
+  client.test("auth-xroad-fwd fixture is present", () => {
+    client.assert(response.status === 200)
     client.assert(response.body.registryCode === "70000094")
   })
 %}
@@ -410,15 +392,5 @@ X-Request-ID: 0a11ce5e-00f0-4d1d-8faa-0f0d00f00000
   client.test("service token search -> 200", () => {
     client.assert(response.status === 200, "expected 200, got " + response.status)
     client.assert(response.body[0].mainTransportId === "VESSEL-001")
-  })
-%}
-
-### Teardown
-DELETE {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-fwd
-Authorization: Bearer {{adminToken}}
-
-> {%
-  client.test("Teardown ok", () => {
-    client.assert(response.status === 204)
   })
 %}
