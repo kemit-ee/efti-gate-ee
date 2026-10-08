@@ -2,16 +2,15 @@
 
 This folder is the **source of truth** for the three contractual registries the gate serves: peer
 gates, eFTI platforms, and competent authorities. It is also the **only** place they live — there are
-no registry tables in the database, and no HTTP write path. See
-[ADR-015](../docs/architecture/decisions/015-registry-as-file-server.md) (the decision) and
-[ADR-016](../docs/architecture/decisions/016-registry-yaml-build-time-json.md) (how it is delivered).
+no registry tables in the database, and no HTTP write path. [ADR-011](../docs/architecture/decisions/011-registries-as-signed-config.md)
+is the single record of this change: §1 the sources, §3 how they are delivered, §5 the secret-store consequence.
 
 Editing a registry entry means **editing a YAML file here, opening a PR, and building the `registry`
 image**. The Admin UI reads this data; it cannot write it, and neither can any HTTP route.
 
 > **`registry/` is a secret store.** Platform entries contain their live `apiKey` in plaintext
-> (ADR-015 dropped ADR-004's hash-only rule, because Ruuter's expression engine has no hash
-> function). Since ADR-016 there is **no runtime mount**: the folder is copied into the `registry`
+> (ADR-011 §5 dropped ADR-004's hash-only rule, because Ruuter's expression engine has no hash
+> function). Per ADR-011 §3 there is **no runtime mount**: the folder is copied into the `registry`
 > image at build time, so the keys travel in **image layers** (and therefore in the image registry,
 > the SBOM and the trivy scans). Never publish or ingress the `registry` port — it is internal-only,
 > exactly like ReSQL's.

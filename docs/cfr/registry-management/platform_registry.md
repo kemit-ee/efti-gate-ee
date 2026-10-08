@@ -3,7 +3,7 @@
 ## Changes
 
 - _Initial state. Change tracking begins at v1.0.0._
-- **2026-10-08 — SUPERSEDED by [ADR-014](../../architecture/decisions/014-registry-as-git-folder.md).** The Admin API write surface this epic specifies (create/update/delete and ping) was deleted: the registry is declared in the git folder `registry/platforms/<id>.yml` and reaches the consumers as generated JSON served by the `registry` image ([ADR-016](../../architecture/decisions/016-registry-yaml-build-time-json.md)). Only the `GET` operations below remain, and the Admin UI is read-only. The ACs are issue-synced — correct them in the GitHub issue rather than here.
+- **2026-10-08 — SUPERSEDED by [ADR-011](../../architecture/decisions/011-registries-as-signed-config.md).** The Admin API write surface this epic specifies (create/update/delete and ping) was deleted (§6): the registry is declared in the git folder `registry/platforms/<id>.yml` (§1) and reaches the consumers as generated JSON served statically by the `registry` image (§3). Only the `GET` operations below remain, and the Admin UI is read-only. The ACs are issue-synced — correct them in the GitHub issue rather than here.
 
 > Part of [Theme: Registry Management](README.md). Architecture: [registry-management/README.md](../../architecture/registry-management/README.md) (theme-wide rules) + [registry-management/platform_registry.md](../../architecture/registry-management/platform_registry.md) (sub-architecture).
 
@@ -17,9 +17,9 @@
 
 | Contract surface | Reference |
 |---|---|
-| **API operations** | `GET /api/v1/platforms[/{platformId}]` — read-only since ADR-014 (`POST`/`PUT`/`DELETE` removed) |
-| | ~~`POST /api/v1/platforms/{platformId}/ping`~~ — removed (ADR-014) |
-| | ~~`POST /api/v1/platforms/{platformId}/api-key`~~ — removed (ADR-014); the key is declared in plaintext in `registry/platforms/<id>.yml` (ADR-015) |
+| **API operations** | `GET /api/v1/platforms[/{platformId}]` — read-only since ADR-011 §6 (`POST`/`PUT`/`DELETE` removed) |
+| | ~~`POST /api/v1/platforms/{platformId}/ping`~~ — removed (ADR-011 §6) |
+| | ~~`POST /api/v1/platforms/{platformId}/api-key`~~ — removed (ADR-011 §6); the key is declared in plaintext in `registry/platforms/<id>.yml` (ADR-011 §5) |
 | | Full request / response / error shapes: [`openapi.yaml`](../../specs/openapi.yaml) |
 | **Schema** | `platforms` (append-only; logical id = `platforms.id`; latest row by `created_at` wins; `status='DELETED'` on latest = soft-delete; columns: `base_url`, `e_delivery_cert`) |
 | | Full schema: [`db/schema.sql`](../../specs/db/schema.sql) |
@@ -42,12 +42,12 @@
 - [ ] Delete is **always** soft (`status='DELETED'` on the latest row). There is no force-delete and no purge. Identifiers previously registered by the platform remain queryable.
 - [ ] A platform with `eDeliveryCert` set is callable via both REST and eDelivery AS4. Without it, REST only.
 - [ ] Platform is always responsible for subsetting — the gate forwards `subsetId` to the platform's `/v1/datasets/{datasetId}` endpoint (ADR-003).
-- [ ] ~~Manual ping (`POST /api/v1/platforms/{platformId}/ping`) checks HTTP reachability to `baseUrl`; response carries `responseTimeMs`.~~ — removed (ADR-014): `status` is registry-owned, there is no probe.
+- [ ] ~~Manual ping (`POST /api/v1/platforms/{platformId}/ping`) checks HTTP reachability to `baseUrl`; response carries `responseTimeMs`.~~ — removed (ADR-011 §6): `status` is registry-owned, there is no probe.
 
 **Denial scenarios:**
 - [ ] `POST` with an `id` whose latest row is active → conflict.
 - [ ] `PUT` / `DELETE` on a logical id that doesn't exist → not found.
-- [ ] ~~Manual ping: platform unreachable within timeout → `502`-class.~~ — removed (ADR-014).
+- [ ] ~~Manual ping: platform unreachable within timeout → `502`-class.~~ — removed (ADR-011 §6).
 
 ## Cluster-sync contract
 

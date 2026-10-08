@@ -1,7 +1,7 @@
 import ./auth.http
 run #auth
 
-### List authorities — registry/authorities/*.json is the source of truth (ADR-014)
+### List authorities — registry/authorities/*.json is the source of truth (ADR-011)
 GET {{RUUTER_URL}}/admin/v1/authorities
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
@@ -73,7 +73,7 @@ Content-Type: application/json
   })
 %}
 
-### NEGATIVE: the authority write API is gone (ADR-014) — registry is read-only
+### NEGATIVE: the authority write API is gone (ADR-011) — registry is read-only
 # The path IS still routed, but only for GET, so a write method is "method not allowed"
 # rather than "not found", and no guard runs to produce 401/403.
 POST {{RUUTER_URL}}/admin/v1/authorities

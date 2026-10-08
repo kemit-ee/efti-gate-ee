@@ -3,9 +3,7 @@
 ## Changes
 
 - _Initial state. Change tracking begins at v1.0.0._
-- **2026-10-08 — [ADR-014](../../architecture/decisions/014-registry-as-git-folder.md):** the registry moved out of the Admin API into the git folder `registry/platforms/`.
-- **2026-10-08 — [ADR-015](../../architecture/decisions/015-registry-as-file-server.md):** the `platforms` table, its read model and the `api_key_hash`/`api_key_hint`/`api_key_generated_at` columns are **dropped**. The folder is served over HTTP by the `registry` service, and the platform credential is now a **plaintext `apiKey` in the file** — ADR-004's hash-only rule is dropped because Ruuter's expression engine has no hash function.
-- **2026-10-08 — [ADR-016](../../architecture/decisions/016-registry-yaml-build-time-json.md):** the sources are YAML (`registry/platforms/<id>.yml`), converted and validated at image build time, then served statically by nginx. An edit is applied by rebuilding the `registry` image.
+- **2026-10-08 — [ADR-011](../../architecture/decisions/011-registries-as-signed-config.md) §3/§4/§5:** the registry left the Admin API and the database. It is declared in the git folder `registry/platforms/<id>.yml` and converted, with validation, into the JSON the `registry` image serves statically at **image build time** (§3; an edit is applied by rebuilding that image). The `platforms` table, its read model and the `api_key_hash`/`api_key_hint`/`api_key_generated_at` columns are **dropped** (§4), and the platform credential is a **plaintext `apiKey` in the file** (§5) — ADR-004's hash-only rule is dropped because Ruuter's expression engine has no hash function.
 
 > Sub-architecture for the Platform Registry Management surface. For overarching rules see [theme README](README.md). AC are in [`../../cfr/registry-management/platform_registry.md`](../../cfr/registry-management/platform_registry.md).
 
@@ -51,7 +49,7 @@ Because this is a live secret baked into the registry image:
 - the `registry` image must never be exposed beyond the internal network (no published port in
   `compose.yml`, no ingress rule, not proxied by the UI). With no runtime mount there is also no
   external Secret to hold the keys: they travel in the image layers and therefore into image storage,
-  the SBOM and the trivy scans — the deliberate price of ADR-016, and the reason a production
+  the SBOM and the trivy scans — the deliberate price of ADR-011 §3/§5, and the reason a production
   deployment must build its own registry image rather than reuse the one built from this repository;
 - the admin read routes strip `apiKey` from every response and expose a derived `hasApiKey` boolean;
 - the guard strips `apiKey` from the platform object it passes on to handlers through `${platform}`.
@@ -65,5 +63,5 @@ Platform metadata (base URL, headers, certificates, credential) drives Platform-
 and the forwarding target for dataset and follow-up requests. All of it is contractual: a wrong base
 URL or a poisoned certificate is a routing or trust failure. Keeping it declarative removes the
 second copy in the database and makes the credential visible in review — at the cost of the
-credential being plaintext in the repository, in the served documents and, since ADR-016, in the
-registry image itself, which is the deliberate trade recorded in ADR-015/ADR-016.
+credential being plaintext in the repository, in the served documents and, since ADR-011 §3, in the
+registry image itself, which is the deliberate trade recorded in ADR-011 §5.

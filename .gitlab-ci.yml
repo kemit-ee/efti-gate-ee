@@ -1,6 +1,6 @@
 # eFTI Gate (EE) source pipeline — standard-service-delivery@8.0.1.
 # Ten images (liquibase is build-only; resql bakes the same RELEASE_VERSION into
-# databaseMigration; registry is the ADR-015 registry file server). Wrapper
+# databaseMigration; registry is the ADR-011 registry file server). Wrapper
 # charts live in services/efti/devops.
 #
 # Required subgroup variables: SERVICECODE, GITOPS_TOKEN, DTRACK_API_KEY.
@@ -111,7 +111,7 @@ secret_detection:
     - pip3 install --quiet pyyaml
     - python3 scripts/validate-dsl.py
     # registry/**/*.yml is converted to JSON at image build time by the same script, so this
-    # validates the registry without building an image (ADR-016: the converter is the validator).
+    # validates the registry without building an image (ADR-011: the converter is the validator).
     - python3 scripts/registry-to-json.py
     - >-
       docker run --rm -v "$PWD:/workdir:ro" -w /workdir python:3.12-slim

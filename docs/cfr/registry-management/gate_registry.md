@@ -3,7 +3,7 @@
 ## Changes
 
 - _Initial state. Change tracking begins at v1.0.0._
-- **2026-10-08 — SUPERSEDED by [ADR-014](../../architecture/decisions/014-registry-as-git-folder.md).** The Admin API write surface this epic specifies (create/update/delete and ping) was deleted: the registry is declared in the git folder `registry/gates/<id>.yml` and reaches the consumers as generated JSON served by the `registry` image ([ADR-016](../../architecture/decisions/016-registry-yaml-build-time-json.md)). Only the `GET` operations below remain, and the Admin UI is read-only. The ACs are issue-synced — correct them in the GitHub issue rather than here.
+- **2026-10-08 — SUPERSEDED by [ADR-011](../../architecture/decisions/011-registries-as-signed-config.md).** The Admin API write surface this epic specifies (create/update/delete and ping) was deleted (§6): the registry is declared in the git folder `registry/gates/<id>.yml` (§1) and reaches the consumers as generated JSON served statically by the `registry` image (§3). Only the `GET` operations below remain, and the Admin UI is read-only. The ACs are issue-synced — correct them in the GitHub issue rather than here.
 
 > Part of [Theme: Registry Management](README.md). Architecture: [registry-management/README.md](../../architecture/registry-management/README.md) (theme-wide rules) + [registry-management/gate_registry.md](../../architecture/registry-management/gate_registry.md) (sub-architecture).
 
@@ -17,9 +17,9 @@
 
 | Contract surface | Reference |
 |---|---|
-| **API operations** | `GET /api/v1/gates[/{gateId}]`, `GET /api/v1/gates/own` — read-only since ADR-014 (`POST`/`PUT`/`DELETE` removed) |
-| | ~~`POST /api/v1/gates/{gateId}/ping` (admin-triggered manual probe)~~ — removed (ADR-014) |
-| | ~~`POST /api/v1/admin/ping-gates` (CronManager-triggered recurring sweep)~~ — removed (ADR-014) |
+| **API operations** | `GET /api/v1/gates[/{gateId}]`, `GET /api/v1/gates/own` — read-only since ADR-011 §6 (`POST`/`PUT`/`DELETE` removed) |
+| | ~~`POST /api/v1/gates/{gateId}/ping` (admin-triggered manual probe)~~ — removed (ADR-011 §6) |
+| | ~~`POST /api/v1/admin/ping-gates` (CronManager-triggered recurring sweep)~~ — removed (ADR-011 §6) |
 | | Full request / response / error shapes: [`openapi.yaml`](../../specs/openapi.yaml) |
 | **Schema** | `gates` (append-only; logical id = `gates.id` CITEXT; latest row by `created_at` wins; `is_active=FALSE` on latest = logical delete; columns: `country_code`, `e_delivery_url`, `e_delivery_cert`, `tls_cert`, `status`, `last_ping_at`) |
 | | `gate_status` enum: `ONLINE`, `OFFLINE`, `DISABLED` |
@@ -30,17 +30,17 @@
 | | `GATEWAY_UNAVAILABLE` |
 | | `GATE_TIMEOUT` |
 | | Full catalog: [`errors.json`](../../specs/errors.json) |
-| **Environment** | ~~`PING_TIMEOUT_SECONDS`~~ — removed with the ping job (ADR-014); see [`non-functional.md`](../../specs/non-functional.md) §4.1 |
+| **Environment** | ~~`PING_TIMEOUT_SECONDS`~~ — removed with the ping job (ADR-011 §6); see [`non-functional.md`](../../specs/non-functional.md) §4.1 |
 | **Registry config** | [`registry/README.md`](../../../registry/README.md) — gates are declared here, not over HTTP |
 | **Architecture** | [../../architecture/registry-management/README.md](../../architecture/registry-management/README.md) (theme rules) + [../../architecture/registry-management/gate_registry.md](../../architecture/registry-management/gate_registry.md) (sub-architecture) |
 | | [RA §1 System Actors](../../architecture/eFTI-Gate-Reference-Architecture.md#1-system-actors--components) |
-| **Diagrams** | ~~`state-05-gate-health.mmd`, `seq-09-gate-ping.mmd`~~ — both describe the removed ping job (ADR-014) |
+| **Diagrams** | ~~`state-05-gate-health.mmd`, `seq-09-gate-ping.mmd`~~ — both describe the removed ping job (ADR-011 §6) |
 | | [`seq-15-gate-registry-sync.mmd`](../../specs/diagrams/seq-15-gate-registry-sync.mmd) |
 | | [`arch-02-gate-network.mmd`](../../specs/diagrams/arch-02-gate-network.mmd) |
 
 ## Acceptance Criteria
 
-### CRUD — the write surface is gone (ADR-014)
+### CRUD — the write surface is gone (ADR-011 §6)
 
 > The write ACs below no longer have an endpoint. Create/update/delete and `DISABLED` are git commits under `registry/gates/`. Kept for traceability; fix the GitHub issue rather than this file.
 
@@ -54,13 +54,13 @@
 - [ ] `POST` with an `id` whose latest row is active → conflict.
 - [ ] `PUT` / `DELETE` on a logical id that doesn't exist (or whose latest row is already `is_active=FALSE`) → not found.
 
-### Ping — removed (ADR-014)
+### Ping — removed (ADR-011 §6)
 
 > `status` is registry-owned and there is no health probe, so none of the ACs below apply. `gates.last_ping_at` is vestigial and stays NULL.
 
 **Business rules:**
 - [ ] Admins may trigger a one-off ping via `POST /api/v1/gates/{gateId}/ping` — response carries `responseTimeMs`.
-- [ ] ~~Recurring health probe is **CronManager-driven**: CronManager calls `POST /api/v1/admin/ping-gates` on its configured schedule (default every 5 min; canonical YAML in `cronmanager-ping-gates.yaml`). The gate process **never schedules its own jobs**.~~ — **removed (ADR-014)**: the job definition was deleted along with the endpoint.
+- [ ] ~~Recurring health probe is **CronManager-driven**: CronManager calls `POST /api/v1/admin/ping-gates` on its configured schedule (default every 5 min; canonical YAML in `cronmanager-ping-gates.yaml`). The gate process **never schedules its own jobs**.~~ — **removed (ADR-011 §6)**: the job definition was deleted along with the endpoint.
 - [ ] Each ping result INSERTs a new `gates` row carrying `status` (ONLINE / OFFLINE — `DISABLED` is operator-set only) and `last_ping_at = NOW()`. A `NOTIFY` on the `registry_change_gates` channel fires after commit.
 - [ ] `DISABLED` gates AND latest-`is_active=FALSE` gates are excluded from the sweep query — `DISABLED` does not auto-recover.
 

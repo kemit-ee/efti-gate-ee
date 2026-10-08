@@ -3,7 +3,7 @@
 ## Changes
 
 - _Initial state. Change tracking begins at v1.0.0._
-- **2026-10-08 — SUPERSEDED by [ADR-014](../../architecture/decisions/014-registry-as-git-folder.md).** The Admin API write surface this epic specifies (create/update/delete) was deleted: the registry is declared in the git folder `registry/authorities/<id>.yml` and reaches the consumers as generated JSON served by the `registry` image ([ADR-016](../../architecture/decisions/016-registry-yaml-build-time-json.md)). Only the `GET` operations below remain, and the Admin UI is read-only. The ACs are issue-synced — correct them in the GitHub issue rather than here.
+- **2026-10-08 — SUPERSEDED by [ADR-011](../../architecture/decisions/011-registries-as-signed-config.md).** The Admin API write surface this epic specifies (create/update/delete) was deleted (§6): the registry is declared in the git folder `registry/authorities/<id>.yml` (§1) and reaches the consumers as generated JSON served statically by the `registry` image (§3). Only the `GET` operations below remain, and the Admin UI is read-only. The ACs are issue-synced — correct them in the GitHub issue rather than here.
 
 > Part of [Theme: Registry Management](README.md). Architecture: [registry-management/README.md](../../architecture/registry-management/README.md) (theme-wide rules) + [registry-management/authority_registry.md](../../architecture/registry-management/authority_registry.md) (sub-architecture).
 
@@ -17,7 +17,7 @@
 
 | Contract surface | Reference |
 |---|---|
-| **API operations** | `GET /api/v1/authorities[/{authorityId}]` — read-only since ADR-014 (`POST`/`PUT`/`DELETE` removed) |
+| **API operations** | `GET /api/v1/authorities[/{authorityId}]` — read-only since ADR-011 §6 (`POST`/`PUT`/`DELETE` removed) |
 | | Full request / response / error shapes: [`openapi.yaml`](../../specs/openapi.yaml) |
 | **Schema** | `authorities` (append-only; logical id = `authorities.id`; latest row by `created_at` wins; `is_active=FALSE` on latest = soft-delete; columns: `country_code`, `name`, `subsets TEXT[]`) |
 | | Full schema: [`db/schema.sql`](../../specs/db/schema.sql) |

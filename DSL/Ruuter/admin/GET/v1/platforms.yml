@@ -1,7 +1,7 @@
 declaration:
   description: "List platforms, or get one by id (admin, TARA JWT). Path: platformId (optional —
     absent lists). Query: limit, offset (optional - list mode only). No body. Data comes from the
-    `registry` service (build-time JSON generated from registry/platforms/*.yml - ADR-015/ADR-016),
+    `registry` service (build-time JSON generated from registry/platforms/*.yml - ADR-011),
     not from a ReSql read model: the whole registry is read and the page is cut here (default limit 20, 0..1000;
     negative offset clamps to 0). The plaintext apiKey is stripped from every response and
     replaced by hasApiKey."
@@ -51,7 +51,7 @@ check_single:
       next: upstream_unavailable
   next: strip_credentials_single
 
-# SECURITY: the registry serves the platform's live apiKey in plaintext (ADR-015); the admin
+# SECURITY: the registry serves the platform's live apiKey in plaintext (ADR-011); the admin
 # read surface must never carry it, only whether a credential exists.
 strip_credentials_single:
   assign:

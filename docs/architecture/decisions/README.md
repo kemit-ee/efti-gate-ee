@@ -3,21 +3,25 @@
 Siin kataloogis on kõik projekti arhitektuuriotsused, igaüks eraldi failis.
 Otsused on loendurid ja ei kustutata — uus otsus ei asenda vana, vaid täiendab seda uue failiga.
 
+> **Üks erand (08.10.2026).** ADR-014, ADR-015 ja ADR-016 olid ühe otsuse (registrid
+> konfiguratsioonina) järkjärgulised täpsustused ja need **konsolideeriti [ADR-011](011-registries-as-signed-config.md)-sse**,
+> mis kirjeldab nüüd tegelikku seisu (allkiri on endiselt tegemata). Nende kolme faili sisu on
+> ADR-011-s; numbrid 014–016 on vabad ja **järgmine uus otsus jätkab numbriga 017**. Juba
+> rakendatud Liquibase-migratsioonide kommentaarid viitavad endiselt vanadele numbritele —
+> nende muutmine rikuks checksum'id.
+
 | Nr | Pealkiri | Kuupäev | Otsustajad |
 |---|---|---|---|
 | [ADR-001](001-docker-compose-naming.md) | Docker Compose konteinerite nimetamine | 2026-08-12 | Sten Viljus |
 | [ADR-002](002-status-over-isactive.md) | `is_active` asendamine `status` väljaga (gates, platforms) | 2026-08-14 | Sten Viljus, Anton Keks |
 | [ADR-003](003-remove-supports-subsetting.md) | `supports_subsetting` eemaldamine platformi registrist | 2026-08-17 | Sten Viljus, Anton Keks |
-| [ADR-004](004-platform-api-key.md) | Platvormide autentimine API võtmega (`X-Api-Key`) — **muudetud ADR-015-ga**: võti on registris avatekstina, SHA-256 jäeti maha | 2026-08-25 | Rainer Türner, Sten Viljus, Anton Keks |
+| [ADR-004](004-platform-api-key.md) | Platvormide autentimine API võtmega (`X-Api-Key`) — **muudetud [ADR-011](011-registries-as-signed-config.md) §5-ga**: võti on registris avatekstina, SHA-256 jäeti maha | 2026-08-25 | Rainer Türner, Sten Viljus, Anton Keks |
 | ADR-005 | Masinliidese (`m2m`) eraldamine — **üle vaadatud (Sten Viljus, Anton Keks, 03.09.2026): eraldi Ruuteri instantsi asemel eraldi projekt põhi-Ruuteris; teisele Ruuterile saab vajadusel hiljem tõsta.** Fail `dev`-is veel puudub. | 2026-08-31 / 2026-09-03 | Sten Viljus, Anton Keks |
 | [ADR-006](006-xroad-identity-and-subsets.md) | X-Roadi identiteedimudel ja alamhulkade õigused | 2026-09-01 | täpsustamata |
 | [ADR-007](007-xroad-transport-means-response-shape.md) | `transport-means` `scope: allgates` vastuse kuju — **OTSUS: variant A** (xml-mapper normaliseerimine, issue #125) | 2026-09-03 / 2026-09-11 | täpsustamata |
 | [ADR-008](008-adopt-datamapper.md) | DataMapperi kasutuselevõtt vastuse-kujundamiseks — **MUSTAND** (seotud ADR-007-ga) | 2026-09-03 | täpsustamata |
 | [ADR-009](009-consignments-latest-row-not-exists.md) | `consignments` viimase versiooni valik `NOT EXISTS`-iga, mitte `DISTINCT ON`-iga | 2026-09-09 | Sten Viljus |
 | [ADR-010](010-authority-search-non-blocking.md) | Authority-otsing ei blokeeru; kattuvate guard'ide dedup; DSL-tööriistad runtime-pildist | 2026-09-10 | Sten Viljus |
-| [ADR-011](011-registries-as-signed-config.md) | Registrid (gate'id, platvormid, asutused) allkirjastatud konfiguratsioonina, release'iga jõustuvad — **OTSUSTAMISEL**; rakendatud lihtsustatud kujul ADR-014-ga (JSON + `registry-sync` + ReSQL, allkiri ja eraldi kirjutusroll edasi lükatud) | 2026-10-01 | Sten Viljus, Rainer Türner |
+| [ADR-011](011-registries-as-signed-config.md) | Registrid (gate'id, platvormid, asutused) allkirjastatud konfiguratsioonina, release'iga jõustuvad — **rakendatud**, välja arvatud allkiri (vt §2/§8) | 2026-10-01 | Sten Viljus, Rainer Türner |
 | [ADR-012](012-read-model-vs-query-level-denormalisation.md) | Kuumade lugemiste denormaliseerimine: päringutaseme lahendus vs read-model tabelid — **OTSUSTAMISEL** | 2026-10-05 | Sten Viljus, Rainer Türner |
 | [ADR-013](013-retire-multiplexer-ruuter-fanout.md) | Klite multiplexeri kaotamine — laialisaatmine ja seisund Ruuteri DSL-is (K4) | 2026-10-07 | Rasmus |
-| [ADR-014](014-registry-as-git-folder.md) | Registrid git-kataloogist `registry/` — deklaratiivne sync ReSQL-i kaudu — **ASENDATUD ADR-015-ga** (andmebaasi vahekiht kaob) | 2026-10-08 | Anton Keks |
-| [ADR-015](015-registry-as-file-server.md) | Register kui failiserver — registritabelid kustutatakse, `registry` teenus serveerib `registry/**` — **täiendatud ADR-016-ga**: tarneviis on nüüd YAML → build-aegne JSON + staatiline nginx, python-teenus ja runtime-mount kaovad | 2026-10-08 | Anton Keks |
-| [ADR-016](016-registry-yaml-build-time-json.md) | Registri tarne — YAML allikas, JSON build-ajal, staatiline nginx | 2026-10-08 | Anton Keks |

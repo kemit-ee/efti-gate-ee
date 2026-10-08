@@ -14,7 +14,7 @@ services:
 
   # Loopback-only, for debugging. The registry holds live platform API keys, so it deliberately has
   # no public binding anywhere (compose.yml publishes nothing) — keep any manual binding on 127.0.0.1.
-  # No `develop.watch` here: the JSON is generated at image build time (ADR-016), so a registry edit
+  # No `develop.watch` here: the JSON is generated at image build time (ADR-011), so a registry edit
   # needs `docker compose up --build registry`. There is no mount to sync.
   registry:
     ports:

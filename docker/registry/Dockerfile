@@ -1,4 +1,4 @@
-# ADR-016 — the registry delivery image: convert `registry/**/*.yml` to JSON at build time and
+# ADR-011 — the registry delivery image: convert `registry/**/*.yml` to JSON at build time and
 # serve the result with plain nginx. No application server, no runtime conversion, no mount.
 #
 # Stage 1 is the converter *and* the validator: a malformed or incomplete registry file fails the
@@ -20,7 +20,7 @@ FROM nginx:stable-alpine
 COPY docker/registry/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=registry-build /srv/registry /usr/share/nginx/html
 
-# Internal only. The served documents contain live platform API keys (ADR-015), so this port must
+# Internal only. The served documents contain live platform API keys (ADR-011), so this port must
 # never be published beyond the Compose network or exposed by an ingress.
 EXPOSE 8080
 

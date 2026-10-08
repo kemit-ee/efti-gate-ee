@@ -1,4 +1,4 @@
-# GET /admin/v1/platforms/:id now reads the ADR-015 registry service: only a 200 carrying a platform
+# GET /admin/v1/platforms/:id now reads the ADR-011 registry service: only a 200 carrying a platform
 # with an id is a platform. An empty/unusable body and an unreachable registry are both outages —
 # never a missing platform.
 mode: mock-http

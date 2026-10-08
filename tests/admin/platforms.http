@@ -1,7 +1,7 @@
 import ./auth.http
 run #auth
 
-### List platforms — registry/platforms/*.json is the source of truth (ADR-014)
+### List platforms — registry/platforms/*.json is the source of truth (ADR-011)
 GET {{RUUTER_URL}}/admin/v1/platforms
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
@@ -31,7 +31,7 @@ Authorization: Bearer {{adminToken}}
   })
 %}
 
-### The platform credential never leaves the admin read surface (ADR-015)
+### The platform credential never leaves the admin read surface (ADR-011)
 GET {{RUUTER_URL}}/admin/v1/platforms/mock
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
@@ -70,7 +70,7 @@ Content-Type: application/json
   })
 %}
 
-### NEGATIVE: the platform write API is gone (ADR-014) — registry is read-only
+### NEGATIVE: the platform write API is gone (ADR-011) — registry is read-only
 # The path IS still routed, but only for GET, so a write method is "method not allowed"
 # rather than "not found", and no guard runs to produce 401/403.
 POST {{RUUTER_URL}}/admin/v1/platforms

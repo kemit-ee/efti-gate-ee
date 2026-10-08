@@ -1,7 +1,7 @@
 declaration:
   description: "List authorities, or get one by id (admin, TARA JWT). Path: authorityId (optional —
     absent lists). Query: limit, offset (optional - list mode only). No body. Data comes from the
-    `registry` service (build-time JSON generated from registry/authorities/*.yml - ADR-015/ADR-016),
+    `registry` service (build-time JSON generated from registry/authorities/*.yml - ADR-011),
     not from a ReSql read model: the whole registry is read and the page is cut here (default limit 20, 0..1000;
     negative offset clamps to 0). An authority has no status field: it exists or its file does not."
   internal: false

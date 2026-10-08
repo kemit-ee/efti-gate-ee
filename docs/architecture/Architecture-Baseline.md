@@ -199,7 +199,7 @@ Remote gate → edelivery (receive) → xml-mapper (parse) → Ruuter → ReSql 
 - **All DB queries** go through ReSql — no direct database access from other components
 - **edelivery handles protocol boundaries** — XML↔JSON conversion, eDelivery transport, gate multiplexing
 - **Ruuter DSL files** define the orchestration logic; ReSql `.sql` files define the data access
-- **Secrets** come from the secrets vault. The one exception is the registry: public certificates and the plaintext platform API keys live in `registry/**` and are baked into the `registry` image at build time (ADR-016)
-- **Gate/Platform registry** (public certs, URLs, platform API keys) is not in the database: it is authored as YAML under `registry/`, converted to JSON at build time and served statically by the `registry` container (ADR-015/ADR-016). Each `edelivery` instance caches it and refreshes on a timer
+- **Secrets** come from the secrets vault. The one exception is the registry: public certificates and the plaintext platform API keys live in `registry/**` and are baked into the `registry` image at build time (ADR-011)
+- **Gate/Platform registry** (public certs, URLs, platform API keys) is not in the database: it is authored as YAML under `registry/`, converted to JSON at build time and served statically by the `registry` container (ADR-011). Each `edelivery` instance caches it and refreshes on a timer
 
 - Rainer verifies `[#${platformId}_URL]` dynamic syntax works in Ruuter

@@ -3,9 +3,7 @@
 ## Changes
 
 - _Initial state. Change tracking begins at v1.0.0._
-- **2026-10-08 — [ADR-014](../../architecture/decisions/014-registry-as-git-folder.md):** the registry moved out of the Admin API into the git folder `registry/authorities/`.
-- **2026-10-08 — [ADR-015](../../architecture/decisions/015-registry-as-file-server.md):** the `authorities` table, its read model and the `authority_status` type are **dropped**, and so is the `status` field itself. The folder is served over HTTP by the `registry` service.
-- **2026-10-08 — [ADR-016](../../architecture/decisions/016-registry-yaml-build-time-json.md):** the sources are YAML (`registry/authorities/<id>.yml`), converted and validated at image build time and served statically by nginx; `subsets: []` is preserved through the conversion. An edit is applied by rebuilding the `registry` image.
+- **2026-10-08 — [ADR-011](../../architecture/decisions/011-registries-as-signed-config.md) §3/§4/§7:** the registry left the Admin API and the database. It is declared in the git folder `registry/authorities/<id>.yml` and converted, with validation, into the JSON the `registry` image serves statically at **image build time** (§3; an edit is applied by rebuilding that image, and `subsets: []` is preserved through the conversion). The `authorities` table, its read model and the `authority_status` type are **dropped**, and so is the `status` field itself (§4, §7).
 
 > Sub-architecture for the Authority Registry Management surface. For overarching rules see [theme README](README.md). AC are in [`../../cfr/registry-management/authority_registry.md`](../../cfr/registry-management/authority_registry.md).
 

@@ -88,7 +88,7 @@ kasuta prod-is)** → **paigalduse märkus**.
 
 ### 3.4 `registry/` — **konfiguratsioon, mis on ühtaegu saladus ja image'i sees**
 
-**Muutunud ADR-015-ga, tarneviis muutunud ADR-016-ga.** Väravate, platvormide ja asutuste register ei
+**Muutunud ADR-011-ga (§3 tarneviis, §4 andmebaas, §5 avatekstiline võti).** Väravate, platvormide ja asutuste register ei
 ole enam andmebaasis (registritabelid kustutati) ega tule Admin-liidese kaudu. Allikas on repos olevad
 YAML-failid `registry/{gates,platforms,authorities}/<id>.yml`; `scripts/registry-to-json.py`
 valideerib ja konverteerib need **image'i build-ajal** JSON-iks ning `registry` image'i staatiline
@@ -108,9 +108,10 @@ nginx (port 8080, avaldatud pordita) serveerib neid ruuterile ja edelivery'le.
 - **Platvormi `X-Api-Key` on AVATEKST** (`registry/platforms/<id>.yml` väli `apiKey`).
   ADR-004 "ainult SHA-256" reegel jäeti maha, sest Ruuteri avaldisemootoris ei ole
   räsimisfunktsiooni. **Seetõttu on võtmed image'i kihtides** — ja seega image-registris, SBOM-is ja
-  trivy skaneeringutes. ADR-015 nõudis `registry/` mount'i K8s Secret'ist; ADR-016-ga see nõue kaob,
-  sest runtime-mount'i ei ole, aga saladuse hoidmise vastutus nihkub image'i buildimisele ja
-  image-registri ligipääsule (kes näeb image'it, näeb võtmeid). `registry` image'i porti ei tohi
+  trivy skaneeringutes. Runtime-mount'i ei ole (ADR-011 §3), seega saladuse hoidmise vastutus on
+  image'i buildimise ja image-registri ligipääsu juures (kes näeb image'it, näeb võtmeid);
+  ADR-011 §2 allkiri muudaks võtme **võltsimise** tuvastatavaks, aga mitte **loetamatuks**.
+  `registry` image'i porti ei tohi
   kunagi ingressi/reverse proxy kaudu avada.
 - Platvormi võtme rotatsioon = commit + `registry` image'i uuesti buildimine; runtime-endpoint'i ei ole.
 
@@ -120,7 +121,7 @@ nginx (port 8080, avaldatud pordita) serveerib neid ruuterile ja edelivery'le.
 
 ```
 database        (PostgreSQL 18, DB "efti")  ← gate'i enda andmed: kasutajad, saadetised, audit
-                                                (registrid EI ole enam siin — vt §3.4, ADR-015/ADR-016)
+                                                (registrid EI ole enam siin — vt §3.4, ADR-011 §4)
 tim-database     (PostgreSQL 18, DB "tim")   ← TIM'i sessioonid/kasutajad (autentimise siseasi)
 ```
 

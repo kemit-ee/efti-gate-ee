@@ -1,5 +1,5 @@
 # Subset entitlement on /xroad/v1/dataset and /xroad/v1/transport-means is decided from the authority
-# entry xroad/.guard.yml resolves out of the ADR-015 registry service (registry/authorities/*.json),
+# entry xroad/.guard.yml resolves out of the ADR-011 registry service (registry/authorities/*.json),
 # with no second authorities lookup. Only the guard's registry read and the downstream call are mocked
 # — the forward goes to core through RUUTER_URL, so that too must point at the mock.
 mode: mock-http

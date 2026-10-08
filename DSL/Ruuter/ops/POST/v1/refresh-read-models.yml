@@ -4,7 +4,7 @@ declaration:
     the same SQL statement as its snapshot (readers never see a partial snapshot; overlapping runs are serialised by an
     advisory lock). (2) Deletes generations older than keepGenerations. The source tables stay canonical;
     the read model can always be rebuilt. Body (optional): {keepGenerations: number}.
-    The registry lists have no read model any more (ADR-015): gates/platforms/authorities live in registry/** and are
+    The registry lists have no read model any more (ADR-011): gates/platforms/authorities live in registry/** and are
     served by the `registry` service, so there is nothing to snapshot here."
   allowlist:
     body:

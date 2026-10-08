@@ -1,15 +1,15 @@
-# Platform API-key guard (ADR-004, amended by ADR-015) — one project-level guard (Ruuter #39) for the
+# Platform API-key guard (ADR-004, amended by ADR-011) — one project-level guard (Ruuter #39) for the
 # whole platforms surface — covers consignments.yml (direct platform upload) and consignments-xml.yml
 # (eDelivery-delivered upload). The X-Api-Key header must be present and must equal the apiKey
 # declared for an ONLINE platform in registry/platforms/<id>.json, served by the registry service.
 #
 # The credential is compared in plaintext inside the DSL because Ruuter's expression engine has no
 # hash function at all (no crypto / crypto.subtle / TextEncoder — verified against the running
-# engine). ADR-004's "store only the SHA-256" rule was therefore dropped in ADR-015: the registry is
+# engine). ADR-004's "store only the SHA-256" rule was therefore dropped in ADR-011: the registry is
 # a secret store and must never be reachable outside the Compose network.
 
 declaration:
-  description: "platforms/ guard (ADR-004/ADR-015). Credential: X-Api-Key (required); it must equal
+  description: "platforms/ guard (ADR-004/ADR-011). Credential: X-Api-Key (required); it must equal
     the apiKey of an ONLINE platform in registry/platforms/*.yml - DISABLED does not authenticate.
     Also accepts X-Internal-Service-Token for the G2G consignments-xml route together with
     X-Platform-Id supplied by eDelivery."

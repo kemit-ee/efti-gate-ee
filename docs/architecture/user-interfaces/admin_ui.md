@@ -2,14 +2,14 @@
 
 ## Changes
 
-- **v1.3** — [ADR-015](../decisions/015-registry-as-file-server.md): the read-only registry screens now
-  read the `registry` service (the `registry/**` git folder served over HTTP), not database tables — those
-  were dropped. Platform responses expose a derived `hasApiKey` boolean and never the `apiKey` itself,
-  which is a plaintext secret in the registry folder. Per [ADR-016](../decisions/016-registry-yaml-build-time-json.md)
-  the served documents are JSON generated from the `registry/**` YAML at image build time and served
-  statically by nginx; the screens are unchanged by that, they just read a static file server.
+- **v1.3** — [ADR-011](../decisions/011-registries-as-signed-config.md) §3/§5: the read-only registry
+  screens now read the `registry` service (the `registry/**` git folder served over HTTP), not database
+  tables — those were dropped. The served documents are JSON generated from the `registry/**` YAML at
+  image build time and served statically by nginx; the screens are unchanged by that, they just read a
+  static file server. Platform responses expose a derived `hasApiKey` boolean and never the `apiKey`
+  itself, which is a plaintext secret in the registry folder.
 - **v1.2** — Gates, platforms and authorities are **read-only** in the Admin UI. The backend
-  registry write routes were deleted with [ADR-014](../decisions/014-registry-as-git-folder.md):
+  registry write routes were deleted with [ADR-011](../decisions/011-registries-as-signed-config.md):
   those registries are declared in the git folder `registry/**` and delivered as an artefact rather
   than through the API, so the UI keeps only list + details views for them. `users` and `consignments`
   remain editable.

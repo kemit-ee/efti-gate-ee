@@ -1,7 +1,7 @@
 import ./auth.http
 run #auth
 
-### List gates — registry/gates/*.json is the source of truth (ADR-014)
+### List gates — registry/gates/*.json is the source of truth (ADR-011)
 GET {{RUUTER_URL}}/admin/v1/gates
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
@@ -69,7 +69,7 @@ Content-Type: application/json
   })
 %}
 
-### NEGATIVE: the gate write API is gone (ADR-014) — registry is read-only
+### NEGATIVE: the gate write API is gone (ADR-011) — registry is read-only
 # The path IS still routed, but only for GET (list + get-by-id), so a write method is
 # rejected as "method not allowed" rather than "not found". 401/403 would need a guard to
 # run, and Ruuter does not run one for a method that does not match a route.

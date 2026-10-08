@@ -59,7 +59,7 @@ COMMENT ON FUNCTION get_app_user() IS 'Returns the current session''s logical ac
 
 -- The former 3.1 gates / 3.2 platforms / 3.3 authorities tables (initial/002-gates.sql,
 -- 003-platforms.sql, 004-authorities.sql) and the gate_status / authority_status enums are
--- intentionally absent from this snapshot: ADR-015 moved all three registries out of the database
+-- intentionally absent from this snapshot: ADR-011 moved all three registries out of the database
 -- into registry/{gates,platforms,authorities}/<id>.json, served over HTTP by the `registry`
 -- service. See registry/README.md, and the 20261009-drop-registry-tables section at the end of
 -- this file.
@@ -378,7 +378,7 @@ GRANT SELECT, INSERT ON audit_log TO app;
 GRANT SELECT ON audit_log TO db_archiver;
 
 -- The 20260902-drop-platform-cert-fields.sql and 20260902-platform-api-key.sql changesets only
--- ever ALTERed the `platforms` table, which ADR-015 dropped (see the 20261009 section at the end
+-- ever ALTERed the `platforms` table, which ADR-011 dropped (see the 20261009 section at the end
 -- of this file). The pgcrypto extension they installed outlives them: nothing in this repo calls
 -- digest()/gen_random_bytes() any more, but the extension is not dropped either.
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
@@ -549,14 +549,14 @@ GRANT SELECT, INSERT ON search_results TO app;
 GRANT SELECT, DELETE ON search_results TO db_archiver;
 
 -- Source: DSL/Liquibase/changelog/20261008-registry-sync.sql
--- ADR-014: this changeset relaxed protect_registry_append()'s DELETED-reactivation guard to cover
+-- ADR-011: this changeset relaxed protect_registry_append()'s DELETED-reactivation guard to cover
 -- `users` only, because gates/platforms/authorities were re-applied declaratively from registry/**
 -- on every startup. What survives of it here is the users branch: 20261009 dropped those tables and
 -- with them the platforms api_key carry-forward branch this changeset still carried. The current
 -- function definition is in the 20260914-latest-row-order section above.
 
 -- Source: DSL/Liquibase/changelog/20261009-drop-registry-tables.sql
--- ADR-015: the gates, platforms and authorities tables, the gate_status / authority_status enums
+-- ADR-011: the gates, platforms and authorities tables, the gate_status / authority_status enums
 -- and the rm_gates / rm_platforms / rm_authorities read models that mirrored them are
 -- intentionally absent from this snapshot — the three registries are served from
 -- registry/{gates,platforms,authorities}/<id>.json instead (see registry/README.md). This section

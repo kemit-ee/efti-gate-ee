@@ -169,7 +169,7 @@ criteria_to_xml:
     body: ${incoming.body}
   result: criteria_xml
 
-# The peer registry is registry/gates/*.yml, served as build-time JSON by the ADR-016 registry
+# The peer registry is registry/gates/*.yml, served as build-time JSON by the ADR-011 registry
 # peers are the ONLINE gates other than this one. Fetched fresh per search (the retired multiplexer
 # cached it for 60s).
 get_peer_gates:

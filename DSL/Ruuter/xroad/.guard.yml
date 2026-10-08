@@ -9,7 +9,7 @@
 # Server (turvaserver). The Security Server establishes the caller ORGANISATION by mTLS and
 # forwards it as X-Road-Client = instance/memberClass/memberCode[/subsystemCode]. The memberCode
 # is the Estonian Business Registry code, which resolves to `registryCode` on an authority in
-# registry/authorities/*.yml (served as build-time JSON by the ADR-016 registry image), and the
+# registry/authorities/*.yml (served as build-time JSON by the ADR-011 registry image), and the
 # `subsets` is the authorisation source. X-Road-UserId is caller-asserted and NOT authenticated by
 # X-Road, so it never grants access.
 #
@@ -99,7 +99,7 @@ resolve_authority:
   next: match_authority
 
 # The memberCode is matched against the registry's registryCode. There is no status to filter on any
-# more (ADR-015 dropped authorities.status): an authority is active because its file exists under
+# more (ADR-011 dropped authorities.status): an authority is active because its file exists under
 # registry/authorities/, and revoking one means deleting that file.
 match_authority:
   assign:

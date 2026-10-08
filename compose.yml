@@ -90,7 +90,7 @@ services:
       liquibase:
         condition: service_completed_successfully
 
-  # ADR-016 registry file server: plain nginx serving the JSON that `docker/registry/Dockerfile`
+  # ADR-011 registry file server: plain nginx serving the JSON that `docker/registry/Dockerfile`
   # generates from registry/**/*.yml at build time. There is no mount and no runtime conversion —
   # a deployment with its own gates/platforms/authorities builds its own image. A malformed registry
   # file therefore fails `docker compose build`, not startup.

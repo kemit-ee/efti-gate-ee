@@ -13,7 +13,7 @@ import klite.plus
 import java.net.URI
 import java.net.http.HttpClient
 
-/** Reads the gates/platforms served as JSON by the internal registry service (ADR-015). */
+/** Reads the gates/platforms served as JSON by the internal registry service (ADR-011). */
 class RegistryClient(
   private val baseUrl: URI = URI(Config["REGISTRY_URL"]),
   private val http: HttpClient,

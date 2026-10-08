@@ -62,7 +62,7 @@ fetch_authority:
 check_authority:
   switch:
     # A registry transport failure is a gate-side outage (502); 404 means this gate does not serve
-    # that authority at all. There is no status field to test any more (ADR-015): an authority is
+    # that authority at all. There is no status field to test any more (ADR-011): an authority is
     # active because its registry file exists.
     - condition: ${authority_result.response.status == 0}
       next: upstream_unavailable

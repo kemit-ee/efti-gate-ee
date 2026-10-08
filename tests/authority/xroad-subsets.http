@@ -3,8 +3,8 @@ run #auth
 
 # GET /xroad/v1/subsets — X-Road subset-permission discovery (ADR-006).
 #
-# Every authority this file depends on is committed under registry/authorities/ and applied at
-# startup by the registry-sync container (ADR-014); the admin write API for authorities no longer
+# Every authority this file depends on is committed under registry/authorities/ and served as
+# build-time JSON by the `registry` image (ADR-011 §3); the admin write API for authorities no longer
 # exists. The file only READS those fixtures — asserting each one is present before exercising it —
 # and nothing here creates or deletes registry rows.
 #

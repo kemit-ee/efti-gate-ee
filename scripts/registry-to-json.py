@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Convert the YAML registry into the JSON documents the gate actually consumes (ADR-016).
+"""Convert the YAML registry into the JSON documents the gate actually consumes (ADR-011).
 
 `registry/{gates,platforms,authorities}/<id>.yml` is the human-authored source of truth. Consumers
 must not see YAML, and the served form must be static files (nginx, no application server), so this

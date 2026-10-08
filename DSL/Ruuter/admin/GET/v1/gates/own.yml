@@ -1,7 +1,7 @@
 declaration:
   description: "Get this gate's own record, resolved from OWN_GATE_ID (admin, TARA JWT). No inputs.
     Data comes from the `registry` service (build-time JSON generated from
-    registry/gates/*.yml - ADR-015/ADR-016), not from a ReSql read model."
+    registry/gates/*.yml - ADR-011), not from a ReSql read model."
   internal: false
   returns:
     - field: id

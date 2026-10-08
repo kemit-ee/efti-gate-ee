@@ -1,4 +1,4 @@
-# GET /admin/v1/platforms/:id reads the ADR-015 registry service (registry/platforms/<id>.json), not
+# GET /admin/v1/platforms/:id reads the ADR-011 registry service (registry/platforms/<id>.json), not
 # ReSql, so a missing entity arrives as a real 404 — which is the route's own "not found" — while
 # anything else must stay an outage. Only the guard's ReSql call and the registry read are mocked.
 mode: mock-http
