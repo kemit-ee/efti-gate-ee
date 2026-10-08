@@ -18,10 +18,6 @@ declaration:
     # Keep the edge cap at or below the service cap so oversized AS4 traffic is rejected
     # at the proxy before it is read off the socket.
     max_body_bytes: 10485760
-    # Per-route Semaphore: the 17th concurrent request gets 503 + Retry-After: 1.
-    max_in_flight: 16
-    # Slowloris guard on the inbound AS4 stream (resets on every body frame).
-    inbound_progress_timeout_ms: 15000
     # AS4 does not use HTTP Content-Encoding; the inner payload's gzip is transparent to
     # this hop and never appears here. Only identity is accepted.
     allowed_encodings: ["identity"]
