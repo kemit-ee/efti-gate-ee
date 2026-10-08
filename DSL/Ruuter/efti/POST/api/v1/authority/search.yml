@@ -7,6 +7,8 @@ declaration:
     ConsignmentRow[] is written back. Collect it by re-issuing the request with X-Request-Id +
     X-Poll and an empty body {}. Neither path ever blocks on a peer gate.
     Body: {operator, id}-shaped criteria object; criteria fields forwarded verbatim."
+  internal: false
+  returns: []
 
 validate_input:
   switch:
@@ -167,7 +169,7 @@ criteria_to_xml:
     body: ${incoming.body}
   result: criteria_xml
 
-# The peer registry is registry/gates/*.json, served by the ADR-015 registry service: this gate's
+# The peer registry is registry/gates/*.yml, served as build-time JSON by the ADR-016 registry
 # peers are the ONLINE gates other than this one. Fetched fresh per search (the retired multiplexer
 # cached it for 60s).
 get_peer_gates:

@@ -1,5 +1,7 @@
 declaration:
   description: "Platform availability check — responds 204 to confirm gate is reachable"
+  internal: false
+  returns: []
 
 respond:
   return: ""

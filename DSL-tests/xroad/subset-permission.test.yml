@@ -86,7 +86,7 @@ tests:
       body: { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "d" }, subsets: "EU01" }
     expect:
       status: 400
-      body_matches: { code: "BAD_REQUEST_GENERAL" }
+      body_matches: { error: "Field type mismatch in body: subsets expected array, got string" }
 
   - name: dataset with a non-string subset element is 400
     setup:

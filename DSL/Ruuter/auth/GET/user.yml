@@ -9,6 +9,22 @@ declaration:
       - field: authorization
         type: string
         description: "Bearer <gate JWT>"
+  internal: false
+  returns:
+    - field: rowId
+      type: string
+    - field: id
+      type: string
+    - field: taraSub
+      type: string
+    - field: name
+      type: string
+    - field: tokenRevokedAt
+      type: string
+    - field: isUserActive
+      type: boolean
+    - field: createdAt
+      type: string
 
 # auth/GET/.guard.yml has already authenticated the caller and exposed the row as
 # ${caller}; this handler just returns it.

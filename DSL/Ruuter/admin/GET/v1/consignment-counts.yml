@@ -1,7 +1,17 @@
 declaration:
   description: "Current consignment counts per gate, platform and status (admin, TARA JWT), served from the
-    ADR-012 read model — staleness-tolerant, refreshed by CronManager. Query: gateId, platformId, status
+    ADR-012 read model - staleness-tolerant, refreshed by CronManager. Query: gateId, platformId, status
     (ACTIVE|INACTIVE), limit, offset (all optional). No body. The response carries the generation it was read from."
+  internal: false
+  returns: []
+  additive: true
+  allowlist:
+    params:
+      - field: status
+      - field: gateId
+      - field: limit
+      - field: offset
+      - field: platformId
 
 validate_input:
   switch:

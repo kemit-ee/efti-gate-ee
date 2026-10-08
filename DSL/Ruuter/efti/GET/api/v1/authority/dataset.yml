@@ -1,5 +1,12 @@
 declaration:
   description: "Authority requests a dataset from a Platform via the gate"
+  internal: false
+  returns: []
+  additive: true
+  allowlist:
+    params:
+      - field: subsets
+      - field: pathParams
 
 setup:
   assign:

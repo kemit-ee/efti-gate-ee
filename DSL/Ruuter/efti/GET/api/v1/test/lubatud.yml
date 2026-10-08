@@ -1,10 +1,20 @@
 declaration:
   version: "1.0"
   description: >
-    Public test endpoint — accessible to everyone.
+    Public test endpoint - accessible to everyone.
     If a valid eftiJwtCookie is present, returns the JWT claims from TIM.
     If no cookie (or invalid), returns an anonymous response with status 200.
   method: get
+  internal: false
+  returns:
+    - field: authenticated
+      type: boolean
+    - field: message
+      type: string
+  additive: true
+  allowlist:
+    headers:
+      - field: cookie
 
 check_for_cookie:
   switch:

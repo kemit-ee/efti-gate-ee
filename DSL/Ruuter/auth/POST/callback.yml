@@ -13,6 +13,10 @@ declaration:
       - field: state
         type: string
         description: "OAuth2 state parameter"
+  internal: false
+  returns:
+    - field: token
+      type: string
 
 validate_input:
   switch:

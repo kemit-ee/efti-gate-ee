@@ -2,6 +2,17 @@ declaration:
   description: "Send follow-up message to local platform — shared by eDelivery and Authority API
     (gate-internal, X-Internal-Service-Token; also invoked via template:). Body: uil (object,
     required), referenceIds (array, required), message (string, required), files (array, optional)."
+  internal: false
+  returns: []
+  additive: true
+  allowlist:
+    body:
+      - field: uil
+        type: object
+      - field: message
+        type: string
+      - field: referenceIds
+        type: array
 
 # Shared step: reached directly (Authority API) and via template: (the -xml G2G wrapper, whose
 # body is xml-mapper's FTI025 → JSON). Only `uil` is checked — it is dereferenced unconditionally
@@ -11,7 +22,7 @@ validate_input:
   switch:
     - condition: ${incoming.body == null || incoming.body.uil == null}
       next: bad_request
-  next: insert_log
+  next: setup
 
 bad_request:
   return:
@@ -27,6 +38,7 @@ bad_request:
 setup:
   assign:
     requestId: ${incoming.headers['x-request-id']}
+  next: insert_log
 
 insert_log:
   call: http.post

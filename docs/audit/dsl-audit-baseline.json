@@ -1,0 +1,18 @@
+{
+  "DSL/Ruuter": {
+    "totals": {
+      "errors": 0,
+      "warnings": 0,
+      "files": 72
+    },
+    "findings": []
+  },
+  "DSL/Ruuter-xroad-mock": {
+    "totals": {
+      "errors": 0,
+      "warnings": 0,
+      "files": 9
+    },
+    "findings": []
+  }
+}

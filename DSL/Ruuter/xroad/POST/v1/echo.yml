@@ -7,6 +7,18 @@ declaration:
   # verbatim in `echo` — no field contract. No allowlist block: allowlist.body makes listed fields
   # mandatory and strips the rest, and allowlist.header strips every header the guard reads.
   # validate_input only rejects a missing body.
+  internal: false
+  returns:
+    - field: xRoadClient
+      type: string
+    - field: xRoadId
+      type: string
+    - field: xRoadUserId
+      type: string
+    - field: authority
+      type: string
+    - field: echo
+      type: string
 
 validate_input:
   switch:

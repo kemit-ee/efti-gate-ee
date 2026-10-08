@@ -12,6 +12,14 @@ declaration:
         type: number
         required: false
         description: "How many of the newest published generations to keep. Defaults to 2; the current generation is never removed."
+  internal: false
+  returns:
+    - field: generation
+      type: string
+    - field: rows
+      type: integer
+    - field: purgedRows
+      type: integer
 
 refresh:
   call: http.post

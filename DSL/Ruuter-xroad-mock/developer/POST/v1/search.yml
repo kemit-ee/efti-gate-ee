@@ -3,6 +3,13 @@ declaration:
     mainTransportId EQ MOCK-PLATE-1 or MOCK-PLATE-3 (three shipments); an empty array
     otherwise and for poll requests. No subset
     check (identifier search is unrestricted)."
+  internal: false
+  returns: []
+  additive: true
+  allowlist:
+    body:
+      - field: mainTransportId
+        type: object
 
 route:
   switch:

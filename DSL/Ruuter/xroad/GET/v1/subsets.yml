@@ -1,14 +1,23 @@
 declaration:
   description: "X-Road subset-permission discovery (ADR-006). Returns the eFTI subsets the calling
     organisation is permitted to request, resolved from the X-Road-Client memberCode via the
-    authority's `registryCode` to its `subsets` in registry/authorities/*.json (the ADR-015 registry
-    service). The registry code is taken from the Security-Server-established header only, never
-    from the request, so a caller can never ask about another organisation's entitlement. Callers
-    answer their own yes/no questions locally from this list — a dataset request may name up to
-    seven subsets, and one call covers all of them."
+    authority's `registryCode` to its `subsets` in registry/authorities/*.yml (served as build-time
+    JSON by the `registry` service - ADR-015/ADR-016). The registry code is taken from the
+    Security-Server-established header only, never from the request, so a caller can never ask
+    about another organisation's entitlement. Callers answer their own yes/no questions locally
+    from this list - a dataset request may name up to seven subsets, and one call covers all of
+    them."
   # Inputs: X-Road-Client (memberCode resolves the calling organisation) and X-Road-Id are
   # validated by xroad/.guard.yml. No body, no query params. No allowlist block — an
   # allowlist.header strips every header not listed, including the ones the guard reads.
+  internal: false
+  returns:
+    - field: registryCode
+      type: string
+    - field: authorityId
+      type: string
+    - field: subsets
+      type: array
 
 # The guard has already validated the header shape and confirmed the memberCode resolves to an
 # authority. This handler still re-resolves rather than reading ${authority}: it discloses subset

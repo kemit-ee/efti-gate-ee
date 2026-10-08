@@ -19,8 +19,8 @@ jobs:
         run: |
           IMAGE=turnerrainer/ruuter:0.12.1-rc
           run() { docker run --rm -v "$PWD:/workdir" -w /workdir "$IMAGE" "$@"; }
-          run dsl-lint --dsl DSL/Ruuter            --constants constants.ini
-          run dsl-lint --dsl DSL/Ruuter-xroad-mock --constants constants-xroad-mock.ini
+          run dsl-lint --audit --dsl DSL/Ruuter            --constants constants.ini
+          run dsl-lint --audit --dsl DSL/Ruuter-xroad-mock --constants constants-xroad-mock.ini
           run dsl-test --dsl DSL/Ruuter --tests DSL-tests --constants constants.ini
           run dsl-test --dsl DSL/Ruuter-xroad-mock --tests DSL-mock-tests --constants constants-xroad-mock.ini
 

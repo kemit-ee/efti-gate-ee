@@ -1,6 +1,8 @@
 declaration:
   description: "Readiness probe for the developer mock. No dependencies — the mock holds no state
     and talks to nothing, so if the process is up it is ready."
+  internal: false
+  returns: []
 
 respond:
   return: "OK"

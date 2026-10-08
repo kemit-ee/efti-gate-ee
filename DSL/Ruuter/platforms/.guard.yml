@@ -10,7 +10,7 @@
 
 declaration:
   description: "platforms/ guard (ADR-004/ADR-015). Credential: X-Api-Key (required); it must equal
-    the apiKey of an ONLINE platform in registry/platforms/*.json — DISABLED does not authenticate.
+    the apiKey of an ONLINE platform in registry/platforms/*.yml - DISABLED does not authenticate.
     Also accepts X-Internal-Service-Token for the G2G consignments-xml route together with
     X-Platform-Id supplied by eDelivery."
 

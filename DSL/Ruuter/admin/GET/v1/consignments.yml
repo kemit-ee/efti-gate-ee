@@ -1,5 +1,12 @@
 declaration:
   description: "List consignments (admin, TARA JWT). Query: limit, offset (optional). No body."
+  internal: false
+  returns: []
+  additive: true
+  allowlist:
+    params:
+      - field: limit
+      - field: offset
 
 consignments:
   call: http.post

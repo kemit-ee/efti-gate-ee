@@ -1,6 +1,14 @@
 declaration:
   description: "Developer mock — imitates POST /xroad/v1/follow-up. Always accepts the message and
     returns a DELIVERED acknowledgement. No subset check."
+  internal: false
+  returns:
+    - field: uil
+      type: object
+    - field: status
+      type: string
+    - field: message
+      type: string
 
 respond:
   return:

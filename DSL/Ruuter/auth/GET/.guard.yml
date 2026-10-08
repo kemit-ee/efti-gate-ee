@@ -4,7 +4,7 @@
 
 declaration:
   description: "auth/GET guard. Credential: Authorization: Bearer <TARA JWT> (required),
-    validated via check-user-authority — any authenticated user."
+    validated via check-user-authority - any authenticated user."
 
 validate_auth:
   call: http.post

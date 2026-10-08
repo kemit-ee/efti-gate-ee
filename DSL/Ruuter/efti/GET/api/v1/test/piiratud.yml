@@ -1,10 +1,16 @@
 declaration:
   version: "1.0"
   description: >
-    Restricted test endpoint — requires an active JWT session.
+    Restricted test endpoint - requires an active JWT session.
     Returns 401 if the cookie is missing or TIM rejects it.
     On success, returns the JWT claims from TIM.
   method: get
+  internal: false
+  returns: []
+  additive: true
+  allowlist:
+    headers:
+      - field: cookie
 
 check_for_cookie:
   switch:

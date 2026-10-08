@@ -1,9 +1,29 @@
 declaration:
   description: "List gates, or get one by id (admin, TARA JWT). Path: gateId (optional — absent
-    lists). Query: limit, offset (optional — list mode only). No body. Data comes from the
-    ADR-015 `registry` service (the git folder registry/gates/*.json), not from a ReSql read
-    model: the whole registry is read and the page is cut here (default limit 20, 0..1000;
+    lists). Query: limit, offset (optional - list mode only). No body. Data comes from the
+    `registry` service (build-time JSON generated from registry/gates/*.yml - ADR-015/ADR-016),
+    not from a ReSql read model: the whole registry is read and the page is cut here (default limit 20, 0..1000;
     negative offset clamps to 0)."
+  internal: false
+  returns:
+    - field: id
+      type: string
+    - field: countryCode
+      type: string
+    - field: eDeliveryUrl
+      type: string
+    - field: eDeliveryCert
+      type: string
+    - field: tlsCert
+      type: string
+    - field: status
+      type: string
+  additive: true
+  allowlist:
+    params:
+      - field: pathParams
+      - field: limit
+      - field: offset
 
 route:
   switch:

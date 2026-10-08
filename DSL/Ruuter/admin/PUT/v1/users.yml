@@ -1,5 +1,30 @@
 declaration:
   description: "Replace a user (admin, TARA JWT). Path: userId. Body: taraSub, name (both required)."
+  internal: false
+  returns:
+    - field: rowId
+      type: string
+    - field: id
+      type: string
+    - field: taraSub
+      type: string
+    - field: name
+      type: string
+    - field: tokenRevokedAt
+      type: string
+    - field: isUserActive
+      type: boolean
+    - field: createdAt
+      type: string
+  additive: true
+  allowlist:
+    body:
+      - field: taraSub
+        type: string
+      - field: name
+        type: string
+    params:
+      - field: pathParams
 
 validate_input:
   switch:

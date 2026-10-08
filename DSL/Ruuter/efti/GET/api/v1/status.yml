@@ -2,6 +2,14 @@ declaration:
   description: "Check whether a consignment dataset is registered at this gate and its current
     status (gate-internal, X-Internal-Service-Token). Path: datasetId. Query: platformId, gateId
     (optional UIL narrowing). Returns one current row per platform. No body."
+  internal: false
+  returns: []
+  additive: true
+  allowlist:
+    params:
+      - field: pathParams
+      - field: gateId
+      - field: platformId
 
 get_consignment:
   call: http.post

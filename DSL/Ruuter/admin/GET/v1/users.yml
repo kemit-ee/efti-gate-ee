@@ -1,6 +1,28 @@
 declaration:
   description: "List users, or get one by id (admin, TARA JWT). Path: userId (optional — absent
     lists). Query: limit, offset (optional). No body."
+  internal: false
+  returns:
+    - field: rowId
+      type: string
+    - field: id
+      type: string
+    - field: taraSub
+      type: string
+    - field: name
+      type: string
+    - field: tokenRevokedAt
+      type: string
+    - field: isUserActive
+      type: boolean
+    - field: createdAt
+      type: string
+  additive: true
+  allowlist:
+    params:
+      - field: pathParams
+      - field: limit
+      - field: offset
 
 route:
   switch:

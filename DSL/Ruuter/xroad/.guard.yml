@@ -9,7 +9,7 @@
 # Server (turvaserver). The Security Server establishes the caller ORGANISATION by mTLS and
 # forwards it as X-Road-Client = instance/memberClass/memberCode[/subsystemCode]. The memberCode
 # is the Estonian Business Registry code, which resolves to `registryCode` on an authority in
-# registry/authorities/*.json (served by the ADR-015 registry service), and the authority's
+# registry/authorities/*.yml (served as build-time JSON by the ADR-016 registry image), and the
 # `subsets` is the authorisation source. X-Road-UserId is caller-asserted and NOT authenticated by
 # X-Road, so it never grants access.
 #
@@ -36,8 +36,8 @@
 
 declaration:
   description: "X-Road access guard for /xroad/**. Inputs, all headers set by the Security Server:
-    X-Road-Client (required, instance/memberClass/memberCode[/subsystemCode]) — the credential;
-    X-Road-Id (required, UUID) — mapped to the gate's x-request-id and consumed downstream as a
+    X-Road-Client (required, instance/memberClass/memberCode[/subsystemCode]) - the credential;
+    X-Road-Id (required, UUID) - mapped to the gate's x-request-id and consumed downstream as a
     typed UUID; X-Road-UserId (optional, caller-asserted, never grants access);
     X-Request-Id (optional, correlation). No allowlist block: on a guard it would trigger the
     engine's pre-DSL `declare` enforcement against the guard context. The switch steps below are
@@ -184,7 +184,7 @@ guard_forbidden:
   wrapper: false
   next: end
 
-# Registry misconfiguration: `registryCode` is not unique across registry/authorities/*.json, so
+# Registry misconfiguration: `registryCode` is not unique across registry/authorities/*.yml, so
 # two authority files can declare the same code. Denying is the only safe answer — picking either
 # one would hand one organisation the other's subset entitlement. Mirrors guard_multi /
 # FORBIDDEN_MULTI_PLATFORM in the platform guard; a dedicated FORBIDDEN_MULTI_AUTHORITY catalog code

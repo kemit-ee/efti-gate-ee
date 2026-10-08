@@ -5,6 +5,17 @@ declaration:
     country). The authority and its subsets are read from the source table, not the read model. Query:
     authorityId (required); from, to (optional YYYY-MM-DD manual range over the registration day, inclusive);
     dimension, limit, offset (optional). No body."
+  internal: false
+  returns: []
+  additive: true
+  allowlist:
+    params:
+      - field: authorityId
+      - field: from
+      - field: to
+      - field: dimension
+      - field: limit
+      - field: offset
 
 validate_input:
   switch:

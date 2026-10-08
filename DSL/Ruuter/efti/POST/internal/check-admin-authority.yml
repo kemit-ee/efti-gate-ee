@@ -2,7 +2,7 @@ declaration:
   call: declare
   version: "0.1"
   description: "Validates the caller's TARA JWT and returns 200 + user row on success,
-    401 if not authenticated. Identical to check-user-authority — the system has a single
+    401 if not authenticated. Identical to check-user-authority - the system has a single
     admin user, so every authenticated user has full access."
   method: post
   namespace: internal
@@ -17,6 +17,22 @@ declaration:
       - field: x-request-id
         type: string
         description: "Correlation id, forwarded by the calling .guard"
+  internal: false
+  returns:
+    - field: rowId
+      type: string
+    - field: id
+      type: string
+    - field: taraSub
+      type: string
+    - field: name
+      type: string
+    - field: tokenRevokedAt
+      type: string
+    - field: isUserActive
+      type: boolean
+    - field: createdAt
+      type: string
 
 setup:
   assign:
