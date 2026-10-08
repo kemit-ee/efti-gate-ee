@@ -1,4 +1,4 @@
-FROM turnerrainer/ruuter:0.11.0-rc
+FROM turnerrainer/ruuter:0.12.1-rc
 
 COPY ruuter.yaml /app/ruuter.yaml
 COPY DSL/Ruuter /app/DSL
