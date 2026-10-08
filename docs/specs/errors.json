@@ -828,6 +828,29 @@
       "logLevel": "WARN",
       "retryable": false
     },
+    "UNSUPPORTED_MEDIA_TYPE": {
+      "code": "UNSUPPORTED_MEDIA_TYPE",
+      "httpStatus": 415,
+      "title": "Unsupported Media Type",
+      "description": "The inbound Content-Type is not on the route's media-type allow-list. Returned by the services/ AS4 edge guard when a request to POST /services/msh does not carry multipart/related.",
+      "type": "https://api.efti.ee/errors/unsupported-media-type",
+      "examples": [
+        {
+          "scenario": "AS4 message posted without the multipart/related media type",
+          "request": "POST /services/msh with Content-Type: application/json",
+          "response": {
+            "type": "https://api.efti.ee/errors/unsupported-media-type",
+            "code": "UNSUPPORTED_MEDIA_TYPE",
+            "title": "Unsupported Media Type",
+            "status": 415,
+            "detail": "Content-Type must be multipart/related. The AS4 MSH endpoint does not accept other media types.",
+            "instance": "/services/msh"
+          }
+        }
+      ],
+      "logLevel": "WARN",
+      "retryable": false
+    },
     "USER_NOT_FOUND": {
       "code": "USER_NOT_FOUND",
       "httpStatus": 404,

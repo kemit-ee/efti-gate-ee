@@ -232,6 +232,10 @@ flowchart TD
 | `/health/ready` | GET | Public — anyone (Kubernetes readiness probe; returns 503 when DB unreachable) |
 | OpenAPI/Swagger UI | GET | Public — anyone |
 
+### 3.5 AS4 edge (`/services/`)
+
+`POST /services/msh` is the external peer-gate AS4 ingress. Ruuter fronts the Klite `edelivery` service with a byte-identical pass-through proxy, so the **AS4 signature inside `edelivery` is the credential** — there is no JWT or shared-secret check at the Ruuter layer. Ruuter enforces a media-type allow-list (`multipart/related`, else 415) and the AS4 envelope shape (`type=application/soap+xml` + boundary, else 400) plus the route's body/encoding/in-flight caps. The ingress must route `/services/msh` to Ruuter and must not expose `edelivery` directly.
+
 ---
 
 ## 4. Append-only & audit (callout)

@@ -1,0 +1,41 @@
+# services/POST/.guard.yml — the media-type allow-list and AS4 envelope-shape checks are
+# pure header switches that run before the proxy opens any upstream connection, so every
+# reject path is reachable in-process.
+mode: inprocess
+
+tests:
+  - name: missing Content-Type -> 415 UNSUPPORTED_MEDIA_TYPE
+    request:
+      method: POST
+      path: /services/msh
+    expect:
+      status: 415
+      body_matches: { code: "UNSUPPORTED_MEDIA_TYPE" }
+
+  - name: non-multipart media type -> 415 UNSUPPORTED_MEDIA_TYPE
+    request:
+      method: POST
+      path: /services/msh
+      headers: { content-type: "application/json" }
+      body: { not: "as4" }
+    expect:
+      status: 415
+      body_matches: { code: "UNSUPPORTED_MEDIA_TYPE" }
+
+  - name: multipart/related without the SOAP root marker or boundary -> 400
+    request:
+      method: POST
+      path: /services/msh
+      headers: { content-type: "multipart/related" }
+    expect:
+      status: 400
+      body_matches: { code: "BAD_REQUEST_GENERAL" }
+
+  - name: multipart/related with SOAP type but no boundary -> 400
+    request:
+      method: POST
+      path: /services/msh
+      headers: { content-type: 'multipart/related; type="application/soap+xml"' }
+    expect:
+      status: 400
+      body_matches: { code: "BAD_REQUEST_GENERAL" }

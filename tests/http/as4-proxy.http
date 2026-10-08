@@ -1,0 +1,34 @@
+### Ruuter is the AS4 edge proxy: /services/msh forwards byte-identically to edelivery
+# The body is deliberately NOT a valid AS4 message. Ruuter's own rejections are JSON, whereas
+# the Klite edelivery container answers a malformed AS4 body with a SOAP fault served as
+# application/soap+xml. Seeing that SOAP content-type transitively proves the bytes reached
+# edelivery through Ruuter rather than being answered at the edge.
+POST {{RUUTER_URL}}/services/msh
+Content-Type: multipart/related; type="application/soap+xml"; boundary="test-boundary"
+
+--test-boundary
+Content-Type: application/soap+xml
+Content-Transfer-Encoding: binary
+
+<not-a-valid-soap-envelope/>
+--test-boundary--
+
+> {%
+  client.test("Ruuter proxies AS4 to edelivery", () => {
+    client.assert(response.status === 500)
+    client.assert(response.headers.valueOf("Content-Type").includes("soap+xml"))
+  })
+%}
+
+### The AS4 edge proxy enforces the media-type allow-list before reaching edelivery
+POST {{RUUTER_URL}}/services/msh
+Content-Type: application/json
+
+{"not":"as4"}
+
+> {%
+  client.test("AS4 edge proxy rejects a non-multipart/related media type", () => {
+    client.assert(response.status === 415)
+    client.assert(response.body.code === "UNSUPPORTED_MEDIA_TYPE")
+  })
+%}

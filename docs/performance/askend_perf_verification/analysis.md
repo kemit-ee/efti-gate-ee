@@ -381,7 +381,7 @@ Tulemused (`docs/performance/askend_perf_verification/explain-candidates-1m.txt`
 
 Sten otsustas (09.09.2026): `consignments` lugemised lähevad **C6** mustrile
 (filter-first + `NOT EXISTS` viimase-rea kontroll), `DISTINCT ON` alampäring
-kaob. Vormistatud: [`docs/architecture/decisions/009-consignments-latest-row-not-exists.md`](../architecture/decisions/009-consignments-latest-row-not-exists.md).
+kaob. Vormistatud: [`docs/architecture/decisions/009-consignments-latest-row-not-exists.md`](../../architecture/decisions/009-consignments-latest-row-not-exists.md).
 
 Rakendus (järgmine samm):
 - `DSL/Resql/efti/POST/get_consignments.sql` ümber C6-le
@@ -487,7 +487,7 @@ leiu + fix-versiooniga.
 
 ### 6.9 — authority/search: local-first + broadcast, ei blokeeru enam (otsused 2/3/4)
 
-Vormistatud: [`docs/architecture/decisions/010-authority-search-non-blocking.md`](../architecture/decisions/010-authority-search-non-blocking.md).
+Vormistatud: [`docs/architecture/decisions/010-authority-search-non-blocking.md`](../../architecture/decisions/010-authority-search-non-blocking.md).
 
 **Otsus 2 — `docker/dsl-tools/` maha.** 0.9.14-rc pildis on `dsl-lint` / `dsl-test`
 (`/usr/local/bin/`, Ruuter #83). `docker/dsl-tools/Dockerfile` kustutatud;

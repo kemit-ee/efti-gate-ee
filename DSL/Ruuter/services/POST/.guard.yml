@@ -1,0 +1,86 @@
+# Per-route validation for the AS4 edge proxy (services/POST/msh.yml).
+#
+# Ruuter's pass-through proxy never parses the request body, so this guard is a
+# header-only contract applied to the raw request before any upstream connection
+# is opened. It enforces a one-entry media-type allow-list and the minimal AS4
+# envelope shape the Klite MultipartParser needs:
+#   * Content-Type must be present (415 when absent).
+#   * Its media type must be exactly multipart/related (415 otherwise). AS4 over
+#     eDelivery is always multipart/related; other media types are not accepted.
+#   * The parameter set must carry the root-part marker application/soap+xml and
+#     a boundary parameter (400 otherwise). These are the only body-shape facts
+#     observable without parsing, and they are what the AS4 wire format
+#     guarantees. The body itself is authenticated end-to-end by the AS4
+#     signature inside edelivery - the reason the proxy forwards bytes unchanged.
+#
+# Body size, Content-Encoding and concurrent-in-flight caps are declared on the
+# route itself (declaration.proxy), not here.
+#
+# No allowlist block: on a guard it would trigger the engine's pre-DSL `declare`
+# enforcement against the guard context. The switch steps below are the contract.
+
+declaration:
+  description: "services/ AS4 edge guard. Inputs, all request headers: Content-Type
+    (required: multipart/related; type=\"application/soap+xml\"; boundary=...). A
+    missing or other media type is 415 UNSUPPORTED_MEDIA_TYPE; a multipart/related
+    value lacking the SOAP root marker or boundary is 400 BAD_REQUEST_GENERAL."
+
+check_content_type:
+  switch:
+    - condition: ${incoming.headers['content-type'] == null || incoming.headers['content-type'] == ''}
+      next: reject_missing_content_type
+
+parse_content_type:
+  assign:
+    as4_content_type: ${incoming.headers['content-type'].toLowerCase()}
+    as4_media_type: ${incoming.headers['content-type'].split(';')[0].trim().toLowerCase()}
+
+check_media_type:
+  switch:
+    - condition: ${as4_media_type != 'multipart/related'}
+      next: reject_unsupported_media_type
+
+check_envelope_shape:
+  switch:
+    - condition: ${as4_content_type.includes('application/soap+xml') && as4_content_type.includes('boundary=')}
+      next: guard_success
+  next: reject_malformed_content_type
+
+guard_success:
+  return: "success"
+  status: 200
+  wrapper: false
+  next: end
+
+reject_missing_content_type:
+  return:
+    type: "https://api.efti.ee/errors/unsupported-media-type"
+    code: "UNSUPPORTED_MEDIA_TYPE"
+    title: "Unsupported Media Type"
+    status: 415
+    detail: "Content-Type is required. The AS4 MSH endpoint accepts multipart/related only."
+  status: 415
+  wrapper: false
+  next: end
+
+reject_unsupported_media_type:
+  return:
+    type: "https://api.efti.ee/errors/unsupported-media-type"
+    code: "UNSUPPORTED_MEDIA_TYPE"
+    title: "Unsupported Media Type"
+    status: 415
+    detail: "Content-Type must be multipart/related. The AS4 MSH endpoint does not accept other media types."
+  status: 415
+  wrapper: false
+  next: end
+
+reject_malformed_content_type:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "AS4 Content-Type must carry the root-part marker type=application/soap+xml and a boundary parameter."
+  status: 400
+  wrapper: false
+  next: end
