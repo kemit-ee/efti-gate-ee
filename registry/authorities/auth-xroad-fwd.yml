@@ -1,0 +1,6 @@
+id: auth-xroad-fwd
+name: X-Road Forwarding Test Authority
+registryCode: '70000094'
+subsets:
+- EU01
+- EU02

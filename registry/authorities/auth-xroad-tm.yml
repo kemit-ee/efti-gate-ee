@@ -1,0 +1,6 @@
+id: auth-xroad-tm
+name: X-Road Transport Means Authority
+registryCode: '70000093'
+subsets:
+- EU01
+- EU02

@@ -19,4 +19,5 @@ Otsused on loendurid ja ei kustutata — uus otsus ei asenda vana, vaid täienda
 | [ADR-012](012-read-model-vs-query-level-denormalisation.md) | Kuumade lugemiste denormaliseerimine: päringutaseme lahendus vs read-model tabelid — **OTSUSTAMISEL** | 2026-10-05 | Sten Viljus, Rainer Türner |
 | [ADR-013](013-retire-multiplexer-ruuter-fanout.md) | Klite multiplexeri kaotamine — laialisaatmine ja seisund Ruuteri DSL-is (K4) | 2026-10-07 | Rasmus |
 | [ADR-014](014-registry-as-git-folder.md) | Registrid git-kataloogist `registry/` — deklaratiivne sync ReSQL-i kaudu — **ASENDATUD ADR-015-ga** (andmebaasi vahekiht kaob) | 2026-10-08 | Anton Keks |
-| [ADR-015](015-registry-as-file-server.md) | Register kui failiserver — registritabelid kustutatakse, `registry` teenus serveerib `registry/**` | 2026-10-08 | Anton Keks |
+| [ADR-015](015-registry-as-file-server.md) | Register kui failiserver — registritabelid kustutatakse, `registry` teenus serveerib `registry/**` — **täiendatud ADR-016-ga**: tarneviis on nüüd YAML → build-aegne JSON + staatiline nginx, python-teenus ja runtime-mount kaovad | 2026-10-08 | Anton Keks |
+| [ADR-016](016-registry-yaml-build-time-json.md) | Registri tarne — YAML allikas, JSON build-ajal, staatiline nginx | 2026-10-08 | Anton Keks |

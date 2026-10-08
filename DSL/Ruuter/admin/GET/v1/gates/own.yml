@@ -6,7 +6,7 @@ declaration:
 fetch_own_gate:
   call: http.get
   args:
-    url: "[#REGISTRY_URL]/gates/[#OWN_GATE_ID].json"
+    url: "[#REGISTRY_URL]/gates/${('[#OWN_GATE_ID]').toLowerCase()}.json"
   result: result
   next: check_found
 

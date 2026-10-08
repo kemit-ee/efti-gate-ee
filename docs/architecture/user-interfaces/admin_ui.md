@@ -5,11 +5,14 @@
 - **v1.3** — [ADR-015](../decisions/015-registry-as-file-server.md): the read-only registry screens now
   read the `registry` service (the `registry/**` git folder served over HTTP), not database tables — those
   were dropped. Platform responses expose a derived `hasApiKey` boolean and never the `apiKey` itself,
-  which is a plaintext secret in the registry folder.
+  which is a plaintext secret in the registry folder. Per [ADR-016](../decisions/016-registry-yaml-build-time-json.md)
+  the served documents are JSON generated from the `registry/**` YAML at image build time and served
+  statically by nginx; the screens are unchanged by that, they just read a static file server.
 - **v1.2** — Gates, platforms and authorities are **read-only** in the Admin UI. The backend
   registry write routes were deleted with [ADR-014](../decisions/014-registry-as-git-folder.md):
-  those registries are declared in the git folder `registry/**` and applied at startup, so the UI
-  keeps only list + details views for them. `users` and `consignments` remain editable.
+  those registries are declared in the git folder `registry/**` and delivered as an artefact rather
+  than through the API, so the UI keeps only list + details views for them. `users` and `consignments`
+  remain editable.
 - **v1.1** — No role-selection step. Every authenticated user has full access;
   the former `roles TEXT[]` is gone. A caller is authenticated or is not — nothing to select or switch.
 - _Initial state. Change tracking begins at v1.0.0._
@@ -44,10 +47,11 @@ inherits them rather than re-litigating.
 The gates, platforms and authorities screens are deliberately outside that write surface. Those
 registries are contractual — a wrong AS4 URL or certificate, or an extra subset on an authority,
 redirects signed messages or leaks another organisation's data — so they are changed by committing to
-`registry/**`, not by clicking. The UI reads the same `registry` service the runtime reads, so it shows
-exactly what the gate is using (certificates included), which keeps the screens useful for verification
-without giving them the power to change anything. The one field deliberately withheld from the UI is a
-platform's `apiKey`: the UI sees only whether one is configured.
+`registry/**`, not by clicking. The UI reads the same generated registry documents the runtime reads —
+the JSON the `registry` image's static nginx serves — so it shows exactly what the gate is using
+(certificates included), which keeps the screens useful for verification without giving them the power
+to change anything. The one field deliberately withheld from the UI is a platform's `apiKey`: the UI
+sees only whether one is configured.
 
 ---
 

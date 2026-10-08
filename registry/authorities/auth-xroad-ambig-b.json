@@ -1,8 +1,0 @@
-{
-  "id": "auth-xroad-ambig-b",
-  "name": "X-Road Ambiguous Registry Code Fixture B",
-  "registryCode": "70000091",
-  "subsets": [
-    "EU03"
-  ]
-}

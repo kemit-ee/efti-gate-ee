@@ -6,7 +6,7 @@ Estonian national eFTI Gate (EU Regulation 2020/1056). Mediates dataset retrieva
 
 ## Architecture at a glance
 
-11 Docker Compose services. Three runtime layers:
+15 Docker Compose services (14 long-running/one-shot jobs + the `http-tests` runner). Three runtime layers:
 
 | Layer | Tech | Port | Role |
 |-------|------|------|------|
@@ -69,10 +69,11 @@ DSL/
                         #   See docs/developer/x_road_developer_mock.md.
   Resql/efti/POST/      # SQL endpoint files (*.sql)
   Liquibase/            # DB migrations (initial/ + changelog/)
-registry/               # SOURCE OF TRUTH for gates/platforms/authorities (ADR-015). One JSON per
-  gates/<id>.json       #   entity, file name = id, certs inline PEM. Served read-only over HTTP by
-  platforms/<id>.json   #   the `registry` service; NOT in the database. A SECRET STORE: platform
-  authorities/<id>.json #   entries carry a plaintext apiKey. See registry/README.md.
+registry/               # SOURCE OF TRUTH for gates/platforms/authorities (ADR-015 decision,
+  gates/<id>.yml        #   ADR-016 delivery). One YAML per entity, file name = id, certs inline PEM
+  platforms/<id>.yml    #   (literal blocks). Converted + validated at image build time into JSON and
+  authorities/<id>.yml  #   served statically by nginx; NOT in the database. A SECRET STORE: platform
+                        #   entries carry a plaintext apiKey. See registry/README.md.
 code/
   edelivery/            # AS4 messaging service
   xml-mapper/           # XML↔JSON conversion (FTI004/009/010/019/021/025/029/030)
@@ -80,34 +81,56 @@ code/
 tests/                  # IntelliJ HTTP Client test files (*.http) with assertions
 ```
 
-## Registries (ADR-015) — a file server, not a table and not an API
+## Registries (ADR-016) — a static file server, not a table and not an API
 
 The gates/platforms/authorities registries have **one store**: the git folder `registry/`. There is no
 database representation — `gates`, `platforms`, `authorities`, their read models and the
 `gate_status`/`authority_status` types were **dropped** (`20261009-drop-registry-tables.sql`).
 
-- `registry/gates|platforms|authorities/<id>.json`, file name must equal `id`, certificates inline as
-  PEM strings, and a platform's credential as **plaintext `apiKey`**. Format + per-field tables:
-  `registry/README.md`. Rationale: `docs/architecture/decisions/015-registry-as-file-server.md`
-  (supersedes ADR-014; implements the draft ADR-011's "registry service" option, which ADR-011 itself
-  had rejected).
+- **The sources are YAML**: `registry/gates|platforms|authorities/<id>.yml` (14 files), file name must
+  equal `id`, certificates as YAML literal blocks (`|`), and a platform's credential as **plaintext
+  `apiKey`**. Format + per-field tables: `registry/README.md`. Rationale:
+  `docs/architecture/decisions/015-registry-as-file-server.md` (the decision — files, not tables;
+  supersedes ADR-014; implements the draft ADR-011's "registry service" option, which ADR-011 itself had
+  rejected) and `docs/architecture/decisions/016-registry-yaml-build-time-json.md` (the delivery — YAML
+  → build-time JSON → static nginx).
+- **`scripts/registry-to-json.py` (PyYAML) is converter *and* validator**, and it runs at **image build
+  time**: `docker/registry/Dockerfile` is two stages (`python:3.13-alpine` + PyYAML → `nginx:stable-alpine`).
+  It checks required keys, `id` vs file name, the `status` enum, `countryCode`, PEM shape, `subsets`
+  codes, unknown keys and duplicate ids, and any failure fails the build. CI runs the same converter
+  with no `--out` (both `.github/workflows/e2e.yml` and `.gitlab-ci.yml`), so a bad registry fails CI
+  without a Docker build. **Fail-closed therefore moved from container start to build time.**
+- **Absent and `null` optional keys are omitted** from the generated JSON rather than emitted as `null`.
+  Empty collections are *not* absent: `subsets: []` ("entitled to nothing") and `headers: {}` are kept.
+- **There is no application server and no runtime mount.** `docker/registry/serve.py` is deleted; stock
+  nginx serves `/<type>.json` (the whole registry as one array), `/<type>/<id>.json` and `health.json`
+  from `/usr/share/nginx/html` on port **8080** (`[#REGISTRY_URL]` unchanged), with
+  `Cache-Control: no-store`, no autoindex and a JSON 404 body. `health.json` + the nginx healthcheck
+  keep `depends_on: registry: service_healthy` working for `ruuter` and `edelivery`.
+- **No mount means the registry is part of the image**, so every deployment with its own gates,
+  platforms and authorities must **build its own image** (`registry/` is replaced before `docker build`).
+  Platform API keys therefore live in **image layers** (hence in image storage, the SBOM and trivy
+  scans), and ADR-015's "mount it from a Kubernetes Secret" requirement is gone. Footgun: an image built
+  from this repo serves the **DEV fixtures** (`EU-EE`, `EU-MOCK`, `mock` with the plaintext
+  `mock-secret-key`, and the `auth-*` test authorities), so a production deployment must not use it
+  unmodified.
+- **Per-entity files are named with the lower-cased id** — a static server is case-sensitive, but ids
+  used to be `CITEXT`. The DSL lower-cases the id before every by-id request (7 sites), so `EU-EE`,
+  `eu-ee` and `Eu-Ee` all still resolve; only a *direct* manual fetch must be lower-case
+  (`GET /gates/EU-EE.json` is a 404).
 - **...and it is a secret store.** ADR-015 amends ADR-004: Ruuter's expression engine has no hash
   function at all (verified: no `crypto`/`crypto.subtle`/`TextEncoder`/`atob`), so the platform key
   cannot be SHA-256'd in the DSL. The key is therefore plaintext in the file and compared verbatim.
-  Consequences that must not regress: the `registry` service has **no published port** (same posture as
-  resql) and must never be proxied or ingressed; Kubernetes must mount `registry/` from a **Secret**;
-  the admin platform routes **strip `apiKey`** and return a derived `hasApiKey`; `platforms/.guard.yml`
-  strips `apiKey` from the `${platform}` it passes to handlers.
-- **The `registry` service** (`docker/registry/`, plain python3 + stdlib, UID 65532) validates every
-  file **at startup** and refuses to start on a bad one, then serves `GET /<type>.json` (the whole
-  registry as one array), `GET /<type>/<id>.json` (one entity, case-insensitive id match, else 404) and
-  `GET /health`. `ruuter` and `edelivery` gate on `depends_on: registry: service_healthy`, so a
-  malformed file stops the stack from starting (fail-closed).
+  Consequences that must not regress: the `registry` image has **no published port** (same posture as
+  resql) and must never be proxied or ingressed; the admin platform routes **strip `apiKey`** and return
+  a derived `hasApiKey`; `platforms/.guard.yml` strips `apiKey` from the `${platform}` it passes to
+  handlers.
 - **It does no filtering, no auth and no lookups.** The `status` checks, the `X-Api-Key` comparison and
   the authority `registryCode` ambiguity rule live in the Ruuter DSL. The whole-registry documents exist
   because **Ruuter has no loops** — a list or a by-code lookup cannot be assembled from N file fetches.
-- **Content is loaded once at startup**: `docker compose restart registry` applies an edit
-  (`compose.override.yml` has `develop.watch` restart for it).
+- **A registry edit needs `docker compose up --build registry`**: the JSON is generated and validated at
+  build time, so `restart` alone applies nothing and `compose.override.yml` has no `develop.watch` entry
+  for it any more (there is no mount to sync).
 - **There is no HTTP write path.** The admin `POST`/`PUT`/`DELETE` routes for these three registries —
   including `ping` and `api-key` — do not exist, and neither do their ReSql endpoints. Only `GET`
   remains, and the Admin UI is read-only for them. `users` and `consignments` keep their admin writes.
@@ -117,8 +140,9 @@ database representation — `gates`, `platforms`, `authorities`, their read mode
   authority's `registryCode`) become free again. Git history is the only record.
 - No ping job: the admin ping routes, the CronManager job definition, `edelivery`'s internal
   `POST /api/v1/ping/:partyId` and `gates.last_ping_at` are all gone.
-- Detected at startup, not by tests: a bad field name/typo in a registry file aborts the boot with the
-  file and field named, because the loader rejects unknown keys.
+- Detected at build time, not at startup, not by tests: a bad field name/typo in a registry file fails
+  the converter (which names the file and the field, because the loader rejects unknown keys) and with
+  it the image build — nothing is validated at runtime, because there is no runtime code.
 
 ## Nginx proxy (UI)
 
@@ -166,7 +190,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   - `admin/` GET/POST/PUT/DELETE = authenticated (`check-admin-authority`) — one `admin/.guard.yml` covers all methods. For gates/platforms/authorities only GET exists ([ADR-015](docs/architecture/decisions/015-registry-as-file-server.md) removed the write routes and the tables), so the method list is wider than the actual registry surface by design.
   - `auth/` POST = public; `auth/` GET = any authenticated user (`check-user-authority`). `dev-login` returns 404 unless `DEV_LOGIN_ENABLED=true`; the Docker build default is false, only `compose.override.yml` opts in for local development/CI.
   - `efti/api/v1/**` (all of it — GET, POST, and `authority/`) = **gate-internal only**, matching `X-Internal-Service-Token` (ADR-006). No TARA/JWT path anywhere under `efti/api/v1/`, not even as a fallback — this surface is reached only by other gate components (the X-Road adapter today; edelivery for the G2G-inbound `-xml`/`-local`/`ping`/`search-xml` routes; G2G inbound proper is earmarked) over the internal network, never directly by a human. `efti/GET/api/v1/test/.guard.yml` overrides back to public for the diagnostic endpoints (`baasikontoroll`, `lubatud`, `piiratud`). The token is a generic internal-service credential — `core` stays X-Road-unaware; the X-Road adapter resolves the organisation from `X-Road-Client` and enforces the authority's `subsets` (read from the registry) before forwarding. Deny is the fall-through: an absent or empty header can never match, even if the constant were unset. The Kotlin services (`InternalServiceTokenAuth`) likewise fail closed on an empty token; only `compose.override.yml` (local development/CI) defaults `INTERNAL_SERVICE_TOKEN` to `dev-internal-service-token-change-me` for the Kotlin services that take it (edelivery, xml-mapper), so `compose.yml` alone (production-like) never ships a known token.
-  - `platforms/` = platform `X-Api-Key`, compared in plaintext against `registry/platforms/*.json` (ADR-004 as amended by ADR-015: Ruuter has no hash function, so the SHA-256 rule was dropped). Only `ONLINE` authenticates; the guard strips `apiKey` from the `${platform}` it hands to handlers. Internal eDelivery calls require a non-empty service token plus `X-Platform-Id` (the original inbound sender, response-key `receiverId`). Both upload forms check the mapped UIL against the resolved platform and `OWN_GATE_ID`. The XML wrapper forwards the incoming credentials and owner rather than replacing an API key with the service token. Guards require actual arrays and exactly one identity; a non-array ReSql body cannot fail open.
+  - `platforms/` = platform `X-Api-Key`, compared in plaintext against `registry/platforms/*.yml` (served as `/platforms.json`; ADR-004 as amended by ADR-015: Ruuter has no hash function, so the SHA-256 rule was dropped). Only `ONLINE` authenticates; the guard strips `apiKey` from the `${platform}` it hands to handlers. Internal eDelivery calls require a non-empty service token plus `X-Platform-Id` (the original inbound sender, response-key `receiverId`). Both upload forms check the mapped UIL against the resolved platform and `OWN_GATE_ID`. The XML wrapper forwards the incoming credentials and owner rather than replacing an API key with the service token. Guards require actual arrays and exactly one identity; a non-array ReSql body cannot fail open.
   - `xroad/` = `x-road-client` member code resolves to exactly one `ACTIVE` authority (ADR-006). One project-level `xroad/.guard.yml` for both methods; it `assign`s `${authority}` for handlers. **Deny is the fall-through branch** and each accept path an explicit positive condition, so a non-array ReSql body cannot fail open. `xroad/GET/health/.guard.yml` uses `override_ancestors` to stay public (the `efti` probes have no ancestor guard and need none). **`/xroad/**` shares port 8086 with the public gate API — the ingress MUST NOT expose it; only the Security Server may reach it.**
   - do not leave comments in DSL files/code that belong to commit messages
 
@@ -219,12 +243,13 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 ## Dev seed data (context:dev)
 
 - Users: Super Admin (60001019906) — still a Liquibase `context:dev` changeset (ADR-011 §9 keeps users on the API).
-- **Gates, platforms and authorities are not seeded anywhere** — not by Liquibase (no tables exist)
-  and not by a sync step. They are the committed files under `registry/`, which the `registry` service
-  serves: `registry/gates/{EU-EE,EU-MOCK}.json`, `registry/platforms/{mock,mock-edelivery}.json`
-  (`mock` → `http://ruuter:8086/mock-platform`, headers `X-Api-Key: mock-secret-key`, `apiKey:
-  mock-secret-key`), and 10 `registry/authorities/auth-*.json` fixtures used by `tests/authority/*` and
-  `tests/admin/consignment-summary.http`.
+- **Gates, platforms and authorities are not seeded anywhere** — not by Liquibase (no tables exist) and
+  not by a sync step. They are the committed YAML files under `registry/`, which the `registry` image
+  serves as generated JSON: `registry/gates/{EU-EE,EU-MOCK}.yml`,
+  `registry/platforms/{mock,mock-edelivery}.yml` (`mock` → `http://ruuter:8086/mock-platform`, headers
+  `X-Api-Key: mock-secret-key`, `apiKey: mock-secret-key`), and 10 `registry/authorities/auth-*.yml`
+  fixtures used by `tests/authority/*` and `tests/admin/consignment-summary.http`. An image built from
+  this repo therefore carries these dev credentials.
 - TARA identities: `docker/tara-mock/identities.json`
 
 ## Testing
@@ -248,6 +273,9 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   guard rejects, `validate_input` 400s. `mode: mock-http` can stand in for ReSql/xml-mapper.
   Run via `docker run --rm -v "$PWD:/workdir" -w /workdir turnerrainer/ruuter:0.12.1-rc dsl-test --dsl DSL/Ruuter --tests DSL-tests --constants constants.ini` (the binaries ship in the runtime image since 0.9.14-rc).
 - `DSL-mock-tests/*.test.yml` verifies standalone mock UUID and dataset permission contracts against `DSL/Ruuter-xroad-mock` and `constants-xroad-mock.ini`. Rich synthetic dataset UIL is `EU-EE/mock/550e8400-e29b-41d4-a716-446655440002`; other UILs retain the minimal response. XML is not subset-filtered. `python3 tests/mock/dataset.py` checks embedded XML against the field generator and FTI010 XSD (requires PyYAML and xmllint). Generator prints XML only: `python3 scripts/generate-rich-mock-dataset.py`.
+- `python3 scripts/registry-to-json.py` (PyYAML) validates `registry/**/*.yml` — the same converter the
+  `registry` image build runs, only without `--out` (nothing is written). Both CI jobs run it, so a
+  malformed registry fails CI without a Docker build (ADR-016).
 - `python3 tests/sql/regression.py` prepares all ReSQL queries under `app` and checks append-only, credential and search semantics in its own disposable PostgreSQL 18 container (no host ports, no persistent volume); the registry is no longer part of it (ADR-015 — nothing about the registries is in SQL any more). Both DSL CI jobs run it. `--performance` additionally compares custom/generic plans with origin/dev on 100,000 synthetic records after VACUUM/ANALYZE.
 
 ## Branching
@@ -264,7 +292,8 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   - `dsl-validate` — runs Ruuter's `dsl-lint` + `dsl-test` straight from the runtime image
     (`turnerrainer/ruuter:0.12.1-rc`, which ships both binaries since #83) on both DSL roots +
     `DSL-tests/*.test.yml` (in-process scenarios) + `scripts/validate-dsl.py` (the efti-only
-    input-contract convention).
+    input-contract convention) + `scripts/registry-to-json.py` (validates `registry/**/*.yml` without
+    building an image — the converter is the validator, ADR-016).
   - `e2e` — builds the compose stack, runs the `tests/*/*.http` smoke suite via
     `docker compose run --rm http-tests`. This is the gate on PRs. `dsl-test` is the fast
     in-process check; `tests/*.http` is the full-stack integration gate.
@@ -286,10 +315,13 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   `release-pin` into `environments/dev/release.yaml`. Runs on the default branch and `release/*`.
   Header comment lists the CI/CD variables and the values still to confirm against the devops repo.
   **`registry` needs a matching wrapper chart component in `services/efti/devops`** — the
-  `components:` list is mirrored from there, and the chart must also mount `registry/` **from a
-  Secret** (it holds plaintext platform API keys) and must not expose the service port. Without the
-  component the deployment never serves a registry at all, so every guard denies and the stack is
-  effectively dead — this is a required cross-repo change, not an optional one.
+  `components:` list is mirrored from there, and the chart must **not** mount `registry/` (there is no
+  runtime mount since ADR-016; the registry is baked into the image at build time, which is also where
+  it is validated) and must not expose the service port. A deployment with its own gates, platforms and
+  authorities replaces `registry/` in the build context **before** the image build, because the image
+  built from this repo serves the dev fixtures. Without the component the deployment never serves a
+  registry at all, so every guard denies and the stack is effectively dead — this is a required
+  cross-repo change, not an optional one.
 
 ## Post-change
 

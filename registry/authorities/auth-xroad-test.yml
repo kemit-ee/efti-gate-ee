@@ -1,0 +1,5 @@
+id: auth-xroad-test
+name: X-Road Test Authority
+registryCode: '70000099'
+subsets:
+- EU01

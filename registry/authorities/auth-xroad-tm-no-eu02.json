@@ -1,8 +1,0 @@
-{
-  "id": "auth-xroad-tm-no-eu02",
-  "name": "X-Road Transport Means Authority Without EU02",
-  "registryCode": "70000092",
-  "subsets": [
-    "EU01"
-  ]
-}

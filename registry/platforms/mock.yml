@@ -1,0 +1,6 @@
+id: mock
+baseUrl: http://ruuter:8086/mock-platform
+headers:
+  X-Api-Key: mock-secret-key
+status: ONLINE
+apiKey: mock-secret-key

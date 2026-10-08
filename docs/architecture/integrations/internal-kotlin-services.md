@@ -83,9 +83,9 @@ replicas can run behind a load balancer without affinity:
   exact `RequestKey`; the claim is an atomic INSERT guarded by a partial unique index, so exactly
   one claimer wins. See `docs/architecture/eDelivery-multi-node-support.md`. Rows older than ten
   minutes are purged by CronManager (every 5 minutes) through `POST /ops/v1/purge-async-responses`.
-- **Gate and platform registries.** `edelivery` reloads the registry from ReSql
+- **Gate and platform registries.** `edelivery` reloads the registry from the `registry` service
   every `REGISTRY_REFRESH_SECONDS` (default 60). A registry change reaches every node within that
-  interval; a failed refresh keeps the previous data. The Ruuter cross-gate search reads `get_gates`
+  interval; a failed refresh keeps the previous data. The Ruuter cross-gate search reads `/gates.json`
   fresh per search instead of caching.
 
 ## `edelivery` processing
@@ -119,7 +119,7 @@ sequenceDiagram
 ```
 
 The outbound message contains the `RequestKey` identifiers used for conversation
-and response correlation. The party registry is loaded from ReSql and refreshed
+and response correlation. The party registry is loaded from the `registry` service and refreshed
 periodically; the destination party supplies the eDelivery URL and certificate
 used by the message generator.
 

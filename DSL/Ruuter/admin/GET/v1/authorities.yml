@@ -14,7 +14,7 @@ route:
 fetch_single:
   call: http.get
   args:
-    url: "[#REGISTRY_URL]/authorities/${encodeURIComponent(incoming.params.pathParams[0])}.json"
+    url: "[#REGISTRY_URL]/authorities/${encodeURIComponent((incoming.params.pathParams[0]).toLowerCase())}.json"
   result: single_result
   next: check_single
 

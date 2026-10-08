@@ -82,7 +82,7 @@ There is **no way to restore the dropped connection**: another replica cannot ta
 
 ## Gate / platform registry
 
-There is no change broadcast. `edelivery` reloads gates and platforms from ReSql
+There is no change broadcast. `edelivery` reloads gates and platforms from the `registry` service
 every `REGISTRY_REFRESH_SECONDS` (default 60), so a registry change reaches every node within that
 interval. A failed refresh keeps the previous data.
 

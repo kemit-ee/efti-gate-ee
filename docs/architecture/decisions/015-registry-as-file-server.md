@@ -1,5 +1,12 @@
 # ADR-015: Register kui failiserver — registritabelid kustutatakse, `registry` teenus serveerib `registry/**`
 
+**Täiendatud (08.10.2026) — vt [ADR-016](016-registry-yaml-build-time-json.md).** Otsus ise jääb
+kehtima: register elab failides `registry/**`, mitte andmebaasis, ega ole muudetav HTTP kaudu. Muutus
+ainult **tarneviis**: eraldi python-teenus (`docker/registry/serve.py`) ja runtime-mount asendatakse
+build-aegse konverteri (`scripts/registry-to-json.py`, allikas on nüüd YAML) ja staatilise nginxiga.
+Punktid 2 (teenus, käivitusaegne valideerimine), 7 (Secret-mount) ja 8 loe koos ADR-016-ga — teenust,
+runtime-valideerimist ja Secret-mount'i enam ei ole.
+
 **Otsus (08.10.2026, Anton Keks):** [ADR-014](014-registry-as-git-folder.md)-ga sisse viidud
 "JSON → andmebaas → lugejad" vaheetapp **eemaldatakse**. Register jääb repos kataloogi `registry/`,
 aga seda ei sünkroonita enam andmebaasi: uus **`registry` teenus** loeb ja valideerib kataloogi

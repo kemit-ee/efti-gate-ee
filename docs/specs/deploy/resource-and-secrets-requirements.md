@@ -86,21 +86,33 @@ kasuta prod-is)** → **paigalduse märkus**.
 | `TIM_TARA_CLIENT_ID` / `TIM_TARA_CLIENT_SECRET` | `tim` (`oauth2.providers.tara.client_id_env`/`client_secret_env`) | OIDC klient TARA vastu | `efti` / `efti-secret` (dev-is TARA-Mock vastu) | **Prod: reaalne TARA registreering** (RIA), mitte mock. Vt ka `allowed_redirect_uris` `tim.yaml`-is — prod domeen tuleb sinna lisada |
 | TIM JWT allkirjastamisvõti | `tim` (`jwt.private_key_path: /opt/tim/keys/jwt-private.pem`, RSA, PKCS8 PEM, `key_id: efti-rs-1`) | Kasutajate sessiooni-JWT allkirjastamine | **Dev-is `docker/tim/entrypoint.sh` genereerib selle ISE**, kui faili pole (`openssl genpkey`) | **KRIITILINE PROD-NÕUE**: kui seda ei tehta persistentseks Secretiks/volumeks, genereeritakse iga taaskäivituse peale UUS võti ja kõik olemasolevad sessioonid/JWT-d muutuvad kehtetuks — kõik kasutajad logitakse välja iga podi restardi peale. Genereeri võti üks kord väljaspool konteinerit, pane K8s Secretina, mountida `/opt/tim/keys/jwt-private.pem` peale (samamoodi nagu ljvis2-devops `tim-jwt-key` ExternalSecret) |
 
-### 3.4 `registry/` — **üks mount, mis on ühtaegu konfiguratsioon ja saladus**
+### 3.4 `registry/` — **konfiguratsioon, mis on ühtaegu saladus ja image'i sees**
 
-**Muutunud ADR-015-ga.** Väravate, platvormide ja asutuste register ei ole enam andmebaasis
-(registritabelid kustutati) ega tule Admin-liidese kaudu: see on repos/paigalduses olev kataloog
-`registry/{gates,platforms,authorities}/<id>.json`, mida serveerib `registry` teenus (ilma avaldatud
-pordita) ja millele järgivad ruuter/edelivery käivitusel.
+**Muutunud ADR-015-ga, tarneviis muutunud ADR-016-ga.** Väravate, platvormide ja asutuste register ei
+ole enam andmebaasis (registritabelid kustutati) ega tule Admin-liidese kaudu. Allikas on repos olevad
+YAML-failid `registry/{gates,platforms,authorities}/<id>.yml`; `scripts/registry-to-json.py`
+valideerib ja konverteerib need **image'i build-ajal** JSON-iks ning `registry` image'i staatiline
+nginx (port 8080, avaldatud pordita) serveerib neid ruuterile ja edelivery'le.
 
-- `registry/gates/<id>.json` `eDeliveryCert` / `tlsCert` ja `registry/platforms/<id>.json`
+- **Runtime-mount'i ei ole.** `registry/` ei ole enam Secret ega ConfigMap, mida konteinerisse
+  mount'ida — see on image'isse `COPY`-tud sisu (`docker/registry/Dockerfile`). Konteiner ei loe
+  käivitusel midagi; kogu valideerimine käib build-ajal ja vigane fail **kukutab image'i buildi läbi**
+  (CI jooksutab sama konverterit ka ilma Docker-buildita).
+- **Iga keskkond buildib oma image'e.** Mount'i ei ole, seega `registry/**` tuleb enne `docker build`-i
+  asendada keskkonna omaga (haru või CI samm, mis kirjutab kataloogi üle). **Sellest repos
+  CI-builditud image serveerib dev-fixture'id** (`EU-EE`, `EU-MOCK`, platvorm `mock` avatekstilise
+  võtmega `mock-secret-key`, `auth-*` testasutused) — tootmiskeskkond ei tohi seda muutmata kujul
+  kasutada.
+- `registry/gates/<id>.yml` `eDeliveryCert` / `tlsCert` ja `registry/platforms/<id>.yml`
   sertifikaadid on endiselt **operatiivsed andmed**, aga nüüd failina, mitte DB-veeruna.
-- **Platvormi `X-Api-Key` on nüüd AVATEKST** (`registry/platforms/<id>.json` väli `apiKey`).
+- **Platvormi `X-Api-Key` on AVATEKST** (`registry/platforms/<id>.yml` väli `apiKey`).
   ADR-004 "ainult SHA-256" reegel jäeti maha, sest Ruuteri avaldisemootoris ei ole
-  räsimisfunktsiooni. **Seetõttu tuleb `registry/` paigaldada K8s Secret'ist (mitte ConfigMap'ist)**
-  ja `registry` teenuse porti ei tohi kunagi ingressi/reverse proxy kaudu avada. See on ainus
-  koht selles repos, kus konfiguratsioonifail ise on saladus.
-- Platvormi võtme rotatsioon = commit + `registry` teenuse restart; runtime-endpoint'i ei ole.
+  räsimisfunktsiooni. **Seetõttu on võtmed image'i kihtides** — ja seega image-registris, SBOM-is ja
+  trivy skaneeringutes. ADR-015 nõudis `registry/` mount'i K8s Secret'ist; ADR-016-ga see nõue kaob,
+  sest runtime-mount'i ei ole, aga saladuse hoidmise vastutus nihkub image'i buildimisele ja
+  image-registri ligipääsule (kes näeb image'it, näeb võtmeid). `registry` image'i porti ei tohi
+  kunagi ingressi/reverse proxy kaudu avada.
+- Platvormi võtme rotatsioon = commit + `registry` image'i uuesti buildimine; runtime-endpoint'i ei ole.
 
 ---
 
@@ -108,7 +120,7 @@ pordita) ja millele järgivad ruuter/edelivery käivitusel.
 
 ```
 database        (PostgreSQL 18, DB "efti")  ← gate'i enda andmed: kasutajad, saadetised, audit
-                                                (registrid EI ole enam siin — vt §3.4, ADR-015)
+                                                (registrid EI ole enam siin — vt §3.4, ADR-015/ADR-016)
 tim-database     (PostgreSQL 18, DB "tim")   ← TIM'i sessioonid/kasutajad (autentimise siseasi)
 ```
 

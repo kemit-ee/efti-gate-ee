@@ -9,7 +9,7 @@ setup:
 get_platform:
   call: http.get
   args:
-    url: "[#REGISTRY_URL]/platforms/${encodeURIComponent(incoming.body.uil.platformId ?? '')}.json"
+    url: "[#REGISTRY_URL]/platforms/${encodeURIComponent((incoming.body.uil.platformId ?? '').toLowerCase())}.json"
     headers:
       Content-Type: "application/json"
   result: platform_result

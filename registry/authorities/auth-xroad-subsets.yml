@@ -1,0 +1,6 @@
+id: auth-xroad-subsets
+name: X-Road Subsets Test Authority
+registryCode: '70000097'
+subsets:
+- EU01
+- EU05

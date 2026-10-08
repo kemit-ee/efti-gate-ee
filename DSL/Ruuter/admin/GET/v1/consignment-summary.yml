@@ -43,7 +43,7 @@ bad_range:
 fetch_authority:
   call: http.get
   args:
-    url: "[#REGISTRY_URL]/authorities/${encodeURIComponent(incoming.params.authorityId ?? '')}.json"
+    url: "[#REGISTRY_URL]/authorities/${encodeURIComponent((incoming.params.authorityId ?? '').toLowerCase())}.json"
     headers:
       Content-Type: "application/json"
   result: authority_result

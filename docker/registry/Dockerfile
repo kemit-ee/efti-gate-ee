@@ -1,14 +1,27 @@
-# ADR-015 — the registry service: serves registry/** as JSON over HTTP, internal-only.
-# Plain python3 + stdlib (json/http.server): nothing to install, nothing to pin beyond the base
-# image. Runs as UID 65532 to match the non-root posture of the other images in this repo.
-FROM python:3.13-alpine
+# ADR-016 — the registry delivery image: convert `registry/**/*.yml` to JSON at build time and
+# serve the result with plain nginx. No application server, no runtime conversion, no mount.
+#
+# Stage 1 is the converter *and* the validator: a malformed or incomplete registry file fails the
+# build, so an invalid registry can never be deployed. Stage 2 is stock nginx serving static files.
+FROM python:3.13-alpine AS registry-build
 
-RUN adduser -D -H -u 65532 registry
+# Pinned for reproducibility; the converter is the only thing that needs a YAML parser.
+RUN pip install --no-cache-dir pyyaml==6.0.2
 
-COPY docker/registry/serve.py /serve.py
-RUN chmod 0555 /serve.py
+COPY scripts/registry-to-json.py /registry-to-json.py
+COPY registry/ /registry/
 
-USER 65532
+# Fails the build on any bad file (unknown key, missing required key, bad PEM/enum/id mismatch).
+RUN python3 /registry-to-json.py --source /registry --out /srv/registry
+
+
+FROM nginx:stable-alpine
+
+COPY docker/registry/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=registry-build /srv/registry /usr/share/nginx/html
+
+# Internal only. The served documents contain live platform API keys (ADR-015), so this port must
+# never be published beyond the Compose network or exposed by an ingress.
 EXPOSE 8080
 
-ENTRYPOINT ["python3", "/serve.py"]
+CMD ["nginx", "-g", "daemon off;"]

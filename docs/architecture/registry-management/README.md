@@ -3,6 +3,12 @@
 ## Changes
 
 - _Initial state. Change tracking begins at v1.0.0._
+- **2026-10-08 — [ADR-016](../../architecture/decisions/016-registry-yaml-build-time-json.md): the delivery mechanism changed again.**
+  The sources are now YAML (`registry/{gates,platforms,authorities}/<id>.yml`); they are converted to
+  JSON at **image build time** by `scripts/registry-to-json.py` (which also validates them) and served
+  statically by nginx from the `registry` image. There is no application server and no runtime mount
+  any more, so platform API keys now live in image layers, and a malformed registry fails the build
+  instead of the container start.
 - **2026-10-08 — [ADR-015](../../architecture/decisions/015-registry-as-file-server.md): §1.1 and §1.5 rewritten again, §1.3 narrowed.**
   The gate/platform/authority registries no longer exist in the database at all: `gates`, `platforms`,
   `authorities` and their read models were dropped, and the `registry/**` folder is served over HTTP by
@@ -13,8 +19,10 @@
 
 > Theme-wide architectural rules. Every sub-area below — and every Acceptance Criterion (AC) it carries — must derive from or at minimum **not conflict with** the rules stated here. AC live in the corresponding sub-area files under [`docs/cfr/registry-management/`](../../cfr/registry-management/); this document describes the *contract those AC implement*.
 
-> **`registry/**` is a secret store since ADR-015**: platform entries carry a plaintext `apiKey`, so the
-> folder must be mounted from a Secret and the `registry` service must never be exposed.
+> **`registry/**` is a secret store since ADR-015, and since ADR-016 it is baked into an image**:
+> platform entries carry a plaintext `apiKey`, and there is no runtime mount to supply it, so the keys
+> end up in the `registry` image layers (and in image storage, SBOM and trivy output). The image is
+> internal-only and its port must never be published, proxied or ingressed.
 
 **System-wide reference:** [eFTI Gate Reference Architecture](../eFTI-Gate-Reference-Architecture.md). This document narrows the system-wide rules to the Registry Management surface.
 
@@ -37,7 +45,7 @@ The registries have **one** writer each, and no second way in:
 
 | Registry | Sole mutation path | Authorisation |
 |---|---|---|
-| `gates`, `platforms`, `authorities` | the git folder `registry/**` — the only store; it is served read-only over HTTP by the `registry` service (`GET /<type>.json`, `GET /<type>/<id>.json`) and filtered by each consumer | PR review + the release process (ADR-015); the `registry` service is reachable only on the internal Compose network |
+| `gates`, `platforms`, `authorities` | the YAML sources in the git folder `registry/**` — the only store; `scripts/registry-to-json.py` converts and validates them into JSON at image build time, and the `registry` image's static nginx serves that (`GET /<type>.json`, `GET /<type>/<id>.json`) for each consumer to filter | PR review + the release process (ADR-015/ADR-016); the `registry` image is reachable only on the internal Compose network |
 | `consignments` | admin-API write endpoints | TARA-issued JWT resolving to an active `users` row |
 | `users` | admin-API write endpoints | TARA-issued JWT resolving to an active `users` row |
 
@@ -59,7 +67,7 @@ has `SELECT, INSERT` only — no UPDATE/DELETE grants. CronManager-driven archiv
 
 `gates`, `platforms` and `authorities` have **no table at all** since ADR-015 (§1.1), so nothing in this rule
 applies to them: their history is git, their concurrency control is the review process, and their only
-read path is the `registry` service.
+read path is the generated JSON served statically from the `registry` image.
 
 ### 1.4 Listing scope
 
