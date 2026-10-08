@@ -17,6 +17,22 @@ declaration:
       - field: x-request-id
         type: string
         description: "Correlation id, forwarded by the calling .guard"
+  internal: false
+  returns:
+    - field: rowId
+      type: string
+    - field: id
+      type: string
+    - field: taraSub
+      type: string
+    - field: name
+      type: string
+    - field: tokenRevokedAt
+      type: string
+    - field: isUserActive
+      type: boolean
+    - field: createdAt
+      type: string
 
 setup:
   assign:

@@ -1,5 +1,11 @@
 declaration:
   description: "Soft-delete a platform (admin, TARA JWT). Path: platformId. No body."
+  internal: false
+  returns: []
+  additive: true
+  allowlist:
+    params:
+      - field: pathParams
 
 delete_platform:
   call: http.post

@@ -10,6 +10,15 @@ declaration:
   # one is a 500 in a pre-DSL `declare` step, which would make the MISSING_SUBSET / BAD_REQUEST
   # branches below unreachable) and strips everything else — and a proxy should not silently strip
   # fields core validates itself. `check_input` below is the contract instead.
+  internal: false
+  returns: []
+  additive: true
+  allowlist:
+    body:
+      - field: uil
+        type: object
+      - field: subsets
+        type: array
 
 # Body contract. A missing/non-object body or a missing `uil` is a generic 400; missing/empty
 # `subsets` keeps its specific MISSING_SUBSET code (openapi.yaml requires minItems 1 on subsetId, and

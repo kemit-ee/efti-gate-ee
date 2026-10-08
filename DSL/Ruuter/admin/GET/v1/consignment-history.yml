@@ -2,6 +2,20 @@ declaration:
   description: "Full version history of one consignment dataset (admin, TARA JWT) — the live rows
     plus the rows already swept to the separate archive DB, newest first, metadata only (no xml).
     Query: datasetId (required), limit, offset (optional; each side is capped at 1000, default 100). No body."
+  internal: false
+  returns:
+    - field: datasetId
+      type: string
+    - field: live
+      type: array
+    - field: archived
+      type: array
+  additive: true
+  allowlist:
+    params:
+      - field: datasetId
+      - field: limit
+      - field: offset
 
 validate_input:
   switch:

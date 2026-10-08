@@ -1,5 +1,11 @@
 declaration:
   description: "Broadcast-revoke a user's active JWTs via TIM (admin, TARA JWT). Path: userId. No body."
+  internal: false
+  returns: []
+  additive: true
+  allowlist:
+    params:
+      - field: pathParams
 
 check_exists:
   call: http.post

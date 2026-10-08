@@ -1,6 +1,18 @@
 declaration:
   description: "Query the audit log (admin, TARA JWT). Query params, all optional: resource,
     resourceId, userId, from, to, limit, offset. No body."
+  internal: false
+  returns: []
+  additive: true
+  allowlist:
+    params:
+      - field: from
+      - field: limit
+      - field: offset
+      - field: resource
+      - field: resourceId
+      - field: to
+      - field: userId
 
 fetch_audit_log:
   call: http.post

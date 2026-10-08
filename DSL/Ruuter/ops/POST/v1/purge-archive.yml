@@ -8,6 +8,10 @@ declaration:
         type: number
         required: false
         description: "Retention window in days; rows older than this are permanently deleted. Defaults to 2555 (~7 years) when omitted."
+  internal: false
+  returns:
+    - field: purged
+      type: integer
 
 purge:
   call: http.post

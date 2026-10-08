@@ -9,6 +9,17 @@ declaration:
   #   body.files        array,  optional — {fileName, base64Content, mimeType}
   # No allowed_body — it would make `files` mandatory and strip anything core adds later; a proxy
   # should not strip fields core validates itself. `validate_input` below is the contract.
+  internal: false
+  returns: []
+  additive: true
+  allowlist:
+    body:
+      - field: uil
+        type: object
+      - field: referenceIds
+        type: array
+      - field: message
+        type: string
 
 # A missing/non-object body or a body missing uil / referenceIds / message is a generic 400 before
 # the forward; `files` is optional so it is not checked. First step.

@@ -1,5 +1,11 @@
 declaration:
   description: "Soft-delete a competent authority (admin, TARA JWT). Path: authorityId. No body."
+  internal: false
+  returns: []
+  additive: true
+  allowlist:
+    params:
+      - field: pathParams
 
 delete_authority:
   call: http.post

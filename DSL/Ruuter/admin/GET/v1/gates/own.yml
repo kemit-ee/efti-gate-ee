@@ -1,5 +1,25 @@
 declaration:
   description: "Get this gate's own record, resolved from OWN_GATE_ID (admin, TARA JWT). No inputs."
+  internal: false
+  returns:
+    - field: rowId
+      type: string
+    - field: id
+      type: string
+    - field: countryCode
+      type: string
+    - field: eDeliveryUrl
+      type: string
+    - field: eDeliveryCert
+      type: string
+    - field: tlsCert
+      type: string
+    - field: status
+      type: string
+    - field: lastPingAt
+      type: string
+    - field: createdAt
+      type: string
 
 fetch_own_gate:
   call: http.post

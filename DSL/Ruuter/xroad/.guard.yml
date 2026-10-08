@@ -35,8 +35,8 @@
 
 declaration:
   description: "X-Road access guard for /xroad/**. Inputs, all headers set by the Security Server:
-    X-Road-Client (required, instance/memberClass/memberCode[/subsystemCode]) — the credential;
-    X-Road-Id (required, UUID) — mapped to the gate's x-request-id and consumed downstream as a
+    X-Road-Client (required, instance/memberClass/memberCode[/subsystemCode]) - the credential;
+    X-Road-Id (required, UUID) - mapped to the gate's x-request-id and consumed downstream as a
     typed UUID; X-Road-UserId (optional, caller-asserted, never grants access);
     X-Request-Id (optional, correlation). No allowlist block: on a guard it would trigger the
     engine's pre-DSL `declare` enforcement against the guard context. The switch steps below are

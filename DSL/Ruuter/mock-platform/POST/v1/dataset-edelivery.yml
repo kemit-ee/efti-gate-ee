@@ -1,6 +1,12 @@
 declaration:
   description: "Mock platform endpoint for testing follow-up messages"
   # Handles params: /:datasetId/follow-up
+  internal: false
+  returns: []
+  additive: true
+  allowlist:
+    params:
+      - field: pathParams
 
 setup:
   assign:

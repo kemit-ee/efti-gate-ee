@@ -104,6 +104,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   - `allowlist.required_one_of` (per section) — OR-of-alternatives; enforced (→ 400) on both routes **and guards**.
   - `validate_input:` / `check_input:` — still the way to return a **domain** error code (`MISSING_SUBSET`, `FORBIDDEN_SUBSET`, `BAD_REQUEST_GENERAL` + a helpful `detail`) instead of the engine's generic `{"error": "Field missing: X"}`, and for cross-field / non-empty checks. Every body-reading route has one **or** an `allowed_body` / `allowlist.body`.
   - `.guard.yml` — **prose `declaration.description` only, no `allowlist`.** A guard's `required: true` / `required_one_of` is enforced by the engine as a **400 before the guard's own steps** — but a missing credential must be **401** (`000-auth-guards.http`), which only the guard's `switch` steps return. The guard's steps are its contract.
+- **Audit-clean declarations** (`dsl-lint --audit` reports 0 warnings, enforced as errors in CI): every route sets `internal: false` (explicit, same as the framework default), declares `returns:` (`[]` for empty/XML/plain-text bodies), and lists every `${incoming.body|params|headers.*}` it reads in `allowlist.*` with `type:` on body fields. Routes whose allowlist is only documentation add `additive: true` so nothing is stripped (`pathParams` is declared under `allowlist.params` for the same reason). Body `type:` is wire-enforced, so a wrong type is the engine's generic 400, not a domain error code.
 - `wrapper: false` — always return raw response (not JSON-wrapped)
 - `next:` step declaration is optional if it should advance to the next step in the file; otherwise, `next:` is required to call a specific step; `next: end` stops execution
 - `template: api/v1/foo` — call another DSL file as subroutine, works only in the same top-level Ruuter project. Since Ruuter 0.9.11-rc it **runs the target's guards** against the child context — forward the credential explicitly (`headers: {x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"}` on the template step), as the G2G `-xml` wrappers do.
@@ -221,7 +222,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
     while per-module coverage baselines are still being raised (see
     `docker/ui/Dockerfile`, which only runs `npm run build`, never tests).
 - `.gitlab-ci.yml` — kemitaws platform pipeline (mirror): `secret_detection` + `validate:dsl`
-  (same `dsl-lint` / `dsl-test` / `validate-dsl.py` as above) + sonar → eight
+  (same `dsl-lint --audit` / `dsl-test` / `validate-dsl.py` as above) + sonar → eight
   `image-build`s (ruuter, ruuter-xroad-mock, resql, liquibase, tim, ui, edelivery, xml-mapper)
   → SBOM/trivy → `package:charts` trigger into the `efti` devops repo →
   `release-pin` into `environments/dev/release.yaml`. Runs on the default branch and `release/*`.

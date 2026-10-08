@@ -1,6 +1,34 @@
 declaration:
   description: "Ping a platform (AS4 if it has an eDelivery cert, else its baseUrl directly) and
     record the result (admin, TARA JWT). Path: platformId. No body."
+  internal: false
+  returns:
+    - field: rowId
+      type: string
+    - field: id
+      type: string
+    - field: baseUrl
+      type: string
+    - field: headers
+      type: object
+    - field: eDeliveryCert
+      type: string
+    - field: tlsCert
+      type: string
+    - field: status
+      type: string
+    - field: apiKeyHint
+      type: string
+    - field: apiKeyGeneratedAt
+      type: string
+    - field: hasApiKey
+      type: boolean
+    - field: createdAt
+      type: string
+  additive: true
+  allowlist:
+    params:
+      - field: pathParams
 
 setup:
   assign:

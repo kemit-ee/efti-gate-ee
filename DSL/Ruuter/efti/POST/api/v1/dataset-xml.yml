@@ -1,6 +1,13 @@
 declaration:
   description: "Retrieve dataset from local platform via eDelivery"
-  allowed_body: [xml]
+  internal: false
+  returns: []
+  additive: true
+  allowlist:
+    body:
+      - field: xml
+        type: string
+        required: true
 
 setup:
   assign:

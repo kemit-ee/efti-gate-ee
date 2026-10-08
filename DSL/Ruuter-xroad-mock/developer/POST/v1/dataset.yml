@@ -4,6 +4,21 @@ declaration:
     (EU-EE/mock) returns a synthetic full-field fixture; other IDs retain the minimal fixture.
     Member code 70000000 is entitled to nothing -> 403
     FORBIDDEN_SUBSET, so the error path is exercisable."
+  internal: false
+  returns:
+    - field: uil
+      type: object
+    - field: subsets
+      type: array
+    - field: xml
+      type: string
+  additive: true
+  allowlist:
+    body:
+      - field: subsets
+        type: array
+      - field: uil
+        type: object
 
 check_subsets_present:
   switch:

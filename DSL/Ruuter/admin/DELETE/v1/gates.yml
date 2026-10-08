@@ -1,5 +1,11 @@
 declaration:
   description: "Soft-delete a gate (admin, TARA JWT). Path: gateId. No body."
+  internal: false
+  returns: []
+  additive: true
+  allowlist:
+    params:
+      - field: pathParams
 
 delete_gate:
   call: http.post

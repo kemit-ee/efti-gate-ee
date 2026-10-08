@@ -7,12 +7,21 @@ declaration:
   # Body: uil (object, required — {gateId, platformId, datasetId}) and subsets (array, required,
   # min 1). No allowed_body here (it would strip fields core validates itself); the dataset-local
   # template this delegates to declares allowed_body: [uil, subsets]. validate_input is the 400.
+  internal: false
+  returns: []
+  additive: true
+  allowlist:
+    body:
+      - field: uil
+        type: object
+      - field: subsets
+        type: array
 
 validate_input:
   switch:
     - condition: ${incoming.body == null || incoming.body.uil == null || incoming.body.subsets == null || incoming.body.subsets.length == 0}
       next: bad_request
-  next: check_gate
+  next: setup
 
 bad_request:
   return:
@@ -28,6 +37,7 @@ bad_request:
 setup:
   assign:
     requestId: ${incoming.headers['x-request-id']}
+  next: check_gate
 
 check_gate:
   switch:

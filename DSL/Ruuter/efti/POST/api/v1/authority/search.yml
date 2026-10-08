@@ -7,6 +7,8 @@ declaration:
     ConsignmentRow[] is written back. Collect it by re-issuing the request with X-Request-Id +
     X-Poll and an empty body {}. Neither path ever blocks on a peer gate.
     Body: {operator, id}-shaped criteria object; criteria fields forwarded verbatim."
+  internal: false
+  returns: []
 
 validate_input:
   switch:

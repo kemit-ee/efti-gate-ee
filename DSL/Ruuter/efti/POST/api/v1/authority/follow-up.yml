@@ -1,13 +1,26 @@
 declaration:
   description: "Authority sends a follow-up message to a Platform via the gate (gate-internal,
     X-Internal-Service-Token). Body: uil (object, required), referenceIds (array, required),
-    message (string, required), files (array, optional — {fileName, base64Content, mimeType})."
+    message (string, required), files (array, optional - {fileName, base64Content, mimeType})."
+  internal: false
+  returns: []
+  additive: true
+  allowlist:
+    body:
+      - field: uil
+        type: object
+      - field: referenceIds
+        type: array
+      - field: message
+        type: string
+      - field: files
+        type: array
 
 validate_input:
   switch:
     - condition: ${incoming.body == null || incoming.body.uil == null || incoming.body.referenceIds == null || incoming.body.message == null}
       next: bad_request
-  next: check_gate
+  next: setup
 
 bad_request:
   return:
@@ -23,6 +36,7 @@ bad_request:
 setup:
   assign:
     requestId: ${incoming.headers['x-request-id']}
+  next: check_gate
 
 check_gate:
   switch:
