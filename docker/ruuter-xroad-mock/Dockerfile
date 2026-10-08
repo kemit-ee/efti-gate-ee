@@ -1,4 +1,4 @@
-FROM turnerrainer/ruuter:0.11.0-rc
+FROM turnerrainer/ruuter:0.12.1-rc
 
 COPY ruuter-xroad-mock.yaml /app/ruuter.yaml
 COPY constants-xroad-mock.ini /app/constants.ini
