@@ -18,10 +18,8 @@ service, persists or retrieves data through ReSql, and shapes the public respons
 flowchart LR
     Caller[Platform / Authority / X-Road] --> R[Ruuter]
     R --> XM[xml-mapper<br/>XML ↔ JSON]
-    R --> M[multiplexer<br/>fan-out search]
     R --> E[edelivery<br/>AS4 transport]
     XM --> R
-    M --> E
     E --> R
     R --> DB[(ReSql / PostgreSQL)]
     E <-->|SOAP 1.2 + AS4| Peer[Peer eFTI Gate]
@@ -30,12 +28,15 @@ flowchart LR
 The services are internal network components. Their REST APIs are service-to-service
 interfaces, not public authority or platform APIs.
 
+Cross-gate identifier search fan-out is **not** a Kotlin service: Ruuter's
+`parallel_http` step queries the peer gates through `edelivery` and records the
+aggregated result in ReSql (see [Cross-gate search](#cross-gate-search-ruuter)).
+
 ## Service responsibilities
 
 | Service | Port | Responsibility                                                                                                                                                      | Does not own |
 |---|---:|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|---|
 | `xml-mapper` | 8082 | Parse and generate eFTI XML for FTI004/029, FTI009/010, FTI019/021 and FTI025/030 messages; preserve the identifier criteria XML needed for storage and forwarding. | Routing, authorization, database access, or AS4 transport |
-| `multiplexer` | 8083 | Fan out an identifier-search XML request to all registered online peer gates and expose the first and remaining responses.                                          | XML parsing, gate registry persistence, or AS4 envelope handling |
 | `edelivery` | 8081 | Generate, sign, encrypt, send, receive, decrypt and dispatch AS4 messages; correlate responses to requests.                                                         | Business searches, identifier persistence, or authority authorization |
 
 ## Internal HTTP surfaces
@@ -82,16 +83,17 @@ replicas can run behind a load balancer without affinity:
   exact `RequestKey`; the claim is an atomic INSERT guarded by a partial unique index, so exactly
   one claimer wins. See `docs/architecture/eDelivery-multi-node-support.md`. Rows older than ten
   minutes are purged by CronManager (every 5 minutes) through `POST /ops/v1/purge-async-responses`.
-- **Gate and platform registries.** `edelivery` and `multiplexer` reload the registry from ReSql
+- **Gate and platform registries.** `edelivery` reloads the registry from ReSql
   every `REGISTRY_REFRESH_SECONDS` (default 60). A registry change reaches every node within that
-  interval; a failed refresh keeps the previous data.
+  interval; a failed refresh keeps the previous data. The Ruuter cross-gate search reads `get_gates`
+  fresh per search instead of caching.
 
 ## `edelivery` processing
 
 `edelivery` has two distinct surfaces:
 
 - `POST /api/v1/send/{partyId}` and `POST /api/v1/ping/{partyId}` are internal
-  REST calls used by Ruuter and multiplexer.
+  REST calls used by Ruuter (including the cross-gate search fan-out).
 - `GET /services/msh` reports that the message service is available, while
   `POST /services/msh` receives multipart AS4 messages from a peer access point.
 
@@ -99,7 +101,7 @@ replicas can run behind a load balancer without affinity:
 
 ```mermaid
 sequenceDiagram
-    participant R as Ruuter / multiplexer
+    participant R as Ruuter
     participant E as edelivery
     participant P as Party registry
     participant A as Peer AS4 endpoint
@@ -166,43 +168,57 @@ to `async_responses` and uses PostgreSQL notifications to wake another node, but
 that provider is not the default launcher configuration. Deployments that require
 cross-node response ownership must configure the multi-node provider explicitly.
 
-## `multiplexer` processing
+## Cross-gate search (Ruuter)
 
-The multiplexer is used after the local identifier search has produced no result.
-It loads `ONLINE` gates from ReSql, excludes the own gate, and sends the same XML
-search request to every remaining gate through eDelivery.
+Cross-gate identifier search lives entirely in Ruuter DSL + ReSql (ADR-013); the
+former Klite `multiplexer` service is retired. The flow is local-first and
+non-blocking (ADR-010):
+
+1. `efti/POST/api/v1/authority/search` runs the local `get_consignments` search.
+   A local hit is returned immediately with `x-poll-more: false`.
+2. On a local miss it reads `ONLINE` gates from ReSql (`get_gates`, own gate
+   excluded), inserts a `pending` row in `search_results`, and starts a `detach`ed
+   `parallel_http` fan-out. Ruuter answers `[]` + `x-poll-more: true` at once.
+3. The detached task sends the FTI019 XML to every peer through
+   `edelivery /api/v1/send/{gateId}`, converts each FTI021 reply to
+   `ConsignmentRow[]` via `xml-mapper /search/response-to-json`, and writes the
+   flattened array as `complete` JSONB.
+4. A poll (same `X-Request-Id`, `X-Poll: true`) reads the latest `search_results`
+   row, waiting up to ~30s while it is still `pending`. Unknown/purged ids answer
+   `[]` + `x-poll-more: false`.
 
 ```mermaid
 sequenceDiagram
-    participant R as Ruuter
-    participant M as multiplexer
+    participant R as Ruuter (authority/search)
+    participant DB as ReSql
     participant E as eDelivery
+    participant X as xml-mapper
     participant G1 as Peer gate 1
     participant G2 as Peer gate 2
 
-    R->>M: POST /api/v1/first/{searchId}<br/>FTI019 XML
-    M->>E: POST /api/v1/send/{gate-1}
-    M->>E: POST /api/v1/send/{gate-2}
-    E->>G1: AS4 search request
-    E->>G2: AS4 search request
-    G1-->>E: FTI021 response
-    G2-->>E: FTI021 response
-    E-->>M: XML responses
-    M-->>R: First response + x-poll-more
-    R->>M: GET /api/v1/rest/{searchId}
-    M-->>R: Remaining responses joined with ⦀
+    R->>DB: get_gates (ONLINE, own excluded)
+    R->>DB: insert_search_pending
+    R-->>R: respond [] + x-poll-more:true
+    R->>E: parallel_http send {gate-1}
+    R->>E: parallel_http send {gate-2}
+    E->>G1: AS4 FTI019
+    E->>G2: AS4 FTI019
+    G1-->>E: FTI021
+    G2-->>E: FTI021
+    E-->>R: XML responses
+    R->>X: response-to-json (per response)
+    X-->>R: ConsignmentRow[]
+    R->>DB: insert_search_complete (JSONB)
+    R->>DB: get_search_result (poll)
+    DB-->>R: complete rows
 ```
 
-`POST /first/{searchId}` waits up to approximately 63 seconds for the first
-response. The fan-out requests use a 62-second eDelivery timeout. Responses that
-arrive after the first one are queued for `GET /rest/{searchId}`. Both endpoints
-set `x-poll-more` to indicate whether more responses may arrive. Pending results
-are retained in an in-memory cache for 90 seconds.
-
-The multiplexer only accepts responses containing `ParameterIDSetCriteria`; other
-successful XML responses are ignored. It returns peer responses as XML so the
-caller can pass the combined result to `xml-mapper` for the canonical JSON
-projection.
+The fan-out's structured `[{peer, response}]` array replaces the retired
+multiplexer's `⦀` XML string-join, and the DB read is idempotent rather than a
+drain, so a mapper failure no longer loses polled results. Only responses carrying
+`ParameterIDSetCriteria` are mapped; empty FTI021 replies and transport errors are
+dropped. `search_results` is ephemeral and purged by CronManager through
+`POST /ops/v1/purge-search-results` (`keepMinutes`, default 10).
 
 ## End-to-end search example
 
@@ -212,7 +228,6 @@ sequenceDiagram
     participant R as Ruuter
     participant DB as ReSql
     participant X as xml-mapper
-    participant M as multiplexer
     participant E as edelivery
     participant P as Peer gate
 
@@ -221,21 +236,23 @@ sequenceDiagram
     DB-->>R: No local matches
     R->>X: request-to-xml
     X-->>R: FTI019 XML
-    R->>M: first/{searchId}
-    M->>E: send each online peer request
+    R->>DB: insert_search_pending
+    R-->>A: [] + x-poll-more:true
+    R->>E: parallel_http send each online peer
     E->>P: AS4 FTI019 message
     P-->>E: AS4 FTI021 message
-    E-->>M: FTI021 XML
-    M-->>R: First XML + polling header
-    R->>M: rest/{searchId}
-    M-->>R: Remaining XML joined with ⦀
+    E-->>R: FTI021 XML
     R->>X: response-to-json
     X-->>R: Consignment rows
+    R->>DB: insert_search_complete
+    A->>R: poll (X-Poll: true)
+    R->>DB: get_search_result
+    DB-->>R: complete rows
     R-->>A: Authority response
 ```
 
 This separation keeps each concern replaceable: XSD changes belong in
-`xml-mapper`, AS4 or certificate changes belong in `edelivery`, fan-out or
-polling policy belongs in `multiplexer`, and cross-node coordination belongs in
-the database (`async_responses`, registry refresh). None of the three services should access PostgreSQL directly; registry
+`xml-mapper`, AS4 or certificate changes belong in `edelivery`, fan-out and
+polling policy belong in Ruuter DSL, and cross-node coordination belongs in
+the database (`async_responses`, registry refresh, `search_results`). None of the services should access PostgreSQL directly; registry
 and persistence access is mediated by ReSql or by Ruuter-owned workflows.

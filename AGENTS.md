@@ -6,13 +6,13 @@ Estonian national eFTI Gate (EU Regulation 2020/1056). Mediates dataset retrieva
 
 ## Architecture at a glance
 
-11 Docker Compose services. Three runtime layers:
+10 Docker Compose services. Three runtime layers:
 
 | Layer | Tech | Port | Role |
 |-------|------|------|------|
 | **Ruuter** | Rust DSL engine | 8086 | HTTP API gateway — routes defined as YAML files. Also serves the X-Road national extension under `/xroad/` (`DSL/Ruuter/xroad/`, ADR-006) |
 | **ReSql** | Rust SQL executor | 8090 | Serves SQL files as HTTP endpoints |
-| **Kotlin services** | JVM (klite framework) | 8081–8083 | edelivery (AS4), xml-mapper (XML↔JSON), multiplexer (fan-out) |
+| **Kotlin services** | JVM (klite framework) | 8081–8082 | edelivery (AS4), xml-mapper (XML↔JSON) |
 
 Supporting: PostgreSQL 18 (54321), TIM (8085, identity), TARA-mock (8888, OIDC), UI (8000, Vite/Svelte).
 
@@ -34,7 +34,6 @@ cd code && ./gradlew test
 # Run a single Kotlin subproject's tests
 cd code && ./gradlew edelivery:test
 cd code && ./gradlew xml-mapper:test
-cd code && ./gradlew multiplexer:test
 ```
 
 ## Directory layout
@@ -71,7 +70,6 @@ DSL/
 code/
   edelivery/            # AS4 messaging service
   xml-mapper/           # XML↔JSON conversion (FTI004/009/010/019/021/025/029/030)
-  multiplexer/          # Fan-out search to all registered gates
   core/                 # Shared: ResqlClient, Party types, XSD schemas
 tests/                  # IntelliJ HTTP Client test files (*.http) with assertions
 ```
@@ -110,7 +108,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - `next:` step declaration is optional if it should advance to the next step in the file; otherwise, `next:` is required to call a specific step; `next: end` stops execution
 - `template: api/v1/foo` — call another DSL file as subroutine, works only in the same top-level Ruuter project. Since Ruuter 0.9.11-rc it **runs the target's guards** against the child context — forward the credential explicitly (`headers: {x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"}` on the template step), as the G2G `-xml` wrappers do.
 - **Each top-level dir under the DSL mount is a Ruuter project** (`auth/`, `admin/`, `efti/`, `platforms/`, `mock-platform/`, `xroad/`). `dsl.project:` in `ruuter.yaml` does not gate loading.
-- Ruuter runs `turnerrainer/ruuter:0.11.0-rc` (`docker/ruuter/Dockerfile`, `docker/ruuter-xroad-mock/Dockerfile`). 0.9.12-rc resolved the `declaration.allowlist` contract (issue turnerrainer/Ruuter#75): guards run before allowlist stripping, `required: false` honoured, missing-required → 400, body `type:` enforced, `allowlist.required_one_of`, guards can carry enforced declarations. 0.9.13-rc fixed **issue turnerrainer/Ruuter#79** (reporter: @sviljus) — a `guard → template: → same-guard` chain recursed forever and aborted the process; now a per-request guard stack skips an already-running guard and `MAX_GUARD_DEPTH = 32` caps exotic cycles. 0.9.14-rc ships `dsl-lint` / `dsl-test` inside the runtime image (`/usr/local/bin/`, issue #83) and drops the `"null"`-string template header (#85). 0.9.15-rc fixed **issue turnerrainer/Ruuter#89** — `http.*` transport failures (connection refused, DNS, TLS handshake, read/write timeout) are surfaced in-band as `result.response.status == 0` with `result.response.error` in `{timeout, connect, request, body, decode, unknown}` instead of aborting to a generic 500, so a `check_*` switch can return a semantic 502; policy-level pre-flight rejections (SSRF, host-allowlist, malformed URL, size cap) still raise. `/_/openapi.json` is admin-gated (`RUUTER_ADMIN_ENABLED`, unset here). 0.10.1-rc adds graceful SIGTERM/SIGINT shutdown (in-flight requests finish before exit) and a multipart part-count/per-part-size cap (`multipart_max_parts` default 100, `multipart_max_part_size` default 4 MiB, both `null`-able) that returns `413` — moot here since no DSL route accepts multipart bodies (AS4 multipart is terminated by the Kotlin `edelivery` service, not Ruuter). 0.11.0-rc adds three additive DSL primitives, none used by our DSLs yet: `parallel_http` step (bounded concurrent fan-out with `collect_ok`/`collect_all`/`first_n` aggregation), `detach` step (continue work after the response is sent) and `declaration.proxy` (streaming byte-identical pass-through proxy for `multipart/related`, bypasses the global 16 MiB preflight in favour of its own `max_body_bytes`) — the intended building blocks for putting Ruuter in front of eDelivery and replacing the Kotlin multiplexer. `declaration.internal` (404 on external HTTP) is merged upstream but **not** in 0.11.0-rc.
+- Ruuter runs `turnerrainer/ruuter:0.11.0-rc` (`docker/ruuter/Dockerfile`, `docker/ruuter-xroad-mock/Dockerfile`). 0.9.12-rc resolved the `declaration.allowlist` contract (issue turnerrainer/Ruuter#75): guards run before allowlist stripping, `required: false` honoured, missing-required → 400, body `type:` enforced, `allowlist.required_one_of`, guards can carry enforced declarations. 0.9.13-rc fixed **issue turnerrainer/Ruuter#79** (reporter: @sviljus) — a `guard → template: → same-guard` chain recursed forever and aborted the process; now a per-request guard stack skips an already-running guard and `MAX_GUARD_DEPTH = 32` caps exotic cycles. 0.9.14-rc ships `dsl-lint` / `dsl-test` inside the runtime image (`/usr/local/bin/`, issue #83) and drops the `"null"`-string template header (#85). 0.9.15-rc fixed **issue turnerrainer/Ruuter#89** — `http.*` transport failures (connection refused, DNS, TLS handshake, read/write timeout) are surfaced in-band as `result.response.status == 0` with `result.response.error` in `{timeout, connect, request, body, decode, unknown}` instead of aborting to a generic 500, so a `check_*` switch can return a semantic 502; policy-level pre-flight rejections (SSRF, host-allowlist, malformed URL, size cap) still raise. `/_/openapi.json` is admin-gated (`RUUTER_ADMIN_ENABLED`, unset here). 0.10.1-rc adds graceful SIGTERM/SIGINT shutdown (in-flight requests finish before exit) and a multipart part-count/per-part-size cap (`multipart_max_parts` default 100, `multipart_max_part_size` default 4 MiB, both `null`-able) that returns `413` — moot here since no DSL route accepts multipart bodies (AS4 multipart is terminated by the Kotlin `edelivery` service, not Ruuter). 0.11.0-rc adds three additive DSL primitives: `parallel_http` step (bounded concurrent fan-out with `collect_ok`/`collect_all`/`first_n` aggregation), `detach` step (continue work after the response is sent) and `declaration.proxy` (streaming byte-identical pass-through proxy for `multipart/related`, bypasses the global 16 MiB preflight in favour of its own `max_body_bytes`). `parallel_http` + `detach` are now used by `efti/POST/api/v1/authority/search.yml` for the K4 cross-gate fan-out (ADR-013); `declaration.proxy` is still unused. `declaration.internal` (404 on external HTTP) is merged upstream but **not** in 0.11.0-rc.
 - Guard files (Ruuter ≥ 0.9.7-rc) — every `.guard.yml` walking up from the route's directory runs, outermost-first, all must pass:
   - `<project>/.guard.yml` (**project-level**, Ruuter #39) — one file for every method in the project. Used for `admin/`, `platforms/`, and `xroad/` where the whole surface has one auth posture.
   - `<dir>/.guard.yml` (**directory-level**) — applies to every route at/under that dir. Used where posture varies by method/subtree (`efti/`).
@@ -121,7 +119,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - Guard map (see `docs/specs/permissions-matrix.md`):
   - `admin/` GET/POST/PUT/DELETE = authenticated (`check-admin-authority`) — one `admin/.guard.yml` covers all methods
   - `auth/` POST = public; `auth/` GET = any authenticated user (`check-user-authority`). `dev-login` returns 404 unless `DEV_LOGIN_ENABLED=true`; the Docker build default is false, only `compose.override.yml` opts in for local development/CI.
-  - `efti/api/v1/**` (all of it — GET, POST, and `authority/`) = **gate-internal only**, matching `X-Internal-Service-Token` (ADR-006). No TARA/JWT path anywhere under `efti/api/v1/`, not even as a fallback — this surface is reached only by other gate components (the X-Road adapter today; edelivery for the G2G-inbound `-xml`/`-local`/`ping`/`search-xml` routes; G2G inbound proper is earmarked) over the internal network, never directly by a human. `efti/GET/api/v1/test/.guard.yml` overrides back to public for the diagnostic endpoints (`baasikontoroll`, `lubatud`, `piiratud`). The token is a generic internal-service credential — `core` stays X-Road-unaware; the X-Road adapter resolves the organisation from `X-Road-Client` and enforces `authorities.subsets` before forwarding. Deny is the fall-through: an absent or empty header can never match, even if the constant were unset. The Kotlin services (`InternalServiceTokenAuth`) likewise fail closed on an empty token; only `compose.override.yml` (local development/CI) defaults `INTERNAL_SERVICE_TOKEN` to `dev-internal-service-token-change-me` for the Kotlin services that take it (edelivery, xml-mapper, multiplexer), so `compose.yml` alone (production-like) never ships a known token.
+  - `efti/api/v1/**` (all of it — GET, POST, and `authority/`) = **gate-internal only**, matching `X-Internal-Service-Token` (ADR-006). No TARA/JWT path anywhere under `efti/api/v1/`, not even as a fallback — this surface is reached only by other gate components (the X-Road adapter today; edelivery for the G2G-inbound `-xml`/`-local`/`ping`/`search-xml` routes; G2G inbound proper is earmarked) over the internal network, never directly by a human. `efti/GET/api/v1/test/.guard.yml` overrides back to public for the diagnostic endpoints (`baasikontoroll`, `lubatud`, `piiratud`). The token is a generic internal-service credential — `core` stays X-Road-unaware; the X-Road adapter resolves the organisation from `X-Road-Client` and enforces `authorities.subsets` before forwarding. Deny is the fall-through: an absent or empty header can never match, even if the constant were unset. The Kotlin services (`InternalServiceTokenAuth`) likewise fail closed on an empty token; only `compose.override.yml` (local development/CI) defaults `INTERNAL_SERVICE_TOKEN` to `dev-internal-service-token-change-me` for the Kotlin services that take it (edelivery, xml-mapper), so `compose.yml` alone (production-like) never ships a known token.
   - `platforms/` = platform `X-Api-Key` hash (ADR-004), ONLINE/OFFLINE only; DISABLED/DELETED cannot authenticate. Internal eDelivery calls require a non-empty service token plus `X-Platform-Id` (the original inbound sender, response-key `receiverId`). Both upload forms check the mapped UIL against the resolved platform and `OWN_GATE_ID`. The XML wrapper forwards the incoming credentials and owner rather than replacing an API key with the service token. Guards require actual arrays and exactly one identity; a non-array ReSql body cannot fail open.
   - `xroad/` = `x-road-client` member code resolves to exactly one `ACTIVE` authority (ADR-006). One project-level `xroad/.guard.yml` for both methods; it `assign`s `${authority}` for handlers. **Deny is the fall-through branch** and each accept path an explicit positive condition, so a non-array ReSql body cannot fail open. `xroad/GET/health/.guard.yml` uses `override_ancestors` to stay public (the `efti` probes have no ancestor guard and need none). **`/xroad/**` shares port 8086 with the public gate API — the ingress MUST NOT expose it; only the Security Server may reach it.**
   - do not leave comments in DSL files/code that belong to commit messages
@@ -137,6 +135,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - YAML header comment declares `description` and `params`
 - Reads resolve "latest row per logical id" either with `SELECT DISTINCT ON (id) … ORDER BY id, created_at DESC` (fine when a `WHERE` already narrows to one id / a small set) or, on the search hot path, by filtering the base table first and then a self-correlated `NOT EXISTS` "no newer row" anti-join (ADR-009, `get_consignments.sql`). A bare `DISTINCT ON` over the whole table before any filter materialises the entire latest-per-id set every call — see `docs/performance/askend_perf_verification/`.
 - The `app` role has only `SELECT, INSERT` — no UPDATE, no DELETE
+- Cross-gate search state (`search_results`, K4/ADR-013) is append-only and ephemeral: `insert_search_pending` / `insert_search_complete` write rows (`pending` → `complete` with a JSONB `ConsignmentRow[]`), `get_search_result` reads the latest per `search_id`, and `delete_expired_search_results` (db_archiver role, via `POST /ops/v1/purge-search-results`) purges rows older than `keepMinutes` (default 10). It is not `async_responses`, which is a 1:1 claim/drain hand-off for AS4 replies.
 - Resolve latest rows before filtering mutable credentials, status, registry code or identifiers. An identity change must not make historical credentials current again. User rename preserves `secret_hash`, `is_active`, `token_revoked_at`; changing `tara_sub` sets a revocation cutoff.
 - Latest ordering is `created_at DESC, revision DESC`, including the search anti-join. `20260914-latest-row-order.sql` adds identity revisions and serializes registry appends with advisory transaction locks, preserving inactive users/revocation markers, deleted registry entities and newer API keys. `DSL/Liquibase/init.sql` is the consolidated empty-database schema; keep it synchronized with DDL migrations. Existing Liquibase installs use the unchanged master history (no checksum rewrites). Both CI jobs also run `python3 tests/sql/regression.py --init`.
 - Equipment EQ uses GIN-compatible `array @> ARRAY[value]`; NE means not contained, with NULL arrays treated as empty. The existence check (`check_transport_means_registered.sql`) materialises index-filtered candidate keys and resolves each latest version via a self-table LATERAL lookup; the identifier projection (`get_consignments_by_transport_means.sql`) sorts the index matches in a subquery and applies the ADR-009 "no newer row" anti-join over that ordered stream up to its 50-row cut. Neither sorts the whole table; both are allowed under the no-cross-table-JOIN rule.
@@ -152,7 +151,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 
 ## Kotlin services
 
-- eDelivery and multiplexer render String responses as raw XML (including the empty poll response), not JSON-encoded strings. Ruuter ≥ 0.10.0 decodes upstream bodies by their declared Content-Type.
+- eDelivery renders String responses as raw XML (including the empty poll response), not JSON-encoded strings. Ruuter ≥ 0.10.0 decodes upstream bodies by their declared Content-Type.
 
 - Framework: klite (lightweight, annotation-based)
 - Build: Gradle multi-project under `code/`; `./gradlew <project>:test` for unit tests
@@ -166,7 +165,8 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - Gate-to-gate communication uses AS4 messaging via edelivery service
 - edelivery party registry loads gates + platforms from DB, refreshes every 30 min
 - Mock gate: register a second gate (e.g., EU-MOCK) with same `eDeliveryUrl` + `eDeliveryCert` as own gate; messages loop back to self
-- No message bus: cross-node AS4 replies go through `async_responses` (`DbAsyncResponseProvider`: insert when no local waiter, atomic claim by `RequestKey`; `POST /ops/v1/purge-async-responses` via CronManager). `edelivery`/`multiplexer` reload gates/platforms every `REGISTRY_REFRESH_SECONDS` (default 60); admin DSLs do not notify.
+- No message bus: cross-node AS4 replies go through `async_responses` (`DbAsyncResponseProvider`: insert when no local waiter, atomic claim by `RequestKey`; `POST /ops/v1/purge-async-responses` via CronManager). `edelivery` reloads gates/platforms every `REGISTRY_REFRESH_SECONDS` (default 60); admin DSLs do not notify.
+- Cross-gate identifier search is Ruuter-owned (K4, ADR-013; the Klite `multiplexer` is retired): `efti/POST/api/v1/authority/search.yml` registers a `pending` row in `search_results`, `detach`es a `parallel_http collect_all` fan-out to every ONLINE peer via `edelivery /api/v1/send/{gateId}`, converts each FTI021 reply with `xml-mapper /search/response-to-json`, and writes the flattened `ConsignmentRow[]` as a `complete` JSONB row. A poll (`X-Request-Id` + `X-Poll: true`) reads the latest row, waiting ~30s while `pending`. Rows are purged by `POST /ops/v1/purge-search-results` via CronManager.
 - Handler routing: `EftiMessageHandlers` checks `receiverId == ownPartyId` to decide local vs remote processing
 - `-local` DSL endpoints override `gateId` to `OWN_GATE_ID` before calling templates (prevents infinite forwarding loop)
 
@@ -212,7 +212,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   - `backend` — `code/`'s `./gradlew test` (blocking, mirrors `.gitlab-ci.yml`'s `backend:test`)
     + `./gradlew jacocoTestCoverageVerification` (80% per-module line threshold,
     `continue-on-error: true`, mirrors `backend:coverage-gate` — reports, doesn't gate PRs yet
-    while multiplexer/edelivery are still under 80%; `core` cleared it). JUnit + jacoco
+    while edelivery is still under 80%; `core` cleared it). JUnit + jacoco
     reports uploaded as an artifact.
   - `frontend` — `code/ui`'s `npm run check` (svelte-check) + `npm run test:coverage` (vitest,
     80% threshold, `code/ui/vite.config.js`), coverage report uploaded as an artifact. Mirrors
@@ -221,9 +221,9 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
     while per-module coverage baselines are still being raised (see
     `docker/ui/Dockerfile`, which only runs `npm run build`, never tests).
 - `.gitlab-ci.yml` — kemitaws platform pipeline (mirror): `secret_detection` + `validate:dsl`
-  (same `dsl-lint` / `dsl-test` / `validate-dsl.py` as above) + sonar → nine
-  `image-build`s (ruuter, ruuter-xroad-mock, resql, liquibase, tim, ui, edelivery, xml-mapper,
-  multiplexer) → SBOM/trivy → `package:charts` trigger into the `efti` devops repo →
+  (same `dsl-lint` / `dsl-test` / `validate-dsl.py` as above) + sonar → eight
+  `image-build`s (ruuter, ruuter-xroad-mock, resql, liquibase, tim, ui, edelivery, xml-mapper)
+  → SBOM/trivy → `package:charts` trigger into the `efti` devops repo →
   `release-pin` into `environments/dev/release.yaml`. Runs on the default branch and `release/*`.
   Header comment lists the CI/CD variables and the values still to confirm against the devops repo.
 

@@ -91,3 +91,26 @@ efti_gate_async_responses_purge:
     initial_delay: "10s"
 
   timeout: "30s"
+
+efti_gate_search_results_purge:
+  # Every 5 minutes. Deletes Ruuter-owned cross-gate search state (search_results) older than
+  # keepMinutes (default 10); it is useless once the caller's polling window has passed.
+  trigger: "0 0/5 * * * ?"
+
+  type: http
+  method: POST
+  url: "${GATE_BASE_URL}/ops/v1/purge-search-results"
+
+  headers:
+    Authorization: "Bearer ${ARCHIVE_OPS_TOKEN}"
+    Content-Type: "application/json"
+
+  body: |
+    {}
+
+  retry:
+    max_attempts: 3
+    backoff: exponential
+    initial_delay: "10s"
+
+  timeout: "30s"

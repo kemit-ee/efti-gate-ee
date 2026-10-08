@@ -89,7 +89,7 @@ def call(endpoint_name, **params):
 
 class Queries(unittest.TestCase):
     def setUp(self):
-        sql("TRUNCATE users, gates, platforms, authorities, consignments, follow_up_log, audit_log, async_responses, rm_consignment_counts, rm_consignment_summary, rm_gates, rm_platforms, rm_authorities, read_model_pointer;")
+        sql("TRUNCATE users, gates, platforms, authorities, consignments, follow_up_log, audit_log, async_responses, search_results, rm_consignment_counts, rm_consignment_summary, rm_gates, rm_platforms, rm_authorities, read_model_pointer;")
 
     def user(self, tara="old", active=True, stamp="2026-09-01", revoked=None):
         revoked_sql = "NULL" if revoked is None else "'" + revoked + "'"
@@ -423,6 +423,24 @@ class Queries(unittest.TestCase):
         self.assertEqual("1", out)
         self.assertEqual("fresh", sql("SELECT request_key FROM async_responses;").strip())
 
+    def test_search_result_latest_row_wins(self):
+        call("insert_search_pending", searchId="s1")
+        self.assertEqual([{"status": "pending", "body": None}], call("get_search_result", searchId="s1"))
+        call("insert_search_complete", searchId="s1", body=json.dumps([{"datasetId": "d"}]))
+        rows = call("get_search_result", searchId="s1")
+        self.assertEqual("complete", rows[0]["status"])
+        self.assertEqual([{"datasetId": "d"}], rows[0]["body"])
+
+    def test_unknown_search_result_is_empty(self):
+        self.assertEqual([], call("get_search_result", searchId="never-registered"))
+
+    def test_expired_search_results_are_purged_by_archiver_role(self):
+        sql("INSERT INTO search_results (search_id, status, created_at) VALUES ('old', 'pending', now() - interval '1 hour'), ('fresh', 'pending', now());")
+        query, signature, arguments = endpoint("delete_expired_search_results", {"keepMinutes": 10})
+        out = sql("SET ROLE db_archiver; PREPARE q" + signature + " AS " + query + "; EXECUTE q" + arguments + ";").strip()
+        self.assertEqual("1", out)
+        self.assertEqual("fresh", sql("SELECT search_id FROM search_results;").strip())
+
     def test_disabled_platform_key_is_denied(self):
         self.platform(status="DISABLED")
         self.assertEqual([], call("get_platform_by_api_key", apiKey="old-key"))
@@ -534,7 +552,7 @@ def main():
         migration = ROOT / "DSL/Liquibase/changelog/20260914-latest-row-order.sql"
         if migration.exists() and not options.init:
             sql(migration.read_text())
-            for name in ["20260926-drop-async-responses.sql", "20261005-async-responses.sql"]:
+            for name in ["20260926-drop-async-responses.sql", "20261005-async-responses.sql", "20261007-search-results.sql"]:
                 sql((ROOT / "DSL/Liquibase/changelog" / name).read_text())
         elif prototype:
             sql(prototype)

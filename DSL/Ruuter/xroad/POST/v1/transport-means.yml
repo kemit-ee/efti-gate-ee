@@ -67,7 +67,7 @@ check_input:
       next: bad_request_country
     # A poll ({poll: true} with the same X-Road-Id as the original allgates call) carries no
     # identifier, so it skips the identifier check — but NOT the EU02 entitlement below: the
-    # pending multiplexer queue has no ownership check (ADR-006), so at minimum the poller must
+    # pending search_results row has no ownership check (ADR-006), so at minimum the poller must
     # itself be entitled to EU02-class data.
     - condition: ${poll === true}
       next: check_subset_permission
@@ -185,8 +185,8 @@ respond_local:
 # --- scope: allgates (issue #125, ADR-007 variant A) --------------------------------------------
 #
 # Forwards to core authority/search, which is LOCAL-FIRST and NON-BLOCKING: a local hit answers
-# immediately (x-poll-more: false); a local miss registers the broadcast with the multiplexer and
-# answers [] with x-poll-more: true at once — the neighbour gates' results are collected via
+# immediately (x-poll-more: false); a local miss registers the broadcast (a pending search_results
+# row) and answers [] with x-poll-more: true at once — the neighbour gates' results are collected via
 # polling. Either way the result is normalised by xml-mapper to the same curated projection
 # scope: local returns, so the response shape is identical across scopes (ADR-007). Polling:
 # repeat the call with the same X-Road-Id and body {poll: true} while x-poll-more is true;
@@ -206,7 +206,7 @@ route_allgates:
       next: forward_to_core_search_with_country
   next: forward_to_core_search
 
-# X-Road-Id becomes x-request-id — load-bearing, not tidy: core keys the multiplexer polling on it.
+# X-Road-Id becomes x-request-id — load-bearing, not tidy: core keys the search_results poll on it.
 # Core's first call returns the local slice immediately and never blocks on peer gates (the
 # broadcast is registered in the background), so 15s is generous — same as xroad/POST/v1/search.yml.
 forward_to_core_search:
@@ -254,13 +254,12 @@ forward_to_core_search_with_country:
   result: core_res
   next: check_core_search_status
 
-# The x-poll header is what makes core poll the multiplexer instead of searching. The criteria body
+# The x-poll header is what makes core poll the stored search instead of searching. The criteria body
 # is sent anyway: core's poll branch ignores it, and if the header were ever lost the failure mode
 # is a fresh criteria-bound search (on a bare poll the identifier is '', which matches nothing) —
-# not a criteria-less search that would match everything. The timeout ladder: the multiplexer's
-# GET /rest long-polls up to MULTIPLEXER_REST_POLL_SECONDS (default 30) for the first gate
-# response, core's poll_remaining allows 35s for that, and this step sits above both — a shorter
-# timeout would turn a healthy long-poll into a spurious 502.
+# not a criteria-less search that would match everything. The timeout ladder: core's poll_remaining
+# retries the search_results read for ~30s, core's own upstream timeout allows 35s, and this step
+# sits above both — a shorter timeout would turn a healthy long-poll into a spurious 502.
 poll_core:
   call: http.post
   timeout: 40000
@@ -464,10 +463,9 @@ core_search_unavailable:
   status: 502
   next: end
 
-# Known limitation: on a POLL this failure loses data — the multiplexer's GET /rest is a drain, so
-# by the time normalisation runs the peer responses are already out of the 90s buffer, and retrying
-# the poll returns empty. Accepted for now: the normaliser is a local, stateless service whose
-# failure modes are deploy-time (down, incompatible), not per-request; a fallback that returned
+# A poll failure no longer loses data: the search_results read is idempotent (no drain), so retrying
+# the poll returns the same stored rows. The normaliser itself remains a local, stateless service
+# whose failure modes are deploy-time (down, incompatible), not per-request; a fallback that returned
 # core's un-normalised body would break the one-shape contract this route exists to keep.
 normalize_failed:
   return:

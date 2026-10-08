@@ -8,7 +8,7 @@
   `backend:test` / `frontend:test` run (GitLab MR coverage visualization). The 80% gate
   itself (`backend:coverage-gate`, and the `thresholds` block in `code/ui/vite.config.js`)
   runs but is `allow_failure: true` for now — actual baseline line coverage is
-  xml-mapper 91.5%, edelivery 57.9%, multiplexer 43.9%, `core` 0% (no test
+  xml-mapper 91.5%, edelivery 57.9%, `core` 0% (no test
   sources at all), and `code/ui` ~26%. Flip the gate to blocking module-by-module as each
   one is brought over 80%, rather than all at once.
 

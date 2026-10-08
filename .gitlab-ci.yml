@@ -65,9 +65,6 @@ include:
         - name: xml-mapper
           image_repository: xml-mapper/images
           dockerfile: docker/xml-mapper/Dockerfile
-        - name: multiplexer
-          image_repository: multiplexer/images
-          dockerfile: docker/multiplexer/Dockerfile
       components:
         - name: efti-config
         - name: resql
@@ -77,7 +74,6 @@ include:
         - name: ui
         - name: edelivery
         - name: xml-mapper
-        - name: multiplexer
       deploy:
         - environment: dev
           mode: auto
@@ -206,8 +202,8 @@ secret_detection:
 
 # Coverage floor (Epic 18 / docs/cfr/software-quality/test_coverage_and_quality.md: >=80%
 # line coverage on business logic). Baseline as of this job's introduction is well under
-# that (core has no tests at all; multiplexer/edelivery are 38-58% line coverage;
-# only xml-mapper clears 80%) — allow_failure: true until each module's baseline is raised,
+# that (core has no tests at all; edelivery is under 80%; only xml-mapper clears it) —
+# allow_failure: true until each module's baseline is raised,
 # then flip this to a blocking part of backend:test.
 "backend:coverage-gate":
   stage: test

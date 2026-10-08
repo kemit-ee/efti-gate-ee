@@ -14,7 +14,7 @@ import klite.annotations.POST
 import klite.annotations.PathParam
 import klite.uuid
 
-@Tag(name = "Internal routes", description = "Meant for Ruuter and Multiplexer.")
+@Tag(name = "Internal routes", description = "Meant for Ruuter.")
 class InternalRoutes(
   private val eDeliveryClient: EDeliveryClient,
   private val partyRegistry: EDeliveryPartyRegistry

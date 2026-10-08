@@ -29,7 +29,6 @@ flowchart LR
 
   subgraph JVM["Kotlin-teenused"]
     XML["xml-mapper\nXML ↔ JSON"]
-    MUX["multiplexer\notsingu fan-out"]
     EDELIVERY["edelivery\nAS4 sõnumid"]
   end
 
@@ -62,10 +61,9 @@ flowchart LR
   AUTH --> RESQL
   EFTI --> RESQL
   EFTI --> XML
-  EFTI --> MUX
+  EFTI --> EDELIVERY
   MOCK --> EFTI
 
-  MUX --> EDELIVERY
   EDELIVERY <--> PEERS
 
   RESQL --> DB
@@ -76,5 +74,5 @@ flowchart LR
   class ADMIN,PLATFORM,AUTHORITY,PEERS actor
   class UI,SS,DEV edge
   class AUTH,ADMINAPI,PLATFORMAPI,XROAD,EFTI,MOCK ruuter
-  class XML,MUX,EDELIVERY kotlin
+  class XML,EDELIVERY kotlin
   class RESQL,DB,LB,TIM,TARA data

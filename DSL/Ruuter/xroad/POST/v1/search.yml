@@ -29,15 +29,15 @@ bad_request:
   next: end
 
 # X-Road-Id becomes x-request-id. That is load-bearing here rather than merely tidy: core's
-# authority/search.yml uses x-request-id as the multiplexer polling key, so a caller re-issuing the
-# request with {"poll": true} and the same X-Road-Id collects the remaining gates' results — the
-# x-poll header below carries that intent through to core's check_poll switch (an unquoted
-# null value is dropped by the http step, not sent as "null" — Ruuter #57). Core's first call
-# returns the local slice immediately and never blocks on peer gates, but a POLL through this
-# same step can legitimately wait: the multiplexer's GET /rest long-polls up to
-# MULTIPLEXER_REST_POLL_SECONDS (default 30) for the first gate response, and core's
-# poll_remaining allows for that (35s). This timeout must sit above that ladder or a healthy
-# long-poll turns into a spurious core_unavailable 502.
+# authority/search.yml uses x-request-id as the cross-gate search polling key (the search_results
+# row key), so a caller re-issuing the request with {"poll": true} and the same X-Road-Id collects
+# the remaining gates' results — the x-poll header below carries that intent through to core's
+# check_poll switch (an unquoted null value is dropped by the http step, not sent as "null" —
+# Ruuter #57). Core's first call returns the local slice immediately and never blocks on peer
+# gates, but a POLL through this same step can legitimately wait: core's poll_remaining retries
+# the search_results read for ~30s, and core's own upstream timeout allows for it (35s). This
+# timeout must sit above that ladder or a healthy long-poll turns into a spurious core_unavailable
+# 502.
 forward_to_core:
   call: http.post
   timeout: 40000

@@ -18,7 +18,7 @@ JVM 25, PostgreSQL 18, Kotlin 2.4.20 ja UI sõltuvused olid runtime-PR-i aluses 
 ## Runtime-ühilduvuse muudatused (PR #153)
 
 - Ruuteri uus 30-sekundiline inbound-vaiketimeout tõsteti `ruuter.yaml`-is 90 sekundini. See mahutab olemasoleva 65–70-sekundilise G2G timeout-ahela.
-- Ruuter dekodeerib upstream-vastuse `Content-Type` järgi. eDelivery ja multiplexer renderdavad String-vastuseid toore XML-ina, mitte JSON-stringina; ka tühi polling-vastus on selle lepinguga kooskõlas.
+- Ruuter dekodeerib upstream-vastuse `Content-Type` järgi. eDelivery renderdab String-vastuseid toore XML-ina, mitte JSON-stringina; ka tühi polling-vastus on selle lepinguga kooskõlas.
 - ReSQL-i distroless-image kasutab UID-d 65532. Konfiguratsioon ja SQL kopeeritakse sellele UID-le loetavana; shell/curl-healthcheck asendati `/app/resql health --url http://127.0.0.1:8090/health` käsuga.
 - `resql.yaml` deklareerib `security.trust_network: true`. ReSQL jääb sisemise võrgu usalduspiirile; arenduse host-port on localhostil.
 - ReSQL-i non-2xx vastuse keha on nüüd `[]` koos `X-Resql-Error-Code` ja `X-Resql-Error-Message` päistega. DSL-id kontrollivad HTTP-staatust enne tühja tulemuse tõlgendamist puuduvaks kirjeks.
@@ -66,7 +66,7 @@ JVM 25, PostgreSQL 18, Kotlin 2.4.20 ja UI sõltuvused olid runtime-PR-i aluses 
 | Ruuteri regressioonistsenaariumid | 30/30 läbis | Guard, ownership, mapperi vead, identity response, dev-login, existing runtime checks |
 | Standalone-mock | 10/10 läbis | UUID, rikkalik dataset, kolme saadetise lookup ja negatiivsed juhud |
 | SQL regressioonid | 23/23 läbis | Sisaldab kõigi 42 endpointi PREPARE'i tegelike deklareeritud bind-tüüpidega `app` rolli all |
-| JVM unit testid | eDelivery, xml-mapper, multiplexer läbisid | Uued sender-ID ja HTTP header'i testid ning olemasolevad XML/wire-testid |
+| JVM unit testid | eDelivery, xml-mapper läbisid | Uued sender-ID ja HTTP header'i testid ning olemasolevad XML/wire-testid |
 | UI production build | Läbis (`npm ci` + `npm run build`) | Vite 7.3.6; olemasolev glob `as` deprecation-hoiatus |
 | Ehitatud tootmis-Ruuteri autentimistestid | 5/5 läbis | Dockerfile vaikeargumendiga image; dev-login keelamise test ei override'i konstanti |
 | DB upgrade ja koondatud init | Mõlemal 27/27 läbis | 23 SQL-regressiooni + 4 järjestuse/konkurentsi kontrolli; migratsioon on standardse changelog'i all |
@@ -128,7 +128,7 @@ python3 tests/sql/regression.py --performance
 docker run --rm -v "$PWD:/workdir" -w /workdir turnerrainer/ruuter:0.10.0-rc dsl-lint --dsl DSL/Ruuter --constants constants.ini
 docker run --rm -v "$PWD:/workdir" -w /workdir turnerrainer/ruuter:0.10.0-rc dsl-test --dsl DSL/Ruuter --tests DSL-tests --constants constants.ini
 docker run --rm -v "$PWD:/workdir" -w /workdir turnerrainer/ruuter:0.10.0-rc dsl-test --dsl DSL/Ruuter-xroad-mock --tests DSL-mock-tests --constants constants-xroad-mock.ini
-cd code && ./gradlew edelivery:test xml-mapper:test multiplexer:test
+cd code && ./gradlew edelivery:test xml-mapper:test
 ```
 
 SQL-käivitaja loob oma nimega tmpfs-PostgreSQL konteineri, avaldab null host-porti ja eemaldab konteineri ka vea korral. Olemasolevaid DB-sid see ei kasuta. Mõlemad DSL CI-tööd käivitavad SQL-regressioonid ja mocki UUID-testid.

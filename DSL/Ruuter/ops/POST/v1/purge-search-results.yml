@@ -1,0 +1,73 @@
+declaration:
+  description: "Search-state retention — CronManager calls this on a short timer (Bearer
+    ARCHIVE_OPS_TOKEN). Permanently deletes cross-gate search rows (search_results) older than
+    keepMinutes; they are useless once the caller's polling window has passed. Body (optional):
+    {keepMinutes: number}."
+  allowlist:
+    body:
+      - field: keepMinutes
+        type: number
+        required: false
+        description: "Retention window in minutes; search rows older than this are permanently deleted. Defaults to 10 when omitted."
+
+purge:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/delete_expired_search_results"
+    headers:
+      Content-Type: "application/json"
+    body:
+      keepMinutes: ${incoming.body.keepMinutes}
+  result: purge_result
+
+check_purge:
+  switch:
+    - condition: ${purge_result.response.status >= 400}
+      next: purge_failed
+  next: log_completed
+
+log_completed:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_job_execution_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      jobName: "purge-search-results"
+      status: "COMPLETED"
+      details:
+        purged: ${purge_result.response.body[0].purged_count}
+  result: log_result
+
+respond_completed:
+  return:
+    purged: ${purge_result.response.body[0].purged_count}
+  headers:
+    content-type: "application/json"
+  wrapper: false
+  next: end
+
+purge_failed:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_job_execution_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      jobName: "purge-search-results"
+      status: "FAILED"
+      details:
+        reason: "the purge ReSql step returned an error"
+  result: purge_failed_log
+  next: purge_failed_respond
+
+purge_failed_respond:
+  return:
+    type: "https://api.efti.ee/errors/bad-gateway"
+    code: "SEARCH_PURGE_FAILED"
+    title: "Search-state purge failed"
+    status: 502
+    detail: "The search_results purge step returned an error. See jobs_execution_log."
+  status: 502
+  wrapper: false
+  next: end

@@ -1,9 +1,11 @@
 declaration:
   description: "Authority search for consignments — local-first, then broadcast. A local match is
     returned at once with x-poll-more:false (this gate is authoritative for its own
-    consignments). With no local match the response is [] with x-poll-more:true and the other
-    gates are queried in the background — collect their results by re-issuing the request with
-    X-Request-Id + X-Poll and an empty body {}. Neither path ever blocks on a peer gate.
+    consignments). With no local match the response is [] with x-poll-more:true: the search is
+    registered as a pending row in the gate DB and the other gates are queried in the background
+    by a detached Ruuter task (parallel_http fan-out to eDelivery), then the aggregated
+    ConsignmentRow[] is written back. Collect it by re-issuing the request with X-Request-Id +
+    X-Poll and an empty body {}. Neither path ever blocks on a peer gate.
     Body: {operator, id}-shaped criteria object; criteria fields forwarded verbatim."
 
 validate_input:
@@ -31,91 +33,87 @@ setup:
 check_poll:
   switch:
     - condition: ${!!requestId && !!poll}
-      next: poll_remaining
+      next: init_poll
   next: local_search
 
-# --- poll path: collect the other gates' results for a prior search ---
-# The timeout must exceed the multiplexer's bounded long-poll (GET /rest waits up to
-# MULTIPLEXER_REST_POLL_SECONDS, default 30, for the first gate response) — with Ruuter's default
-# 15s the wait itself became a status-0 transport stub, the stub flowed on into rest_to_json, and
-# the poller got the xml-mapper's ParseError body back WITH STATUS 200 (the exact silent-wrong-body
-# case ADR-006 warns about). Belt to the multiplexer's suspenders: since the completion sentinel in
-# MultiplexerRoutes.startSearch a completed broadcast wakes the long-poll immediately, so the full
-# 30s wait only happens while gates are genuinely still answering.
-poll_remaining:
-  call: http.get
-  timeout: 35000
-  args:
-    url: "[#MULTIPLEXER_URL]/api/v1/rest/${encodeURIComponent(requestId ?? '')}"
-    headers:
-      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
-  result: rest_result
-  next: check_rest
+# --- poll path: collect the other gates' results for a prior search -----------------------------
+# The result lives in the gate DB (search_results), written by the detached broadcast task. The
+# first call inserted a `pending` row, so a poll can tell "broadcast registered, still running"
+# from "unknown search id". The retired multiplexer long-polled in memory for up to 30s; we
+# reproduce that bounded wait by reading the latest row and sleeping+retrying (60 x 500ms). An
+# unknown id (or one already purged) answers immediately with x-poll-more:false, exactly as the
+# retired service did.
+init_poll:
+  assign:
+    attempts: 0
+  next: poll_read
 
-# Fail-closed before converting: a status-0 transport stub (Ruuter 0.9.15, issue #89) or a
-# multiplexer error must not reach the xml-mapper as if it were gate XML.
-check_rest:
-  switch:
-    - condition: ${rest_result.response.status == 0}
-      next: rest_unavailable
-    - condition: ${rest_result.response.status >= 400}
-      next: rest_unavailable
-  next: rest_to_json
-
-rest_to_json:
+poll_read:
   call: http.post
   args:
-    url: "[#XML_MAPPER_URL]/api/v1/search/response-to-json"
+    url: "[#RESQL_URL]/efti/get_search_result"
     headers:
-      x-request-id: ${requestId}
-      content-type: "text/xml"
-      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
-    body: ${rest_result.response.body}
-    content_type: plaintext
-  result: rest_json
-  next: check_rest_json
+      Content-Type: "application/json"
+    body:
+      searchId: "${requestId}"
+  result: poll_result
+  next: check_poll_result
 
-# Same discipline for the conversion itself: a mapper failure previously fell through to
-# respond_rest, which has no status: and answered 200 with the mapper's error body.
-check_rest_json:
+check_poll_result:
   switch:
-    - condition: ${rest_json.response.status != 200}
-      next: rest_conversion_failed
-  next: respond_rest
+    - condition: ${poll_result.response.status != 200}
+      next: poll_unavailable
+    - condition: ${poll_result.response.body != null && poll_result.response.body.length == 1 && poll_result.response.body[0] != null && poll_result.response.body[0].status == 'complete'}
+      next: respond_result
+    - condition: ${poll_result.response.body != null && poll_result.response.body.length == 0}
+      next: respond_unknown
+    - condition: ${attempts < 60}
+      next: poll_wait
+  next: respond_still_pending
 
-respond_rest:
-  return: ${rest_json.response.body}
+poll_wait:
+  sleep: 500
+  assign:
+    attempts: "${attempts + 1}"
+  next: poll_read
+
+respond_result:
+  return: ${poll_result.response.body[0].body}
   headers:
     content-type: "application/json"
-    x-poll-more: ${rest_result.response.headers['x-poll-more']}
+    x-poll-more: false
   wrapper: false
   next: end
 
-rest_unavailable:
+respond_unknown:
+  return: []
+  headers:
+    content-type: "application/json"
+    x-poll-more: "false"
+  wrapper: false
+  next: end
+
+respond_still_pending:
+  return: []
+  headers:
+    content-type: "application/json"
+    x-poll-more: "true"
+  wrapper: false
+  next: end
+
+poll_unavailable:
   return:
     type: "https://api.efti.ee/errors/bad-gateway"
     code: "GATEWAY_UNAVAILABLE"
     title: "Bad Gateway"
     status: 502
-    detail: "Polling the cross-gate search results failed: the multiplexer is unreachable or errored."
-    multiplexerStatus: ${rest_result.response.status}
+    detail: "Polling the cross-gate search results failed in the gate's data layer."
+    resqlStatus: ${poll_result.response.status}
   wrapper: false
   status: 502
   next: end
 
-rest_conversion_failed:
-  return:
-    type: "https://api.efti.ee/errors/bad-gateway"
-    code: "GATEWAY_UNAVAILABLE"
-    title: "Bad Gateway"
-    status: 502
-    detail: "Converting the polled cross-gate search results failed in the mapping layer."
-    mapperStatus: ${rest_json.response.status}
-  wrapper: false
-  status: 502
-  next: end
-
-# --- first call ---
+# --- first call --------------------------------------------------------------------------------
 local_search:
   call: http.post
   args:
@@ -155,7 +153,9 @@ respond_local:
   wrapper: false
   next: end
 
-# No local match -> kick off the cross-gate broadcast and answer immediately.
+# No local match -> register the search, kick off the cross-gate broadcast in a detached task,
+# and answer immediately. The detached task writes the aggregated result to the gate DB; the
+# X-Poll path above reads it back.
 criteria_to_xml:
   call: http.post
   args:
@@ -167,22 +167,106 @@ criteria_to_xml:
     body: ${incoming.body}
   result: criteria_xml
 
-# Non-blocking: the multiplexer registers the search, fans out to the other gates in the
-# background, and returns at once. It never blocks this request on a peer gate's response —
-# those are collected via the X-Poll path above. (Was a blocking POST /api/v1/first with a
-# 65s timeout that returned HTTP 500 when no gate answered.)
-start_broadcast:
+# The peer registry is the gate table itself: every ONLINE gate except this one. Fetched fresh per
+# search (the retired multiplexer cached it for 60s). limit is raised from ReSql's default 20 so a
+# large registry is not silently truncated.
+get_peer_gates:
   call: http.post
   args:
-    # requestId is caller-controlled: percent-encode it before it becomes a path segment.
-    url: "[#MULTIPLEXER_URL]/api/v1/search/${encodeURIComponent(requestId ?? '')}"
+    url: "[#RESQL_URL]/efti/get_gates"
     headers:
-      content-type: "text/xml"
-      x-request-id: ${requestId}
-      x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
-    body: ${criteria_xml.response.body}
-    content_type: plaintext
-  result: broadcast_started
+      Content-Type: "application/json"
+    body:
+      status: "ONLINE"
+      limit: 1000
+  result: gates_result
+  next: check_gates
+
+check_gates:
+  switch:
+    - condition: ${gates_result.response.status != 200}
+      next: broadcast_unavailable
+  next: assign_peers
+
+assign_peers:
+  assign:
+    peer_gates: "${gates_result.response.body.filter(g => g.id !== '[#OWN_GATE_ID]')}"
+  next: register_pending
+
+register_pending:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_search_pending"
+    headers:
+      Content-Type: "application/json"
+    body:
+      searchId: "${requestId}"
+  result: pending_result
+  next: check_pending
+
+check_pending:
+  switch:
+    - condition: ${pending_result.response.status != 200}
+      next: broadcast_unavailable
+  next: start_broadcast
+
+# Fire-and-forget: Ruuter answers as soon as the detach task is accepted and the peer fan-out runs
+# in the background. The fan-out's per-peer result array is the structured replacement for the
+# multiplexer's ad-hoc XML string-join: each gate's FTI021 document is converted to
+# ConsignmentRow[] by xml-mapper and the flattened array is written to search_results as JSONB.
+start_broadcast:
+  detach:
+    do:
+      - parallel_http:
+          peers: "${peer_gates}"
+          call: http.post
+          args:
+            # The local eDelivery service signs/encrypts and does the actual AS4 exchange; it
+            # blocks until the peer's reply arrives, hence the per-peer timeout.
+            url: "[#EDELIVERY_URL]/api/v1/send/${peer.id}"
+            headers:
+              content-type: "text/xml"
+              x-request-id: "${requestId}"
+              x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
+            body: "${criteria_xml.response.body}"
+            content_type: plaintext
+          aggregate: collect_all
+          timeout: 62000
+          max_concurrency: 32
+          result: peer_responses
+      - assign:
+          # Only 2xx responses carrying an identifier set have consignments to map; an empty
+          # FTI021 ("No consignments found") or a transport error is dropped here.
+          good_responses: "${peer_responses.filter(r => r.response.status == 200 && typeof r.response.body === 'string' && r.response.body.indexOf('ParameterIDSetCriteria') != -1)}"
+      - parallel_http:
+          peers: "${good_responses}"
+          call: http.post
+          args:
+            url: "[#XML_MAPPER_URL]/api/v1/search/response-to-json"
+            headers:
+              content-type: "text/xml"
+              x-request-id: "${requestId}"
+              x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
+            body: "${peer.response.body}"
+            content_type: plaintext
+          aggregate: collect_all
+          timeout: 10000
+          max_concurrency: 32
+          result: converted
+      - assign:
+          search_body: "${converted.filter(c => c.response.status == 200).map(c => c.response.body).flat()}"
+      - call: http.post
+        args:
+          url: "[#RESQL_URL]/efti/insert_search_complete"
+          headers:
+            Content-Type: "application/json"
+          body:
+            searchId: "${requestId}"
+            body: "${JSON.stringify(search_body)}"
+          result: complete_result
+    timeout_ms: 90000
+  next: respond_pending
+  error: broadcast_unavailable
 
 respond_pending:
   return: ${local_result.response.body}
@@ -190,3 +274,15 @@ respond_pending:
     content-type: "application/json"
     x-poll-more: true
   wrapper: false
+  next: end
+
+broadcast_unavailable:
+  return:
+    type: "https://api.efti.ee/errors/bad-gateway"
+    code: "GATEWAY_UNAVAILABLE"
+    title: "Bad Gateway"
+    status: 502
+    detail: "Registering the cross-gate broadcast failed in the gate's data layer."
+  wrapper: false
+  status: 502
+  next: end

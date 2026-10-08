@@ -13,7 +13,7 @@ Seis kirjeldab repo `dev`-i runtime-uuendust PR #153 ja PR #155 muudatusi, ning 
 | TIM | Token & Identity Manager | 0.4.1-alpha | `docker/tim/Dockerfile`, `turnerrainer/tim:0.4.1-alpha` | 2026-09-21 | Ruuteri introspection-klient autentitakse eraldi saladusega. **Image on nüüd distroless** (UID 65532) — CA-usaldus ja JWT-võtme genereerimine kolisid eraldi `tim-init` konteinerisse (`docker/tim-init/`), mis kirjutab TARA-Mock'i self-signed CA `SSL_CERT_FILE` kaudu ja genereerib RSA-võtme jagatud volume'itesse enne `tim` teenuse käivitumist |
 | PostgreSQL | Gate'i andmebaas | 18 (patch määramata) | `compose.yml`, `postgres:18`, `748f99e` | 2026-08-03 | Muutuv major-tag; runtime app-rollil SELECT/INSERT |
 | PostgreSQL | TIM-i eraldi andmebaas | 18 (patch määramata) | `compose.yml`, `postgres:18`, `ed49344` | 2026-08-25 | Eraldi andmebaas ja volume |
-| JVM | Kotlin teenuste build/runtime | 25 (patch määramata) | `docker/code/Dockerfile`, `eclipse-temurin:25-alpine`, `25-jre-alpine` | 2026-08-03 | eDelivery, xml-mapper, multiplexer |
+| JVM | Kotlin teenuste build/runtime | 25 (patch määramata) | `docker/code/Dockerfile`, `eclipse-temurin:25-alpine`, `25-jre-alpine` | 2026-08-03 | eDelivery, xml-mapper |
 | Kotlin | JVM teenuste keel | 2.4.20 | `code/build.gradle.kts`, commit `ea7bdcb` | 2026-09-08 | JVM toolchain 25 |
 | Klite | Kotlin web raamistik | 2.0.7 | `code/build.gradle.kts`, JitPack koordinaadid | 2026-09-10 | |
 | Svelte | Admin UI | 5.56.4 | `code/ui/package-lock.json`, `82fb588` | 2026-08-11 | `package.json` sisaldab semver-vahemikku |

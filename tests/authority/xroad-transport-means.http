@@ -319,7 +319,7 @@ Content-Type: application/json
 %}
 
 ### scope allgates: a local miss starts the broadcast and answers found 0 at once
-# Core registers the broadcast with the multiplexer and returns immediately — the peers' results
+# Core registers the broadcast as a pending search_results row and returns immediately — the peers' results
 # arrive via polling, so x-poll-more is deterministically true here.
 # @timeout 75
 POST {{RUUTER_URL}}/xroad/v1/transport-means
@@ -342,7 +342,7 @@ Content-Type: application/json
 
 ### scope allgates: polling with the same X-Road-Id drains the remaining results
 # Reuses the X-Road-Id of the broadcast above. Repeating identifier/scope in the poll body is
-# optional; sending them keeps the echo fields meaningful. The multiplexer long-polls up to 30s
+# optional; sending them keeps the echo fields meaningful. Core long-polls the stored search for up to 30s
 # for the first peer response when none has arrived yet, hence the timeout.
 # @timeout 75
 POST {{RUUTER_URL}}/xroad/v1/transport-means

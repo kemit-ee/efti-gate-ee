@@ -72,13 +72,11 @@ check_id_header:
       next: guard_missing_header
 
 # X-Road-Id must be UUID-shaped, because the forwarding routes map it to x-request-id and core feeds
-# that value to TYPED UUID parameters: multiplexer's `@PathParam searchId: UUID`
-# (MultiplexerRoutes.kt:21,43) and edelivery's `e.requestId.uuid` (InternalRoutes.kt:20). Both throw
-# on anything else. The X-Road REST protocol does NOT guarantee a UUID here — the Security Server
-# generates one only when the consumer omits it; a consumer information system may set an arbitrary
-# unique string, which the SS forwards verbatim. Unchecked, a perfectly legal message id silently
-# breaks every cross-gate path: core's authority/search.yml never checks the multiplexer's status and
-# its respond_first sets no `status:`, so the gate would answer 200 with a wrong body.
+# that value to a TYPED UUID parameter: edelivery's `e.requestId.uuid` (InternalRoutes.kt:20), which
+# throws on anything else. The X-Road REST protocol does NOT guarantee a UUID here — the Security
+# Server generates one only when the consumer omits it; a consumer information system may set an
+# arbitrary unique string, which the SS forwards verbatim. Unchecked, a perfectly legal message id
+# silently breaks every cross-gate path.
 #
 # Applied in this project-level guard rather than per-route: one contract ("X-Road-Id is a UUID") is
 # simpler for a consumer to satisfy and document than a per-route matrix, and it means a caller

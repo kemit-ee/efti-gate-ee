@@ -11,7 +11,7 @@
 - **v1.1** — Reconciled with the implementation. The surface is **REST, not SOAP**; there is no
   WSDL and no `protocolVersion` check. The adapter is a Ruuter project, not a Java `ee-adapter`
   Gradle module — no such module exists (`code/settings.gradle.kts` includes only `core`,
-  `edelivery`, `xml-mapper`, `multiplexer`). Identity is the calling *organisation*, and the
+  `edelivery`, `xml-mapper`). Identity is the calling *organisation*, and the
   authorisation source is `authorities.subsets`.
 - _Initial state. Change tracking begins at v1.0.0._
 
@@ -61,25 +61,26 @@ from `X-Road-Client`, subsets from `authorities.subsets`, both before forwarding
 > 8086's `/efti/api/v1/authority/*` surface. See ADR-006's open questions for production delivery.
 
 **Header mapping.** `X-Road-Id` becomes `x-request-id`. All four core authority handlers read it, and
-`authority/search.yml` uses it as the multiplexer polling key — so a caller re-issuing a search with
-the same `X-Road-Id` and `{"poll": true}` collects the remaining gates' results.
+`authority/search.yml` uses it as the cross-gate search polling key (the `search_results` row key) — so
+a caller re-issuing a search with the same `X-Road-Id` and `{"poll": true}` collects the remaining
+gates' results.
 
-> **`X-Road-Id` must be a UUID, and the gate enforces it.** Core hands `x-request-id` to *typed*
-> `UUID` parameters — multiplexer's `@PathParam searchId: UUID` (`MultiplexerRoutes.kt:21,43`) and
-> edelivery's `e.requestId.uuid` (`InternalRoutes.kt:20`) — both of which throw on anything else. The
+> **`X-Road-Id` must be a UUID, and the gate enforces it.** Core hands `x-request-id` to a *typed*
+> `UUID` parameter — edelivery's `e.requestId.uuid` (`InternalRoutes.kt:20`) — which throws on anything
+> else. The
 > X-Road REST protocol does **not** guarantee a UUID: the Security Server generates one only when the
 > consumer omits the header, and a consumer information system may set an arbitrary unique string
 > that the SS forwards verbatim. Unchecked, a legal message id breaks every cross-gate path, and
-> silently in the worst case — core's `search.yml` never checks the multiplexer's status and
-> `respond_first` sets no `status:`, so the gate would answer 200 with a wrong body. The guard
+> silently in the worst case. The guard
 > therefore validates the shape and returns 400 `INVALID_REQUEST_ID`. Shape only: hex-digit
 > validation would need a regex, and no DSL file here uses `.match`/`.test`/`RegExp`.
 >
-> **Known limitation — the polling key is shared.** Core's `poll_remaining` does
-> `GET multiplexer/api/v1/rest/${requestId}` with no ownership check, and the multiplexer drains the
-> queue for whatever id it is handed. Since `X-Road-Id` is caller-controlled, one authority that
-> guesses or observes another's in-flight id can drain that search's results (bounded by the 90 s
-> cache TTL). The same hole exists on the JWT path, so it is pre-existing in core — but this surface
+> **Known limitation — the polling key is shared.** Core's poll branch reads the latest
+> `search_results` row for whatever id it is handed, with no ownership check; it does not drain (the
+> read is idempotent) and the row is purged by retention (`keepMinutes`, default 10). Since
+> `X-Road-Id` is caller-controlled, one authority that
+> guesses or observes another's in-flight id can read that search's results. The same hole exists on
+> the JWT path, so it is pre-existing in core — but this surface
 > newly exposes it to X-Road callers and documents id reuse as the intended polling mechanism. It
 > closes when the resolved authority id starts flowing to core with the audit story. Impact is
 > limited to identifier-level metadata between authorities that each have unrestricted identifier

@@ -47,13 +47,6 @@ services:
     environment:
       - INTERNAL_SERVICE_TOKEN=${INTERNAL_SERVICE_TOKEN:-dev-internal-service-token-change-me}
       - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5052
-  multiplexer:
-    ports:
-      - 8083:8083
-      - 5053:5053
-    environment:
-      - INTERNAL_SERVICE_TOKEN=${INTERNAL_SERVICE_TOKEN:-dev-internal-service-token-change-me}
-      - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5053
   ui:
     ports:
       - 8000:80
@@ -79,7 +72,6 @@ services:
       - ruuter
       - ruuter-xroad-mock
       - xml-mapper
-      - multiplexer
       - edelivery
     volumes:
       - ./:/workdir

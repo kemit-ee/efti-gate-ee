@@ -1,0 +1,80 @@
+mode: mock-http
+# DB-backed cross-gate search state (K4). The poll branch reads search_results via ReSql; the
+# broadcast branch registers a pending row and then fans out. Only the branches reachable before
+# the detached fan-out are asserted here — the full broadcast (eDelivery + xml-mapper) is covered
+# end to end by tests/authority/*.http.
+constants:
+  RESQL_URL: "{MOCK}"
+  XML_MAPPER_URL: "{MOCK}"
+tests:
+  - name: poll for an unknown search id returns empty with x-poll-more false
+    setup:
+      mocks:
+        - url_matches: /efti/get_search_result
+          method: POST
+          status: 200
+          body: []
+    request:
+      method: POST
+      path: /efti/api/v1/authority/search
+      headers:
+        content-type: application/json
+        x-internal-service-token: dev-internal-service-token-change-me
+        x-request-id: 00000000-0000-4000-8000-000000000001
+        x-poll: "true"
+      body: {}
+    expect:
+      status: 200
+      body: []
+      headers: { x-poll-more: "false" }
+
+  - name: poll for a completed search returns the stored aggregated rows
+    setup:
+      mocks:
+        - url_matches: /efti/get_search_result
+          method: POST
+          status: 200
+          body:
+            - status: complete
+              body:
+                - { mainTransportId: "REMOTE-1", gateId: "EU-MOCK" }
+    request:
+      method: POST
+      path: /efti/api/v1/authority/search
+      headers:
+        content-type: application/json
+        x-internal-service-token: dev-internal-service-token-change-me
+        x-request-id: 00000000-0000-4000-8000-000000000002
+        x-poll: "true"
+      body: {}
+    expect:
+      status: 200
+      body: [{ mainTransportId: "REMOTE-1", gateId: "EU-MOCK" }]
+      headers: { x-poll-more: "false" }
+
+  - name: a failed peer-registry read is a 502 before anything is broadcast
+    setup:
+      mocks:
+        - url_matches: /efti/get_consignments
+          method: POST
+          status: 200
+          body: []
+        - url_matches: /api/v1/search/request-to-xml
+          method: POST
+          status: 200
+          body: "<xml/>"
+        - url_matches: /efti/get_gates
+          method: POST
+          status: 500
+          body: []
+    request:
+      method: POST
+      path: /efti/api/v1/authority/search
+      headers:
+        content-type: application/json
+        x-internal-service-token: dev-internal-service-token-change-me
+        x-request-id: 00000000-0000-4000-8000-000000000003
+      body: { mainTransportId: { operator: EQ, id: TEST } }
+    expect:
+      status: 502
+      body_matches: { code: GATEWAY_UNAVAILABLE }

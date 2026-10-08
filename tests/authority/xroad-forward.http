@@ -222,10 +222,10 @@ Content-Type: application/json
 %}
 
 ### Non-UUID X-Road-Id → 400, before anything is forwarded
-# The gate maps X-Road-Id to x-request-id, and core hands that to typed UUID parameters —
-# multiplexer's @PathParam searchId: UUID and edelivery's e.requestId.uuid, both of which throw on
-# anything else. X-Road itself permits an arbitrary unique string here, so the shape is enforced at
-# the guard. This id is exactly the kind a consumer information system would generate.
+# The gate maps X-Road-Id to x-request-id, and core hands that to a typed UUID parameter —
+# edelivery's e.requestId.uuid, which throws on anything else. X-Road itself permits an arbitrary
+# unique string here, so the shape is enforced at the guard. This id is exactly the kind a consumer
+# information system would generate.
 # @timeout 75
 POST {{RUUTER_URL}}/xroad/v1/dataset
 X-Road-Client: EE/GOV/70000094/tram
@@ -267,8 +267,8 @@ Content-Type: application/json
 ### search: forwarded, no subset gate
 # Criteria MUST use the {operator, id} object shape. get_consignments.sql:42-44 reads
 # :criteria->'x'->>'operator', so a bare string like {"transportMode":"1"} matches NOTHING — every
-# row is excluded regardless of DB contents, the local search returns empty, core falls through to
-# the multiplexer, and the assertion passes on a garbage body. VESSEL-001 is the consignment
+# row is excluded regardless of DB contents, the local search returns empty, core broadcasts to the
+# peer gates, and the assertion passes on a garbage body. VESSEL-001 is the consignment
 # tests/authority/authority-api.http uploads, and that file sorts earlier in the tests/*/*.http glob.
 # @timeout 75
 POST {{RUUTER_URL}}/xroad/v1/search

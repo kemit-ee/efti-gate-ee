@@ -35,7 +35,7 @@ class SearchRoutes(val requestIdHandler: RequestIdHandler) {
     return req.searchCriteria
   }
 
-  @Operation(summary = "Parse multiplexed search responses", description = "Maps one or more FTI021SearchIdentifierResponse XML documents, separated by ⦀, to ConsignmentRow JSON. Used for authority requests after multiplexer fan-out.")
+  @Operation(summary = "Parse cross-gate search responses", description = "Maps one or more FTI021SearchIdentifierResponse XML documents, separated by ⦀, to ConsignmentRow JSON. Used for authority requests after cross-gate Ruuter fan-out.")
   @RequestBody(description = "One or more FTI021SearchIdentifierResponse XML documents separated by ⦀", content = [Content(mediaType = MimeTypes.xml, schema = Schema(type = "string"))])
   @POST("/response-to-json") fun responseToJson(xml: String): List<ConsignmentRow> =
     xml.split("⦀").filter { it.isNotEmpty() }

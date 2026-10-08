@@ -45,8 +45,8 @@ evaluate_permission:
   next: forbidden
 
 # The X-Road message id becomes the gate's x-request-id: all three core authority handlers read it,
-# and authority/search.yml uses it as the multiplexer polling key, so this gives end-to-end
-# correlation from the Security Server through to the peer gate.
+# and authority/search.yml uses it as the cross-gate search polling key (the search_results row key),
+# so this gives end-to-end correlation from the Security Server through to the peer gate.
 # timeout must exceed core's own 65s edelivery timeout (authority/dataset.yml send_via_edelivery),
 # or the adapter gives up first and the caller sees a spurious gateway error instead of core's answer.
 forward_to_core:
