@@ -79,6 +79,9 @@ code/
   xml-mapper/           # XML↔JSON conversion (FTI004/009/010/019/021/025/029/030)
   core/                 # Shared: ResqlClient, Party types, XSD schemas
 tests/                  # IntelliJ HTTP Client test files (*.http) with assertions
+docs/confluence/        # Confluence (wiki.kemit.ee, space EFTI) pages are GENERATED from repo Markdown
+                        #   (deployment guide, user guide) by scripts/confluence-sync.py — edit the
+                        #   Markdown and re-run it; never edit those pages in Confluence. See its README.
 ```
 
 ## Registries (ADR-011) — a static file server, not a table and not an API
