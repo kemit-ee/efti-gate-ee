@@ -2,7 +2,7 @@
 
 This directory holds the runtime deployment shape and, now that the implementation is under way, a real inventory of what a deployment needs. Helm charts / K8s manifests still live in the separate `services/efti/devops` repo (see [`resource-and-secrets-requirements.md`](resource-and-secrets-requirements.md) §7).
 
-**[`resource-and-secrets-requirements.md`](resource-and-secrets-requirements.md)** — compiled from the actual running system (`compose.yml`, `constants.ini`, `docker/*`): per-component CPU/memory, every secret (name, consumer, purpose, dev value, deploy gotcha), the two separate PostgreSQL databases, the Liquibase `dev`-context seed data that must not ship to prod, and the TIM JWT-key persistence requirement. Written for whoever does the first production deployment.
+**[`resource-and-secrets-requirements.md`](resource-and-secrets-requirements.md)** — compiled from the actual running system (`compose.yml`, `constants.ini`, `docker/*`): per-component CPU/memory, every secret (name, consumer, purpose, dev value, deploy gotcha), the two separate PostgreSQL databases, the Liquibase `dev`-context seed data that must not ship to prod, the TIM JWT-key persistence requirement, the Ruuter `constants.ini` Secret file, the AS4 keystore (§3.5) and how every secret is stored, delivered and rotated (§3.0). Written for whoever does the first production deployment.
 
 ## What's documented
 
@@ -20,7 +20,7 @@ This directory holds the runtime deployment shape and, now that the implementati
 | `helm/templates/*.yaml` | Implementation phase | Deployment, Service, Ingress, ConfigMap, SealedSecret manifests. |
 | `compose.dev.yml` | Implementation phase | Single-node docker-compose for developer machines (gate + Postgres + Caddy). |
 | `Dockerfile` | Implementation phase | Multi-stage build; non-root runtime user; health-probe-friendly. |
-| Cert rotation runbook | Operator | Manual procedure for AS4 + TLS certificates (no automated rotation in v0). |
+| TLS cert rotation runbook | Operator | Manual procedure for ingress TLS certificates. (AS4 keystore generation, provisioning and rotation: [`resource-and-secrets-requirements.md`](resource-and-secrets-requirements.md) §3.5; general secret rotation: §3.0.) |
 | GitOps wiring | Implementation phase | Pick one of ArgoCD / Flux; not this spec's call. |
 
 ## Why this is deliberately empty

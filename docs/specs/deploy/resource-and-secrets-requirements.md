@@ -21,10 +21,12 @@ tootmises soovita alustada "Soovituslik prod" veerust ja mõõta reaalse koormus
 |---|---|---|---|---|---|
 | `database` (PostgreSQL 18, `efti` DB) | JAH | 2.0 | 1 GiB | 2 vCPU / 2 GiB + eraldi ketas, **eraldi mõõdetud** ADR-009 jõudlustööga | Stateful — vajab PV/PVC-d ja backupit |
 | `archive-database` (PostgreSQL 18, `efti_archive` DB — saadetiste külmladu, vt issue #143/#56) | JAH | 0.5 | 512 MiB | 0.5 vCPU / 512 MiB + eraldi ketas, kasv sõltub `keepDays` retention-seadest (`purge_archived_consignments.sql`, vaikimisi 2555 päeva) | Stateful, **eraldi instants** kui `database` — vajab oma PV/PVC-d ja backupit; ligipääsetav ainult ReSql `archive` andmeallika kaudu, mitte otse |
-| `resql` (ReSql 0.3.0-alpha) | JAH | — (määramata!) | — (määramata!) | 0.5 vCPU / 512 MiB | max_connections 75 (resql.yaml) — jäta PG max_connections=100 juurde varu teistele klientidele. Kaks andmeallikat: `efti` ja `archive` |
-| `ruuter` (Ruuter 0.9.15-rc, `/efti` + `/xroad`) | JAH | 2.0 | 512 MiB | 1 vCPU / 512 MiB (koormustestitud, vt performance-dok) | — |
+| `resql` (ReSql 0.4.3-alpha) | JAH | — (määramata!) | — (määramata!) | 0.5 vCPU / 512 MiB | max_connections 75 (resql.yaml) — jäta PG max_connections=100 juurde varu teistele klientidele. Kaks andmeallikat: `efti` ja `archive` |
+| `ruuter` (Ruuter 0.12.1-rc, `/efti` + `/xroad` + `/ops`) | JAH | 2.0 | 512 MiB | 1 vCPU / 512 MiB (koormustestitud, vt performance-dok) | — |
 | `ruuter-xroad-mock` (avalik X-Roadi arendaja-mokk, `/developer/**`) | VALIKULINE | 0.25 | 128 MiB | 0.25 vCPU / 128 MiB | Standalone, andmebaasita — vt `docs/developer/x_road_developer_mock.md`. Jäta välja, kui väliseid platvormiarendajaid ei teenindata. |
-| `tim` (Token & Identity Manager 0.3.0-alpha) | JAH | — | — | 0.5 vCPU / 256 MiB | Oma PostgreSQL DB (vt §3) |
+| `tim-init` (ühekordne ettevalmistus) | JAH, ühekordne | — | — | 0.1 vCPU / 64 MiB | Init-container enne `tim`-i: CA-bundle ja (dev-is) JWT võtme genereerimine — vt §3.3 |
+| `registry` (nginx, staatiline register) | JAH | — | — | 0.1 vCPU / 64 MiB | Image sisaldab registrit (ADR-011), avaldatud pordita — vt §3.4 |
+| `tim` (Token & Identity Manager 0.4.1-alpha, distroless) | JAH | — | — | 0.5 vCPU / 256 MiB | Oma PostgreSQL DB (vt §3) |
 | `tim-database` (PostgreSQL 18, `tim` DB) | JAH | — | — | 0.5 vCPU / 512 MiB | Stateful, eraldi instants(dev)/eraldi skeem-või-instants (prod, vali) |
 | `ui` (nginx + Vite/Svelte build) | JAH | — | — | 0.25 vCPU / 128 MiB | Staatiline sisu, väga kerge |
 | `edelivery` (Kotlin/klite, AS4 G2G) | JAH | — | 512 MiB | 0.5 vCPU / 512 MiB | — |
@@ -47,8 +49,11 @@ väärtust:
 
 | Muutuja | Kirjeldus | Dev väärtus |
 |---|---|---|
-| `OWN_GATE_ID` | Selle värava X-Road/eFTI identifikaator | `EU-EE` |
-| `RUUTER_URL`, `RESQL_URL`, `EDELIVERY_URL`, `XML_MAPPER_URL`, `TIM_URL` | Teenustevahelised URL-id (K8s-is Service DNS-nimed) | `http://<service>:<port>` |
+| `OWN_GATE_ID` | Selle värava eFTI identifikaator. Peab olema sama `constants.ini`-s (Ruuter) ja `edelivery`/`xml-mapper` env-is, ning võrduma `registry/gates/<OWN_GATE_ID>.yml` failinime ja AS4 võtmehoidla aliasega (§3.5) | `EU-EE` |
+| `RUUTER_URL`, `RESQL_URL`, `REGISTRY_URL`, `EDELIVERY_URL`, `XML_MAPPER_URL`, `TIM_URL` | Teenustevahelised URL-id (K8s-is Service DNS-nimed) | `http://<service>:<port>` |
+| `REGISTRY_REFRESH_SECONDS` | Kui tihti `edelivery` registrit uuesti loeb | `60` |
+| `DEV_LOGIN_ENABLED` (`constants.ini`) | TARA-vaba arendus-sisselogimine | `true` — **prod-is peab olema `false`** |
+| TIM `public_base_url`, `allowed_redirect_uris` (`docker/tim/tim.yaml`) | TIM-i avalik aadress ja lubatud tagasisuunamise URL-id | `http://localhost:8000/...` — **keskkonnapõhine, prod-domeen tuleb lisada** |
 | `LOGGER_CLASS` | Kotlin-teenuste logimistase/formaat | määramata (vaikimisi) |
 | `VITE_USE_PROD_TARA_URL` | UI build-arg, kas UI viitab reaalsele TARA-le | `true` (image-build juba seab) |
 
@@ -58,6 +63,53 @@ väärtust:
 
 Iga rida: **nimi** → **kes tarbib** (konteiner/env muutuja) → **otstarve** → **dev väärtus (ÄRA
 kasuta prod-is)** → **paigalduse märkus**.
+
+### 3.0 Saladuste haldamise põhimõtted
+
+**Üks allikas, üks tarneviis.** Iga saladus elab keskkonna saladuste hoidlas (AWS SSM Parameter
+Store, prefiks `/efti/<env>/…`; alternatiivina Vault) ja jõuab konteinerisse **ainult**
+`ExternalSecret` → Kubernetes Secret kaudu (§7). Saladust ei panda Helm `values.yaml`-i, Git-i,
+CI-muutujasse ega image'isse. Ainus teadlik erand on platvormide API võtmed registris (§3.4, ADR-011 §5).
+
+**Kolm tarneviisi** — vali iga saladuse jaoks see, mida tarbija oskab lugeda:
+
+| Tarneviis | Saladused | Mida muutmine nõuab |
+|---|---|---|
+| **Env muutuja** (`secretKeyRef`) | `POSTGRES_PASSWORD`, `RESQL_*_PASSWORD`, `LIQUIBASE_COMMAND_PASSWORD`, `AUDIT_SALT`, `TIM_DATABASE_URL`, `TIM_ADMIN_TOKEN`, `TIM_INTROSPECT_RUUTER_SECRET`, `TIM_TARA_CLIENT_SECRET`, `KEYSTORE_PASSWORD`, `INTERNAL_SERVICE_TOKEN` (Kotlin-teenused) | Podi taaskäivitus |
+| **Fail Secretist** (`volumeMount`) | Ruuteri `constants.ini` (§3.2), TIM JWT võti (§3.3), AS4 `own.p12` (§3.5) | Podi taaskäivitus (Ruuter loeb `constants.ini` ainult käivitusel) |
+| **Image'i sees** | Platvormide `apiKey` (`registry/`, §3.4) | `registry` image'i uus build + paigaldus |
+
+**Paarid, mis peavad kokku sobima.** Mitu saladust on kahes kohas korraga — muuda alati mõlemad
+samas paigalduses, muidu katkeb ühendus:
+
+| Väärtus | Kohad |
+|---|---|
+| `efti` DB parool | `database` `POSTGRES_PASSWORD` = `RESQL_EFTI_PASSWORD` = Liquibase parool |
+| `efti_archive` DB parool | `archive-database` `POSTGRES_PASSWORD` = `RESQL_ARCHIVE_PASSWORD` |
+| `TIM_ADMIN_TOKEN` | `tim` env = Ruuteri `constants.ini` |
+| `INTERNAL_SERVICE_TOKEN` | Ruuteri `constants.ini` = `edelivery` env = `xml-mapper` env |
+| `ARCHIVE_OPS_TOKEN` | Ruuteri `constants.ini` = CronManageri `BEARER_OPS_TOKEN` |
+| AS4 sert | `own.p12` (§3.5) = `registry/gates/<OWN_GATE_ID>.yml` `eDeliveryCert` = partnerite registrid |
+
+**Rotatsioon.** Üldreegel: genereeri uus väärtus → kirjuta SSM-i → lase ExternalSecretil Secret
+uuendada (või `kubectl annotate externalsecret … force-sync=$(date +%s)`) → taaskäivita kõik
+tarbijad (`kubectl rollout restart`). Erijuhud:
+
+- **Andmebaasi parool**: muuda esmalt PostgreSQL-is (`ALTER ROLE … PASSWORD`), siis SSM-is, siis
+  taaskäivita `resql` (ja järgmine Liquibase'i jooks kasutab uut). Vahepeal ReSql uusi ühendusi ei loo.
+- **`AUDIT_SALT`**: **ära vaheta** olemasolevas keskkonnas — `audit_log`-i isikukoodide räsid ei ole
+  siis enam vanadega võrreldavad. Vahetus = teadlik otsus koos auditiandmete käsitlusega.
+- **TIM JWT võti**: vahetus logib kõik kasutajad välja (vanad JWT-d ei valideeru).
+- **AS4 võti**: koordineeritud vahetus partneritega — §3.5 "Rotatsioon".
+- **Platvormi API võti**: registrifaili muudatus + `registry` image'i paigaldus; uus võti antakse
+  platvormile turvalist kanalit pidi (§3.4).
+- **Lekke korral**: vaheta kohe, kontrolli `audit_log`-i ja Ruuteri/edelivery logisid lekkeaja kohta;
+  `INTERNAL_SERVICE_TOKEN`-i ja `ARCHIVE_OPS_TOKEN`-i leke tähendab ka võrgupiiride (§6) ülevaatust.
+
+**Ligipääs.** SSM-i `/efti/<env>/` loe- ja kirjutusõigus ainult infra/admin rollil;
+`ExternalSecret`-i teenusekonto saab ainult lugeda. Kubernetes Secretite lugemisõigus ainult
+nimeruumi administraatoril. Kuna `registry` image sisaldab API võtmeid, kehtib sama nõue
+image-registri (Harbor) `registry/images` repositooriumi kohta.
 
 ### 3.1 Peamine andmebaas (PostgreSQL, DB `efti`)
 
@@ -74,8 +126,22 @@ kasuta prod-is)** → **paigalduse märkus**.
 
 | Saladus | Tarbija | Otstarve | Dev väärtus | Märkus |
 |---|---|---|---|---|
-| `INTERNAL_SERVICE_TOKEN` | Ruuter (`constants.ini`, `[#INTERNAL_SERVICE_TOKEN]`); saadetakse `X-Internal-Service-Token` päisena | Jagatud saladus gate-sisesteks kõnedeks (X-Roadi adapter → `efti/api/v1/authority/**`, edaspidi ka G2G sissetulev). **Selle valdaja saab ADMIN-taseme ligipääsu kõigile authority-marsruutidele.** | `dev-internal-service-token-change-me` | **ÄRA UNUSTA**: fail on `docker/ruuter/Dockerfile`-ga image'isse `COPY`-tud, `${ENV}`-asendust `constants.ini`-s EI OLE. Väärtuse muutmiseks tuleb fail muuta ja ruuter image uuesti buildida — miski ei anna hoiatust, kui unustad. Kuni see pole lahendatud (vt ADR-006 avatud küsimused), on ainus kaitse, et `/xroad/**` ja `/efti/api/v1/authority/**` pole avalikult ligipääsetavad — vt §5 |
-| `ARCHIVE_OPS_TOKEN` | Ruuter (`constants.ini`, `[#ARCHIVE_OPS_TOKEN]`), `DSL/Ruuter/ops/.guard.yml`; välise CronManager'i saadetav `Authorization: Bearer`-päring | Ainus autentimine `POST /ops/v1/archive-consignments` ja `POST /ops/v1/purge-archive` peale — literal compare, mitte JWT. **Selle valdaja saab käivitada saadetiste külmladustamise/purge'imise mistahes ajal.** Vt `docs/architecture/infrastructure/append_only_archival.md` | `dev-archive-ops-token-change-me` | Sama probleem mis `INTERNAL_SERVICE_TOKEN`-il: `constants.ini` on image'isse `COPY`-tud, `${ENV}`-asendust ei ole — muutmiseks tuleb ruuter image uuesti buildida. `DSL/Ruuter/ops/` **ei ole nginx'i kaudu proksitud** (vt §6) — ainus kaitse on, et CronManager pöördub otse konteinerivõrgus, mitte ingressi kaudu |
+| `INTERNAL_SERVICE_TOKEN` | Ruuter (`constants.ini`, `[#INTERNAL_SERVICE_TOKEN]`); saadetakse `X-Internal-Service-Token` päisena | Jagatud saladus gate-sisesteks kõnedeks (X-Roadi adapter → `efti/api/v1/authority/**`, edaspidi ka G2G sissetulev). **Selle valdaja saab ADMIN-taseme ligipääsu kõigile authority-marsruutidele.** | `dev-internal-service-token-change-me` | **`constants.ini` ei ole image'is** — compose paigaldab selle käivitusel (`./constants.ini:/app/constants.ini:ro`). `${ENV}`-asendust Ruuteris ei ole, seega tootmises on **kogu `constants.ini` üks Secret-fail** (vt allpool), mitte üksikud env muutujad. Ainus kaitse peale tokeni on,, et `/xroad/**` ja `/efti/api/v1/authority/**` pole avalikult ligipääsetavad — vt §5 |
+| `ARCHIVE_OPS_TOKEN` | Ruuter (`constants.ini`, `[#ARCHIVE_OPS_TOKEN]`), `DSL/Ruuter/ops/.guard.yml`; välise CronManager'i saadetav `Authorization: Bearer`-päring | Ainus autentimine `POST /ops/v1/archive-consignments` ja `POST /ops/v1/purge-archive` peale — literal compare, mitte JWT. **Selle valdaja saab käivitada saadetiste külmladustamise/purge'imise mistahes ajal.** Vt `docs/architecture/infrastructure/append_only_archival.md` | `dev-archive-ops-token-change-me` | Elab samas Secret-failis `constants.ini` (vt allpool); muutmine = Secreti uuendus + ruuteri taaskäivitus. `DSL/Ruuter/ops/` **ei ole nginx'i kaudu proksitud** (vt §6) — ainus kaitse on, et CronManager pöördub otse konteinerivõrgus, mitte ingressi kaudu |
+
+**Ruuteri `constants.ini` tootmises.** Fail sisaldab nii mitte-saladusi (URL-id, `OWN_GATE_ID`,
+`DEV_LOGIN_ENABLED`) kui ka kolme saladust (`TIM_ADMIN_TOKEN`, `INTERNAL_SERVICE_TOKEN`,
+`ARCHIVE_OPS_TOKEN`), seega hoia **tervet faili** Secretina. Repo `constants.ini` on dev-fail ja on
+mallina kasutatav; tootmises:
+
+1. SSM-is `/efti/<env>/ruuter/constants-ini` (kogu faili sisu) **või** kolm eraldi parameetrit, millest
+   `ExternalSecret` `target.template` koostab faili (eelistatud — tokenid saab eraldi vahetada).
+2. Secret `efti-ruuter-constants`, võti `constants.ini`.
+3. Ruuteri Deployment: `volumeMount` `mountPath: /app/constants.ini`, `subPath: constants.ini`,
+   `readOnly: true`.
+4. Kontrolli, et `DEV_LOGIN_ENABLED=false` ja URL-id viitavad klastri Service-nimedele.
+
+`subPath`-mount ei uuene jooksvas podis — pärast Secreti muutmist tee alati `kubectl rollout restart deploy/ruuter`.
 
 ### 3.3 TIM (Token & Identity Manager) — **oma eraldi PostgreSQL andmebaas**
 
@@ -84,7 +150,9 @@ kasuta prod-is)** → **paigalduse märkus**.
 | `TIM_DATABASE_URL` | `tim` teenus | TIM'i oma PG andmebaasi ühendusstring (`postgres://user:pass@host/db`) | `postgres://tim:tim-secret@tim-database:5432/tim` | **See on TEINE andmebaas kui `efti`** — eraldi instants dev-is (`tim-database` teenus), prod-is otsusta kas eraldi instants või sama klastri teine DB |
 | `TIM_ADMIN_TOKEN` | `tim` (`security.admin_token_env`, `tim.yaml`) JA Ruuter (`constants.ini` → `[#TIM_ADMIN_TOKEN]`, saadetakse `X-TIM-Admin-Token` päisena `auth/POST/{callback,logout,dev-login}.yml`-ist) | TIM'i admin-API autentimine | `dev-tim-admin-token` | **Peab kattuma mõlemas kohas** — sama väärtus kahes eri failis/teenuses |
 | `TIM_TARA_CLIENT_ID` / `TIM_TARA_CLIENT_SECRET` | `tim` (`oauth2.providers.tara.client_id_env`/`client_secret_env`) | OIDC klient TARA vastu | `efti` / `efti-secret` (dev-is TARA-Mock vastu) | **Prod: reaalne TARA registreering** (RIA), mitte mock. Vt ka `allowed_redirect_uris` `tim.yaml`-is — prod domeen tuleb sinna lisada |
-| TIM JWT allkirjastamisvõti | `tim` (`jwt.private_key_path: /opt/tim/keys/jwt-private.pem`, RSA, PKCS8 PEM, `key_id: efti-rs-1`) | Kasutajate sessiooni-JWT allkirjastamine | **Dev-is `docker/tim/entrypoint.sh` genereerib selle ISE**, kui faili pole (`openssl genpkey`) | **KRIITILINE PROD-NÕUE**: kui seda ei tehta persistentseks Secretiks/volumeks, genereeritakse iga taaskäivituse peale UUS võti ja kõik olemasolevad sessioonid/JWT-d muutuvad kehtetuks — kõik kasutajad logitakse välja iga podi restardi peale. Genereeri võti üks kord väljaspool konteinerit, pane K8s Secretina, mountida `/opt/tim/keys/jwt-private.pem` peale (samamoodi nagu ljvis2-devops `tim-jwt-key` ExternalSecret) |
+| TIM JWT allkirjastamisvõti | `tim` (`jwt.private_key_path: /opt/tim/keys/jwt-private.pem`, RSA, PKCS8 PEM, `key_id: efti-rs-1`) | Kasutajate sessiooni-JWT allkirjastamine | **Dev-is genereerib selle `tim-init`** (`docker/tim-init/init.sh`, `openssl genpkey`), kui faili köites pole | **KRIITILINE PROD-NÕUE**: ilma püsiva Secretita tekib igal uuel köitel uus võti ja kõik kasutajad logitakse välja. Genereeri üks kord: `openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out jwt-private.pem`; SSM-i `/efti/<env>/tim/jwt-private-key` (base64), ExternalSecret → Secret, mount `/opt/tim/keys/jwt-private.pem` (`readOnly`). TIM jookseb UID **65532**-na (distroless): Secreti volume'il `defaultMode: 0400` + pod `securityContext.fsGroup: 65532`, või `0444`. Kui fail on olemas, `tim-init` seda üle ei kirjuta |
+| `TIM_INTROSPECT_RUUTER_SECRET` | `tim` (`introspection.clients[ruuter].client_secret_env`, `tim.yaml`) | Introspektsiooni-kliendi `ruuter` saladus (`required_client_auth: true`) | `dev-introspect-secret` | TIM nõuab väärtust käivitusel. Ruuteri DSL ei kutsu praegu introspektsiooni (`/jwt/userinfo` kasutab ühilduvusrežiimi), seega teist kohta, kuhu sama väärtus panna, hetkel ei ole — aga ära jäta dev-väärtust |
+| TARA CA (`SSL_CERT_FILE`) | `tim` (`/tim-ca-bundle/ca-bundle.pem`) | TARA-Mocki isesigneeritud CA usaldamine | `tim-init` kopeerib TARA-Mocki CA | **Prod (päris TARA):** sea `tim-init`-ile `SKIP_TARA_MOCK_CA=1` või jäta `tara-mock-vault` köide ära; ära sea `SSL_CERT_FILE`-i mock-bundle'ile — päris TARA sert usaldatakse vaike-CA-dega |
 
 ### 3.4 `registry/` — **konfiguratsioon, mis on ühtaegu saladus ja image'i sees**
 
