@@ -1,34 +1,30 @@
 # Platvormid
 
-Vaates **Platvormid** registreeritakse eFTI platvormid, nende ühendusandmed ja API võtmed.
+Vaade **Platvormid** näitab väravaga liidestatud eFTI platvorme ja nende ühendusandmeid. Vaade on **ainult lugemiseks**: platvorme ei lisata, muudeta ega kustutata haldusliidese kaudu ning API võtmeid haldusliideses ei genereerita.
 
 ![Platvormide nimekiri](images/05-platforms.png)
 
-## Platvormi lisamine
+## Kust platvormide andmed tulevad?
 
-1. Vajuta **Lisa**.
-2. Sisesta unikaalne platvormi ID ja baas-URL.
-3. Kui platvorm kasutab eDelivery ühendust, märgi **EDelivery** ning lisa sertifikaadid.
-4. Vajaduse korral lisa HTTP päised võtme ja väärtuse paaridena.
-5. Vajuta **Salvesta**.
+Platvormide register on repositooriumi kaustas `registry/platforms/` — üks YAML-fail platvormi kohta. Uue platvormi liitmine, ühendusandmete muutmine, API võtme vahetus ja platvormi välja lülitamine käivad muudatustaotluse ja uue versiooni paigaldamise kaudu. Pöördu tehnilise meeskonna poole.
 
-![Platvormi lisamise vorm](images/06-platform-form.png)
+## Veerud
 
-Kui baas-URL lõpeb `/msh`, käsitleb vorm ühendust eDelivery ühendusena.
+| Veerg | Tähendus |
+|---|---|
+| Platvormi ID | Platvormi tunnus registris. |
+| Baas URL | Platvormi REST-liidese aadress. |
+| EDelivery | ✅ tähendab, et platvormiga suheldakse eDelivery (AS4) kaudu; muidu REST-i kaudu. |
+| Päised | Väravast platvormi saadetavate lisapäiste arv. |
+| API võti | **Võti seadistatud**, kui platvormil on väravale saatmiseks API võti; **Võtit pole**, kui ei ole. Võtit ennast ei kuvata kunagi. |
+| Olek | **ONLINE** — platvorm saab andmeid saata ja andmepäringud suunatakse sinna. **KEELATUD** — platvorm ei autendi ja andmepäringutele vastatakse, nagu platvormi ei oleks. |
 
-## API võtme loomine
+## Platvormi andmete vaatamine
 
-1. Leia platvormi rida.
-2. Vajuta **Genereeri API võti**.
-3. Kopeeri kuvatud võti kohe turvalisse saladuste haldussüsteemi.
-4. Sulge aken alles pärast võtme talletamist.
+Vajuta rea lõpus **Detailid**. Aknas on baas-URL, sertifikaadid, päised ja API võtme olemasolu. Väljad on lukus.
 
-Täielikku võtit kuvatakse ainult üks kord. Uue võtme genereerimine muudab eelmise võtme kohe kehtetuks.
+![Platvormi andmed (ainult lugemiseks)](images/06-platform-form.png)
 
-## Muud tegevused
+## API võti
 
-- **Muuda** uuendab ühendusandmeid ja päiseid.
-- **Ping** kontrollib platvormi kättesaadavust.
-- **Kustuta** küsib kinnituse ja eemaldab platvormi aktiivsest vaatest.
-- Märkeruut **Välja lülitatud** takistab platvormi kasutamist.
-
+Platvormi API võti on registrifailis ning seda ei saa haldusliidesest vaadata ega uuesti genereerida. Kui võti läheb kaduma või lekib, pöördu tehnilise meeskonna poole: uus võti lisatakse registrisse, värav paigaldatakse uuesti ja võti edastatakse platvormi operaatorile turvalist kanalit pidi.

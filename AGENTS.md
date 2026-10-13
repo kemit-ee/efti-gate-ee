@@ -79,6 +79,9 @@ code/
   xml-mapper/           # XML↔JSON conversion (FTI004/009/010/019/021/025/029/030)
   core/                 # Shared: ResqlClient, Party types, XSD schemas
 tests/                  # IntelliJ HTTP Client test files (*.http) with assertions
+docs/confluence/        # Confluence (wiki.kemit.ee, space EFTI) pages are GENERATED from repo Markdown
+                        #   (deployment guide, user guide) by scripts/confluence-sync.py — edit the
+                        #   Markdown and re-run it; never edit those pages in Confluence. See its README.
 ```
 
 ## Registries (ADR-011) — a static file server, not a table and not an API
@@ -342,7 +345,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 ## Key gotchas
 
 - `constants.ini` uses compose-internal URLs (`http://ruuter:8086`); `.env` uses localhost URLs
-- Constants are `COPY`-ed into the image at build time with **no env substitution**, and `compose.override.yml` syncs only `DSL/` — so changing `constants.ini` or `ruuter.yaml` needs `docker compose up --build ruuter`. A `--watch` restart will not pick it up. (Before the `xroad` project was merged into the main Ruuter this also had to be kept in sync with a second `constants-xroad.ini`; that hazard is gone.)
+- `constants.ini` is **not** in the ruuter image: compose mounts it read-only at `/app/constants.ini`, and Ruuter has **no env substitution**, so it is read once at start — changing it needs `docker compose restart ruuter` (a `--watch` DSL sync does not reload it). It holds `TIM_ADMIN_TOKEN`, `INTERNAL_SERVICE_TOKEN` and `ARCHIVE_OPS_TOKEN`, so production mounts the whole file from a Secret (`docs/specs/deploy/resource-and-secrets-requirements.md` §3.2). `ruuter.yaml` *is* `COPY`-ed, so changing it needs `docker compose up --build ruuter`. (Before the `xroad` project was merged into the main Ruuter this also had to be kept in sync with a second `constants-xroad.ini`; that hazard is gone.)
 - `X-Road-Id` must be hexadecimal 8-4-4-4-12 UUID text: both real and mock guards use a tested RegExp and return 400 `INVALID_REQUEST_ID` for non-hex values. The adapter maps it to typed downstream UUID parameters.
 - Ruuter `http_codes_allow_list` must include any status you return (401, 403, 204 are not default)
 - `internal_requests.block_private_networks: false` in `ruuter.yaml` — auth DSLs call TIM/ReSQL by compose service name

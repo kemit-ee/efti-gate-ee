@@ -4,27 +4,26 @@
 
 Kontrolli, kas sinu isikukood on vaates **Kasutajad** registreeritud. Kui kasutaja on olemas, palu teisel administraatoril kontrollida, kas token on tühistatud, ning proovi uuesti autentida.
 
-## Värav või platvorm on OFFLINE
+## Värav või platvorm ei ole nimekirjas või on KEELATUD
 
-1. Kontrolli URL-i ja sertifikaate.
-2. Veendu, et partnerteenus on kättesaadav.
-3. Vajuta **Ping** ja vaata, kas olek muutub.
-4. Kui kontroll ebaõnnestub, jäta kirje alles ning edasta vea aeg ja partneri ID tehnilisele toele.
+Väravate, platvormide ja asutuste registrit haldusliidesest muuta ei saa. Kontrolli, kas kirje on repositooriumi kaustas `registry/` olemas ja kas olek on õige, ning pöördu tehnilise meeskonna poole. Muudatus jõuab väravasse alles uue versiooni paigaldamisega.
 
-## Sertifikaati ei saa salvestada
+## Partnervärav ei vasta
 
-Sertifikaat peab olema PEM-vormingus ja sisaldama plokki `BEGIN CERTIFICATE`. Kopeeri kogu sertifikaat koos algus- ja lõpureaga.
+1. Ava värava **Detailid** ja kontrolli eDelivery URL-i ja sertifikaati.
+2. Veendu partneriga, et nende teenus on kättesaadav ja et neil on Eesti värava kehtiv sertifikaat.
+3. Edasta vea aeg ja partneri värava ID tehnilisele toele.
 
-## API võti läks kaduma
+## API võti läks kaduma või lekkis
 
-Olemasolevat täielikku võtit ei saa uuesti vaadata. Genereeri platvormile uus võti, talleta see turvaliselt ja uuenda platvormi konfiguratsioon. Vana võti lakkab kohe töötamast.
+Võtit ei saa haldusliidesest vaadata ega uuesti genereerida. Teavita tehnilist meeskonda: uus võti lisatakse registrisse, värav paigaldatakse uuesti ja võti edastatakse platvormi operaatorile turvaliselt. Vana võti lakkab kehtimast uue versiooni paigaldamisel.
 
 ## Turvaline kasutamine
 
 - Logi jagatud arvutis alati välja.
 - Hoia API võtmeid ja sertifikaatide privaatvõtmeid saladuste haldussüsteemis.
-- Kontrolli enne kustutamist kirje ID-d.
-- Kasuta **KEELATUD** olekut, kui integratsioon tuleb ajutiselt peatada, kuid konfiguratsioon peab säilima.
+- Kontrolli enne kasutaja või saadetise kustutamist kirje ID-d.
+- Integratsiooni ajutiseks peatamiseks palu registris seada olekuks **KEELATUD** — konfiguratsioon säilib.
 - Anna pädevale asutusele ainult vajalikud andmete alamhulgad.
 
 ## Lisainfo

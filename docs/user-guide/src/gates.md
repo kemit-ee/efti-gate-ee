@@ -1,37 +1,28 @@
 # Väravad
 
-Vaates **Väravad** hallatakse teiste liikmesriikide väravaid ja vaadatakse nende ühenduse olekut.
+Vaade **Väravad** näitab teiste liikmesriikide väravaid, millega Eesti värav eDelivery (AS4) kaudu suhtleb, ning Eesti värava enda andmeid. Vaade on **ainult lugemiseks**: väravaid ei lisata, muudeta ega kustutata haldusliidese kaudu.
 
-![Väravate nimekiri ja tegevused](images/03-gates.png)
+![Väravate nimekiri](images/03-gates.png)
+
+## Kust väravate andmed tulevad?
+
+Väravate register on värava lähtekoodi repositooriumis kaustas `registry/gates/` — üks YAML-fail iga värava kohta. Faili muudetakse muudatustaotluse (pull request) kaudu ning muudatus jõuab väravasse alles uue versiooni paigaldamisega. Nii jääb igast registrimuudatusest jälg (kes, millal, miks) ja see läbib ülevaatuse. Taust: [ADR-011](https://github.com/kemit-ee/efti-gate-ee/blob/dev/docs/architecture/decisions/011-registries-as-signed-config.md), failivorming: [registry/README.md](https://github.com/kemit-ee/efti-gate-ee/blob/dev/registry/README.md).
+
+Kui partnerriigi värav tuleb lisada, selle URL või sertifikaat muutub või see tuleb välja lülitada, pöördu tehnilise meeskonna poole.
 
 ## Oleku tähendus
 
 | Olek | Tähendus |
 |---|---|
-| ONLINE | Viimane ühenduse kontroll õnnestus. |
-| OFFLINE | Ühenduse kontroll ei õnnestunud või väravat ei ole veel edukalt kontrollitud. |
-| KEELATUD | Värav on käsitsi välja lülitatud ja seda ei kasutata. |
+| ONLINE | Värav on kasutusel: sellega vahetatakse sõnumeid ja see on kaasatud piiriülesesse otsingusse. |
+| KEELATUD | Värav on registris välja lülitatud. Sellega ei vahetata sõnumeid ega saadeta sinna otsinguid. |
 
-Oleku värvilise tähise kohal hoides näeb viimase kontrolli aega.
+Olekut määrab ainult registrifail. Automaatset ühenduse kontrolli (ping) ei ole, seega olek ei muutu iseenesest.
 
-## Värava lisamine
+## Värava andmete vaatamine
 
-1. Vajuta **Lisa**.
-2. Sisesta värava ID ja vali riik.
-3. Sisesta eDelivery URL.
-4. Lisa eDelivery ja TLS sertifikaadid PEM-vormingus.
-5. Vajuta **Salvesta**.
+Vajuta rea lõpus **Detailid**. Avanevas aknas on värava ID, riik, eDelivery URL ning eDelivery ja TLS sertifikaadid. Väljad on lukus.
 
-![Värava lisamise vorm](images/04-gate-form.png)
+![Värava andmed (ainult lugemiseks)](images/04-gate-form.png)
 
-Pärast salvestamist proovib süsteem väravat pingida. Ebaõnnestunud ping ei kustuta kirjet; värav kuvatakse olekuga **OFFLINE**.
-
-## Värava muutmine ja kontrollimine
-
-- **Muuda** avab värava andmed. Värava ID-d muuta ei saa.
-- **Ping** käivitab kohe ühenduse kontrolli ja uuendab olekut.
-- Märkeruut **Välja lülitatud** peatab värava kasutamise.
-- **Kustuta** küsib kinnituse ja eemaldab värava aktiivsest vaatest.
-
-Nupp **Selle värava andmed** näitab Eesti värava andmeid, mida on vaja partneri eDelivery pääsupunkti seadistamisel.
-
+Nupp **Selle värava andmed** näitab Eesti värava enda kirjet. Neid andmeid (eDelivery URL ja sertifikaat) on vaja partneri eDelivery pääsupunkti seadistamisel.

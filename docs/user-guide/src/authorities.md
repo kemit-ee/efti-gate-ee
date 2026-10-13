@@ -1,24 +1,20 @@
 # Pädevad asutused
 
-Vaates **Pädevad asutused** määratakse, millised asutused võivad värava kaudu andmeid küsida ning millistele eFTI andmete alamhulkadele neil on ligipääs.
+Vaade **Pädevad asutused** näitab, millised asutused võivad X-Roadi kaudu värava andmeid pärida ja millistele eFTI andmete alamhulkadele neil on ligipääs. Vaade on **ainult lugemiseks**.
 
 ![Pädevate asutuste nimekiri](images/07-authorities.png)
 
-## Pädeva asutuse lisamine
+## Kust asutuste andmed tulevad?
 
-1. Vajuta **Lisa**.
-2. Sisesta asutuse ID, nimi ja registrikood.
-3. Lisa üks või mitu lubatud alamhulka.
-4. Vajuta **Salvesta**.
+Asutuste register on repositooriumi kaustas `registry/authorities/` — üks YAML-fail asutuse kohta. Asutus on aktiivne seni, kuni tema fail on olemas; eraldi olekut ei ole. Asutuse lisamine, alamhulkade muutmine ja ligipääsu äravõtmine (faili kustutamine) käivad muudatustaotluse ja uue versiooni paigaldamise kaudu. Pöördu tehnilise meeskonna poole.
 
-![Pädeva asutuse vorm ja alamhulgad](images/08-authority-form.png)
+## Asutuse andmete vaatamine
 
-Alamhulkade valik määrab, milliseid andmeosi asutusele väljastatakse. Anna asutusele ainult tööülesannete täitmiseks vajalikud alamhulgad.
+Vajuta rea lõpus **Detailid**. Aknas on asutuse ID, nimi, registrikood ja lubatud alamhulgad. Väljad on lukus.
 
-## Muutmine ja kustutamine
+![Pädeva asutuse andmed (ainult lugemiseks)](images/08-authority-form.png)
 
-- **Muuda** võimaldab nime, registrikoodi ja alamhulki uuendada. Asutuse ID jääb samaks.
-- **Kustuta** küsib kinnituse ja eemaldab asutuse aktiivsest vaatest.
+- **Registrikood** seob asutuse X-Roadi liikmekoodiga. Päring, mille X-Roadi liikmekood ei vasta täpselt ühele asutusele, lükatakse tagasi.
+- **Lubatud alamhulgad** määravad, milliseid andmeosi (EU01–EU07) asutusele väljastatakse. Tühi loend tähendab, et asutusele ei väljastata ühtegi alamhulka.
 
-Pärast õiguste muutmist kontrolli üle kogu alamhulkade loend, mitte ainult lisatud või eemaldatud väärtus.
-
+Õiguste muutmise taotlemisel kontrolli üle kogu alamhulkade loend, mitte ainult lisatav või eemaldatav väärtus. Anna asutusele ainult tööülesannete täitmiseks vajalikud alamhulgad.
