@@ -6,6 +6,7 @@ import klite.annotations.annotated
 import klite.http.httpClient
 import klite.json.JsonBody
 import klite.openapi.openApi
+import metrics.RequestMetrics
 import java.util.concurrent.TimeoutException
 
 fun main() {
@@ -16,6 +17,7 @@ fun main() {
     register<RequestLogger>(RequestLogger { ms ->
       "<" + attr<String?>("client") + "> " + defaultRequestLogFormatter(ms)
     })
+    register<RequestMetrics>(RequestMetrics())
   }
 
   Server(requestIdGenerator = RequestIdHandler(), registry = registry).apply {
@@ -28,6 +30,7 @@ fun main() {
 
     errors.on<TimeoutException>(StatusCode.GatewayTimeout)
 
+    metrics()
 
     context("/health") {
       get { "OK" }

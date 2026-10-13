@@ -80,7 +80,11 @@ class EDeliveryClient(
     val res = sendWithRetry(url, body)
 
     val resBody = res.body()
-    return if (res.statusCode() in 200..299) resBody else {
+    return if (res.statusCode() in 200..299) {
+      EDeliveryMetrics.outboundSuccess()
+      resBody
+    } else {
+      EDeliveryMetrics.outboundFailure()
       val reason = listOfNotNull(errorDetailRegex.from(resBody)?.trim(), faultReasonRegex.from(resBody)?.trim()).joinToString(" - ")
       throw IOException("eDelivery request failed with status ${res.statusCode()}: " + (reason.takeIf { it.isNotBlank() } ?: resBody))
     }
