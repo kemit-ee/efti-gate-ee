@@ -33,7 +33,9 @@ jobs:
       # registry/**/*.yml is converted to JSON at image build time by the same script, so this
       # validates the registry without building an image (ADR-011: the converter is the validator).
       - name: registry YAML validation
-        run: python3 scripts/registry-to-json.py
+        run: |
+          python3 scripts/registry-to-json.py
+          python3 tests/registry/test_registry_to_json.py
       - name: rich mock dataset XSD and field-coverage checks
         run: |
           sudo apt-get update -qq

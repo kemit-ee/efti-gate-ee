@@ -1,0 +1,44 @@
+mode: mock-http
+constants:
+  REGISTRY_URL: "{MOCK}"
+  RESQL_URL: "{MOCK}"
+
+tests:
+  - name: dataset-local treats a DISABLED platform as not found
+    setup:
+      mocks:
+        - url_matches: /platforms/off.json
+          method: GET
+          body: { id: "off", baseUrl: "http://off.example", status: "DISABLED" }
+    request:
+      method: POST
+      path: /efti/api/v1/dataset-local
+      headers:
+        content-type: application/json
+        x-internal-service-token: dev-internal-service-token-change-me
+        x-request-id: 0a11ce5e-0000-4d1d-8f00-0ec000000001
+      body: { uil: { gateId: "EU-EE", platformId: "off", datasetId: "d1" }, subsets: ["EU01"] }
+    expect:
+      status: 404
+      body_matches: { error: "Platform Not Found" }
+
+  - name: follow-up-local treats a DISABLED platform as not found
+    setup:
+      mocks:
+        - url_matches: /efti/insert_follow_up_log
+          method: POST
+          body: [{ id: 1 }]
+        - url_matches: /platforms/off.json
+          method: GET
+          body: { id: "off", baseUrl: "http://off.example", status: "DISABLED" }
+    request:
+      method: POST
+      path: /efti/api/v1/follow-up-local
+      headers:
+        content-type: application/json
+        x-internal-service-token: dev-internal-service-token-change-me
+        x-request-id: 0a11ce5e-0000-4d1d-8f00-0ec000000002
+      body: { uil: { gateId: "EU-EE", platformId: "off", datasetId: "d1" }, message: "hi", referenceIds: ["r1"] }
+    expect:
+      status: 404
+      body_matches: { error: "Platform Not Found" }

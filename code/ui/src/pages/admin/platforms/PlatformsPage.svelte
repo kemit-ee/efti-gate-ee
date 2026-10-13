@@ -14,7 +14,7 @@
   onMount(load)
 
   async function load() {
-    platforms = await api.get<Platform[]>('platforms')
+    platforms = await api.get<Platform[]>('platforms?limit=1000')
   }
 </script>
 

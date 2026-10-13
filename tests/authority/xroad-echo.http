@@ -1,7 +1,7 @@
 import ../admin/auth.http
 run #auth
 
-### Fixture: registry/authorities/auth-xroad-test.json (applied by registry-sync at startup)
+### Fixture: registry/authorities/auth-xroad-test.yml (served by the registry image)
 GET {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-test
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}

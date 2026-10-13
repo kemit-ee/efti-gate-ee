@@ -17,7 +17,7 @@ describe('AuthoritiesPage', () => {
     vi.clearAllMocks()
     authority = newAuthority()
     vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path === 'authorities') return Promise.resolve([authority])
+      if (path === 'authorities?limit=1000') return Promise.resolve([authority])
       return Promise.reject(new Error(`unexpected GET ${path}`))
     })
   })
@@ -25,7 +25,7 @@ describe('AuthoritiesPage', () => {
   it('loads authorities on mount', async () => {
     render(AuthoritiesPage)
 
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith('authorities'))
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('authorities?limit=1000'))
     await screen.findByText('PRIA')
     screen.getByText('Authorities (1)')
     screen.getByText('EU01')

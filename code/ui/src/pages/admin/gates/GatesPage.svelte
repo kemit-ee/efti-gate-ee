@@ -14,8 +14,7 @@
   onMount(load)
 
   async function load() {
-    gates = await api.get<Gate[]>('gates')
-    await api.get('gates/own')
+    gates = await api.get<Gate[]>('gates?limit=1000')
   }
 </script>
 

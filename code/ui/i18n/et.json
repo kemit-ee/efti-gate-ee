@@ -1,9 +1,7 @@
 {
   "statuses": {
     "ONLINE": "ONLINE",
-    "OFFLINE": "OFFLINE",
-    "DISABLED": "KEELATUD",
-    "DELETED": "KUSTUTATUD"
+    "DISABLED": "KEELATUD"
   },
   "xsdSupport": {
     "V0_9": "v0.9",
@@ -86,16 +84,7 @@
     "generateSecret": "Loo uus parool või token",
     "copyPastePassword": "Kopeeri kasutaja parool (te ei näe seda enam)",
     "copyPasteToken": "Kopeeri kasutaja bearer token (te ei näe seda enam)",
-    "createForAdmin": "Õnnestus! Nüüd looge tehniline kasutaja juurdepääsutokeni või administratiivse kasutaja saamiseks",
-    "addGate": "Lisa värav",
-    "addGates": "Lisa väravad",
-    "addPlatform": "Lisa platvorm",
-    "addPlatforms": "Lisa platvormid",
-    "addAuthority": "Lisa asutus",
-    "addAuthorities": "Lisa asutused",
-    "selectGate": "Vali värav...",
-    "selectPlatform": "Vali platvorm...",
-    "selectAuthority": "Vali asutus..."
+    "createForAdmin": "Õnnestus! Nüüd looge tehniline kasutaja juurdepääsutokeni või administratiivse kasutaja saamiseks"
   },
   "datasets": {
     "datasetId": "Andmekogu ID",

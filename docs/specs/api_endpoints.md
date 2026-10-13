@@ -42,11 +42,11 @@ mis on **teostatud**, mis on **puudu** ja millised on näidisissendid/väljundid
 |---|---|
 | **Auth (Admin)** | TARA OIDC JWT — `Authorization: Bearer <jwt>` (RS256, JWKS) |
 | **Auth (Authority API)** | TARA OIDC JWT — sama mehhanism, nõuab autentimist |
-| **Auth (Platform API)** | `X-Api-Key` päis (SHA-256 võrreldakse `platforms.api_key_hash`-iga, ADR-004) — **mitte** mTLS |
+| **Auth (Platform API)** | `X-Api-Key` päis, võrreldakse avatekstina `registry/platforms/*.yml` `apiKey`-ga; ainult `ONLINE` platvorm (ADR-004, muudetud ADR-011 §5) — **mitte** mTLS |
 | **Auth (Cron)** | Staatiline `ARCHIVE_OPS_TOKEN` env-muutuja |
 | **Health** | Autentimine puudub — avalik |
 | **Guard-failid** | Ainult kausta-tasemel `.guard.yml` jõustatakse (`template:` kutsed mööduvad guardist). `admin/.guard.yml` → üks projektitasemeline guard kogu `/admin/v1/**` jaoks (TARA JWT, `check-admin-authority`); `efti/api/v1/**` (kogu GET+POST, sh `authority/`) → **gate-internal only**, `X-Internal-Service-Token` (ADR-006) — **mitte** TARA/JWT ega avalik; ainult `efti/GET/api/v1/test/*` on erandkorras avalik; `platforms/.guard.yml` → üks projektitasemeline guard kogu `/platforms/v1/**` jaoks (X-Api-Key, ADR-004); `auth/POST/*` → avalik, `auth/GET/*` → autentimine nõutav (`check-user-authority`); vt `AGENTS.md` "Guard map" |
-| **Õigusmudel** | Kõik autentitud kasutajad saavad täieliku ligipääsu. Asutus ise autendib organisatsioonina X-Roadi kaudu (`authorities.registry_code`), mitte kasutajana. |
+| **Õigusmudel** | Kõik autentitud kasutajad saavad täieliku ligipääsu. Asutus ise autendib organisatsioonina X-Roadi kaudu (`registry/authorities/*.yml` `registryCode`), mitte kasutajana. |
 | **Veavastuse formaat** | RFC 7807 `application/problem+json` |
 | **`X-Request-ID`** | UUID päis kõigil muteerivaatel (POST/PUT/DELETE); duplikaat 10 min jooksul → 409 |
 | **Paginatsioon** | `?limit=100&offset=0`; kogus `X-Total-Count` päises |
@@ -63,24 +63,12 @@ graph LR
         H1["GET /health/live"]
         H2["GET /health/ready"]
         G1["GET /admin/v1/gates"]
-        G2["POST /admin/v1/gates"]
         G3["GET /admin/v1/gates/own"]
         G4["GET /admin/v1/gates/{id}"]
-        G5["PUT /admin/v1/gates/{id}"]
-        G6["DELETE /admin/v1/gates/{id}"]
-        G7["POST /admin/v1/gates/ping/{id}"]
         P1["GET /admin/v1/platforms"]
-        P2["POST /admin/v1/platforms"]
         P3["GET /admin/v1/platforms/{id}"]
-        P4["PUT /admin/v1/platforms/{id}"]
-        P5["DELETE /admin/v1/platforms/{id}"]
-        P6["POST /admin/v1/platforms/ping/{id}"]
-        P7["POST /admin/v1/platforms/api-key/{id}"]
         A1["GET /admin/v1/authorities"]
-        A2["POST /admin/v1/authorities"]
         A3["GET /admin/v1/authorities/{id}"]
-        A4["PUT /admin/v1/authorities/{id}"]
-        A5["DELETE /admin/v1/authorities/{id}"]
         U1["GET /admin/v1/users"]
         U2["POST /admin/v1/users"]
         U3["GET /admin/v1/users/{id}"]
@@ -107,7 +95,7 @@ graph LR
     end
 
     subgraph "❌ Puudub"
-        M4["POST /api/v1/admin/* (cron: archive/expire/ping-gates)"]
+        M4["POST /api/v1/admin/* (cron: archive/expire)"]
         M5["POST /api/v1/auth/local-token"]
         AU1["GET .../identifiers (pole DSL-i)"]
         PL4["GET .../datasets (pole DSL-i)"]
@@ -179,40 +167,39 @@ OK
 
 ## 4. Admin — Gates
 
-Kirjeldab eFTI värava (gate) registrit. Kõik kirjutused on append-only.
-Gate'i `id` peab vastama mustrile `^eu-[a-z]{2}[0-9]{2}$` (nt `eu-ee01`).
+Gate'ide register on **ainult loetav** ([ADR-011](../architecture/decisions/011-registries-as-signed-config.md)).
+Tõeallikas on `registry/gates/<id>.yml`, mis konverteeritakse build-ajal JSON-iks ja mida serveerib
+sisemine `registry` teenus. HTTP kirjutusteed (`POST`/`PUT`/`DELETE`, `ping`) ei ole — registri muudatus
+on PR + `registry` image'i build + deploy. Kirjutusmeetod registri teel annab **405**.
+
+Ühised reeglid (kehtivad ka §5 ja §6 kohta):
+
+- id-d võrreldakse tõstutundetult (DSL väiketähestab id enne päringut registrile);
+- puuduvad valikulised väljad jäetakse vastusest välja, mitte `null`-ina;
+- nimekiri on järjestatud id järgi ja lõigatakse DSL-is: `limit` (vaikimisi 20, max 1000), `offset` (vaikimisi 0);
+- registri teenuse rike → **502** `{"error": "Data layer unavailable"}`.
 
 ```mermaid
 sequenceDiagram
     participant Client
     participant Ruuter
-    participant ResQL
-    participant DB
+    participant Registry as registry (nginx, staatiline JSON)
 
-    Note over Client,DB: CREATE — insert RETURNS the row, no separate verify GET
-    Client->>Ruuter: POST /admin/v1/gates
-    Ruuter->>ResQL: POST /efti/insert_gate
-    ResQL->>DB: INSERT INTO gates … RETURNING
-    DB-->>ResQL: uus rida
-    ResQL-->>Ruuter: [{id, ...}]
-    Ruuter-->>Client: 201 {id, ...}
+    Client->>Ruuter: GET /admin/v1/gates?limit=20
+    Ruuter->>Registry: GET /gates.json
+    Registry-->>Ruuter: [kõik gate'id]
+    Ruuter-->>Client: 200 [lehekülg]
+    Client->>Ruuter: GET /admin/v1/gates/EU-EE
+    Ruuter->>Registry: GET /gates/eu-ee.json
+    Registry-->>Ruuter: {id, ...} või 404
+    Ruuter-->>Client: 200 {id, ...} / 404
 ```
 
 ---
 
 ### `GET /admin/v1/gates` — Loetle gates
 
-**Spec:** `GET /api/v1/gates`
 **Ruuter DSL:** `DSL/Ruuter/admin/GET/v1/gates.yml`
-
-**Query parameetrid:**
-
-| Parameeter | Tüüp | Vaikimisi | Märkus |
-|---|---|---|---|
-| `limit` | int | 20 | Max 1000 |
-| `offset` | int | 0 | |
-
-**Näidis:**
 
 ```
 GET /admin/v1/gates?limit=2&offset=0
@@ -220,215 +207,42 @@ GET /admin/v1/gates?limit=2&offset=0
 → 200 OK
 [
   {
-    "id": "eu-ee01",
+    "id": "EU-EE",
     "countryCode": "EE",
-    "eDeliveryUrl": "https://efti.ria.ee/services/msh",
-    "eDeliveryCert": null,
-    "tlsCert": null,
-    "status": "ONLINE",
-    "lastPingAt": "2026-04-23T10:00:00Z",
-    "isGateActive": true,
-    "createdAt": "2026-01-15T09:00:00Z"
+    "eDeliveryUrl": "http://edelivery:8081/services/msh",
+    "eDeliveryCert": "-----BEGIN CERTIFICATE-----\n...",
+    "status": "ONLINE"
   }
 ]
 ```
-
-> ⚠️ **Puudu spec-ist:** `X-Total-Count` päis pole veel teostatud.
-
----
-
-### `POST /admin/v1/gates` — Loo gate
-
-**Spec:** `POST /api/v1/gates`
-**Ruuter DSL:** `DSL/Ruuter/admin/POST/v1/gates.yml`
-**Voog:** INSERT (`insert_gate` RETURNS täisrea) → 201
-
-**Päringu keha:**
-
-| Väli | Tüüp | Kohustuslik | Märkus |
-|---|---|---|---|
-| `id` | string | ✅ | Muster `eu-[a-z]{2}[0-9]{2}` |
-| `countryCode` | string | ✅ | ISO 3166-1 alpha-2 |
-| `eDeliveryUrl` | string (uri) | ✅ | AS4 MSH endpoint |
-| `eDeliveryCert` | string\|null | ❌ | PEM-sertifikaat |
-| `tlsCert` | string\|null | ❌ | mTLS sertifikaat |
-| `status` | `ONLINE`\|`OFFLINE`\|`DISABLED` | ❌ | Vaikimisi `OFFLINE` |
-| `isGateActive` | boolean | ❌ | Vaikimisi `true` |
-
-```json
-// Päring
-POST /admin/v1/gates
-Content-Type: application/json
-
-{
-  "id": "eu-de01",
-  "countryCode": "DE",
-  "eDeliveryUrl": "https://efti-peer.bkg.bund.de/services/msh",
-  "eDeliveryCert": "-----BEGIN CERTIFICATE-----\nMIIC...-----END CERTIFICATE-----",
-  "status": "OFFLINE"
-}
-
-// Vastus 201 Created
-{
-  "id": "eu-de01",
-  "countryCode": "DE",
-  "eDeliveryUrl": "https://efti-peer.bkg.bund.de/services/msh",
-  "status": "OFFLINE",
-  "isGateActive": true,
-  "createdAt": "2026-04-23T11:00:00Z"
-}
-```
-
-> ⚠️ **Puudu spec-ist:** 409 Conflict kui `id` juba eksisteerib pole veel teostatud — duplikaat lisatakse uue reana.
 
 ---
 
 ### `GET /admin/v1/gates/own` — Oma gate
 
-**Spec:** `GET /api/v1/gates/own`
 **Ruuter DSL:** `DSL/Ruuter/admin/GET/v1/gates/own.yml`
 
-Loeb gate'i ID env-muutujast `OWN_GATE_ID` ja tagastab vastava kirje andmebaasist.
-
-```
-GET /admin/v1/gates/own
-
-→ 200 OK
-{
-  "id": "eu-ee01",
-  "countryCode": "EE",
-  "eDeliveryUrl": "https://efti.ria.ee/services/msh",
-  "status": "ONLINE",
-  "isGateActive": true
-}
-
-→ 404 Not Found (kui OWN_GATE_ID ei ole seatud või kirje puudub DB-st)
-{"error": "Not Found"}
-```
+Tagastab registrikirje `registry/gates/<OWN_GATE_ID>.yml`. Puuduv kirje → **404** `{"error": "Not Found"}`.
 
 ---
 
 ### `GET /admin/v1/gates/{gateId}` — Üks gate
 
-**Spec:** `GET /api/v1/gates/{gateId}`
 **Ruuter DSL:** `DSL/Ruuter/admin/GET/v1/gates.yml` (sama fail kui nimekiri — eristub `pathParams[0]` olemasoluga)
 
-Tagastab viimase rea `DISTINCT ON (id) ORDER BY created_at DESC` — sealhulgas soft-kustutatud gate (`isGateActive: false`).
-
-```
-GET /admin/v1/gates/eu-de01
-
-→ 200 OK
-{
-  "id": "eu-de01",
-  "countryCode": "DE",
-  "status": "ONLINE",
-  "isGateActive": true,
-  "createdAt": "2026-04-23T11:00:00Z"
-}
-
-→ 404 Not Found
-{"error": "Not Found"}
-```
-
----
-
-### `PUT /admin/v1/gates/{gateId}` — Uuenda gate
-
-**Spec:** `PUT /api/v1/gates/{gateId}`
-**Ruuter DSL:** `DSL/Ruuter/admin/PUT/v1/gates.yml`
-**Voog:** INSERT uus rida (`update_gate` RETURNS täisrea) → 200
-
-Päringu keha sama mis `POST /gates`.
-
-```json
-// Päring
-PUT /admin/v1/gates/eu-de01
-Content-Type: application/json
-
-{
-  "countryCode": "DE",
-  "eDeliveryUrl": "https://efti-peer-new.bkg.bund.de/services/msh",
-  "status": "ONLINE",
-  "isGateActive": true
-}
-
-// Vastus 200 OK
-{
-  "id": "eu-de01",
-  "eDeliveryUrl": "https://efti-peer-new.bkg.bund.de/services/msh",
-  "status": "ONLINE",
-  "isGateActive": true
-}
-```
-
----
-
-### `DELETE /admin/v1/gates/{gateId}` — Kustuta gate
-
-**Spec:** `DELETE /api/v1/gates/{gateId}`
-**Ruuter DSL:** `DSL/Ruuter/admin/DELETE/v1/gates.yml`
-**Voog:** INSERT rida `is_gate_active=false` (`soft_delete_gate` RETURNS tombstone-rea, kontrollitakse selle pealt) → 204
-
-```
-DELETE /admin/v1/gates/eu-de01
-
-→ 204 No Content   (keha puudub)
-
-→ 404 Not Found    (gateId ei eksisteeri)
-→ 500              (kustutus õnnestus aga tombstone-i kontroll ebaõnnestus)
-```
-
----
-
-### `POST /admin/v1/gates/ping/{gateId}` — Ping gate
-
-**Spec:** `POST /api/v1/gates/{gateId}/ping`
-**Ruuter DSL:** `DSL/Ruuter/admin/POST/v1/gates/ping.yml`
-
-> ℹ️ **Parandus:** doc väitis varem, et see on alati `501` stub — tegelikult on täielikult
-> teostatud: kutsub `[#EDELIVERY_URL]/api/v1/ping/{gateId}`, kirjutab `ONLINE`/`OFFLINE`
-> staatuse (`update_gate_ping`) ja tagastab uuendatud gate'i rea.
-
-```
-POST /admin/v1/gates/ping/eu-de01
-
-→ 200 OK   (ping õnnestus, status=ONLINE)
-{ "id": "eu-de01", "status": "ONLINE", ... }
-
-→ 404 Not Found   (gateId ei eksisteeri)
-→ 502 Bad Gateway (ping ebaõnnestus, status kirjutati OFFLINE)
-```
+Tundmatu või kustutatud (fail eemaldatud) id → **404** `{"error": "Not Found"}`.
 
 ---
 
 ## 5. Admin — Platforms
 
-Platform'i kirje seob platvormi `baseUrl`-i eDelivery sertifikaadiga.
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Ruuter
-    participant ResQL
-    participant DB
-
-    Note over Client,DB: CREATE — insert RETURNS the row, no separate verify GET
-    Client->>Ruuter: POST /admin/v1/platforms
-    Ruuter->>ResQL: POST /efti/insert_platform
-    ResQL->>DB: INSERT INTO platforms … RETURNING
-    DB-->>ResQL: uus rida
-    ResQL-->>Ruuter: [{id, ...}]
-    Ruuter-->>Client: 201 {id, ...}
-```
-
----
+Ainult loetav, allikas `registry/platforms/<id>.yml` (ADR-011, ühised reeglid §4). Registris on
+platvormi `apiKey` **avatekstina** (ADR-011 §5); admin-vastused eemaldavad selle alati ja lisavad
+tuletatud `hasApiKey`. Võtme rotatsioon = uus väärtus failis + build + deploy (`api-key` endpointi ei ole).
 
 ### `GET /admin/v1/platforms` — Loetle platforms
 
 **Ruuter DSL:** `DSL/Ruuter/admin/GET/v1/platforms.yml`
-
-**Query parameetrid:** `limit` (vaikimisi 20), `offset` (vaikimisi 0)
 
 ```
 GET /admin/v1/platforms
@@ -436,165 +250,30 @@ GET /admin/v1/platforms
 → 200 OK
 [
   {
-    "id": "plt-cargo-ee-001",
-    "baseUrl": "https://api.cargo-ee.com/efti/v1",
-    "supportsSubsetting": true,
-    "isPlatformActive": true,
-    "createdAt": "2026-03-01T08:00:00Z"
+    "id": "mock",
+    "baseUrl": "http://ruuter:8086/mock-platform",
+    "headers": {"X-Api-Key": "..."},
+    "status": "ONLINE",
+    "hasApiKey": true
   }
 ]
 ```
 
----
-
-### `POST /admin/v1/platforms` — Loo platform
-
-**Ruuter DSL:** `DSL/Ruuter/admin/POST/v1/platforms.yml`
-
-**Päringu keha:**
-
-| Väli | Tüüp | Kohustuslik | Märkus |
-|---|---|---|---|
-| `id` | string | ✅ | Platvormi identifikaator |
-| `baseUrl` | string (uri) | ✅ | REST API baas-URL |
-| `supportsSubsetting` | boolean | ❌ | Vaikimisi `true` |
-| `headers` | object | ❌ | Lisapäised (nt API võtmed) |
-| `eDeliveryCert` | string\|null | ❌ | AS4 sertifikaat PEM |
-| `tlsCert` | string\|null | ❌ | mTLS sertifikaat PEM |
-| `isPlatformActive` | boolean | ❌ | Vaikimisi `true` |
-
-```json
-// Päring
-POST /admin/v1/platforms
-Content-Type: application/json
-
-{
-  "id": "plt-cargo-ee-001",
-  "baseUrl": "https://api.cargo-ee.com/efti/v1",
-  "supportsSubsetting": true,
-  "headers": { "X-Api-Key": "secret-key-abc123" }
-}
-
-// Vastus 201 Created
-{
-  "id": "plt-cargo-ee-001",
-  "baseUrl": "https://api.cargo-ee.com/efti/v1",
-  "supportsSubsetting": true,
-  "isPlatformActive": true,
-  "createdAt": "2026-04-23T11:05:00Z"
-}
-```
-
----
-
 ### `GET /admin/v1/platforms/{platformId}` — Üks platform
 
-**Ruuter DSL:** `DSL/Ruuter/admin/GET/v1/platforms.yml`
-
-```
-GET /admin/v1/platforms/plt-cargo-ee-001
-
-→ 200 OK
-{
-  "id": "plt-cargo-ee-001",
-  "baseUrl": "https://api.cargo-ee.com/efti/v1",
-  "supportsSubsetting": true,
-  "isPlatformActive": true
-}
-```
-
----
-
-### `PUT /admin/v1/platforms/{platformId}` — Uuenda platform
-
-**Ruuter DSL:** `DSL/Ruuter/admin/PUT/v1/platforms.yml`
-
-Päringu keha sama mis POST. Voog: INSERT → 200 (`update_platform` RETURNS täisrea).
-
-```json
-// Vastus 200 OK
-{
-  "id": "plt-cargo-ee-001",
-  "baseUrl": "https://api.cargo-ee-v2.com/efti/v1",
-  "isPlatformActive": true
-}
-```
-
----
-
-### `DELETE /admin/v1/platforms/{platformId}` — Kustuta platform
-
-**Ruuter DSL:** `DSL/Ruuter/admin/DELETE/v1/platforms.yml`
-
-```
-DELETE /admin/v1/platforms/plt-cargo-ee-001
-
-→ 204 No Content
-```
-
----
-
-### `POST /admin/v1/platforms/ping/{platformId}` — Ping platform
-
-**Ruuter DSL:** `DSL/Ruuter/admin/POST/v1/platforms/ping.yml`
-
-> ℹ️ **Parandus:** doc väitis varem, et see on alati `501` stub — tegelikult on teostatud:
-> pingib `eDeliveryCert`-i olemasolul AS4 kaudu, muidu platvormi `baseUrl`-i otse.
-
-```
-POST /admin/v1/platforms/ping/plt-cargo-ee-001
-
-→ 200 OK / 502 Bad Gateway
-```
-
----
-
-### `POST /admin/v1/platforms/api-key/{platformId}` — Genereeri X-Api-Key
-
-**Ruuter DSL:** `DSL/Ruuter/admin/POST/v1/platforms/api-key.yml`
-
-> ℹ️ **Dokumenteerimata endpoint (ADR-004):** genereerib platvormile uue `X-Api-Key`
-> väärtuse, mida kasutatakse `platforms/` projekti (Platform API) autentimiseks —
-> vt [9.5 Platform API](#95-platform-api-x-api-key). Võti tagastatakse plaintekstina
-> ainult üks kord; hoitakse ainult SHA-256 räsina (`platforms.api_key_hash`).
-
-```
-POST /admin/v1/platforms/api-key/plt-cargo-ee-001
-
-→ 200 OK
-{ "apiKey": "..." }
-```
+Sama fail, sama kuju kui nimekirja element. Tundmatu id → **404**.
 
 ---
 
 ## 6. Admin — Authorities
 
-Pädev asutus (competent authority) on organisatsioon kellel on lubatud konkreetseid eFTI andmete alamhulki pärida.
-`subsets` väli kitsendab ligipääsu: ainult loetletud EU01–EU07 koodid on lubatud.
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Ruuter
-    participant ResQL
-    participant DB
-
-    Note over Client,DB: CREATE — insert RETURNS the row, no separate verify GET
-    Client->>Ruuter: POST /admin/v1/authorities
-    Ruuter->>ResQL: POST /efti/insert_authority
-    ResQL->>DB: INSERT INTO authorities … RETURNING
-    DB-->>ResQL: uus rida
-    ResQL-->>Ruuter: [{id, ...}]
-    Ruuter-->>Client: 201 {id, ...}
-```
-
----
+Ainult loetav, allikas `registry/authorities/<id>.yml` (ADR-011, ühised reeglid §4). Pädeval asutusel
+**ei ole staatust**: asutus on aktiivne, sest tema fail on olemas. `subsets` kitsendab ligipääsu
+(EU01–EU07; `[]` = õigusi pole). `registryCode` seob asutuse X-Road liikmekoodiga.
 
 ### `GET /admin/v1/authorities` — Loetle authorities
 
 **Ruuter DSL:** `DSL/Ruuter/admin/GET/v1/authorities.yml`
-
-**Query parameetrid:** `limit` (vaikimisi 20), `offset` (vaikimisi 0)
 
 ```
 GET /admin/v1/authorities
@@ -603,107 +282,16 @@ GET /admin/v1/authorities
 [
   {
     "id": "auth-mta",
-    "countryCode": "EE",
     "name": "Maksu- ja Tolliamet",
-    "subsets": ["EU01", "EU02", "EU05"],
-    "isAuthorityActive": true
+    "registryCode": "70000349",
+    "subsets": ["EU01", "EU02", "EU05"]
   }
 ]
 ```
 
----
-
-### `POST /admin/v1/authorities` — Loo authority
-
-**Ruuter DSL:** `DSL/Ruuter/admin/POST/v1/authorities.yml`
-
-**Päringu keha:**
-
-| Väli | Tüüp | Kohustuslik | Märkus |
-|---|---|---|---|
-| `id` | string | ✅ | Asutuse identifikaator, nt `"auth-mta"` |
-| `name` | string | ✅ | Asutuse nimi |
-| `registryCode` | string | ✅ | X-Roadi `memberCode` (`authorities.registry_code`) |
-| `subsets` | string[] | ✅ | Min 1; lubatud `EU01`–`EU07` |
-| `isAuthorityActive` | boolean | ❌ | Vaikimisi `true` |
-
-```json
-// Päring
-POST /admin/v1/authorities
-Content-Type: application/json
-
-{
-  "id": "auth-mta",
-  "name": "Maksu- ja Tolliamet",
-  "registryCode": "70000740",
-  "subsets": ["EU01", "EU02", "EU05"]
-}
-
-// Vastus 201 Created
-{
-  "id": "auth-mta",
-  "name": "Maksu- ja Tolliamet",
-  "registryCode": "70000740",
-  "subsets": ["EU01", "EU02", "EU05"],
-  "isAuthorityActive": true,
-  "createdAt": "2026-04-23T11:10:00Z"
-}
-```
-
-> ⚠️ **Doc parandus:** endpoint ei võta `countryCode` välja — asutus on seotud
-> X-Roadi `registryCode`-ga, mitte riigikoodiga.
->
-> ⚠️ **Resql piirang:** `subsets` array serialiseeritakse handleris `JSON.stringify(...)`-ga
-> ja konverteeritakse ResQL-i poolel `ARRAY(SELECT jsonb_array_elements_text(:subsets::jsonb))`.
-
----
-
 ### `GET /admin/v1/authorities/{authorityId}` — Üks authority
 
-**Ruuter DSL:** `DSL/Ruuter/admin/GET/v1/authorities.yml`
-
-```
-GET /admin/v1/authorities/auth-mta
-
-→ 200 OK
-{
-  "id": "auth-mta",
-  "name": "Maksu- ja Tolliamet",
-  "registryCode": "70000740",
-  "subsets": ["EU01", "EU02", "EU05"],
-  "isAuthorityActive": true
-}
-```
-
----
-
-### `PUT /admin/v1/authorities/{authorityId}` — Uuenda authority
-
-**Ruuter DSL:** `DSL/Ruuter/admin/PUT/v1/authorities.yml`
-
-Päringu keha sama mis POST. Voog: INSERT → 200 (`update_authority` RETURNS täisrea).
-
-```json
-// Vastus 200 OK
-{
-  "id": "auth-mta",
-  "name": "Maksu- ja Tolliamet (uuendatud)",
-  "subsets": ["EU01", "EU02", "EU03", "EU05"],
-  "isAuthorityActive": true
-}
-```
-
----
-
-### `DELETE /admin/v1/authorities/{authorityId}` — Kustuta authority
-
-**Ruuter DSL:** `DSL/Ruuter/admin/DELETE/v1/authorities.yml`
-
-```
-DELETE /admin/v1/authorities/auth-mta
-
-→ 204 No Content
-```
+Sama fail, sama kuju. Tundmatu id → **404**.
 
 ---
 
@@ -975,7 +563,6 @@ Autentimine: staatiline `ARCHIVE_OPS_TOKEN` bearer token.
 |---|---|---|
 | `POST` | `/api/v1/admin/archive` | Käivita arhiveerimise pühkimine (CronManager-ist) |
 | `POST` | `/api/v1/admin/expire-identifiers` | Märgi maantee-saadetised aegunuks (14-päeva kabotaaž) |
-| `POST` | `/api/v1/admin/ping-gates` | Kontrolli kõiki partnergate'e ja kirjuta ONLINE/OFFLINE read |
 
 ---
 
@@ -985,7 +572,7 @@ Autentimine: staatiline `ARCHIVE_OPS_TOKEN` bearer token.
 > kaitstud "Platform API"-t. Tegelikkuses on need **kaks erinevat asja**:
 >
 > 1. **`platforms/` on eraldi Ruuter projekt** (`/platforms/v1/**`), kaitstud `X-Api-Key`
->    päisega (ADR-004, SHA-256 võrdlus `platforms.api_key_hash`-iga) — **mitte mTLS-iga**.
+>    päisega (ADR-004/ADR-011 §5, avateksti-võrdlus registri `apiKey`-ga) — **mitte mTLS-iga**.
 >    Ainult saadetiste sisestamine (konsignmendi XML upload) käib siin.
 > 2. **`efti/api/v1/*`** (status, follow-up, ping) **ei ole platvormile avatud API** — see
 >    on **gate-internal only**, kaitstud `X-Internal-Service-Token`-iga (ADR-006), ligipääsetav
@@ -1049,7 +636,7 @@ Eesti riiklik laiendus (ADR-006). Teenindab **põhi-Ruuter** `xroad/` projektis,
 
 Auth: X-Roadi turvaserver tuvastab helistaja **organisatsiooni** mTLS-iga ja edastab selle
 `X-Road-Client` päises (`instance/memberClass/memberCode[/subsystemCode]`); `memberCode` seotakse
-`authorities.registry_code`-ga. `X-Road-Id` on kohustuslik (korrelatsioon). `X-Road-UserId` ei anna
+registri (`registry/authorities/*.yml`) `registryCode`-ga. `X-Road-Id` on kohustuslik (korrelatsioon). `X-Road-UserId` ei anna
 kunagi õigusi. Üks projektitasemeline `xroad/.guard.yml` katab kõik meetodid;
 `xroad/GET/health/.guard.yml` (`override_ancestors`) hoiab health-probe avalikuna.
 
@@ -1059,10 +646,10 @@ kunagi õigusi. Üks projektitasemeline `xroad/.guard.yml` katab kõik meetodid;
 | Meetod | Ruuter DSL | Ruuter tee | Kirjeldus |
 |---|---|---|---|
 | `POST` | `DSL/Ruuter/xroad/POST/v1/echo.yml` | `POST /xroad/v1/echo` | Ühenduvustest — kajastab X-Road päised, lahendatud asutuse rea ja keha |
-| `GET` | `DSL/Ruuter/xroad/GET/v1/subsets.yml` | `GET /xroad/v1/subsets` | Helistaja enda lubatud alamhulgad (`authorities.subsets`) `X-Road-Client` põhjal |
+| `GET` | `DSL/Ruuter/xroad/GET/v1/subsets.yml` | `GET /xroad/v1/subsets` | Helistaja enda lubatud alamhulgad (asutuse `subsets` registrist) `X-Road-Client` põhjal |
 | `GET` | `DSL/Ruuter/xroad/GET/health/ready.yml` | `GET /xroad/health/ready` | Valmisoleku proov (avalik, ilma X-Road päisteta) |
 | `POST` | `DSL/Ruuter/xroad/POST/v1/transport-means.yml` | `POST /xroad/v1/transport-means` | Veovahenditunnus sisse (numbrimärk / IMO / õhusõiduki reg / konteinernumber), väravale teadaolev identifikaatori-tasemel data välja. Sobitab `main_transport_id`, `used_equipment_ids` ja `carried_equipment_ids`. `scope`: `existence` (bool, alla sekundi) \| `local` (vaikimisi) \| `allgates` (local-first fan-out naaberväravatele, `x-poll-more` + polling `{poll: true}` sama `X-Road-Id`-ga). Nõuab `EU02`-t; andmestiku sisu ei tagasta |
-| `POST` | `DSL/Ruuter/xroad/POST/v1/dataset.yml` | `POST /xroad/v1/dataset` | Edastab `efti/POST/api/v1/authority/dataset`-ile; jõustab enne `authorities.subsets` (403 `FORBIDDEN_SUBSET`) |
+| `POST` | `DSL/Ruuter/xroad/POST/v1/dataset.yml` | `POST /xroad/v1/dataset` | Edastab `efti/POST/api/v1/authority/dataset`-ile; jõustab enne asutuse `subsets`-i (403 `FORBIDDEN_SUBSET`) |
 | `POST` | `DSL/Ruuter/xroad/POST/v1/search.yml` | `POST /xroad/v1/search` | Edastab `efti/POST/api/v1/authority/search`-ile; alamhulkade kontrolli ei ole (identifikaatoripäring) |
 | `POST` | `DSL/Ruuter/xroad/POST/v1/follow-up.yml` | `POST /xroad/v1/follow-up` | Edastab `efti/POST/api/v1/authority/follow-up`-ile |
 
@@ -1123,15 +710,12 @@ Kõik vead järgivad RFC 7807 `application/problem+json` formaati.
 
 | Väli | Tüüp | Märkus |
 |---|---|---|
-| `id` | string | Muster `eu-[a-z]{2}[0-9]{2}` |
+| `id` | string | Võrdub registrifaili nimega, nt `EU-EE` |
 | `countryCode` | string | ISO 3166-1 alpha-2 |
-| `eDeliveryUrl` | string | AS4 MSH endpoint |
-| `eDeliveryCert` | string\|null | PEM |
-| `tlsCert` | string\|null | PEM |
-| `status` | `ONLINE`\|`OFFLINE`\|`DISABLED` | Viimase pingi tulemus |
-| `lastPingAt` | datetime\|null | Viimane edukas ping |
-| `isGateActive` | boolean | `false` = pehme kustutus |
-| `createdAt` | datetime | Selle rea INSERT aeg |
+| `eDeliveryUrl` | string | AS4 MSH endpoint (absoluutne http(s)) |
+| `eDeliveryCert` | string | PEM; valikuline (puudumisel ei ole gate AS4 osapool) |
+| `tlsCert` | string | PEM; valikuline |
+| `status` | `ONLINE`\|`DISABLED` | Registri omand; `DISABLED` on täielik peatus |
 
 ### `Platform` (lugemine)
 
@@ -1139,23 +723,20 @@ Kõik vead järgivad RFC 7807 `application/problem+json` formaati.
 |---|---|---|
 | `id` | string | |
 | `baseUrl` | string | REST API baas-URL |
-| `headers` | object | Väljuvad lisapäised |
-| `eDeliveryCert` | string\|null | |
-| `tlsCert` | string\|null | |
-| `supportsSubsetting` | boolean | |
-| `isPlatformActive` | boolean | |
-| `createdAt` | datetime | |
+| `headers` | object | Väljuvad lisapäised; valikuline |
+| `eDeliveryCert` | string | Valikuline |
+| `tlsCert` | string | Valikuline |
+| `status` | `ONLINE`\|`DISABLED` | |
+| `hasApiKey` | boolean | Tuletatud; `apiKey` ise ei tule kunagi vastusesse |
 
 ### `Authority` (lugemine)
 
 | Väli | Tüüp | Märkus |
 |---|---|---|
 | `id` | string | |
-| `countryCode` | string | |
 | `name` | string | |
-| `subsets` | string[] | `EU01`–`EU07` |
-| `isAuthorityActive` | boolean | |
-| `createdAt` | datetime | |
+| `registryCode` | string | X-Road liikmekood |
+| `subsets` | string[] | `EU01`–`EU07`; `[]` = õigusi pole |
 
 ### `User` (lugemine)
 

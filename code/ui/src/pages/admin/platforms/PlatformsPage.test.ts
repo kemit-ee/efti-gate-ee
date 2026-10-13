@@ -16,7 +16,7 @@ function newPlatform(): Platform {
 
 function mockPlatformsOf(platforms: Platform[]) {
   vi.mocked(api.get).mockImplementation((path: string) => {
-    if (path === 'platforms') return Promise.resolve(platforms)
+    if (path === 'platforms?limit=1000') return Promise.resolve(platforms)
     return Promise.reject(new Error(`unexpected GET ${path}`))
   })
 }
@@ -33,7 +33,7 @@ describe('PlatformsPage', () => {
   it('loads platforms on mount', async () => {
     render(PlatformsPage)
 
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith('platforms'))
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('platforms?limit=1000'))
     await screen.findByText('mock')
     screen.getByText('Platforms (1)')
   })

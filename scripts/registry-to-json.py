@@ -32,6 +32,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 COUNTRY_CODE_RE = re.compile(r"^[A-Z]{2}$")
 SUBSET_RE = re.compile(r"^EU0[1-7]$")
@@ -40,6 +41,21 @@ PEM_RE = re.compile(r"^-----BEGIN CERTIFICATE-----\n(?:[A-Za-z0-9+/=]+\n)+-----E
 
 class RegistryError(Exception):
     """Anything that must fail the build."""
+
+
+def check_strings(entity, source, fields):
+    # YAML turns unquoted `70000099` into an int, `NO` into False and `0123` into an octal int; the
+    # DSL compares these fields with `===` against strings, so a non-string would silently never match.
+    for field in fields:
+        value = entity.get(field)
+        if value is not None and not isinstance(value, str):
+            raise RegistryError(f"{source}: {field} must be a string (quote it in YAML), got {type(value).__name__} {value!r}")
+
+
+def check_url(entity, source, field):
+    parts = urlsplit(entity[field])
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise RegistryError(f"{source}: {field} must be an absolute http(s) URL, got {entity[field]!r}")
 
 
 def check_certs(entity, source):
@@ -52,12 +68,15 @@ def check_certs(entity, source):
 def check_gate(entity, source):
     if not COUNTRY_CODE_RE.match(entity["countryCode"]):
         raise RegistryError(f"{source}: countryCode must be two upper-case letters, got {entity['countryCode']!r}")
+    check_url(entity, source, "eDeliveryUrl")
     check_certs(entity, source)
 
 
 def check_platform(entity, source):
-    if not isinstance(entity.get("headers", {}), dict):
-        raise RegistryError(f"{source}: headers must be a mapping")
+    headers = entity.get("headers", {})
+    if not isinstance(headers, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in headers.items()):
+        raise RegistryError(f"{source}: headers must be a mapping of strings to strings")
+    check_url(entity, source, "baseUrl")
     check_certs(entity, source)
     api_key = entity.get("apiKey")
     if api_key is not None and (not isinstance(api_key, str) or not api_key):
@@ -68,7 +87,11 @@ def check_authority(entity, source):
     subsets = entity["subsets"]
     if not isinstance(subsets, list) or not all(isinstance(s, str) and SUBSET_RE.match(s) for s in subsets):
         raise RegistryError(f"{source}: subsets must be a list of EU01..EU07 codes, got {subsets!r}")
+    if len(set(subsets)) != len(subsets):
+        raise RegistryError(f"{source}: subsets contains duplicates: {subsets!r}")
 
+
+STRING_FIELDS = ("id", "countryCode", "eDeliveryUrl", "baseUrl", "status", "eDeliveryCert", "tlsCert", "apiKey", "name", "registryCode")
 
 # Per registry: required fields, optional fields, allowed `status` values (None = the type has no
 # status field at all), and the type-specific validation hook.
@@ -107,6 +130,8 @@ def validate(kind, registry, source, entity):
     if missing:
         raise RegistryError(f"{source}: missing required key(s) {missing}")
 
+    check_strings(entity, source, [f for f in STRING_FIELDS if f in known])
+
     if entity["id"] != source.stem:
         raise RegistryError(f"{source}: id {entity['id']!r} does not match the file name (must be {source.stem!r})")
 
@@ -127,6 +152,10 @@ def load(kind, source_dir):
 
     import yaml
 
+    stray = sorted(p.name for p in directory.iterdir() if p.suffix != ".yml" and not p.name.startswith("."))
+    if stray:
+        raise RegistryError(f"{directory}: only <id>.yml files are allowed, found {stray}")
+
     entities = []
     # Ordered by id (the file stem), not by file name: '-' sorts before '.', so ordering by file name
     # would place `auth-xroad-tm-no-eu02.yml` before `auth-xroad-tm.yml` and break the "ordered by id"
@@ -138,10 +167,22 @@ def load(kind, source_dir):
             raise RegistryError(f"{path}: invalid YAML: {e}") from e
         entities.append(validate(kind, registry, path, entity))
 
-    ids = [e["id"] for e in entities]
+    # Case-insensitive: per-entity files are written under the lower-cased id, and ids are matched
+    # case-insensitively everywhere (PartyId, the DSL), so `EU-X` and `eu-x` are the same entity.
+    ids = [e["id"].lower() for e in entities]
     duplicates = sorted({i for i in ids if ids.count(i) > 1})
     if duplicates:
-        raise RegistryError(f"{directory}: duplicate id(s) {duplicates}")
+        raise RegistryError(f"{directory}: duplicate id(s) {duplicates} (ids are case-insensitive)")
+
+    # The platform guard answers 403 when one X-Api-Key matches several platforms, so a shared key
+    # would lock both out at runtime. The key itself is never printed.
+    owners = {}
+    for e in entities:
+        if e.get("apiKey") is not None:
+            owners.setdefault(e["apiKey"], []).append(e["id"])
+    shared = sorted(ids for ids in owners.values() if len(ids) > 1)
+    if shared:
+        raise RegistryError(f"{directory}: the same apiKey is used by several entries {shared}")
     return entities
 
 

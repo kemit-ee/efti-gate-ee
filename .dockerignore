@@ -1,0 +1,3 @@
+# Repo-root build context (GitLab images, compose services with context: .). The committed dev AS4
+# keystore must never enter an image layer; compose mounts it into edelivery instead.
+code/certs

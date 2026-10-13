@@ -12,8 +12,6 @@ FROM eclipse-temurin:25-jre-alpine
 RUN adduser -S user
 
 WORKDIR /app
-COPY code/certs certs
-RUN chmod a+r certs/own.p12
 RUN rm -fr /usr/sbin /bin/ch*
 
 ARG VERSION=dev

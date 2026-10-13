@@ -38,7 +38,7 @@ sequenceDiagram
   IS->>SS1: POST .../search/v1 { mainTransportId: EQ "123ABC" }
   SS1->>SS2: X-tee (mTLS), lisab X-Road-Client + X-Road-Id
   SS2->>GW: HTTP + X-Road-* päised
-  GW->>GW: Autendib: X-Road-Client → ACTIVE authority
+  GW->>GW: Autendib: X-Road-Client → registreeritud asutus
   GW->>DB: Otsib kohalikust registrist
 
   alt Leidub kohalikult
@@ -72,8 +72,8 @@ Sinu `X-Road-Client` on sinu organisatsiooni X-tee id. Kehtib nii 3-osaline
 
 | Nõue | Kes teeb |
 |---|---|
-| Sinu organisatsioon on väravas registreeritud ühe `ACTIVE` asutusena, `registry_code` = sinu äriregistri kood | värava operaator |
-| `authorities.subsets` on täidetud (nt `["EU01","EU05"]`) — vajalik `dataset`-i ja `transport-means`-i jaoks | värava operaator |
+| Sinu organisatsioon on väravas registreeritud täpselt ühe pädeva asutusena, `registryCode` = sinu äriregistri kood | värava operaator |
+| Asutuse `subsets` on täidetud (nt `["EU01","EU05"]`) — vajalik `dataset`-i ja `transport-means`-i jaoks | värava operaator |
 | Sinu kliendi-alamsüsteemil on X-tees access rights värava teenustele | RIA / turvaserveri haldus |
 
 ## Päised
@@ -82,7 +82,7 @@ Päised paneb turvaserver, mitte sina.
 
 | Päis | Kohustuslik | Roll |
 |---|---|---|
-| `X-Road-Client` | jah | Kredentsiaal. `instance/memberClass/memberCode[/subsystemCode]`. `memberCode` → `authorities.registry_code`. |
+| `X-Road-Client` | jah | Kredentsiaal. `instance/memberClass/memberCode[/subsystemCode]`. `memberCode` → asutuse `registryCode`. |
 | `X-Road-Id` | jah | Sõnumi id. Peab olema UUID. Logitakse korrelatsiooniks; ühtlasi `search`-i polling-võti. |
 | `X-Road-UserId` | ei | Lõppkasutaja isikukood. Ei anna õigusi (X-tee ei autendi seda). Mõeldud auditiks. |
 | `X-Road-Service`, `X-Road-Represented-Party`, `X-Road-Issue` | ei | Informatiivsed. |
@@ -104,7 +104,7 @@ Vastuse `Content-Type` on `application/json`. Vead on
 | Oma õiguste päring | `subsets` | ei | ei |
 | Veovahendi / veoseühiku otsing | `transport-means` | EU02 | ei (`scope: local`); `scope: allgates` → jah |
 | Saadetiste otsing | `search` | ei | jah |
-| Andmehulga päring | `dataset` | jah (`subsets ⊆ authorities.subsets`) | jah (kui `uil.gateId` ≠ eFTI värav) |
+| Andmehulga päring | `dataset` | jah (`subsets ⊆` asutuse `subsets`) | jah (kui `uil.gateId` ≠ eFTI värav) |
 | Follow-up sõnum | `follow-up` | ei | jah (kui `uil.gateId` ≠ eFTI värav) |
 
 ---
@@ -127,7 +127,7 @@ Content-Type: application/json
   "xRoadClient": "EE/GOV/70000097/tram",
   "xRoadId": "4894e35d-bf0f-44a6-867a-8e51f1daa7e0",
   "xRoadUserId": null,
-  "authority": { "id": "auth-mta", "registryCode": "70000097", "name": "...", "subsets": ["EU01","EU05"], "status": "ACTIVE" },
+  "authority": { "id": "auth-mta", "registryCode": "70000097", "name": "...", "subsets": ["EU01","EU05"] },
   "echo": { "hello": "world" }
 }
 ```
@@ -165,7 +165,7 @@ tunnuse (`main_transport_id`) ja veoseühikute tunnuste (`used_equipment_ids` /
 Dataset-sisu ei tagastata — selle saab pärida `dataset`-iga tagastatud `uil`-i abil. Tundmatu
 tunnus → `200` koos `found: 0` (mitte 404).
 
-Nõuab **EU02**-t `authorities.subsets`-is, muidu `403 FORBIDDEN_SUBSET`.
+Nõuab **EU02**-t asutuse `subsets`-is, muidu `403 FORBIDDEN_SUBSET`.
 
 Sobitamine on tähtsuurustundlik ja trimmimata. Tulemuste piirid on serveripoolsed: `scope: local`
 tagastab kuni 50 rida; `allgates` kohalik osa on piiratud otsingu lehesuurusega (praegu 20).
@@ -274,7 +274,7 @@ kureeritud kujus.
 | 400 | `BAD_REQUEST_GENERAL` | `identifier` puudub, tühi või pole string; või `scope` on tundmatu väärtus |
 | 400 | `INVALID_REQUEST_ID` | `X-Road-Id` pole UUID-kujuline |
 | 403 | `FORBIDDEN_SUBSET` | asutusel puudub EU02; keha kannab `deniedSubsets`, `permittedSubsets`, `authorityId` (otsitavat tunnust ei kajastata) |
-| 403 | `FORBIDDEN` | ei lahene üheks `ACTIVE` asutuseks |
+| 403 | `FORBIDDEN` | ei lahene täpselt üheks registreeritud asutuseks |
 | 502 | `GATEWAY_UNAVAILABLE` | värava andmekiht ebaõnnestus; keha kannab `failedStep` ning rajast sõltuvalt `resqlStatus` (kohalikud rajad), `coreStatus`/`coreResponse` (`allgates` edastus), `transportError` (core kättesaamatu) või `mapperStatus` (normaliseerimine) |
 
 ---
@@ -324,7 +324,7 @@ Turvaserver annab uuele päringule tavaliselt uue `X-Road-Id` — pollimiseks pe
 ### 5. `dataset` — andmehulga päring
 
 Edastab core Authority API-le pärast alamhulga-õiguse kontrolli. Kõik `subsets` peavad olema
-`authorities.subsets`-i sees. Osaliselt lubatud päring keeldutakse tervikuna — vaikset
+asutuse `subsets`-i sees. Osaliselt lubatud päring keeldutakse tervikuna — vaikset
 kitsendamist ei tehta. Oma õigusi vaata enne `subsets`-iga.
 
 **Päring**
@@ -356,7 +356,7 @@ Content-Type: application/json
 | 400 | `BAD_REQUEST_GENERAL` | keha lükkas andmekiht tagasi (nt `subsets` stringina, mitte massiivina) |
 | 400 | `INVALID_REQUEST_ID` | `X-Road-Id` pole UUID-kujuline |
 | 401 | `UNAUTHORIZED` | `X-Road-Client` puudub/vigane |
-| 403 | `FORBIDDEN` | ei lahene üheks `ACTIVE` asutuseks |
+| 403 | `FORBIDDEN` | ei lahene täpselt üheks registreeritud asutuseks |
 | 403 | `FORBIDDEN_SUBSET` | mõni soovitud alamhulk pole lubatud |
 | 502 | `GATEWAY_UNAVAILABLE` | `core` vastas ≥ 400 (`coreStatus` / `coreResponse` kannavad päris vastust) |
 
@@ -427,8 +427,8 @@ Kõva core-katkestus (ühendus keeldub, DNS, 70 s timeout) tuleb 500-na, mitte 5
 
 ## Kontrollnimekiri
 
-1. Küsi värava operaatorilt kinnitus, et sinu organisatsioon on `ACTIVE` asutusena
-   registreeritud õige `registry_code` ja `subsets`-iga; lase RIA-l anda kliendi-alamsüsteemile
+1. Küsi värava operaatorilt kinnitus, et sinu organisatsioon on pädeva asutusena
+   registreeritud õige `registryCode` ja `subsets`-iga; lase RIA-l anda kliendi-alamsüsteemile
    access rights värava teenustele.
 2. `echo` — kontrolli, et `authority.registryCode` ja `subsets` on õiged.
 3. `subsets` — vaata oma alamhulga-õigusi; hoia neid cache'is.

@@ -12,7 +12,7 @@ run #auth
 # 70000097 (the happy path); echo uses 70000099. A code no authority in the registry declares
 # resolves to nothing, which is the only "revoked" state left — there is no tombstone.
 
-### Fixture: registry/authorities/auth-xroad-subsets.json (applied by registry-sync at startup)
+### Fixture: registry/authorities/auth-xroad-subsets.yml (served by the registry image)
 GET {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-subsets
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
@@ -24,7 +24,7 @@ Authorization: Bearer {{adminToken}}
   })
 %}
 
-### Fixture: registry/authorities/auth-xroad-empty.json (applied by registry-sync at startup)
+### Fixture: registry/authorities/auth-xroad-empty.yml (served by the registry image)
 GET {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-empty
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
@@ -135,7 +135,7 @@ X-Road-Id: 0a11ce5e-0006-4d1d-8f6a-0ec200000006
 # pair — auth-xroad-ambig-a (EU01, EU02) and auth-xroad-ambig-b (EU03), both on 70000091 — so this case
 # is asserted on every run instead of being created and torn down, and no other fixture may reuse
 # 70000091.
-### Fixture: registry/authorities/auth-xroad-ambig-a.json (applied by registry-sync at startup)
+### Fixture: registry/authorities/auth-xroad-ambig-a.yml (served by the registry image)
 GET {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-ambig-a
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
@@ -147,7 +147,7 @@ Authorization: Bearer {{adminToken}}
   })
 %}
 
-### Fixture: registry/authorities/auth-xroad-ambig-b.json (applied by registry-sync at startup)
+### Fixture: registry/authorities/auth-xroad-ambig-b.yml (served by the registry image)
 GET {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-ambig-b
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}

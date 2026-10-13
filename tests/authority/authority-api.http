@@ -1,5 +1,5 @@
 ### Setup: upload a consignment to search for
-# X-Api-Key hashed and matched against platforms.api_key_hash by consignments.guard
+# X-Api-Key compared in plaintext with registry/platforms/mock.yml apiKey by platforms/.guard.yml
 POST {{RUUTER_URL}}/platforms/v1/consignments
 Content-Type: text/xml
 X-Api-Key: mock-secret-key

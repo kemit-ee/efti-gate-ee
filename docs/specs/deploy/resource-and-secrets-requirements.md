@@ -115,6 +115,133 @@ nginx (port 8080, avaldatud pordita) serveerib neid ruuterile ja edelivery'le.
   kunagi ingressi/reverse proxy kaudu avada.
 - Platvormi võtme rotatsioon = commit + `registry` image'i uuesti buildimine; runtime-endpoint'i ei ole.
 
+### 3.5 `edelivery` AS4 võtmehoidla (`own.p12`) — **Secret, mitte image'i sisu**
+
+`edelivery` image **ei sisalda** võtmehoidlat: `docker/edelivery/Dockerfile` ei kopeeri `code/certs`-i
+ja repo juure `.dockerignore` välistab selle. Ilma mount'itud failita **`edelivery` ei käivitu**
+(`KeyManager` loeb faili konstruktoris, vt `code/edelivery/src/edelivery/KeyManager.kt`). Repos olev
+`code/certs/own.p12` on **dev-võti** (`CN=EU-EE`, parool `changeit`), mida kasutab ainult
+`compose.yml` — seda ei tohi üheski teises keskkonnas kasutada.
+
+| Saladus | Tarbija | Otstarve | Dev väärtus | Märkus |
+|---|---|---|---|---|
+| `own.p12` (fail) | `edelivery`, loetakse asukohast `$KEYSTORE_DIR/own.p12` (vaikimisi `KEYSTORE_DIR=certs` → töökataloogis `/app/certs/own.p12`) | Värava enda AS4 privaatvõti + sertifikaat: **allkirjastab** väljuvad sõnumid ja **dekrüpteerib** sissetulevad | `code/certs/own.p12` (compose mount `./code/certs:/app/certs:ro`) | Keskkonnapõhine, iga keskkond oma võtmepaar |
+| `KEYSTORE_PASSWORD` | `edelivery` env | Võtmehoidla **ja** privaatvõtme parool (kood kasutab sama väärtust mõlemaks) | `changeit` | Kood langeb puudumisel tagasi väärtusele `changeit` — prod-is sea alati |
+
+#### Mida fail peab sisaldama
+
+- PKCS#12, üks kirje: privaatvõti + selle X.509 sertifikaat (RSA; dev kasutab 2048-bitist).
+- **Kirje alias (`friendlyName`) = `OWN_GATE_ID`** (nt `EU-EE`). Kui sellist aliast pole, proovib kood
+  aliast `poc` ja ilma selleta käivitus ebaõnnestub.
+- Privaatvõtme parool = võtmehoidla parool = `KEYSTORE_PASSWORD`.
+- Sertifikaat peab olema kehtiv (`notAfter` tulevikus): partnervärav kontrollib meie serti
+  `checkValidity()`-ga ja aegunud serdiga sõnumeid ei saadeta ega võeta vastu.
+
+#### Kust võtta
+
+AS4 usaldus põhineb **sertifikaadi kinnitamisel registris**, mitte CA-ahelal. Iga värav hoiab partneri
+avalikku serti oma `registry/gates/<partneri-id>.yml` väljas `eDeliveryCert`; selle vastu kontrollitakse
+partneri allkirja ja selle võtmega krüpteeritakse partnerile saadetav sõnum. Seega:
+
+1. **Võtmepaari genereerib värava operaator ise** (soovitatavalt turvalises keskkonnas või
+   HSM-is/KMS-is, mitte arendaja masinas). Privaatvõti ei lahku sellest keskkonnast muul kujul kui
+   `own.p12` Secretina.
+2. **Sertifikaat:**
+   - Tehniliselt sobib ka isesigneeritud sert, sest partnerid kinnitavad selle registris.
+   - Kui riiklik või partneritega kokku lepitud poliitika nõuab CA väljastatud serti (nt EL-i
+     usaldusnimekirjas olevalt usaldusteenuse osutajalt), esita CSR sellele CA-le.
+   - **Repo seda CA-d ei määra** — see on operaatori/partneritega kokkuleppe küsimus ja tuleb enne
+     tootmist otsustada.
+
+Näide, mis järgib sama kuju nagu `code/certs/generate.sh`:
+
+```bash
+OWN_GATE_ID=EU-EE                     # selle keskkonna värava id
+KEYSTORE_PASSWORD='<tugev juhuslik parool>'
+
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out own.key
+
+# a) isesigneeritud
+openssl req -new -x509 -key own.key -out own.crt -days 730 -subj "/CN=$OWN_GATE_ID"
+# b) või CA kaudu: openssl req -new -key own.key -out own.csr -subj "/CN=$OWN_GATE_ID"
+#    → saada own.csr CA-le, saad tagasi own.crt (PEM)
+
+openssl pkcs12 -export -out own.p12 -inkey own.key -in own.crt \
+  -name "$OWN_GATE_ID" -passout pass:"$KEYSTORE_PASSWORD"
+
+# kontroll: alias ja kehtivus
+openssl pkcs12 -in own.p12 -passin pass:"$KEYSTORE_PASSWORD" -nokeys -info | grep friendlyName
+openssl x509 -in own.crt -noout -subject -enddate
+```
+
+Pärast seda **hävita `own.key` lahtine koopia** — privaatvõti elab edasi ainult `own.p12`-s Secretis.
+
+#### Kuhu lisada — kolm kohta, mis peavad kokku sobima
+
+1. **Secret-hoidla (SSM Parameter Store / Vault) → Kubernetes Secret** (devops-repo, vt §7):
+   - SSM-is: `/efti/<env>/edelivery/keystore` (fail **base64-kujul**) ja
+     `/efti/<env>/edelivery/keystore-password`.
+   - `ExternalSecret` komponeerib neist Secreti `efti-edelivery-keystore` võtmetega `own.p12`
+     (`decodingStrategy: Base64`, nagu `ljvis2-devops`-i `xtr-keystore`) ja `KEYSTORE_PASSWORD`.
+   - Ilma ExternalSecretita (nt käsitsi testkeskkonnas):
+     ```bash
+     kubectl -n efti create secret generic efti-edelivery-keystore \
+       --from-file=own.p12=./own.p12 --from-literal=KEYSTORE_PASSWORD="$KEYSTORE_PASSWORD"
+     ```
+2. **`edelivery` Deployment** (devops-repo `edelivery` wrapper-chart) — mount'i fail ja anna parool:
+   ```yaml
+   env:
+     - name: KEYSTORE_DIR
+       value: /app/certs
+     - name: KEYSTORE_PASSWORD
+       valueFrom:
+         secretKeyRef: {name: efti-edelivery-keystore, key: KEYSTORE_PASSWORD}
+   volumeMounts:
+     - name: as4-keystore
+       mountPath: /app/certs
+       readOnly: true
+   volumes:
+     - name: as4-keystore
+       secret:
+         secretName: efti-edelivery-keystore
+         items: [{key: own.p12, path: own.p12}]
+         defaultMode: 0444   # konteiner jookseb mitte-root kasutajana `user`
+   ```
+3. **Avalik sert registrisse:**
+   - `own.crt` PEM-sisu läheb selle keskkonna `registry/gates/<OWN_GATE_ID>.yml` väljale
+     `eDeliveryCert` (YAML literaalplokina `|`).
+   - **Sama PEM tuleb anda igale partnervärava operaatorile**, et nad paneksid selle oma registrisse.
+     Ilma selleta ei saa partner meie allkirja kontrollida ega meile krüpteeritud sõnumit saata.
+   - Kui keskkonnas on loopback-testvärav (nagu dev-i `EU-MOCK`), saab see sama serdi.
+   - Pärast muutmist ehita `registry` image uuesti (vt §3.4).
+
+#### Kontroll pärast paigaldust
+
+`edelivery` logib käivitusel rea `partyId: <OWN_GATE_ID>, KeyIdentifier/SKI: …, SerialNumber: …`.
+`SerialNumber` peab võrduma käsu `openssl x509 -in own.crt -noout -serial` väärtusega (see on
+heksakujul, logis kümnendkujul). Kui rida puudub ja pod jääb taaskäivituste tsüklisse, on põhjus
+tavaliselt üks järgmistest:
+
+- fail puudub;
+- vale `KEYSTORE_PASSWORD`;
+- alias ei ole `OWN_GATE_ID`.
+
+#### Rotatsioon (sert aegub või võti lekib)
+
+Partnerid kontrollivad meid **oma registris oleva serdi järgi**, seega vahetus tuleb koordineerida:
+
+1. Genereeri uus võtmepaar ja `own.p12`.
+2. Saada uus `own.crt` partneritele ning lepi kokku vahetuse aeg.
+3. Samal ajal:
+   - uuenda Secret (SSM → ExternalSecret);
+   - uuenda oma `registry/gates/<OWN_GATE_ID>.yml` `eDeliveryCert`;
+   - ehita ja paigalda `registry` image;
+   - taaskäivita `edelivery`.
+4. Partnerid uuendavad oma registri.
+
+Vahepealsel ajal ebaõnnestuvad sõnumid nende partneritega, kelle registris on veel vana sert. Võtme
+lekke korral on see aken paratamatu (vt ADR-011 lahtine küsimus 4 — kiire release'i protsess).
+
 ---
 
 ## 4. Kaks eraldi andmebaasi — ära aja segi
@@ -132,18 +259,14 @@ Kummalgi oma parool, oma ühendusstring, oma migratsioonid (TIM ise teeb `auto_m
 
 ## 5. Liquibase kontekst — ära lase dev-seemet prod-i
 
-Kuus changeset'i on märgitud `context:dev` ja käivituvad ainult siis, kui Liquibase kontekstides on
-`dev`:
+Ainus `context:dev` changeset on `20260813-auth-seed.sql` (dev-kasutajad, sh Super Admin
+`60001019906`). Väravate/platvormide/asutuste seemneid andmebaasis enam ei ole — need on
+`registry/` failid (ADR-011, vt §3.4), ja **dev-fixture'id (sh `mock-secret-key`) jõuavad tootmisse
+`registry` image'i kaudu, kui `registry/` jäetakse enne buildi asendamata**.
 
-- `20260901-seed-own-gate.sql` — loob testvärava `EU-MOCK`
-- `20260813-auth-seed.sql` — dev-kasutajad
-- `20260814-mock-platform.sql` — mock-platvorm + mock-eDelivery platvorm
-- `20260902-platform-api-key.sql` — **mock-platvormi API võti on `mock-secret-key`**
-
-`DSL/Liquibase/liquibase.properties`-is on hetkel `liquibase.contexts: dev` — **kui see jääb
-prod-paigaldusse muutmata, saab mock-platvorm ja tema avalikult teadaolev API võti tootmisandmebaasi
-sisse**. Sea prod-is `LIQUIBASE_COMMAND_CONTEXTS` (või `--contexts=`) väärtusele, mis `dev`-i EI
-sisalda (nt tühi string).
+`DSL/Liquibase/liquibase.properties`-is on hetkel `liquibase.contexts: dev` — kui see jääb
+prod-paigaldusse muutmata, jõuavad dev-kasutajad tootmisandmebaasi. Sea prod-is
+`LIQUIBASE_COMMAND_CONTEXTS` (või `--contexts=`) väärtusele, mis `dev`-i EI sisalda (nt tühi string).
 
 ---
 

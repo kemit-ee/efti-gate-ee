@@ -13,7 +13,7 @@
   onMount(load)
 
   async function load() {
-    authorities = await api.get('authorities')
+    authorities = await api.get('authorities?limit=1000')
   }
 </script>
 

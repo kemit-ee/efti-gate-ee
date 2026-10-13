@@ -190,7 +190,7 @@ check_gates:
 
 assign_peers:
   assign:
-    peer_gates: "${gates_result.response.body.filter(g => g.status === 'ONLINE' && g.id !== '[#OWN_GATE_ID]')}"
+    peer_gates: "${gates_result.response.body.filter(g => g.status === 'ONLINE' && String(g.id).toLowerCase() !== '[#OWN_GATE_ID]'.toLowerCase())}"
   next: register_pending
 
 register_pending:

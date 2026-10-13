@@ -2,7 +2,7 @@
 -- eFTI Gate (EE) — Complete PostgreSQL Database Schema
 -- PostgreSQL 14+
 -- Author: KeMIT (Estonia)
--- Last revised: 2026-08-28
+-- Last revised: 2026-10-13 (ADR-011: gates/platforms/authorities are not in the database)
 --
 -- Setup:
 --   createdb efti
@@ -27,14 +27,14 @@
 --   row_id     UUID  primary key (auto, unique per row)
 --   <logical>  the previous "primary key" — now a non-unique logical
 --              identifier shared by all rows belonging to one entity
---              (e.g. gates.id, users.id, consignments.dataset_id)
+--              (e.g. users.id, consignments.dataset_id)
 --   created_at TIMESTAMPTZ — when this row was written
 --   created_by UUID — denormalised users.row_id of the actor (NULL for
 --              system events)
 --
 -- Reads use the DISTINCT ON (latest-row-per-logical-id) pattern:
 --   SELECT DISTINCT ON (id) *
---     FROM gates
+--     FROM users
 --     ORDER BY id, created_at DESC
 -- Indexed by (logical_id, created_at DESC) for fast latest lookup. The
 -- reads are still single-table — the no-JOIN rule holds.
@@ -52,6 +52,20 @@
 -- into archival storage. The live database thus stays lean while full
 -- history is preserved off-line. See `docs/specs/non-functional.md` and
 -- Epic 26 for the contract.
+--
+-- REGISTRIES ARE NOT IN THE DATABASE (ADR-011)
+-- ----------------------------------------------------------------------------
+-- Peer gates, platforms and competent authorities have no tables. Their single
+-- source of truth is the git folder `registry/{gates,platforms,authorities}/<id>.yml`,
+-- converted to JSON and validated at `registry` image build time
+-- (`scripts/registry-to-json.py`) and served read-only by nginx. The former
+-- `gates`, `platforms`, `authorities` tables, their read models and the
+-- `gate_status` / `authority_status` types were dropped by Liquibase changeset
+-- `20261009-drop-registry-tables.sql`. Columns below that hold a gate or platform
+-- id (`consignments.platform_id`, `consignments.gate_id`, `follow_up_log.*_id`)
+-- are denormalised registry ids with no database counterpart. See
+-- `docs/architecture/decisions/011-registries-as-signed-config.md` and
+-- `registry/README.md`.
 -- ============================================================================
 
 -- ============================================================================
@@ -59,21 +73,13 @@
 -- ============================================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";   -- UUID generation (uuid_generate_v4)
-CREATE EXTENSION IF NOT EXISTS "citext";      -- Case-insensitive text (gate/platform IDs)
+CREATE EXTENSION IF NOT EXISTS "citext";      -- Case-insensitive text (denormalised gate/platform IDs)
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";     -- Trigram fuzzy search for license plates
 CREATE EXTENSION IF NOT EXISTS "btree_gin";   -- GIN indexes on scalar types
 
 -- ============================================================================
 -- 1. CUSTOM TYPES (ENUMs)
 -- ============================================================================
-
-CREATE TYPE gate_status AS ENUM (
-  'ONLINE',    -- Gate/platform is reachable and accepting queries
-  'OFFLINE',   -- Gate/platform is unreachable (failed ping)
-  'DISABLED',  -- Gate/platform manually deactivated by administrator (visible in list)
-  'DELETED'    -- Soft-deleted by operator; hidden from list queries, row retained for audit
-);
-COMMENT ON TYPE gate_status IS 'Operational status of an eFTI gate or platform node';
 
 CREATE TYPE consignment_status AS ENUM (
   'active',    -- Registered and queryable by authorities
@@ -117,116 +123,17 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION get_app_user() IS 'Returns the current session''s logical actor UUID (users.row_id). Used to populate `created_by` on registry INSERTs. NULL for system actions (background jobs, anonymous events).';
+COMMENT ON FUNCTION get_app_user() IS 'Returns the current session''s logical actor UUID (users.row_id). Used to populate `created_by` on INSERTs. NULL for system actions (background jobs, anonymous events).';
 
 -- ============================================================================
 -- 3. OPERATIONAL TABLES (all append-only)
 -- ============================================================================
 
--- ----------------------------------------------------------------------------
--- 3.1 gates — registered eFTI gates (own + remote peers)
--- ----------------------------------------------------------------------------
--- Each registry change (status flip, ping result, e-delivery URL update,
--- certificate rotation) is a NEW row sharing the same `id`. Latest row wins.
-
-CREATE TABLE gates (
-  row_id          UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
-  id              CITEXT       NOT NULL,        -- logical identifier (e.g. eu-xx01); NOT unique
-  country_code    CHAR(2)      NOT NULL,
-  e_delivery_url  TEXT,
-  e_delivery_cert TEXT,
-  tls_cert        TEXT,
-  status          gate_status  NOT NULL,
-  last_ping_at    TIMESTAMPTZ,
-  created_by      UUID,                          -- denormalised users.row_id of actor (NULL for ping job)
-  created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-
-  CONSTRAINT gates_id_format CHECK (id ~ '^eu-[a-z]{2}[0-9]{2}$'),
-  CONSTRAINT gates_country_format CHECK (country_code ~ '^[A-Z]{2}$')
-);
-
-COMMENT ON TABLE  gates IS 'Registry of eFTI gates (own + remote peers). Append-only: each registry change (status flip, ping, URL/cert update) is a new row with the same id. The latest row by created_at is the gate''s current state. Cron-archived by CronManager — see Epic 26.';
-COMMENT ON COLUMN gates.row_id          IS 'Synthetic primary key, unique per row (one entity has many rows over time)';
-COMMENT ON COLUMN gates.id              IS 'Logical gate identifier in eu-{cc}{nn} format (e.g. eu-xx01). Many rows can share this id over time; latest wins.';
-COMMENT ON COLUMN gates.country_code    IS 'ISO 3166-1 alpha-2 country code';
-COMMENT ON COLUMN gates.e_delivery_url  IS 'AS4 access-point URL for inbound G2G messages';
-COMMENT ON COLUMN gates.e_delivery_cert IS 'Public certificate (PEM) used to verify AS4 messages from this gate';
-COMMENT ON COLUMN gates.tls_cert        IS 'Public TLS certificate (PEM) used to verify the gate''s HTTPS endpoint';
-COMMENT ON COLUMN gates.status          IS 'Värava tööseisund hetkel: ONLINE — aktiivne ja kättesaadav; OFFLINE — ping ebaõnnestus; DISABLED — halduslikult välja lülitatud (nähtav loendis); DELETED — pehme kustutus (operaatori poolt eemaldatud, rida säilib auditiks).';
-COMMENT ON COLUMN gates.last_ping_at    IS 'Timestamp of the latest successful ping that produced this row. NULL if this row pre-dates first ping.';
-COMMENT ON COLUMN gates.created_by      IS 'Denormalised users.row_id of the actor that wrote this row. NULL for system events (ping job, registry sync).';
-COMMENT ON COLUMN gates.created_at      IS 'When this row was inserted. Latest created_at per id is the current state.';
-
-CREATE INDEX idx_gates_id_latest    ON gates (id, created_at DESC);
-CREATE INDEX idx_gates_status       ON gates (status);
-CREATE INDEX idx_gates_country      ON gates (country_code);
+-- Gates, platforms and authorities are not tables — see "REGISTRIES ARE NOT IN
+-- THE DATABASE (ADR-011)" in the header.
 
 -- ----------------------------------------------------------------------------
--- 3.2 platforms — registered eFTI platforms
--- ----------------------------------------------------------------------------
-
-CREATE TABLE platforms (
-  row_id          UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
-  id              CITEXT       NOT NULL,    -- logical identifier; NOT unique
-  base_url        TEXT,
-  headers         JSONB        NOT NULL DEFAULT '{}'::jsonb,
-  e_delivery_cert TEXT,
-  tls_cert        TEXT,
-  status          gate_status  NOT NULL DEFAULT 'ONLINE',
-  created_by      UUID,
-  created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
-);
-
-COMMENT ON TABLE  platforms IS 'Registry of eFTI platforms registered with this gate. Append-only: each edit is a new row sharing the same id; latest wins. status=DELETED represents logical deletion.';
-COMMENT ON COLUMN platforms.row_id              IS 'Synthetic primary key, unique per row';
-COMMENT ON COLUMN platforms.id                  IS 'Logical platform identifier (e.g. plt-xxx-001). Many rows can share this id over time.';
-COMMENT ON COLUMN platforms.base_url            IS 'Platform''s REST API base URL';
-COMMENT ON COLUMN platforms.headers             IS 'Custom headers (e.g. API key) the gate sends with platform requests';
-COMMENT ON COLUMN platforms.e_delivery_cert     IS 'Public certificate (PEM) for AS4 communication with this platform';
-COMMENT ON COLUMN platforms.tls_cert            IS 'Public TLS certificate (PEM) for HTTPS communication';
-COMMENT ON COLUMN platforms.status IS 'Platvormi tööseisund hetkel: ONLINE — aktiivne ja kättesaadav; OFFLINE — ping ebaõnnestus; DISABLED — halduslikult välja lülitatud (nähtav loendis); DELETED — pehme kustutus (operaatori poolt eemaldatud, rida säilib auditiks).';
-COMMENT ON COLUMN platforms.created_by          IS 'users.row_id of the actor that wrote this row';
-COMMENT ON COLUMN platforms.created_at          IS 'When this row was inserted';
-
-CREATE INDEX idx_platforms_id_latest    ON platforms (id, created_at DESC);
-CREATE INDEX idx_platforms_status       ON platforms (status);
-
--- ----------------------------------------------------------------------------
--- 3.3 authorities — registered competent authorities
--- ----------------------------------------------------------------------------
-
-CREATE TABLE authorities (
-  row_id        UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
-  id            CITEXT       NOT NULL,
-  name          TEXT         NOT NULL,
-  country_code  CHAR(2)      NOT NULL,
-  description   TEXT,
-  subsets       TEXT[]       NOT NULL DEFAULT ARRAY[]::TEXT[],
-  is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
-  created_by    UUID,
-  created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-
-  CONSTRAINT authorities_country_format CHECK (country_code ~ '^[A-Z]{2}$'),
-  CONSTRAINT authorities_subsets_valid  CHECK (subsets <@ ARRAY['EU01','EU02','EU03','EU04','EU05','EU06','EU07']::text[])
-);
-
-COMMENT ON TABLE  authorities IS 'Registry of competent authorities. Append-only: each edit is a new row sharing the same id; latest wins. The subsets column declares which eFTI data subsets this authority is permitted to access.';
-COMMENT ON COLUMN authorities.row_id        IS 'Synthetic primary key, unique per row';
-COMMENT ON COLUMN authorities.id            IS 'Logical authority identifier (e.g. auth-mta). Many rows over time.';
-COMMENT ON COLUMN authorities.name          IS 'Human-readable name (e.g. "Estonian Tax and Customs Board")';
-COMMENT ON COLUMN authorities.country_code  IS 'ISO 3166-1 alpha-2 country code';
-COMMENT ON COLUMN authorities.description   IS 'Free-form description; null when unset';
-COMMENT ON COLUMN authorities.subsets       IS 'eFTI subsets this authority is permitted to request. Constrained to EU01..EU07.';
-COMMENT ON COLUMN authorities.is_active     IS 'Logical-deletion flag';
-COMMENT ON COLUMN authorities.created_by    IS 'users.row_id of the actor that wrote this row';
-COMMENT ON COLUMN authorities.created_at    IS 'When this row was inserted';
-
-CREATE INDEX idx_authorities_id_latest ON authorities (id, created_at DESC);
-CREATE INDEX idx_authorities_country   ON authorities (country_code);
-CREATE INDEX idx_authorities_active    ON authorities (is_active) WHERE is_active = TRUE;
-
--- ----------------------------------------------------------------------------
--- 3.4 users — gate operators, platform users, authority users, gate users
+-- 3.1 users — gate administrators
 -- ----------------------------------------------------------------------------
 -- A logical user is identified by `id` (UUIDv4 generated at creation). Every
 -- credential rotation or status flip INSERTs a new row sharing
@@ -244,12 +151,12 @@ CREATE TABLE users (
   created_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-COMMENT ON TABLE  users IS 'Human users of the gate (gate admins and the single break-glass local-admin row). Append-only: every credential rotation or status flip INSERTs a new row with the same id. Primary auth is TARA OIDC; the gate matches the JWT `sub` claim against `tara_sub` to resolve a JWT to its users row. Platform identity is NOT modelled here (Platform API uses mTLS against platforms.e_delivery_cert); G2G identity is at the AS4 access point.';
+COMMENT ON TABLE  users IS 'Human users of the gate (gate admins and the single break-glass local-admin row). Append-only: every credential rotation or status flip INSERTs a new row with the same id. Primary auth is TARA OIDC; the gate matches the JWT `sub` claim against `tara_sub` to resolve a JWT to its users row. Platform identity is NOT modelled here (Platform API uses the X-Api-Key held in registry/platforms/*.yml, ADR-011); G2G identity is at the AS4 access point.';
 COMMENT ON COLUMN users.row_id            IS 'Synthetic primary key, unique per row';
 COMMENT ON COLUMN users.id                IS 'Logical user identifier (UUID). Many rows over time; latest wins.';
 COMMENT ON COLUMN users.tara_sub          IS 'The `sub` value the gate matches against on every JWT validation. For TARA-issued JWTs this is the Estonian PIC. For the single break-glass local-admin row it is the reserved literal ''local-admin'' (lower-case, never collides with a PIC). Never NULL — the lookup path is uniform across TARA and break-glass JWTs.';
 COMMENT ON COLUMN users.name              IS 'Display name';
-COMMENT ON COLUMN users.secret_hash       IS 'bcrypt hash of the break-glass local-admin password. NULL for the typical user — primary auth is TARA-issued OIDC JWT (Authority + Admin) or the platform''s eDelivery AP X.509 cert (Platform). Populated only on the single local-root row used during TARA outages and initial bootstrap; the break-glass path is exposed via POST /api/v1/auth/local-token, default-disabled (LOCAL_ADMIN_FALLBACK_ENABLED=false).';
+COMMENT ON COLUMN users.secret_hash       IS 'bcrypt hash of the break-glass local-admin password. NULL for the typical user — primary auth is TARA-issued OIDC JWT (Authority + Admin) or the platform''s X-Api-Key from registry/platforms/*.yml (Platform). Populated only on the single local-root row used during TARA outages and initial bootstrap; the break-glass path is exposed via POST /api/v1/auth/local-token, default-disabled (LOCAL_ADMIN_FALLBACK_ENABLED=false).';
 COMMENT ON COLUMN users.token_revoked_at  IS 'Per-user broadcast revocation marker. POST /api/v1/users/{userId}/revoke-token INSERTs a new users row with this column set to NOW(); on JWT validation the gate rejects any presented JWT whose `iat` claim predates the resolved user''s latest token_revoked_at. Distinct from the per-jti `sessions` denylist (which targets a specific JWT, e.g. on POST /api/v1/auth/logout); this column targets all currently-issued JWTs for the user. NULL means no broadcast revocation has occurred.';
 COMMENT ON COLUMN users.is_active     IS 'Logical-deletion flag';
 COMMENT ON COLUMN users.created_by    IS 'users.row_id of the actor that wrote this row (the admin creating/editing). NULL for self-registration / TARA-on-first-login flows.';
@@ -260,7 +167,7 @@ CREATE INDEX idx_users_tara_sub     ON users (tara_sub, created_at DESC);
 CREATE INDEX idx_users_active       ON users (is_active) WHERE is_active = TRUE;
 
 -- ----------------------------------------------------------------------------
--- 3.5 consignments — registered freight identifier metadata (the hot table)
+-- 3.2 consignments — registered freight identifier metadata (the hot table)
 -- ----------------------------------------------------------------------------
 -- Most-queried table. Append-only: re-registration by the platform, status
 -- transitions (active → inactive by IdentifierExpirationJob, → deleted by
@@ -308,8 +215,8 @@ CREATE TABLE consignments (
 COMMENT ON TABLE  consignments IS 'Stored consignment identifier metadata. Append-only: re-uploads, status flips (active → inactive → deleted) all INSERT new rows with the same dataset_id. Authority queries SELECT DISTINCT ON (dataset_id) via denormalised search columns — no JOIN required.';
 COMMENT ON COLUMN consignments.row_id              IS 'Synthetic primary key, unique per row';
 COMMENT ON COLUMN consignments.dataset_id          IS 'Logical dataset UUID assigned by the platform; many rows over time. Latest by created_at is current.';
-COMMENT ON COLUMN consignments.platform_id         IS 'Logical platform.id at row-write time. Denormalised; the latest platforms row for this id is the current platform.';
-COMMENT ON COLUMN consignments.gate_id             IS 'Logical gate.id at row-write time (this gate''s id). Denormalised.';
+COMMENT ON COLUMN consignments.platform_id         IS 'Platform id at row-write time. Denormalised; the platform itself lives in registry/platforms/<id>.yml (ADR-011), not in the database.';
+COMMENT ON COLUMN consignments.gate_id             IS 'Gate id at row-write time (this gate''s id). Denormalised; gates live in registry/gates/<id>.yml (ADR-011).';
 COMMENT ON COLUMN consignments.xml                 IS 'Identifier XML payload as received from the platform (per consignment-identifier.xsd)';
 COMMENT ON COLUMN consignments.status              IS 'Lifecycle status snapshot at row-write time';
 COMMENT ON COLUMN consignments.transport_mode      IS 'Transport mode extracted from XML mainCarriageTransportMovement[1]/modeCode';
@@ -436,7 +343,7 @@ CREATE TABLE jobs_execution_log (
 
 COMMENT ON TABLE  jobs_execution_log IS 'Final report of each scheduled job execution. INSERT-only at completion (or failure). No running-state row.';
 COMMENT ON COLUMN jobs_execution_log.row_id      IS 'Synthetic primary key';
-COMMENT ON COLUMN jobs_execution_log.job_name    IS 'Logical job name (e.g. "ping-job", "expiry-job", "archival-trigger")';
+COMMENT ON COLUMN jobs_execution_log.job_name    IS 'Logical job name (e.g. "expiry-job", "archival-trigger")';
 COMMENT ON COLUMN jobs_execution_log.started_at  IS 'When the job execution actually began';
 COMMENT ON COLUMN jobs_execution_log.finished_at IS 'When the job execution completed or failed';
 COMMENT ON COLUMN jobs_execution_log.status      IS 'completed or failed';
@@ -497,10 +404,10 @@ CREATE TABLE audit_log (
   created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-COMMENT ON TABLE  audit_log IS 'High-level user-action audit trail (login, search, dataset request, follow-up sent, registry mutation, etc.). INSERT-only.';
+COMMENT ON TABLE  audit_log IS 'High-level user-action audit trail (login, search, dataset request, follow-up sent, registry read, user change, etc.). INSERT-only.';
 COMMENT ON COLUMN audit_log.row_id      IS 'Synthetic primary key';
 COMMENT ON COLUMN audit_log.user_id     IS 'Logical users.id of the actor. NULL for system actions or pre-authentication events.';
-COMMENT ON COLUMN audit_log.action      IS 'Action verb (login, login_failed, search_identifiers, request_dataset, send_follow_up, register_platform, etc.)';
+COMMENT ON COLUMN audit_log.action      IS 'Action verb (login, login_failed, search_identifiers, request_dataset, send_follow_up, platform.read, user.create, etc.)';
 COMMENT ON COLUMN audit_log.resource    IS 'Resource type touched (dataset, identifier, platform, gate, user, …)';
 COMMENT ON COLUMN audit_log.resource_id IS 'Identifier of the resource (UUID, plate string, gate ID, …); NULL for collection-level actions';
 COMMENT ON COLUMN audit_log.ip_address  IS 'Source IP address (INET supports v4 and v6)';
@@ -568,7 +475,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT  ON SEQUENCES TO d
 -- Explicit grants for `app` — SELECT + INSERT only on every table. No
 -- UPDATE, no DELETE. Period.
 GRANT SELECT, INSERT ON
-  gates, platforms, authorities, users, consignments,
+  users, consignments,
   request_id_cache, sessions, jobs_execution_log,
   follow_up_log, audit_log
   TO app;
@@ -578,7 +485,7 @@ GRANT SELECT, INSERT ON
 -- No INSERT, no UPDATE. The archival worker reads non-latest rows, copies
 -- them to archival storage, then DELETEs the same rows in batches.
 GRANT SELECT, DELETE ON
-  gates, platforms, authorities, users, consignments,
+  users, consignments,
   request_id_cache, sessions, jobs_execution_log,
   follow_up_log
   TO db_archiver;
@@ -589,8 +496,7 @@ GRANT SELECT ON audit_log TO db_archiver;
 -- ----------------------------------------------------------------------------
 -- The values below are illustrative examples that show the row shape and
 -- the relationships between tables. They are NOT prescriptive: every gate
--- id, platform id, authority id, PIC, hostname, and agency name in
--- this section is intended to be replaced by the operator with their real
+-- id, platform id, PIC and hostname in this section is intended to be replaced by the operator with their real
 -- deployment values before this seed runs in any non-throwaway environment.
 -- ----------------------------------------------------------------------------
 -- DO NOT load this seed block in production. Use it as a template for a
@@ -610,30 +516,14 @@ INSERT INTO users (id, tara_sub, name, secret_hash) VALUES
   ('a0000000-0000-4000-8000-000000000003', 'EE00000000002',  'MTA Inspector',           NULL),
   ('a0000000-0000-4000-8000-000000000004', 'EE00000000003',  'PPA Border Officer',      NULL);
 
--- Seed gates
-INSERT INTO gates (id, country_code, e_delivery_url, status, last_ping_at) VALUES
-  ('eu-xx01', 'EE', 'https://efti.example.com/services/msh',   'ONLINE', NOW()),
-  ('eu-zz01', 'FI', 'https://efti-peer.example.com/services/msh',         'ONLINE', NOW()),
-  ('eu-yy01', 'DE', 'https://efti-peer.example.com/services/msh',             'ONLINE', NOW()),
-  ('eu-yy02', 'LV', 'https://efti-peer2.example.com/services/msh',             'OFFLINE', NULL);
-
--- Seed platforms
-INSERT INTO platforms (id, base_url) VALUES
-  ('plt-xxx-001', 'https://platform-demo.example.com/v1'),
-  ('plt-yyy-001', 'https://platform-cargo.example.com/v1');
-
--- Seed authorities
-INSERT INTO authorities (id, name, country_code, description, subsets) VALUES
-  ('auth-mta',   'Estonian Tax and Customs Board (MTA)', 'EE', 'Customs + tax inspection',           ARRAY['EU01','EU02','EU05']),
-  ('auth-ppa',   'Police and Border Guard Board (PPA)',  'EE', 'Border + roadside checks',           ARRAY['EU07']),
-  ('auth-vtko', 'Estonian Transport Administration',     'EE', 'Road transport regulation',         ARRAY['EU01','EU03','EU04']),
-  ('auth-vet',   'Veterinary and Food Board',            'EE', 'Live-animal and food shipments',     ARRAY['EU06','EU07']),
-  ('auth-trafi', 'Traficom (FI)',                        'FI', 'Finnish transport authority (peer)', ARRAY['EU01','EU02','EU03']);
+-- Gates, platforms and authorities are not seeded here: they are the committed
+-- registry/{gates,platforms,authorities}/<id>.yml files (ADR-011). The ids used
+-- below (EU-EE, mock) match the dev fixtures in registry/.
 
 -- Seed sample consignments (a representative spread; full seed lives in seed-data/ outside this baseline)
 INSERT INTO consignments (dataset_id, platform_id, gate_id, xml, status, transport_mode, main_transport_id, acceptance_country, delivery_country) VALUES
-  ('550e8400-e29b-41d4-a716-446655440001', 'plt-xxx-001', 'eu-xx01', '<consignment xmlns="http://efti.eu/v1/consignment/identifier"/>', 'active', '1', '123ABC', 'EE', 'FI'),
-  ('550e8400-e29b-41d4-a716-446655440002', 'plt-xxx-001', 'eu-xx01', '<consignment xmlns="http://efti.eu/v1/consignment/identifier"/>', 'active', '4', NULL,     'EE', 'NL'),
-  ('550e8400-e29b-41d4-a716-446655440003', 'plt-xxx-001', 'eu-xx01', '<consignment xmlns="http://efti.eu/v1/consignment/identifier"/>', 'active', '1', '456XYZ', 'EE', 'LV');
+  ('550e8400-e29b-41d4-a716-446655440001', 'mock', 'EU-EE', '<consignment xmlns="http://efti.eu/v1/consignment/identifier"/>', 'active', '1', '123ABC', 'EE', 'FI'),
+  ('550e8400-e29b-41d4-a716-446655440002', 'mock', 'EU-EE', '<consignment xmlns="http://efti.eu/v1/consignment/identifier"/>', 'active', '4', NULL,     'EE', 'NL'),
+  ('550e8400-e29b-41d4-a716-446655440003', 'mock', 'EU-EE', '<consignment xmlns="http://efti.eu/v1/consignment/identifier"/>', 'active', '1', '456XYZ', 'EE', 'LV');
 
 COMMIT;

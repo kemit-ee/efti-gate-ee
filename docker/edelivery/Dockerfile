@@ -13,8 +13,9 @@ FROM eclipse-temurin:25-jre-alpine
 RUN adduser -S user
 
 WORKDIR /app
-COPY code/certs certs
-RUN chmod a+r certs/own.p12
+# The AS4 keystore is never baked in: mount the per-environment Secret at /app/certs/own.p12
+# (KEYSTORE_DIR, KEYSTORE_PASSWORD). Without it edelivery fails to start.
+# See docs/specs/deploy/resource-and-secrets-requirements.md §3.5.
 RUN rm -fr /usr/sbin /bin/ch*
 
 ARG VERSION=dev
