@@ -1,8 +1,6 @@
 export enum Status {
   ONLINE = 'ONLINE',
-  OFFLINE = 'OFFLINE',
-  DISABLED = 'DISABLED',
-  DELETED = 'DELETED'
+  DISABLED = 'DISABLED'
 }
 export enum SubsetCode {
   EU01 = 'EU01',

@@ -21,17 +21,17 @@ describe('GatesPage', () => {
     vi.clearAllMocks()
     gate = newGate()
     vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path === 'gates') return Promise.resolve([gate])
+      if (path === 'gates?limit=1000') return Promise.resolve([gate])
       if (path === 'gates/own') return Promise.resolve(gate)
       return Promise.reject(new Error(`unexpected GET ${path}`))
     })
   })
 
-  it('loads gates and its own gate on mount', async () => {
+  it('loads the whole gate registry on mount, not only the default page of 20', async () => {
     render(GatesPage)
 
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith('gates'))
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith('gates/own'))
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('gates?limit=1000'))
+    expect(api.get).not.toHaveBeenCalledWith('gates/own')
     await screen.findByText('EU-EE')
     screen.getByText('Gates (1)')
   })
@@ -81,7 +81,7 @@ describe('GatesPage', () => {
 
   it('shows a disabled gate and still opens its read-only details', async () => {
     vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path === 'gates') return Promise.resolve([{...gate, status: Status.DISABLED}])
+      if (path === 'gates?limit=1000') return Promise.resolve([{...gate, status: Status.DISABLED}])
       if (path === 'gates/own') return Promise.resolve(gate)
       return Promise.reject(new Error(`unexpected GET ${path}`))
     })

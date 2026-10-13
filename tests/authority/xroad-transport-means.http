@@ -17,7 +17,7 @@ run #auth
 #
 # Every X-Road-Id must be a real UUID — the guard rejects anything else with 400 INVALID_REQUEST_ID.
 
-### Fixture: registry/authorities/auth-xroad-tm.json (applied by registry-sync at startup)
+### Fixture: registry/authorities/auth-xroad-tm.yml (served by the registry image)
 GET {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-tm
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}
@@ -29,7 +29,7 @@ Authorization: Bearer {{adminToken}}
   })
 %}
 
-### Fixture: registry/authorities/auth-xroad-tm-no-eu02.json (applied by registry-sync at startup)
+### Fixture: registry/authorities/auth-xroad-tm-no-eu02.yml (served by the registry image)
 GET {{RUUTER_URL}}/admin/v1/authorities/auth-xroad-tm-no-eu02
 Content-Type: application/json
 Authorization: Bearer {{adminToken}}

@@ -31,10 +31,10 @@ class RegistryClientTest {
     every { body() } returns body
   }
 
-  @Test fun `getGates maps gates to EDeliveryParty, keyed by id`() {
+  @Test fun `getGates maps ONLINE gates to EDeliveryParty, keyed by id`() {
     every { http.send(any(), any<BodyHandler<String>>()) } returns stringResponse(body = """
       [{"id":"EU-EE","countryCode":"EE","eDeliveryUrl":"https://gate-ee.example/msh","eDeliveryCert":"cert-ee","tlsCert":"tls-ee","status":"ONLINE"},
-       {"id":"EU-MOCK","countryCode":"EE","eDeliveryUrl":"https://gate-mock.example/msh","eDeliveryCert":"cert-mock","tlsCert":null,"status":"DISABLED"}]
+       {"id":"EU-MOCK","countryCode":"EE","eDeliveryUrl":"https://gate-mock.example/msh","eDeliveryCert":"cert-mock","status":"ONLINE"}]
     """.trimIndent())
 
     val gates = client.getGates()
@@ -42,6 +42,16 @@ class RegistryClientTest {
     assertEquals(setOf(PartyId("EU-EE"), PartyId("EU-MOCK")), gates.keys)
     assertEquals(EDeliveryParty(PartyId("EU-EE"), URI("https://gate-ee.example/msh"), "cert-ee", "tls-ee"), gates[PartyId("EU-EE")])
     assertEquals(EDeliveryParty(PartyId("EU-MOCK"), URI("https://gate-mock.example/msh"), "cert-mock", null), gates[PartyId("EU-MOCK")])
+  }
+
+  @Test fun `getGates excludes DISABLED gates and gates without an eDeliveryCert`() {
+    every { http.send(any(), any<BodyHandler<String>>()) } returns stringResponse(body = """
+      [{"id":"EU-EE","eDeliveryUrl":"https://gate-ee.example/msh","eDeliveryCert":"cert-ee","status":"ONLINE"},
+       {"id":"EU-OFF","eDeliveryUrl":"https://gate-off.example/msh","eDeliveryCert":"cert-off","status":"DISABLED"},
+       {"id":"EU-NOCERT","eDeliveryUrl":"https://gate-nocert.example/msh","status":"ONLINE"}]
+    """.trimIndent())
+
+    assertEquals(setOf(PartyId("EU-EE")), client.getGates().keys)
   }
 
   @Test fun `getGates keys are case-insensitive party ids`() {
@@ -74,6 +84,15 @@ class RegistryClientTest {
 
     assertEquals(setOf(PartyId("mock-edelivery")), platforms.keys)
     assertEquals(EDeliveryParty(PartyId("mock-edelivery"), URI("https://mock.example/api"), "cert", null), platforms[PartyId("mock-edelivery")])
+  }
+
+  @Test fun `getPlatforms excludes DISABLED platforms`() {
+    every { http.send(any(), any<BodyHandler<String>>()) } returns stringResponse(body = """
+      [{"id":"mock-edelivery","baseUrl":"https://mock.example/api","eDeliveryCert":"cert","status":"ONLINE"},
+       {"id":"off-edelivery","baseUrl":"https://off.example/api","eDeliveryCert":"cert","status":"DISABLED"}]
+    """.trimIndent())
+
+    assertEquals(setOf(PartyId("mock-edelivery")), client.getPlatforms().keys)
   }
 
   @Test fun `getParties merges gates and platforms`() {

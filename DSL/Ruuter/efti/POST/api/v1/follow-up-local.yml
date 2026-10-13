@@ -78,7 +78,8 @@ check_platform:
     # does not serve.
     - condition: ${platform_result.response.status == 0 || platform_result.response.status >= 300}
       next: platform_lookup_failed
-    - condition: ${!platform_result.response.body || platform_result.response.body.id == null}
+    # A DISABLED platform is treated as absent, so a caller cannot tell it apart from an unknown id.
+    - condition: ${!platform_result.response.body || platform_result.response.body.id == null || platform_result.response.body.status !== 'ONLINE'}
       next: platform_not_found
     - condition: ${!!platform_result.response.body.eDeliveryCert}
       next: request_to_xml

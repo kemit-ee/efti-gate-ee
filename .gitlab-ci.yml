@@ -1,7 +1,9 @@
 # eFTI Gate (EE) source pipeline — standard-service-delivery@8.0.1.
 # Ten images (liquibase is build-only; resql bakes the same RELEASE_VERSION into
 # databaseMigration; registry is the ADR-011 registry file server). Wrapper
-# charts live in services/efti/devops.
+# charts live in services/efti/devops. The edelivery image carries no AS4 keystore: its chart
+# must mount the per-environment Secret at /app/certs/own.p12 (KEYSTORE_PASSWORD alongside);
+# see docs/specs/deploy/resource-and-secrets-requirements.md §3.5.
 #
 # Required subgroup variables: SERVICECODE, GITOPS_TOKEN, DTRACK_API_KEY.
 # Inherited: HARBOR_*, SONAR_*, DTRACK_URL, ARGOCD_KUBERNETES_NONLIVE_*.
@@ -113,6 +115,7 @@ secret_detection:
     # registry/**/*.yml is converted to JSON at image build time by the same script, so this
     # validates the registry without building an image (ADR-011: the converter is the validator).
     - python3 scripts/registry-to-json.py
+    - python3 tests/registry/test_registry_to_json.py
     - >-
       docker run --rm -v "$PWD:/workdir:ro" -w /workdir python:3.12-slim
       sh -ec 'apt-get update -qq && apt-get install -y -qq libxml2-utils && pip install --quiet pyyaml && python3 tests/mock/dataset.py'

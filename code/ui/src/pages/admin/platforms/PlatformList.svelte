@@ -24,7 +24,7 @@
     <td>
       <div class="flex items-center gap-2">
         <div class="h-4 w-4 rounded-full {p.status === Status.ONLINE ? 'bg-success-500' : p.status === Status.DISABLED ? 'bg-warning-500' :  'bg-danger-500'}" ></div>
-        <span>{(p.status && t.statuses[p.status]) ?? t.statuses[Status.OFFLINE]}</span>
+        <span>{t.statuses[p.status] ?? p.status}</span>
       </div>
     </td>
     <td>

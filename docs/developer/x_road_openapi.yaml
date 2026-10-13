@@ -12,9 +12,9 @@ openapi: 3.0.3
 #   - The caller is an ORGANISATION, not a person. The consumer's Security Server
 #     authenticates it by mTLS and forwards the result as the X-Road-Client header
 #     (instance/memberClass/memberCode[/subsystemCode]). memberCode (index 2) is
-#     the Estonian Business Registry code and must resolve to exactly one ACTIVE
-#     row in `authorities.registry_code`.
-#   - `authorities.subsets` is the only subset-entitlement register. Callers read
+#     the Estonian Business Registry code and must resolve to exactly one
+#     authority's `registryCode` in the gate's registry (ADR-011).
+#   - The authority's `subsets` is the only subset-entitlement register. Callers read
 #     their own entitlement with `subsets` and answer yes/no questions locally.
 #   - X-Road-UserId is caller-asserted, never authenticated, and never grants access.
 #
@@ -58,8 +58,8 @@ info:
 
     | Requirement | Who |
     |---|---|
-    | Your organisation is registered at the gate as a single `ACTIVE` authority whose `registry_code` is your Business Registry code | gate operator |
-    | `authorities.subsets` is populated (e.g. `["EU01","EU05"]`) — required for `dataset` and `transport-means` | gate operator |
+    | Your organisation is registered at the gate as exactly one competent authority whose `registryCode` is your Business Registry code | gate operator |
+    | The authority's `subsets` is populated (e.g. `["EU01","EU05"]`) — required for `dataset` and `transport-means` | gate operator |
     | Your client subsystem has X-Road access rights to the gate's services | RIA / Security Server administration |
 
     ## Errors
@@ -224,7 +224,7 @@ paths:
         are capped at 50 rows. An unknown identifier is `200` with `found: 0`, never `404`.
 
         Dataset content is **not** returned; fetch it with `dataset` using a `uil` from the
-        response. Requires **EU02** in `authorities.subsets`, else `403 FORBIDDEN_SUBSET`.
+        response. Requires **EU02** in the authority's `subsets`, else `403 FORBIDDEN_SUBSET`.
 
         Gate-side route: `POST /xroad/v1/transport-means`.
 
@@ -371,7 +371,7 @@ paths:
       summary: Dataset retrieval
       description: |
         Forwards to the gate's core Authority API after a subset-entitlement check. Every
-        requested subset must be in `authorities.subsets`; a partially-permitted request is
+        requested subset must be in the authority's `subsets`; a partially-permitted request is
         refused **whole** — no silent narrowing. Check your entitlement first with `subsets`.
 
         Gate-side route: `POST /xroad/v1/dataset`.
@@ -496,7 +496,7 @@ components:
       description: |
         Set by the calling organisation's X-Road Security Server, not by the client
         application. `instance/memberClass/memberCode[/subsystemCode]`; `memberCode`
-        must resolve to one `ACTIVE` `authorities.registry_code`. See ADR-006.
+        must resolve to one authority's `registryCode` (ADR-011 registry). See ADR-006.
 
   parameters:
     XRoadClient:
@@ -508,7 +508,7 @@ components:
         `instance/memberClass/memberCode[/subsystemCode]` — both the 3-part
         (`EE/GOV/70000097`) and 4-part (`EE/GOV/70000097/tram`) forms are valid.
         `memberCode` (index 2) must be your Business Registry code and must resolve to
-        exactly one `ACTIVE` row in `authorities.registry_code`.
+        exactly one authority's `registryCode` in the gate's registry.
       schema:
         type: string
         example: "EE/GOV/70000097/tram"
@@ -572,9 +572,9 @@ components:
             detail: "X-Road-Id header is required on every X-Road request."
     Forbidden:
       description: |
-        `403 FORBIDDEN` — the registry code does not resolve to a single `ACTIVE`
+        `403 FORBIDDEN` — the registry code does not resolve to a single
         authority (zero matches, or a registry misconfiguration with more than one
-        `ACTIVE` row sharing the code).
+        authority sharing the code).
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ProblemDetails' }
@@ -904,7 +904,7 @@ components:
           type: array
           minItems: 1
           items: { $ref: '#/components/schemas/Subset' }
-          description: Requested subsets; every one must be in `authorities.subsets`.
+          description: Requested subsets; every one must be in the authority's `subsets`.
 
     FollowUpRequest:
       type: object

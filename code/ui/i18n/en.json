@@ -1,9 +1,7 @@
 {
   "statuses": {
     "ONLINE": "ONLINE",
-    "OFFLINE": "OFFLINE",
-    "DISABLED": "DISABLED",
-    "DELETED": "DELETED"
+    "DISABLED": "DISABLED"
   },
   "xsdSupport": {
     "V0_9": "v0.9",
@@ -86,16 +84,7 @@
     "generateSecret": "Generate new password or token",
     "copyPastePassword": "Copy user's password (you won't see it again)",
     "copyPasteToken": "Copy user's bearer token (you won't see it again)",
-    "createForAdmin": "Success! Now create a technical user to get access token or an administrative user",
-    "addGate": "Add Gate",
-    "addGates": "Add gates",
-    "addPlatform": "Add Platform",
-    "addPlatforms": "Add platforms",
-    "addAuthority": "Add Authority",
-    "addAuthorities": "Add authorities",
-    "selectGate": "Select Gate...",
-    "selectPlatform": "Select Platform...",
-    "selectAuthority": "Select Authority..."
+    "createForAdmin": "Success! Now create a technical user to get access token or an administrative user"
   },
   "datasets": {
     "datasetId": "Dataset ID",

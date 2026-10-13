@@ -26,7 +26,11 @@ registry/
 
 - One YAML mapping per entity; the **file name (minus `.yml`) must equal the `id` field**.
 - Ids are still matched **case-insensitively** when looked up by id (see "Id case" below).
-- Files that do not end in `.yml` are ignored.
+- Any other file in a type directory (`.yaml`, `.json`, …) **fails the build** rather than being
+  silently skipped; dot-files are ignored.
+- Every scalar is a **string** — quote values YAML would otherwise turn into numbers or booleans
+  (`registryCode: '70000099'`, `countryCode: 'NO'`). The DSL compares them with `===`, so an
+  unquoted number would silently never match; the converter rejects it.
 - Certificates are YAML literal blocks (`|`), so they stay readable in review.
 
 ## How it reaches the consumers
@@ -36,8 +40,9 @@ There is **no registry application server** and **no runtime mount**. `scripts/r
 
 1. `docker/registry/Dockerfile` stage 1 (`python:3.13-alpine` + PyYAML) runs
    `python3 scripts/registry-to-json.py --source registry --out /srv/registry`. It **validates** every
-   file — required keys, `id` vs file name, the `status` enum, `countryCode`, PEM shape, `subsets`
-   codes, unknown keys, duplicate ids — and exits non-zero on the first bad one, which **fails the
+   file — required keys, string types, `id` vs file name, the `status` enum, `countryCode`, absolute
+   http(s) URLs, PEM shape, `subsets` codes (no duplicates), `headers` as string→string, unknown keys,
+   case-insensitive duplicate ids, and a platform `apiKey` shared by several files — and exits non-zero on the first bad one, which **fails the
    build**.
 2. Stage 2 (`nginx:stable-alpine`) serves the generated files from `/usr/share/nginx/html` on port
    **8080** (`[#REGISTRY_URL]` is `http://registry:8080`).
@@ -102,7 +107,10 @@ the arrays keeps its canonical casing.
 - **Removing an entity = deleting its file.** There is no `DELETED` status and no tombstone: the
   entity simply stops existing, so lookups 404 and guards deny. Git history is the only record that
   it was ever there, and an id can be reused freely.
-- **`status` is owned entirely by this folder.** Gates and platforms are `ONLINE` or `DISABLED`;
+- **`status` is owned entirely by this folder.** Gates and platforms are `ONLINE` or `DISABLED`.
+  `DISABLED` is a full stop everywhere: it is excluded from the cross-gate search fan-out, the
+  platform `X-Api-Key` guard, dataset/follow-up forwarding (treated as not found) and the `edelivery`
+  AS4 party map (no messages to or from it);
   there is no ping job and no health monitoring flipping them at runtime (`last_ping_at` is gone
   with the table).
 - **Authorities have no `status` at all**: an authority exists because its file exists. Revoking one
@@ -115,7 +123,7 @@ the arrays keeps its canonical casing.
 | `id` | string | yes | Logical id, e.g. `EU-EE`. Must equal the file name. |
 | `countryCode` | string | yes | ISO 3166-1 alpha-2, upper case (`^[A-Z]{2}$`). |
 | `eDeliveryUrl` | string | yes | AS4 access point, e.g. `http://edelivery:8081/services/msh`. |
-| `eDeliveryCert` | string | no | Public PEM used to verify AS4 messages from this gate. |
+| `eDeliveryCert` | string | no | Public PEM used to verify AS4 messages from this gate. A gate without one is left out of the `edelivery` party map (logged as a warning). |
 | `tlsCert` | string | no | Public TLS PEM for the gate's HTTPS endpoint. |
 | `status` | string | yes | `ONLINE` or `DISABLED`. |
 
@@ -129,7 +137,7 @@ the arrays keeps its canonical casing.
 | `eDeliveryCert` | string | no | Public AS4 PEM. A platform without one is invisible to `edelivery` and is served over REST only. |
 | `tlsCert` | string | no | Public TLS PEM. |
 | `status` | string | yes | `ONLINE` or `DISABLED`. Only `ONLINE` platforms authenticate. |
-| `apiKey` | string | no | **The plaintext `X-Api-Key` the platform presents to the gate.** |
+| `apiKey` | string | no | **The plaintext `X-Api-Key` the platform presents to the gate.** Must be unique across platforms (a shared key would be answered 403 for both, so the build rejects it). |
 
 `apiKey` is compared against the inbound `X-Api-Key` header by `platforms/.guard.yml`. A platform
 with no `apiKey` can never authenticate. To rotate a key, commit a new value, rebuild the image and

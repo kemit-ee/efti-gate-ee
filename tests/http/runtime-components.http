@@ -1,8 +1,8 @@
 ### ReSQL rejects invalid parameters with its headers envelope
-POST {{RESQL_URL}}/efti/get_platform_by_id
+POST {{RESQL_URL}}/efti/get_user_by_id
 Content-Type: application/json
 
-{"id":"mock","unexpectedRuntimeUpgradeField":true}
+{"userId":"60001019906","unexpectedRuntimeUpgradeField":true}
 
 > {%
   client.test("ReSQL error envelope", () => {
@@ -10,6 +10,8 @@ Content-Type: application/json
     client.assert(Array.isArray(response.body) && response.body.length === 0);
     client.assert(response.headers.valueOf("X-Resql-Error-Code") != null);
     client.assert(response.headers.valueOf("X-Resql-Error-Message") != null);
+    // A missing saved query is also a 400; the test must hit an existing one to mean anything.
+    client.assert(!response.headers.valueOf("X-Resql-Error-Message").includes("does not exist"));
   });
 %}
 

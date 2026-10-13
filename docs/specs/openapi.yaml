@@ -53,11 +53,11 @@ tags:
   - name: Authority
     description: APIs called by competent authorities and authority access points
   - name: Admin - Gates
-    description: Administrative management of registered eFTI gates
+    description: Read-only view of the gate registry (`registry/gates/`, ADR-011)
   - name: Admin - Platforms
-    description: Administrative management of registered freight platforms
+    description: Read-only view of the platform registry (`registry/platforms/`, ADR-011)
   - name: Admin - Authorities
-    description: Administrative management of competent authorities
+    description: Read-only view of the authority registry (`registry/authorities/`, ADR-011)
   - name: Admin - Users
     description: Administrative management of system users
   - name: Admin - Consignments
@@ -65,7 +65,7 @@ tags:
   - name: Admin - Audit
     description: Immutable audit log access (SUPER_ADMIN only)
   - name: Admin - Cron
-    description: CronManager-driven scheduled job endpoints (archive, expire-identifiers, ping-gates) — `opsToken` only
+    description: CronManager-driven scheduled job endpoints (archive, expire-identifiers) — `opsToken` only
   - name: Auth
     description: Token issuance, logout, and revocation
   - name: X-Road
@@ -74,8 +74,8 @@ tags:
       Served by the main gate Ruuter under `/xroad/`, reached through the RIA-operated X-Road
       Security Server. The `/xroad/**` path must not be exposed on any public ingress — only the
       Security Server may reach it. Authentication is the Security Server's mTLS, forwarded as the
-      `X-Road-Client` header — identity is the calling **organisation**, resolved against
-      `authorities.registry_code`. REST, not SOAP. See ADR-006.
+      `X-Road-Client` header — identity is the calling **organisation**, resolved against the
+      `registryCode` of `registry/authorities/*.yml` (ADR-011). REST, not SOAP. See ADR-006.
   - name: Health
     description: Kubernetes liveness and readiness probes — no authentication required
 
@@ -90,8 +90,8 @@ security:
 #   Authority API  (`/v1/identifiers/{identifier}`, `/v1/dataset/...`,
 #                   `/v1/follow-up/...`)                               → taraJwt
 #   Admin API      (`/api/v1/...`)                                     → taraJwt
-#     except `/api/v1/admin/archive`, `/api/v1/admin/expire-identifiers`,
-#                 `/api/v1/admin/ping-gates` (CronManager-driven)      → opsToken
+#     except `/api/v1/admin/archive`, `/api/v1/admin/expire-identifiers`
+#                 (CronManager-driven)                                 → opsToken
 #   Auth API       (`/api/v1/auth/local-token`)                        → http basic (break-glass only, default-disabled)
 #   Auth API       (`/api/v1/auth/logout`, `/api/v1/users/{id}/revoke-token`)  → taraJwt
 #   Health         (`/health/...`)                                     → no auth
@@ -428,7 +428,7 @@ paths:
         - **SSE** (`Accept: text/event-stream`): Streams partial results as gates respond.
           Events: `gate` (gate responded), `consignment` (match found), `complete` (all done).
 
-        The authority's permitted subsets are read from `authorities.subsets` and
+        The authority's permitted subsets are read from the authority's registry `subsets` and
         enforced when the authority subsequently calls `GET /v1/dataset/...`. There is no
         `users.subsets` column; see ADR-006. On the X-Road channel the authority is resolved
         from the `X-Road-Client` member code, and callers can discover their own entitlement
@@ -573,7 +573,7 @@ paths:
       description: |
         Retrieves the full consignment dataset from the originating platform, filtered
         to the requested eFTI subsets. The authority must only request subsets they
-        are legally permitted to access (enforced via `authorities.subsets`; there is no
+        are legally permitted to access (enforced via the authority's registry `subsets`; there is no
         `users.subsets` column — see ADR-006).
 
         If the dataset resides on a remote gate, the request is forwarded via eDelivery AS4.
@@ -744,21 +744,15 @@ paths:
       summary: List gates
       operationId: listGates
       description: |
-        Returns all registered eFTI gates visible to the authenticated admin user.
-        SUPER_ADMIN sees all gates; gate-scoped ADMIN sees only their own gate.
-        Paginated; total row count returned in `X-Total-Count` header.
+        Returns the gate registry (`registry/gates/*.yml`, ADR-011), ordered by id. Read-only;
+        the page is cut in the DSL from the registry service's whole-registry document
+        (default limit 20, maximum 1000).
       parameters:
         - $ref: '#/components/parameters/PageLimit'
         - $ref: '#/components/parameters/PageOffset'
       responses:
         '200':
           description: List of gates
-          headers:
-            X-Total-Count:
-              description: Total number of rows matching the filter (across all pages).
-              schema:
-                type: integer
-                example: 42
           content:
             application/json:
               schema:
@@ -766,59 +760,18 @@ paths:
                 items:
                   $ref: '#/components/schemas/Gate'
               example:
-                - id: "eu-xx01"
+                - id: "EU-EE"
                   countryCode: "EE"
                   eDeliveryUrl: "https://efti.example.com/services/msh"
                   status: "ONLINE"
-                  createdAt: "2025-01-15T09:00:00Z"
-                - id: "eu-zz01"
+                - id: "EU-FI"
                   countryCode: "FI"
                   eDeliveryUrl: "https://efti-peer.example.com/services/msh"
-                  status: "ONLINE"
-                  createdAt: "2025-02-01T10:00:00Z"
+                  status: "DISABLED"
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-    post:
-      tags: [Admin - Gates]
-      summary: Create gate
-      operationId: createGate
-      description: |
-        Creates a new gate record. The body's `id` must not already exist — if it
-        does, returns 409. After successful create, the gate is immediately pinged
-        to verify connectivity. To update an existing gate, use
-        `PUT /api/v1/gates/{gateId}`.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GateWrite'
-            example:
-              id: "eu-yy01"
-              countryCode: "DE"
-              eDeliveryUrl: "https://efti-peer.example.com/services/msh"
-              eDeliveryCert: "-----BEGIN CERTIFICATE-----\nMIIC...-----END CERTIFICATE-----"
-              status: "ONLINE"
-      responses:
-        '201':
-          description: Gate created successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Gate'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
-          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -827,7 +780,7 @@ paths:
       tags: [Admin - Gates]
       summary: Get own gate configuration
       operationId: getOwnGate
-      description: Returns the configuration of this gate itself (read from config, not DB).
+      description: Returns this gate's own registry entry (`registry/gates/<OWN_GATE_ID>.yml`).
       responses:
         '200':
           description: Own gate configuration
@@ -845,7 +798,7 @@ paths:
       tags: [Admin - Gates]
       summary: Get gate
       operationId: getGate
-      description: Returns the current state for the given gate id — the latest row by `created_at`. Soft-deleted gates (latest row `is_active=FALSE`) are returned with `isGateActive=false`.
+      description: Returns one gate from `registry/gates/` (id matched case-insensitively). A gate whose file was removed is 404.
       parameters:
         - $ref: '#/components/parameters/GateIdPath'
       responses:
@@ -862,114 +815,18 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-    put:
-      tags: [Admin - Gates]
-      summary: Update gate
-      operationId: updateGate
-      description: |
-        Updates an existing gate record. Append-only: the gate INSERTs a new
-        `gates` row sharing the same logical `id`; the latest row by `created_at`
-        is the current state. Operator-driven status transitions (manual
-        `DISABLED`) go through here; ping-driven `ONLINE`/`OFFLINE` flips are
-        written by `POST /api/v1/admin/ping-gates` (CronManager). After
-        successful update, the gate is pinged to verify the new configuration.
-
-        404 if `gateId` is unknown. To create a new gate, use `POST /api/v1/gates`.
-      parameters:
-        - $ref: '#/components/parameters/GateIdPath'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GateWrite'
-      responses:
-        '200':
-          description: Gate updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Gate'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-    delete:
-      tags: [Admin - Gates]
-      summary: Delete gate
-      operationId: deleteGate
-      description: |
-        Removes a gate from the registry. A gate cannot delete itself.
-        Requires write access to the specified gate ID. Append-only: writes a
-        latest row with `is_active=FALSE`; cross-border G2G traffic to/from this
-        gate stops on the next registry-sync NOTIFY.
-      parameters:
-        - $ref: '#/components/parameters/GateIdPath'
-      responses:
-        '204':
-          description: Gate deleted (latest row written with `is_active=FALSE`)
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /api/v1/gates/{gateId}/ping:
-    post:
-      tags: [Admin - Gates]
-      summary: Ping gate
-      operationId: pingGate
-      description: Manually triggers an eDelivery ping to the specified gate to test connectivity.
-      parameters:
-        - $ref: '#/components/parameters/GateIdPath'
-      responses:
-        '200':
-          description: Ping successful
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '502':
-          $ref: '#/components/responses/BadGateway'
-        '504':
-          $ref: '#/components/responses/GatewayTimeout'
-
-  # ----------------------------------------------------------------------------
-  # ADMIN API — PLATFORMS
-  # ----------------------------------------------------------------------------
-
   /api/v1/platforms:
     get:
       tags: [Admin - Platforms]
       summary: List platforms
       operationId: listPlatforms
-      description: Returns all platforms visible to the authenticated admin user. Paginated; total row count in `X-Total-Count` header.
+      description: Returns the platform registry (`registry/platforms/*.yml`, ADR-011), ordered by id, with `apiKey` replaced by `hasApiKey`. Default limit 20, maximum 1000.
       parameters:
         - $ref: '#/components/parameters/PageLimit'
         - $ref: '#/components/parameters/PageOffset'
       responses:
         '200':
           description: List of platforms
-          headers:
-            X-Total-Count:
-              description: Total number of rows matching the filter (across all pages).
-              schema:
-                type: integer
-                example: 12
           content:
             application/json:
               schema:
@@ -977,57 +834,21 @@ paths:
                 items:
                   $ref: '#/components/schemas/Platform'
               example:
-                - id: "plt-xxx-001"
+                - id: "mock"
                   baseUrl: "https://platform.example.com/v1"
-                  createdAt: "2025-01-15T09:00:00Z"
+                  status: "ONLINE"
+                  hasApiKey: true
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
-    post:
-      tags: [Admin - Platforms]
-      summary: Create platform
-      operationId: createPlatform
-      description: |
-        Creates a new platform record. The body's `id` must not already exist —
-        if it does, returns 409. To update an existing platform, use
-        `PUT /api/v1/platforms/{platformId}`.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PlatformWrite'
-            example:
-              id: "plt-yyy-001-ee"
-              baseUrl: "https://api.cargo-ee.com/efti/v1"
-              headers:
-                X-Api-Key: "secret-key-abc123"
-      responses:
-        '201':
-          description: Platform created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Platform'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
 
   /api/v1/platforms/{platformId}:
     get:
       tags: [Admin - Platforms]
       summary: Get platform
       operationId: getPlatform
-      description: Returns the latest row for the given platform id.
+      description: Returns one platform from `registry/platforms/` (id matched case-insensitively), with `apiKey` replaced by `hasApiKey`.
       parameters:
         - $ref: '#/components/parameters/PlatformIdPath'
       responses:
@@ -1044,111 +865,18 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-    put:
-      tags: [Admin - Platforms]
-      summary: Update platform
-      operationId: updatePlatform
-      description: |
-        Updates an existing platform record. Append-only: the gate INSERTs a new
-        `platforms` row sharing the same logical `id`; the latest row by
-        `created_at` becomes the current state. The previous row remains in the
-        live DB until the next CronManager archival sweep.
-
-        404 if `platformId` is unknown. To create a new platform, use
-        `POST /api/v1/platforms`.
-      parameters:
-        - $ref: '#/components/parameters/PlatformIdPath'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PlatformWrite'
-      responses:
-        '200':
-          description: Platform updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Platform'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-    delete:
-      tags: [Admin - Platforms]
-      summary: Delete platform
-      operationId: deletePlatform
-      description: |
-        Soft-deletes the platform. Append-only: the gate INSERTs a new `platforms`
-        row with `is_active=FALSE`; the latest row by `created_at` resolves the
-        platform to inactive. Existing consignments registered by this platform
-        remain queryable; new registrations from this platform return 403.
-      parameters:
-        - $ref: '#/components/parameters/PlatformIdPath'
-      responses:
-        '204':
-          description: Platform deleted (latest row written with `is_active=FALSE`)
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /api/v1/platforms/{platformId}/ping:
-    post:
-      tags: [Admin - Platforms]
-      summary: Ping platform
-      operationId: pingPlatform
-      description: Manually triggers a connectivity check to the platform's base URL.
-      parameters:
-        - $ref: '#/components/parameters/PlatformIdPath'
-      responses:
-        '200':
-          description: Ping successful
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '502':
-          $ref: '#/components/responses/BadGateway'
-        '504':
-          $ref: '#/components/responses/GatewayTimeout'
-
-  # ----------------------------------------------------------------------------
-  # ADMIN API — AUTHORITIES
-  # ----------------------------------------------------------------------------
-
   /api/v1/authorities:
     get:
       tags: [Admin - Authorities]
       summary: List authorities
       operationId: listAuthorities
-      description: Paginated; total row count in `X-Total-Count` header.
+      description: Returns the authority registry (`registry/authorities/*.yml`, ADR-011), ordered by id. Default limit 20, maximum 1000.
       parameters:
         - $ref: '#/components/parameters/PageLimit'
         - $ref: '#/components/parameters/PageOffset'
       responses:
         '200':
           description: List of competent authorities
-          headers:
-            X-Total-Count:
-              description: Total number of rows matching the filter (across all pages).
-              schema:
-                type: integer
-                example: 8
           content:
             application/json:
               schema:
@@ -1157,53 +885,17 @@ paths:
                   $ref: '#/components/schemas/Authority'
               example:
                 - id: "auth-mta"
-                  countryCode: "EE"
                   name: "Tax and Customs Board"
+                  registryCode: "70000349"
                   subsets: ["EU01", "EU02", "EU05"]
                 - id: "auth-ppa"
-                  countryCode: "EE"
                   name: "Police and Border Guard"
+                  registryCode: "70008747"
                   subsets: ["EU01", "EU02", "EU03", "EU04", "EU05"]
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
-    post:
-      tags: [Admin - Authorities]
-      summary: Create authority
-      operationId: createAuthority
-      description: |
-        Creates a new authority record. The body's `id` must not already exist —
-        if it does, returns 409. To update, use `PUT /api/v1/authorities/{authorityId}`.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AuthorityWrite'
-            example:
-              id: "auth-mta"
-              countryCode: "EE"
-              name: "Tax and Customs Board"
-              subsets: ["EU01", "EU02", "EU05"]
-      responses:
-        '201':
-          description: Authority created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Authority'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
 
   /api/v1/authorities/{authorityId}:
     get:
@@ -1225,65 +917,6 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-
-    put:
-      tags: [Admin - Authorities]
-      summary: Update authority
-      operationId: updateAuthority
-      description: |
-        Updates an existing authority record. Append-only: INSERTs a new
-        `authorities` row sharing the same logical `id`; latest row by `created_at`
-        is the current state. 404 if `authorityId` is unknown.
-      parameters:
-        - $ref: '#/components/parameters/AuthorityIdPath'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AuthorityWrite'
-      responses:
-        '200':
-          description: Authority updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Authority'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-    delete:
-      tags: [Admin - Authorities]
-      summary: Delete authority
-      operationId: deleteAuthority
-      description: |
-        Soft-deletes the authority. Append-only: latest row written with
-        `is_active=FALSE`.
-      parameters:
-        - $ref: '#/components/parameters/AuthorityIdPath'
-      responses:
-        '204':
-          description: Authority deleted (latest row written with `is_active=FALSE`)
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  # ----------------------------------------------------------------------------
-  # ADMIN API — USERS
-  # ----------------------------------------------------------------------------
 
   /api/v1/users:
     get:
@@ -1904,86 +1537,6 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  /api/v1/admin/ping-gates:
-    post:
-      tags: [Admin - Cron]
-      summary: Probe peer gates and write health rows (called by CronManager)
-      operationId: runGatePing
-      security:
-        - opsToken: []
-      description: |
-        Probes every peer gate in the local registry over AS4 (`/services/msh`
-        health probe) and INSERTs a new `gates` row for each peer with the latest
-        `status` (`ONLINE` / `OFFLINE`; `DISABLED` is operator-set, not ping-set) and `last_ping_at = NOW()`.
-        Append-only.
-
-        Called by CronManager every 5 minutes (default schedule operator-tunable).
-        See `seq-09-gate-ping.mmd`. The CronManager YAML for this job is alongside
-        `cronmanager-archive.yaml` in `docs/specs/deploy/`.
-
-        **Auth**: `opsToken`. Mismatch → 403.
-
-        **Concurrency**: same multi-node-safe mutex pattern as the other CronManager admin endpoints (distinct lock identity); 409 if already running.
-
-        **Failure mode**: a single peer-gate timeout records `OFFLINE` for that
-        peer; does not fail the overall sweep. Network failure to *all* peers logs
-        ERROR and returns 200 with `failed_gates` populated.
-      responses:
-        '200':
-          description: Ping sweep complete.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [gates_pinged, online_count, offline_count, started_at, finished_at, duration_ms]
-                properties:
-                  gates_pinged:
-                    type: integer
-                  online_count:
-                    type: integer
-                  offline_count:
-                    type: integer
-                  degraded_count:
-                    type: integer
-                  failed_gates:
-                    type: array
-                    items:
-                      type: string
-                    description: Gate ids where the probe failed (network error, not just OFFLINE)
-                  started_at:
-                    type: string
-                    format: date-time
-                  finished_at:
-                    type: string
-                    format: date-time
-                  duration_ms:
-                    type: integer
-              example:
-                gates_pinged: 27
-                online_count: 24
-                offline_count: 2
-                degraded_count: 1
-                failed_gates: []
-                started_at: "2026-04-23T04:05:00Z"
-                finished_at: "2026-04-23T04:05:18Z"
-                duration_ms: 18430
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
-          description: Ping sweep already running.
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  # ----------------------------------------------------------------------------
-  # X-ROAD (EE national extension — served by the main Ruuter under /xroad/)
-  # ----------------------------------------------------------------------------
-
   /xroad/v1/subsets:
     # Served by the main gate Ruuter, but reached by consumers through their own X-Road Security
     # Server at /r1/EE/GOV/70003158/efti-gate/... — the path below is what the provider-side gate
@@ -1994,8 +1547,8 @@ paths:
       operationId: getXroadSubsets
       description: |
         Returns the eFTI data subsets the **calling organisation** is permitted to request,
-        resolved from the `X-Road-Client` header's `memberCode` via `authorities.registry_code`
-        to `authorities.subsets`.
+        resolved from the `X-Road-Client` header's `memberCode` via the `registryCode` of
+        `registry/authorities/*.yml` to that file's `subsets`.
 
         The registry code is taken only from the Security-Server-established header, never from
         the request, so a caller can never query another organisation's entitlement.
@@ -2082,16 +1635,17 @@ paths:
           description: |
             `FORBIDDEN`, for either of two conditions:
 
-            - the member code does not resolve to an `ACTIVE` authority; or
-            - it resolves to **more than one** `ACTIVE` authority. `authorities.registry_code` has
-              no unique constraint, so an operator typo can produce duplicates. Returning either row
+            - the member code does not resolve to any authority in `registry/authorities/`; or
+            - it resolves to **more than one** authority. `registryCode` is not unique across
+              registry files by design, so an operator typo can produce duplicates. Returning either entry
               would hand one organisation the other's entitlement, so the request is denied rather
               than resolved. A dedicated `FORBIDDEN_MULTI_AUTHORITY` code (mirroring
               `FORBIDDEN_MULTI_PLATFORM`) is proposed in ADR-006's open questions; until then both
               cases share `FORBIDDEN` and are distinguished by `detail`.
 
-            The two "not resolvable" cases — unknown code, and known-but-soft-deleted — return an
-            identical body, so denials do not reveal whether a registry code is registered.
+            An unknown code and a revoked one (its registry file removed) are the same case and
+            return an identical body, so denials do not reveal whether a registry code was ever
+            registered.
           content:
             application/json:
               schema:
@@ -2548,7 +2102,7 @@ components:
         Format `instance/memberClass/memberCode[/subsystemCode]`. Both the 3-part (member-level,
         `EE/GOV/70000097`) and 4-part (subsystem-level, `EE/GOV/70000097/tram`) forms are valid
         X-Road client ids. `memberCode` is the Estonian Business Registry code and is resolved
-        against `authorities.registry_code`; the resolved row's `subsets` is the authorisation
+        against the `registryCode` in `registry/authorities/*.yml`; the resolved entry's `subsets` is the authorisation
         source. Identity is the **organisation**, never a person — `X-Road-UserId` is not
         authenticated by X-Road and never grants access.
 
@@ -2626,8 +2180,8 @@ components:
       name: Authorization
       description: |
         Static Bearer token for the **system identity** that drives scheduled jobs
-        (CronManager calling `/api/v1/admin/archive`, `/api/v1/admin/expire-identifiers`,
-        `/api/v1/admin/ping-gates`). Operator provisions a 256-bit random secret
+        (CronManager calling `/api/v1/admin/archive`, `/api/v1/admin/expire-identifiers`).
+        Operator provisions a 256-bit random secret
         into a Kubernetes Secret; CronManager injects it as `BEARER_OPS_TOKEN`; the
         gate compares the literal value of `Authorization: Bearer <token>` against
         the `ARCHIVE_OPS_TOKEN` env var. No DB lookup, no JWT verification, no user
@@ -3110,11 +2664,12 @@ components:
     GateStatus:
       type: string
       description: |
-        Operational status of an eFTI gate:
-        - **ONLINE**: Gate is reachable and accepting queries
-        - **OFFLINE**: Gate is unreachable (failed last ping)
-        - **DISABLED**: Gate manually deactivated by administrator
-      enum: [ONLINE, OFFLINE, DISABLED]
+        Status of a gate or platform, owned by the registry files (ADR-011); nothing changes it at
+        runtime (there is no ping job):
+        - **ONLINE**: participates in AS4 exchange, search fan-out and platform authentication
+        - **DISABLED**: excluded everywhere — not an AS4 party, not searched, cannot authenticate,
+          dataset/follow-up forwarding answers 404
+      enum: [ONLINE, DISABLED]
       example: "ONLINE"
 
     TransportMode:
@@ -3393,12 +2948,16 @@ components:
 
     Gate:
       type: object
-      description: Registered eFTI gate
+      description: |
+        Peer or own eFTI gate. Read-only: the source of truth is `registry/gates/<id>.yml`, converted
+        to JSON at image build time and served by the internal `registry` service (ADR-011). There is
+        no HTTP write path. Absent optional fields are omitted, not `null`.
+      required: [id, countryCode, eDeliveryUrl, status]
       properties:
         id:
           type: string
-          pattern: '^eu-[a-z]{2}[0-9]{2}$'
-          example: "eu-xx01"
+          description: Logical id, equal to the registry file name. Matched case-insensitively.
+          example: "EU-EE"
         countryCode:
           type: string
           pattern: '^[A-Z]{2}$'
@@ -3406,63 +2965,17 @@ components:
         eDeliveryUrl:
           type: string
           format: uri
-          pattern: '^https://'
-          description: AS4 access-point URL for inbound G2G messages. **HTTPS only** — plain `http://` is rejected at registration.
+          description: AS4 access-point URL (absolute http(s), validated at build time).
           example: "https://efti.example.com/services/msh"
         eDeliveryCert:
           type: string
-          description: X.509 certificate PEM (eDelivery AS4 signature verification)
+          description: X.509 PEM used to verify AS4 messages. A gate without one is not an AS4 party.
           example: "-----BEGIN CERTIFICATE-----\nMIIC...-----END CERTIFICATE-----"
         tlsCert:
           type: string
-          nullable: true
-          description: X.509 certificate PEM for mutual TLS (optional)
+          description: X.509 PEM for the gate's HTTPS endpoint.
         status:
           $ref: '#/components/schemas/GateStatus'
-          description: Ping-job-driven operational state (ONLINE / OFFLINE / DISABLED).
-        isGateActive:
-          type: boolean
-          description: |
-            Operator-driven logical-deletion flag (distinct from `status`, which is
-            ping-job-driven). `isGateActive=false` excludes the gate from registry sync,
-            peer broadcast, and ping sweeps. The row remains in the table for audit.
-          example: true
-        createdAt:
-          type: string
-          format: date-time
-          example: "2025-01-15T09:00:00Z"
-
-    GateWrite:
-      type: object
-      description: Gate create/update payload
-      required: [id, countryCode, eDeliveryUrl, eDeliveryCert]
-      properties:
-        id:
-          type: string
-          pattern: '^eu-[a-z]{2}[0-9]{2}$'
-          example: "eu-yy01"
-        countryCode:
-          type: string
-          pattern: '^[A-Z]{2}$'
-          example: "DE"
-        eDeliveryUrl:
-          type: string
-          format: uri
-          pattern: '^https://'
-          description: AS4 access-point URL. HTTPS only.
-          example: "https://efti-peer.example.com/services/msh"
-        eDeliveryCert:
-          type: string
-          example: "-----BEGIN CERTIFICATE-----\nMIIC...-----END CERTIFICATE-----"
-        tlsCert:
-          type: string
-          nullable: true
-        status:
-          $ref: '#/components/schemas/GateStatus'
-        isGateActive:
-          type: boolean
-          default: true
-          description: Operator-driven logical-deletion flag.
 
     # --------------------------------------------------------------------------
     # PLATFORM
@@ -3470,67 +2983,35 @@ components:
 
     Platform:
       type: object
-      description: Registered freight platform
+      description: |
+        Registered freight platform. Read-only, from `registry/platforms/<id>.yml` (ADR-011). The
+        plaintext `apiKey` held in the registry is never returned; `hasApiKey` is derived instead.
+      required: [id, baseUrl, status, hasApiKey]
       properties:
         id:
           type: string
-          example: "plt-xxx-001"
+          example: "mock"
         baseUrl:
           type: string
           format: uri
-          description: REST API base URL for dataset queries
+          description: REST API base URL for dataset queries.
           example: "https://platform.example.com/v1"
-          type: boolean
-          description: If false, gate applies XSLT subsetting on behalf of the platform
-          example: true
-        eDeliveryCert:
-          type: string
-          nullable: true
-          description: eDelivery AS4 certificate (optional — required for AS4 transport)
-        tlsCert:
-          type: string
-          nullable: true
-        isPlatformActive:
-          type: boolean
-          description: |
-            Whether the latest row for this `id` has `is_active=TRUE`. Soft-deleted
-            platforms are returned by GET (so admins can audit them) but with
-            `isPlatformActive=false`; subsequent registrations from the cert mapped to a
-            soft-deleted platform return 403 `FORBIDDEN_NO_PLATFORM`.
-          example: true
-        createdAt:
-          type: string
-          format: date-time
-          description: Timestamp of the latest `platforms` row for this `id` (state's "as-of").
-          example: "2025-01-15T09:00:00Z"
-
-    PlatformWrite:
-      type: object
-      description: Platform create/update payload
-      required: [id, baseUrl]
-      properties:
-        id:
-          type: string
-          example: "plt-yyy-001-ee"
-        baseUrl:
-          type: string
-          format: uri
-          example: "https://api.cargo-ee.com/efti/v1"
         headers:
           type: object
           additionalProperties:
             type: string
-          description: Additional HTTP headers the gate sends with outbound requests to this platform.
-          example:
-            X-Api-Key: "secret-key-abc123"
-          type: boolean
-          default: true
+          description: Headers the gate sends with outbound requests to this platform.
         eDeliveryCert:
           type: string
-          nullable: true
+          description: AS4 certificate. Without one the platform is reached over REST only.
         tlsCert:
           type: string
-          nullable: true
+        status:
+          $ref: '#/components/schemas/GateStatus'
+        hasApiKey:
+          type: boolean
+          description: Whether the registry entry carries an `X-Api-Key` credential.
+          example: true
 
     # --------------------------------------------------------------------------
     # AUTHORITY
@@ -3538,53 +3019,26 @@ components:
 
     Authority:
       type: object
-      description: Competent authority registered to query freight data
+      description: |
+        Competent authority, read-only from `registry/authorities/<id>.yml` (ADR-011). Has no status:
+        an authority is active because its file exists; removing the file revokes it.
+      required: [id, name, registryCode, subsets]
       properties:
         id:
           type: string
           example: "auth-mta"
-        countryCode:
-          type: string
-          pattern: '^[A-Z]{2}$'
-          example: "EE"
         name:
           type: string
           example: "Tax and Customs Board"
+        registryCode:
+          type: string
+          description: Business-registry code matched against the X-Road member code.
+          example: "70000349"
         subsets:
           type: array
-          description: eFTI data subsets this authority is permitted to access
+          description: eFTI data subsets this authority may request. `[]` means entitled to nothing.
           items:
             $ref: '#/components/schemas/Subset'
-          minItems: 1
-          example: ["EU01", "EU02", "EU05"]
-        isAuthorityActive:
-          type: boolean
-          description: |
-            Whether the latest row for this `id` has `is_active=TRUE`. Soft-deleted
-            authorities are returned by GET with `isAuthorityActive=false`; their users lose
-            authority-side access on the next read.
-          example: true
-
-    AuthorityWrite:
-      type: object
-      description: Authority create/update payload
-      required: [id, countryCode, subsets]
-      properties:
-        id:
-          type: string
-          example: "auth-mta"
-        countryCode:
-          type: string
-          pattern: '^[A-Z]{2}$'
-          example: "EE"
-        name:
-          type: string
-          example: "Tax and Customs Board"
-        subsets:
-          type: array
-          items:
-            $ref: '#/components/schemas/Subset'
-          minItems: 1
           example: ["EU01", "EU02", "EU05"]
 
     # --------------------------------------------------------------------------
