@@ -31,553 +31,592 @@ respond_0002:
   return: |
     <rsm:SpecifiedSupplyChainConsignment xmlns="urn:eu:move:eFTI:data:standard:ReusableAggregateBusinessInformationEntity:34" xmlns:rsm="urn:eu:move:eFTI:data:standard:FTI010GetCmdsResponse:1" xmlns:udt="urn:eu:move:eFTI:data:standard:UnqualifiedDataType:34">
       <CarrierAcceptanceDateTime>
-        <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+        <udt:DateTimeString format="205">202609140730+0300</udt:DateTimeString>
       </CarrierAcceptanceDateTime>
-      <GrossWeightMeasure unitCode="KGM">15000.00</GrossWeightMeasure>
-      <NetWeightMeasure unitCode="KGM">12000.00</NetWeightMeasure>
-      <GrossVolumeMeasure unitCode="MTQ">45.00</GrossVolumeMeasure>
-      <CODAmount currencyID="MOC">1</CODAmount>
-      <PackageQuantity>120</PackageQuantity>
-      <TransportEquipmentQuantity>1</TransportEquipmentQuantity>
-      <Information>Full-field synthetic test fixture</Information>
-      <DeclaredValueForCarriageAmount currencyID="MOC">1</DeclaredValueForCarriageAmount>
-      <PaymentArrangementCode listAgencyID="6">MOC</PaymentArrangementCode>
-      <DeliveryInformation>MOCK-DeliveryInformation</DeliveryInformation>
-      <CargoInsuranceInstructionsInformation>MOCK-CargoInsuranceInstructionsInformation</CargoInsuranceInstructionsInformation>
+      <GrossWeightMeasure unitCode="KGM">18000</GrossWeightMeasure>
+      <NetWeightMeasure unitCode="KGM">16800</NetWeightMeasure>
+      <GrossVolumeMeasure unitCode="MTQ">52.5</GrossVolumeMeasure>
+      <CODAmount currencyID="EUR">2500.00</CODAmount>
+      <PackageQuantity>64</PackageQuantity>
+      <TransportEquipmentQuantity>3</TransportEquipmentQuantity>
+      <Information>Segaveos: värv (UN 1263) vaatides ja plaatimissegu kaubaalustel, kaks konteinerit poolhaagisel. Näidis täidab kõik FTI010 väljad, ka radioaktiivse materjali ja jäätmete omad.</Information>
+      <DeclaredValueForCarriageAmount currencyID="EUR">48500.00</DeclaredValueForCarriageAmount>
+      <PaymentArrangementCode listAgencyID="6">P</PaymentArrangementCode>
+      <DeliveryInformation>Kättetoimetamine tööpäeviti 8-16; vastuvõtjale helistada tund enne saabumist.</DeliveryInformation>
+      <CargoInsuranceInstructionsInformation>Kaup kindlustatud saatja poolt summas 48 500 EUR (CMR art 24).</CargoInsuranceInstructionsInformation>
       <TransshipmentPermissionIndicator>true</TransshipmentPermissionIndicator>
-      <ConsignorProvidedInformation>MOCK-ConsignorProvidedInformation</ConsignorProvidedInformation>
-      <ContractTermsInformation>MOCK-ContractTermsInformation</ContractTermsInformation>
+      <ConsignorProvidedInformation>Vaadid hoida püstiasendis; plaatimissegu kaitsta niiskuse eest.</ConsignorProvidedInformation>
+      <ContractTermsInformation>CMR-konventsiooni tingimused; Incoterms 2020 DAP Kaunas.</ContractTermsInformation>
       <ConsignorTradeParty>
-        <ID schemeAgencyID="87">MOCK-ID</ID>
-        <Name>MOCK-Name</Name>
+        <ID schemeAgencyID="87">MOCK-EE-1001</ID>
+        <Name>Mock Värvitehas AS</Name>
         <DefinedTradeContact>
           <TelephoneUniversalCommunication>
-            <CompleteNumber>MOCK-CompleteNumber</CompleteNumber>
+            <CompleteNumber>+372 5550 1001</CompleteNumber>
           </TelephoneUniversalCommunication>
           <EmailURIUniversalCommunication>
-            <URIID>MOCK-URIID</URIID>
+            <URIID>saatmine@mock-varvitehas.example</URIID>
           </EmailURIUniversalCommunication>
         </DefinedTradeContact>
         <PostalTradeAddress>
-          <PostcodeCode>MOCK-PostcodeCode</PostcodeCode>
-          <PostOfficeBox>MOCK-PostOfficeBo</PostOfficeBox>
-          <StreetName>MOCK-StreetName</StreetName>
-          <CityName>MOCK-CityName</CityName>
+          <PostcodeCode>11415</PostcodeCode>
+          <PostOfficeBox>PK 101</PostOfficeBox>
+          <StreetName>Peterburi tee</StreetName>
+          <CityName>Tallinn</CityName>
           <CountryID>EE</CountryID>
-          <CountrySubDivisionName>MOCK-CountrySubDivisionName</CountrySubDivisionName>
-          <BuildingNumber>MOCK-BuildingNumb</BuildingNumber>
-          <DepartmentName>MOCK-DepartmentName</DepartmentName>
-          <AdditionalStreetName>MOCK-AdditionalStreetName</AdditionalStreetName>
+          <CountrySubDivisionName>Harju maakond</CountrySubDivisionName>
+          <BuildingNumber>46</BuildingNumber>
+          <DepartmentName>Laoosakond</DepartmentName>
+          <AdditionalStreetName>korpus 3</AdditionalStreetName>
         </PostalTradeAddress>
         <SpecifiedTaxRegistration>
-          <ID schemeAgencyID="97">MOCK-ID</ID>
+          <ID schemeAgencyID="97">MOCK-VAT-EE-1001</ID>
         </SpecifiedTaxRegistration>
         <SpecifiedContactPerson>
-          <GivenName>MOCK-GivenName</GivenName>
-          <FamilyName>MOCK-FamilyName</FamilyName>
+          <GivenName>Mari</GivenName>
+          <FamilyName>Maasikas</FamilyName>
         </SpecifiedContactPerson>
         <OwnedCreditorFinancialAccount>
-          <ProprietaryID schemeAgencyID="3">MOCK-ProprietaryI</ProprietaryID>
+          <ProprietaryID schemeAgencyID="3">MOCK-ACC-1001</ProprietaryID>
         </OwnedCreditorFinancialAccount>
         <ConfirmedDocumentAuthentication>
           <StatementCode>1</StatementCode>
         </ConfirmedDocumentAuthentication>
       </ConsignorTradeParty>
       <ConsigneeTradeParty>
-        <ID schemeAgencyID="87">MOCK-ID</ID>
-        <Name>MOCK-Name</Name>
+        <ID schemeAgencyID="87">MOCK-LT-2001</ID>
+        <Name>Mock Statyba UAB</Name>
         <DefinedTradeContact>
-          <PersonName>MOCK-PersonName</PersonName>
+          <PersonName>Jonas Jonaitis</PersonName>
           <TelephoneUniversalCommunication>
-            <CompleteNumber>MOCK-CompleteNumber</CompleteNumber>
+            <CompleteNumber>+370 600 00201</CompleteNumber>
           </TelephoneUniversalCommunication>
           <FaxUniversalCommunication>
-            <CompleteNumber>MOCK-CompleteNumber</CompleteNumber>
+            <CompleteNumber>+370 37 000201</CompleteNumber>
           </FaxUniversalCommunication>
           <EmailURIUniversalCommunication>
-            <URIID>MOCK-URIID</URIID>
+            <URIID>priemimas@mock-statyba.example</URIID>
           </EmailURIUniversalCommunication>
         </DefinedTradeContact>
         <PostalTradeAddress>
-          <PostcodeCode>MOCK-PostcodeCode</PostcodeCode>
-          <PostOfficeBox>MOCK-PostOfficeBo</PostOfficeBox>
-          <StreetName>MOCK-StreetName</StreetName>
-          <CityName>MOCK-CityName</CityName>
-          <CountryID>EE</CountryID>
-          <CountrySubDivisionName>MOCK-CountrySubDivisionName</CountrySubDivisionName>
-          <BuildingNumber>MOCK-BuildingNumb</BuildingNumber>
-          <AdditionalStreetName>MOCK-AdditionalStreetName</AdditionalStreetName>
+          <PostcodeCode>LT-44001</PostcodeCode>
+          <PostOfficeBox>PD 15</PostOfficeBox>
+          <StreetName>Savanorių pr.</StreetName>
+          <CityName>Kaunas</CityName>
+          <CountryID>LT</CountryID>
+          <CountrySubDivisionName>Kauno apskritis</CountrySubDivisionName>
+          <BuildingNumber>200</BuildingNumber>
+          <AdditionalStreetName>korpusas 2</AdditionalStreetName>
         </PostalTradeAddress>
         <SpecifiedTaxRegistration>
-          <ID schemeAgencyID="T4">MOCK-ID</ID>
+          <ID schemeAgencyID="T4">MOCK-VAT-LT-2001</ID>
         </SpecifiedTaxRegistration>
         <SpecifiedContactPerson>
-          <GivenName>MOCK-GivenName</GivenName>
-          <FamilyName>MOCK-FamilyName</FamilyName>
+          <GivenName>Ona</GivenName>
+          <FamilyName>Jonaitienė</FamilyName>
         </SpecifiedContactPerson>
         <ConfirmedDocumentAuthentication>
           <StatementCode>1</StatementCode>
         </ConfirmedDocumentAuthentication>
       </ConsigneeTradeParty>
       <CarrierTradeParty>
-        <ID schemeAgencyID="12">MOCK-ID</ID>
-        <Name>MOCK-Name</Name>
+        <ID schemeAgencyID="12">MOCK-EE-3001</ID>
+        <Name>Mock Vedu OÜ</Name>
         <RoleCode>EV</RoleCode>
         <DefinedTradeContact>
-          <PersonName>MOCK-PersonName</PersonName>
+          <PersonName>Kati Karu</PersonName>
           <TelephoneUniversalCommunication>
-            <CompleteNumber>MOCK-CompleteNumber</CompleteNumber>
+            <CompleteNumber>+372 5550 3001</CompleteNumber>
           </TelephoneUniversalCommunication>
         </DefinedTradeContact>
         <PostalTradeAddress>
-          <PostcodeCode>MOCK-PostcodeCode</PostcodeCode>
-          <PostOfficeBox>MOCK-PostOfficeBo</PostOfficeBox>
-          <StreetName>MOCK-StreetName</StreetName>
-          <CityName>MOCK-CityName</CityName>
+          <PostcodeCode>50105</PostcodeCode>
+          <PostOfficeBox>PK 33</PostOfficeBox>
+          <StreetName>Ringtee</StreetName>
+          <CityName>Tartu</CityName>
           <CountryID>EE</CountryID>
-          <CountrySubDivisionName>MOCK-CountrySubDivisionName</CountrySubDivisionName>
-          <BuildingNumber>MOCK-BuildingNumb</BuildingNumber>
-          <AdditionalStreetName>MOCK-AdditionalStreetName</AdditionalStreetName>
+          <CountrySubDivisionName>Tartu maakond</CountrySubDivisionName>
+          <BuildingNumber>35</BuildingNumber>
+          <AdditionalStreetName>hoone A</AdditionalStreetName>
         </PostalTradeAddress>
         <SpecifiedTaxRegistration>
-          <ID schemeAgencyID="T4">MOCK-ID</ID>
+          <ID schemeAgencyID="T4">MOCK-VAT-EE-3001</ID>
         </SpecifiedTaxRegistration>
         <SpecifiedContactPerson>
-          <GivenName>MOCK-GivenName</GivenName>
-          <FamilyName>MOCK-FamilyName</FamilyName>
+          <GivenName>Kati</GivenName>
+          <FamilyName>Karu</FamilyName>
         </SpecifiedContactPerson>
         <AgreedTradeContract>
           <IssueDateTime>
-            <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+            <udt:DateTimeString format="102">20260105</udt:DateTimeString>
           </IssueDateTime>
-          <SpecifiedDurationMeasure unitCode="DAY">1</SpecifiedDurationMeasure>
+          <SpecifiedDurationMeasure unitCode="DAY">365</SpecifiedDurationMeasure>
           <SignedSpecifiedLocation>
-            <Name>MOCK-Name</Name>
+            <Name>Tartu</Name>
           </SignedSpecifiedLocation>
         </AgreedTradeContract>
         <ApplicableSpecifiedLicence>
-          <ID schemeAgencyID="3">MOCK-ID</ID>
-          <TypeCode listAgencyID="2">MOC</TypeCode>
+          <ID schemeAgencyID="3">MOCK-LIC-EE-3001</ID>
+          <TypeCode listAgencyID="2">CL</TypeCode>
         </ApplicableSpecifiedLicence>
         <ConfirmedDocumentAuthentication>
           <StatementCode>1</StatementCode>
         </ConfirmedDocumentAuthentication>
       </CarrierTradeParty>
       <FreightForwarderTradeParty>
-        <Name>MOCK-Name</Name>
+        <Name>Mock Ekspedīcija SIA</Name>
         <PostalTradeAddress>
-          <PostcodeCode>MOCK-PostcodeCode</PostcodeCode>
-          <PostOfficeBox>MOCK-PostOfficeBo</PostOfficeBox>
-          <StreetName>MOCK-StreetName</StreetName>
-          <CityName>MOCK-CityName</CityName>
-          <CountryID>EE</CountryID>
-          <CountrySubDivisionName>MOCK-CountrySubDivisionName</CountrySubDivisionName>
-          <BuildingNumber>MOCK-BuildingNumb</BuildingNumber>
-          <DepartmentName>MOCK-DepartmentName</DepartmentName>
-          <AdditionalStreetName>MOCK-AdditionalStreetName</AdditionalStreetName>
+          <PostcodeCode>LV-1019</PostcodeCode>
+          <PostOfficeBox>PK 7</PostOfficeBox>
+          <StreetName>Krasta iela</StreetName>
+          <CityName>Rīga</CityName>
+          <CountryID>LV</CountryID>
+          <CountrySubDivisionName>Rīga</CountrySubDivisionName>
+          <BuildingNumber>68</BuildingNumber>
+          <DepartmentName>Muitas nodaļa</DepartmentName>
+          <AdditionalStreetName>korpuss 1</AdditionalStreetName>
         </PostalTradeAddress>
       </FreightForwarderTradeParty>
       <ConnectingCarrierTradeParty>
-        <ID schemeAgencyID="87">MOCK-ID</ID>
-        <Name>MOCK-Name</Name>
+        <ID schemeAgencyID="87">MOCK-LV-4001</ID>
+        <Name>Mock Baltic Haulage SIA</Name>
         <PostalTradeAddress>
-          <PostcodeCode>MOCK-PostcodeCode</PostcodeCode>
-          <PostOfficeBox>MOCK-PostOfficeBo</PostOfficeBox>
-          <StreetName>MOCK-StreetName</StreetName>
-          <CityName>MOCK-CityName</CityName>
-          <CountryID>EE</CountryID>
-          <CountrySubDivisionName>MOCK-CountrySubDivisionName</CountrySubDivisionName>
-          <BuildingNumber>MOCK-BuildingNumb</BuildingNumber>
-          <AdditionalStreetName>MOCK-AdditionalStreetName</AdditionalStreetName>
+          <PostcodeCode>LV-3001</PostcodeCode>
+          <PostOfficeBox>PK 12</PostOfficeBox>
+          <StreetName>Dzirnavu iela</StreetName>
+          <CityName>Jelgava</CityName>
+          <CountryID>LV</CountryID>
+          <CountrySubDivisionName>Jelgava</CountrySubDivisionName>
+          <BuildingNumber>5</BuildingNumber>
+          <AdditionalStreetName>2. korpuss</AdditionalStreetName>
         </PostalTradeAddress>
         <ApplicableSpecifiedLicence>
-          <ID schemeAgencyID="3">MOCK-ID</ID>
-          <TypeCode listAgencyID="2">MOC</TypeCode>
+          <ID schemeAgencyID="3">MOCK-LIC-LV-4001</ID>
+          <TypeCode listAgencyID="2">CL</TypeCode>
         </ApplicableSpecifiedLicence>
       </ConnectingCarrierTradeParty>
       <CarrierAcceptanceLogisticsLocation>
-        <ID schemeAgencyID="6">MOCK-ID</ID>
-        <Name>MOCK-Name</Name>
+        <ID schemeAgencyID="6">EETLL</ID>
+        <Name>Mock Värvitehase ladu</Name>
         <PhysicalGeographicalCoordinate>
-          <LatitudeMeasure>1</LatitudeMeasure>
-          <LongitudeMeasure>1</LongitudeMeasure>
+          <LatitudeMeasure>59.443100</LatitudeMeasure>
+          <LongitudeMeasure>24.817200</LongitudeMeasure>
         </PhysicalGeographicalCoordinate>
         <PostalTradeAddress>
-          <PostcodeCode>MOCK-PostcodeCode</PostcodeCode>
-          <StreetName>MOCK-StreetName</StreetName>
-          <CityName>MOCK-CityName</CityName>
+          <PostcodeCode>11415</PostcodeCode>
+          <StreetName>Peterburi tee</StreetName>
+          <CityName>Tallinn</CityName>
           <CountryID>EE</CountryID>
-          <CountrySubDivisionName>MOCK-CountrySubDivisionName</CountrySubDivisionName>
-          <BuildingNumber>MOCK-BuildingNumb</BuildingNumber>
-          <AdditionalStreetName>MOCK-AdditionalStreetName</AdditionalStreetName>
+          <CountrySubDivisionName>Harju maakond</CountrySubDivisionName>
+          <BuildingNumber>46</BuildingNumber>
+          <AdditionalStreetName>laadimisramp 4</AdditionalStreetName>
         </PostalTradeAddress>
       </CarrierAcceptanceLogisticsLocation>
       <TransshipmentLogisticsLocation>
-        <ID schemeAgencyID="6">MOCK-ID</ID>
-        <Name>MOCK-Name</Name>
+        <ID schemeAgencyID="6">LVRIX</ID>
+        <Name>Mock Rīgas terminālis</Name>
       </TransshipmentLogisticsLocation>
       <ConsigneeReceiptLogisticsLocation>
-        <ID schemeAgencyID="6">MOCK-ID</ID>
-        <Name>MOCK-Name</Name>
+        <ID schemeAgencyID="6">LTKUN</ID>
+        <Name>Mock Statyba Kauno sandėlis</Name>
         <PhysicalGeographicalCoordinate>
-          <LatitudeMeasure>1</LatitudeMeasure>
-          <LongitudeMeasure>1</LongitudeMeasure>
+          <LatitudeMeasure>54.910500</LatitudeMeasure>
+          <LongitudeMeasure>23.931900</LongitudeMeasure>
         </PhysicalGeographicalCoordinate>
         <PostalTradeAddress>
-          <PostcodeCode>MOCK-PostcodeCode</PostcodeCode>
-          <StreetName>MOCK-StreetName</StreetName>
-          <CityName>MOCK-CityName</CityName>
-          <CountryID>EE</CountryID>
-          <CountrySubDivisionName>MOCK-CountrySubDivisionName</CountrySubDivisionName>
-          <BuildingNumber>MOCK-BuildingNumb</BuildingNumber>
-          <AdditionalStreetName>MOCK-AdditionalStreetName</AdditionalStreetName>
+          <PostcodeCode>LT-44001</PostcodeCode>
+          <StreetName>Savanorių pr.</StreetName>
+          <CityName>Kaunas</CityName>
+          <CountryID>LT</CountryID>
+          <CountrySubDivisionName>Kauno apskritis</CountrySubDivisionName>
+          <BuildingNumber>200</BuildingNumber>
+          <AdditionalStreetName>rampa 2</AdditionalStreetName>
         </PostalTradeAddress>
       </ConsigneeReceiptLogisticsLocation>
       <TransportContractReferencedDocument>
-        <URIID>MOCK-URIID</URIID>
-        <TypeCode>85</TypeCode>
-        <ID>MOCK-ID</ID>
+        <URIID>https://docs.mock-efti.example/cmr/MOCK-CMR-MAX</URIID>
+        <TypeCode>730</TypeCode>
+        <ID>MOCK-CMR-MAX</ID>
         <FormattedIssueDateTime>
-          <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+          <udt:DateTimeString format="205">202609140700+0300</udt:DateTimeString>
         </FormattedIssueDateTime>
         <SubtypeCode>4</SubtypeCode>
         <IssueLogisticsLocation>
-          <Name>MOCK-Name</Name>
+          <Name>Tallinn</Name>
         </IssueLogisticsLocation>
         <ContractualDocumentClause>
-          <Content>MOCK-Content</Content>
+          <Content>Vedaja vastutab CMR-konventsiooni alusel; ooteaeg üle 2 tunni 40 EUR/h.</Content>
         </ContractualDocumentClause>
       </TransportContractReferencedDocument>
       <AssociatedReferencedDocument>
-        <TypeCode>87</TypeCode>
-        <ID>MOCK-ID</ID>
-        <ReferenceTypeCode>EE</ReferenceTypeCode>
+        <TypeCode>380</TypeCode>
+        <ID>MOCK-INV-0914</ID>
+        <ReferenceTypeCode>IV</ReferenceTypeCode>
         <IssuerTradeParty>
-          <Name>MOCK-Name</Name>
+          <Name>Mock Värvitehas AS</Name>
           <SpecifiedRepresentativePerson>
-            <Name>MOCK-Name</Name>
+            <Name>Mari Maasikas</Name>
           </SpecifiedRepresentativePerson>
         </IssuerTradeParty>
         <AttachedSpecifiedBinaryFile>
-          <ID>MOCK-ID</ID>
-          <IncludedBinaryObject uri="MOCK-uri" filename="MOCK-filename">TW9jayBhdHRhY2htZW50</IncludedBinaryObject>
+          <ID>MOCK-FILE-0914</ID>
+          <IncludedBinaryObject uri="https://docs.mock-efti.example/arve-MOCK-INV-0914.txt" filename="arve-MOCK-INV-0914.txt">QXJ2ZSBNT0NLLUlOVi0wOTE0OiA0OCA1MDAuMDAgRVVS</IncludedBinaryObject>
         </AttachedSpecifiedBinaryFile>
       </AssociatedReferencedDocument>
       <DeliveryTransportEvent>
         <ActualOccurrenceDateTime>
-          <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+          <udt:DateTimeString format="102">20260915</udt:DateTimeString>
         </ActualOccurrenceDateTime>
         <ScheduledOccurrenceDateTime>
-          <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+          <udt:DateTimeString format="102">20260915</udt:DateTimeString>
         </ScheduledOccurrenceDateTime>
         <RequestedOccurrenceDateTime>
-          <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+          <udt:DateTimeString format="102">20260916</udt:DateTimeString>
         </RequestedOccurrenceDateTime>
         <OccurrenceLogisticsLocation>
-          <ID schemeAgencyID="3">MOCK-ID</ID>
-          <Name>MOCK-Name</Name>
+          <ID schemeAgencyID="6">LTKUN</ID>
+          <Name>Mock Statyba Kauno sandėlis</Name>
         </OccurrenceLogisticsLocation>
         <RelatedSpecifiedObservation>
           <ApplicableNote>
-            <Content>MOCK-Content</Content>
-            <SubjectCode>MOC</SubjectCode>
+            <Content>Kaup vastu võetud märkusteta.</Content>
+            <SubjectCode>DEL</SubjectCode>
           </ApplicableNote>
         </RelatedSpecifiedObservation>
         <ScheduledOccurrenceSpecifiedPeriod>
           <DurationMeasure unitCode="DAY">1</DurationMeasure>
           <StartDateTime>
-            <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+            <udt:DateTimeString format="102">20260915</udt:DateTimeString>
           </StartDateTime>
           <EndDateTime>
-            <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+            <udt:DateTimeString format="102">20260916</udt:DateTimeString>
           </EndDateTime>
-          <MaximumDurationMeasure unitCode="DAY">1</MaximumDurationMeasure>
+          <MaximumDurationMeasure unitCode="DAY">2</MaximumDurationMeasure>
         </ScheduledOccurrenceSpecifiedPeriod>
       </DeliveryTransportEvent>
       <TransportEvent>
         <CertifyingTradeParty>
-          <ID schemeAgencyID="87">MOCK-ID</ID>
+          <ID schemeAgencyID="87">MOCK-EE-1001</ID>
           <SpecifiedAuthoritativeSignatoryPerson>
-            <Name>MOCK-Name</Name>
-            <ID>MOCK-ID</ID>
+            <Name>Mari Maasikas</Name>
+            <ID>MOCK-SIG-1001</ID>
           </SpecifiedAuthoritativeSignatoryPerson>
           <ConfirmedDocumentAuthentication>
             <ActualDateTime>
-              <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+              <udt:DateTimeString format="205">202609140715+0300</udt:DateTimeString>
             </ActualDateTime>
           </ConfirmedDocumentAuthentication>
         </CertifyingTradeParty>
       </TransportEvent>
       <IncludedSupplyChainConsignmentItem>
-        <GrossVolumeMeasure unitCode="MTQ">45.00</GrossVolumeMeasure>
-        <GoodsUnitQuantity unitCode="C62">1</GoodsUnitQuantity>
+        <GrossVolumeMeasure unitCode="MTQ">16</GrossVolumeMeasure>
+        <GoodsUnitQuantity unitCode="C62">40</GoodsUnitQuantity>
         <ApplicableTransportDangerousGoods>
-          <UNDGIdentificationCode>1203</UNDGIdentificationCode>
-          <TechnicalName languageID="MOC">MOCK-TechnicalName</TechnicalName>
-          <PackagingDangerLevelCode>I</PackagingDangerLevelCode>
-          <GrossWeightMeasure unitCode="KGM">15000.00</GrossWeightMeasure>
-          <HazardTypeCode listAgencyID="6">MOCK-Ha</HazardTypeCode>
-          <HazardClassificationID>MOCK-Ha</HazardClassificationID>
-          <GrossVolumeMeasure unitCode="MTQ">45.00</GrossVolumeMeasure>
-          <NetWeightMeasure unitCode="KGM">12000.00</NetWeightMeasure>
-          <ExplosiveCargoNetWeightMeasure unitCode="KGM">1</ExplosiveCargoNetWeightMeasure>
-          <ProperShippingName languageID="MOC">MOCK-ProperShippingName</ProperShippingName>
-          <TunnelRestrictionCode>MOCK-T</TunnelRestrictionCode>
+          <UNDGIdentificationCode>1263</UNDGIdentificationCode>
+          <TechnicalName languageID="en">PAINT</TechnicalName>
+          <PackagingDangerLevelCode>III</PackagingDangerLevelCode>
+          <GrossWeightMeasure unitCode="KGM">8400</GrossWeightMeasure>
+          <HazardTypeCode listAgencyID="6">F1</HazardTypeCode>
+          <HazardClassificationID>3</HazardClassificationID>
+          <GrossVolumeMeasure unitCode="MTQ">8</GrossVolumeMeasure>
+          <NetWeightMeasure unitCode="KGM">8000</NetWeightMeasure>
+          <ExplosiveCargoNetWeightMeasure unitCode="KGM">0</ExplosiveCargoNetWeightMeasure>
+          <ProperShippingName languageID="en">PAINT</ProperShippingName>
+          <TunnelRestrictionCode>D/E</TunnelRestrictionCode>
           <SpecialProvisionID>SP310</SpecialProvisionID>
           <HazardCategoryCode>3</HazardCategoryCode>
           <LimitedQuantityCode>1</LimitedQuantityCode>
-          <DensityMeasure unitCode="KGM">1</DensityMeasure>
-          <MeltingPointTemperatureMeasure unitCode="CEL">1</MeltingPointTemperatureMeasure>
-          <LabelTypeCode>MOC</LabelTypeCode>
+          <DensityMeasure unitCode="KGM">1.3</DensityMeasure>
+          <MeltingPointTemperatureMeasure unitCode="CEL">-5</MeltingPointTemperatureMeasure>
+          <LabelTypeCode>3</LabelTypeCode>
           <ControlTemperatureMeasurement>
-            <ConditionMeasure unitCode="CEL">1</ConditionMeasure>
+            <ConditionMeasure unitCode="CEL">25</ConditionMeasure>
             <TypeCode>T1</TypeCode>
           </ControlTemperatureMeasurement>
           <EmergencyTemperatureMeasurement>
-            <ConditionMeasure unitCode="CEL">1</ConditionMeasure>
+            <ConditionMeasure unitCode="CEL">35</ConditionMeasure>
             <TypeCode>T1</TypeCode>
           </EmergencyTemperatureMeasurement>
           <RadioactiveMaterial>
-            <SpecialFormInformation languageID="MOC">MOCK-SpecialFormInformation</SpecialFormInformation>
-            <RadioactivePackageTransportIndexCode>MOC</RadioactivePackageTransportIndexCode>
-            <FissileCriticalitySafetyIndexNumeric>1</FissileCriticalitySafetyIndexNumeric>
+            <SpecialFormInformation languageID="et">Erivormis radioaktiivne aine (ainult väljade kaardistamiseks)</SpecialFormInformation>
+            <RadioactivePackageTransportIndexCode>0.5</RadioactivePackageTransportIndexCode>
+            <FissileCriticalitySafetyIndexNumeric>0</FissileCriticalitySafetyIndexNumeric>
             <ApplicableSpecifiedRadioactiveIsotope>
-              <Name languageID="MOC">MOCK-Name</Name>
-              <ActivityLevelMeasure unitCode="KGM">1</ActivityLevelMeasure>
+              <Name languageID="et">Cs-137</Name>
+              <ActivityLevelMeasure unitCode="KGM">0.4</ActivityLevelMeasure>
             </ApplicableSpecifiedRadioactiveIsotope>
           </RadioactiveMaterial>
           <SpecifiedLogisticsPackage>
-            <ItemQuantity>1</ItemQuantity>
-            <TypeCode>MOCK-T</TypeCode>
-            <Type languageID="MOC">MOCK-Type</Type>
+            <ItemQuantity>40</ItemQuantity>
+            <TypeCode>1A1</TypeCode>
+            <Type languageID="et">Terasvaat</Type>
             <PhysicalLogisticsShippingMarks>
-              <Marking languageID="MOC">MOCK-Marking</Marking>
+              <Marking languageID="et">UN 1263, 3, III - Mock Värvitehas AS</Marking>
             </PhysicalLogisticsShippingMarks>
             <AssociatedReferencedDocument>
-              <URIID>MOCK-URIID</URIID>
+              <URIID>https://sds.mock-efti.example/1263</URIID>
               <TypeCode>4</TypeCode>
             </AssociatedReferencedDocument>
             <StatedSpecifiedCondition>
               <StatementCode>29</StatementCode>
-              <Statement languageID="MOC">MOCK-Statement</Statement>
+              <Statement languageID="et">Pakend vastab ADR 4.1.1 nõuetele</Statement>
             </StatedSpecifiedCondition>
           </SpecifiedLogisticsPackage>
           <StatedSpecifiedCondition>
             <SubjectTypeCode>S1</SubjectTypeCode>
             <StatementCode>3</StatementCode>
-            <Statement languageID="MOC">MOCK-Statement</Statement>
+            <Statement languageID="et">Keskkonnaohtlik aine: ei</Statement>
             <SpecifiedCalibratedMeasurement>
-              <ValueMeasure unitCode="60">1</ValueMeasure>
+              <ValueMeasure unitCode="60">23</ValueMeasure>
             </SpecifiedCalibratedMeasurement>
           </StatedSpecifiedCondition>
           <RelatedReferencedDocument>
             <TypeCode>T10</TypeCode>
-            <AttachmentBinaryObject uri="MOCK-uri" filename="MOCK-filename">TW9jayBhdHRhY2htZW50</AttachmentBinaryObject>
+            <AttachmentBinaryObject uri="https://docs.mock-efti.example/ohutuskaart-un1263.txt" filename="ohutuskaart-un1263.txt">T2h1dHVza2FhcnQgVU4gMTI2MyBQQUlOVCwga2xhc3MgMw==</AttachmentBinaryObject>
           </RelatedReferencedDocument>
           <IncludedSpecifiedFuel>
             <TypeCode>1</TypeCode>
-            <VolumeMeasure unitCode="MTQ">1</VolumeMeasure>
-            <WeightMeasure unitCode="KGM">1</WeightMeasure>
-            <WorkingPressureMeasure unitCode="BAR">1</WorkingPressureMeasure>
+            <VolumeMeasure unitCode="MTQ">0.4</VolumeMeasure>
+            <WeightMeasure unitCode="KGM">320</WeightMeasure>
+            <WorkingPressureMeasure unitCode="BAR">1.0</WorkingPressureMeasure>
           </IncludedSpecifiedFuel>
           <TechnicalNameNote>
-            <Content languageID="MOC">MOCK-Content</Content>
+            <Content languageID="et">Värv vesialusel, tuleohtlik</Content>
             <SubjectCode>3</SubjectCode>
           </TechnicalNameNote>
         </ApplicableTransportDangerousGoods>
         <LinearSpatialDimension>
-          <WidthMeasure unitCode="MTR">1</WidthMeasure>
-          <LengthMeasure unitCode="MTR">1</LengthMeasure>
-          <HeightMeasure unitCode="MTR">1</HeightMeasure>
+          <WidthMeasure unitCode="MTR">2.35</WidthMeasure>
+          <LengthMeasure unitCode="MTR">5.90</LengthMeasure>
+          <HeightMeasure unitCode="MTR">1.20</HeightMeasure>
         </LinearSpatialDimension>
         <AssociatedReferencedLogisticsTransportEquipment>
-          <ID schemeAgencyID="12">MOCK-ID</ID>
+          <ID schemeAgencyID="12">MOCK-CONTAINER-A</ID>
+        </AssociatedReferencedLogisticsTransportEquipment>
+      </IncludedSupplyChainConsignmentItem>
+      <IncludedSupplyChainConsignmentItem>
+        <GrossVolumeMeasure unitCode="MTQ">36.5</GrossVolumeMeasure>
+        <GoodsUnitQuantity unitCode="C62">24</GoodsUnitQuantity>
+        <LinearSpatialDimension>
+          <WidthMeasure unitCode="MTR">2.35</WidthMeasure>
+          <LengthMeasure unitCode="MTR">12.03</LengthMeasure>
+          <HeightMeasure unitCode="MTR">2.39</HeightMeasure>
+        </LinearSpatialDimension>
+        <AssociatedReferencedLogisticsTransportEquipment>
+          <ID schemeAgencyID="12">MOCK-CONTAINER-B</ID>
         </AssociatedReferencedLogisticsTransportEquipment>
       </IncludedSupplyChainConsignmentItem>
       <UtilizedLogisticsTransportEquipment>
-        <ID schemeAgencyID="12">MOCK-ID</ID>
-        <GrossVolumeMeasure unitCode="MTQ">45.00</GrossVolumeMeasure>
-        <CategoryCode>AE</CategoryCode>
-        <CharacteristicCode listAgencyID="5">MOCK-Chara</CharacteristicCode>
+        <ID schemeAgencyID="12">MOCK-TRAILER-MAX</ID>
+        <GrossVolumeMeasure unitCode="MTQ">90</GrossVolumeMeasure>
+        <CategoryCode>TE</CategoryCode>
+        <CharacteristicCode listAgencyID="6">CHASSIS40</CharacteristicCode>
         <UsedCapacityCode>4</UsedCapacityCode>
         <SequenceNumeric>1</SequenceNumeric>
-        <SealQuantity>1</SealQuantity>
-        <StowagePositionID>MOCK-StowagePosit</StowagePositionID>
-        <GrossGoodsWeightMeasure unitCode="KGM">1</GrossGoodsWeightMeasure>
-        <NetGoodsWeightMeasure unitCode="KGM">1</NetGoodsWeightMeasure>
-        <GrossGoodsVolumeMeasure unitCode="MTQ">1</GrossGoodsVolumeMeasure>
-        <NetGoodsVolumeMeasure unitCode="MTQ">1</NetGoodsVolumeMeasure>
-        <ReportableQuantity>1</ReportableQuantity>
+        <SealQuantity>2</SealQuantity>
+        <StowagePositionID>POOLHAAGIS</StowagePositionID>
+        <GrossGoodsWeightMeasure unitCode="KGM">18000</GrossGoodsWeightMeasure>
+        <NetGoodsWeightMeasure unitCode="KGM">16800</NetGoodsWeightMeasure>
+        <GrossGoodsVolumeMeasure unitCode="MTQ">52.5</GrossGoodsVolumeMeasure>
+        <NetGoodsVolumeMeasure unitCode="MTQ">50.2</NetGoodsVolumeMeasure>
+        <ReportableQuantity>64</ReportableQuantity>
         <LoadedTransportDangerousGoods>
-          <UNDGIdentificationCode>1203</UNDGIdentificationCode>
-          <RegulatoryAuthorityName>MOCK-RegulatoryAuthorityName</RegulatoryAuthorityName>
-          <Information languageID="MOC">Full-field synthetic test fixture</Information>
-          <HazardClassificationID>MOCK-Ha</HazardClassificationID>
-          <SupplementaryInformation languageID="MOC">MOCK-SupplementaryInformation</SupplementaryInformation>
-          <ReportableQuantity>1</ReportableQuantity>
-          <PreviousCargoInformation languageID="MOC">MOCK-PreviousCargoInformation</PreviousCargoInformation>
+          <UNDGIdentificationCode>1263</UNDGIdentificationCode>
+          <RegulatoryAuthorityName>Transpordiamet</RegulatoryAuthorityName>
+          <Information languageID="et">Poolhaagisel paakseadet ei ole</Information>
+          <HazardClassificationID>3</HazardClassificationID>
+          <SupplementaryInformation languageID="et">Fumigeerimist ei ole tehtud</SupplementaryInformation>
+          <ReportableQuantity>40</ReportableQuantity>
+          <PreviousCargoInformation languageID="et">Eelmine veos: puidugraanulid (mitteohtlik)</PreviousCargoInformation>
           <SpecifiedLogisticsPackage>
-            <ItemQuantity>1</ItemQuantity>
+            <ItemQuantity>40</ItemQuantity>
           </SpecifiedLogisticsPackage>
           <StatedSpecifiedCondition>
             <SubjectTypeCode>S12</SubjectTypeCode>
-            <ValueMeasure unitCode="KGM">1</ValueMeasure>
+            <ValueMeasure unitCode="KGM">25</ValueMeasure>
             <ActionCode>530</ActionCode>
             <ActionDateTime>
-              <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+              <udt:DateTimeString format="205">202609140745+0300</udt:DateTimeString>
             </ActionDateTime>
             <StatementCode>18</StatementCode>
-            <Statement languageID="MOC">MOCK-Statement</Statement>
+            <Statement languageID="et">Poolhaagis kontrollitud enne laadimist</Statement>
             <SpecifiedCalibratedMeasurement>
-              <ValueMeasure unitCode="KGM">1</ValueMeasure>
+              <ValueMeasure unitCode="KGM">24</ValueMeasure>
             </SpecifiedCalibratedMeasurement>
           </StatedSpecifiedCondition>
           <RelatedReferencedDocument>
             <TypeCode>T3</TypeCode>
-            <ID>MOCK-ID</ID>
-            <AttachmentBinaryObject uri="MOCK-uri" filename="MOCK-filename">TW9jayBhdHRhY2htZW50</AttachmentBinaryObject>
+            <ID>MOCK-ADR-CERT-01</ID>
+            <AttachmentBinaryObject uri="https://docs.mock-efti.example/adr-tunnistus-MOCK-ADR-CERT-01.txt" filename="adr-tunnistus-MOCK-ADR-CERT-01.txt">QURSIGhlYWtza2lpZHV0dW5uaXN0dXMgTU9DSy1BRFItQ0VSVC0wMQ==</AttachmentBinaryObject>
           </RelatedReferencedDocument>
         </LoadedTransportDangerousGoods>
         <AffixedLogisticsSeal>
-          <ID schemeAgencyID="3">MOCK-ID</ID>
+          <ID schemeAgencyID="3">MOCK-SEAL-T-0001</ID>
           <ConditionCode>3</ConditionCode>
-          <SealingPartyRoleCode>AA</SealingPartyRoleCode>
+          <SealingPartyRoleCode>CA</SealingPartyRoleCode>
         </AffixedLogisticsSeal>
         <CarriedAssociatedTransportEquipment>
-          <ID schemeAgencyID="12">MOCK-ID</ID>
-          <CategoryCode>AM</CategoryCode>
-          <GrossWeightMeasure unitCode="KGM">15000.00</GrossWeightMeasure>
+          <ID schemeAgencyID="12">MOCK-CONTAINER-A</ID>
+          <CategoryCode>CN</CategoryCode>
+          <GrossWeightMeasure unitCode="KGM">10600</GrossWeightMeasure>
           <UsedCapacityCode>4</UsedCapacityCode>
           <SequenceNumeric>1</SequenceNumeric>
-          <VerifiedGrossWeightMeasure unitCode="KGM">1</VerifiedGrossWeightMeasure>
-          <GrossGoodsWeightMeasure unitCode="KGM">1</GrossGoodsWeightMeasure>
-          <NetGoodsWeightMeasure unitCode="KGM">1</NetGoodsWeightMeasure>
-          <GrossGoodsVolumeMeasure unitCode="MTQ">1</GrossGoodsVolumeMeasure>
-          <NetGoodsVolumeMeasure unitCode="MTQ">1</NetGoodsVolumeMeasure>
-          <GoodsItemUnitQuantity unitCode="C62">1</GoodsItemUnitQuantity>
-          <ReportableQuantity>1</ReportableQuantity>
-          <StowagePositionID>MOCK-StowagePosit</StowagePositionID>
+          <VerifiedGrossWeightMeasure unitCode="KGM">10620</VerifiedGrossWeightMeasure>
+          <GrossGoodsWeightMeasure unitCode="KGM">8400</GrossGoodsWeightMeasure>
+          <NetGoodsWeightMeasure unitCode="KGM">8000</NetGoodsWeightMeasure>
+          <GrossGoodsVolumeMeasure unitCode="MTQ">16</GrossGoodsVolumeMeasure>
+          <NetGoodsVolumeMeasure unitCode="MTQ">15.2</NetGoodsVolumeMeasure>
+          <GoodsItemUnitQuantity unitCode="C62">40</GoodsItemUnitQuantity>
+          <ReportableQuantity>40</ReportableQuantity>
+          <StowagePositionID>EESMINE</StowagePositionID>
           <WeightVerificationMethodCode>1</WeightVerificationMethodCode>
           <LoadedTransportDangerousGoods>
-            <UNDGIdentificationCode>1203</UNDGIdentificationCode>
-            <RegulatoryAuthorityName>MOCK-RegulatoryAuthorityName</RegulatoryAuthorityName>
-            <Information languageID="MOC">Full-field synthetic test fixture</Information>
-            <HazardClassificationID>MOCK-Ha</HazardClassificationID>
-            <SupplementaryInformation languageID="MOC">MOCK-SupplementaryInformation</SupplementaryInformation>
-            <ReportableQuantity>1</ReportableQuantity>
-            <PreviousCargoInformation languageID="MOC">MOCK-PreviousCargoInformation</PreviousCargoInformation>
+            <UNDGIdentificationCode>1263</UNDGIdentificationCode>
+            <RegulatoryAuthorityName>Transpordiamet</RegulatoryAuthorityName>
+            <Information languageID="et">Konteineril paakseadet ei ole</Information>
+            <HazardClassificationID>3</HazardClassificationID>
+            <SupplementaryInformation languageID="et">Konteinerit ei ole fumigeeritud</SupplementaryInformation>
+            <ReportableQuantity>40</ReportableQuantity>
+            <PreviousCargoInformation languageID="et">Eelmine veos: kipsplaadid (mitteohtlik)</PreviousCargoInformation>
             <SpecifiedLogisticsPackage>
-              <ItemQuantity>1</ItemQuantity>
+              <ItemQuantity>40</ItemQuantity>
             </SpecifiedLogisticsPackage>
             <StatedSpecifiedCondition>
               <SubjectTypeCode>S10</SubjectTypeCode>
-              <ValueMeasure unitCode="KGM">1</ValueMeasure>
+              <ValueMeasure unitCode="KGM">18</ValueMeasure>
               <ActionCode>530</ActionCode>
               <ActionDateTime>
-                <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+                <udt:DateTimeString format="205">202609140750+0300</udt:DateTimeString>
               </ActionDateTime>
               <StatementCode>19</StatementCode>
-              <Statement languageID="MOC">MOCK-Statement</Statement>
+              <Statement languageID="et">Konteiner puhastatud enne laadimist</Statement>
             </StatedSpecifiedCondition>
             <RelatedReferencedDocument>
               <TypeCode>T5</TypeCode>
-              <AttachmentBinaryObject uri="MOCK-uri" filename="MOCK-filename">TW9jayBhdHRhY2htZW50</AttachmentBinaryObject>
+              <AttachmentBinaryObject uri="https://docs.mock-efti.example/pakkimissertifikaat-MOCK-CONTAINER-A.txt" filename="pakkimissertifikaat-MOCK-CONTAINER-A.txt">S29udGVpbmVyaSBwYWtraW1pc3NlcnRpZmlrYWF0IE1PQ0stQ09OVEFJTkVSLUE=</AttachmentBinaryObject>
             </RelatedReferencedDocument>
           </LoadedTransportDangerousGoods>
           <AffixedLogisticsSeal>
-            <ID>MOCK-ID</ID>
+            <ID>MOCK-SEAL-C-0001</ID>
             <ConditionCode>3</ConditionCode>
-            <SealingPartyRoleCode>AA</SealingPartyRoleCode>
+            <SealingPartyRoleCode>SH</SealingPartyRoleCode>
             <IssuingTradeParty>
-              <Name>MOCK-Name</Name>
+              <Name>Mock Värvitehas AS</Name>
             </IssuingTradeParty>
           </AffixedLogisticsSeal>
           <WeightVerifierTradeParty>
-            <Name>MOCK-Name</Name>
+            <Name>Mock Kaalukoda OÜ</Name>
+          </WeightVerifierTradeParty>
+        </CarriedAssociatedTransportEquipment>
+        <CarriedAssociatedTransportEquipment>
+          <ID schemeAgencyID="12">MOCK-CONTAINER-B</ID>
+          <CategoryCode>CN</CategoryCode>
+          <GrossWeightMeasure unitCode="KGM">13400</GrossWeightMeasure>
+          <UsedCapacityCode>4</UsedCapacityCode>
+          <SequenceNumeric>2</SequenceNumeric>
+          <VerifiedGrossWeightMeasure unitCode="KGM">13380</VerifiedGrossWeightMeasure>
+          <GrossGoodsWeightMeasure unitCode="KGM">9600</GrossGoodsWeightMeasure>
+          <NetGoodsWeightMeasure unitCode="KGM">8800</NetGoodsWeightMeasure>
+          <GrossGoodsVolumeMeasure unitCode="MTQ">36.5</GrossGoodsVolumeMeasure>
+          <NetGoodsVolumeMeasure unitCode="MTQ">35</NetGoodsVolumeMeasure>
+          <GoodsItemUnitQuantity unitCode="C62">24</GoodsItemUnitQuantity>
+          <ReportableQuantity>24</ReportableQuantity>
+          <StowagePositionID>TAGUMINE</StowagePositionID>
+          <WeightVerificationMethodCode>1</WeightVerificationMethodCode>
+          <AffixedLogisticsSeal>
+            <ID>MOCK-SEAL-C-0002</ID>
+            <ConditionCode>3</ConditionCode>
+            <SealingPartyRoleCode>SH</SealingPartyRoleCode>
+            <IssuingTradeParty>
+              <Name>Mock Värvitehas AS</Name>
+            </IssuingTradeParty>
+          </AffixedLogisticsSeal>
+          <WeightVerifierTradeParty>
+            <Name>Mock Kaalukoda OÜ</Name>
           </WeightVerifierTradeParty>
         </CarriedAssociatedTransportEquipment>
         <OperatingTradeParty>
-          <ID schemeAgencyID="87">MOCK-ID</ID>
-          <Name>MOCK-Name</Name>
+          <ID schemeAgencyID="87">MOCK-EE-3001</ID>
+          <Name>Mock Vedu OÜ</Name>
           <PostalTradeAddress>
-            <PostcodeCode>MOCK-PostcodeCode</PostcodeCode>
-            <PostOfficeBox>MOCK-PostOfficeBo</PostOfficeBox>
-            <StreetName>MOCK-StreetName</StreetName>
-            <CityName>MOCK-CityName</CityName>
+            <PostcodeCode>50105</PostcodeCode>
+            <PostOfficeBox>PK 33</PostOfficeBox>
+            <StreetName>Ringtee</StreetName>
+            <CityName>Tartu</CityName>
             <CountryID>EE</CountryID>
-            <CountrySubDivisionName>MOCK-CountrySubDivisionName</CountrySubDivisionName>
-            <BuildingNumber>MOCK-BuildingNumb</BuildingNumber>
-            <DepartmentName>MOCK-DepartmentName</DepartmentName>
-            <AdditionalStreetName>MOCK-AdditionalStreetName</AdditionalStreetName>
+            <CountrySubDivisionName>Tartu maakond</CountrySubDivisionName>
+            <BuildingNumber>35</BuildingNumber>
+            <DepartmentName>Veopark</DepartmentName>
+            <AdditionalStreetName>hoone A</AdditionalStreetName>
           </PostalTradeAddress>
         </OperatingTradeParty>
         <OwnerTradeParty>
-          <ID schemeAgencyID="87">MOCK-ID</ID>
-          <Name>MOCK-Name</Name>
+          <ID schemeAgencyID="87">MOCK-EE-5001</ID>
+          <Name>Mock Liising AS</Name>
           <PostalTradeAddress>
-            <PostcodeCode>MOCK-PostcodeCode</PostcodeCode>
-            <PostOfficeBox>MOCK-PostOfficeBo</PostOfficeBox>
-            <StreetName>MOCK-StreetName</StreetName>
-            <CityName>MOCK-CityName</CityName>
+            <PostcodeCode>10117</PostcodeCode>
+            <PostOfficeBox>PK 77</PostOfficeBox>
+            <StreetName>Narva mnt</StreetName>
+            <CityName>Tallinn</CityName>
             <CountryID>EE</CountryID>
-            <CountrySubDivisionName>MOCK-CountrySubDivisionName</CountrySubDivisionName>
-            <BuildingNumber>MOCK-BuildingNumb</BuildingNumber>
-            <DepartmentName>MOCK-DepartmentName</DepartmentName>
-            <AdditionalStreetName>MOCK-AdditionalStreetName</AdditionalStreetName>
+            <CountrySubDivisionName>Harju maakond</CountrySubDivisionName>
+            <BuildingNumber>7</BuildingNumber>
+            <DepartmentName>Liisinguosakond</DepartmentName>
+            <AdditionalStreetName>5. korrus</AdditionalStreetName>
           </PostalTradeAddress>
         </OwnerTradeParty>
         <RegistrationTradeCountry>
-          <ID>MO</ID>
+          <ID>EE</ID>
         </RegistrationTradeCountry>
       </UtilizedLogisticsTransportEquipment>
       <MainCarriageLogisticsTransportMovement>
         <ModeCode>3</ModeCode>
-        <ID>MOCK-ID</ID>
+        <ID>MOCK-TRIP-0914</ID>
         <SequenceNumeric>1</SequenceNumeric>
         <MasterResponsibleTransportPerson>
-          <ID schemeAgencyID="87">MOCK-ID</ID>
+          <ID schemeAgencyID="87">MOCK-DRV-EE-0001</ID>
           <BirthDateTime>
-            <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+            <udt:DateTimeString format="102">19800512</udt:DateTimeString>
           </BirthDateTime>
-          <GivenName>MOCK-GivenName</GivenName>
-          <FamilyName>MOCK-FamilyName</FamilyName>
+          <GivenName>Jaan</GivenName>
+          <FamilyName>Tamm</FamilyName>
         </MasterResponsibleTransportPerson>
         <LoadingTransportEvent>
           <ActualOccurrenceDateTime>
-            <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+            <udt:DateTimeString format="205">202609140800+0300</udt:DateTimeString>
           </ActualOccurrenceDateTime>
           <ScheduledOccurrenceDateTime>
             <udt:DateTimeString format="102">20260914</udt:DateTimeString>
           </ScheduledOccurrenceDateTime>
           <RequestedOccurrenceDateTime>
-            <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+            <udt:DateTimeString format="102">20260913</udt:DateTimeString>
           </RequestedOccurrenceDateTime>
           <OccurrenceLogisticsLocation>
-            <ID schemeAgencyID="6">MOCK-ID</ID>
-            <Name>MOCK-Name</Name>
+            <ID schemeAgencyID="6">EETLL</ID>
+            <Name>Mock Värvitehase ladu</Name>
             <PostalTradeAddress>
-              <PostcodeCode>MOCK-PostcodeCode</PostcodeCode>
-              <PostOfficeBox>MOCK-PostOfficeBo</PostOfficeBox>
-              <StreetName>MOCK-StreetName</StreetName>
-              <CityName>MOCK-CityName</CityName>
+              <PostcodeCode>11415</PostcodeCode>
+              <PostOfficeBox>PK 101</PostOfficeBox>
+              <StreetName>Peterburi tee</StreetName>
+              <CityName>Tallinn</CityName>
               <CountryID>EE</CountryID>
-              <CountrySubDivisionName>MOCK-CountrySubDivisionName</CountrySubDivisionName>
-              <BuildingNumber>MOCK-BuildingNumb</BuildingNumber>
-              <DepartmentName>MOCK-DepartmentName</DepartmentName>
-              <AdditionalStreetName>MOCK-AdditionalStreetName</AdditionalStreetName>
+              <CountrySubDivisionName>Harju maakond</CountrySubDivisionName>
+              <BuildingNumber>46</BuildingNumber>
+              <DepartmentName>Laoosakond</DepartmentName>
+              <AdditionalStreetName>laadimisramp 4</AdditionalStreetName>
             </PostalTradeAddress>
           </OccurrenceLogisticsLocation>
           <CertifyingTradeParty>
-            <ID schemeAgencyID="87">MOCK-ID</ID>
-            <Name>MOCK-Name</Name>
+            <ID schemeAgencyID="87">MOCK-EE-1001</ID>
+            <Name>Mock Värvitehas AS</Name>
             <RoleCode>POA</RoleCode>
             <ConfirmedDocumentAuthentication>
               <StatementCode>1</StatementCode>
             </ConfirmedDocumentAuthentication>
           </CertifyingTradeParty>
           <AdditionalSecurityMeasuresApplicableNote>
-            <Content>MOCK-Content</Content>
-            <SubjectCode>MOC</SubjectCode>
+            <Content>Plommid kontrollitud laadimisel</Content>
+            <SubjectCode>AAI</SubjectCode>
           </AdditionalSecurityMeasuresApplicableNote>
           <ScheduledOccurrenceSpecifiedPeriod>
             <EndDateTime>
@@ -587,32 +626,32 @@ respond_0002:
         </LoadingTransportEvent>
         <UnloadingTransportEvent>
           <EstimatedOccurrenceDateTime>
-            <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+            <udt:DateTimeString format="102">20260915</udt:DateTimeString>
           </EstimatedOccurrenceDateTime>
           <ActualOccurrenceDateTime>
-            <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+            <udt:DateTimeString format="102">20260915</udt:DateTimeString>
           </ActualOccurrenceDateTime>
           <ScheduledOccurrenceDateTime>
-            <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+            <udt:DateTimeString format="102">20260915</udt:DateTimeString>
           </ScheduledOccurrenceDateTime>
           <OccurrenceLogisticsLocation>
-            <ID schemeAgencyID="6">MOCK-ID</ID>
-            <Name>MOCK-Name</Name>
+            <ID schemeAgencyID="6">LTKUN</ID>
+            <Name>Mock Statyba Kauno sandėlis</Name>
             <PostalTradeAddress>
-              <PostcodeCode>MOCK-PostcodeCode</PostcodeCode>
-              <PostOfficeBox>MOCK-PostOfficeBo</PostOfficeBox>
-              <StreetName>MOCK-StreetName</StreetName>
-              <CityName>MOCK-CityName</CityName>
-              <CountryID>EE</CountryID>
-              <CountrySubDivisionName>MOCK-CountrySubDivisionName</CountrySubDivisionName>
-              <BuildingNumber>MOCK-BuildingNumb</BuildingNumber>
-              <DepartmentName>MOCK-DepartmentName</DepartmentName>
-              <AdditionalStreetName>MOCK-AdditionalStreetName</AdditionalStreetName>
+              <PostcodeCode>LT-44001</PostcodeCode>
+              <PostOfficeBox>PD 15</PostOfficeBox>
+              <StreetName>Savanorių pr.</StreetName>
+              <CityName>Kaunas</CityName>
+              <CountryID>LT</CountryID>
+              <CountrySubDivisionName>Kauno apskritis</CountrySubDivisionName>
+              <BuildingNumber>200</BuildingNumber>
+              <DepartmentName>Sandėlis</DepartmentName>
+              <AdditionalStreetName>rampa 2</AdditionalStreetName>
             </PostalTradeAddress>
           </OccurrenceLogisticsLocation>
           <CertifyingTradeParty>
-            <ID schemeAgencyID="87">MOCK-ID</ID>
-            <Name>MOCK-Name</Name>
+            <ID schemeAgencyID="87">MOCK-LT-2001</ID>
+            <Name>Mock Statyba UAB</Name>
             <RoleCode>POA</RoleCode>
             <ConfirmedDocumentAuthentication>
               <StatementCode>1</StatementCode>
@@ -625,33 +664,33 @@ respond_0002:
           </ScheduledOccurrenceDateTime>
         </DepartureTransportEvent>
         <UsedLogisticsTransportMeans>
-          <TypeCode>1501</TypeCode>
-          <ID schemeAgencyID="3">MOCK-PLATE-MAX</ID>
-          <Name>MOCK-Name</Name>
+          <TypeCode>1522</TypeCode>
+          <ID schemeAgencyID="5">MOCK-PLATE-MAX</ID>
+          <Name>Mock Vedu sadulveok koos poolhaagisega</Name>
           <RegistrationTradeCountry>
-            <ID>MO</ID>
+            <ID>EE</ID>
           </RegistrationTradeCountry>
           <OwnerTradeParty>
-            <Name>MOCK-Name</Name>
+            <Name>Mock Liising AS</Name>
           </OwnerTradeParty>
           <SpecifiedSpatialDimension>
-            <Description>MOCK-Description</Description>
-            <WidthMeasure unitCode="CMT">1</WidthMeasure>
-            <LengthMeasure unitCode="CMT">1</LengthMeasure>
-            <HeightMeasure unitCode="CMT">1</HeightMeasure>
+            <Description>Sadulveok koos poolhaagisega</Description>
+            <WidthMeasure unitCode="CMT">255</WidthMeasure>
+            <LengthMeasure unitCode="CMT">1650</LengthMeasure>
+            <HeightMeasure unitCode="CMT">400</HeightMeasure>
           </SpecifiedSpatialDimension>
           <OperationalAttachedTransportEquipment>
-            <ID>MOCK-ID</ID>
-            <CategoryCode listAgencyID="6">AE</CategoryCode>
+            <ID>MOCK-TRAILER-MAX</ID>
+            <CategoryCode listAgencyID="6">TE</CategoryCode>
             <UnitQuantity>1</UnitQuantity>
           </OperationalAttachedTransportEquipment>
         </UsedLogisticsTransportMeans>
         <ItineraryTransportRoute>
-          <Description>MOCK-Description</Description>
+          <Description>Tallinn - Pärnu - Ikla/Ainaži - Rīga (ümberlaadimine) - Panevėžys - Kaunas</Description>
         </ItineraryTransportRoute>
         <CallTransportEvent>
           <OccurrenceLogisticsLocation>
-            <ID schemeAgencyID="6">MOCK-ID</ID>
+            <ID schemeAgencyID="6">LVRIX</ID>
           </OccurrenceLogisticsLocation>
         </CallTransportEvent>
         <BorderCrossingTransportEvent>
@@ -659,15 +698,15 @@ respond_0002:
             <udt:DateTimeString format="102">20260914</udt:DateTimeString>
           </ActualOccurrenceDateTime>
           <OccurrenceLogisticsLocation>
-            <Name>MOCK-Name</Name>
+            <Name>Ikla-Ainaži piiripunkt</Name>
           </OccurrenceLogisticsLocation>
         </BorderCrossingTransportEvent>
       </MainCarriageLogisticsTransportMovement>
       <PreCarriageLogisticsTransportMovement>
-        <ModeCode>3</ModeCode>
+        <ModeCode>2</ModeCode>
         <ArrivalTransportEvent>
           <ScheduledOccurrenceDateTime>
-            <udt:DateTimeString format="102">20260914</udt:DateTimeString>
+            <udt:DateTimeString format="102">20260912</udt:DateTimeString>
           </ScheduledOccurrenceDateTime>
         </ArrivalTransportEvent>
       </PreCarriageLogisticsTransportMovement>
@@ -675,8 +714,8 @@ respond_0002:
         <ModeCode>3</ModeCode>
         <UnloadingTransportEvent>
           <OccurrenceLogisticsLocation>
-            <ID schemeAgencyID="6">MOCK-ID</ID>
-            <Name>MOCK-Name</Name>
+            <ID schemeAgencyID="6">LTVNO</ID>
+            <Name>Mock Vilniaus terminalas</Name>
           </OccurrenceLogisticsLocation>
         </UnloadingTransportEvent>
       </OnCarriageLogisticsTransportMovement>
@@ -684,98 +723,98 @@ respond_0002:
         <SpecifiedTransportEvent>
           <TypeCode listAgencyID="6">1</TypeCode>
           <OccurrenceLogisticsLocation>
-            <ID schemeAgencyID="6">MOCK-ID</ID>
-            <Name>MOCK-Name</Name>
+            <ID schemeAgencyID="6">LVRIX</ID>
+            <Name>Mock Rīgas terminālis</Name>
           </OccurrenceLogisticsLocation>
         </SpecifiedTransportEvent>
       </SpecifiedLogisticsTransportMovement>
       <TransportService>
-        <Description>MOCK-Description</Description>
+        <Description>Poolhaagise maanteevedu ukselt uksele, ADR-veos</Description>
         <ConditionTypeCode listAgencyID="6">3</ConditionTypeCode>
       </TransportService>
       <ApplicableLogisticsServiceCharge>
-        <ID>MOCK-I</ID>
-        <PaymentArrangementCode listAgencyID="6">MOC</PaymentArrangementCode>
-        <AppliedAmount currencyID="MOC">1</AppliedAmount>
-        <PayingPartyRoleCode>AB</PayingPartyRoleCode>
-        <CalculationBasisCode listAgencyID="ZZZ">MOC</CalculationBasisCode>
+        <ID>FC</ID>
+        <PaymentArrangementCode listAgencyID="6">P</PaymentArrangementCode>
+        <AppliedAmount currencyID="EUR">1850.00</AppliedAmount>
+        <PayingPartyRoleCode>CZ</PayingPartyRoleCode>
+        <CalculationBasisCode listAgencyID="ZZZ">WGT</CalculationBasisCode>
         <CalculationBasisTradePrice>
-          <BasisQuantity unitCode="KGM">1</BasisQuantity>
-          <UnitAmount currencyID="MOC">1</UnitAmount>
-          <CategoryTypeCode listAgencyID="6">MOC</CategoryTypeCode>
+          <BasisQuantity unitCode="KGM">1000</BasisQuantity>
+          <UnitAmount currencyID="EUR">102.78</UnitAmount>
+          <CategoryTypeCode listAgencyID="6">FRT</CategoryTypeCode>
         </CalculationBasisTradePrice>
       </ApplicableLogisticsServiceCharge>
       <TransportLogisticsPackage>
-        <ItemQuantity>1</ItemQuantity>
-        <TypeCode>MOC</TypeCode>
-        <Type languageID="MOC">MOCK-Type</Type>
-        <Information>Full-field synthetic test fixture</Information>
+        <ItemQuantity>64</ItemQuantity>
+        <TypeCode>PX</TypeCode>
+        <Type languageID="et">Kaubaalus</Type>
+        <Information>40 vaati ja 24 kaubaalust</Information>
         <PhysicalLogisticsShippingMarks>
-          <Marking languageID="MOC">MOCK-Marking</Marking>
+          <Marking languageID="et">MOCK-CMR-MAX / Mock Statyba UAB, Kaunas</Marking>
         </PhysicalLogisticsShippingMarks>
       </TransportLogisticsPackage>
       <AssociatedTradeParty>
-        <ID schemeAgencyID="3">MOCK-ID</ID>
+        <ID schemeAgencyID="3">MOCK-EE-6001</ID>
       </AssociatedTradeParty>
       <NatureIdentificationTransportCargo>
-        <TypeCode>MOC</TypeCode>
-        <Identification languageID="MOC">MOCK-Identification</Identification>
-        <OperationalCategoryCode>MOC</OperationalCategoryCode>
-        <StatisticalClassificationCode listAgencyID="3">MOC</StatisticalClassificationCode>
+        <TypeCode>DGM</TypeCode>
+        <Identification languageID="et">Värvid (UN 1263) terasvaatides ja plaatimissegu kottides kaubaalustel</Identification>
+        <OperationalCategoryCode>GEN</OperationalCategoryCode>
+        <StatisticalClassificationCode listAgencyID="3">08</StatisticalClassificationCode>
       </NatureIdentificationTransportCargo>
       <ApplicableCrossBorderRegulatoryProcedure>
         <TypeCode>1</TypeCode>
         <ImportCustomsOfficeSpecifiedLogisticsLocation>
-          <ID schemeAgencyID="140">MOCK-ID</ID>
+          <ID schemeAgencyID="140">LTKUN000</ID>
         </ImportCustomsOfficeSpecifiedLogisticsLocation>
         <ExportCustomsOfficeSpecifiedLogisticsLocation>
-          <ID schemeAgencyID="140">MOCK-ID</ID>
+          <ID schemeAgencyID="140">EETLL000</ID>
         </ExportCustomsOfficeSpecifiedLogisticsLocation>
         <TransitCustomsOfficeSpecifiedLogisticsLocation>
-          <ID schemeAgencyID="140">MOCK-ID</ID>
+          <ID schemeAgencyID="140">LVRIX000</ID>
         </TransitCustomsOfficeSpecifiedLogisticsLocation>
       </ApplicableCrossBorderRegulatoryProcedure>
       <ApplicableTransportDangerousGoods>
-        <Information languageID="MOC">Full-field synthetic test fixture</Information>
-        <ExplosiveCargoNetWeightMeasure unitCode="KGM">1</ExplosiveCargoNetWeightMeasure>
+        <Information languageID="et">Ohtliku kauba deklaratsioon ADR 5.4.1 kohaselt</Information>
+        <ExplosiveCargoNetWeightMeasure unitCode="KGM">0</ExplosiveCargoNetWeightMeasure>
         <RadioactiveMaterial>
           <ApplicableSpecifiedRadioactiveIsotope>
-            <ActivityLevelMeasure unitCode="2Q">1</ActivityLevelMeasure>
+            <ActivityLevelMeasure unitCode="2Q">0.4</ActivityLevelMeasure>
           </ApplicableSpecifiedRadioactiveIsotope>
         </RadioactiveMaterial>
         <StatedSpecifiedCondition>
           <SubjectTypeCode>S14</SubjectTypeCode>
-          <ValueMeasure unitCode="KGM">1</ValueMeasure>
+          <ValueMeasure unitCode="KGM">40</ValueMeasure>
           <StatementCode>33</StatementCode>
-          <Statement languageID="MOC">MOCK-Statement</Statement>
+          <Statement languageID="et">Veos ületab ADR 1.1.3.6 piirmäära</Statement>
         </StatedSpecifiedCondition>
         <RelatedReferencedDocument>
           <TypeCode>T1</TypeCode>
-          <AttachmentBinaryObject>TW9jayBhdHRhY2htZW50</AttachmentBinaryObject>
+          <AttachmentBinaryObject>S2lyamFsaWt1ZCBqdWhpc2VkIEFEUiA1LjQuMywgZWVzdGkgamEgbGVlZHUga2VlbGVz</AttachmentBinaryObject>
         </RelatedReferencedDocument>
         <ApplicableRegulatoryExemption>
-          <ID schemeAgencyID="87">MOCK-ID</ID>
-          <TypeCode listAgencyID="87">MOC</TypeCode>
+          <ID schemeAgencyID="87">MOCK-ADR-EX-01</ID>
+          <TypeCode listAgencyID="87">113</TypeCode>
           <ReportableExemptionCalculation>
-            <ReportableQuantity>1</ReportableQuantity>
+            <ReportableQuantity>8000</ReportableQuantity>
             <HazardCategoryCode>3</HazardCategoryCode>
           </ReportableExemptionCalculation>
         </ApplicableRegulatoryExemption>
       </ApplicableTransportDangerousGoods>
       <ConsignorProvidedBorderClearanceTransportInstructions>
-        <Description>MOCK-Description</Description>
+        <Description>Ekspordideklaratsioon esitada Tallinna tolliasutusele; transiit läbi Läti.</Description>
       </ConsignorProvidedBorderClearanceTransportInstructions>
       <SpecifiedLogisticsRiskAnalysisResult>
         <ConsignmentRiskRelatedCode>SHR</ConsignmentRiskRelatedCode>
-        <Description languageID="MOC">MOCK-Description</Description>
+        <Description languageID="et">Riskianalüüs tehtud, kõrvalekaldeid ei tuvastatud</Description>
         <LevelCode>RA</LevelCode>
-        <ScreeningMethodCode>AOM</ScreeningMethodCode>
-        <SecurityExemptionCode>MOCK</SecurityExemptionCode>
-        <Information languageID="MOC">Full-field synthetic test fixture</Information>
+        <ScreeningMethodCode>VCK</ScreeningMethodCode>
+        <SecurityExemptionCode>NONE</SecurityExemptionCode>
+        <Information languageID="et">Turvakontroll tehtud laadimisel Tallinnas</Information>
       </SpecifiedLogisticsRiskAnalysisResult>
       <NotifiedTransportationWasteMaterial>
-        <WeightMeasure unitCode="KGM">1</WeightMeasure>
-        <ID schemeAgencyID="T9">MOCK-ID</ID>
+        <WeightMeasure unitCode="KGM">120.5</WeightMeasure>
+        <ID schemeAgencyID="T9">080111</ID>
       </NotifiedTransportationWasteMaterial>
     </rsm:SpecifiedSupplyChainConsignment>
   headers:
