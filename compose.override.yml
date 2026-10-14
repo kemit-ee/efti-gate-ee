@@ -74,6 +74,18 @@ services:
     ports:
       - "19433:5432"
 
+  # Not auth-protected by default -- keep these on loopback only, same posture as resql/registry.
+  prometheus:
+    ports:
+      - "127.0.0.1:${EFTI_PROMETHEUS_PORT:-9090}:9090"
+  alertmanager:
+    ports:
+      - "127.0.0.1:${EFTI_ALERTMANAGER_PORT:-9093}:9093"
+  # Grafana has its own login (GF_SECURITY_ADMIN_PASSWORD), so it's fine on a normal host port.
+  grafana:
+    ports:
+      - "${EFTI_GRAFANA_PORT:-3000}:3000"
+
   http-tests:
     image: jetbrains/intellij-http-client
     depends_on:

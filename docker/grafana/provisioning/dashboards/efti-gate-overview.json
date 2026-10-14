@@ -1,0 +1,98 @@
+{
+  "title": "eFTI Gate overview",
+  "uid": "efti-gate-overview",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Service up",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        { "refId": "A", "expr": "up{job=~\"edelivery|xml-mapper\"}", "legendFormat": "{{job}}" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" } } },
+            { "type": "value", "options": { "1": { "text": "UP", "color": "green" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "value": null, "color": "red" }, { "value": 1, "color": "green" }] }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "ONLINE gates/platforms known to edelivery",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "targets": [
+        { "refId": "A", "expr": "edelivery_parties_online_total", "legendFormat": "online parties" }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "eDelivery messages (inbound / outbound)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "refId": "A", "expr": "sum({__name__=~\"edelivery_messages_inbound_total_.*\"})", "legendFormat": "inbound total" },
+        { "refId": "B", "expr": "sum({__name__=~\"edelivery_messages_outbound_total_.*\"})", "legendFormat": "outbound total" }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "HTTP request rate by method/status class",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "targets": [
+        { "refId": "A", "expr": "rate({__name__=~\"http_requests_total_.*\"}[5m])", "legendFormat": "{{__name__}} ({{job}})" }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "4xx/5xx error rate",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "fieldConfig": { "defaults": { "unit": "percentunit" } },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate({__name__=~\"http_requests_total_.*_(4xx|5xx)\"}[5m])) by (job) / clamp_min(sum(rate({__name__=~\"http_requests_total_.*\"}[5m])) by (job), 1)",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Average request duration (ms)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "description": "This is a running average, not a true p50/p95/p99 -- RequestMetrics doesn't bucket durations yet (see code/core/src/metrics/RequestMetrics.kt). Add histogram buckets there before relying on percentiles.",
+      "targets": [
+        { "refId": "A", "expr": "http_request_duration_ms_avg", "legendFormat": "{{job}}" }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "JVM heap used (MB)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "targets": [
+        { "refId": "A", "expr": "heap_mb_used", "legendFormat": "{{job}} used" },
+        { "refId": "B", "expr": "heap_mb_max", "legendFormat": "{{job}} max" }
+      ]
+    }
+  ]
+}

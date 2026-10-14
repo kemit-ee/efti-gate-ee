@@ -60,6 +60,7 @@ class EDeliveryRoutes(
       val rootTag = rootTagRegex.from(payloadXml)
       val responseKey = RequestKey(header.senderId, header.conversationId, header.receiverId)
       val handler = messageHandlers.rootTags[rootTag] ?: throw UnsupportedOperationException("Unsupported message '$rootTag' from $responseKey")
+      EDeliveryMetrics.inbound(rootTag)
       log.info("Handling '$rootTag' from $responseKey")
 
       val responseXml = eDeliveryMessageGenerator.responseMessage(header)

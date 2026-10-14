@@ -1,0 +1,43 @@
+groups:
+  - name: efti-gate
+    rules:
+      - alert: ServiceUnreachable
+        # Prometheus's own scrape-health metric, not something RequestMetrics exposes.
+        expr: up{job=~"edelivery|xml-mapper"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} has not responded to a /metrics scrape for 2m"
+          runbook: docs/runbooks/pod-crash-loop.md
+
+      - alert: HighErrorRate
+        # http_requests_total_<method>_<statusclass> has no labels (see RequestMetrics.kt), so
+        # this matches on __name__ across every method/status-class combination instead.
+        expr: >
+          sum(rate({__name__=~"http_requests_total_.*_(4xx|5xx)"}[5m]))
+            /
+          clamp_min(sum(rate({__name__=~"http_requests_total_.*"}[5m])), 1)
+          > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "4xx/5xx rate above 5% over 5m"
+          runbook: docs/runbooks/high-error-rate.md
+
+      - alert: NoOnlineEdeliveryPeers
+        expr: edelivery_parties_online_total == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "edelivery sees zero ONLINE gates/platforms in the registry (own gate excluded check is not possible from this metric alone -- confirm against the registry service directly)"
+          runbook: docs/runbooks/edelivery-communication-failure.md
+
+# Not implemented yet -- these need exporters this stack doesn't run:
+#   - restart-loop detection needs cAdvisor or the Docker/Kubernetes events API
+#   - "DB down" needs postgres_exporter against `database` (and separately `archive-database`)
+#   - "disk > 90%" needs node_exporter (or a Kubernetes PV metrics source)
+# Add them here once those exporters are wired into compose.yml, rather than writing a rule
+# against a metric that doesn't exist.

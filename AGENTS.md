@@ -6,15 +6,17 @@ Estonian national eFTI Gate (EU Regulation 2020/1056). Mediates dataset retrieva
 
 ## Architecture at a glance
 
-15 Docker Compose services (14 long-running/one-shot jobs + the `http-tests` runner). Three runtime layers:
+18 Docker Compose services (17 long-running/one-shot jobs + the `http-tests` runner). Three runtime layers:
 
 | Layer | Tech | Port | Role |
 |-------|------|------|------|
 | **Ruuter** | Rust DSL engine | 8086 | HTTP API gateway — routes defined as YAML files. Also serves the X-Road national extension under `/xroad/` (`DSL/Ruuter/xroad/`, ADR-006) |
 | **ReSql** | Rust SQL executor | 8090 | Serves SQL files as HTTP endpoints |
-| **Kotlin services** | JVM (klite framework) | 8081–8082 | edelivery (AS4), xml-mapper (XML↔JSON) |
+| **Kotlin services** | JVM (klite framework) | 8081–8082 | edelivery (AS4), xml-mapper (XML↔JSON). Each exposes a klite-native `/metrics` (OpenMetrics/Prometheus) endpoint — `code/core/src/metrics/RequestMetrics.kt` |
 
-Supporting: PostgreSQL 18 (54321), TIM (8085, identity), TARA-mock (8888, OIDC), UI (8000, Vite/Svelte).
+Supporting: PostgreSQL 18 (54321), TIM (8085, identity), TARA-mock (8888, OIDC), UI (8000, Vite/Svelte),
+Prometheus (9090), Grafana (3000), Alertmanager (9093) — observability stack, see
+`docs/architecture/observability/monitoring_and_alerting.md`.
 
 ## Commands
 
@@ -240,6 +242,14 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - JVM 25, Kotlin 2.4.20
 - Tests: JUnit 5, MockK, Atrium assertions
 - Test JVM args: `-DENV=test -DOWN_GATE_ID=TEST`
+- Logging: SLF4J via `klite-slf4j`; `LOGGER_CLASS` picks the implementation (`.env`, default
+  `klite.slf4j.EcsJsonLogger` — ECS-shaped JSON lines, `trace.id` = the per-request virtual thread name
+  klite already sets, so request-id correlation needs no manual MDC put/clear). `LOGGER_SERVICE_NAME` is
+  set per service in `compose.yml`. Set `LOGGER_CLASS=klite.slf4j.StackTraceOptimizingLogger` for plain
+  text instead.
+- Metrics: `code/core/src/metrics/RequestMetrics.kt` is a klite `Decorator` registered in each service's
+  DI registry *before* constructing `Server` (decorators are snapshotted once at construction); each
+  Launcher also calls `metrics()` to expose `/metrics`. Scraped by the `prometheus` compose service.
 
 ## eDelivery / mock gate
 
@@ -262,6 +272,21 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   fixtures used by `tests/authority/*` and `tests/admin/consignment-summary.http`. An image built from
   this repo therefore carries these dev credentials.
 - TARA identities: `docker/tara-mock/identities.json`
+
+## Operations
+
+- `docs/runbooks/` — one file per common failure scenario (symptoms/diagnosis/resolution/escalation
+  template in `docs/runbooks/README.md`): database connectivity loss, container/pod crash loop, high
+  error rate, disk full, certificate expiry, eDelivery communication failure, TARA authentication
+  outage, X-Road service unavailable.
+- Observability stack (`prometheus`, `grafana`, `alertmanager` compose services): Grafana dashboard at
+  `http://localhost:3000` (admin / `$GRAFANA_ADMIN_PASSWORD`, default `admin`), Prometheus at
+  `http://localhost:9090`, Alertmanager at `http://localhost:9093` (loopback-only, like resql/registry —
+  `compose.override.yml`). Config lives in `docker/prometheus/`, `docker/grafana/`,
+  `docker/alertmanager/`. Only `edelivery`/`xml-mapper` expose `/metrics` today; see
+  `docs/architecture/observability/monitoring_and_alerting.md` for what's covered and what isn't
+  (notably: no restart-loop/DB/disk alerts — no cAdvisor/postgres_exporter/node_exporter yet — and no
+  real Alertmanager notification receiver).
 
 ## Testing
 
