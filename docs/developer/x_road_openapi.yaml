@@ -394,12 +394,14 @@ paths:
               subsets: ["EU01", "EU05"]
       responses:
         '200':
-          description: Dataset XML from the platform / neighbouring gate, unchanged.
+          description: |
+            The dataset from the platform / neighbouring gate, as XML and as the JSON the gate's
+            xml-mapper derives from it. The public developer mock returns the same body.
           content:
             application/json:
               schema:
                 type: object
-                required: [uil, subsets, xml]
+                required: [uil, subsets, xml, consignment]
                 properties:
                   uil: { $ref: '#/components/schemas/Uil' }
                   subsets:
@@ -408,7 +410,18 @@ paths:
                   xml:
                     type: string
                     format: xml
-                    description: FTI010 dataset XML, verbatim from the source.
+                    description: |
+                      The FTI010 `SpecifiedSupplyChainConsignment` element from the source (its
+                      root element without the `rsm:` prefix).
+                  consignment:
+                    type: object
+                    additionalProperties: true
+                    description: |
+                      The same consignment as JSON. Element names start lower-case and every `id`
+                      (any case) is spelled `Id` (`Id`, `countryId`, `uNDGIdentificationCode`,
+                      `Identification`); attributes are sibling keys `name@attribute`
+                      (`grossWeightMeasure@unitCode`); every value is a string; a repeated element
+                      is an array. Field map: x_road_developer_mock.md.
         '400':
           description: |
             `MISSING_SUBSET` — `subsets` empty or absent.

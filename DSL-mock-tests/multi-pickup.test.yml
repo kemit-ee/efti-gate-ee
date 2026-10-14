@@ -41,11 +41,21 @@
               "loadingCountry": "EE",
               "unloadingDate": "2026-09-15T00:00:00Z",
               "unloadingCountry": "EE",
-              "usedEquipmentIds": [],
-              "usedEquipmentCategories": [],
-              "usedEquipmentCountries": [],
-              "carriedEquipmentIds": [],
-              "carriedEquipmentCategories": [],
+              "usedEquipmentIds": [
+                "MOCK-TRAILER-3"
+              ],
+              "usedEquipmentCategories": [
+                "TE"
+              ],
+              "usedEquipmentCountries": [
+                "EE"
+              ],
+              "carriedEquipmentIds": [
+                "MOCK-CONTAINER-3"
+              ],
+              "carriedEquipmentCategories": [
+                "CN"
+              ],
               "status": "ACTIVE",
               "createdAt": "2026-09-14T05:00:00Z"
             },
@@ -68,11 +78,21 @@
               "loadingCountry": "EE",
               "unloadingDate": "2026-09-15T00:00:00Z",
               "unloadingCountry": "EE",
-              "usedEquipmentIds": [],
-              "usedEquipmentCategories": [],
-              "usedEquipmentCountries": [],
-              "carriedEquipmentIds": [],
-              "carriedEquipmentCategories": [],
+              "usedEquipmentIds": [
+                "MOCK-TRAILER-3"
+              ],
+              "usedEquipmentCategories": [
+                "TE"
+              ],
+              "usedEquipmentCountries": [
+                "EE"
+              ],
+              "carriedEquipmentIds": [
+                "MOCK-CONTAINER-3"
+              ],
+              "carriedEquipmentCategories": [
+                "CN"
+              ],
               "status": "ACTIVE",
               "createdAt": "2026-09-14T05:00:00Z"
             },
@@ -95,11 +115,21 @@
               "loadingCountry": "EE",
               "unloadingDate": "2026-09-15T00:00:00Z",
               "unloadingCountry": "EE",
-              "usedEquipmentIds": [],
-              "usedEquipmentCategories": [],
-              "usedEquipmentCountries": [],
-              "carriedEquipmentIds": [],
-              "carriedEquipmentCategories": [],
+              "usedEquipmentIds": [
+                "MOCK-TRAILER-3"
+              ],
+              "usedEquipmentCategories": [
+                "TE"
+              ],
+              "usedEquipmentCountries": [
+                "EE"
+              ],
+              "carriedEquipmentIds": [
+                "MOCK-CONTAINER-3"
+              ],
+              "carriedEquipmentCategories": [
+                "CN"
+              ],
               "status": "ACTIVE",
               "createdAt": "2026-09-14T05:00:00Z"
             }
@@ -146,11 +176,21 @@
             "loadingCountry": "EE",
             "unloadingDate": "2026-09-15T00:00:00Z",
             "unloadingCountry": "EE",
-            "usedEquipmentIds": [],
-            "usedEquipmentCategories": [],
-            "usedEquipmentCountries": [],
-            "carriedEquipmentIds": [],
-            "carriedEquipmentCategories": [],
+            "usedEquipmentIds": [
+              "MOCK-TRAILER-3"
+            ],
+            "usedEquipmentCategories": [
+              "TE"
+            ],
+            "usedEquipmentCountries": [
+              "EE"
+            ],
+            "carriedEquipmentIds": [
+              "MOCK-CONTAINER-3"
+            ],
+            "carriedEquipmentCategories": [
+              "CN"
+            ],
             "status": "ACTIVE",
             "createdAt": "2026-09-14T05:00:00Z"
           },
@@ -173,11 +213,21 @@
             "loadingCountry": "EE",
             "unloadingDate": "2026-09-15T00:00:00Z",
             "unloadingCountry": "EE",
-            "usedEquipmentIds": [],
-            "usedEquipmentCategories": [],
-            "usedEquipmentCountries": [],
-            "carriedEquipmentIds": [],
-            "carriedEquipmentCategories": [],
+            "usedEquipmentIds": [
+              "MOCK-TRAILER-3"
+            ],
+            "usedEquipmentCategories": [
+              "TE"
+            ],
+            "usedEquipmentCountries": [
+              "EE"
+            ],
+            "carriedEquipmentIds": [
+              "MOCK-CONTAINER-3"
+            ],
+            "carriedEquipmentCategories": [
+              "CN"
+            ],
             "status": "ACTIVE",
             "createdAt": "2026-09-14T05:00:00Z"
           },
@@ -200,11 +250,21 @@
             "loadingCountry": "EE",
             "unloadingDate": "2026-09-15T00:00:00Z",
             "unloadingCountry": "EE",
-            "usedEquipmentIds": [],
-            "usedEquipmentCategories": [],
-            "usedEquipmentCountries": [],
-            "carriedEquipmentIds": [],
-            "carriedEquipmentCategories": [],
+            "usedEquipmentIds": [
+              "MOCK-TRAILER-3"
+            ],
+            "usedEquipmentCategories": [
+              "TE"
+            ],
+            "usedEquipmentCountries": [
+              "EE"
+            ],
+            "carriedEquipmentIds": [
+              "MOCK-CONTAINER-3"
+            ],
+            "carriedEquipmentCategories": [
+              "CN"
+            ],
             "status": "ACTIVE",
             "createdAt": "2026-09-14T05:00:00Z"
           }
@@ -279,6 +339,206 @@
       "expect": {
         "status": 200,
         "body_matches": []
+      }
+    },
+    {
+      "name": "trailer number finds the same three shipments",
+      "request": {
+        "method": "POST",
+        "path": "/developer/v1/transport-means",
+        "headers": {
+          "content-type": "application/json",
+          "x-road-client": "EE/GOV/70000097/test",
+          "x-road-id": "550e8400-e29b-41d4-a716-446655440099"
+        },
+        "body": {
+          "identifier": "MOCK-TRAILER-3",
+          "scope": "local"
+        }
+      },
+      "expect": {
+        "status": 200,
+        "body_matches": {
+          "found": 3,
+          "consignments": [
+            {
+              "uil": {
+                "gateId": "EU-EE",
+                "platformId": "mock",
+                "datasetId": "550e8400-e29b-41d4-a716-446655440011"
+              }
+            },
+            {
+              "uil": {
+                "gateId": "EU-EE",
+                "platformId": "mock",
+                "datasetId": "550e8400-e29b-41d4-a716-446655440012"
+              }
+            },
+            {
+              "uil": {
+                "gateId": "EU-EE",
+                "platformId": "mock",
+                "datasetId": "550e8400-e29b-41d4-a716-446655440013"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "container number finds the same three shipments",
+      "request": {
+        "method": "POST",
+        "path": "/developer/v1/transport-means",
+        "headers": {
+          "content-type": "application/json",
+          "x-road-client": "EE/GOV/70000097/test",
+          "x-road-id": "550e8400-e29b-41d4-a716-446655440099"
+        },
+        "body": {
+          "identifier": "MOCK-CONTAINER-3",
+          "scope": "local"
+        }
+      },
+      "expect": {
+        "status": 200,
+        "body_matches": {
+          "found": 3,
+          "consignments": [
+            {
+              "uil": {
+                "gateId": "EU-EE",
+                "platformId": "mock",
+                "datasetId": "550e8400-e29b-41d4-a716-446655440011"
+              }
+            },
+            {
+              "uil": {
+                "gateId": "EU-EE",
+                "platformId": "mock",
+                "datasetId": "550e8400-e29b-41d4-a716-446655440012"
+              }
+            },
+            {
+              "uil": {
+                "gateId": "EU-EE",
+                "platformId": "mock",
+                "datasetId": "550e8400-e29b-41d4-a716-446655440013"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "search by carried equipment finds the three shipments",
+      "request": {
+        "method": "POST",
+        "path": "/developer/v1/search",
+        "headers": {
+          "content-type": "application/json",
+          "x-road-client": "EE/GOV/70000097/test",
+          "x-road-id": "550e8400-e29b-41d4-a716-446655440099"
+        },
+        "body": {
+          "carriedEquipmentId": {
+            "id": "MOCK-CONTAINER-3",
+            "operator": "EQ"
+          }
+        }
+      },
+      "expect": {
+        "status": 200,
+        "body_matches": [
+          {
+            "uil": {
+              "gateId": "EU-EE",
+              "platformId": "mock",
+              "datasetId": "550e8400-e29b-41d4-a716-446655440011"
+            }
+          },
+          {
+            "uil": {
+              "gateId": "EU-EE",
+              "platformId": "mock",
+              "datasetId": "550e8400-e29b-41d4-a716-446655440012"
+            }
+          },
+          {
+            "uil": {
+              "gateId": "EU-EE",
+              "platformId": "mock",
+              "datasetId": "550e8400-e29b-41d4-a716-446655440013"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "dangerous shipment exposes the form fields in consignment",
+      "request": {
+        "method": "POST",
+        "path": "/developer/v1/dataset",
+        "headers": {
+          "content-type": "application/json",
+          "x-road-client": "EE/GOV/70000097/test",
+          "x-road-id": "550e8400-e29b-41d4-a716-446655440099"
+        },
+        "body": {
+          "uil": {
+            "gateId": "EU-EE",
+            "platformId": "mock",
+            "datasetId": "550e8400-e29b-41d4-a716-446655440013"
+          },
+          "subsets": [
+            "EU01",
+            "EU02",
+            "EU03",
+            "EU05"
+          ]
+        }
+      },
+      "expect": {
+        "status": 200,
+        "body_matches": {
+          "uil": {
+            "gateId": "EU-EE",
+            "platformId": "mock",
+            "datasetId": "550e8400-e29b-41d4-a716-446655440013"
+          },
+          "consignment": {
+            "grossVolumeMeasure": "2.1",
+            "information": "ADR-veos: juhil peab olema kehtiv ADR-koolitustunnistus.",
+            "transportContractReferencedDocument": {
+              "typeCode": "730",
+              "Id": "MOCK-CMR-0013"
+            },
+            "includedSupplyChainConsignmentItem": {
+              "applicableTransportDangerousGoods": {
+                "uNDGIdentificationCode": "1203",
+                "packagingDangerLevelCode": "II",
+                "hazardClassificationId": "3"
+              }
+            },
+            "utilizedLogisticsTransportEquipment": {
+              "Id": "MOCK-TRAILER-3",
+              "categoryCode": "TE",
+              "carriedAssociatedTransportEquipment": {
+                "Id": "MOCK-CONTAINER-3",
+                "categoryCode": "CN"
+              }
+            },
+            "mainCarriageLogisticsTransportMovement": {
+              "usedLogisticsTransportMeans": {
+                "Id": "MOCK-PLATE-3"
+              }
+            },
+            "natureIdentificationTransportCargo": {
+              "Identification": "Bensiin (UN 1203) terasvaatides"
+            }
+          }
+        }
       }
     }
   ]

@@ -12,10 +12,10 @@ import klite.nodes.Node
 import klite.xml.XmlParser
 import klite.xml.XmlPath
 import klite.xml.dropXmlRoot
-import klite.xml.extractXmlTag
 import org.intellij.lang.annotations.Language
 import java.time.Instant
 import java.util.*
+import kotlin.text.RegexOption.DOT_MATCHES_ALL
 
 const val rsmNsPrefix = "urn:eu:move:eFTI:data:standard:"
 const val udtNs = "urn:eu:move:eFTI:data:standard:UnqualifiedDataType:34"
@@ -72,7 +72,24 @@ data class ExchangedDocumentContext(
 
 internal fun UUID.render() = "<ID schemeID=\"RFC 9562-4\">$this</ID>"
 
-fun String.extractFTITag(tagName: String) = extractXmlTag(tagName, setOf(udtNs))
+private val udtDeclaration = """xmlns:([^=\s]+)="${Regex.escape(udtNs)}"""".toRegex()
+private val nsPrefix = "(</?)([^:>\\s]+):".toRegex()
+
+/**
+ * Cuts [tagName] out of an FTI document and drops every namespace prefix except the udt one, which
+ * the cut-out root re-declares if it was declared further up. Replaces klite's `extractXmlTag`, which
+ * declared an undeclared preserved namespace as `xmlns:null="…"`.
+ */
+fun String.extractFTITag(tagName: String): String {
+  val udtPrefix = udtDeclaration.find(this)?.groupValues?.get(1)
+  val tag = "<([^:>]+:|)$tagName(?:\\s[^>]*)?>.*?</([^:>]+:|)$tagName>".toRegex(DOT_MATCHES_ALL).find(this)?.value
+    ?: error("No $tagName element")
+  val stripped = nsPrefix.replace(tag) { if (it.groupValues[2] == udtPrefix) it.value else it.groupValues[1] }
+  val rootEnd = stripped.indexOf('>')
+  val root = stripped.substring(0, rootEnd)
+  val declaration = if (udtPrefix == null || udtNs in root) "" else """ xmlns:$udtPrefix="$udtNs""""
+  return root + declaration + stripped.substring(rootEnd)
+}
 fun String.extractParameterIDSetCriteria() = extractFTITag("ParameterIDSetCriteria")
 fun String.extractSpecifiedSupplyChainConsignment() = extractFTITag("SpecifiedSupplyChainConsignment")
 

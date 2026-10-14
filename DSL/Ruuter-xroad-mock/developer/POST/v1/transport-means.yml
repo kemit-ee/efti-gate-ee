@@ -1,6 +1,8 @@
 declaration:
   description: "Developer mock — imitates POST /xroad/v1/transport-means. Canned identifier-level
-    projection for MOCK-PLATE-1 and MOCK-PLATE-3 (three shipments); found: 0 otherwise."
+    projection for MOCK-PLATE-1 (also by equipment CONT-MOCK-01) and MOCK-PLATE-3 (three shipments,
+    also by trailer MOCK-TRAILER-3 and container MOCK-CONTAINER-3); countryCode filters on the
+    vehicle registration country EE, as the live SQL does; found: 0 otherwise."
   internal: false
   returns:
     - field: identifier
@@ -48,9 +50,9 @@ route_by_scope:
 
 route_local:
   switch:
-    - condition: ${identifier == 'MOCK-PLATE-3' && (country_code == '' || country_code == 'EE')}
+    - condition: ${['MOCK-PLATE-3', 'MOCK-TRAILER-3', 'MOCK-CONTAINER-3'].includes(identifier) && (country_code == '' || country_code == 'EE')}
       next: respond_local_multi
-    - condition: ${identifier == 'MOCK-PLATE-1'}
+    - condition: ${['MOCK-PLATE-1', 'CONT-MOCK-01'].includes(identifier) && (country_code == '' || country_code == 'EE')}
       next: respond_local_hit
   next: respond_local_miss
 
@@ -59,7 +61,7 @@ respond_existence:
     identifier: "${identifier}"
     countryCode: "${country_code}"
     scope: "${scope}"
-    registered: ${identifier == 'MOCK-PLATE-1' || (identifier == 'MOCK-PLATE-3' && (country_code == '' || country_code == 'EE'))}
+    registered: ${['MOCK-PLATE-1', 'CONT-MOCK-01', 'MOCK-PLATE-3', 'MOCK-TRAILER-3', 'MOCK-CONTAINER-3'].includes(identifier) && (country_code == '' || country_code == 'EE')}
   wrapper: false
   status: 200
   next: end
@@ -91,11 +93,11 @@ respond_local_multi:
           "loadingCountry": "EE",
           "unloadingDate": "2026-09-15T00:00:00Z",
           "unloadingCountry": "EE",
-          "usedEquipmentIds": [],
-          "usedEquipmentCategories": [],
-          "usedEquipmentCountries": [],
-          "carriedEquipmentIds": [],
-          "carriedEquipmentCategories": [],
+          "usedEquipmentIds": ["MOCK-TRAILER-3"],
+          "usedEquipmentCategories": ["TE"],
+          "usedEquipmentCountries": ["EE"],
+          "carriedEquipmentIds": ["MOCK-CONTAINER-3"],
+          "carriedEquipmentCategories": ["CN"],
           "status": "ACTIVE",
           "createdAt": "2026-09-14T05:00:00Z"
         },
@@ -118,11 +120,11 @@ respond_local_multi:
           "loadingCountry": "EE",
           "unloadingDate": "2026-09-15T00:00:00Z",
           "unloadingCountry": "EE",
-          "usedEquipmentIds": [],
-          "usedEquipmentCategories": [],
-          "usedEquipmentCountries": [],
-          "carriedEquipmentIds": [],
-          "carriedEquipmentCategories": [],
+          "usedEquipmentIds": ["MOCK-TRAILER-3"],
+          "usedEquipmentCategories": ["TE"],
+          "usedEquipmentCountries": ["EE"],
+          "carriedEquipmentIds": ["MOCK-CONTAINER-3"],
+          "carriedEquipmentCategories": ["CN"],
           "status": "ACTIVE",
           "createdAt": "2026-09-14T05:00:00Z"
         },
@@ -145,11 +147,11 @@ respond_local_multi:
           "loadingCountry": "EE",
           "unloadingDate": "2026-09-15T00:00:00Z",
           "unloadingCountry": "EE",
-          "usedEquipmentIds": [],
-          "usedEquipmentCategories": [],
-          "usedEquipmentCountries": [],
-          "carriedEquipmentIds": [],
-          "carriedEquipmentCategories": [],
+          "usedEquipmentIds": ["MOCK-TRAILER-3"],
+          "usedEquipmentCategories": ["TE"],
+          "usedEquipmentCountries": ["EE"],
+          "carriedEquipmentIds": ["MOCK-CONTAINER-3"],
+          "carriedEquipmentCategories": ["CN"],
           "status": "ACTIVE",
           "createdAt": "2026-09-14T05:00:00Z"
         }

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Validate the exact rich XML embedded in the public mock route."""
+"""Validate the canned datasets and keep the developer mock's dataset contract equal to the live gate's."""
 import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import unittest
 import urllib.request
@@ -11,16 +12,65 @@ import xml.etree.ElementTree as ET
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-spec = importlib.util.spec_from_file_location("fixture", ROOT / "scripts/generate-rich-mock-dataset.py")
-fixture = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(fixture)
+
+
+def load(name, path):
+    spec = importlib.util.spec_from_file_location(name, ROOT / path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+fixture = load("fixture", "scripts/generate-rich-mock-dataset.py")
+sync = load("sync", "scripts/sync-mock-datasets.py")
+RAM = "{" + fixture.PREFIXES["ram"] + "}"
+MOCK_BASE = ROOT / "DSL/Ruuter-xroad-mock/developer/POST/v1"
+
+
+def step(dataset_id):
+    return "respond_" + dataset_id[-4:]
+
+
+def path(root, *names):
+    return root.findtext("/".join(RAM + name for name in names))
 
 
 class RichDataset(unittest.TestCase):
     def setUp(self):
-        self.route = yaml.safe_load((ROOT / "DSL/Ruuter-xroad-mock/developer/POST/v1/dataset.yml").read_text())
-        self.xml = self.route["respond_rich"]["return"]["xml"]
+        self.route = yaml.safe_load((MOCK_BASE / "dataset.yml").read_text())
+        self.platform = yaml.safe_load((ROOT / "DSL/Ruuter/mock-platform/GET/v1/dataset.yml").read_text())
+        self.xml = self.platform["respond_0002"]["return"]
         self.root = ET.fromstring(self.xml)
+
+    def test_routes_are_generated_from_the_fixture(self):
+        self.assertEqual((MOCK_BASE / "dataset.yml").read_text(), sync.mock_route())
+        self.assertEqual((ROOT / "DSL/Ruuter/mock-platform/GET/v1/dataset.yml").read_text(), sync.platform_route())
+
+    def test_mock_and_live_platform_serve_the_same_xml(self):
+        for dataset_id, make in fixture.DATASETS.items():
+            with self.subTest(dataset=dataset_id):
+                self.assertEqual(self.route[step(dataset_id)]["return"]["xml"], fixture.served_xml(make()))
+                self.assertEqual(self.platform[step(dataset_id)]["return"], make())
+        self.assertEqual(self.route["respond"]["return"]["xml"], fixture.served_xml(fixture.SIMPLE))
+        self.assertEqual(self.platform["respond"]["return"], fixture.SIMPLE)
+
+    def test_consignment_is_the_mapper_projection_of_the_xml(self):
+        for name in [step(dataset_id) for dataset_id in fixture.DATASETS] + ["respond"]:
+            with self.subTest(step=name):
+                body = self.route[name]["return"]
+                self.assertEqual(list(body), ["uil", "subsets", "xml", "consignment"])
+                platform_xml = self.platform[name]["return"]
+                self.assertEqual(body["xml"], fixture.served_xml(platform_xml))
+                self.assertEqual(body["consignment"], fixture.consignment(platform_xml))
+
+    def test_mapper_naming_rules(self):
+        self.assertEqual([fixture.json_name(n) for n in ("ID", "CountryID", "WidthMeasure", "Identification",
+                                                         "UNDGIdentificationCode", "CODAmount", "schemeAgencyID")],
+                         ["Id", "countryId", "wIdthMeasure", "Identification", "uNDGIdentificationCode",
+                          "cODAmount", "schemeAgencyId"])
+        projected = fixture.consignment(fixture.generate_scenario(1))
+        self.assertEqual(projected["utilizedLogisticsTransportEquipment"]["Id"], fixture.TRAILER)
+        self.assertEqual(projected["grossWeightMeasure@unitCode"], "KGM")
 
     def test_fixture_matches_all_field_generator(self):
         self.assertEqual(self.xml, fixture.generate())
@@ -28,10 +78,80 @@ class RichDataset(unittest.TestCase):
         for name in ("ConsignorTradeParty", "ConsigneeTradeParty", "CarrierTradeParty",
                      "IncludedSupplyChainConsignmentItem", "ApplicableTransportDangerousGoods",
                      "UtilizedLogisticsTransportEquipment", "AssociatedReferencedDocument"):
-            self.assertIsNotNone(self.root.find(".//{" + fixture.PREFIXES["ram"] + "}" + name))
+            self.assertIsNotNone(self.root.find(".//" + RAM + name))
+
+    def test_full_field_values_are_meaningful(self):
+        names = {local for element in self.root.iter() for local in [element.tag.split("}")[-1], *element.attrib]}
+        placeholders = {("MOCK-" + name)[:size] for name in names for size in range(4, len(name) + 6)} | {"MOC", "MO"}
+        values = [(element.tag.split("}")[-1], element.text) for element in self.root.iter() if not len(element)]
+        values += [(element.tag.split("}")[-1] + "@" + name, text) for element in self.root.iter()
+                   for name, text in element.attrib.items()]
+        for name, text in values:
+            with self.subTest(field=name, value=text):
+                self.assertTrue(text and text.strip())
+                self.assertNotIn(text, placeholders)
+                self.assertNotEqual(text, "TW9jayBhdHRhY2htZW50")
+                for identifier in re.findall(r"MOCK-[A-Z0-9-]+", text):
+                    self.assertIn(identifier, fixture.MOCK_IDENTIFIERS)
+        self.assertFalse(fixture.MOCK_IDENTIFIERS & placeholders)
+
+    def test_full_field_vehicle_and_equipment_are_distinguishable(self):
+        movement = "MainCarriageLogisticsTransportMovement"
+        self.assertEqual(path(self.root, movement, "UsedLogisticsTransportMeans", "ID"), fixture.MAX_PLATE)
+        trailer = self.root.find(RAM + "UtilizedLogisticsTransportEquipment")
+        self.assertEqual((path(trailer, "ID"), path(trailer, "CategoryCode")), (fixture.MAX_TRAILER, "TE"))
+        self.assertEqual(path(self.root, movement, "UsedLogisticsTransportMeans", "OperationalAttachedTransportEquipment", "ID"),
+                         fixture.MAX_TRAILER)
+        containers = trailer.findall(RAM + "CarriedAssociatedTransportEquipment")
+        self.assertEqual([(path(c, "ID"), path(c, "CategoryCode")) for c in containers],
+                         [(fixture.MAX_CONTAINERS[0], "CN"), (fixture.MAX_CONTAINERS[1], "CN")])
+        items = self.root.findall(RAM + "IncludedSupplyChainConsignmentItem")
+        self.assertEqual([path(i, "AssociatedReferencedLogisticsTransportEquipment", "ID") for i in items],
+                         list(fixture.MAX_CONTAINERS))
+        self.assertEqual(len({fixture.MAX_PLATE, fixture.MAX_TRAILER, *fixture.MAX_CONTAINERS}), 4)
+        self.assertEqual({e.get("currencyID") for e in self.root.iter() if e.get("currencyID")}, {"EUR"})
+
+    def test_full_field_repeats_become_arrays(self):
+        projected = fixture.consignment(self.xml)
+        items = projected["includedSupplyChainConsignmentItem"]
+        self.assertEqual([i["associatedReferencedLogisticsTransportEquipment"]["Id"] for i in items], list(fixture.MAX_CONTAINERS))
+        self.assertIn("applicableTransportDangerousGoods", items[0])
+        self.assertNotIn("applicableTransportDangerousGoods", items[1])
+        carried = projected["utilizedLogisticsTransportEquipment"]["carriedAssociatedTransportEquipment"]
+        self.assertEqual([c["Id"] for c in carried], list(fixture.MAX_CONTAINERS))
+
+    def test_full_field_covers_the_schema_skeleton(self):
+        def paths(root):
+            def walk(node, prefix):
+                here = prefix + "/" + node.tag.split("}")[-1]
+                yield here
+                for child in node:
+                    yield from walk(child, here)
+            return set(walk(root, ""))
+        self.assertEqual(paths(self.root), paths(fixture.skeleton()))
+
+    def test_full_field_dates_match_their_format(self):
+        for element in self.root.iter("{" + fixture.PREFIXES["udt"] + "}DateTimeString"):
+            with self.subTest(value=element.text):
+                pattern = r"\d{8}" if element.get("format") == "102" else r"\d{12}[+-]\d{4}"
+                self.assertRegex(element.text, "^" + pattern + "$")
+
+    def test_field_catalogue_is_current_and_complete(self):
+        text = (ROOT / "docs/developer/fti010-field-catalogue.md").read_text()
+        self.assertEqual(text, fixture.catalogue())
+        rows = [line.split(" | ") for line in text.splitlines() if re.match(r"\| \d+ \|", line)]
+        xpaths = {row[1].strip("`") for row in rows}
+        for element in self.root.iter():
+            if not len(element):
+                found = [x for x in xpaths if x.endswith("/" + element.tag.split("}")[-1])]
+                self.assertTrue(found, element.tag)
+        undocumented = [row[1] for row in rows if not row[3]]
+        self.assertTrue(all(x.endswith(("/@uri`", "/@filename`")) for x in undocumented), undocumented)
+        self.assertGreater(len(rows), 500)
 
     def test_embedded_xml_validates_against_fti010(self):
-        self.validate_xml(self.xml)
+        for xml in [make() for make in fixture.DATASETS.values()]:
+            self.validate_xml(xml)
 
     def validate_xml(self, xml):
         envelope = ET.parse(ROOT / "code/xml-mapper/xsd/FTI010/sample.xml").getroot()
@@ -43,55 +163,67 @@ class RichDataset(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr.decode())
 
-    def test_three_shipments_validate_and_match_pickup_scenario(self):
-        namespace = "{" + fixture.PREFIXES["ram"] + "}"
-        for number, (dataset, city, street, hour, weight, goods, dangerous) in enumerate(fixture.SCENARIOS, 1):
-            with self.subTest(dataset=dataset):
-                xml = self.route[f"respond_shipment_{number}"]["return"]["xml"]
-                self.assertEqual(xml, fixture.generate_scenario(number))
-                self.validate_xml(xml)
-                root = ET.fromstring(xml)
-                movement = root.find(namespace + "MainCarriageLogisticsTransportMovement")
-                self.assertEqual(movement.findtext(namespace + "UsedLogisticsTransportMeans/" + namespace + "ID"), "MOCK-PLATE-3")
-                self.assertEqual(movement.findtext(namespace + "LoadingTransportEvent/" + namespace + "OccurrenceLogisticsLocation/" + namespace + "PostalTradeAddress/" + namespace + "CityName"), city)
-                self.assertEqual(movement.findtext(namespace + "UnloadingTransportEvent/" + namespace + "OccurrenceLogisticsLocation/" + namespace + "PostalTradeAddress/" + namespace + "CityName"), "Narva")
-                hazard = root.find(".//" + namespace + "ApplicableTransportDangerousGoods")
-                self.assertEqual(hazard is not None, dangerous)
-                if dangerous:
-                    self.assertEqual(hazard.findtext(namespace + "UNDGIdentificationCode"), "1203")
-                    self.assertEqual(hazard.findtext(namespace + "HazardClassificationID"), "3")
+    def test_three_shipments_carry_every_form_field(self):
+        for number, scenario in enumerate(fixture.SCENARIOS, 1):
+            with self.subTest(dataset=scenario["dataset"]):
+                root = ET.fromstring(fixture.generate_scenario(number))
+                movement = "MainCarriageLogisticsTransportMovement"
+                self.assertEqual(path(root, movement, "UsedLogisticsTransportMeans", "ID"), fixture.PLATE)
+                self.assertEqual(path(root, "UtilizedLogisticsTransportEquipment", "ID"), fixture.TRAILER)
+                self.assertEqual(path(root, "UtilizedLogisticsTransportEquipment", "CategoryCode"), "TE")
+                self.assertEqual(path(root, "UtilizedLogisticsTransportEquipment", "CarriedAssociatedTransportEquipment", "ID"), fixture.CONTAINER)
+                self.assertEqual(path(root, "UtilizedLogisticsTransportEquipment", "CarriedAssociatedTransportEquipment", "CategoryCode"), "CN")
+                self.assertEqual(path(root, "TransportContractReferencedDocument", "TypeCode"), "730")
+                self.assertEqual(path(root, "TransportContractReferencedDocument", "ID"), scenario["cmr"])
+                self.assertEqual(path(root, "NatureIdentificationTransportCargo", "Identification"), scenario["goods"])
+                self.assertEqual(path(root, "GrossVolumeMeasure"), scenario["volume"])
+                self.assertEqual(path(root, "Information"), scenario["remark"])
+                self.assertEqual(path(root, "CarrierTradeParty", "PostalTradeAddress", "CountryID"), "EE")
+                self.assertEqual(path(root, movement, "LoadingTransportEvent", "OccurrenceLogisticsLocation", "PostalTradeAddress", "CityName"), scenario["city"])
+                self.assertEqual(path(root, movement, "UnloadingTransportEvent", "OccurrenceLogisticsLocation", "PostalTradeAddress", "CityName"), "Narva")
+                loading = root.find(".//" + RAM + "LoadingTransportEvent//{" + fixture.PREFIXES["udt"] + "}DateTimeString")
+                self.assertEqual((loading.get("format"), loading.text), ("205", "20260914" + scenario["hour"] + "00+0000"))
+                hazard = root.find(".//" + RAM + "ApplicableTransportDangerousGoods")
+                self.assertEqual(hazard is not None, scenario["dangerous"] is not None)
+                if hazard is not None:
+                    self.assertEqual(path(hazard, "UNDGIdentificationCode"), "1203")
+                    self.assertEqual(path(hazard, "HazardClassificationID"), "3")
+                    self.assertEqual(path(hazard, "PackagingDangerLevelCode"), "II")
+                    self.assertEqual(path(hazard, "SpecifiedLogisticsPackage", "TypeCode"), "1A1")
 
     def test_search_and_transport_projection_share_three_unique_uils(self):
-        base = ROOT / "DSL/Ruuter-xroad-mock/developer/POST/v1"
-        search = yaml.safe_load((base / "search.yml").read_text())["respond_multi"]["return"]
-        transport = yaml.safe_load((base / "transport-means.yml").read_text())["respond_local_multi"]["return"]
+        search = yaml.safe_load((MOCK_BASE / "search.yml").read_text())["respond_multi"]["return"]
+        transport = yaml.safe_load((MOCK_BASE / "transport-means.yml").read_text())["respond_local_multi"]["return"]
         self.assertEqual(transport["found"], 3)
         self.assertEqual(search, transport["consignments"])
-        self.assertEqual([row["uil"]["datasetId"] for row in search], [row[0] for row in fixture.SCENARIOS])
+        self.assertEqual([row["uil"]["datasetId"] for row in search], [s["dataset"] for s in fixture.SCENARIOS])
         self.assertEqual(sum(row["dangerousGoods"] is not None for row in search), 1)
-        self.assertEqual({row["mainTransportId"] for row in search}, {"MOCK-PLATE-3"})
+        self.assertEqual({row["mainTransportId"] for row in search}, {fixture.PLATE})
+        self.assertEqual({tuple(row["usedEquipmentIds"]) for row in search}, {(fixture.TRAILER,)})
+        self.assertEqual({tuple(row["carriedEquipmentIds"]) for row in search}, {(fixture.CONTAINER,)})
 
-    @unittest.skipUnless(os.environ.get("MOCK_TEST_URL"), "optional live mock URL not provided")
+    @unittest.skipUnless(os.environ.get("MOCK_TEST_URL"), "optional URL of a running developer mock")
     def test_live_lookup_and_all_three_dataset_details(self):
         base = os.environ["MOCK_TEST_URL"].rstrip("/")
 
-        def request(path, body):
+        def request(service, body):
             headers = {"Content-Type": "application/json", "X-Road-Client": "EE/GOV/70000097/test",
                        "X-Road-Id": "550e8400-e29b-41d4-a716-446655440099"}
-            req = urllib.request.Request(base + "/developer/v1/" + path, data=json.dumps(body).encode(), headers=headers)
-            with urllib.request.urlopen(req, timeout=10) as response:
+            req = urllib.request.Request(base + "/developer/v1/" + service, data=json.dumps(body).encode(), headers=headers)
+            with urllib.request.urlopen(req, timeout=30) as response:
                 return json.load(response)
 
-        lookup = request("transport-means", {"identifier": "MOCK-PLATE-3", "countryCode": "EE", "scope": "local"})
+        lookup = request("transport-means", {"identifier": fixture.PLATE, "countryCode": "EE", "scope": "local"})
         self.assertEqual(lookup["found"], 3)
-        self.assertEqual(request("search", {"mainTransportId": {"id": "MOCK-PLATE-3", "operation": "EQ"}}), lookup["consignments"])
+        for identifier in (fixture.TRAILER, fixture.CONTAINER):
+            self.assertEqual(request("transport-means", {"identifier": identifier, "scope": "local"})["consignments"],
+                             lookup["consignments"])
+        subsets = ["EU01", "EU02", "EU03", "EU05"]
         for number, row in enumerate(lookup["consignments"], 1):
-            body = request("dataset", {"uil": row["uil"], "subsets": ["EU01", "EU02", "EU03", "EU05"]})
-            self.assertEqual(body["xml"], fixture.generate_scenario(number))
-        rich = request("dataset", {"uil": {"gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440002"}, "subsets": ["EU01", "EU02", "EU03", "EU05"]})
-        self.assertEqual(rich["xml"], fixture.generate())
-        simple = request("dataset", {"uil": {"gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440001"}, "subsets": ["EU01"]})
-        self.assertEqual(simple["xml"], self.route["respond"]["return"]["xml"])
+            xml = fixture.generate_scenario(number)
+            self.assertEqual(request("dataset", {"uil": row["uil"], "subsets": subsets}),
+                             {"uil": row["uil"], "subsets": subsets, "xml": fixture.served_xml(xml),
+                              "consignment": fixture.consignment(xml)})
 
 
 if __name__ == "__main__":

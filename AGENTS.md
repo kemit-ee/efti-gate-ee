@@ -308,7 +308,22 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   in-process router, no compose). Use for anything reachable **before an upstream `call:`**:
   guard rejects, `validate_input` 400s. `mode: mock-http` can stand in for ReSql/xml-mapper.
   Run via `docker run --rm -v "$PWD:/workdir" -w /workdir turnerrainer/ruuter:0.12.1-rc dsl-test --dsl DSL/Ruuter --tests DSL-tests --constants constants.ini` (the binaries ship in the runtime image since 0.9.14-rc).
-- `DSL-mock-tests/*.test.yml` verifies standalone mock UUID and dataset permission contracts against `DSL/Ruuter-xroad-mock` and `constants-xroad-mock.ini`. Rich synthetic dataset UIL is `EU-EE/mock/550e8400-e29b-41d4-a716-446655440002`; other UILs retain the minimal response. XML is not subset-filtered. `python3 tests/mock/dataset.py` checks embedded XML against the field generator and FTI010 XSD (requires PyYAML and xmllint). Generator prints XML only: `python3 scripts/generate-rich-mock-dataset.py`.
+- `DSL-mock-tests/*.test.yml` verifies standalone mock UUID and dataset permission contracts against `DSL/Ruuter-xroad-mock` and `constants-xroad-mock.ini`. Rich synthetic dataset UIL is `EU-EE/mock/550e8400-e29b-41d4-a716-446655440002` (every FTI010 element, meaningful distinct values from an enrichment pass over the XSD walk; two items and two carried containers show repeats; field catalogue `docs/developer/fti010-field-catalogue.md`, written by `scripts/sync-mock-datasets.py`); `...0011`–`...0013` are the `MOCK-PLATE-3` shipments with meaningful values; other UILs get the minimal `MOCK-PLATE-1` response. XML is not subset-filtered.
+- **The developer mock and the live gate share one contract (1:1 means request/response shape, not data):** both answer
+  `dataset` as `{uil, subsets, xml, consignment}`: the live `xroad/POST/v1/dataset.yml` adds `uil`/`subsets`
+  to core's `{xml, consignment}` (xml-mapper `/api/v1/dataset/response-to-json`). The mock's dataset route
+  and the live `mock-platform/GET/v1/dataset.yml` are **generated** — never hand-edit them; change
+  `scripts/generate-rich-mock-dataset.py` and run `python3 scripts/sync-mock-datasets.py` (`--check` only
+  verifies). The mock's `xml`/`consignment` are precomputed with xml-mapper's rules (`served_xml`,
+  `consignment` in the generator: root loses `rsm:`; keys lower-camel with every case-insensitive `id` →
+  `Id`, e.g. `wIdthMeasure`; attributes as `name@attr`; repeats → arrays). The mock's canned data is **not**
+  seeded into the gate's database: the developer mock has no database, and the gate need not find what
+  the mock returns. In the full-field `...0002` fixture every free-text/number/identifier leaf needs an
+  explicit value rule (`RULES` in the generator — a missing or unused rule fails generation), so no
+  `MOCK-<Element>` placeholder can return; deliberately fictional ids are listed in `MOCK_IDENTIFIERS`.
+  `python3 tests/mock/dataset.py` checks all of this plus the FTI010 XSD and that the field catalogue is
+  current (requires PyYAML and xmllint); with `MOCK_TEST_URL` it also runs against a running developer mock. `search` does not
+  share the mock's response shape yet (live returns raw rows).
 - `python3 scripts/registry-to-json.py` (PyYAML) validates `registry/**/*.yml` — the same converter the
   `registry` image build runs, only without `--out` (nothing is written). Both CI jobs run it, so a
   malformed registry fails CI without a Docker build (ADR-011 §3). Its rules are unit-tested by

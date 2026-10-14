@@ -142,7 +142,9 @@ sisaldab ka ohtlikku kaupa, osapooli/kontakte, sündmusi, varustust, dokumente j
 Väärtused on sünteetilised, mitte pärisveose ärilise kooskõla tõend. Search/transport-means
 ja senine lihtne dataset ei muutu; subset-põhist XML-filtreerimist mock ei tee.
 Genereerimise, projektsioonide ja embedded XML-i XSD kontroll ning päris HTTP lookup/detail-ahel eraldatud mock-image'is — 5/5 läbis.
-Autonumber `MOCK-PLATE-3` annab kolm UIL-i (`...0011`, `...0012`, `...0013`): Tallinn/Tartu/Parnu pealelaadimised ja ühine Narva sihtkoht. Ainult `...0013` on ohtlik veos (bensiin UN 1203, ADR klass 3). Search ja local lookup tagastavad sama kolmiku; iga UIL-i dataset sisaldab õiget lähtekohta, sihtkohta ja ohtliku kauba infot.
+Autonumber `MOCK-PLATE-3` annab kolm UIL-i (`...0011`, `...0012`, `...0013`): Tallinn/Tartu/Pärnu pealelaadimised ja ühine Narva sihtkoht. Ainult `...0013` on ohtlik veos (bensiin UN 1203, ADR klass 3). Search ja local lookup tagastavad sama kolmiku; iga UIL-i dataset sisaldab õiget lähtekohta, sihtkohta ja ohtliku kauba infot.
+
+14.10.2026: `MOCK-PLATE-3` veab haagist `MOCK-TRAILER-3` ja konteinerit `MOCK-CONTAINER-3`; mõlemad numbrid leiavad sama kolmiku. Saadetistel on CMR-number, kauba kirjeldus, maht, vedaja aadress, juht, märkus ja ohtliku kauba pakend. `dataset` tagastab nüüd ka `consignment` JSON-i. Mock ja värav kasutavad sama lepingut (päringu ja vastuse kuju). Mocki andmeid värava andmebaasi ei lisata (vt `docs/developer/x_road_developer_mock.md`, „Mock ja live on 1:1”).
 
 Pärast revision-indekseid korratud 100 000 rea custom/generic mõõtmine: existence 0,677/0,385 ms (19 shared hits), local 2,404/0,476 ms (29 shared hits). Latest lookup kasutab otse `idx_consignments_dataset_latest`, ilma row_id tie-sort'ita. Baseline vastavalt 18,984/31,888 ms ja 19,937/23,368 ms; arvud on sama eraldatud fixture'i üksikkatsed.
 API-kasutus on kirjeldatud `docs/developer/x_road_developer_mock.md`.
