@@ -229,4 +229,23 @@ class FTIMessagesTest {
     expect(xml).notToContain("DeliveryDateParameterScope")
     expect(xml).notToContain("DangerousGoodsIndicationCodeParameterScope")
   }
+
+  @Test fun extractWithoutUdtNamespaceDeclaresNothing() {
+    val xml = """<rsm:SpecifiedSupplyChainConsignment xmlns:rsm="rsm:ns" xmlns="$ramNs"><GrossWeightMeasure unitCode="KGM">1</GrossWeightMeasure></rsm:SpecifiedSupplyChainConsignment>"""
+    expect(xml.extractSpecifiedSupplyChainConsignment()).toEqual(
+      """<SpecifiedSupplyChainConsignment xmlns:rsm="rsm:ns" xmlns="$ramNs"><GrossWeightMeasure unitCode="KGM">1</GrossWeightMeasure></SpecifiedSupplyChainConsignment>""")
+  }
+
+  @Test fun extractKeepsUdtDeclaredOnTheRootOnce() {
+    val xml = """<rsm:SpecifiedSupplyChainConsignment xmlns:rsm="rsm:ns" xmlns:udt="$udtNs"><udt:DateTimeString format="102">20260914</udt:DateTimeString></rsm:SpecifiedSupplyChainConsignment>"""
+    expect(xml.extractSpecifiedSupplyChainConsignment()).toEqual(
+      """<SpecifiedSupplyChainConsignment xmlns:rsm="rsm:ns" xmlns:udt="$udtNs"><udt:DateTimeString format="102">20260914</udt:DateTimeString></SpecifiedSupplyChainConsignment>""")
+  }
+
+  @Test fun extractDeclaresUdtInheritedFromTheEnvelope() {
+    val consignment = File("xsd/FTI010/sample.xml").readText().extractSpecifiedSupplyChainConsignment()
+    expect(consignment.substringBefore('>')).toEqual("""<SpecifiedSupplyChainConsignment xmlns:udt="$udtNs"""")
+    expect(consignment).notToContain("xmlns:null")
+    expect(consignment).notToContain("<rsm:")
+  }
 }

@@ -44,4 +44,16 @@ class XmlTest {
     val xml = "<root><IncludedNote>Plain text, no Content wrapper</IncludedNote></root>"
     expect(xml.extractIncludedNoteContent()).toEqual("<IncludedNote>Plain text, no Content wrapper</IncludedNote>")
   }
+
+  @Test fun extractXmlTagSkipsAPreservedNamespaceThatIsNotDeclared() {
+    val xml = "<root><ns:content><value>123</value></ns:content></root>"
+    expect(xml.extractXmlTag("content", preserveNs = setOf("UDT:NS"))).toEqual("<content><value>123</value></content>")
+  }
+
+  @Test fun extractXmlTagDoesNotRedeclareANamespaceTheTagAlreadyHas() {
+    val xml = "<ns:content xmlns:udt=\"UDT:NS\"><udt:value>123</udt:value></ns:content>"
+    expect(xml.extractXmlTag("content", preserveNs = setOf("UDT:NS")))
+      .toEqual("<content xmlns:udt=\"UDT:NS\"><udt:value>123</udt:value></content>")
+  }
 }
+
