@@ -7,12 +7,23 @@ import klite.annotations.annotated
 import klite.json.JsonBody
 import klite.json.JsonMapper
 import klite.openapi.openApi
+import metrics.RequestMetrics
 
 fun main() {
   Config.useEnvFile()
   if (Config.optional("PORT") == null) Config["PORT"] = "8082"
 
-  Server(requestIdGenerator = RequestIdHandler()).apply {
+  val registry = DependencyInjectingRegistry().apply {
+    register<RequestLogger>()
+    register<TextBody>()
+    register<FormUrlEncodedParser>()
+    register<FormDataParser>()
+    register<RequestMetrics>(RequestMetrics())
+  }
+
+  Server(requestIdGenerator = RequestIdHandler(), registry = registry).apply {
+    metrics()
+
     context("/health") {
       get { "OK" }
     }

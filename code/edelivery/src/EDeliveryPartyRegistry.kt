@@ -1,6 +1,7 @@
 import edelivery.Party
 import edelivery.PartyId
 import edelivery.PartyRegistry
+import klite.Metrics
 import registry.RegistryClient
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -13,6 +14,9 @@ class EDeliveryPartyRegistry(
 
   init {
     refreshPeriodically("party-registry-refresh", refreshInterval) { reload() }
+    // ONLINE gates/platforms known to this node right now (RegistryClient.getParties() already
+    // excludes DISABLED entries) -- the "gate ONLINE/OFFLINE" signal from the monitoring architecture.
+    Metrics.register("edeliveryPartiesOnlineTotal") { parties.size }
   }
 
   fun reload() {
