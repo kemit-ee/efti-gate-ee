@@ -109,6 +109,75 @@ class RichDataset(unittest.TestCase):
                      "UtilizedLogisticsTransportEquipment", "AssociatedReferencedDocument"):
             self.assertIsNotNone(self.root.find(".//" + RAM + name))
 
+    def test_full_field_values_are_meaningful(self):
+        names = {local for element in self.root.iter() for local in [element.tag.split("}")[-1], *element.attrib]}
+        placeholders = {("MOCK-" + name)[:size] for name in names for size in range(4, len(name) + 6)} | {"MOC", "MO"}
+        values = [(element.tag.split("}")[-1], element.text) for element in self.root.iter() if not len(element)]
+        values += [(element.tag.split("}")[-1] + "@" + name, text) for element in self.root.iter()
+                   for name, text in element.attrib.items()]
+        for name, text in values:
+            with self.subTest(field=name, value=text):
+                self.assertTrue(text and text.strip())
+                self.assertNotIn(text, placeholders)
+                self.assertNotEqual(text, "TW9jayBhdHRhY2htZW50")
+                for identifier in re.findall(r"MOCK-[A-Z0-9-]+", text):
+                    self.assertIn(identifier, fixture.MOCK_IDENTIFIERS)
+        self.assertFalse(fixture.MOCK_IDENTIFIERS & placeholders)
+
+    def test_full_field_vehicle_and_equipment_are_distinguishable(self):
+        movement = "MainCarriageLogisticsTransportMovement"
+        self.assertEqual(path(self.root, movement, "UsedLogisticsTransportMeans", "ID"), fixture.MAX_PLATE)
+        trailer = self.root.find(RAM + "UtilizedLogisticsTransportEquipment")
+        self.assertEqual((path(trailer, "ID"), path(trailer, "CategoryCode")), (fixture.MAX_TRAILER, "TE"))
+        self.assertEqual(path(self.root, movement, "UsedLogisticsTransportMeans", "OperationalAttachedTransportEquipment", "ID"),
+                         fixture.MAX_TRAILER)
+        containers = trailer.findall(RAM + "CarriedAssociatedTransportEquipment")
+        self.assertEqual([(path(c, "ID"), path(c, "CategoryCode")) for c in containers],
+                         [(fixture.MAX_CONTAINERS[0], "CN"), (fixture.MAX_CONTAINERS[1], "CN")])
+        items = self.root.findall(RAM + "IncludedSupplyChainConsignmentItem")
+        self.assertEqual([path(i, "AssociatedReferencedLogisticsTransportEquipment", "ID") for i in items],
+                         list(fixture.MAX_CONTAINERS))
+        self.assertEqual(len({fixture.MAX_PLATE, fixture.MAX_TRAILER, *fixture.MAX_CONTAINERS}), 4)
+        self.assertEqual({e.get("currencyID") for e in self.root.iter() if e.get("currencyID")}, {"EUR"})
+
+    def test_full_field_repeats_become_arrays(self):
+        projected = fixture.consignment(self.xml)
+        items = projected["includedSupplyChainConsignmentItem"]
+        self.assertEqual([i["associatedReferencedLogisticsTransportEquipment"]["Id"] for i in items], list(fixture.MAX_CONTAINERS))
+        self.assertIn("applicableTransportDangerousGoods", items[0])
+        self.assertNotIn("applicableTransportDangerousGoods", items[1])
+        carried = projected["utilizedLogisticsTransportEquipment"]["carriedAssociatedTransportEquipment"]
+        self.assertEqual([c["Id"] for c in carried], list(fixture.MAX_CONTAINERS))
+
+    def test_full_field_covers_the_schema_skeleton(self):
+        def paths(root):
+            def walk(node, prefix):
+                here = prefix + "/" + node.tag.split("}")[-1]
+                yield here
+                for child in node:
+                    yield from walk(child, here)
+            return set(walk(root, ""))
+        self.assertEqual(paths(self.root), paths(fixture.skeleton()))
+
+    def test_full_field_dates_match_their_format(self):
+        for element in self.root.iter("{" + fixture.PREFIXES["udt"] + "}DateTimeString"):
+            with self.subTest(value=element.text):
+                pattern = r"\d{8}" if element.get("format") == "102" else r"\d{12}[+-]\d{4}"
+                self.assertRegex(element.text, "^" + pattern + "$")
+
+    def test_field_catalogue_is_current_and_complete(self):
+        text = (ROOT / "docs/developer/fti010-field-catalogue.md").read_text()
+        self.assertEqual(text, fixture.catalogue())
+        rows = [line.split(" | ") for line in text.splitlines() if re.match(r"\| \d+ \|", line)]
+        xpaths = {row[1].strip("`") for row in rows}
+        for element in self.root.iter():
+            if not len(element):
+                found = [x for x in xpaths if x.endswith("/" + element.tag.split("}")[-1])]
+                self.assertTrue(found, element.tag)
+        undocumented = [row[1] for row in rows if not row[3]]
+        self.assertTrue(all(x.endswith(("/@uri`", "/@filename`")) for x in undocumented), undocumented)
+        self.assertGreater(len(rows), 500)
+
     def test_embedded_xml_validates_against_fti010(self):
         for xml in [make() for make in fixture.DATASETS.values()]:
             self.validate_xml(xml)

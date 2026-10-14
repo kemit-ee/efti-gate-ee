@@ -14,6 +14,11 @@ literaali pealt. Isegi vigane marsruut ei saa
 lekitada päris saadetiste andmeid ega jõuda privilegeeritud teeni. Päris `/xroad/**` **ei ole**
 kunagi avalikult marsruuditav (ADR-006) — mock on see, mille vastu arendaja testib.
 
+```
+Arendaja klient ──HTTP──> https://eftidev.kemitaws.ee/developer/v1/{operatsioon}
+                          (nginx → xtee-mock-teenus, konserveeritud vastus)
+```
+
 ### Mock ja live on 1:1
 
 1:1 tähendab, et mock ja päris värav kasutavad **sama lepingut**: päringud on samad ja vastused sama
@@ -36,11 +41,6 @@ Käivitatud mocki vastu: `MOCK_TEST_URL=http://localhost:8088 python3 tests/mock
 `transport-means` (`uil`, `mainTransportId`, …, ilma `xml`-ita) ja sama `x-poll-more` käitumise. Mock
 filtreerib oma nelja näidisrida samade kriteeriumireeglitega nagu värava `get_consignments.sql` ja
 samas järjekorras (uuemad ees).
-
-```
-Arendaja klient ──HTTP──> https://eftidev.kemitaws.ee/developer/v1/{operatsioon}
-                          (nginx → xtee-mock-teenus, konserveeritud vastus)
-```
 
 ## Baas-URL ja teed
 
@@ -79,20 +79,25 @@ Samad mis päris liideses. Mockis paned need **sina ise** (päris elus paneb tur
 | Lubatud alamhulgad | `["EU01","EU02","EU03","EU05"]` (v.a `memberCode 70000000` → `[]`) |
 | Tuntud tunnused | `MOCK-PLATE-1` (seadme nr `CONT-MOCK-01`) → 1 saadetis; `MOCK-PLATE-3`, haagis `MOCK-TRAILER-3`, konteiner `MOCK-CONTAINER-3` → 3 saadetist; kõik muu → tühi tulemus |
 | Tuntud `uil` | `{ "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440001" }` |
-| Rikkalik dataset | `{ "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440002" }` — täieliku väljakattuvusega sünteetiline FTI010 näidis |
+| Rikkalik dataset | `{ "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440002" }` — täieliku väljakattuvusega sünteetiline FTI010 näidis sisuliste väärtustega; väljad: [FTI010 väljakataloog](fti010-field-catalogue.md) |
 
 ## Maksimaalse tulemusega päringud
 
-Need kaks päringut annavad mockist kõige suurema vastuse. Esimene sisaldab kõiki välju, teine kõiki
-vormi välju sisuliste väärtustega. Mõlemas küsitakse kõiki alamhulki, mis mock-asutusele on lubatud
+Kõige suurema vastuse annab üks päring: UIL `...0002` sisaldab kõiki FTI010 välju sisuliste,
+omavahel eristuvate väärtustega. Teine päring (`...0013`) on väiksem vormipõhine näide. Mõlemas
+küsitakse kõiki alamhulki, mis mock-asutusele on lubatud
 (`GET /developer/v1/subsets` → `["EU01","EU02","EU03","EU05"]`). Mock XML-i alamhulkade järgi ei
 filtreeri, aga päris väravas annab ainult lubatud alamhulkade küsimine täieliku vastuse. Lubamata
 alamhulga lisamine ei laienda vastust, vaid annab `403 FORBIDDEN_SUBSET`. Päris väravas küsi seega
 täpselt need alamhulgad, mida sinu asutuse `subsets` tagastab.
 
-**1. Kõik FTI010 väljad** — UIL `...0002`. Vastuses on iga FTI010 `SpecifiedSupplyChainConsignment`
-element üks kord; kus skeem lubab ainult ühte variandist (`choice`), on kasutatud esimest. See on
-parim päring, et kogu struktuur ühe korraga ära kaardistada.
+**1. Kõik FTI010 väljad sisuliste väärtustega (maksimaalne tulemus)** — UIL `...0002`. Vastuses on
+iga FTI010 `SpecifiedSupplyChainConsignment` element; kus skeem lubab ainult ühte varianti (`choice`),
+on kasutatud esimest. Kaubaartikkel ja konteiner korduvad kaks korda, seega on need `consignment`
+objektis massiivid. Väärtused on päriselulised ja eristuvad (veok, haagis ja konteinerid on erinevad
+tunnused, summad on eurodes, koodid XSD koodiloenditest), nii et iga välja saab kaardistada ka sisu
+järgi. Iga välja XPath, JSON-võti, eFTI ID ja näiteväärtus on [FTI010 väljakataloogis](fti010-field-catalogue.md).
+See päring sobib, et kogu struktuur ja sisu ühe korraga ära kaardistada.
 
 ```http
 POST https://eftidev.kemitaws.ee/developer/v1/dataset
@@ -106,7 +111,7 @@ Content-Type: application/json
 }
 ```
 
-**2. Kõik vormi väljad sisuliste väärtustega** — UIL `...0013`. Ohtlik veos, kus on veok, haagis,
+**2. Vormi väljad ühe tavalise veose näitel** — UIL `...0013`. Ohtlik veos, kus on veok, haagis,
 konteiner, CMR, kauba kirjeldus, maht, saatja, saaja, vedaja, juht, märkused ning ohtliku kauba
 andmed (UN, klass, pakendirühm, pakend, tunnel). Väljade asukohad on tabelis „Vormi väljad: kust need
 dataset'i vastusest leiab”.
@@ -405,21 +410,32 @@ Maksimaalse väljakattuvusega näidise saamiseks kasuta järgmist keha (samad p�
 }
 ```
 
-Rikkalik vastus sisaldab olemasoleva FTI010 XSD consignment-välju: saatjat, saajat, vedajat,
-kontakte ja aadresse, kaubaartiklit, ohtlikku kaupa, varustust, veosündmusi/asukohti,
-kaale/mahte, makseinfot ning viitedokumente ja manuseid. Näidis on sünteetiline, mitte
-äriliselt kooskõlalise pärisveose kirjeldus. Iga korduvat välja esineb üks kord ning
-choice-grupist kasutatakse esimest varianti; piiramatu korduste arvu tõttu pole lõplikku
-„kõige suuremat” dataset'i. XML valideeritakse repo FTI010 XSD vastu täielikus test-envelope'is;
-API tagastab endiselt vaid `SpecifiedSupplyChainConsignment` fragmendi JSON-i `xml` väljas.
+Rikkalik vastus sisaldab kõiki FTI010 XSD consignment-välju: saatjat, saajat, vedajat,
+kontakte ja aadresse, kaubaartikleid, ohtlikku kaupa, varustust, veosündmusi/asukohti,
+kaale/mahte, makseinfot ning viitedokumente ja manuseid. Choice-grupist kasutatakse esimest
+varianti; piiramatu korduste arvu tõttu pole lõplikku „kõige suuremat” dataset'i. XML valideeritakse
+repo FTI010 XSD vastu täielikus test-envelope'is; API tagastab endiselt vaid
+`SpecifiedSupplyChainConsignment` fragmendi JSON-i `xml` väljas.
 
-Rikkalikus näidises on iga väli täidetud, kuid väärtused on kohatäited (`MOCK-ID`, `MOCK-Name` jne):
-see sobib struktuuri kaardistamiseks, aga mitte sisu kontrollimiseks. Sisuliste väärtustega näited on
-`MOCK-PLATE-3` saadetised eespool. Rikkalik näidis valitakse ainult täpse `EU-EE/mock/...0002` UIL-i
-puhul. Kõik muud UIL-id saavad lihtsa `MOCK-PLATE-1` vastuse. Mock ei filtreeri XML-välju subsets'i järgi:
-kõigi nelja küsimine dokumenteerib maksimaalse päringu, kuid üks lubatud alamhulk annab sama
-rikkaliku XML-i. Õigusteta `70000000` annab ka selle ID korral 403. Uut dataset'i ei lisata
-search/transport-means tulemustesse; seda küsitakse otse UIL-i järgi.
+Väärtused on sisulised ja omavahel eristuvad, et iga välja saaks kaardistada ka sisu järgi:
+väljamõeldud Mock Värvitehas AS (Tallinn) saadab Mock Statyba UAB-le (Kaunas) värvi (UN 1263,
+ADR klass 3, terasvaadid) ja plaatimissegu (kaubaalused); vedaja Mock Vedu OÜ veok `MOCK-PLATE-MAX`
+veab poolhaagist `MOCK-TRAILER-MAX` (`TE`), millel on konteinerid `MOCK-CONTAINER-A` ja
+`MOCK-CONTAINER-B` (`CN`), ümberlaadimisega Riias. Summad on eurodes, riigikoodid päris
+(`EE`/`LV`/`LT`), koodiväljad XSD koodiloenditest ning kuupäevad vormingus `205`
+(`CCYYMMDDHHMM±HHMM`) ainult seal, kus XSD seda lubab — maha- ja kättetoimetamise kuupäevad on
+`102` (`CCYYMMDD`). Registrikoodi-laadsed tunnused algavad `MOCK-`, e-posti domeenid on `.example`.
+`IncludedSupplyChainConsignmentItem` ja `CarriedAssociatedTransportEquipment` esinevad kaks korda, et
+näidata korduvaid elemente: `consignment` objektis on need massiivid. Radioaktiivse materjali ja
+jäätmete väljad on täidetud ainult kaardistamiseks.
+
+Iga välja XPath, `consignment` JSON-võti, eFTI ID, äriline nimi, koodiloend ja näiteväärtus on
+genereeritud [FTI010 väljakataloogis](fti010-field-catalogue.md). Sisuliste väärtustega vormipõhised
+näited on ka `MOCK-PLATE-3` saadetised eespool. Rikkalik näidis valitakse ainult täpse
+`EU-EE/mock/...0002` UIL-i puhul. Kõik muud UIL-id saavad lihtsa `MOCK-PLATE-1` vastuse. Mock ei
+filtreeri XML-välju subsets'i järgi: kõigi nelja küsimine dokumenteerib maksimaalse päringu, kuid üks
+lubatud alamhulk annab sama rikkaliku XML-i. Õigusteta `70000000` annab ka selle ID korral 403. Uut
+dataset'i ei lisata search/transport-means tulemustesse; seda küsitakse otse UIL-i järgi.
 
 **Päring**
 ```
