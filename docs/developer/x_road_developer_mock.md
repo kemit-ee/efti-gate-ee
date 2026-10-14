@@ -81,16 +81,21 @@ Samad mis päris liideses. Mockis paned need **sina ise** (päris elus paneb tur
 
 ## Maksimaalse tulemusega päringud
 
-Need kaks päringut annavad mockist kõige suurema vastuse. Esimene sisaldab kõiki välju, teine kõiki
-vormi välju sisuliste väärtustega. Mõlemas küsitakse kõiki alamhulki, mis mock-asutusele on lubatud
+Kõige suurema vastuse annab üks päring: UIL `...0002` sisaldab kõiki FTI010 välju sisuliste,
+omavahel eristuvate väärtustega. Teine päring (`...0013`) on väiksem vormipõhine näide. Mõlemas
+küsitakse kõiki alamhulki, mis mock-asutusele on lubatud
 (`GET /developer/v1/subsets` → `["EU01","EU02","EU03","EU05"]`). Mock XML-i alamhulkade järgi ei
 filtreeri, aga päris väravas annab ainult lubatud alamhulkade küsimine täieliku vastuse. Lubamata
 alamhulga lisamine ei laienda vastust, vaid annab `403 FORBIDDEN_SUBSET`. Päris väravas küsi seega
 täpselt need alamhulgad, mida sinu asutuse `subsets` tagastab.
 
-**1. Kõik FTI010 väljad** — UIL `...0002`. Vastuses on iga FTI010 `SpecifiedSupplyChainConsignment`
-element üks kord; kus skeem lubab ainult ühte variandist (`choice`), on kasutatud esimest. See on
-parim päring, et kogu struktuur ühe korraga ära kaardistada.
+**1. Kõik FTI010 väljad sisuliste väärtustega (maksimaalne tulemus)** — UIL `...0002`. Vastuses on
+iga FTI010 `SpecifiedSupplyChainConsignment` element; kus skeem lubab ainult ühte varianti (`choice`),
+on kasutatud esimest. Kaubaartikkel ja konteiner korduvad kaks korda, seega on need `consignment`
+objektis massiivid. Väärtused on päriselulised ja eristuvad (veok, haagis ja konteinerid on erinevad
+tunnused, summad on eurodes, koodid XSD koodiloenditest), nii et iga välja saab kaardistada ka sisu
+järgi. Iga välja XPath, JSON-võti, eFTI ID ja näiteväärtus on [FTI010 väljakataloogis](fti010-field-catalogue.md).
+See päring sobib, et kogu struktuur ja sisu ühe korraga ära kaardistada.
 
 ```http
 POST https://eftidev.kemitaws.ee/developer/v1/dataset
@@ -104,7 +109,7 @@ Content-Type: application/json
 }
 ```
 
-**2. Kõik vormi väljad sisuliste väärtustega** — UIL `...0013`. Ohtlik veos, kus on veok, haagis,
+**2. Vormi väljad ühe tavalise veose näitel** — UIL `...0013`. Ohtlik veos, kus on veok, haagis,
 konteiner, CMR, kauba kirjeldus, maht, saatja, saaja, vedaja, juht, märkused ning ohtliku kauba
 andmed (UN, klass, pakendirühm, pakend, tunnel). Väljade asukohad on tabelis „Vormi väljad: kust need
 dataset'i vastusest leiab”.
