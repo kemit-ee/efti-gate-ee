@@ -32,8 +32,10 @@ Mõlemad dataset'i failid genereerib `python3 scripts/sync-mock-datasets.py` fai
 kontrollib, et failid on ajakohased ning mocki `xml`/`consignment` vastab xml-mapperi reeglitele.
 Käivitatud mocki vastu: `MOCK_TEST_URL=http://localhost:8088 python3 tests/mock/dataset.py`.
 
-`search` ei ole veel sama kujuga: live tagastab andmebaasi toorread (`rowId`, `datasetId`, `xml`, …),
-mock aga kureeritud projektsiooni (`uil`, `mainTransportId`, …).
+`search` on samuti sama lepinguga: mõlemad tagastavad sama kureeritud projektsiooni nagu
+`transport-means` (`uil`, `mainTransportId`, …, ilma `xml`-ita) ja sama `x-poll-more` käitumise. Mock
+filtreerib oma nelja näidisrida samade kriteeriumireeglitega nagu värava `get_consignments.sql` ja
+samas järjekorras (uuemad ees).
 
 ```
 Arendaja klient ──HTTP──> https://eftidev.kemitaws.ee/developer/v1/{operatsioon}
@@ -258,10 +260,20 @@ Content-Type: application/json
 { "mainTransportId": { "operator": "EQ", "id": "MOCK-PLATE-1" } }
 ```
 
-**Vastus `200`** — massiiv. `mainTransportId.id == "MOCK-PLATE-1"` → üks rida;
-`mainTransportId.id == "MOCK-PLATE-3"`, `usedEquipmentId.id == "MOCK-TRAILER-3"` või
-`carriedEquipmentId.id == "MOCK-CONTAINER-3"` → kolm rida; muidu `[]`.
-Pollimispäring `{ "poll": true }` → `[]`. Vastuse päis `x-poll-more: false`.
+**Vastus `200`** — massiiv, mille iga element on sama projektsioon, mida `transport-means` tagastab
+`consignments` all. Mock otsib nelja saadetise seast (`MOCK-PLATE-3` kolm saadetist `...0011`–`...0013`,
+`MOCK-PLATE-1` saadetis `...0001`) samade reeglitega nagu päris värav:
+
+- kõik antud kriteeriumid peavad sobima (AND); kriteerium ilma `operator: "EQ"`/`"NE"`-ta ei sobi millegagi;
+- kuupäevaväljad on massiivid: esimene element `EQ`/`NE`/`LT`/`LE`/`GT`/`GE`, teine `LT`/`LE`/`GT`/`GE`;
+- `transportMeansOrEquipmentId` sobib, kui id on veoki, kasutatava või veetava seadme number;
+- järjekord on uuemad ees (`MOCK-PLATE-3` saadetised enne `MOCK-PLATE-1` oma).
+
+Näiteks `mainTransportId` `MOCK-PLATE-1` või `usedEquipmentId` `CONT-MOCK-01` → üks rida;
+`mainTransportId` `MOCK-PLATE-3`, `usedEquipmentId` `MOCK-TRAILER-3` või `carriedEquipmentId`
+`MOCK-CONTAINER-3` → kolm rida. Leiu korral on päis `x-poll-more: false`. Kui midagi ei leita, on
+vastus `[]` ja `x-poll-more: true`, sest päris värav alustab siis naaberväravate päringut. Pollimispäring
+`{ "poll": true }` → `[]` ja `x-poll-more: false`.
 
 ```json
 [
@@ -269,10 +281,18 @@ Pollimispäring `{ "poll": true }` → `[]`. Vastuse päis `x-poll-more: false`.
     "uil": { "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440001" },
     "mainTransportId": "MOCK-PLATE-1",
     "mainTransportType": "1522",
-    "transportMode": "3",
     "transportRegCountry": "EE",
-    "acceptanceDate": "2026-04-22T09:00:00Z", "acceptanceCountry": "EE",
-    "deliveryDate": "2026-04-25T14:00:00Z", "deliveryCountry": "FI",
+    "transportMode": "3",
+    "dangerousGoods": null,
+    "acceptanceDate": null, "acceptanceCountry": null,
+    "deliveryDate": null, "deliveryCountry": null,
+    "loadingDate": "2026-04-23T06:00:00Z", "loadingCountry": "EE",
+    "unloadingDate": "2026-04-25T14:00:00Z", "unloadingCountry": "FI",
+    "usedEquipmentIds": ["CONT-MOCK-01"],
+    "usedEquipmentCategories": ["CN"],
+    "usedEquipmentCountries": ["EE"],
+    "carriedEquipmentIds": [],
+    "carriedEquipmentCategories": [],
     "status": "ACTIVE",
     "createdAt": "2026-04-23T10:15:00Z"
   }
@@ -471,9 +491,10 @@ Content-Type: application/json
 
 - Autentimist ei toimu — `X-Road-Client` on vaba (v.a `00000000`); ühtki registrikirjet ei kontrollita.
 - Andmed on staatilised ja ainult mockis. Leping on päris väravaga sama (vt „Mock ja live on 1:1”),
-  aga päris värav neid näidissaadetisi ei leia. `search` vastuse kuju erineb.
+  aga päris värav neid näidissaadetisi ei leia.
 - `dataset` alamhulgakontroll ei võrdle küsitud hulki lubatuga — `403` tuleb ainult `memberCode 70000000` puhul.
-- Fan-out'i / pollimist tegelikult ei toimu; `x-poll-more` on alati `false`.
+- Fan-out'i / pollimist tegelikult ei toimu. `search` tühi tulemus annab `x-poll-more: true` nagu
+  päris värav, kuid pollimine tagastab kohe `[]` ja `x-poll-more: false`.
 - Vastuseajad on kohesed; `502 GATEWAY_UNAVAILABLE` teed ei ole (päris väravas tuleb see `core` tõrke korral).
 
 ## Postmani kollektsioon

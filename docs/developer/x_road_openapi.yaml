@@ -296,7 +296,7 @@ paths:
         '502': { $ref: '#/components/responses/GatewayUnavailable' }
 
   # =========================================================================
-  # 4. search  — CONTRACT ONLY (route not built on dev)
+  # 4. search
   # =========================================================================
   /search/v1:
     post:
@@ -313,9 +313,9 @@ paths:
 
         Gate-side route: `POST /xroad/v1/search`.
 
-        **Status:** contract only — the route is not implemented on `dev`. The body is the
-        eFTI search-criteria object also accepted by the JWT Authority API
-        (`POST /efti/api/v1/authority/search`).
+        Each match is the same curated projection `transport-means` returns under
+        `consignments` (`uil` nested, no identifier XML), newest first (`createdAt` DESC). The
+        developer mock (`POST /developer/v1/search`) shares this contract over its own canned rows.
       parameters:
         - $ref: '#/components/parameters/XRoadClient'
         - $ref: '#/components/parameters/XRoadId'
@@ -341,9 +341,10 @@ paths:
       responses:
         '200':
           description: |
-            Matching consignments. If the response header `x-poll-more: true` is present,
-            neighbouring gates are still responding — poll again with the same `X-Road-Id`
-            and body `{ "poll": true }`.
+            Matching consignments. A local match answers at once with `x-poll-more: false`.
+            With no local match the response is `[]` with `x-poll-more: true`: neighbouring
+            gates are still responding — poll again with the same `X-Road-Id` and body
+            `{ "poll": true }`. Remote rows have `createdAt: null`.
           headers:
             x-poll-more:
               $ref: '#/components/headers/XPollMore'
@@ -351,7 +352,7 @@ paths:
             application/json:
               schema:
                 type: array
-                items: { $ref: '#/components/schemas/ConsignmentMetadata' }
+                items: { $ref: '#/components/schemas/TransportMeansConsignment' }
         '400':
           description: '`INVALID_REQUEST_ID` — `X-Road-Id` is not UUID-shaped.'
           content:
@@ -897,15 +898,6 @@ components:
       properties:
         operator: { $ref: '#/components/schemas/Operator' }
         date: { type: string, format: date-time, example: "2026-04-23T00:00:00Z" }
-
-    ConsignmentMetadata:
-      type: object
-      description: |
-        Identifier-level consignment metadata. Same projection the JWT Authority API
-        `search` returns; see `../specs/openapi.yaml` for the full field list.
-      additionalProperties: true
-      properties:
-        uil: { $ref: '#/components/schemas/Uil' }
 
     # ---- dataset / follow-up ---------------------------------------
     DatasetRequest:

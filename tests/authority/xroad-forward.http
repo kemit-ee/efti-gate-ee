@@ -305,6 +305,11 @@ Content-Type: application/json
     client.assert(response.body.length > 0, "expected the local search to match VESSEL-001")
     client.assert(response.body[0].mainTransportId === "VESSEL-001")
   })
+  client.test("Search answers the curated projection, not raw rows", () => {
+    const row = response.body[0]
+    client.assert(row.uil && row.uil.gateId === "EU-EE" && !!row.uil.datasetId, "expected a nested uil, got " + JSON.stringify(row))
+    client.assert(!("xml" in row) && !("rowId" in row) && !("datasetId" in row), "raw row keys leaked: " + JSON.stringify(row))
+  })
 %}
 
 ### search: guard applies here too

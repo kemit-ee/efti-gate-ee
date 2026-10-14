@@ -303,8 +303,10 @@ Content-Type: application/json
 { "mainTransportId": { "operator": "EQ", "id": "123ABC" } }
 ```
 
-**Vastus 200** — sobivad saadetised. Kui vastuse päis `x-poll-more: true`, vastavad
-naaberväravad veel. Küsi uuesti sama `X-Road-Id`-ga ja kehaga `{ "poll": true }`:
+**Vastus 200** — sobivate saadetiste massiiv, uuemad ees. Iga element on sama kureeritud
+projektsioon, mida `transport-means` tagastab `consignments` all (`uil`, `mainTransportId`, …,
+ilma XML-ita); naaberväravate ridadel on `createdAt: null`. Kui vastuse päis `x-poll-more: true`,
+vastavad naaberväravad veel. Küsi uuesti sama `X-Road-Id`-ga ja kehaga `{ "poll": true }`:
 
 ```
 POST /r1/EE/GOV/70001231/efti-gate/search/v1
@@ -317,7 +319,8 @@ Turvaserver annab uuele päringule tavaliselt uue `X-Road-Id` — pollimiseks pe
 üle kirjutama sama väärtusega.
 
 **Vead:** `401 UNAUTHORIZED`, `403 FORBIDDEN`, `502 GATEWAY_UNAVAILABLE`
-(`core` vastas ≥ 400; `coreStatus` / `coreResponse` kannavad päris vastust).
+(`core` vastas ≥ 400 — `coreStatus` / `coreResponse` kannavad päris vastust; või tulemuse
+normaliseerimine ebaõnnestus — `failedStep: "transport-means-normalize"`).
 
 ---
 

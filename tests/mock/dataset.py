@@ -8,6 +8,7 @@ import re
 import subprocess
 import unittest
 import urllib.request
+import uuid
 import xml.etree.ElementTree as ET
 import yaml
 
@@ -25,6 +26,34 @@ fixture = load("fixture", "scripts/generate-rich-mock-dataset.py")
 sync = load("sync", "scripts/sync-mock-datasets.py")
 RAM = "{" + fixture.PREFIXES["ram"] + "}"
 MOCK_BASE = ROOT / "DSL/Ruuter-xroad-mock/developer/POST/v1"
+
+
+def search_rows():
+    """The developer mock's searchable rows as its search returns them (sequence numbers dropped)."""
+    rows = yaml.safe_load((MOCK_BASE / "search.yml").read_text())["setup"]["assign"]["rows"]
+    return [{k: v for k, v in row.items() if k not in ("usedEquipmentSeq", "carriedEquipmentSeq")} for row in rows]
+
+
+# Search bodies and the developer mock's answer under get_consignments.sql's criteria semantics
+# (dataset suffixes in its order, and x-poll-more), the contract the live gate shares.
+SEARCHES = [
+    ({"mainTransportId": {"operator": "EQ", "id": "MOCK-PLATE-1"}}, ["0001"], "false"),
+    ({"mainTransportId": {"operator": "EQ", "id": "MOCK-PLATE-3"}}, ["0011", "0012", "0013"], "false"),
+    ({"usedEquipmentId": {"operator": "EQ", "id": "CONT-MOCK-01"}}, ["0001"], "false"),
+    ({"usedEquipmentId": {"operator": "EQ", "id": "MOCK-TRAILER-3"}}, ["0011", "0012", "0013"], "false"),
+    ({"carriedEquipmentId": {"operator": "EQ", "id": "MOCK-CONTAINER-3"}}, ["0011", "0012", "0013"], "false"),
+    ({"transportMeansOrEquipmentId": {"operator": "EQ", "id": "MOCK-TRAILER-3"}}, ["0011", "0012", "0013"], "false"),
+    ({"mainTransportId": {"operator": "EQ", "id": "MOCK-PLATE-3"}, "dangerousGoodsCode": {"operator": "EQ", "code": "1"}},
+     ["0013"], "false"),
+    ({"mainTransportId": {"operator": "EQ", "id": "MOCK-PLATE-3"},
+      "loadingDate": [{"operator": "GE", "date": "2026-09-14T08:00:00Z"}, {"operator": "LT", "date": "2026-09-14T12:00:00Z"}]},
+     ["0012"], "false"),
+    ({"mainTransportId": {"operator": "EQ", "id": "MOCK-PLATE-3"}, "dangerousGoodsCode": {"operator": "NE", "code": "1"}},
+     [], "true"),
+    ({"mainTransportId": {"operation": "EQ", "id": "MOCK-PLATE-3"}}, [], "true"),
+    ({"mainTransportId": {"operator": "EQ", "id": "NO-SUCH-PLATE"}}, [], "true"),
+    ({"poll": True}, [], "false"),
+]
 
 
 def step(dataset_id):
@@ -123,26 +152,45 @@ class RichDataset(unittest.TestCase):
                     self.assertEqual(path(hazard, "SpecifiedLogisticsPackage", "TypeCode"), "1A1")
 
     def test_search_and_transport_projection_share_three_unique_uils(self):
-        search = yaml.safe_load((MOCK_BASE / "search.yml").read_text())["respond_multi"]["return"]
-        transport = yaml.safe_load((MOCK_BASE / "transport-means.yml").read_text())["respond_local_multi"]["return"]
-        self.assertEqual(transport["found"], 3)
-        self.assertEqual(search, transport["consignments"])
-        self.assertEqual([row["uil"]["datasetId"] for row in search], [s["dataset"] for s in fixture.SCENARIOS])
-        self.assertEqual(sum(row["dangerousGoods"] is not None for row in search), 1)
-        self.assertEqual({row["mainTransportId"] for row in search}, {fixture.PLATE})
-        self.assertEqual({tuple(row["usedEquipmentIds"]) for row in search}, {(fixture.TRAILER,)})
-        self.assertEqual({tuple(row["carriedEquipmentIds"]) for row in search}, {(fixture.CONTAINER,)})
+        search = search_rows()
+        transport = yaml.safe_load((MOCK_BASE / "transport-means.yml").read_text())
+        multi = transport["respond_local_multi"]["return"]
+        self.assertEqual(multi["found"], 3)
+        # get_consignments.sql order: created_at DESC, revision DESC.
+        self.assertEqual(search, multi["consignments"] + transport["respond_local_hit"]["return"]["consignments"])
+        plate3 = search[:3]
+        self.assertEqual([row["uil"]["datasetId"] for row in plate3], [s["dataset"] for s in fixture.SCENARIOS])
+        self.assertEqual(sum(row["dangerousGoods"] is not None for row in plate3), 1)
+        self.assertEqual({row["mainTransportId"] for row in plate3}, {fixture.PLATE})
+        self.assertEqual({tuple(row["usedEquipmentIds"]) for row in plate3}, {(fixture.TRAILER,)})
+        self.assertEqual({tuple(row["carriedEquipmentIds"]) for row in plate3}, {(fixture.CONTAINER,)})
+
+    def test_search_rows_carry_equipment_sequence_numbers(self):
+        for row in yaml.safe_load((MOCK_BASE / "search.yml").read_text())["setup"]["assign"]["rows"]:
+            with self.subTest(dataset=row["uil"]["datasetId"]):
+                self.assertEqual(row["usedEquipmentSeq"], [1] * len(row["usedEquipmentIds"]))
+                self.assertEqual(row["carriedEquipmentSeq"], [1] * len(row["carriedEquipmentIds"]))
 
     @unittest.skipUnless(os.environ.get("MOCK_TEST_URL"), "optional URL of a running developer mock")
-    def test_live_lookup_and_all_three_dataset_details(self):
+    def test_live_search_lookup_and_all_three_dataset_details(self):
         base = os.environ["MOCK_TEST_URL"].rstrip("/")
 
-        def request(service, body):
+        def exchange(service, body, request_id="550e8400-e29b-41d4-a716-446655440099"):
             headers = {"Content-Type": "application/json", "X-Road-Client": "EE/GOV/70000097/test",
-                       "X-Road-Id": "550e8400-e29b-41d4-a716-446655440099"}
+                       "X-Road-Id": request_id}
             req = urllib.request.Request(base + "/developer/v1/" + service, data=json.dumps(body).encode(), headers=headers)
             with urllib.request.urlopen(req, timeout=30) as response:
-                return json.load(response)
+                return json.load(response), response.headers
+
+        def request(service, body):
+            return exchange(service, body)[0]
+
+        rows = {row["uil"]["datasetId"][-4:]: row for row in search_rows()}
+        for body, expected, poll_more in SEARCHES:
+            with self.subTest(search=body):
+                found, headers = exchange("search", body, str(uuid.uuid4()))
+                self.assertEqual(found, [rows[suffix] for suffix in expected])
+                self.assertEqual(headers.get("x-poll-more"), poll_more)
 
         lookup = request("transport-means", {"identifier": fixture.PLATE, "countryCode": "EE", "scope": "local"})
         self.assertEqual(lookup["found"], 3)
