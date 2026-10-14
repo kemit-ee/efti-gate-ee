@@ -1,0 +1,109 @@
+mode: mock-http
+constants:
+  REGISTRY_URL: "{MOCK}"
+  RUUTER_URL: "{MOCK}"
+  XML_MAPPER_URL: "{MOCK}"
+
+tests:
+  - name: search answers the normalized projection, not core's raw rows
+    setup:
+      mocks:
+        - url_matches: /authorities.json
+          method: GET
+          body: [{ id: "authority", name: "Test authority", registryCode: "70000094", subsets: ["EU01"] }]
+        - url_matches: /efti/api/v1/authority/search
+          method: POST
+          headers: { x-poll-more: "false" }
+          body: [{ rowId: 7, datasetId: "550e8400-e29b-41d4-a716-446655440001", platformId: "mock", gateId: "EU-EE", xml: "<Identifiers/>", mainTransportId: "MOCK-PLATE-1" }]
+        - url_matches: /api/v1/transport-means/normalize
+          method: POST
+          body: [{ uil: { gateId: "EU-EE", platformId: "mock", datasetId: "550e8400-e29b-41d4-a716-446655440001" }, mainTransportId: "MOCK-PLATE-1" }]
+    request:
+      method: POST
+      path: /xroad/v1/search
+      headers:
+        content-type: application/json
+        x-road-client: "EE/GOV/70000094/tram"
+        x-road-id: "0a11ce5e-0001-4d1d-8f1a-0f0d00010000"
+      body: { mainTransportId: { operator: EQ, id: MOCK-PLATE-1 } }
+    expect:
+      status: 200
+      headers: { x-poll-more: "false" }
+      body_matches: [{ uil: { gateId: "EU-EE", platformId: "mock", datasetId: "550e8400-e29b-41d4-a716-446655440001" }, mainTransportId: "MOCK-PLATE-1" }]
+
+  - name: an empty core answer keeps x-poll-more
+    setup:
+      mocks:
+        - url_matches: /authorities.json
+          method: GET
+          body: [{ id: "authority", name: "Test authority", registryCode: "70000094", subsets: ["EU01"] }]
+        - url_matches: /efti/api/v1/authority/search
+          method: POST
+          headers: { x-poll-more: "true" }
+          body: []
+        - url_matches: /api/v1/transport-means/normalize
+          method: POST
+          body: []
+    request:
+      method: POST
+      path: /xroad/v1/search
+      headers:
+        content-type: application/json
+        x-road-client: "EE/GOV/70000094/tram"
+        x-road-id: "0a11ce5e-0001-4d1d-8f1a-0f0d00010000"
+      body: { mainTransportId: { operator: EQ, id: NO-SUCH-PLATE } }
+    expect:
+      status: 200
+      headers: { x-poll-more: "true" }
+      body_matches: []
+
+  - name: a normalizer failure is a 502, never core's raw rows
+    setup:
+      mocks:
+        - url_matches: /authorities.json
+          method: GET
+          body: [{ id: "authority", name: "Test authority", registryCode: "70000094", subsets: ["EU01"] }]
+        - url_matches: /efti/api/v1/authority/search
+          method: POST
+          headers: { x-poll-more: "false" }
+          body: [{ rowId: 7, datasetId: "550e8400-e29b-41d4-a716-446655440001", platformId: "mock", gateId: "EU-EE", xml: "<Identifiers/>" }]
+        - url_matches: /api/v1/transport-means/normalize
+          method: POST
+          status: 500
+          body: { error: "boom" }
+    request:
+      method: POST
+      path: /xroad/v1/search
+      headers:
+        content-type: application/json
+        x-road-client: "EE/GOV/70000094/tram"
+        x-road-id: "0a11ce5e-0001-4d1d-8f1a-0f0d00010000"
+      body: { mainTransportId: { operator: EQ, id: MOCK-PLATE-1 } }
+    expect:
+      status: 502
+      body_matches: { code: GATEWAY_UNAVAILABLE, failedStep: "transport-means-normalize" }
+
+  - name: a non-array normalizer body is a 502
+    setup:
+      mocks:
+        - url_matches: /authorities.json
+          method: GET
+          body: [{ id: "authority", name: "Test authority", registryCode: "70000094", subsets: ["EU01"] }]
+        - url_matches: /efti/api/v1/authority/search
+          method: POST
+          headers: { x-poll-more: "false" }
+          body: [{ rowId: 7, datasetId: "550e8400-e29b-41d4-a716-446655440001", platformId: "mock", gateId: "EU-EE", xml: "<Identifiers/>" }]
+        - url_matches: /api/v1/transport-means/normalize
+          method: POST
+          body: { length: 1, "0": { xml: "<Identifiers/>" } }
+    request:
+      method: POST
+      path: /xroad/v1/search
+      headers:
+        content-type: application/json
+        x-road-client: "EE/GOV/70000094/tram"
+        x-road-id: "0a11ce5e-0001-4d1d-8f1a-0f0d00010000"
+      body: { mainTransportId: { operator: EQ, id: MOCK-PLATE-1 } }
+    expect:
+      status: 502
+      body_matches: { code: GATEWAY_UNAVAILABLE }

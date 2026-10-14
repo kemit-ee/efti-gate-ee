@@ -1,140 +1,78 @@
 declaration:
-  description: "Developer mock — imitates POST /xroad/v1/search. Returns a canned result array for
-    mainTransportId EQ MOCK-PLATE-1 or MOCK-PLATE-3 (three shipments, also found by
-    usedEquipmentId MOCK-TRAILER-3 or carriedEquipmentId MOCK-CONTAINER-3); an empty array
-    otherwise and for poll requests. No subset
-    check (identifier search is unrestricted)."
+  description: "Developer mock — imitates POST /xroad/v1/search. Filters the four developer-mock
+    consignments (MOCK-PLATE-3 ...0011-...0013, MOCK-PLATE-1 ...0001) with the same criteria
+    semantics as the live gate's get_consignments.sql and returns them in its order (created_at
+    DESC, revision DESC) as the curated transport-means projection. A miss answers [] with
+    x-poll-more: true, as the live gate does once it starts the cross-gate broadcast; a poll answers
+    [] with x-poll-more: false. No subset check (identifier search is unrestricted)."
   internal: false
   returns: []
   additive: true
   allowlist:
     body:
-      - field: mainTransportId
-        type: object
-      - field: usedEquipmentId
-        type: object
-      - field: carriedEquipmentId
-        type: object
+      - field: poll
+        type: boolean
 
 route:
   switch:
-    - condition: ${incoming.body?.poll == true}
-      next: respond_empty
-    - condition: ${incoming.body?.mainTransportId?.id == 'MOCK-PLATE-3' || (incoming.body.usedEquipmentId != null && incoming.body.usedEquipmentId.id == 'MOCK-TRAILER-3') || (incoming.body.carriedEquipmentId != null && incoming.body.carriedEquipmentId.id == 'MOCK-CONTAINER-3')}
-      next: respond_multi
-    - condition: ${incoming.body?.mainTransportId != null && incoming.body.mainTransportId.id == 'MOCK-PLATE-1'}
-      next: respond_hit
-  next: respond_empty
+    - condition: ${incoming.body.poll == true}
+      next: respond_poll
+  next: setup
 
-respond_multi:
-  return:
-    [
-      {
-        "uil": {
-          "gateId": "EU-EE",
-          "platformId": "mock",
-          "datasetId": "550e8400-e29b-41d4-a716-446655440011"
-        },
-        "mainTransportId": "MOCK-PLATE-3",
-        "mainTransportType": "1522",
-        "transportRegCountry": "EE",
-        "transportMode": "3",
-        "dangerousGoods": null,
-        "acceptanceDate": null,
-        "acceptanceCountry": null,
-        "deliveryDate": null,
-        "deliveryCountry": null,
-        "loadingDate": "2026-09-14T06:00:00Z",
-        "loadingCountry": "EE",
-        "unloadingDate": "2026-09-15T00:00:00Z",
-        "unloadingCountry": "EE",
-        "usedEquipmentIds": ["MOCK-TRAILER-3"],
-        "usedEquipmentCategories": ["TE"],
-        "usedEquipmentCountries": ["EE"],
-        "carriedEquipmentIds": ["MOCK-CONTAINER-3"],
-        "carriedEquipmentCategories": ["CN"],
-        "status": "ACTIVE",
-        "createdAt": "2026-09-14T05:00:00Z"
-      },
-      {
-        "uil": {
-          "gateId": "EU-EE",
-          "platformId": "mock",
-          "datasetId": "550e8400-e29b-41d4-a716-446655440012"
-        },
-        "mainTransportId": "MOCK-PLATE-3",
-        "mainTransportType": "1522",
-        "transportRegCountry": "EE",
-        "transportMode": "3",
-        "dangerousGoods": null,
-        "acceptanceDate": null,
-        "acceptanceCountry": null,
-        "deliveryDate": null,
-        "deliveryCountry": null,
-        "loadingDate": "2026-09-14T09:00:00Z",
-        "loadingCountry": "EE",
-        "unloadingDate": "2026-09-15T00:00:00Z",
-        "unloadingCountry": "EE",
-        "usedEquipmentIds": ["MOCK-TRAILER-3"],
-        "usedEquipmentCategories": ["TE"],
-        "usedEquipmentCountries": ["EE"],
-        "carriedEquipmentIds": ["MOCK-CONTAINER-3"],
-        "carriedEquipmentCategories": ["CN"],
-        "status": "ACTIVE",
-        "createdAt": "2026-09-14T05:00:00Z"
-      },
-      {
-        "uil": {
-          "gateId": "EU-EE",
-          "platformId": "mock",
-          "datasetId": "550e8400-e29b-41d4-a716-446655440013"
-        },
-        "mainTransportId": "MOCK-PLATE-3",
-        "mainTransportType": "1522",
-        "transportRegCountry": "EE",
-        "transportMode": "3",
-        "dangerousGoods": "1",
-        "acceptanceDate": null,
-        "acceptanceCountry": null,
-        "deliveryDate": null,
-        "deliveryCountry": null,
-        "loadingDate": "2026-09-14T12:00:00Z",
-        "loadingCountry": "EE",
-        "unloadingDate": "2026-09-15T00:00:00Z",
-        "unloadingCountry": "EE",
-        "usedEquipmentIds": ["MOCK-TRAILER-3"],
-        "usedEquipmentCategories": ["TE"],
-        "usedEquipmentCountries": ["EE"],
-        "carriedEquipmentIds": ["MOCK-CONTAINER-3"],
-        "carriedEquipmentCategories": ["CN"],
-        "status": "ACTIVE",
-        "createdAt": "2026-09-14T05:00:00Z"
-      }
+# usedEquipmentSeq / carriedEquipmentSeq are searchable on the live gate but not part of the
+# projection; they are dropped before the rows are returned.
+setup:
+  assign:
+    criteria: ${incoming.body}
+    rows: [
+      {"uil": {"gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440011"}, "mainTransportId": "MOCK-PLATE-3", "mainTransportType": "1522", "transportRegCountry": "EE", "transportMode": "3", "dangerousGoods": null, "acceptanceDate": null, "acceptanceCountry": null, "deliveryDate": null, "deliveryCountry": null, "loadingDate": "2026-09-14T06:00:00Z", "loadingCountry": "EE", "unloadingDate": "2026-09-15T00:00:00Z", "unloadingCountry": "EE", "usedEquipmentIds": ["MOCK-TRAILER-3"], "usedEquipmentCategories": ["TE"], "usedEquipmentCountries": ["EE"], "carriedEquipmentIds": ["MOCK-CONTAINER-3"], "carriedEquipmentCategories": ["CN"], "status": "ACTIVE", "createdAt": "2026-09-14T05:00:00Z", "usedEquipmentSeq": [1], "carriedEquipmentSeq": [1]},
+      {"uil": {"gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440012"}, "mainTransportId": "MOCK-PLATE-3", "mainTransportType": "1522", "transportRegCountry": "EE", "transportMode": "3", "dangerousGoods": null, "acceptanceDate": null, "acceptanceCountry": null, "deliveryDate": null, "deliveryCountry": null, "loadingDate": "2026-09-14T09:00:00Z", "loadingCountry": "EE", "unloadingDate": "2026-09-15T00:00:00Z", "unloadingCountry": "EE", "usedEquipmentIds": ["MOCK-TRAILER-3"], "usedEquipmentCategories": ["TE"], "usedEquipmentCountries": ["EE"], "carriedEquipmentIds": ["MOCK-CONTAINER-3"], "carriedEquipmentCategories": ["CN"], "status": "ACTIVE", "createdAt": "2026-09-14T05:00:00Z", "usedEquipmentSeq": [1], "carriedEquipmentSeq": [1]},
+      {"uil": {"gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440013"}, "mainTransportId": "MOCK-PLATE-3", "mainTransportType": "1522", "transportRegCountry": "EE", "transportMode": "3", "dangerousGoods": "1", "acceptanceDate": null, "acceptanceCountry": null, "deliveryDate": null, "deliveryCountry": null, "loadingDate": "2026-09-14T12:00:00Z", "loadingCountry": "EE", "unloadingDate": "2026-09-15T00:00:00Z", "unloadingCountry": "EE", "usedEquipmentIds": ["MOCK-TRAILER-3"], "usedEquipmentCategories": ["TE"], "usedEquipmentCountries": ["EE"], "carriedEquipmentIds": ["MOCK-CONTAINER-3"], "carriedEquipmentCategories": ["CN"], "status": "ACTIVE", "createdAt": "2026-09-14T05:00:00Z", "usedEquipmentSeq": [1], "carriedEquipmentSeq": [1]},
+      {"uil": {"gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440001"}, "mainTransportId": "MOCK-PLATE-1", "mainTransportType": "1522", "transportRegCountry": "EE", "transportMode": "3", "dangerousGoods": null, "acceptanceDate": null, "acceptanceCountry": null, "deliveryDate": null, "deliveryCountry": null, "loadingDate": "2026-04-23T06:00:00Z", "loadingCountry": "EE", "unloadingDate": "2026-04-25T14:00:00Z", "unloadingCountry": "FI", "usedEquipmentIds": ["CONT-MOCK-01"], "usedEquipmentCategories": ["CN"], "usedEquipmentCountries": ["EE"], "carriedEquipmentIds": [], "carriedEquipmentCategories": [], "status": "ACTIVE", "createdAt": "2026-04-23T10:15:00Z", "usedEquipmentSeq": [1], "carriedEquipmentSeq": []}
     ]
-  headers:
-    content-type: "application/json"
-    x-poll-more: "false"
-  wrapper: false
-  status: 200
-  next: end
+  next: filter_rows
 
+# Mirrors get_consignments.sql: every criterion present is ANDed; a criterion needs operator EQ or NE
+# (dates: EQ/NE/LT/LE/GT/GE on the first element, LT/LE/GT/GE on the second) or it matches nothing;
+# a null column never matches EQ or NE, except that an array NE treats a null array as empty.
+filter_rows:
+  assign:
+    matched: |-
+      ${rows.filter(r =>
+          [['transportMode', 'mode', 'transportMode'], ['acceptanceCountry', 'country', 'acceptanceCountry'], ['deliveryCountry', 'country', 'deliveryCountry'], ['dangerousGoodsCode', 'code', 'dangerousGoods'], ['mainTransportId', 'id', 'mainTransportId'], ['mainTransportType', 'code', 'mainTransportType'], ['status', 'status', 'status'], ['transportRegCountry', 'country', 'transportRegCountry'], ['loadingCountry', 'country', 'loadingCountry'], ['unloadingCountry', 'country', 'unloadingCountry']]
+            .every(([k, vk, col]) => criteria[k] == null
+              || (r[col] != null && criteria[k][vk] != null
+                  && ((criteria[k].operator === 'EQ' && r[col] === String(criteria[k][vk]))
+                      || (criteria[k].operator === 'NE' && r[col] !== String(criteria[k][vk])))))
+          && [['usedEquipmentId', 'id', 'usedEquipmentIds'], ['usedEquipmentCategory', 'code', 'usedEquipmentCategories'], ['usedEquipmentCountry', 'country', 'usedEquipmentCountries'], ['usedEquipmentSeq', 'sequence', 'usedEquipmentSeq'], ['carriedEquipmentId', 'id', 'carriedEquipmentIds'], ['carriedEquipmentCategory', 'code', 'carriedEquipmentCategories'], ['carriedEquipmentSeq', 'sequence', 'carriedEquipmentSeq']]
+            .every(([k, vk, col]) => criteria[k] == null
+              || (criteria[k].operator === 'EQ' && r[col] != null && criteria[k][vk] != null && r[col].map(String).includes(String(criteria[k][vk])))
+              || (criteria[k].operator === 'NE' && !(criteria[k][vk] != null && (r[col] ?? []).map(String).includes(String(criteria[k][vk])))))
+          && (criteria.transportMeansOrEquipmentId == null
+              || (criteria.transportMeansOrEquipmentId.id != null
+                  && ((criteria.transportMeansOrEquipmentId.operator === 'EQ' && [r.mainTransportId].concat(r.usedEquipmentIds ?? [], r.carriedEquipmentIds ?? []).includes(String(criteria.transportMeansOrEquipmentId.id)))
+                      || (criteria.transportMeansOrEquipmentId.operator === 'NE' && ![r.mainTransportId].concat(r.usedEquipmentIds ?? [], r.carriedEquipmentIds ?? []).includes(String(criteria.transportMeansOrEquipmentId.id))))))
+          && ['acceptanceDate', 'deliveryDate', 'loadingDate', 'unloadingDate']
+            .every(k => !Array.isArray(criteria[k])
+              || [0, 1].every(i => criteria[k][i] == null
+                || (r[k] != null && criteria[k][i].date != null
+                    && ((i == 0 && criteria[k][i].operator === 'EQ' && Date.parse(r[k]) == Date.parse(criteria[k][i].date))
+                        || (i == 0 && criteria[k][i].operator === 'NE' && Date.parse(r[k]) != Date.parse(criteria[k][i].date))
+                        || (criteria[k][i].operator === 'LT' && Date.parse(r[k]) < Date.parse(criteria[k][i].date))
+                        || (criteria[k][i].operator === 'LE' && Date.parse(r[k]) <= Date.parse(criteria[k][i].date))
+                        || (criteria[k][i].operator === 'GT' && Date.parse(r[k]) > Date.parse(criteria[k][i].date))
+                        || (criteria[k][i].operator === 'GE' && Date.parse(r[k]) >= Date.parse(criteria[k][i].date))))))
+        ).map(r => Object.fromEntries(Object.entries(r).filter(([k]) => k !== 'usedEquipmentSeq' && k !== 'carriedEquipmentSeq')))}
+  next: check_matched
+
+check_matched:
+  switch:
+    - condition: ${matched.length > 0}
+      next: respond_hit
+  next: respond_miss
 
 respond_hit:
-  return:
-    - uil:
-        gateId: "EU-EE"
-        platformId: "mock"
-        datasetId: "550e8400-e29b-41d4-a716-446655440001"
-      mainTransportId: "MOCK-PLATE-1"
-      mainTransportType: "1522"
-      transportMode: "3"
-      transportRegCountry: "EE"
-      acceptanceDate: "2026-04-22T09:00:00Z"
-      acceptanceCountry: "EE"
-      deliveryDate: "2026-04-25T14:00:00Z"
-      deliveryCountry: "FI"
-      status: "ACTIVE"
-      createdAt: "2026-04-23T10:15:00Z"
+  return: ${matched}
   headers:
     content-type: "application/json"
     x-poll-more: "false"
@@ -142,7 +80,16 @@ respond_hit:
   status: 200
   next: end
 
-respond_empty:
+respond_miss:
+  return: []
+  headers:
+    content-type: "application/json"
+    x-poll-more: "true"
+  wrapper: false
+  status: 200
+  next: end
+
+respond_poll:
   return: []
   headers:
     content-type: "application/json"

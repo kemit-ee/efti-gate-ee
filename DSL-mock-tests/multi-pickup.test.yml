@@ -150,7 +150,7 @@
         "body": {
           "mainTransportId": {
             "id": "MOCK-PLATE-3",
-            "operation": "EQ"
+            "operator": "EQ"
           }
         }
       },
@@ -331,7 +331,7 @@
         "body": {
           "mainTransportId": {
             "id": "MOCK-PLATE-3",
-            "operation": "EQ"
+            "operator": "EQ"
           },
           "poll": true
         }

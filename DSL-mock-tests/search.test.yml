@@ -1,0 +1,146 @@
+mode: inprocess
+
+# The developer mock's search applies get_consignments.sql's criteria semantics to its four canned
+# rows; tests/mock/dataset.py (MOCK_TEST_URL) sends the same bodies to a running mock.
+tests:
+  - name: plate search answers the full transport-means projection
+    request:
+      method: POST
+      path: /developer/v1/search
+      headers: { content-type: "application/json", x-road-client: "EE/GOV/70000097/test", x-road-id: "550e8400-e29b-41d4-a716-446655440099" }
+      body: { mainTransportId: { operator: "EQ", id: "MOCK-PLATE-1" } }
+    expect:
+      status: 200
+      headers: { x-poll-more: "false" }
+      body_matches:
+        - uil: { gateId: "EU-EE", platformId: "mock", datasetId: "550e8400-e29b-41d4-a716-446655440001" }
+          mainTransportId: "MOCK-PLATE-1"
+          mainTransportType: "1522"
+          transportRegCountry: "EE"
+          transportMode: "3"
+          dangerousGoods: null
+          acceptanceDate: null
+          acceptanceCountry: null
+          deliveryDate: null
+          deliveryCountry: null
+          loadingDate: "2026-04-23T06:00:00Z"
+          loadingCountry: "EE"
+          unloadingDate: "2026-04-25T14:00:00Z"
+          unloadingCountry: "FI"
+          usedEquipmentIds: ["CONT-MOCK-01"]
+          usedEquipmentCategories: ["CN"]
+          usedEquipmentCountries: ["EE"]
+          carriedEquipmentIds: []
+          carriedEquipmentCategories: []
+          status: "ACTIVE"
+          createdAt: "2026-04-23T10:15:00Z"
+
+  - name: used equipment id finds the MOCK-PLATE-1 shipment
+    request:
+      method: POST
+      path: /developer/v1/search
+      headers: { content-type: "application/json", x-road-client: "EE/GOV/70000097/test", x-road-id: "550e8400-e29b-41d4-a716-446655440099" }
+      body: { usedEquipmentId: { operator: "EQ", id: "CONT-MOCK-01" } }
+    expect:
+      status: 200
+      headers: { x-poll-more: "false" }
+      body_matches: [{ uil: { gateId: "EU-EE", platformId: "mock", datasetId: "550e8400-e29b-41d4-a716-446655440001" } }]
+
+  - name: used equipment id finds the three MOCK-PLATE-3 shipments
+    request:
+      method: POST
+      path: /developer/v1/search
+      headers: { content-type: "application/json", x-road-client: "EE/GOV/70000097/test", x-road-id: "550e8400-e29b-41d4-a716-446655440099" }
+      body: { usedEquipmentId: { operator: "EQ", id: "MOCK-TRAILER-3" } }
+    expect:
+      status: 200
+      headers: { x-poll-more: "false" }
+      body_matches: [{ uil: { gateId: "EU-EE", platformId: "mock", datasetId: "550e8400-e29b-41d4-a716-446655440011" } }, { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "550e8400-e29b-41d4-a716-446655440012" } }, { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "550e8400-e29b-41d4-a716-446655440013" } }]
+
+  - name: transport means or equipment id matches a container
+    request:
+      method: POST
+      path: /developer/v1/search
+      headers: { content-type: "application/json", x-road-client: "EE/GOV/70000097/test", x-road-id: "550e8400-e29b-41d4-a716-446655440099" }
+      body: { transportMeansOrEquipmentId: { operator: "EQ", id: "MOCK-CONTAINER-3" } }
+    expect:
+      status: 200
+      headers: { x-poll-more: "false" }
+      body_matches: [{ uil: { gateId: "EU-EE", platformId: "mock", datasetId: "550e8400-e29b-41d4-a716-446655440011" } }, { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "550e8400-e29b-41d4-a716-446655440012" } }, { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "550e8400-e29b-41d4-a716-446655440013" } }]
+
+  - name: criteria are ANDed
+    request:
+      method: POST
+      path: /developer/v1/search
+      headers: { content-type: "application/json", x-road-client: "EE/GOV/70000097/test", x-road-id: "550e8400-e29b-41d4-a716-446655440099" }
+      body: { mainTransportId: { operator: "EQ", id: "MOCK-PLATE-3" }, dangerousGoodsCode: { operator: "EQ", code: "1" } }
+    expect:
+      status: 200
+      headers: { x-poll-more: "false" }
+      body_matches: [{ uil: { gateId: "EU-EE", platformId: "mock", datasetId: "550e8400-e29b-41d4-a716-446655440013" } }]
+
+  - name: NE skips a null column
+    request:
+      method: POST
+      path: /developer/v1/search
+      headers: { content-type: "application/json", x-road-client: "EE/GOV/70000097/test", x-road-id: "550e8400-e29b-41d4-a716-446655440099" }
+      body: { mainTransportId: { operator: "EQ", id: "MOCK-PLATE-3" }, dangerousGoodsCode: { operator: "NE", code: "1" } }
+    expect:
+      status: 200
+      headers: { x-poll-more: "true" }
+      body_matches: []
+
+  - name: loading date range selects one shipment
+    request:
+      method: POST
+      path: /developer/v1/search
+      headers: { content-type: "application/json", x-road-client: "EE/GOV/70000097/test", x-road-id: "550e8400-e29b-41d4-a716-446655440099" }
+      body: { loadingDate: [{ operator: "GE", date: "2026-09-14T08:00:00Z" }, { operator: "LT", date: "2026-09-14T12:00:00Z" }] }
+    expect:
+      status: 200
+      headers: { x-poll-more: "false" }
+      body_matches: [{ uil: { gateId: "EU-EE", platformId: "mock", datasetId: "550e8400-e29b-41d4-a716-446655440012" } }]
+
+  - name: country criterion orders newest first
+    request:
+      method: POST
+      path: /developer/v1/search
+      headers: { content-type: "application/json", x-road-client: "EE/GOV/70000097/test", x-road-id: "550e8400-e29b-41d4-a716-446655440099" }
+      body: { transportRegCountry: { operator: "EQ", country: "EE" } }
+    expect:
+      status: 200
+      headers: { x-poll-more: "false" }
+      body_matches: [{ uil: { gateId: "EU-EE", platformId: "mock", datasetId: "550e8400-e29b-41d4-a716-446655440011" } }, { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "550e8400-e29b-41d4-a716-446655440012" } }, { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "550e8400-e29b-41d4-a716-446655440013" } }, { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "550e8400-e29b-41d4-a716-446655440001" } }]
+
+  - name: a criterion without operator matches nothing
+    request:
+      method: POST
+      path: /developer/v1/search
+      headers: { content-type: "application/json", x-road-client: "EE/GOV/70000097/test", x-road-id: "550e8400-e29b-41d4-a716-446655440099" }
+      body: { mainTransportId: { operation: "EQ", id: "MOCK-PLATE-3" } }
+    expect:
+      status: 200
+      headers: { x-poll-more: "true" }
+      body_matches: []
+
+  - name: a miss starts the cross-gate search like the live gate
+    request:
+      method: POST
+      path: /developer/v1/search
+      headers: { content-type: "application/json", x-road-client: "EE/GOV/70000097/test", x-road-id: "550e8400-e29b-41d4-a716-446655440099" }
+      body: { mainTransportId: { operator: "EQ", id: "NO-SUCH-PLATE" } }
+    expect:
+      status: 200
+      headers: { x-poll-more: "true" }
+      body_matches: []
+
+  - name: a poll answers empty and final
+    request:
+      method: POST
+      path: /developer/v1/search
+      headers: { content-type: "application/json", x-road-client: "EE/GOV/70000097/test", x-road-id: "550e8400-e29b-41d4-a716-446655440099" }
+      body: { poll: true }
+    expect:
+      status: 200
+      headers: { x-poll-more: "false" }
+      body_matches: []

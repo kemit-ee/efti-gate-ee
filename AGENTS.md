@@ -322,8 +322,15 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   explicit value rule (`RULES` in the generator — a missing or unused rule fails generation), so no
   `MOCK-<Element>` placeholder can return; deliberately fictional ids are listed in `MOCK_IDENTIFIERS`.
   `python3 tests/mock/dataset.py` checks all of this plus the FTI010 XSD and that the field catalogue is
-  current (requires PyYAML and xmllint); with `MOCK_TEST_URL` it also runs against a running developer mock. `search` does not
-  share the mock's response shape yet (live returns raw rows).
+  current (requires PyYAML and xmllint); with `MOCK_TEST_URL` it also runs against a running developer mock.
+- **`search` shares the contract too.** Both answer the curated transport-means projection (`uil`
+  nested, no `xml`) with the same `x-poll-more` semantics. The live `xroad/POST/v1/search.yml` passes
+  core's answer (raw `get_consignments` rows on a local hit, xml-mapper `ConsignmentRow`s on a poll)
+  through xml-mapper `/api/v1/transport-means/normalize`; core's `efti/api/v1/authority/search` itself
+  still returns raw rows (transport-means `allgates` normalizes them the same way). The mock's
+  `developer/POST/v1/search.yml` filters its four canned rows with `get_consignments.sql`'s criteria
+  semantics (AND, EQ/NE, date ranges, `transportMeansOrEquipmentId`) in its order (`created_at DESC,
+  revision DESC`); a miss answers `[]` + `x-poll-more: true`, a poll `[]` + `false`.
 - `python3 scripts/registry-to-json.py` (PyYAML) validates `registry/**/*.yml` — the same converter the
   `registry` image build runs, only without `--out` (nothing is written). Both CI jobs run it, so a
   malformed registry fails CI without a Docker build (ADR-011 §3). Its rules are unit-tested by
