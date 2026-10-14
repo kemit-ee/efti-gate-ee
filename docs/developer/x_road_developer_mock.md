@@ -16,28 +16,24 @@ kunagi avalikult marsruuditav (ADR-006) — mock on see, mille vastu arendaja te
 
 ### Mock ja live on 1:1
 
-Mocki näidisandmed on olemas ka arenduskeskkonna päris väravas, ja sama päring annab mõlemas sama
-vastuse. `dataset` vastus on mõlemas kujul `{uil, subsets, xml, consignment}`. Selle tagavad
-järgmised osad:
+1:1 tähendab, et mock ja päris värav kasutavad **sama lepingut**: päringud on samad ja vastused sama
+kujuga. Andmed on erinevad. Mockil puudub andmebaas ja see vastab ainult oma DSL-failides olevate
+näidisandmetega. Päris värav neid näidisandmeid ei tunne, nii et `MOCK-PLATE-3` otsing annab seal
+tühja tulemuse.
 
-| Osa | Mock | Live (dev-värav) |
-|---|---|---|
-| Dataset'i XML | `DSL/Ruuter-xroad-mock/developer/POST/v1/dataset.yml` | `mock`-platvorm: `DSL/Ruuter/mock-platform/GET/v1/dataset.yml` |
-| `xml` + `consignment` | eelarvutatud | xml-mapper `/api/v1/dataset/response-to-json` |
-| Lookup/otsingu read | konserveeritud read `transport-means.yml` / `search.yml` | Liquibase `context:dev` seeme `20261014-seed-developer-mock-consignments.sql` |
+`dataset` vastus on mõlemas kujul `{uil, subsets, xml, consignment}`. Mocki `xml` ja `consignment` on
+eelarvutatud samade reeglitega, mida värava xml-mapper (`/api/v1/dataset/response-to-json`) kasutab.
+Värava arenduskeskkonna `mock`-platvorm (`DSL/Ruuter/mock-platform/GET/v1/dataset.yml`) serveerib
+sama dataset'i XML-i nagu mock. Nii saab samale UIL-ile tehtud dataset-päringuga kontrollida, et
+vastused on baidi täpsusega samad.
 
 Mõlemad dataset'i failid genereerib `python3 scripts/sync-mock-datasets.py` failist
 `scripts/generate-rich-mock-dataset.py`, nii et käsitsi neid ei muudeta. `tests/mock/dataset.py`
-kontrollib, et failid on ajakohased ning mocki `xml`/`consignment` on täpselt see, mille xml-mapper
-live-platvormi XML-ist teeb. Samuti kontrollib see, et seemneread võrduvad mocki ridadega. Sama test
-jookseb ka päriselt käivitatud teenuse vastu:
-`MOCK_TEST_URL=http://localhost:8088 python3 tests/mock/dataset.py` (mock) ning
-`MOCK_TEST_URL=http://localhost:8086 MOCK_TEST_PREFIX=/xroad/v1/ MOCK_TEST_CLIENT=EE/GOV/70000094/tram python3 tests/mock/dataset.py`
-(värav).
+kontrollib, et failid on ajakohased ning mocki `xml`/`consignment` vastab xml-mapperi reeglitele.
+Käivitatud mocki vastu: `MOCK_TEST_URL=http://localhost:8088 python3 tests/mock/dataset.py`.
 
-**Ühine kehtib ainult `dataset` ja `transport-means` kohta.** `search` on endiselt erineva kujuga:
-live tagastab andmebaasi toorread (`rowId`, `datasetId`, `xml`, …), mock aga kureeritud
-projektsiooni (`uil`, `mainTransportId`, …).
+`search` ei ole veel sama kujuga: live tagastab andmebaasi toorread (`rowId`, `datasetId`, `xml`, …),
+mock aga kureeritud projektsiooni (`uil`, `mainTransportId`, …).
 
 ```
 Arendaja klient ──HTTP──> https://eftidev.kemitaws.ee/developer/v1/{operatsioon}
@@ -427,9 +423,8 @@ Content-Type: application/json
 ## Erinevused päris liidesest
 
 - Autentimist ei toimu — `X-Road-Client` on vaba (v.a `00000000`); ühtki registrikirjet ei kontrollita.
-- Andmed on staatilised. Samad saadetised on dev-värava andmebaasis ja `mock`-platvormil olemas,
-  seega `dataset` ja `transport-means` vastavad 1:1 (vt „Mock ja live on 1:1”). `search` vastuse kuju
-  erineb.
+- Andmed on staatilised ja ainult mockis. Leping on päris väravaga sama (vt „Mock ja live on 1:1”),
+  aga päris värav neid näidissaadetisi ei leia. `search` vastuse kuju erineb.
 - `dataset` alamhulgakontroll ei võrdle küsitud hulki lubatuga — `403` tuleb ainult `memberCode 70000000` puhul.
 - Fan-out'i / pollimist tegelikult ei toimu; `x-poll-more` on alati `false`.
 - Vastuseajad on kohesed; `502 GATEWAY_UNAVAILABLE` teed ei ole (päris väravas tuleb see `core` tõrke korral).

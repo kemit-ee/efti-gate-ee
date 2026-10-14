@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the canned datasets and keep the public developer mock and the live gate 1:1."""
+"""Validate the canned datasets and keep the developer mock's dataset contract equal to the live gate's."""
 import importlib.util
 import json
 import os
@@ -133,43 +133,14 @@ class RichDataset(unittest.TestCase):
         self.assertEqual({tuple(row["usedEquipmentIds"]) for row in search}, {(fixture.TRAILER,)})
         self.assertEqual({tuple(row["carriedEquipmentIds"]) for row in search}, {(fixture.CONTAINER,)})
 
-    def test_live_seed_rows_match_the_mock_projection(self):
-        sql = (ROOT / "DSL/Liquibase/changelog/20261014-seed-developer-mock-consignments.sql").read_text()
-        values = sql.split(") VALUES\n", 1)[1].split(";\n--rollback", 1)[0]
-        seeded = {}
-        for row in re.findall(r"\((.*?)\)(?:,\n|$)", values, re.S):
-            fields = []
-            for token in re.finditer(r"ARRAY\[([^\]]*)\]|'([^']*)'|NULL", row):
-                if token.group(0).startswith("ARRAY"):
-                    fields.append([v.strip("'") for v in token.group(1).split(", ") if v])
-                else:
-                    fields.append(token.group(2))
-            seeded[fields[0]] = fields
-        transport = yaml.safe_load((MOCK_BASE / "transport-means.yml").read_text())
-        rows = transport["respond_local_hit"]["return"]["consignments"] + transport["respond_local_multi"]["return"]["consignments"]
-        self.assertEqual(sorted(seeded), sorted(row["uil"]["datasetId"] for row in rows))
-        for row in rows:
-            with self.subTest(dataset=row["uil"]["datasetId"]):
-                self.assertEqual(seeded[row["uil"]["datasetId"]], [
-                    row["uil"]["datasetId"], row["uil"]["platformId"], row["uil"]["gateId"], "<DeveloperMockSeed/>",
-                    row["status"], row["transportMode"], row["dangerousGoods"], row["mainTransportId"],
-                    row["mainTransportType"], row["transportRegCountry"], row["loadingDate"], row["loadingCountry"],
-                    row["unloadingDate"], row["unloadingCountry"], row["usedEquipmentIds"],
-                    row["usedEquipmentCategories"], row["usedEquipmentCountries"], ["1"] * len(row["usedEquipmentIds"]),
-                    row["carriedEquipmentIds"], row["carriedEquipmentCategories"], ["1"] * len(row["carriedEquipmentIds"]),
-                    row["createdAt"]])
-
-    @unittest.skipUnless(os.environ.get("MOCK_TEST_URL"), "optional URL of the developer mock or the gate's /xroad")
+    @unittest.skipUnless(os.environ.get("MOCK_TEST_URL"), "optional URL of a running developer mock")
     def test_live_lookup_and_all_three_dataset_details(self):
-        """MOCK_TEST_URL=http://localhost:8088 (prefix /developer/v1/) or, with MOCK_TEST_PREFIX=/xroad/v1/,
-        http://localhost:8086 — the same assertions hold for both, which is the 1:1 contract."""
         base = os.environ["MOCK_TEST_URL"].rstrip("/")
-        prefix = os.environ.get("MOCK_TEST_PREFIX", "/developer/v1/")
 
         def request(service, body):
-            headers = {"Content-Type": "application/json", "X-Road-Client": os.environ.get("MOCK_TEST_CLIENT", "EE/GOV/70000097/test"),
+            headers = {"Content-Type": "application/json", "X-Road-Client": "EE/GOV/70000097/test",
                        "X-Road-Id": "550e8400-e29b-41d4-a716-446655440099"}
-            req = urllib.request.Request(base + prefix + service, data=json.dumps(body).encode(), headers=headers)
+            req = urllib.request.Request(base + "/developer/v1/" + service, data=json.dumps(body).encode(), headers=headers)
             with urllib.request.urlopen(req, timeout=30) as response:
                 return json.load(response)
 

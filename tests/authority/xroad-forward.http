@@ -48,28 +48,9 @@ Content-Type: application/json
   })
 %}
 
-### Developer-mock parity: the trailer number finds the seeded MOCK-PLATE-3 shipments
-# Rows from DSL/Liquibase/changelog/20261014-seed-developer-mock-consignments.sql (context:dev); the
-# developer mock answers the same request identically (DSL-mock-tests/multi-pickup.test.yml).
-POST {{RUUTER_URL}}/xroad/v1/transport-means
-X-Road-Client: EE/GOV/70000094/tram
-X-Road-Id: 0a11ce5e-0001-4d1d-8f1a-0f0d00010003
-Content-Type: application/json
-
-{ "identifier": "MOCK-TRAILER-3", "scope": "local" }
-
-> {%
-  client.test("MOCK-TRAILER-3 resolves to the three MOCK-PLATE-3 shipments in mock order", () => {
-    client.assert(response.status === 200, "expected 200, got " + response.status + " body=" + JSON.stringify(response.body))
-    client.assert(response.body.found === 3)
-    client.assert(JSON.stringify(response.body.consignments.map(c => c.uil.datasetId)) === JSON.stringify([
-      "550e8400-e29b-41d4-a716-446655440011", "550e8400-e29b-41d4-a716-446655440012", "550e8400-e29b-41d4-a716-446655440013"]))
-    client.assert(response.body.consignments.every(c => c.mainTransportId === "MOCK-PLATE-3" &&
-      c.usedEquipmentIds[0] === "MOCK-TRAILER-3" && c.carriedEquipmentIds[0] === "MOCK-CONTAINER-3"))
-  })
-%}
-
-### Developer-mock parity: the dangerous MOCK-PLATE-3 shipment carries every form field
+### Developer-mock parity: the mock platform's ...0013 dataset reaches the caller as the mock returns it
+# No database rows are needed: the gate fetches the dataset straight from the `mock` platform route,
+# which serves the same XML as the developer mock (scripts/sync-mock-datasets.py).
 # @timeout 75
 POST {{RUUTER_URL}}/xroad/v1/dataset
 X-Road-Client: EE/GOV/70000094/tram
