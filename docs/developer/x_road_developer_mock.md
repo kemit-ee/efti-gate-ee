@@ -14,6 +14,11 @@ literaali pealt. Isegi vigane marsruut ei saa
 lekitada päris saadetiste andmeid ega jõuda privilegeeritud teeni. Päris `/xroad/**` **ei ole**
 kunagi avalikult marsruuditav (ADR-006) — mock on see, mille vastu arendaja testib.
 
+```
+Arendaja klient ──HTTP──> https://eftidev.kemitaws.ee/developer/v1/{operatsioon}
+                          (nginx → xtee-mock-teenus, konserveeritud vastus)
+```
+
 ### Mock ja live on 1:1
 
 1:1 tähendab, et mock ja päris värav kasutavad **sama lepingut**: päringud on samad ja vastused sama
@@ -34,11 +39,6 @@ Käivitatud mocki vastu: `MOCK_TEST_URL=http://localhost:8088 python3 tests/mock
 
 `search` ei ole veel sama kujuga: live tagastab andmebaasi toorread (`rowId`, `datasetId`, `xml`, …),
 mock aga kureeritud projektsiooni (`uil`, `mainTransportId`, …).
-
-```
-Arendaja klient ──HTTP──> https://eftidev.kemitaws.ee/developer/v1/{operatsioon}
-                          (nginx → xtee-mock-teenus, konserveeritud vastus)
-```
 
 ## Baas-URL ja teed
 
