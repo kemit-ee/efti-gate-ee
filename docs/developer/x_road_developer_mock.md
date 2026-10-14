@@ -79,6 +79,53 @@ Samad mis päris liideses. Mockis paned need **sina ise** (päris elus paneb tur
 | Tuntud `uil` | `{ "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440001" }` |
 | Rikkalik dataset | `{ "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440002" }` — täieliku väljakattuvusega sünteetiline FTI010 näidis |
 
+## Maksimaalse tulemusega päringud
+
+Need kaks päringut annavad mockist kõige suurema vastuse. Esimene sisaldab kõiki välju, teine kõiki
+vormi välju sisuliste väärtustega. Mõlemas küsitakse kõiki alamhulki, mis mock-asutusele on lubatud
+(`GET /developer/v1/subsets` → `["EU01","EU02","EU03","EU05"]`). Mock XML-i alamhulkade järgi ei
+filtreeri, aga päris väravas annab ainult lubatud alamhulkade küsimine täieliku vastuse. Lubamata
+alamhulga lisamine ei laienda vastust, vaid annab `403 FORBIDDEN_SUBSET`. Päris väravas küsi seega
+täpselt need alamhulgad, mida sinu asutuse `subsets` tagastab.
+
+**1. Kõik FTI010 väljad** — UIL `...0002`. Vastuses on iga FTI010 `SpecifiedSupplyChainConsignment`
+element üks kord; kus skeem lubab ainult ühte variandist (`choice`), on kasutatud esimest. See on
+parim päring, et kogu struktuur ühe korraga ära kaardistada.
+
+```http
+POST https://eftidev.kemitaws.ee/developer/v1/dataset
+X-Road-Client: EE/GOV/70000097/test
+X-Road-Id: 550e8400-e29b-41d4-a716-446655440099
+Content-Type: application/json
+
+{
+  "uil": { "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440002" },
+  "subsets": ["EU01", "EU02", "EU03", "EU05"]
+}
+```
+
+**2. Kõik vormi väljad sisuliste väärtustega** — UIL `...0013`. Ohtlik veos, kus on veok, haagis,
+konteiner, CMR, kauba kirjeldus, maht, saatja, saaja, vedaja, juht, märkused ning ohtliku kauba
+andmed (UN, klass, pakendirühm, pakend, tunnel). Väljade asukohad on tabelis „Vormi väljad: kust need
+dataset'i vastusest leiab”.
+
+```http
+POST https://eftidev.kemitaws.ee/developer/v1/dataset
+X-Road-Client: EE/GOV/70000097/test
+X-Road-Id: 550e8400-e29b-41d4-a716-446655440098
+Content-Type: application/json
+
+{
+  "uil": { "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440013" },
+  "subsets": ["EU01", "EU02", "EU03", "EU05"]
+}
+```
+
+Otsingus annab suurima tulemuse `MOCK-PLATE-3`: `transport-means` päring kehaga
+`{"identifier":"MOCK-PLATE-3","scope":"local"}` tagastab kõik kolm saadetist (`found: 3`) koos
+haagise ja konteineri andmetega. Iga `X-Road-Id` peab olema unikaalne UUID; ülaltoodud väärtused on
+näited.
+
 ---
 
 ## Operatsioonid

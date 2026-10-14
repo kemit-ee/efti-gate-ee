@@ -7,6 +7,7 @@ muuda lehti otse Confluence'is, järgmine sünk kirjutab need üle.
 |---|---|
 | [eFTI värava paigaldusjuhend](https://wiki.kemit.ee/pages/viewpage.action?pageId=346510186) | [`docs/specs/deploy/resource-and-secrets-requirements.md`](../specs/deploy/resource-and-secrets-requirements.md) |
 | [Kasutusjuhend](https://wiki.kemit.ee/pages/viewpage.action?pageId=346491696) ja alamlehed 1–7 | [`docs/user-guide/src/*.md`](../user-guide/src/) (pildid `images/` manustena) |
+| [Arendaja-mock ja testimine](https://wiki.kemit.ee/pages/viewpage.action?pageId=346491731) (X-tee liidestumine) | [`docs/developer/x_road_developer_mock.md`](../developer/x_road_developer_mock.md) |
 
 Leht ↔ fail vastavus on `scripts/confluence-sync.py` tabelis `PAGES`.
 

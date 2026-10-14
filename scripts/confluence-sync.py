@@ -56,6 +56,7 @@ PAGES = {
     "346491701": ("5. Kasutajad", "docs/user-guide/src/users.md", False),
     "346491702": ("6. Saadetised", "docs/user-guide/src/consignments.md", False),
     "346491703": ("7. Veaolukorrad ja head tavad", "docs/user-guide/src/troubleshooting.md", False),
+    "346491731": ("Arendaja-mock ja testimine", "docs/developer/x_road_developer_mock.md", True),
 }
 
 
