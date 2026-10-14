@@ -1,6 +1,7 @@
 declaration:
   description: "Developer mock — imitates POST /xroad/v1/search. Returns a canned result array for
-    mainTransportId EQ MOCK-PLATE-1 or MOCK-PLATE-3 (three shipments); an empty array
+    mainTransportId EQ MOCK-PLATE-1 or MOCK-PLATE-3 (three shipments, also found by
+    usedEquipmentId MOCK-TRAILER-3 or carriedEquipmentId MOCK-CONTAINER-3); an empty array
     otherwise and for poll requests. No subset
     check (identifier search is unrestricted)."
   internal: false
@@ -10,12 +11,16 @@ declaration:
     body:
       - field: mainTransportId
         type: object
+      - field: usedEquipmentId
+        type: object
+      - field: carriedEquipmentId
+        type: object
 
 route:
   switch:
     - condition: ${incoming.body?.poll == true}
       next: respond_empty
-    - condition: ${incoming.body?.mainTransportId?.id == 'MOCK-PLATE-3'}
+    - condition: ${incoming.body?.mainTransportId?.id == 'MOCK-PLATE-3' || (incoming.body.usedEquipmentId != null && incoming.body.usedEquipmentId.id == 'MOCK-TRAILER-3') || (incoming.body.carriedEquipmentId != null && incoming.body.carriedEquipmentId.id == 'MOCK-CONTAINER-3')}
       next: respond_multi
     - condition: ${incoming.body?.mainTransportId != null && incoming.body.mainTransportId.id == 'MOCK-PLATE-1'}
       next: respond_hit
@@ -43,11 +48,11 @@ respond_multi:
         "loadingCountry": "EE",
         "unloadingDate": "2026-09-15T00:00:00Z",
         "unloadingCountry": "EE",
-        "usedEquipmentIds": [],
-        "usedEquipmentCategories": [],
-        "usedEquipmentCountries": [],
-        "carriedEquipmentIds": [],
-        "carriedEquipmentCategories": [],
+        "usedEquipmentIds": ["MOCK-TRAILER-3"],
+        "usedEquipmentCategories": ["TE"],
+        "usedEquipmentCountries": ["EE"],
+        "carriedEquipmentIds": ["MOCK-CONTAINER-3"],
+        "carriedEquipmentCategories": ["CN"],
         "status": "ACTIVE",
         "createdAt": "2026-09-14T05:00:00Z"
       },
@@ -70,11 +75,11 @@ respond_multi:
         "loadingCountry": "EE",
         "unloadingDate": "2026-09-15T00:00:00Z",
         "unloadingCountry": "EE",
-        "usedEquipmentIds": [],
-        "usedEquipmentCategories": [],
-        "usedEquipmentCountries": [],
-        "carriedEquipmentIds": [],
-        "carriedEquipmentCategories": [],
+        "usedEquipmentIds": ["MOCK-TRAILER-3"],
+        "usedEquipmentCategories": ["TE"],
+        "usedEquipmentCountries": ["EE"],
+        "carriedEquipmentIds": ["MOCK-CONTAINER-3"],
+        "carriedEquipmentCategories": ["CN"],
         "status": "ACTIVE",
         "createdAt": "2026-09-14T05:00:00Z"
       },
@@ -97,11 +102,11 @@ respond_multi:
         "loadingCountry": "EE",
         "unloadingDate": "2026-09-15T00:00:00Z",
         "unloadingCountry": "EE",
-        "usedEquipmentIds": [],
-        "usedEquipmentCategories": [],
-        "usedEquipmentCountries": [],
-        "carriedEquipmentIds": [],
-        "carriedEquipmentCategories": [],
+        "usedEquipmentIds": ["MOCK-TRAILER-3"],
+        "usedEquipmentCategories": ["TE"],
+        "usedEquipmentCountries": ["EE"],
+        "carriedEquipmentIds": ["MOCK-CONTAINER-3"],
+        "carriedEquipmentCategories": ["CN"],
         "status": "ACTIVE",
         "createdAt": "2026-09-14T05:00:00Z"
       }

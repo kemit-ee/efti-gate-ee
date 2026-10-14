@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Print a bounded, field-rich synthetic FTI010 consignment; never write files."""
 from pathlib import Path
+import re
 import sys
 import xml.etree.ElementTree as ET
 
@@ -123,16 +124,44 @@ def generate():
     return ET.tostring(root, encoding="unicode") + "\n"
 
 
+
+SIMPLE = """<rsm:SpecifiedSupplyChainConsignment
+    xmlns:rsm="urn:eu:move:eFTI:data:standard:FTI010GetCmdsResponse:1"
+    xmlns="urn:eu:move:eFTI:data:standard:ReusableAggregateBusinessInformationEntity:34"
+    xmlns:udt="urn:eu:move:eFTI:data:standard:UnqualifiedDataType:34">
+  <GrossWeightMeasure unitCode="KGM">15000.00</GrossWeightMeasure>
+  <PackageQuantity>120</PackageQuantity>
+  <MainCarriageLogisticsTransportMovement>
+    <ModeCode>3</ModeCode>
+    <UsedLogisticsTransportMeans>
+      <ID schemeAgencyID="5">MOCK-PLATE-1</ID>
+      <RegistrationTradeCountry><ID>EE</ID></RegistrationTradeCountry>
+    </UsedLogisticsTransportMeans>
+  </MainCarriageLogisticsTransportMovement>
+</rsm:SpecifiedSupplyChainConsignment>
+"""
+
+PLATE, TRAILER, CONTAINER = "MOCK-PLATE-3", "MOCK-TRAILER-3", "MOCK-CONTAINER-3"
 SCENARIOS = (
-    ("550e8400-e29b-41d4-a716-446655440011", "Tallinn", "Peterburi tee 10", "06", "2000", "Furniture", False),
-    ("550e8400-e29b-41d4-a716-446655440012", "Tartu", "Ringtee 20", "09", "3000", "Machine parts", False),
-    ("550e8400-e29b-41d4-a716-446655440013", "Parnu", "Tallinna mnt 30", "12", "1500", "PETROL UN 1203", True),
+    {"dataset": "550e8400-e29b-41d4-a716-446655440011", "city": "Tallinn", "street": "Peterburi tee 10",
+     "postcode": "11415", "hour": "06", "weight": "2000", "volume": "8.5", "packages": "10",
+     "package": ("PX", "Kaubaalus"), "goods": "Mööbel: kontorilauad ja -toolid",
+     "cmr": "MOCK-CMR-0011", "remark": "Kaup kinnitada rihmadega; mitte virnastada.", "dangerous": None},
+    {"dataset": "550e8400-e29b-41d4-a716-446655440012", "city": "Tartu", "street": "Ringtee 20",
+     "postcode": "50105", "hour": "09", "weight": "3000", "volume": "6.0", "packages": "10",
+     "package": ("CR", "Puitkast"), "goods": "Masinaosad: laagrid ja võllid",
+     "cmr": "MOCK-CMR-0012", "remark": "Raske kaup, mahalaadimiseks on vaja tõstukit.", "dangerous": None},
+    {"dataset": "550e8400-e29b-41d4-a716-446655440013", "city": "Pärnu", "street": "Tallinna mnt 30",
+     "postcode": "80042", "hour": "12", "weight": "1500", "volume": "2.1", "packages": "10",
+     "package": ("1A1", "Terasvaat"), "goods": "Bensiin (UN 1203) terasvaatides",
+     "cmr": "MOCK-CMR-0013", "remark": "ADR-veos: juhil peab olema kehtiv ADR-koolitustunnistus.",
+     "dangerous": {"un": "1203", "name": "PETROL", "group": "II", "class": "3", "label": "3", "tunnel": "D/E"}},
 )
 
 
 def generate_scenario(number):
-    """One truck, three pickups, one destination; third shipment is dangerous."""
-    dataset, city, street, hour, weight, goods, dangerous = SCENARIOS[number - 1]
+    """One truck with a trailer and container, three pickups, one destination; the third is dangerous."""
+    s = SCENARIOS[number - 1]
     ram, udt = PREFIXES["ram"], PREFIXES["udt"]
     ET.register_namespace("rsm", PREFIXES["rsm"])
     ET.register_namespace("", ram)
@@ -144,56 +173,147 @@ def generate_scenario(number):
         node.text = text
         return node
 
-    def address(parent, town, road):
+    def date(parent, name, text, fmt):
+        ET.SubElement(add(parent, name), "{" + udt + "}DateTimeString", {"format": fmt}).text = text
+
+    def address(parent, town, road, postcode):
         node = add(parent, "PostalTradeAddress")
+        add(node, "PostcodeCode", postcode)
         add(node, "StreetName", road)
         add(node, "CityName", town)
         add(node, "CountryID", "EE")
 
-    def event(parent, name, time, town, road):
-        node = add(parent, name)
-        date = add(node, "ActualOccurrenceDateTime")
-        date_only = name == "UnloadingTransportEvent"
-        ET.SubElement(date, "{" + udt + "}DateTimeString", {"format": "102" if date_only else "205"}).text = "20260915" if date_only else "20260914" + time + "0000"
-        location = add(node, "OccurrenceLogisticsLocation")
-        add(location, "Name", town + " warehouse")
-        address(location, town, road)
+    def party(name, title, code, town, road, postcode, phone):
+        node = add(root, name)
+        add(node, "ID", code, schemeAgencyID="87" if name != "CarrierTradeParty" else "12")
+        add(node, "Name", title)
+        if name == "CarrierTradeParty":
+            add(node, "RoleCode", "EV")
+        contact = add(node, "DefinedTradeContact")
+        if name != "ConsignorTradeParty":
+            add(contact, "PersonName", "Mari Mock")
+        add(add(contact, "TelephoneUniversalCommunication"), "CompleteNumber", phone)
+        address(node, town, road, postcode)
 
-    add(root, "GrossWeightMeasure", weight, unitCode="KGM")
-    add(root, "NetWeightMeasure", str(int(weight) - 100), unitCode="KGM")
-    add(root, "PackageQuantity", "10")
-    add(root, "Information", goods)
-    sender = add(root, "ConsignorTradeParty")
-    add(sender, "Name", city + " Mock Supplier")
-    address(sender, city, street)
-    receiver = add(root, "ConsigneeTradeParty")
-    add(receiver, "Name", "Narva Mock Distribution Centre")
-    address(receiver, "Narva", "Kadastiku 25")
-    add(add(root, "CarrierTradeParty"), "Name", "Mock Multi-pickup Carrier")
+    def event(parent, name, town, road, postcode):
+        node = add(parent, name)
+        if name == "UnloadingTransportEvent":
+            date(node, "ActualOccurrenceDateTime", "20260915", "102")
+        else:
+            date(node, "ActualOccurrenceDateTime", "20260914" + s["hour"] + "00+0000", "205")
+        location = add(node, "OccurrenceLogisticsLocation")
+        add(location, "Name", town + " ladu")
+        address(location, town, road, postcode)
+
+    add(root, "GrossWeightMeasure", s["weight"], unitCode="KGM")
+    add(root, "NetWeightMeasure", str(int(s["weight"]) - 100), unitCode="KGM")
+    add(root, "GrossVolumeMeasure", s["volume"], unitCode="MTQ")
+    add(root, "PackageQuantity", s["packages"])
+    add(root, "TransportEquipmentQuantity", "2")
+    add(root, "Information", s["remark"])
+    party("ConsignorTradeParty", s["city"] + " Mock Supplier", "MOCK-EE-" + s["dataset"][-4:],
+          s["city"], s["street"], s["postcode"], "+372 5550 " + s["dataset"][-4:])
+    party("ConsigneeTradeParty", "Narva Mock Distribution Centre", "MOCK-EE-2500",
+          "Narva", "Kadastiku 25", "20203", "+372 5550 2500")
+    party("CarrierTradeParty", "Mock Multi-pickup Carrier", "MOCK-EE-3000",
+          "Tallinn", "Mustamäe tee 5", "10616", "+372 5550 3000")
+    document = add(root, "TransportContractReferencedDocument")
+    add(document, "TypeCode", "730")
+    add(document, "ID", s["cmr"])
+    date(document, "FormattedIssueDateTime", "20260914", "102")
     item = add(root, "IncludedSupplyChainConsignmentItem")
-    add(item, "GoodsUnitQuantity", "10", unitCode="C62")
-    if dangerous:
-        hazard = add(item, "ApplicableTransportDangerousGoods")
-        add(hazard, "UNDGIdentificationCode", "1203")
-        add(hazard, "TechnicalName", "PETROL", languageID="eng")
-        add(hazard, "PackagingDangerLevelCode", "II")
-        add(hazard, "GrossWeightMeasure", weight, unitCode="KGM")
-        add(hazard, "HazardClassificationID", "3")
-        add(hazard, "ProperShippingName", "PETROL", languageID="eng")
-        add(hazard, "TunnelRestrictionCode", "D/E")
+    add(item, "GrossVolumeMeasure", s["volume"], unitCode="MTQ")
+    add(item, "GoodsUnitQuantity", s["packages"], unitCode="C62")
+    hazard = s["dangerous"]
+    if hazard:
+        node = add(item, "ApplicableTransportDangerousGoods")
+        add(node, "UNDGIdentificationCode", hazard["un"])
+        add(node, "TechnicalName", hazard["name"], languageID="eng")
+        add(node, "PackagingDangerLevelCode", hazard["group"])
+        add(node, "GrossWeightMeasure", s["weight"], unitCode="KGM")
+        add(node, "HazardClassificationID", hazard["class"])
+        add(node, "ProperShippingName", hazard["name"], languageID="eng")
+        add(node, "TunnelRestrictionCode", hazard["tunnel"])
+        add(node, "LabelTypeCode", hazard["label"])
+        package = add(node, "SpecifiedLogisticsPackage")
+        add(package, "ItemQuantity", s["packages"])
+        add(package, "TypeCode", s["package"][0])
+        add(package, "Type", s["package"][1], languageID="et")
+    add(add(item, "AssociatedReferencedLogisticsTransportEquipment"), "ID", CONTAINER, schemeAgencyID="12")
+    trailer = add(root, "UtilizedLogisticsTransportEquipment")
+    add(trailer, "ID", TRAILER, schemeAgencyID="12")
+    add(trailer, "CategoryCode", "TE")
+    add(trailer, "SequenceNumeric", "1")
+    container = add(trailer, "CarriedAssociatedTransportEquipment")
+    add(container, "ID", CONTAINER, schemeAgencyID="12")
+    add(container, "CategoryCode", "CN")
+    add(container, "SequenceNumeric", "1")
+    seal = add(container, "AffixedLogisticsSeal")
+    add(seal, "ID", "MOCK-SEAL-3")
+    add(add(trailer, "RegistrationTradeCountry"), "ID", "EE")
     movement = add(root, "MainCarriageLogisticsTransportMovement")
     add(movement, "ModeCode", "3")
     add(movement, "ID", "MOCK-MULTI-0914")
     add(movement, "SequenceNumeric", "1")
-    event(movement, "LoadingTransportEvent", hour, city, street)
-    event(movement, "UnloadingTransportEvent", "16", "Narva", "Kadastiku 25")
+    driver = add(movement, "MasterResponsibleTransportPerson")
+    add(driver, "GivenName", "Mati")
+    add(driver, "FamilyName", "Mock")
+    event(movement, "LoadingTransportEvent", s["city"], s["street"], s["postcode"])
+    event(movement, "UnloadingTransportEvent", "Narva", "Kadastiku 25", "20203")
     vehicle = add(movement, "UsedLogisticsTransportMeans")
     add(vehicle, "TypeCode", "1522")
-    add(vehicle, "ID", "MOCK-PLATE-3", schemeAgencyID="5")
+    add(vehicle, "ID", PLATE, schemeAgencyID="5")
     add(vehicle, "Name", "Mock three-consignment truck")
     add(add(vehicle, "RegistrationTradeCountry"), "ID", "EE")
+    attached = add(vehicle, "OperationalAttachedTransportEquipment")
+    add(attached, "ID", TRAILER)
+    add(attached, "CategoryCode", "TE", listAgencyID="6")
+    transport_package = add(root, "TransportLogisticsPackage")
+    add(transport_package, "ItemQuantity", s["packages"])
+    add(transport_package, "TypeCode", s["package"][0])
+    add(transport_package, "Type", s["package"][1], languageID="et")
+    add(add(root, "NatureIdentificationTransportCargo"), "Identification", s["goods"], languageID="et")
     ET.indent(root, space="  ")
     return ET.tostring(root, encoding="unicode") + "\n"
+
+
+DATASETS = {
+    "550e8400-e29b-41d4-a716-446655440002": generate,
+    **{s["dataset"]: (lambda n: lambda: generate_scenario(n))(n) for n, s in enumerate(SCENARIOS, 1)},
+}
+
+
+def served_xml(xml):
+    """The `xml` xml-mapper's /api/v1/dataset/response-to-json returns for this platform XML: the
+    consignment root loses its `rsm:` prefix and the trailing newline goes."""
+    return re.sub("(</?)rsm:SpecifiedSupplyChainConsignment", r"\1SpecifiedSupplyChainConsignment", xml).rstrip("\n")
+
+
+def json_name(name):
+    """xml-mapper's node naming: first letter lower-cased, then every case-insensitive `id` becomes `Id`
+    (so `ID` -> `Id`, `Identification` keeps its capital and `WidthMeasure` -> `wIdthMeasure`)."""
+    name = name.split("}")[-1]
+    return re.sub("(?i)id", "Id", name[0].lower() + name[1:])
+
+
+def consignment(xml):
+    """The `consignment` object xml-mapper's /api/v1/dataset/response-to-json builds from this XML."""
+    def convert(node):
+        if not len(node):
+            return (node.text or "").strip() if node.text and node.text.strip() else {}
+        result = {}
+        for child in node:
+            key = json_name(child.tag)
+            value = convert(child)
+            if key in result:
+                result[key] = result[key] if isinstance(result[key], list) else [result[key]]
+                result[key].append(value)
+            else:
+                result[key] = value
+                for attr, text in child.attrib.items():
+                    result[key + "@" + json_name(attr)] = text
+        return result
+    return convert(ET.fromstring(xml))
 
 
 if __name__ == "__main__":
@@ -205,7 +325,7 @@ if __name__ == "__main__":
         envelope.append(ET.fromstring(xml))
         for element in envelope.iter():
             if element.tag == "{" + PREFIXES["ram"] + "}DatasetID":
-                element.text = "550e8400-e29b-41d4-a716-446655440002"
+                element.text = SCENARIOS[number - 1]["dataset"] if number else "550e8400-e29b-41d4-a716-446655440002"
         ET.indent(envelope, space="  ")
         xml = ET.tostring(envelope, encoding="unicode") + "\n"
     sys.stdout.write(xml)

@@ -17,7 +17,7 @@ tests:
           body: [{ id: "authority", name: "Test authority", registryCode: "70000094", subsets: ["EU01", "EU02"] }]
         - url_matches: /efti/api/v1/authority/dataset
           method: POST
-          body: { forwarded: true }
+          body: { xml: "<SpecifiedSupplyChainConsignment/>", consignment: { grossWeightMeasure: "1" } }
     request:
       method: POST
       path: /xroad/v1/dataset
@@ -28,7 +28,11 @@ tests:
       body: { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "d" }, subsets: ["EU01", "EU02", "EU01"] }
     expect:
       status: 200
-      body: { forwarded: true }
+      body:
+        uil: { gateId: "EU-EE", platformId: "mock", datasetId: "d" }
+        subsets: ["EU01", "EU02", "EU01"]
+        xml: "<SpecifiedSupplyChainConsignment/>"
+        consignment: { grossWeightMeasure: "1" }
 
   - name: dataset with a subset outside the authority's set is 403 FORBIDDEN_SUBSET
     setup:

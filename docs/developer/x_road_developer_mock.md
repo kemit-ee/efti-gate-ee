@@ -14,6 +14,31 @@ literaali pealt. Isegi vigane marsruut ei saa
 lekitada päris saadetiste andmeid ega jõuda privilegeeritud teeni. Päris `/xroad/**` **ei ole**
 kunagi avalikult marsruuditav (ADR-006) — mock on see, mille vastu arendaja testib.
 
+### Mock ja live on 1:1
+
+Mocki näidisandmed on olemas ka arenduskeskkonna päris väravas, ja sama päring annab mõlemas sama
+vastuse. `dataset` vastus on mõlemas kujul `{uil, subsets, xml, consignment}`. Selle tagavad
+järgmised osad:
+
+| Osa | Mock | Live (dev-värav) |
+|---|---|---|
+| Dataset'i XML | `DSL/Ruuter-xroad-mock/developer/POST/v1/dataset.yml` | `mock`-platvorm: `DSL/Ruuter/mock-platform/GET/v1/dataset.yml` |
+| `xml` + `consignment` | eelarvutatud | xml-mapper `/api/v1/dataset/response-to-json` |
+| Lookup/otsingu read | konserveeritud read `transport-means.yml` / `search.yml` | Liquibase `context:dev` seeme `20261014-seed-developer-mock-consignments.sql` |
+
+Mõlemad dataset'i failid genereerib `python3 scripts/sync-mock-datasets.py` failist
+`scripts/generate-rich-mock-dataset.py`, nii et käsitsi neid ei muudeta. `tests/mock/dataset.py`
+kontrollib, et failid on ajakohased ning mocki `xml`/`consignment` on täpselt see, mille xml-mapper
+live-platvormi XML-ist teeb. Samuti kontrollib see, et seemneread võrduvad mocki ridadega. Sama test
+jookseb ka päriselt käivitatud teenuse vastu:
+`MOCK_TEST_URL=http://localhost:8088 python3 tests/mock/dataset.py` (mock) ning
+`MOCK_TEST_URL=http://localhost:8086 MOCK_TEST_PREFIX=/xroad/v1/ MOCK_TEST_CLIENT=EE/GOV/70000094/tram python3 tests/mock/dataset.py`
+(värav).
+
+**Ühine kehtib ainult `dataset` ja `transport-means` kohta.** `search` on endiselt erineva kujuga:
+live tagastab andmebaasi toorread (`rowId`, `datasetId`, `xml`, …), mock aga kureeritud
+projektsiooni (`uil`, `mainTransportId`, …).
+
 ```
 Arendaja klient ──HTTP──> https://eftidev.kemitaws.ee/developer/v1/{operatsioon}
                           (nginx → xtee-mock-teenus, konserveeritud vastus)
@@ -54,7 +79,7 @@ Samad mis päris liideses. Mockis paned need **sina ise** (päris elus paneb tur
 |---|---|
 | Mock-asutus | `id: "auth-mock"`, `name: "Mock Competent Authority"`, `status: "ACTIVE"` |
 | Lubatud alamhulgad | `["EU01","EU02","EU03","EU05"]` (v.a `memberCode 70000000` → `[]`) |
-| Tuntud tunnus | `MOCK-PLATE-1` — annab `transport-means` / `search` tabamuse; kõik muu → tühi tulemus |
+| Tuntud tunnused | `MOCK-PLATE-1` (seadme nr `CONT-MOCK-01`) → 1 saadetis; `MOCK-PLATE-3`, haagis `MOCK-TRAILER-3`, konteiner `MOCK-CONTAINER-3` → 3 saadetist; kõik muu → tühi tulemus |
 | Tuntud `uil` | `{ "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440001" }` |
 | Rikkalik dataset | `{ "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440002" }` — täieliku väljakattuvusega sünteetiline FTI010 näidis |
 
@@ -131,8 +156,8 @@ Content-Type: application/json
 
 | Väli | Kohustuslik | Sisu |
 |---|---|---|
-| `identifier` | jah | mittetühi string; `MOCK-PLATE-1` annab tabamuse |
-| `countryCode` | ei | kajastatakse vastuses tagasi |
+| `identifier` | jah | mittetühi string: veoki, haagise või konteineri number (vt „Tuntud tunnused”) |
+| `countryCode` | ei | veoki registreerimisriik; kõigi näidiste puhul `EE`, muu riik → `found: 0` (ka haagise/konteineri numbriga, nagu live SQL-is) |
 | `scope` | ei | `existence` \| `local` (vaikimisi) \| `allgates` |
 
 **Vastus `200` (`scope: local`, tabamus)**
@@ -190,7 +215,9 @@ Content-Type: application/json
 { "mainTransportId": { "operator": "EQ", "id": "MOCK-PLATE-1" } }
 ```
 
-**Vastus `200`** — massiiv. `mainTransportId.id == "MOCK-PLATE-1"` → üks rida; muidu `[]`.
+**Vastus `200`** — massiiv. `mainTransportId.id == "MOCK-PLATE-1"` → üks rida;
+`mainTransportId.id == "MOCK-PLATE-3"`, `usedEquipmentId.id == "MOCK-TRAILER-3"` või
+`carriedEquipmentId.id == "MOCK-CONTAINER-3"` → kolm rida; muidu `[]`.
 Pollimispäring `{ "poll": true }` → `[]`. Vastuse päis `x-poll-more: false`.
 
 ```json
@@ -215,20 +242,21 @@ Pollimispäring `{ "poll": true }` → `[]`. Vastuse päis `x-poll-more: false`.
 
 #### Use case: ühel autol kolm saadetist
 
-Eraldi autonumber **MOCK-PLATE-3**, registreerimisriik **EE**, annab kolm saadetist.
-Kõigi sihtkoht on **Narva Mock Distribution Centre, Kadastiku 25, Narva, EE**.
+Autonumber **MOCK-PLATE-3** (registreerimisriik **EE**) veab poolhaagist **MOCK-TRAILER-3** ja sellel
+konteinerit **MOCK-CONTAINER-3**. Need annavad kolm saadetist ning kõik kolm numbrit leiavad sama kolmiku.
+Kõigi sihtkoht on **Narva Mock Distribution Centre, Kadastiku 25, 20203 Narva, EE**. Vedaja on
+**Mock Multi-pickup Carrier, Mustamäe tee 5, 10616 Tallinn, EE** ja juht **Mati Mock**.
 
-| Dataset-ID | Pealelaadimiskoht | Pealelaadimine | Kaup | Ohtlik veos |
-|---|---|---|---|---|
-| `550e8400-e29b-41d4-a716-446655440011` | Tallinn, Peterburi tee 10 | 2026-09-14 06:00 | Furniture, 2000 kg brutokaal | Ei |
-| `550e8400-e29b-41d4-a716-446655440012` | Tartu, Ringtee 20 | 2026-09-14 09:00 | Machine parts, 3000 kg brutokaal | Ei |
-| `550e8400-e29b-41d4-a716-446655440013` | Pärnu (XML-is `Parnu`), Tallinna mnt 30 | 2026-09-14 12:00 | Bensiin, 1500 kg brutokaal | UN 1203, ADR klass 3, pakendigrupp II |
+| Dataset-ID | Pealelaadimine | Kaup | Brutokaal / maht | Veodokument | Ohtlik veos |
+|---|---|---|---|---|---|
+| `...0011` | Tallinn, Peterburi tee 10, 14.09.2026 06:00 UTC | Mööbel: kontorilauad ja -toolid | 2000 kg / 8,5 m³ | CMR `MOCK-CMR-0011` | ei |
+| `...0012` | Tartu, Ringtee 20, 14.09.2026 09:00 UTC | Masinaosad: laagrid ja võllid | 3000 kg / 6,0 m³ | CMR `MOCK-CMR-0012` | ei |
+| `...0013` | Pärnu, Tallinna mnt 30, 14.09.2026 12:00 UTC | Bensiin (UN 1203) terasvaatides | 1500 kg / 2,1 m³ | CMR `MOCK-CMR-0013` | UN 1203, klass 3, pakendirühm II, tunnel D/E |
 
-Mahalaadimise kuupäev on kõigil **2026-09-15**. FTI010 selle välja date-format on `102`
-(kuupäev), mistõttu lookup'i UTC kesköö ei tähenda tegelikku kokkulepitud kellaaega.
-Need on sünteetilised katsed, mitte tegeliku ADR-veo dokumentatsioon.
+(Dataset-ID-de täiskuju on `550e8400-e29b-41d4-a716-4466554400NN`.) Igal saadetisel on ka märkus
+(`information`). Need on sünteetilised katseandmed, mitte tegeliku ADR-veo dokumentatsioon.
 
-1. Kontrolli `POST /developer/v1/transport-means` kaudu existence'i:
+1. Leia saadetised veoki, haagise või konteineri numbri järgi:
 
 ```http
 POST /developer/v1/transport-means
@@ -236,33 +264,72 @@ Content-Type: application/json
 X-Road-Client: EE/GOV/70000097/test
 X-Road-Id: 550e8400-e29b-41d4-a716-446655440099
 
-{"identifier":"MOCK-PLATE-3","countryCode":"EE","scope":"existence"}
+{"identifier":"MOCK-TRAILER-3","scope":"local"}
 ```
 
-Oodatav `registered: true`. Sama päring `scope: "local"` annab `found: 3` ja
-kolm `consignments` kirjet. Igal on oma täielik UIL (`gateId: EU-EE`, `platformId: mock`).
-Ka `POST /developer/v1/search` keha
-`{"mainTransportId":{"id":"MOCK-PLATE-3","operation":"EQ"}}` annab sama kolmiku.
+Vastus on `found: 3` ja kolm `consignments` kirjet, igaühel oma täielik UIL. `scope: "existence"`
+annab `registered: true`, `countryCode: "FI"` aga tühja tulemuse. Sama kolmiku annab ka
+`POST /developer/v1/search` kehaga `{"mainTransportId":{"id":"MOCK-PLATE-3","operator":"EQ"}}`.
 
-2. Küsi kõik kolm detaili järjest `POST /developer/v1/dataset` kaudu:
+2. Küsi iga saadetise detailid `POST /developer/v1/dataset` kaudu (iga päringu jaoks oma `X-Road-Id`):
 
 ```json
 {
-  "uil": {"gateId":"EU-EE","platformId":"mock","datasetId":"550e8400-e29b-41d4-a716-446655440011"},
+  "uil": {"gateId":"EU-EE","platformId":"mock","datasetId":"550e8400-e29b-41d4-a716-446655440013"},
   "subsets": ["EU01","EU02","EU03","EU05"]
 }
 ```
 
-Kasuta samu päiseid, iga päringu jaoks oma X-Road-Id UUID-d ning asenda dataset-ID
-järgmises päringus `...0012`, seejärel `...0013`. JSON-i `xml` väljast kontrolli:
-`UsedLogisticsTransportMeans/ID` on kõigil `MOCK-PLATE-3`, `ConsigneeTradeParty` ja
-mahalaadimiskoht on samad, `ConsignorTradeParty` ja pealelaadimiskoht on erinevad.
-Ainult kolmandal on `ApplicableTransportDangerousGoods` (UN 1203, klass 3).
+#### Vormi väljad: kust need dataset'i vastusest leiab
 
-Lookup'i `dangerousGoods` on ainult kolmandal `"1"` (gate'i HIGH indikaator), esimesel
-kahel `null`; see indikaator ei ole ADR klassi number. XML-i `HazardClassificationID` on `3`.
-`countryCode: "FI"` ei anna selle EE auto tabamust; õigusteta memberCode `70000000`
-annab local/detail-päringul 403. Poll-päring on endiselt tühi ning allgates on 501.
+Kõige lihtsam on lugeda `consignment` objekti, mitte XML-i parsida. Tabeli JSON-teed on suhtelised
+`consignment`-i suhtes; XML-tee on suhteline `SpecifiedSupplyChainConsignment` elemendi suhtes. Näide
+on saadetisest `...0013`.
+
+| Vormi väli | `consignment` JSON-tee | FTI010 XML-element | Näide |
+|---|---|---|---|
+| Lähtekoht | `mainCarriageLogisticsTransportMovement.loadingTransportEvent.occurrenceLogisticsLocation.postalTradeAddress.countryId` (+ `cityName`) | `MainCarriageLogisticsTransportMovement/LoadingTransportEvent/OccurrenceLogisticsLocation/PostalTradeAddress/CountryID` | `EE` (Pärnu) |
+| Sihtkoht | `…unloadingTransportEvent.occurrenceLogisticsLocation.postalTradeAddress.countryId` (+ `cityName`) | `…/UnloadingTransportEvent/OccurrenceLogisticsLocation/PostalTradeAddress/CountryID` | `EE` (Narva) |
+| Laadimine | `…loadingTransportEvent.actualOccurrenceDateTime.dateTimeString` (+ `dateTimeString@format`) | `…/LoadingTransportEvent/ActualOccurrenceDateTime/udt:DateTimeString` | `202609141200+0000`, formaat `205` → 14.09.2026 15:00 Eesti aja järgi |
+| Tarneaeg | `…unloadingTransportEvent.actualOccurrenceDateTime.dateTimeString` | `…/UnloadingTransportEvent/ActualOccurrenceDateTime/udt:DateTimeString` | `20260915`, formaat `102` → **ainult kuupäev** 15.09.2026 |
+| Transpordirežiim | `mainCarriageLogisticsTransportMovement.modeCode` | `…/ModeCode` | `3` = maanteetransport (CL-037: 1 meri, 2 raudtee, 3 maantee, 4 õhk, 8 siseveed) |
+| Veok (reg nr) | `…usedLogisticsTransportMeans.Id` (+ `registrationTradeCountry.Id`) | `…/UsedLogisticsTransportMeans/ID` | `MOCK-PLATE-3` (EE) |
+| Haagis | `utilizedLogisticsTransportEquipment.Id`, kui `categoryCode` on `TE` | `UtilizedLogisticsTransportEquipment/ID` | `MOCK-TRAILER-3` |
+| Konteiner | `utilizedLogisticsTransportEquipment.carriedAssociatedTransportEquipment.Id`, kui `categoryCode` on `CN` | `UtilizedLogisticsTransportEquipment/CarriedAssociatedTransportEquipment/ID` | `MOCK-CONTAINER-3` |
+| Veodokument nr | `transportContractReferencedDocument.Id` (`typeCode` `730` = CMR) | `TransportContractReferencedDocument/ID` | `MOCK-CMR-0013` |
+| Saadetise ID (UIL) | vastuse `uil` | — | `EU-EE/mock/550e8400-…-446655440013` |
+| Saatja nimi / riik / aadress | `consignorTradeParty.name`, `.postalTradeAddress.countryId`, `.streetName`, `.postcodeCode`, `.cityName` | `ConsignorTradeParty/…` | Pärnu Mock Supplier, EE, Tallinna mnt 30, 80042 Pärnu |
+| Saaja | `consigneeTradeParty.…` (sama kuju) | `ConsigneeTradeParty/…` | Narva Mock Distribution Centre |
+| Vedaja | `carrierTradeParty.…` (sama kuju) | `CarrierTradeParty/…` | Mock Multi-pickup Carrier, EE, Mustamäe tee 5 |
+| Kauba kirjeldus | `natureIdentificationTransportCargo.Identification` | `NatureIdentificationTransportCargo/Identification` | Bensiin (UN 1203) terasvaatides |
+| Brutokaal | `grossWeightMeasure` + `grossWeightMeasure@unitCode` | `GrossWeightMeasure/@unitCode` | `1500` `KGM` → 1500 kg |
+| Maht | `grossVolumeMeasure` + `grossVolumeMeasure@unitCode` | `GrossVolumeMeasure/@unitCode` | `2.1` `MTQ` → 2,1 m³ |
+| Pakkeid | `packageQuantity`, pakendi liik `transportLogisticsPackage.type` | `PackageQuantity`, `TransportLogisticsPackage/Type` | 10 × Terasvaat |
+| Ohtlik kaup (lipp) | `includedSupplyChainConsignmentItem.applicableTransportDangerousGoods` on olemas | `IncludedSupplyChainConsignmentItem/ApplicableTransportDangerousGoods` | ainult `...0013` |
+| UN number | `…applicableTransportDangerousGoods.uNDGIdentificationCode` | `…/UNDGIdentificationCode` | `1203` → „UN1203” |
+| Ohuklass | `…applicableTransportDangerousGoods.hazardClassificationId` | `…/HazardClassificationID` | `3`; tekst „tuleohtlik vedelik” tuleb ADR klassitabelist, mitte andmetest |
+| Pakend | `…packagingDangerLevelCode` (pakendirühm) + `…specifiedLogisticsPackage.type` / `.typeCode` | `…/PackagingDangerLevelCode`, `…/SpecifiedLogisticsPackage/TypeCode` | `II`; `Terasvaat` (`1A1`) |
+| Ohtliku kauba nimetus / tunnel | `…properShippingName`, `…tunnelRestrictionCode` | `…/ProperShippingName`, `…/TunnelRestrictionCode` | PETROL, `D/E` |
+| Juht | `mainCarriageLogisticsTransportMovement.masterResponsibleTransportPerson.givenName` / `.familyName` | `…/MasterResponsibleTransportPerson/…` | Mati Mock |
+| Märkused | `information` | `Information` | ADR-veos: juhil peab olema kehtiv ADR-koolitustunnistus. |
+
+`consignment` JSON-i teeb xml-mapper ja sellel on mõned omapärad, millega vormi kood peab arvestama:
+
+- **Võtmenimed:** esimene täht on väike ning iga `id` (tõstutundetult) muutub `Id`-ks. Seepärast on
+  võtmed näiteks `Id`, `countryId`, `uNDGIdentificationCode`, `Identification` (suure algustähega) ja
+  `wIdthMeasure`.
+- **Atribuudid** on eraldi võtmed kujul `nimi@atribuut`, nt `grossWeightMeasure@unitCode: "KGM"`.
+  Ühikukood tuleb vormil teisendada, nt `KGM` → kg ja `MTQ` → m³.
+- **Kõik väärtused on stringid.** Element, mis XML-is kordub (nt kaks
+  `IncludedSupplyChainConsignmentItem`-i), muutub **massiiviks**; ühekordne element jääb objektiks.
+  Loe neid alati mõlemat kuju arvestades.
+- **Kuupäevad:** formaat `205` on `CCYYMMDDHHMM±HHMM` (näidistes UTC, `+0000`) ja `102` on `CCYYMMDD`.
+  FTI010 lubab mahalaadimise ja tarne jaoks ainult formaati `102`, seega kellaaega seal ei ole.
+- `subsets`-i järgi mock XML-i ei filtreeri (live `mock`-platvorm samuti mitte).
+
+Lookup'i `dangerousGoods` on ainult kolmandal `"1"` (gate'i HIGH indikaator), esimesel kahel `null`.
+See indikaator ei ole ADR klassi number. Õigusteta memberCode `70000000` annab local-/detail-päringul 403.
+Poll-päring on endiselt tühi ning `allgates` annab 501.
 
 #### Rikkaliku üksik-dataset'i päring
 
@@ -283,8 +350,10 @@ choice-grupist kasutatakse esimest varianti; piiramatu korduste arvu tõttu pole
 „kõige suuremat” dataset'i. XML valideeritakse repo FTI010 XSD vastu täielikus test-envelope'is;
 API tagastab endiselt vaid `SpecifiedSupplyChainConsignment` fragmendi JSON-i `xml` väljas.
 
-Uus näidis valitakse ainult täpse `EU-EE/mock/...0002` UIL-i puhul. Senine `...0001` ja
-muud UIL-id säilitavad lihtsa staatilise vastuse. Mock ei filtreeri XML-välju subsets'i järgi:
+Rikkalikus näidises on iga väli täidetud, kuid väärtused on kohatäited (`MOCK-ID`, `MOCK-Name` jne):
+see sobib struktuuri kaardistamiseks, aga mitte sisu kontrollimiseks. Sisuliste väärtustega näited on
+`MOCK-PLATE-3` saadetised eespool. Rikkalik näidis valitakse ainult täpse `EU-EE/mock/...0002` UIL-i
+puhul. Kõik muud UIL-id saavad lihtsa `MOCK-PLATE-1` vastuse. Mock ei filtreeri XML-välju subsets'i järgi:
 kõigi nelja küsimine dokumenteerib maksimaalse päringu, kuid üks lubatud alamhulk annab sama
 rikkaliku XML-i. Õigusteta `70000000` annab ka selle ID korral 403. Uut dataset'i ei lisata
 search/transport-means tulemustesse; seda küsitakse otse UIL-i järgi.
@@ -307,9 +376,20 @@ Content-Type: application/json
 {
   "uil": { "gateId": "EU-EE", "platformId": "mock", "datasetId": "550e8400-e29b-41d4-a716-446655440001" },
   "subsets": ["EU01", "EU05"],
-  "xml": "<rsm:SpecifiedSupplyChainConsignment ...>...</rsm:SpecifiedSupplyChainConsignment>"
+  "xml": "<SpecifiedSupplyChainConsignment ...>...</SpecifiedSupplyChainConsignment>",
+  "consignment": {
+    "grossWeightMeasure": "15000.00",
+    "grossWeightMeasure@unitCode": "KGM",
+    "packageQuantity": "120",
+    "mainCarriageLogisticsTransportMovement": {
+      "modeCode": "3",
+      "usedLogisticsTransportMeans": { "Id": "MOCK-PLATE-1", "Id@schemeAgencyId": "5", "registrationTradeCountry": { "Id": "EE" } }
+    }
+  }
 }
 ```
+
+`xml` on FTI010 `SpecifiedSupplyChainConsignment` fragment ja `consignment` on sama sisu JSON-ina.
 
 **Vead**
 
@@ -347,8 +427,9 @@ Content-Type: application/json
 ## Erinevused päris liidesest
 
 - Autentimist ei toimu — `X-Road-Client` on vaba (v.a `00000000`); ühtki registrikirjet ei kontrollita.
-- Andmed on staatilised: search/transport-means tunnevad `MOCK-PLATE-1`; dataset annab
-  `EU-EE/mock/...0002` korral rikkaliku näidise ja teiste UIL-ide puhul senise lihtsa näidise.
+- Andmed on staatilised. Samad saadetised on dev-värava andmebaasis ja `mock`-platvormil olemas,
+  seega `dataset` ja `transport-means` vastavad 1:1 (vt „Mock ja live on 1:1”). `search` vastuse kuju
+  erineb.
 - `dataset` alamhulgakontroll ei võrdle küsitud hulki lubatuga — `403` tuleb ainult `memberCode 70000000` puhul.
 - Fan-out'i / pollimist tegelikult ei toimu; `x-poll-more` on alati `false`.
 - Vastuseajad on kohesed; `502 GATEWAY_UNAVAILABLE` teed ei ole (päris väravas tuleb see `core` tõrke korral).
