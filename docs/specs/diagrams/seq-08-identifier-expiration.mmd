@@ -4,7 +4,7 @@ sequenceDiagram
     participant DB as PostgreSQL
     participant Log as ECS JSON log
 
-    Note over CM: Daily — operator-set<br/>time (default 03:45).<br/>YAML schedule in<br/>cronmanager-expire.yaml.<br/>HTTP POST job → admin<br/>expire endpoint.
+    Note over CM: Daily — operator-set<br/>time (default 03:45).<br/>YAML schedule in<br/>cronmanager-expire.pending.yaml.<br/>HTTP POST job → admin<br/>expire endpoint.
 
     CM->>+Gate: POST /api/v1/admin/expire-identifiers<br/>Authorization: Bearer ${BEARER_OPS_TOKEN}
     Gate->>Gate: Auth: literal compare with ARCHIVE_OPS_TOKEN env var

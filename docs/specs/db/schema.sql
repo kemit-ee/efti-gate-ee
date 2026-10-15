@@ -45,7 +45,7 @@
 -- enforced at the application layer.
 --
 -- Archival of non-latest rows is performed by **CronManager**
--- (https://github.com/Buerostack/CronManager) — a separate Quartz-based
+-- (https://github.com/turnerrainer/CronManager) — a separate Quartz-based
 -- scheduler service deployed alongside the gate. CronManager runs an HTTP
 -- job (cron-configured, e.g. daily at 03:30) that calls a gate admin
 -- endpoint which moves all non-latest rows of every operational table
@@ -442,7 +442,7 @@ CREATE INDEX idx_audit_log_recorded      ON audit_log (recorded_at DESC);
 --                   storage is out of scope of this role).
 --
 -- See Epic 26 (Append-Only Archival via CronManager) and
--- `docs/specs/deploy/cronmanager-archive.yaml` for the operational contract.
+-- `DSL/CronManager/efti-ops.yaml` for the operational contract.
 
 DO $$
 BEGIN

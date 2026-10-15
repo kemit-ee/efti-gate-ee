@@ -1,0 +1,98 @@
+# CronManager job definitions for the gate's /ops/v1/* surface.
+# https://github.com/turnerrainer/CronManager — schema of turnerrainer/cronmanager:0.2.3-alpha
+# (docker/cronmanager/Dockerfile). Every field is checked at load with deny_unknown_fields, so a
+# typo here makes CronManager skip this whole file with an ERROR in its log.
+#
+# Group name = this file's path under dsl_path without the extension: `efti-ops`
+# (POST /execute/efti-ops/<job> fires one job by hand).
+#
+# Credential: every job sends `Authorization` from the env var OPS_AUTHORIZATION, whose value is
+# the whole header, `Bearer <ARCHIVE_OPS_TOKEN>` (DSL/Ruuter/ops/.guard.yml compares it literally).
+# The value is read at every fire and never stored, logged or written to history. If the variable
+# is unset or empty, this file is not loaded at all — no job runs with a missing credential.
+#
+# Target: `ruuter:8086` is the compose service name. A deployment where Ruuter has another
+# in-cluster name replaces the host in the image build context, the same way as registry/.
+#
+# CronManager has no request body field: every job POSTs an empty body and each route uses its
+# default (olderThanDays=2, keepDays=2555, keepMinutes=10, keepGenerations=2). A non-default
+# value is a change to the route's default, not to this file.
+#
+# retryCount/retryDelay: retries after the first attempt, delay in milliseconds. Each route is
+# idempotent (archive verifies before it deletes; purges are age-based DELETEs), so a retry after
+# a transient failure is safe. The outbound timeout is limits.request_timeout_secs in
+# docker/cronmanager/cronmanager.yaml.
+
+# Archival sweep (append_only_archival.md): moves one batch of superseded consignments rows to the
+# archive database per call. A row moves only once its newer sibling is olderThanDays old; the
+# current row (including a DELETED tombstone) never moves. Every 10 minutes during 02:00-05:59 so a
+# backlog drains over several batches in one night; outside that window it would only compete
+# with traffic.
+efti_gate_archive_sweep:
+  trigger: "0 */10 2-5 * * ?"
+  type: http
+  method: POST
+  url: http://ruuter:8086/ops/v1/archive-consignments
+  headers:
+    Content-Type: application/json
+  headerEnvs:
+    Authorization: OPS_AUTHORIZATION
+  retryCount: 3
+  retryDelay: 30000
+
+# Retention on cold storage: permanently deletes archive rows older than keepDays (~7 years).
+# Does not touch the live database. 04:00 daily, after the first sweep batches.
+efti_gate_archive_purge:
+  trigger: "0 0 4 * * ?"
+  type: http
+  method: POST
+  url: http://ruuter:8086/ops/v1/purge-archive
+  headers:
+    Content-Type: application/json
+  headerEnvs:
+    Authorization: OPS_AUTHORIZATION
+  retryCount: 3
+  retryDelay: 30000
+
+# AS4 hand-off rows (async_responses) older than keepMinutes; useless once the waiting authority
+# call has ended.
+efti_gate_async_responses_purge:
+  trigger: "0 */5 * * * ?"
+  type: http
+  method: POST
+  url: http://ruuter:8086/ops/v1/purge-async-responses
+  headers:
+    Content-Type: application/json
+  headerEnvs:
+    Authorization: OPS_AUTHORIZATION
+  retryCount: 3
+  retryDelay: 10000
+
+# Cross-gate search state (search_results, ADR-013) older than keepMinutes; useless once the
+# caller's polling window has passed.
+efti_gate_search_results_purge:
+  trigger: "0 */5 * * * ?"
+  type: http
+  method: POST
+  url: http://ruuter:8086/ops/v1/purge-search-results
+  headers:
+    Content-Type: application/json
+  headerEnvs:
+    Authorization: OPS_AUTHORIZATION
+  retryCount: 3
+  retryDelay: 10000
+
+# ADR-012 read models (rm_consignment_counts, rm_consignment_summary): a new full snapshot
+# generation plus the purge of generations older than keepGenerations. Admin UI counts are at most
+# this stale.
+efti_gate_read_models_refresh:
+  trigger: "0 */15 * * * ?"
+  type: http
+  method: POST
+  url: http://ruuter:8086/ops/v1/refresh-read-models
+  headers:
+    Content-Type: application/json
+  headerEnvs:
+    Authorization: OPS_AUTHORIZATION
+  retryCount: 2
+  retryDelay: 30000

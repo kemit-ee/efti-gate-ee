@@ -1,0 +1,34 @@
+# CronManager runtime config — field reference: turnerrainer/CronManager book/src/configuration.md.
+# Unknown fields are a boot error.
+
+port: 8080
+dsl_path: /app/DSL/efti
+app_root_path: /app
+
+# Server-to-server only: no browser ever calls CronManager.
+allowed_origins: []
+
+limits:
+  max_request_bytes: 1048576
+  max_response_bytes: 16777216
+  # archive-consignments moves a whole batch (select -> insert -> verify -> delete) in one call.
+  request_timeout_secs: 120
+  shell_timeout_secs: 300
+
+admin:
+  # POST /execute|/stop|/reload need `Authorization: Bearer $CRONMANAGER_ADMIN_TOKEN`. CronManager
+  # refuses to start on 0.0.0.0 without it, so an unset token is a boot failure, never an open gate.
+  bearer_token_env: CRONMANAGER_ADMIN_TOKEN
+  trust_network: false
+
+security:
+  # Every job targets Ruuter by its in-network name, which resolves to a private address; the
+  # default (true) refuses those at fire time. CronManager has no host allow-list, so this is the
+  # only switch. In APP_ENV=production|staging|test CronManager refuses to boot with this set to
+  # false — see docs/specs/deploy/README.md (CronManager) for the open upstream gap.
+  block_private_networks: false
+  expose_jobs_publicly: false
+  expose_running_publicly: false
+
+# No `database:` — execution history is not persisted by CronManager. The gate's own
+# jobs_execution_log (written by every /ops route) is the record of what ran.

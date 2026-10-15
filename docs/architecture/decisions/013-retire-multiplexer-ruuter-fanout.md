@@ -96,7 +96,7 @@ idempotentsed ja andmekadu-vabad. Vajadusel saab tulevikus lisada osalise kirjut
 - `DSL/Ruuter/efti/POST/api/v1/authority/search.yml` — ümber kirjutatud (poll-loop + `detach`-itud sõnumite laialisaatmine)
 - `DSL/Resql/efti/POST/{insert_search_pending,insert_search_complete,get_search_result,delete_expired_search_results}.sql`
 - `DSL/Liquibase/changelog/20261007-search-results.sql`, `DSL/Liquibase/init.sql`
-- `DSL/Ruuter/ops/POST/v1/purge-search-results.yml`, `docs/specs/deploy/cronmanager-archive.yaml`
+- `DSL/Ruuter/ops/POST/v1/purge-search-results.yml`, `DSL/CronManager/efti-ops.yaml`
 - `code/multiplexer/` kustutatud; `code/settings.gradle.kts`, `docker/multiplexer/`,
   `compose.yml`, `compose.override.yml`, `constants.ini`, `tests/http-client.env.json`,
   `.gitlab-ci.yml` puhastatud
