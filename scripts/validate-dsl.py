@@ -39,6 +39,10 @@ This check, for every non-guard route file under CONVERTED_PREFIXES (minus the h
   b. if it reads `incoming.body`, the body contract is enforced somehow — a
      `validate_input` / `check_input` step, or `allowed_body` / `allowlist.body`;
   c. no orphan declared body field — every one is read in the file.
+
+Every ReSql file is also checked to be non-empty and to carry a header comment that parses as
+YAML: ReSql parses each declaration at startup and refuses to start on the first invalid one
+(a stray `word: ` inside a multi-line `description` is enough).
 """
 
 from __future__ import annotations
@@ -144,6 +148,14 @@ def check_sql_non_empty() -> tuple[list[str], int]:
             total += 1
             if os.path.getsize(path) == 0:
                 errors.append(f"{path}: empty SQL file")
+                continue
+            header = re.match(r"\s*/\*(.*?)\*/", open(path, encoding="utf-8").read(), re.S)
+            if header is None:
+                continue
+            try:
+                yaml.safe_load(header.group(1))
+            except yaml.YAMLError as error:
+                errors.append(f"{path}: header is not valid YAML (ReSql refuses to start): {str(error).splitlines()[0]}")
     return errors, total
 
 
@@ -172,11 +184,11 @@ def main() -> int:
 
     if sql_errors:
         failed = True
-        print(f"FAIL  empty SQL files ({len(sql_errors)})")
+        print(f"FAIL  SQL files ({len(sql_errors)})")
         for error in sql_errors:
             print(f"        {error}")
     else:
-        print(f"OK    {sql_total} SQL files non-empty")
+        print(f"OK    {sql_total} SQL files non-empty, headers valid YAML")
 
     return 1 if failed else 0
 

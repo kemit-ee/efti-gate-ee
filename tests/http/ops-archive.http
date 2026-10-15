@@ -134,3 +134,47 @@ Authorization: Bearer dev-archive-ops-token-change-me
     client.assert(typeof response.body.purged === "number")
   })
 %}
+
+### ops/v1/expire-identifiers — no token -> 401
+POST {{RUUTER_URL}}/ops/v1/expire-identifiers
+Content-Type: application/json
+
+{}
+
+> {%
+  client.test("expire-identifiers without token rejected", () => {
+    client.assert(response.status === 401)
+  })
+%}
+
+### ops/v1/expire-identifiers — dryRun counts without writing
+POST {{RUUTER_URL}}/ops/v1/expire-identifiers
+Content-Type: application/json
+Authorization: Bearer dev-archive-ops-token-change-me
+
+{"dryRun": true}
+
+> {%
+  client.test("dry run reports candidates and expires nothing", () => {
+    client.assert(response.status === 200)
+    client.assert(typeof response.body.candidates === "number")
+    client.assert(response.body.expired === 0)
+    client.assert(response.body.dryRun === true)
+  })
+%}
+
+### ops/v1/expire-identifiers — valid token, sweep runs
+POST {{RUUTER_URL}}/ops/v1/expire-identifiers
+Content-Type: application/json
+Authorization: Bearer dev-archive-ops-token-change-me
+
+{}
+
+> {%
+  client.test("valid token -> cabotage-expiry sweep runs", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.expired === response.body.candidates)
+    client.assert(response.body.dryRun === false)
+    client.assert(typeof response.body.more === "boolean")
+  })
+%}

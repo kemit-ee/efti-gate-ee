@@ -90,7 +90,7 @@ security:
 #   Authority API  (`/v1/identifiers/{identifier}`, `/v1/dataset/...`,
 #                   `/v1/follow-up/...`)                               → taraJwt
 #   Admin API      (`/api/v1/...`)                                     → taraJwt
-#     except `/api/v1/admin/archive`, `/api/v1/admin/expire-identifiers`
+#     except `/api/v1/admin/archive`, `/ops/v1/expire-identifiers`
 #                 (CronManager-driven)                                 → opsToken
 #   Auth API       (`/api/v1/auth/local-token`)                        → http basic (break-glass only, default-disabled)
 #   Auth API       (`/api/v1/auth/logout`, `/api/v1/users/{id}/revoke-token`)  → taraJwt
@@ -269,7 +269,7 @@ paths:
         `dataset_id` see the latest row and return 404.
 
         For lifecycle-driven transitions (e.g. road-cabotage 14-day expiry → `inactive`),
-        see `POST /api/v1/admin/expire-identifiers` (CronManager-driven).
+        see `POST /ops/v1/expire-identifiers` (CronManager-driven).
       parameters:
         - $ref: '#/components/parameters/DatasetIdPath'
         - $ref: '#/components/parameters/XRequestIdRequired'
@@ -1455,7 +1455,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  /api/v1/admin/expire-identifiers:
+  /ops/v1/expire-identifiers:
     post:
       tags: [Admin - Cron]
       summary: Mark cabotage-expired road consignments inactive (called by CronManager)
@@ -1463,23 +1463,31 @@ paths:
       security:
         - opsToken: []
       description: |
-        Scans `consignments` for the latest row per `dataset_id` where
-        `mode='road' AND status='active' AND transport_date + interval '14 days' < NOW()`
-        and INSERTs a new row with `status='inactive'` for each match (Reg 2024/1942
-        Art 11(4) cabotage retention).
+        Ruuter route `DSL/Ruuter/ops/POST/v1/expire-identifiers.yml` → ReSql
+        `efti/expire_road_consignments`. Selects the current row (no newer sibling for the
+        same `platform_id`/`dataset_id`) of every consignment with
+        `transport_mode = '3' AND status = 'ACTIVE' AND acceptance_date + interval '14 days' < NOW()`
+        — `acceptance_date` is the carrier acceptance date (`transport_date` in
+        `data-transformations.md`) — and INSERTs a copy of each with `status = 'INACTIVE'`
+        (Reg 2024/1942 Art 11(4) cabotage retention). At most 1000 rows per call, oldest
+        acceptance first; `more: true` means a full batch, drained by the next run.
 
-        Append-only — the previous row is unchanged; the new row becomes the
-        latest by `created_at`, so downstream latest-row reads resolve the
-        entity to `inactive`.
+        Append-only — the previous row is unchanged; the new row becomes the latest, so
+        latest-row reads resolve the dataset to `INACTIVE` (excluded from the X-Road
+        transport-means lookup, which allowlists `ACTIVE`). A later re-upload by the platform
+        INSERTs a new `ACTIVE` row as usual.
 
-        Called by CronManager once daily; default schedule chosen by the operator
-        (typically 03:45–05:45, slightly after the archival sweep). See
-        `seq-08-identifier-expiration.mmd`.
+        Called by CronManager hourly at :45 (`efti_gate_expire_identifiers` in
+        `DSL/CronManager/efti-ops.yaml`). A run that is not a dry run writes a
+        `jobs_execution_log` row (`job_name = 'expire-identifiers'`, `COMPLETED` or `FAILED`).
+        See `seq-08-identifier-expiration.mmd`.
 
-        **Auth**: `opsToken` (same token as `/api/v1/admin/archive`). Mismatch → 403.
+        **Auth**: `opsToken` — `Authorization: Bearer <ARCHIVE_OPS_TOKEN>` (`ops/.guard.yml`).
+        Missing or wrong → 401.
 
-        **Concurrency**: same multi-node-safe mutex pattern as archive (distinct
-        lock identity); concurrent invocations get `409 Conflict`.
+        **Concurrency**: no mutex. The sweep is one SQL statement; two overlapping runs can at
+        most append a second, identical `INACTIVE` row for the same dataset, which changes nothing
+        a latest-row read sees.
       requestBody:
         required: false
         description: Optional run-time parameters.
@@ -1491,11 +1499,7 @@ paths:
                 dryRun:
                   type: boolean
                   default: false
-                  description: If true, returns the count of would-be-expired rows but does not INSERT.
-                cutoffOverride:
-                  type: string
-                  format: date-time
-                  description: Override the "now" timestamp used for the 14-day window. For replay/testing only.
+                  description: If true, returns the count of would-be-expired rows but does not INSERT and writes no jobs_execution_log row.
       responses:
         '200':
           description: Expiry sweep complete.
@@ -1503,39 +1507,34 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [expired_count, started_at, finished_at, duration_ms]
+                required: [candidates, expired, dryRun, more]
                 properties:
-                  expired_count:
+                  candidates:
                     type: integer
-                    description: Number of `consignments` rows newly INSERTed with status='inactive'
-                  started_at:
-                    type: string
-                    format: date-time
-                  finished_at:
-                    type: string
-                    format: date-time
-                  duration_ms:
+                    description: Expirable consignments found in this batch (at most 1000)
+                  expired:
                     type: integer
-                  dry_run:
+                    description: Number of `consignments` rows newly INSERTed with status='INACTIVE' (0 on a dry run)
+                  dryRun:
                     type: boolean
+                  more:
+                    type: boolean
+                    description: The batch was full; more expirable consignments may remain.
               example:
-                expired_count: 137
-                started_at: "2026-04-23T04:00:00Z"
-                finished_at: "2026-04-23T04:00:14Z"
-                duration_ms: 14210
-                dry_run: false
+                candidates: 137
+                expired: 137
+                dryRun: false
+                more: false
+        '400':
+          description: '`dryRun` is not a boolean.'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
-          description: Expiry job already running.
+        '502':
+          description: The ReSql step failed (`IDENTIFIER_EXPIRY_FAILED`); logged as FAILED in jobs_execution_log.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
 
   /xroad/v1/subsets:
     # Served by the main gate Ruuter, but reached by consumers through their own X-Road Security
@@ -2180,7 +2179,7 @@ components:
       name: Authorization
       description: |
         Static Bearer token for the **system identity** that drives scheduled jobs
-        (CronManager calling `/api/v1/admin/archive`, `/api/v1/admin/expire-identifiers`).
+        (CronManager calling `/api/v1/admin/archive`, `/ops/v1/expire-identifiers`).
         Operator provisions a 256-bit random secret
         into a Kubernetes Secret; CronManager injects it as `BEARER_OPS_TOKEN`; the
         gate compares the literal value of `Authorization: Bearer <token>` against

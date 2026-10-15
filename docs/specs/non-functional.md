@@ -112,7 +112,7 @@ The gate runtime is **stateless** — no in-memory request state, no sticky sess
 | `TIM_DB_PASSWORD` | Password for TIM's own PostgreSQL instance (sessions and token blacklist). Not the eFTI database. | required, no default |
 | `JWT_TTL_MINUTES` | Session-token lifetime, applied by TIM as `legacy-portal-integration.sessionTimeoutMinutes`. Bounds how long an unrevoked session lasts; it is **not** the revocation-latency knob, since revocation is immediate (`permissions-matrix.md` §6). | 30 (TIM's own default) |
 | `SECURITY_ALLOWLIST_JWT` | Comma-separated hostnames/IPs TIM will answer `/jwt/*` for. Must include `ruuter`. Hostname-based, so it is only meaningful on a non-routable internal network. | required, no default |
-| `ARCHIVE_OPS_TOKEN` | The static Bearer secret accepted on `/api/v1/admin/archive` and `/expire-identifiers`. 256-bit random; provisioned via Kubernetes Secret. | required, no default |
+| `ARCHIVE_OPS_TOKEN` | The static Bearer secret accepted on every `/ops/v1/*` route (`archive-consignments`, `expire-identifiers`, the purges, `refresh-read-models`). 256-bit random; provisioned via Kubernetes Secret. | required, no default |
 | `LOCAL_ADMIN_FALLBACK_ENABLED` | If `true`, `POST /api/v1/auth/local-token` returns 200 with a gate-signed JWT instead of 503. | `false` |
 | `BREAK_GLASS_JWT_SIGNING_KEY` | PEM-encoded RSA private key the gate uses to sign break-glass JWTs (only consulted when `LOCAL_ADMIN_FALLBACK_ENABLED=true`). | optional |
 | `BREAK_GLASS_JWT_TTL_SECONDS` | Hardcoded ceiling 600. Operator may shorten further. | 600 |

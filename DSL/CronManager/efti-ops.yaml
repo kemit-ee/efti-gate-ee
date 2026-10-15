@@ -15,7 +15,7 @@
 # in-cluster name replaces the host in the image build context, the same way as registry/.
 #
 # CronManager has no request body field: every job POSTs an empty body and each route uses its
-# default (olderThanDays=2, keepDays=2555, keepMinutes=10, keepGenerations=2). A non-default
+# default (olderThanDays=2, keepDays=2555, keepMinutes=10, keepGenerations=2, dryRun=false). A non-default
 # value is a change to the route's default, not to this file.
 #
 # retryCount/retryDelay: retries after the first attempt, delay in milliseconds. Each route is
@@ -47,6 +47,21 @@ efti_gate_archive_purge:
   type: http
   method: POST
   url: http://ruuter:8086/ops/v1/purge-archive
+  headers:
+    Content-Type: application/json
+  headerEnvs:
+    Authorization: OPS_AUTHORIZATION
+  retryCount: 3
+  retryDelay: 30000
+
+# Cabotage-expiry sweep (Reg 2024/1942 Art 11(4)): appends an INACTIVE row for every current road
+# consignment whose carrier acceptance date is more than 14 days ago. At most 1000 per call, so it
+# runs hourly rather than once a day — a run with nothing to expire is one index probe.
+efti_gate_expire_identifiers:
+  trigger: "0 45 * * * ?"
+  type: http
+  method: POST
+  url: http://ruuter:8086/ops/v1/expire-identifiers
   headers:
     Content-Type: application/json
   headerEnvs:

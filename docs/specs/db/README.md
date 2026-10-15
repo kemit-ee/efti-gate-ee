@@ -65,7 +65,7 @@ This is a **rule**, not a literal query — implementations may express it via s
 | Event | What used to be an UPDATE | What it is now |
 |---|---|---|
 | Gate ping (every 5 min) | `UPDATE gates SET last_ping_at = NOW(), status = 'ONLINE' WHERE id = …` | `INSERT INTO gates (id, …, status, last_ping_at, created_by) VALUES (…)` |
-| Identifier expiry | `UPDATE consignments SET status = 'inactive' WHERE expires_at < NOW()` | `INSERT INTO consignments (dataset_id, …, status='inactive', …) VALUES (…)` (one INSERT per affected dataset_id, copying the latest row's other columns) |
+| Identifier expiry | `UPDATE consignments SET status = 'inactive' WHERE transport_mode = '3' AND acceptance_date < NOW() - '14 days'` | `INSERT INTO consignments (…, status) SELECT …, 'INACTIVE' FROM <current ACTIVE road rows past the window>` (`efti/expire_road_consignments.sql`: one INSERT per affected dataset, copying the latest row's other columns) |
 | Password reset | `UPDATE users SET secret_hash = … WHERE id = …` | `INSERT INTO users (id, …, secret_hash = new) VALUES (…)` |
 | Admin disables a gate | `UPDATE gates SET status = 'DISABLED' WHERE id = …` | `INSERT INTO gates (id, …, status='DISABLED') VALUES (…)` |
 | Logout / token revocation | `UPDATE sessions SET revoked_at = NOW() WHERE token_hash = …` | `INSERT INTO sessions (jti, user_id, expires_at, revoked_at, reason) VALUES (…)` (denylist; AccessChecker rejects any JWT whose `jti` is here AND whose `exp` is still in the future) |

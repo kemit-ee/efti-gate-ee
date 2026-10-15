@@ -562,7 +562,7 @@ Autentimine: staatiline `ARCHIVE_OPS_TOKEN` bearer token.
 | Meetod | Spec path | Kirjeldus |
 |---|---|---|
 | `POST` | `/api/v1/admin/archive` | Käivita arhiveerimise pühkimine (CronManager-ist) |
-| `POST` | `/api/v1/admin/expire-identifiers` | Märgi maantee-saadetised aegunuks (14-päeva kabotaaž) |
+| `POST` | `/ops/v1/expire-identifiers` | Märgi maantee-saadetised aegunuks (14-päeva kabotaaž) |
 
 ---
 

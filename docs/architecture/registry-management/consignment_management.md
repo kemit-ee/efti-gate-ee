@@ -12,7 +12,7 @@
 stateDiagram-v2
     [*] --> active: POST /v1/identifiers/{datasetId}<br/>(INSERT consignments row, status='active')
     active --> active: re-register same datasetId<br/>(append-only INSERT; latest row wins)
-    active --> inactive: CronManager → /api/v1/admin/expire-identifiers<br/>(road, transport_date+14d <NOW())<br/>or immediate inactive INSERT for other modes
+    active --> inactive: CronManager → /ops/v1/expire-identifiers<br/>(road, transport_date+14d <NOW())<br/>or immediate inactive INSERT for other modes
     inactive --> active: re-registered by platform
     active --> deleted: Platform DELETE /v1/identifiers/{datasetId}<br/>or Admin DELETE /api/v1/consignments/{datasetId}<br/>(append-only INSERT, status='deleted')
     inactive --> deleted: Platform / Admin DELETE

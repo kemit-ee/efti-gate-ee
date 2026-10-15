@@ -268,8 +268,8 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 
 - `turnerrainer/cronmanager:0.2.3-alpha` (`docker/cronmanager/Dockerfile`): the job set
   `DSL/CronManager/efti-ops.yaml` and `docker/cronmanager/cronmanager.yaml` are `COPY`-ed in, so a job
-  change needs `docker compose up --build cronmanager`. Group `efti-ops`; five `POST` jobs to
-  `http://ruuter:8086/ops/v1/{archive-consignments,purge-archive,purge-async-responses,purge-search-results,refresh-read-models}`.
+  change needs `docker compose up --build cronmanager`. Group `efti-ops`; six `POST` jobs to
+  `http://ruuter:8086/ops/v1/{archive-consignments,purge-archive,purge-async-responses,purge-search-results,refresh-read-models,expire-identifiers}`.
 - The job schema is `deny_unknown_fields`: there is **no** `body`, `timeout`, `retry: {...}` or `${ENV}`
   substitution in `url` (the old Buerostack-style YAML had all four and would not load). Retries are
   `retryCount`/`retryDelay` (ms); the outbound timeout is `limits.request_timeout_secs` (120). Every
@@ -285,8 +285,12 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   refuses to boot with it — an open upstream gap, see `docs/specs/deploy/README.md`.
 - No `database:` block — the gate's `jobs_execution_log` is the run record. Fire a job by hand:
   `curl -X POST -H "Authorization: Bearer $CRONMANAGER_ADMIN_TOKEN" http://127.0.0.1:8089/execute/efti-ops/<job>`.
-- The cabotage-expiry job is parked in `docs/specs/deploy/cronmanager-expire.pending.yaml` (not
-  loaded): its route does not exist.
+- Cabotage expiry (Reg 2024/1942 Art 11(4)), hourly at :45: `POST /ops/v1/expire-identifiers` →
+  `efti/expire_road_consignments.sql`, one statement that appends an `INACTIVE` copy of every current
+  `ACTIVE` road row (`transport_mode = '3'`) whose `acceptance_date` is more than 14 days ago — at most
+  1000 per call (`more: true` = full batch). There is no `expires_at` column; the window is computed
+  (partial index `idx_consignments_road_expiry`). Optional body `{dryRun: true}` only counts and logs
+  nothing; otherwise `jobs_execution_log` gets `COMPLETED`/`FAILED`, and a ReSql error is a 502.
 - ReSql returns column aliases camel-cased (`purged_count` → `purgedCount`); a DSL reading
   `body[0].purged_count` gets `null`.
 
@@ -337,6 +341,9 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   in-process router, no compose). Use for anything reachable **before an upstream `call:`**:
   guard rejects, `validate_input` 400s. `mode: mock-http` can stand in for ReSql/xml-mapper.
   Run via `docker run --rm -v "$PWD:/workdir" -w /workdir turnerrainer/ruuter:0.12.1-rc dsl-test --dsl DSL/Ruuter --tests DSL-tests --constants constants.ini` (the binaries ship in the runtime image since 0.9.14-rc).
+  A scenario `request` with a `body` must also send `content-type: "application/json"` in `headers`:
+  without it the body is not parsed, every `incoming.body.*` reads `undefined`, and the scenario still
+  passes while exercising nothing.
 - `DSL-mock-tests/*.test.yml` verifies standalone mock UUID and dataset permission contracts against `DSL/Ruuter-xroad-mock` and `constants-xroad-mock.ini`. Rich synthetic dataset UIL is `EU-EE/mock/550e8400-e29b-41d4-a716-446655440002` (every FTI010 element, meaningful distinct values from an enrichment pass over the XSD walk; two items and two carried containers show repeats; field catalogue `docs/developer/fti010-field-catalogue.md`, written by `scripts/sync-mock-datasets.py`); `...0011`–`...0013` are the `MOCK-PLATE-3` shipments with meaningful values; other UILs get the minimal `MOCK-PLATE-1` response. XML is not subset-filtered.
 - **The developer mock and the live gate share one contract (1:1 means request/response shape, not data):** both answer
   `dataset` as `{uil, subsets, xml, consignment}`: the live `xroad/POST/v1/dataset.yml` adds `uil`/`subsets`

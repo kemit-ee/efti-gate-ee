@@ -25,6 +25,15 @@ tests:
       status: 401
       body_matches: { code: "UNAUTHORIZED" }
 
+  - name: keepMinutes of the wrong type -> 400
+    request:
+      method: POST
+      path: /ops/v1/purge-async-responses
+      headers: { authorization: "Bearer test-ops-token", content-type: "application/json" }
+      body: { keepMinutes: "ten" }
+    expect:
+      status: 400
+
   - name: valid token returns the purged count
     setup:
       mocks:
@@ -37,7 +46,7 @@ tests:
     request:
       method: POST
       path: /ops/v1/purge-async-responses
-      headers: { authorization: "Bearer test-ops-token" }
+      headers: { authorization: "Bearer test-ops-token", content-type: "application/json" }
       body: { keepMinutes: 10 }
     expect:
       status: 200
@@ -56,7 +65,7 @@ tests:
     request:
       method: POST
       path: /ops/v1/purge-async-responses
-      headers: { authorization: "Bearer test-ops-token" }
+      headers: { authorization: "Bearer test-ops-token", content-type: "application/json" }
       body: {}
     expect:
       status: 502
