@@ -82,10 +82,12 @@ class EDeliveryClient(
     val resBody = res.body()
     return if (res.statusCode() in 200..299) {
       EDeliveryMetrics.outboundSuccess()
+      log.info("eDelivery accepted message to $endpoint: status=${res.statusCode()}, conversationId=${params.requestKey}")
       resBody
     } else {
       EDeliveryMetrics.outboundFailure()
       val reason = listOfNotNull(errorDetailRegex.from(resBody)?.trim(), faultReasonRegex.from(resBody)?.trim()).joinToString(" - ")
+      log.warn("eDelivery SOAP fault from $endpoint: status=${res.statusCode()}, conversationId=${params.requestKey}, reason=${reason.takeIf { it.isNotBlank() } ?: resBody}")
       throw IOException("eDelivery request failed with status ${res.statusCode()}: " + (reason.takeIf { it.isNotBlank() } ?: resBody))
     }
   }

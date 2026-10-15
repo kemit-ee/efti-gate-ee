@@ -141,6 +141,21 @@ guard_success:
 # X-Road-Client is the credential, so its absence or malformation is 401, not 403 — same posture
 # as the platform X-Api-Key guard (DSL/Ruuter/platforms/.guard.yml).
 guard_unauthorized:
+  detach:
+    do:
+      - call: http.post
+        args:
+          url: "[#RESQL_URL]/efti/insert_audit_log"
+          headers:
+            Content-Type: "application/json"
+          body:
+            action: "xroad.auth_denied"
+            resource: "xroad"
+            ipAddress: "${incoming.headers['x-forwarded-for'] ?? null}"
+            details: "${JSON.stringify({ reason: 'missing or malformed X-Road-Client' })}"
+  next: guard_unauthorized_respond
+
+guard_unauthorized_respond:
   return:
     type: "https://api.efti.ee/errors/unauthorized"
     code: "UNAUTHORIZED"
@@ -148,10 +163,27 @@ guard_unauthorized:
     status: 401
     detail: "X-Road-Client header is missing or malformed. Expected instance/memberClass/memberCode[/subsystemCode]."
   status: 401
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
   next: end
 
 guard_missing_header:
+  detach:
+    do:
+      - call: http.post
+        args:
+          url: "[#RESQL_URL]/efti/insert_audit_log"
+          headers:
+            Content-Type: "application/json"
+          body:
+            action: "xroad.auth_denied"
+            resource: "xroad"
+            ipAddress: "${incoming.headers['x-forwarded-for'] ?? null}"
+            details: "${JSON.stringify({ reason: 'missing X-Road-Id header' })}"
+  next: guard_missing_header_respond
+
+guard_missing_header_respond:
   return:
     type: "https://api.efti.ee/errors/missing-required-header"
     code: "MISSING_REQUIRED_HEADER"
@@ -159,10 +191,27 @@ guard_missing_header:
     status: 400
     detail: "X-Road-Id header is required on every X-Road request."
   status: 400
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
   next: end
 
 guard_invalid_id:
+  detach:
+    do:
+      - call: http.post
+        args:
+          url: "[#RESQL_URL]/efti/insert_audit_log"
+          headers:
+            Content-Type: "application/json"
+          body:
+            action: "xroad.auth_denied"
+            resource: "xroad"
+            ipAddress: "${incoming.headers['x-forwarded-for'] ?? null}"
+            details: "${JSON.stringify({ reason: 'X-Road-Id is not a UUID' })}"
+  next: guard_invalid_id_respond
+
+guard_invalid_id_respond:
   return:
     type: "https://api.efti.ee/errors/invalid-request-id"
     code: "INVALID_REQUEST_ID"
@@ -170,10 +219,27 @@ guard_invalid_id:
     status: 400
     detail: "X-Road-Id must be a UUID. The gate maps it to its internal request id, which is consumed as a typed UUID on the cross-gate path."
   status: 400
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
   next: end
 
 guard_forbidden:
+  detach:
+    do:
+      - call: http.post
+        args:
+          url: "[#RESQL_URL]/efti/insert_audit_log"
+          headers:
+            Content-Type: "application/json"
+          body:
+            action: "xroad.auth_denied"
+            resource: "xroad"
+            ipAddress: "${incoming.headers['x-forwarded-for'] ?? null}"
+            details: "${JSON.stringify({ reason: 'X-Road client does not resolve to an active competent authority', xRoadClient: incoming.headers['x-road-client'] ?? null })}"
+  next: guard_forbidden_respond
+
+guard_forbidden_respond:
   return:
     type: "https://api.efti.ee/errors/forbidden"
     code: "FORBIDDEN"
@@ -181,6 +247,8 @@ guard_forbidden:
     status: 403
     detail: "The X-Road client does not resolve to an active competent authority."
   status: 403
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
   next: end
 
@@ -191,6 +259,21 @@ guard_forbidden:
 # is proposed in ADR-006's open questions. With the registry in git this is visible in review
 # rather than appearing as a race between two API calls.
 guard_ambiguous:
+  detach:
+    do:
+      - call: http.post
+        args:
+          url: "[#RESQL_URL]/efti/insert_audit_log"
+          headers:
+            Content-Type: "application/json"
+          body:
+            action: "xroad.auth_denied"
+            resource: "xroad"
+            ipAddress: "${incoming.headers['x-forwarded-for'] ?? null}"
+            details: "${JSON.stringify({ reason: 'registry code resolves to more than one active competent authority (registry misconfiguration)', xRoadClient: incoming.headers['x-road-client'] ?? null })}"
+  next: guard_ambiguous_respond
+
+guard_ambiguous_respond:
   return:
     type: "https://api.efti.ee/errors/forbidden"
     code: "FORBIDDEN"
@@ -198,4 +281,6 @@ guard_ambiguous:
     status: 403
     detail: "The X-Road client registry code resolves to more than one active competent authority. This is a registry misconfiguration; contact the gate operator."
   status: 403
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false

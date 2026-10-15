@@ -40,12 +40,53 @@ bad_request:
   status: 400
   next: end
 
+# SCALE-2: cross-node request-id dedup via the shared request_id_cache table (not in-process
+# state). A follow-up is one-shot (no poll re-use of the same X-Road-Id), so a repeat is a genuine
+# retry/replay — reject it before forwarding to core rather than risking a duplicate follow-up.
+#
+# Known source of a rare, real duplicate: see dataset.yml's forward_to_core for why Ruuter's own
+# reqwest/tower retry budget can occasionally make this call's own retry look like a duplicate of
+# itself — not a logic bug here.
+forward_to_core:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/check_and_record_request_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      requestId: "${incoming.headers['x-road-id']}"
+  result: dedup_result
+  next: check_duplicate_result
+
+# Only a successful 200 with an empty array (ON CONFLICT DO NOTHING fired, meaning a real duplicate)
+# routes to duplicate_request. Any non-200 falls through to do_forward_to_core instead of denying:
+# a best-effort idempotency aid, not an auth boundary — ReSql being unreachable must not block every
+# follow-up request.
+check_duplicate_result:
+  switch:
+    - condition: ${dedup_result.response.status == 200 && Array.isArray(dedup_result.response.body) && dedup_result.response.body.length === 0}
+      next: duplicate_request
+  next: do_forward_to_core
+
+duplicate_request:
+  return:
+    type: "https://api.efti.ee/errors/duplicate-request-id"
+    code: "DUPLICATE_REQUEST_ID"
+    title: "Duplicate Request ID"
+    status: 409
+    detail: "This X-Road-Id has already been processed. Retry with a new request id if this is a new request."
+  wrapper: false
+  status: 409
+  headers:
+    Content-Type: "application/problem+json"
+  next: end
+
 # timeout must exceed core's own 65s edelivery timeout (authority/follow-up.yml send_via_edelivery).
 #
 # NOTE: core's authority/follow-up.yml writes requestingUserId: "" into follow_up_log, so the
 # X-Road caller is not attributed. Pre-existing and equally true of the JWT path; fixing it needs
 # the audit story, where forwarding the resolved authority id would be the mechanism. See ADR-006.
-forward_to_core:
+do_forward_to_core:
   call: http.post
   timeout: 70000
   args:
