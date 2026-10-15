@@ -278,7 +278,8 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   header, `Bearer <ARCHIVE_OPS_TOKEN>` (same value as `constants.ini`). Unset/empty → the file is
   skipped at load, no job runs. `CRONMANAGER_ADMIN_TOKEN` gates `/execute|/stop|/reload` and
   `/jobs|/running`; unset → CronManager refuses to start. `compose.yml` passes both through with no
-  default; only `compose.override.yml` supplies dev values.
+  default; the dev values come from `.env` (like `INTERNAL_SERVICE_TOKEN`), which CI's
+  `docker compose -f compose.yml up` also reads — the override file does not reach CI.
 - `security.block_private_networks: false` is required (Ruuter resolves to a private address; there is
   no host allow-list). With `APP_ENV`/`ENVIRONMENT`/`DEPLOY_ENV` = production/staging/test CronManager
   refuses to boot with it — an open upstream gap, see `docs/specs/deploy/README.md`.

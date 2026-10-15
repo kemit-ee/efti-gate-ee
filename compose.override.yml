@@ -55,14 +55,10 @@ services:
     environment:
       - INTERNAL_SERVICE_TOKEN=${INTERNAL_SERVICE_TOKEN:-dev-internal-service-token-change-me}
       - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5052
-  # Dev defaults only; compose.yml alone ships no known token. OPS_AUTHORIZATION must match
-  # constants.ini's ARCHIVE_OPS_TOKEN. Loopback-only port for /jobs, /running and /execute.
+  # Loopback-only port for /jobs, /running and /execute (dev tokens come from .env).
   cronmanager:
     ports:
       - "127.0.0.1:${EFTI_CRONMANAGER_PORT:-8089}:8080"
-    environment:
-      - OPS_AUTHORIZATION=${OPS_AUTHORIZATION:-Bearer dev-archive-ops-token-change-me}
-      - CRONMANAGER_ADMIN_TOKEN=${CRONMANAGER_ADMIN_TOKEN:-dev-cronmanager-admin-token-change-me}
   ui:
     ports:
       - 8000:80
