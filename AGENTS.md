@@ -341,6 +341,9 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   in-process router, no compose). Use for anything reachable **before an upstream `call:`**:
   guard rejects, `validate_input` 400s. `mode: mock-http` can stand in for ReSql/xml-mapper.
   Run via `docker run --rm -v "$PWD:/workdir" -w /workdir turnerrainer/ruuter:0.12.1-rc dsl-test --dsl DSL/Ruuter --tests DSL-tests --constants constants.ini` (the binaries ship in the runtime image since 0.9.14-rc).
+  A scenario `request` with a `body` must also send `content-type: "application/json"` in `headers`:
+  without it the body is not parsed, every `incoming.body.*` reads `undefined`, and the scenario still
+  passes while exercising nothing.
 - `DSL-mock-tests/*.test.yml` verifies standalone mock UUID and dataset permission contracts against `DSL/Ruuter-xroad-mock` and `constants-xroad-mock.ini`. Rich synthetic dataset UIL is `EU-EE/mock/550e8400-e29b-41d4-a716-446655440002` (every FTI010 element, meaningful distinct values from an enrichment pass over the XSD walk; two items and two carried containers show repeats; field catalogue `docs/developer/fti010-field-catalogue.md`, written by `scripts/sync-mock-datasets.py`); `...0011`–`...0013` are the `MOCK-PLATE-3` shipments with meaningful values; other UILs get the minimal `MOCK-PLATE-1` response. XML is not subset-filtered.
 - **The developer mock and the live gate share one contract (1:1 means request/response shape, not data):** both answer
   `dataset` as `{uil, subsets, xml, consignment}`: the live `xroad/POST/v1/dataset.yml` adds `uil`/`subsets`
