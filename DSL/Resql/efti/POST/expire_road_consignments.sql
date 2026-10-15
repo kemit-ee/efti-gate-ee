@@ -2,7 +2,7 @@
 description: cabotage-expiry sweep (Reg 2024/1942 Art 11(4)). Picks up to 1000 current road
   consignments (transport_mode 3, latest row ACTIVE) whose carrier acceptance date is more than
   14 days ago and appends an INACTIVE copy of each as its new latest row (append-only, no UPDATE).
-  With dryRun 'true' it only counts the candidates. Idempotent: an expired dataset is no longer a
+  With dryRun 'true' it only counts the candidates. It is idempotent, as an expired dataset is no longer a
   candidate, and a concurrent run can at most append a second identical INACTIVE row.
 params:
   dryRun: { type: string, default: "false" }
