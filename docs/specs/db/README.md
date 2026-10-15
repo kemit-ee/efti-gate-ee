@@ -77,7 +77,7 @@ Foreign keys between operational tables are **not used**, because logical-id col
 
 ## Archival — handled by CronManager
 
-The live database carries every event ever written; reads only need the latest row. To keep the live DB lean, **non-latest rows are archived periodically** to separate cold storage by [**CronManager**](https://github.com/Buerostack/CronManager) — a Quartz-based scheduler service deployed alongside the gate. CronManager is configured via YAML (cron expression, target URL); it calls a gate admin endpoint on schedule (e.g. nightly), and that endpoint runs the archival sweep.
+The live database carries every event ever written; reads only need the latest row. To keep the live DB lean, **non-latest rows are archived periodically** to separate cold storage by [**CronManager**](https://github.com/turnerrainer/CronManager) — a Quartz-based scheduler service deployed alongside the gate. CronManager is configured via YAML (cron expression, target URL); it calls a gate admin endpoint on schedule (e.g. nightly), and that endpoint runs the archival sweep.
 
 The archival contract:
 
@@ -101,7 +101,7 @@ The schema declares two PostgreSQL roles with strictly disjoint capabilities:
 
 **`db_archiver` cannot DELETE from `audit_log`.** The audit ledger is preserved on the live DB for **at least 7 years** (compliance floor — GDPR Art 30, Reg 2024/1942 Art 6; see `../non-functional.md` §5); operators may extend indefinitely. Copying it to cold storage is a separate concern handled outside this archival job.
 
-**Where the credentials live.** The `db_archiver` password lives in a Kubernetes Secret consumed by the archival-worker connection pool that backs `POST /api/v1/admin/archive`. The gate's main connection pool authenticates as `app` and never sees the `db_archiver` credentials. CronManager itself never connects to PostgreSQL — it only calls the gate's HTTPS admin endpoint with a Bearer token (see [`../deploy/cronmanager-archive.yaml`](../deploy/cronmanager-archive.yaml)).
+**Where the credentials live.** The `db_archiver` password lives in a Kubernetes Secret consumed by the archival-worker connection pool that backs `POST /api/v1/admin/archive`. The gate's main connection pool authenticates as `app` and never sees the `db_archiver` credentials. CronManager itself never connects to PostgreSQL — it only calls the gate's HTTPS admin endpoint with a Bearer token (see [`DSL/CronManager/efti-ops.yaml`](../../../DSL/CronManager/efti-ops.yaml)).
 
 ## Pointers
 

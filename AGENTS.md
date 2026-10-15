@@ -6,7 +6,7 @@ Estonian national eFTI Gate (EU Regulation 2020/1056). Mediates dataset retrieva
 
 ## Architecture at a glance
 
-18 Docker Compose services (17 long-running/one-shot jobs + the `http-tests` runner). Three runtime layers:
+19 Docker Compose services (18 long-running/one-shot jobs + the `http-tests` runner). Three runtime layers:
 
 | Layer | Tech | Port | Role |
 |-------|------|------|------|
@@ -16,7 +16,9 @@ Estonian national eFTI Gate (EU Regulation 2020/1056). Mediates dataset retrieva
 
 Supporting: PostgreSQL 18 (54321), TIM (8085, identity), TARA-mock (8888, OIDC), UI (8000, Vite/Svelte),
 Prometheus (9090), Grafana (3000), Alertmanager (9093) — observability stack, see
-`docs/architecture/observability/monitoring_and_alerting.md`.
+`docs/architecture/observability/monitoring_and_alerting.md`. CronManager (`cronmanager`,
+`turnerrainer/cronmanager:0.2.3-alpha`, loopback 8089 in dev only) — scheduler for `/ops/v1/*`, see
+"CronManager" below.
 
 ## Commands
 
@@ -71,6 +73,7 @@ DSL/
                         #   See docs/developer/x_road_developer_mock.md.
   Resql/efti/POST/      # SQL endpoint files (*.sql)
   Liquibase/            # DB migrations (initial/ + changelog/)
+  CronManager/          # CronManager job set (efti-ops.yaml) — baked into the cronmanager image
 registry/               # SOURCE OF TRUTH for gates/platforms/authorities (ADR-011 §1 sources,
   gates/<id>.yml        #   §3 build-time delivery). One YAML per entity, file name = id, certs inline PEM
   platforms/<id>.yml    #   (literal blocks). Converted + validated at image build time into JSON and
@@ -261,6 +264,32 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - Handler routing: `EftiMessageHandlers` checks `receiverId == ownPartyId` to decide local vs remote processing
 - `-local` DSL endpoints override `gateId` to `OWN_GATE_ID` before calling templates (prevents infinite forwarding loop)
 
+## CronManager
+
+- `turnerrainer/cronmanager:0.2.3-alpha` (`docker/cronmanager/Dockerfile`): the job set
+  `DSL/CronManager/efti-ops.yaml` and `docker/cronmanager/cronmanager.yaml` are `COPY`-ed in, so a job
+  change needs `docker compose up --build cronmanager`. Group `efti-ops`; five `POST` jobs to
+  `http://ruuter:8086/ops/v1/{archive-consignments,purge-archive,purge-async-responses,purge-search-results,refresh-read-models}`.
+- The job schema is `deny_unknown_fields`: there is **no** `body`, `timeout`, `retry: {...}` or `${ENV}`
+  substitution in `url` (the old Buerostack-style YAML had all four and would not load). Retries are
+  `retryCount`/`retryDelay` (ms); the outbound timeout is `limits.request_timeout_secs` (120). Every
+  job POSTs an empty body, so the routes' body defaults apply.
+- Credentials: `headerEnvs: {Authorization: OPS_AUTHORIZATION}` — the env var holds the **whole**
+  header, `Bearer <ARCHIVE_OPS_TOKEN>` (same value as `constants.ini`). Unset/empty → the file is
+  skipped at load, no job runs. `CRONMANAGER_ADMIN_TOKEN` gates `/execute|/stop|/reload` and
+  `/jobs|/running`; unset → CronManager refuses to start. `compose.yml` passes both through with no
+  default; the dev values come from `.env` (like `INTERNAL_SERVICE_TOKEN`), which CI's
+  `docker compose -f compose.yml up` also reads — the override file does not reach CI.
+- `security.block_private_networks: false` is required (Ruuter resolves to a private address; there is
+  no host allow-list). With `APP_ENV`/`ENVIRONMENT`/`DEPLOY_ENV` = production/staging/test CronManager
+  refuses to boot with it — an open upstream gap, see `docs/specs/deploy/README.md`.
+- No `database:` block — the gate's `jobs_execution_log` is the run record. Fire a job by hand:
+  `curl -X POST -H "Authorization: Bearer $CRONMANAGER_ADMIN_TOKEN" http://127.0.0.1:8089/execute/efti-ops/<job>`.
+- The cabotage-expiry job is parked in `docs/specs/deploy/cronmanager-expire.pending.yaml` (not
+  loaded): its route does not exist.
+- ReSql returns column aliases camel-cased (`purged_count` → `purgedCount`); a DSL reading
+  `body[0].purged_count` gets `null`.
+
 ## Dev seed data (context:dev)
 
 - Users: Super Admin (60001019906) — still a Liquibase `context:dev` changeset (ADR-011 §9 keeps users on the API).
@@ -368,9 +397,10 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
     while per-module coverage baselines are still being raised (see
     `docker/ui/Dockerfile`, which only runs `npm run build`, never tests).
 - `.gitlab-ci.yml` — kemitaws platform pipeline (mirror): `secret_detection` + `validate:dsl`
-  (same `dsl-lint --audit` / `dsl-test` / `validate-dsl.py` as above) + sonar → nine
+  (same `dsl-lint --audit` / `dsl-test` / `validate-dsl.py` as above) + sonar → ten
   `image-build`s (ruuter, ruuter-xroad-mock, resql, liquibase, tim, ui, edelivery, xml-mapper,
-  registry) → SBOM/trivy → `package:charts` trigger into the `efti` devops repo →
+  registry, cronmanager — the last build-only until its devops chart exists, so it is not in
+  `components:`) → SBOM/trivy → `package:charts` trigger into the `efti` devops repo →
   `release-pin` into `environments/dev/release.yaml`. Runs on the default branch and `release/*`.
   Header comment lists the CI/CD variables and the values still to confirm against the devops repo.
   **`registry` needs a matching wrapper chart component in `services/efti/devops`** — the

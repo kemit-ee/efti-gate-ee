@@ -40,12 +40,12 @@ log_completed:
       jobName: "purge-search-results"
       status: "COMPLETED"
       details:
-        purged: ${purge_result.response.body[0].purged_count}
+        purged: ${purge_result.response.body[0].purgedCount}
   result: log_result
 
 respond_completed:
   return:
-    purged: ${purge_result.response.body[0].purged_count}
+    purged: ${purge_result.response.body[0].purgedCount}
   headers:
     content-type: "application/json"
   wrapper: false

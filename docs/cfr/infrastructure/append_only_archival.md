@@ -27,8 +27,8 @@
 | | `FORBIDDEN` (ops-token mismatch) |
 | | Full catalog: [`errors.json`](../../specs/errors.json) |
 | **Retention contract** | 7-year minimum in archive; archival destination shape (S3 / cold Postgres / append-only FS); per-row JSON-Lines layout; environment parity: [`non-functional.md`](../../specs/non-functional.md) §3, §5 |
-| **CronManager** | [Buerostack/CronManager](https://github.com/Buerostack/CronManager) — external Quartz-based scheduler |
-| **CronManager YAML** | [`cronmanager-archive.yaml`](../../specs/deploy/cronmanager-archive.yaml) (default schedule `0 0 3 * * ?` — 03:00 daily) |
+| **CronManager** | [turnerrainer/CronManager](https://github.com/turnerrainer/CronManager) — external Quartz-based scheduler |
+| **CronManager YAML** | [`efti-ops.yaml`](../../../DSL/CronManager/efti-ops.yaml) (job `efti_gate_archive_sweep`, `0 */10 2-5 * * ?` — one batch every 10 minutes 02:00–05:59) |
 | **Access-check rules** | `opsToken` security scheme — static Bearer `ARCHIVE_OPS_TOKEN` compared literally against env var; no JWT, no DB lookup: [`permissions-matrix.md`](../../specs/permissions-matrix.md) §1.1 |
 | **Related diagrams** | [`seq-08-identifier-expiration.mmd`](../../specs/diagrams/seq-08-identifier-expiration.mmd) (sister CronManager-driven job) |
 | **Architecture** | [../../architecture/infrastructure/README.md](../../architecture/infrastructure/README.md) (theme rules) + [../../architecture/infrastructure/append_only_archival.md](../../architecture/infrastructure/append_only_archival.md) (sub-architecture) |
@@ -39,7 +39,7 @@
 
 **Business rules:**
 - [ ] Recurring archival is driven by CronManager calling `POST /api/v1/admin/archive` on its configured schedule. The gate process never schedules its own jobs.
-- [ ] Canonical YAML lives at [`cronmanager-archive.yaml`](../../specs/deploy/cronmanager-archive.yaml); the operator deploys CronManager alongside the gate (sibling Pod / container) with its own PostgreSQL for Quartz state.
+- [ ] Canonical YAML lives at [`efti-ops.yaml`](../../../DSL/CronManager/efti-ops.yaml); the operator deploys CronManager alongside the gate (sibling Pod / container; compose service `cronmanager`).
 - [ ] Default schedule: daily at 03:00 local time. Operator-overridable via the YAML.
 - [ ] Auth: static Bearer `ARCHIVE_OPS_TOKEN` sourced from a runtime secret (never in YAML plaintext). Token-mismatch → `403 FORBIDDEN`.
 - [ ] CronManager retries with exponential backoff on transport failure (CronManager-native behaviour).

@@ -1,0 +1,77 @@
+declaration:
+  description: "AS4 hand-off retention — CronManager calls this on a short timer (Bearer
+    ARCHIVE_OPS_TOKEN). Permanently deletes eDelivery hand-off rows (async_responses) older than
+    keepMinutes; they are useless once the waiting authority call has ended. Body (optional):
+    {keepMinutes: number}."
+  allowlist:
+    body:
+      - field: keepMinutes
+        type: number
+        required: false
+        description: "Retention window in minutes; hand-off rows older than this are permanently deleted. Defaults to 10 when omitted."
+  internal: false
+  returns:
+    - field: purged
+      type: integer
+
+purge:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/delete_expired_async_responses"
+    headers:
+      Content-Type: "application/json"
+    body:
+      keepMinutes: ${incoming.body.keepMinutes}
+  result: purge_result
+
+check_purge:
+  switch:
+    - condition: ${purge_result.response.status >= 400}
+      next: purge_failed
+  next: log_completed
+
+log_completed:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_job_execution_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      jobName: "purge-async-responses"
+      status: "COMPLETED"
+      details:
+        purged: ${purge_result.response.body[0].purgedCount}
+  result: log_result
+
+respond_completed:
+  return:
+    purged: ${purge_result.response.body[0].purgedCount}
+  headers:
+    content-type: "application/json"
+  wrapper: false
+  next: end
+
+purge_failed:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_job_execution_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      jobName: "purge-async-responses"
+      status: "FAILED"
+      details:
+        reason: "the purge ReSql step returned an error"
+  result: purge_failed_log
+  next: purge_failed_respond
+
+purge_failed_respond:
+  return:
+    type: "https://api.efti.ee/errors/bad-gateway"
+    code: "ASYNC_RESPONSES_PURGE_FAILED"
+    title: "AS4 hand-off purge failed"
+    status: 502
+    detail: "The async_responses purge step returned an error. See jobs_execution_log."
+  status: 502
+  wrapper: false
+  next: end

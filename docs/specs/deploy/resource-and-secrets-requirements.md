@@ -26,6 +26,7 @@ tootmises soovita alustada "Soovituslik prod" veerust ja mõõta reaalse koormus
 | `ruuter-xroad-mock` (avalik X-Roadi arendaja-mokk, `/developer/**`) | VALIKULINE | 0.25 | 128 MiB | 0.25 vCPU / 128 MiB | Standalone, andmebaasita — vt `docs/developer/x_road_developer_mock.md`. Jäta välja, kui väliseid platvormiarendajaid ei teenindata. |
 | `tim-init` (ühekordne ettevalmistus) | JAH, ühekordne | — | — | 0.1 vCPU / 64 MiB | Init-container enne `tim`-i: CA-bundle ja (dev-is) JWT võtme genereerimine — vt §3.3 |
 | `registry` (nginx, staatiline register) | JAH | — | — | 0.1 vCPU / 64 MiB | Image sisaldab registrit (ADR-011), avaldatud pordita — vt §3.4 |
+| `cronmanager` (turnerrainer/CronManager 0.2.3-alpha, `/ops/v1/*` ajastaja) | JAH | 0.25 | 64 MiB | 0.1 vCPU / 64 MiB | Jobid image'i sees (`DSL/CronManager/efti-ops.yaml`), avaldatud pordita, oma andmebaasita — vt §3.2 ja `docs/specs/deploy/README.md` (CronManager). Chart: devops `charts/cronmanager` ([!3](https://gitlab.kemitaws.ee/services/efti/devops/-/merge_requests/3)), 1 replika (teine käivitaks iga jobi kaks korda) |
 | `tim` (Token & Identity Manager 0.4.1-alpha, distroless) | JAH | — | — | 0.5 vCPU / 256 MiB | Oma PostgreSQL DB (vt §3) |
 | `tim-database` (PostgreSQL 18, `tim` DB) | JAH | — | — | 0.5 vCPU / 512 MiB | Stateful, eraldi instants(dev)/eraldi skeem-või-instants (prod, vali) |
 | `ui` (nginx + Vite/Svelte build) | JAH | — | — | 0.25 vCPU / 128 MiB | Staatiline sisu, väga kerge |
@@ -88,7 +89,7 @@ samas paigalduses, muidu katkeb ühendus:
 | `efti_archive` DB parool | `archive-database` `POSTGRES_PASSWORD` = `RESQL_ARCHIVE_PASSWORD` |
 | `TIM_ADMIN_TOKEN` | `tim` env = Ruuteri `constants.ini` |
 | `INTERNAL_SERVICE_TOKEN` | Ruuteri `constants.ini` = `edelivery` env = `xml-mapper` env |
-| `ARCHIVE_OPS_TOKEN` | Ruuteri `constants.ini` = CronManageri `BEARER_OPS_TOKEN` |
+| `ARCHIVE_OPS_TOKEN` | Ruuteri `constants.ini` = CronManageri `OPS_AUTHORIZATION` (kujul `Bearer <ARCHIVE_OPS_TOKEN>`) |
 | AS4 sert | `own.p12` (§3.5) = `registry/gates/<OWN_GATE_ID>.yml` `eDeliveryCert` = partnerite registrid |
 
 **Rotatsioon.** Üldreegel: genereeri uus väärtus → kirjuta SSM-i → lase ExternalSecretil Secret
@@ -127,7 +128,9 @@ image-registri (Harbor) `registry/images` repositooriumi kohta.
 | Saladus | Tarbija | Otstarve | Dev väärtus | Märkus |
 |---|---|---|---|---|
 | `INTERNAL_SERVICE_TOKEN` | Ruuter (`constants.ini`, `[#INTERNAL_SERVICE_TOKEN]`); saadetakse `X-Internal-Service-Token` päisena | Jagatud saladus gate-sisesteks kõnedeks (X-Roadi adapter → `efti/api/v1/authority/**`, edaspidi ka G2G sissetulev). **Selle valdaja saab ADMIN-taseme ligipääsu kõigile authority-marsruutidele.** | `dev-internal-service-token-change-me` | **`constants.ini` ei ole image'is** — compose paigaldab selle käivitusel (`./constants.ini:/app/constants.ini:ro`). `${ENV}`-asendust Ruuteris ei ole, seega tootmises on **kogu `constants.ini` üks Secret-fail** (vt allpool), mitte üksikud env muutujad. Ainus kaitse peale tokeni on,, et `/xroad/**` ja `/efti/api/v1/authority/**` pole avalikult ligipääsetavad — vt §5 |
-| `ARCHIVE_OPS_TOKEN` | Ruuter (`constants.ini`, `[#ARCHIVE_OPS_TOKEN]`), `DSL/Ruuter/ops/.guard.yml`; välise CronManager'i saadetav `Authorization: Bearer`-päring | Ainus autentimine `POST /ops/v1/archive-consignments` ja `POST /ops/v1/purge-archive` peale — literal compare, mitte JWT. **Selle valdaja saab käivitada saadetiste külmladustamise/purge'imise mistahes ajal.** Vt `docs/architecture/infrastructure/append_only_archival.md` | `dev-archive-ops-token-change-me` | Elab samas Secret-failis `constants.ini` (vt allpool); muutmine = Secreti uuendus + ruuteri taaskäivitus. `DSL/Ruuter/ops/` **ei ole nginx'i kaudu proksitud** (vt §6) — ainus kaitse on, et CronManager pöördub otse konteinerivõrgus, mitte ingressi kaudu |
+| `ARCHIVE_OPS_TOKEN` | Ruuter (`constants.ini`, `[#ARCHIVE_OPS_TOKEN]`), `DSL/Ruuter/ops/.guard.yml`; välise CronManager'i saadetav `Authorization: Bearer`-päring | Ainus autentimine kõigi `POST /ops/v1/*` marsruutide peale (`archive-consignments`, `purge-archive`, `purge-async-responses`, `purge-search-results`, `refresh-read-models`) — literal compare, mitte JWT. **Selle valdaja saab käivitada saadetiste külmladustamise/purge'imise mistahes ajal.** Vt `docs/architecture/infrastructure/append_only_archival.md` | `dev-archive-ops-token-change-me` | Elab samas Secret-failis `constants.ini` (vt allpool); muutmine = Secreti uuendus + ruuteri taaskäivitus. CronManageri pool on sama väärtus env-muutujas `OPS_AUTHORIZATION` **koos `Bearer `-eesliitega** (CronManageri `headerEnvs` paneb kogu muutuja väärtuse päiseks); vahetamisel uuenda mõlemad ja taaskäivita ka `cronmanager` — kui muutuja puudub või on tühi, ei laadi CronManager ühtki jobi. `DSL/Ruuter/ops/` **ei ole nginx'i kaudu proksitud** (vt §6) — ainus kaitse on, et CronManager pöördub otse konteinerivõrgus, mitte ingressi kaudu |
+
+| `CRONMANAGER_ADMIN_TOKEN` | `cronmanager` env | CronManageri enda admin-värav: `POST /execute|/stop|/reload` (jobi käsitsi käivitamine) ja `GET /jobs|/running` (`expose_*_publicly: false`). Ilma selleta CronManager 0.0.0.0 peal ei käivitu | `dev-cronmanager-admin-token-change-me` (`.env`) | `APP_ENV=production|staging|test` korral nõuab CronManager ≥ 32 märki ja keelab nõrgad mustrid (`dev-`, `change-me` jms). Port pole avaldatud — käsitsi käivitamiseks `kubectl port-forward`. SSM: `/efti/<env>/cronmanager/admin-token`; `OPS_AUTHORIZATION` koostatakse `cronmanager-secret`-is `/efti/<env>/ops/archive-token`-ist (peab võrduma `constants.ini` `ARCHIVE_OPS_TOKEN`-iga) |
 
 **Ruuteri `constants.ini` tootmises.** Fail sisaldab nii mitte-saladusi (URL-id, `OWN_GATE_ID`,
 `DEV_LOGIN_ENABLED`) kui ka kolme saladust (`TIM_ADMIN_TOKEN`, `INTERNAL_SERVICE_TOKEN`,
@@ -348,7 +351,7 @@ neid avalikult eksponeerida; ainult X-Road Turvaserver tohib `/xroad/**`-ni jõu
 8086, aga pole `docker/ui/nginx.conf` kaudu proksitud (vt "Nginx proxy" `AGENTS.md`-is) — see pole
 ise kaitse, ingress/reverse-proxy peab `/ops/**` eraldi blokeerima, ligipääs ainult
 CronManager'ilt konteinerivõrgu siseselt. Vt `docs/architecture/infrastructure/append_only_archival.md`
-ja `docs/specs/deploy/cronmanager-archive.yaml`.
+ja `DSL/CronManager/efti-ops.yaml`.
 
 ---
 

@@ -1362,7 +1362,7 @@ paths:
       description: |
         Moves all non-latest rows of every archivable operational table to archival
         storage. Called by CronManager on schedule (default cron `0 0 3 * * ?`);
-        see `docs/specs/deploy/cronmanager-archive.yaml`.
+        see `DSL/CronManager/efti-ops.yaml`.
 
         **Auth**: `opsToken` only — `Authorization: Bearer <ARCHIVE_OPS_TOKEN>`. The
         gate compares the token literal against the env var; no DB lookup, no JWT

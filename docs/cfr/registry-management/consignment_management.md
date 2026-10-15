@@ -31,7 +31,7 @@
 | | `CONSIGNMENT_NOT_FOUND` |
 | | `ARCHIVE_IN_PROGRESS` (concurrency-guard 409) |
 | | Full catalog: [`errors.json`](../../specs/errors.json) |
-| **CronManager YAML** | [`cronmanager-expire.yaml`](../../specs/deploy/cronmanager-expire.yaml) (default `0 45 3 * * ?` — 03:45 daily) |
+| **CronManager YAML** | [`cronmanager-expire.pending.yaml`](../../specs/deploy/cronmanager-expire.pending.yaml) (not loaded — route pending) (default `0 45 3 * * ?` — 03:45 daily) |
 | **Architecture** | [../../architecture/registry-management/README.md](../../architecture/registry-management/README.md) (theme rules) + [../../architecture/registry-management/consignment_management.md](../../architecture/registry-management/consignment_management.md) (sub-architecture) |
 | | [RA §3 Data Lifecycle](../../architecture/eFTI-Gate-Reference-Architecture.md#3-data-lifecycle--ownership) |
 | | [RA §6.2 Data Processing Matrix](../../architecture/eFTI-Gate-Reference-Architecture.md#62-data-processing-matrix) |

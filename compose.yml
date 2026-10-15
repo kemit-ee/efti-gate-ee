@@ -149,6 +149,26 @@ services:
       retries: 20
       start_period: 10s
 
+  # Scheduler for the gate's /ops/v1/* jobs (archive sweep, purges, read-model refresh). Job set:
+  # DSL/CronManager/efti-ops.yaml, baked into the image (docker/cronmanager/Dockerfile) — a job
+  # change needs `docker compose up --build cronmanager`. Internal only, like resql/registry: no
+  # published port. OPS_AUTHORIZATION is the whole header value, `Bearer <ARCHIVE_OPS_TOKEN>`;
+  # without it (or without CRONMANAGER_ADMIN_TOKEN) CronManager loads no job / does not start.
+  cronmanager:
+    container_name: efti_cronmanager
+    build:
+      context: .
+      dockerfile: docker/cronmanager/Dockerfile
+    environment:
+      - OPS_AUTHORIZATION
+      - CRONMANAGER_ADMIN_TOKEN
+      - RUST_LOG=info
+    depends_on:
+      ruuter:
+        condition: service_healthy
+    cpus: '0.25'
+    mem_limit: 64M
+
   ui:
     build:
       context: .
