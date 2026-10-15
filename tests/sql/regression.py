@@ -384,6 +384,33 @@ class Queries(unittest.TestCase):
         self.assertEqual("1", out)
         self.assertEqual("fresh", sql("SELECT search_id FROM search_results;").strip())
 
+    def road(self, dataset, mode="3", accepted="20 days", status="ACTIVE", stamp="now() - interval '30 days'"):
+        sql(f"INSERT INTO consignments (dataset_id,platform_id,gate_id,xml,status,transport_mode,acceptance_date,main_transport_id,created_at) "
+            f"VALUES ('{dataset}','mock','EU-EE','<x/>','{status}','{mode}',now() - interval '{accepted}','{dataset}',{stamp});")
+
+    def latest_statuses(self):
+        return dict(row.split("|") for row in sql(
+            "SELECT DISTINCT ON (dataset_id) dataset_id, status FROM consignments "
+            "ORDER BY dataset_id, created_at DESC, revision DESC;").split())
+
+    def test_cabotage_expiry_appends_inactive_for_expired_road_only(self):
+        expired, fresh, rail, deleted, superseded = (f"30000000-0000-0000-0000-00000000000{i}" for i in range(1, 6))
+        self.road(expired)
+        self.road(fresh, accepted="13 days")
+        self.road(rail, mode="2")
+        self.road(deleted)
+        self.road(deleted, status="DELETED", stamp="now() - interval '1 day'")
+        self.road(superseded, accepted="20 days")
+        self.road(superseded, accepted="1 day", stamp="now() - interval '1 day'")
+        before = int(sql("SELECT count(*) FROM consignments;"))
+        self.assertEqual([{"candidate_count": 1, "expired_count": 0}], call("expire_road_consignments", dryRun="true"))
+        self.assertEqual(before, int(sql("SELECT count(*) FROM consignments;")))
+        self.assertEqual([{"candidate_count": 1, "expired_count": 1}], call("expire_road_consignments"))
+        self.assertEqual(before + 1, int(sql("SELECT count(*) FROM consignments;")))
+        self.assertEqual({expired: "INACTIVE", fresh: "ACTIVE", rail: "ACTIVE", deleted: "DELETED", superseded: "ACTIVE"}, self.latest_statuses())
+        self.assertEqual("<x/>|" + expired, sql(f"SELECT xml || '|' || main_transport_id FROM consignments WHERE dataset_id = '{expired}' AND status = 'INACTIVE';").strip())
+        self.assertEqual([{"candidate_count": 0, "expired_count": 0}], call("expire_road_consignments"))
+
 
 class MigrationPrototype(unittest.TestCase):
     def setUp(self):
@@ -482,6 +509,7 @@ def main():
             sql((ROOT / "DSL/Liquibase/changelog/20261007-read-model-consignment-summary.sql").read_text())
             sql((ROOT / "DSL/Liquibase/changelog/20261008-registry-sync.sql").read_text())
             sql((ROOT / "DSL/Liquibase/changelog/20261009-drop-registry-tables.sql").read_text())
+            sql((ROOT / "DSL/Liquibase/changelog/20261015-consignments-road-expiry-index.sql").read_text())
         suite = unittest.defaultTestLoader.loadTestsFromTestCase(Queries)
         if prototype or migration.exists():
             suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(MigrationPrototype))

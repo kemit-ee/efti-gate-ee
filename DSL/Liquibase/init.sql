@@ -563,3 +563,6 @@ GRANT SELECT, DELETE ON search_results TO db_archiver;
 -- exists so the gap above is legible: the tables were created by install and then dropped by this
 -- changeset. protect_registry_append() is users-only (definition above), while read_model_pointer,
 -- read_model_generation_seq and the pgcrypto extension are kept.
+
+-- Source: DSL/Liquibase/changelog/20261015-consignments-road-expiry-index.sql
+CREATE INDEX idx_consignments_road_expiry ON consignments (acceptance_date) WHERE transport_mode = '3' AND status = 'ACTIVE';

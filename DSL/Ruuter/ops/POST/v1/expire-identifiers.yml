@@ -1,0 +1,91 @@
+declaration:
+  description: "Cabotage-expiry sweep (Reg 2024/1942 Art 11(4)) — CronManager calls this on a timer
+    (Bearer ARCHIVE_OPS_TOKEN). Every current road consignment (transport mode 3, latest row ACTIVE)
+    whose carrier acceptance date is more than 14 days ago gets an INACTIVE copy appended as its new
+    latest row; nothing is updated or deleted. At most 1000 per call - `more: true` means re-invoke.
+    Body (optional): {dryRun: boolean} - true only counts the candidates and writes nothing."
+  allowlist:
+    body:
+      - field: dryRun
+        type: boolean
+        required: false
+        description: "When true, count the expirable consignments without appending INACTIVE rows or a jobs_execution_log row. Defaults to false."
+  internal: false
+  returns:
+    - field: candidates
+      type: integer
+    - field: expired
+      type: integer
+    - field: dryRun
+      type: boolean
+    - field: more
+      type: boolean
+
+expire:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/expire_road_consignments"
+    headers:
+      Content-Type: "application/json"
+    body:
+      dryRun: ${String(incoming.body.dryRun === true)}
+  result: expire_result
+
+check_expire:
+  switch:
+    - condition: ${expire_result.response.status >= 400}
+      next: expire_failed
+    - condition: ${incoming.body.dryRun === true}
+      next: respond_completed
+  next: log_completed
+
+log_completed:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_job_execution_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      jobName: "expire-identifiers"
+      status: "COMPLETED"
+      details:
+        candidates: ${expire_result.response.body[0].candidateCount}
+        expired: ${expire_result.response.body[0].expiredCount}
+        reason: "cabotage_14d"
+  result: log_result
+
+respond_completed:
+  return:
+    candidates: ${expire_result.response.body[0].candidateCount}
+    expired: ${expire_result.response.body[0].expiredCount}
+    dryRun: ${incoming.body.dryRun === true}
+    more: ${expire_result.response.body[0].candidateCount >= 1000}
+  headers:
+    content-type: "application/json"
+  wrapper: false
+  next: end
+
+expire_failed:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_job_execution_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      jobName: "expire-identifiers"
+      status: "FAILED"
+      details:
+        reason: "the expire ReSql step returned an error"
+  result: expire_failed_log
+  next: expire_failed_respond
+
+expire_failed_respond:
+  return:
+    type: "https://api.efti.ee/errors/bad-gateway"
+    code: "IDENTIFIER_EXPIRY_FAILED"
+    title: "Cabotage-expiry sweep failed"
+    status: 502
+    detail: "The consignments expiry step returned an error. See jobs_execution_log."
+  status: 502
+  wrapper: false
+  next: end

@@ -231,7 +231,7 @@ latest-row resolution per `dataset_id` (canonical read pattern in `db/README.md`
 | `destination_country` | `placeOfDelivery/locationCountrySubDivisionCode` (first 2 chars) OR `placeOfDelivery/locationCountryCode` | Same normalisation. |
 | `transport_date` | `carrierAcceptanceDateTime` parsed via formatId table above; truncated to date | The carrier-acceptance date anchors the cabotage clock per Reg 2024/1942 Art 11(4) (the 14-day road-cabotage retention window starts at carrier acceptance, not at delivery). Used by the `dateFrom`/`dateTo` filters on `GET /v1/identifiers/{identifier}` and by the cabotage-expiry sweep. |
 | `delivered_at` | `deliveryEvent/actualOccurrenceDateTime` parsed via formatId table above | The delivery completion timestamp. Independent of the cabotage clock; carried for audit and reporting only. NULL while the consignment is in transit. |
-| `expires_at` | NULL except for `mode = 'road'` — set to `transport_date + 14 days` per Reg 2024/1942 Art 11(4) cabotage retention | Drives the CronManager-driven expiry sweep (`POST /api/v1/admin/expire-identifiers`) to flip `status` from `active` to `inactive`. |
+| `expires_at` | **Not stored.** Derived at sweep time as `acceptance_date + 14 days` for road rows (`transport_mode = '3'`) per Reg 2024/1942 Art 11(4) cabotage retention; partial index `idx_consignments_road_expiry` | The CronManager-driven expiry sweep (`POST /ops/v1/expire-identifiers`, ReSql `expire_road_consignments`) appends an `INACTIVE` copy of every current `ACTIVE` road row past it. |
 
 These columns are partial-indexed (`WHERE NOT NULL`) and the plate column
 additionally has a `pg_trgm` GIN index for fuzzy lookups. Authority queries

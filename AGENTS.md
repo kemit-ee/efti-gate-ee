@@ -268,8 +268,8 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 
 - `turnerrainer/cronmanager:0.2.3-alpha` (`docker/cronmanager/Dockerfile`): the job set
   `DSL/CronManager/efti-ops.yaml` and `docker/cronmanager/cronmanager.yaml` are `COPY`-ed in, so a job
-  change needs `docker compose up --build cronmanager`. Group `efti-ops`; five `POST` jobs to
-  `http://ruuter:8086/ops/v1/{archive-consignments,purge-archive,purge-async-responses,purge-search-results,refresh-read-models}`.
+  change needs `docker compose up --build cronmanager`. Group `efti-ops`; six `POST` jobs to
+  `http://ruuter:8086/ops/v1/{archive-consignments,purge-archive,purge-async-responses,purge-search-results,refresh-read-models,expire-identifiers}`.
 - The job schema is `deny_unknown_fields`: there is **no** `body`, `timeout`, `retry: {...}` or `${ENV}`
   substitution in `url` (the old Buerostack-style YAML had all four and would not load). Retries are
   `retryCount`/`retryDelay` (ms); the outbound timeout is `limits.request_timeout_secs` (120). Every
@@ -285,8 +285,12 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   refuses to boot with it — an open upstream gap, see `docs/specs/deploy/README.md`.
 - No `database:` block — the gate's `jobs_execution_log` is the run record. Fire a job by hand:
   `curl -X POST -H "Authorization: Bearer $CRONMANAGER_ADMIN_TOKEN" http://127.0.0.1:8089/execute/efti-ops/<job>`.
-- The cabotage-expiry job is parked in `docs/specs/deploy/cronmanager-expire.pending.yaml` (not
-  loaded): its route does not exist.
+- Cabotage expiry (Reg 2024/1942 Art 11(4)), hourly at :45: `POST /ops/v1/expire-identifiers` →
+  `efti/expire_road_consignments.sql`, one statement that appends an `INACTIVE` copy of every current
+  `ACTIVE` road row (`transport_mode = '3'`) whose `acceptance_date` is more than 14 days ago — at most
+  1000 per call (`more: true` = full batch). There is no `expires_at` column; the window is computed
+  (partial index `idx_consignments_road_expiry`). Optional body `{dryRun: true}` only counts and logs
+  nothing; otherwise `jobs_execution_log` gets `COMPLETED`/`FAILED`, and a ReSql error is a 502.
 - ReSql returns column aliases camel-cased (`purged_count` → `purgedCount`); a DSL reading
   `body[0].purged_count` gets `null`.
 

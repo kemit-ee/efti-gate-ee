@@ -18,7 +18,7 @@
 |---|---|
 | **API operations** | `GET /api/v1/consignments` |
 | | `DELETE /api/v1/consignments/{datasetId}` (Super Admin only) |
-| | `POST /api/v1/admin/expire-identifiers` (CronManager-triggered) |
+| | `POST /ops/v1/expire-identifiers` (CronManager-triggered) |
 | | Full request / response / error shapes: [`openapi.yaml`](../../specs/openapi.yaml) |
 | **Schema** | `consignments` (append-only; latest row by `created_at` wins per `dataset_id`) |
 | | `consignment_status` enum: `active`, `inactive`, `deleted` |
@@ -31,7 +31,7 @@
 | | `CONSIGNMENT_NOT_FOUND` |
 | | `ARCHIVE_IN_PROGRESS` (concurrency-guard 409) |
 | | Full catalog: [`errors.json`](../../specs/errors.json) |
-| **CronManager YAML** | [`cronmanager-expire.pending.yaml`](../../specs/deploy/cronmanager-expire.pending.yaml) (not loaded — route pending) (default `0 45 3 * * ?` — 03:45 daily) |
+| **CronManager YAML** | `efti_gate_expire_identifiers` in [`DSL/CronManager/efti-ops.yaml`](../../../DSL/CronManager/efti-ops.yaml) (`0 45 * * * ?` — hourly at :45, at most 1000 per run) |
 | **Architecture** | [../../architecture/registry-management/README.md](../../architecture/registry-management/README.md) (theme rules) + [../../architecture/registry-management/consignment_management.md](../../architecture/registry-management/consignment_management.md) (sub-architecture) |
 | | [RA §3 Data Lifecycle](../../architecture/eFTI-Gate-Reference-Architecture.md#3-data-lifecycle--ownership) |
 | | [RA §6.2 Data Processing Matrix](../../architecture/eFTI-Gate-Reference-Architecture.md#62-data-processing-matrix) |
@@ -61,7 +61,7 @@
 ### Retention and expiry (Reg 2024/1942)
 
 **Business rules:**
-- [ ] **Cabotage retention.** `mode='road'` consignments transition `active → inactive` 14 days after `transport_date`, per Reg 2024/1942 Art 11(4). Triggered by CronManager calling `POST /api/v1/admin/expire-identifiers`.
+- [ ] **Cabotage retention.** `mode='road'` consignments transition `active → inactive` 14 days after `transport_date`, per Reg 2024/1942 Art 11(4). Triggered by CronManager calling `POST /ops/v1/expire-identifiers`.
 - [ ] Other transport modes: deactivated immediately after `delivered_at` (operator may choose to mark inactive at platform-DELETE time instead).
 - [ ] **Audit log retention.** `audit_log` is preserved on the live DB **indefinitely** (≥ 7-year regulatory floor). It is **never archived**.
 - [ ] **Non-latest consignments rows are archived nightly** by CronManager via `POST /api/v1/admin/archive` (Epic 26). After each sweep the live DB carries only the latest row per `dataset_id`.
@@ -69,7 +69,7 @@
 
 **Idempotency / safety:**
 - [ ] `transport_date` not set or in the future → identifier remains `active`; the expiry sweep skips it.
-- [ ] The expire-identifiers endpoint, like every CronManager-triggered admin endpoint, holds a cluster-wide mutex at handler entry; a concurrent invocation returns `409 ARCHIVE_IN_PROGRESS`.
-- [ ] Each expiry sweep emits `event.action: "identifier.expire"` with `efti.expired_count` (per [`logging-spec.md`](../../specs/logging-spec.md) §5).
+- [ ] The expire-identifiers endpoint holds no mutex: it is one SQL statement, and two overlapping runs can at most append a second, identical `INACTIVE` row for a dataset, which no latest-row read can tell apart.
+- [ ] Each expiry sweep (other than a `dryRun`) appends a `jobs_execution_log` row (`job_name = 'expire-identifiers'`, details `{candidates, expired, reason: "cabotage_14d"}`).
 
 <!-- issue-body:end -->

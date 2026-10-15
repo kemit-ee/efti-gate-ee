@@ -1,0 +1,106 @@
+# POST /ops/v1/expire-identifiers — CronManager's cabotage-expiry sweep (Reg 2024/1942 Art 11(4)).
+# The ops guard is a literal Bearer compare; a ReSql error must be a 502, never a 200 with a bogus
+# count; a dry run reports the candidates and writes no jobs_execution_log row.
+mode: mock-http
+constants:
+  RESQL_URL: "{MOCK}"
+  ARCHIVE_OPS_TOKEN: "test-ops-token"
+
+tests:
+  - name: no ops token -> 401
+    request:
+      method: POST
+      path: /ops/v1/expire-identifiers
+      body: {}
+    expect:
+      status: 401
+      body_matches: { code: "UNAUTHORIZED" }
+
+  - name: wrong ops token -> 401
+    request:
+      method: POST
+      path: /ops/v1/expire-identifiers
+      headers: { authorization: "Bearer wrong" }
+      body: {}
+    expect:
+      status: 401
+      body_matches: { code: "UNAUTHORIZED" }
+
+  - name: dryRun of the wrong type -> 400
+    request:
+      method: POST
+      path: /ops/v1/expire-identifiers
+      headers: { authorization: "Bearer test-ops-token", content-type: "application/json" }
+      body: { dryRun: "yes" }
+    expect:
+      status: 400
+
+  - name: valid token expires the candidates
+    setup:
+      mocks:
+        - url_matches: /efti/expire_road_consignments
+          method: POST
+          body: [{ candidateCount: 3, expiredCount: 3 }]
+        - url_matches: /efti/insert_job_execution_log
+          method: POST
+          body: []
+    request:
+      method: POST
+      path: /ops/v1/expire-identifiers
+      headers: { authorization: "Bearer test-ops-token", content-type: "application/json" }
+      body: {}
+    expect:
+      status: 200
+      body: { candidates: 3, expired: 3, dryRun: false, more: false }
+
+  - name: a full batch reports more
+    setup:
+      mocks:
+        - url_matches: /efti/expire_road_consignments
+          method: POST
+          body: [{ candidateCount: 1000, expiredCount: 1000 }]
+        - url_matches: /efti/insert_job_execution_log
+          method: POST
+          body: []
+    request:
+      method: POST
+      path: /ops/v1/expire-identifiers
+      headers: { authorization: "Bearer test-ops-token", content-type: "application/json" }
+      body: {}
+    expect:
+      status: 200
+      body: { candidates: 1000, expired: 1000, dryRun: false, more: true }
+
+  - name: dryRun only counts
+    setup:
+      mocks:
+        - url_matches: /efti/expire_road_consignments
+          method: POST
+          body: [{ candidateCount: 2, expiredCount: 0 }]
+    request:
+      method: POST
+      path: /ops/v1/expire-identifiers
+      headers: { authorization: "Bearer test-ops-token", content-type: "application/json" }
+      body: { dryRun: true }
+    expect:
+      status: 200
+      body: { candidates: 2, expired: 0, dryRun: true, more: false }
+
+  - name: a ReSql error is a 502
+    setup:
+      mocks:
+        - url_matches: /efti/expire_road_consignments
+          method: POST
+          status: 500
+          body: []
+        - url_matches: /efti/insert_job_execution_log
+          method: POST
+          body: []
+    request:
+      method: POST
+      path: /ops/v1/expire-identifiers
+      headers: { authorization: "Bearer test-ops-token", content-type: "application/json" }
+      body: {}
+    expect:
+      status: 502
+      body_matches: { code: "IDENTIFIER_EXPIRY_FAILED" }

@@ -1,29 +1,27 @@
 sequenceDiagram
     participant CM as CronManager (sibling pod)
-    participant Gate as eFTI Gate (admin endpoint)
-    participant DB as PostgreSQL
-    participant Log as ECS JSON log
+    participant Gate as eFTI Gate (Ruuter ops route)
+    participant DB as PostgreSQL (via ReSql)
 
-    Note over CM: Daily — operator-set<br/>time (default 03:45).<br/>YAML schedule in<br/>cronmanager-expire.pending.yaml.<br/>HTTP POST job → admin<br/>expire endpoint.
+    Note over CM: Hourly at :45.<br/>Job efti_gate_expire_identifiers in<br/>DSL/CronManager/efti-ops.yaml.<br/>HTTP POST job → ops<br/>expire endpoint.
 
-    CM->>+Gate: POST /api/v1/admin/expire-identifiers<br/>Authorization: Bearer ${BEARER_OPS_TOKEN}
-    Gate->>Gate: Auth: literal compare with ARCHIVE_OPS_TOKEN env var
-    Gate->>Gate: Acquire concurrency guard via advisory lock — 409 ARCHIVE_IN_PROGRESS if already held
+    CM->>+Gate: POST /ops/v1/expire-identifiers<br/>Authorization: Bearer ${ARCHIVE_OPS_TOKEN} (env OPS_AUTHORIZATION)
+    Gate->>Gate: ops/.guard.yml: literal compare with ARCHIVE_OPS_TOKEN — 401 otherwise
 
-    Gate->>+DB: Resolve the latest row per dataset_id where mode='road',<br/>status='active', and transport_date + 14 days has passed.
-    Note over DB: Cabotage retention —<br/>Reg 2024/1942 Art 11(4).<br/>Latest-row resolution<br/>per db/README.md.
-    DB-->>-Gate: candidate dataset_ids (e.g. 550e8400-…, a1b2c3d4-…, c3d4e5f6-…)
+    Gate->>+DB: expire_road_consignments (one statement):<br/>current rows (no newer sibling) with transport_mode='3',<br/>status='ACTIVE' and acceptance_date + 14 days < NOW(),<br/>oldest first, at most 1000
+    Note over DB: Cabotage retention —<br/>Reg 2024/1942 Art 11(4).<br/>Latest-row resolution<br/>per db/README.md (ADR-009 anti-join).
+    DB->>DB: INSERT a copy of each candidate with status='INACTIVE'<br/>(skipped when dryRun) — append-only, no UPDATE;<br/>the new row is the latest
+    DB-->>-Gate: { candidateCount: 3, expiredCount: 3 }
 
-    loop For each expired road consignment
-        Gate->>+DB: Append a new consignments row sharing the same dataset_id<br/>with status='inactive' (denormalised columns copied from the prior latest row).
-        DB-->>-Gate: written
-        Note over DB: Append-only — no UPDATE.<br/>New row is the latest.<br/>DISTINCT ON dataset_id<br/>now reads 'inactive'.
-        Gate->>Log: { event.action: "identifier.expire",<br/>efti.dataset.id: "550e8400-…",<br/>efti.expiry.reason: "cabotage_14d" }
+    alt ReSql error
+        Gate->>DB: insert_job_execution_log (job_name='expire-identifiers', status='FAILED')
+        Gate-->>CM: 502 IDENTIFIER_EXPIRY_FAILED (CronManager retries)
+    else dryRun: true
+        Gate-->>CM: 200 { candidates: 3, expired: 0, dryRun: true, more: false }
+    else sweep
+        Gate->>+DB: insert_job_execution_log (job_name='expire-identifiers', status='COMPLETED',<br/>details: { candidates: 3, expired: 3, reason: "cabotage_14d" })
+        DB-->>-Gate: ok
+        Gate-->>-CM: 200 { candidates: 3, expired: 3, dryRun: false, more: false }
     end
 
-    Gate->>+DB: Append a jobs_execution_log row (job_name='expire-identifiers',<br/>status='completed', details: { expired_count: 3 })
-    DB-->>-Gate: ok
-    Gate->>Gate: Release concurrency guard
-    Gate-->>-CM: 200 OK { expired_count: 3, duration_ms: 14210, dry_run: false }
-
-    Note over CM: Non-road modes are NOT<br/>expired — cabotage rule<br/>applies to road only<br/>(Reg 2024/1942 Art 11(4)).<br/>Old rows archived nightly<br/>by CronManager (Epic 26).
+    Note over CM: more: true (a full batch of 1000)<br/>is drained by the next hourly run.<br/>Non-road modes are NOT expired —<br/>cabotage rule applies to road only.<br/>Superseded ACTIVE rows are moved<br/>out by the archive sweep (Epic 26).
