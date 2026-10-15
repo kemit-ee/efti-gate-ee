@@ -87,7 +87,7 @@
       {/if}
       <div class="flex flex-row sm:flex-col items-center sm:items-start gap-2 sm:gap-0">
         <span class="hidden sm:block text-sm text-neutral-700">{t.general.language}</span>
-        <select class="text-primary-600 font-medium bg-transparent border-none p-0 pr-8 cursor-pointer uppercase appearance-none" bind:value={selectedLang}>
+        <select aria-label={t.general.language} class="text-primary-600 font-medium bg-transparent border-none p-0 pr-8 cursor-pointer uppercase appearance-none" bind:value={selectedLang}>
           {#each langs as l}
             <option value={l}>{l}</option>
           {/each}
@@ -96,7 +96,7 @@
     </div>
     <div class="flex sm:hidden items-center gap-4 order-3 sm:order-none px-4 sm:px-0">
       <div class="flex flex-row sm:flex-col items-center sm:items-start gap-2 sm:gap-0">
-        <select class="text-primary-600 font-medium bg-transparent border-none p-0 pr-8 focus:ring-0 cursor-pointer uppercase appearance-none" bind:value={selectedLang}>
+        <select aria-label={t.general.language} class="text-primary-600 font-medium bg-transparent border-none p-0 pr-8 focus:ring-0 cursor-pointer uppercase appearance-none" bind:value={selectedLang}>
           {#each langs as l}
             <option value={l}>{l}</option>
           {/each}

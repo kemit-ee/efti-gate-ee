@@ -2,6 +2,9 @@
 
 Väliste liidestujate dokumentatsioon: pädevad asutused (X-tee) ja eFTI platvormid (REST).
 
+> English quick start with runnable curl/Python/Java examples for both surfaces:
+> [`../integration-guide.md`](../integration-guide.md).
+
 ## Pädevad asutused (X-tee)
 
 | Fail | Sisu |

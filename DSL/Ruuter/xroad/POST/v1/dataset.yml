@@ -61,12 +61,57 @@ evaluate_permission:
       next: forbidden_subset
   next: forbidden
 
+# SCALE-2: cross-node request-id dedup via the shared request_id_cache table (not in-process state).
+# Unlike search.yml/transport-means.yml, a dataset request is one-shot (no poll re-use of the same
+# X-Road-Id), so a repeat here is a genuine retry/replay, not a legitimate second call — reject it
+# before forwarding to core rather than risking duplicate work there.
+#
+# Known source of a rare, real duplicate: Ruuter's own HTTP client (reqwest + a tower retry budget,
+# verified in the runtime binary's symbol table) can transparently retry an http.* call under a
+# transient connection blip. If that happens to THIS call, the first attempt's INSERT already
+# succeeded server-side even though Ruuter retries, so the retry correctly sees its own prior attempt
+# as a duplicate — occasionally visible as a single flaky 409 in the http-tests suite under heavy
+# concurrent load, not a logic bug here.
+forward_to_core:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/check_and_record_request_id"
+    headers:
+      Content-Type: "application/json"
+    body:
+      requestId: "${incoming.headers['x-road-id']}"
+  result: dedup_result
+  next: check_duplicate_result
+
+# Only a successful 200 with an empty array (ON CONFLICT DO NOTHING fired, meaning a real duplicate)
+# routes to duplicate_request. Any non-200 (status 0 transport failure, a ReSql error) falls through
+# to do_forward_to_core instead of denying: this is a best-effort idempotency aid, not an auth
+# boundary, so ReSql being unreachable must not block every dataset request.
+check_duplicate_result:
+  switch:
+    - condition: ${dedup_result.response.status == 200 && Array.isArray(dedup_result.response.body) && dedup_result.response.body.length === 0}
+      next: duplicate_request
+  next: do_forward_to_core
+
+duplicate_request:
+  return:
+    type: "https://api.efti.ee/errors/duplicate-request-id"
+    code: "DUPLICATE_REQUEST_ID"
+    title: "Duplicate Request ID"
+    status: 409
+    detail: "This X-Road-Id has already been processed. Retry with a new request id if this is a new request."
+  wrapper: false
+  status: 409
+  headers:
+    Content-Type: "application/problem+json"
+  next: end
+
 # The X-Road message id becomes the gate's x-request-id: all three core authority handlers read it,
 # and authority/search.yml uses it as the cross-gate search polling key (the search_results row key),
 # so this gives end-to-end correlation from the Security Server through to the peer gate.
 # timeout must exceed core's own 65s edelivery timeout (authority/dataset.yml send_via_edelivery),
 # or the adapter gives up first and the caller sees a spurious gateway error instead of core's answer.
-forward_to_core:
+do_forward_to_core:
   call: http.post
   timeout: 70000
   args:

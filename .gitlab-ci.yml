@@ -39,6 +39,10 @@ include:
       architecture: arm64
       sonar_name: efti
       sonar_sources: code/ui,DSL
+      # MFN-1 (EFTI-52): Sonar already runs on every pipeline here (test stage) -- this is the whole
+      # of MFN-1's scope. Quality-gate enforcement stays off (same `quality_gate: false` posture as
+      # ljvis-2's sonar-scan@6.6.0 component calls) until someone with SonarQube access confirms the
+      # current violation count; flipping this blind could fail every future pipeline.
       sonar_quality_gate: false
       sonar_architecture: amd64
       sonar_extra_args: >-

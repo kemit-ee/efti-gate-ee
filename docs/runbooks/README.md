@@ -1,20 +1,24 @@
 # Operations runbooks
 
-Runbooks for diagnosing and resolving the gate's most common failure scenarios. Each one follows the
-same template so an on-call engineer can jump straight to the relevant section under time pressure.
+These runbooks help operators diagnose and correct the gate's most common failures. Each runbook
+uses the same template. An on-call engineer can therefore find the applicable instructions quickly.
 
-**Current state note:** Prometheus + Grafana + Alertmanager are wired up (`docker/prometheus/`,
-`docker/grafana/`, `docker/alertmanager/`, services added in `compose.yml`/`compose.override.yml`) and
-scrape `edelivery`/`xml-mapper`'s klite-provided `/metrics` endpoint
+**Current state:** Prometheus, Grafana, and Alertmanager are configured in `docker/prometheus/`,
+`docker/grafana/`, and `docker/alertmanager/`. The files `compose.yml` and `compose.override.yml`
+start these services. Prometheus collects the klite `/metrics` endpoint from `edelivery` and
+`xml-mapper`
 (`code/core/src/metrics/RequestMetrics.kt`) — see
 [`docs/architecture/observability/monitoring_and_alerting.md`](../architecture/observability/monitoring_and_alerting.md)
-for what's covered. Locally: Grafana at `http://localhost:3000` (admin / `$GRAFANA_ADMIN_PASSWORD`,
-default `admin`), Prometheus at `http://localhost:9090`, Alertmanager at `http://localhost:9093`
-(loopback-only, like resql/registry). **Gaps that still apply to every runbook below:** Ruuter, ReSql,
-the registry and both PostgreSQL instances don't expose Prometheus metrics yet, there's no
-node_exporter/cAdvisor/postgres_exporter (so no restart-loop/disk/DB-down alerts), no centralized log
-collection (MON-1), and Alertmanager has no real notification receiver configured (alerts are visible in
-its UI only, not paged anywhere). Where a runbook below says "not yet available", that's what's meant.
+for the implemented coverage. In a local environment, Grafana is at `http://localhost:3000`.
+Its user name is `admin`, and `$GRAFANA_ADMIN_PASSWORD` supplies the password. The default password
+is `admin`. Prometheus is at `http://localhost:9090`. Alertmanager is at
+`http://localhost:9093` and accepts loopback connections only.
+
+**Known gaps:** Ruuter, ReSql, the registry, and the two PostgreSQL instances do not expose
+Prometheus metrics. The stack does not include node_exporter, cAdvisor, or postgres_exporter.
+Consequently, it cannot alert on restart loops, full disks, or unavailable databases. Centralized
+log collection (MON-1) is also unavailable. Alertmanager has no notification receiver, so it shows
+alerts only in its UI. In the runbooks, **not yet available** refers to these gaps.
 
 ## Template
 
@@ -49,6 +53,7 @@ its UI only, not paged anywhere). Where a runbook below says "not yet available"
 | eDelivery (AS4) communication failure | [edelivery-communication-failure.md](edelivery-communication-failure.md) |
 | TARA authentication outage | [tara-authentication-outage.md](tara-authentication-outage.md) |
 | X-Road (xroad) service unavailable | [xtee-service-unavailable.md](xtee-service-unavailable.md) |
+| Manual rollback | [manual-rollback.md](manual-rollback.md) |
 
 ## Escalation paths (default, until an on-call rotation exists)
 

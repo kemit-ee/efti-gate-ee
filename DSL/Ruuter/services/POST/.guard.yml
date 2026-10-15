@@ -60,6 +60,8 @@ reject_missing_content_type:
     status: 415
     detail: "Content-Type is required. The AS4 MSH endpoint accepts multipart/related only."
   status: 415
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
   next: end
 
@@ -71,6 +73,8 @@ reject_unsupported_media_type:
     status: 415
     detail: "Content-Type must be multipart/related. The AS4 MSH endpoint does not accept other media types."
   status: 415
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
   next: end
 
@@ -82,5 +86,7 @@ reject_malformed_content_type:
     status: 400
     detail: "AS4 Content-Type must carry the root-part marker type=application/soap+xml and a boundary parameter."
   status: 400
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
   next: end

@@ -25,6 +25,21 @@ guard_success:
   next: end
 
 guard_fail:
+  detach:
+    do:
+      - call: http.post
+        args:
+          url: "[#RESQL_URL]/efti/insert_audit_log"
+          headers:
+            Content-Type: "application/json"
+          body:
+            action: "efti-internal.auth_denied"
+            resource: "efti-internal-authority"
+            ipAddress: "${incoming.headers['x-forwarded-for'] ?? null}"
+            details: "${JSON.stringify({ reason: 'missing or invalid X-Internal-Service-Token' })}"
+  next: guard_fail_respond
+
+guard_fail_respond:
   return:
     type: "https://api.efti.ee/errors/unauthorized"
     code: "UNAUTHORIZED"
@@ -32,5 +47,7 @@ guard_fail:
     status: 401
     detail: "This endpoint requires a valid X-Internal-Service-Token."
   status: 401
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
   next: end
