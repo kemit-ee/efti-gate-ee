@@ -43,8 +43,16 @@ The DSL files are deployed as a **separate compose service** (`turvis-mock`) mir
 
 - Default response for every endpoint: `200 OK` with a canned accept payload matching the Phase 2 contract shape.
 - Dev-mode header `X-Mock-Verdict: <reject-xxx>` triggers the matching reject response for every reason-code in the enum (see SPEC §5). Values per endpoint are listed at the top of each DSL file.
-- `audit_ref` is generated per-request via `crypto.randomUUID()`.
-- No real crypto: `/turvis/v1/signatures/xmldsig` returns the input XML pass-through; `/turvis/v1/encryptions/xmlenc` returns the input plaintext pass-through; `/turvis/v1/decryptions/xmlenc` returns the input ciphertext pass-through. **Not valid on the wire** — only for integration-shape testing.
+- `audit_ref` is generated per-request via a `Math.random`-based UUIDv4 expression (`crypto.randomUUID()` is not defined in Ruuter's expression engine). Not cryptographically secure — fine for a mock correlation id.
+- `return_fields` (SPEC §4.0, Pattern B): mock validates **presence** (every request MUST declare it) but returns the **full** accept bundle regardless of its contents. Real Turvis in Phase 2 enforces field-level filtering + per-caller capability policy. **Well-behaved caller code reads only the fields it requested** — otherwise it may fail against real Turvis later.
+- No real crypto. `/turvis/v1/signatures/xmldsig` returns the input XML pass-through; `/turvis/v1/encryptions/xmlenc` in `profile: "wss-encrypted"` returns stub XML fragments + plaintext passthrough, in `profile: "plaintext"` returns empty fragments + plaintext passthrough; `/turvis/v1/decryptions/xmlenc` returns `decrypted_soap_xml_b64` = input `soap_xml_b64` and `decrypted_attachment_b64` = input `encrypted_attachment_b64`. **Not valid on the wire** — only for integration-shape testing.
+- All routes use `internal: false` (Ruuter ≥ 0.12 would 404 external POSTs on `internal: true` routes). Authn comes from the shared guard (`.guard.yml`): shared-token for Phase 1, mTLS mesh identity for Phase 2.
+
+### CI gates (recommended before this directory is called a Phase 1 mock)
+
+- `dsl-lint --audit` on `turvis/` — zero warnings
+- `dsl-test` with one happy-path scenario per route, one reject scenario, one unknown-return-field scenario
+- JSON Schema cross-check: every SPEC §4 required field must appear in the corresponding `allowlist:` with the same type (there's drift risk when SPEC and DSL are edited separately)
 
 ### Safety guards (must-not-ship-to-production)
 

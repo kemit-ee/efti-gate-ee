@@ -7,32 +7,26 @@
 # ServiceAccount check once A3 ships the mesh. Both patterns are declared below;
 # the active one is selected via `AUTH_MODE` constant (= mtls / shared-token /
 # mtls-or-token, see A9-xml-validator/SPEC.md §11.2).
+#
+# `internal: false` because edelivery calls these routes over the network;
+# Ruuter ≥ 0.12 would return 404 on an `internal: true` route to an external POST.
+# Access control for this route lives in the switch block below, not in the
+# internal flag.
 
 declaration:
   description: |
-    sec/* guard. Credential: X-Internal-Service-Token (Phase 1) OR mesh client cert
+    turvis/* guard. Credential: X-Internal-Service-Token (Phase 1) OR mesh client cert
     from edelivery's ServiceAccount (Phase 2). Rejects with 401 problem+json otherwise.
-  internal: true
+  internal: false
 
 switch:
-  - condition: ${
-      '[#AUTH_MODE]' == 'mtls' &&
-      incoming.mtls?.verified == true &&
-      incoming.mtls?.client_subject_dn?.indexOf('serviceaccount:efti-gate/edelivery') > -1
-    }
+  - condition: "${'[#AUTH_MODE]' == 'mtls' && incoming.mtls?.verified == true && incoming.mtls?.client_subject_dn?.indexOf('serviceaccount:efti-gate/edelivery') > -1}"
     next: accept
-  - condition: ${
-      ('[#AUTH_MODE]' == 'shared-token' || '[#AUTH_MODE]' == 'mtls-or-token') &&
-      incoming.headers['x-internal-service-token'] == '[#INTERNAL_SERVICE_TOKEN]'
-    }
+  - condition: "${('[#AUTH_MODE]' == 'shared-token' || '[#AUTH_MODE]' == 'mtls-or-token') && incoming.headers['x-internal-service-token'] == '[#INTERNAL_SERVICE_TOKEN]'}"
     next: accept
-  - condition: ${
-      '[#AUTH_MODE]' == 'mtls-or-token' &&
-      incoming.mtls?.verified == true &&
-      incoming.mtls?.client_subject_dn?.indexOf('serviceaccount:efti-gate/edelivery') > -1
-    }
+  - condition: "${'[#AUTH_MODE]' == 'mtls-or-token' && incoming.mtls?.verified == true && incoming.mtls?.client_subject_dn?.indexOf('serviceaccount:efti-gate/edelivery') > -1}"
     next: accept
-  - condition: ${true}
+  - condition: "${true}"
     next: deny
 
 accept:

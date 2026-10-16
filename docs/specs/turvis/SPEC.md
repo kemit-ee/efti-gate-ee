@@ -120,15 +120,33 @@ Security-sensitive operations and the key material / policy state they need belo
 ### 2.2 Inbound AS4 flow (edelivery perspective)
 
 ```
-peer AS4 → Ruuter envelope checks (A8)
+peer AS4 → Ruuter envelope checks (A8 perimeter)
        → edelivery /services/msh
-       → edelivery parses multipart (standard framework, non-crypto)
-       → edelivery POSTs /turvis/v1/decryptions/xmlenc    ← Turvis
-       → edelivery POSTs /turvis/v1/verifications/xmldsig ← Turvis
-       → edelivery parses MessageHeader with hardened XmlParser
-       → edelivery dispatches to FTIxxxHandler
+       → edelivery splits multipart into SOAP bytes + attachment bytes
+         (standard HTTP framework; non-crypto, non-XML-parse)
+       → edelivery POSTs /turvis/v1/decryptions/xmlenc           ← Turvis
+         request: {soap_xml_b64, encrypted_attachment_b64, key_handle,
+                   return_fields: [decrypted_soap_xml_b64,
+                                   decrypted_attachment_b64,
+                                   ebms_routing]}
+         response: decrypted_soap_xml_b64 + decrypted_attachment_b64
+                   + ebms_routing (routing + correlation fields)
+       → edelivery POSTs /turvis/v1/verifications/xmldsig        ← Turvis
+         request: {soap_xml_b64=decrypted_soap_xml_b64,
+                   attachments=[decrypted_attachment_b64],
+                   required_signed_xpaths, required_signed_cid_refs,
+                   return_fields: [signer, signature_digests,
+                                   matched_signed_xpaths,
+                                   matched_signed_cid_refs]}
+         response: signer (verified identity) + signature_digests (for NRR)
+                   + matched_signed_* (policy acknowledgement)
+       → edelivery reads ebms_routing + signer from Turvis responses
+         (NO XML parse step in edelivery at any point)
+       → edelivery dispatches to FTIxxxHandler by routing fields
        → handler returns response data to edelivery
 ```
+
+**Key property**: edelivery never parses the SOAP envelope. All routing fields come from Turvis's responses; all security verdicts come from Turvis's responses. edelivery's only envelope-byte handling is MIME-split (standard framework) and byte-moving between HTTP calls.
 
 ### 2.3 Outbound AS4 flow (edelivery perspective)
 
@@ -221,9 +239,28 @@ All non-support endpoints:
 
 All schemas below are JSON Schema (draft 2020-12). Field types are strict — no implicit coercion.
 
+### 4.0 Response field projection — `return_fields` (all endpoints)
+
+Every endpoint's request body includes a **required** `return_fields` array. The caller declares which top-level **projectable** response fields it wants back; the response includes only those fields plus a per-endpoint set of **always-returned** fields (operational necessity).
+
+**Why this pattern:**
+- **Declaration-level capability**: future Turvis policy can restrict which caller SA may request which field (e.g. only receipt-building services may request `signature_digests`).
+- **Explicit dependency contract**: grep the caller codebase for `return_fields:` to see exactly what the caller consumes.
+- **Response-stuffing defense**: unexpected fields in Turvis's response are rejectable by the caller.
+- **Forward-compatible evolution**: new projectable fields never surprise callers that weren't designed for them.
+
+**Rules:**
+- Unknown field name in `return_fields` → reject with `UNKNOWN_RETURN_FIELD` (422).
+- No subfield projection (`signer.cert_ski` form). Top-level objects are atomic — request a whole subobject or omit it.
+- Each endpoint's projectable enum is enumerated in §4.1–§4.4.
+- **Phase 1 mock caveat**: the mock in `dsl-contracts/` validates `return_fields` presence but returns the **full** accept bundle regardless of its contents. Real Turvis in Phase 2 enforces field-level filtering. Well-behaved caller code reads only the fields it requested.
+
 ### 4.1 `POST /turvis/v1/verifications/xmldsig`
 
-**Purpose**: verify the inbound XMLDSig (W3C XML Signature) on an AS4 SOAP envelope + enforce signed-subtree policy.
+**Purpose**: verify the inbound XMLDSig (W3C XML Signature) on an AS4 SOAP envelope + enforce signed-subtree policy. Returns signer identity, policy acknowledgement, signature digests (for NRR receipts), and `<eb:Messaging>` routing fields — all extracted by Turvis so edelivery never parses the envelope.
+
+**Projectable fields** (opt in via `return_fields`): `signer`, `matched_signed_xpaths`, `matched_signed_cid_refs`, `signature_digests`, `ebms_routing`.
+**Always returned**: `verdict`, `audit_ref`.
 
 #### Request body schema
 
@@ -231,12 +268,12 @@ All schemas below are JSON Schema (draft 2020-12). Field types are strict — no
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
-  "required": ["soap_xml_b64", "attachments", "claimed_signer_id", "required_signed_xpaths", "required_signed_cid_refs"],
+  "required": ["soap_xml_b64", "attachments", "required_signed_xpaths", "required_signed_cid_refs", "return_fields"],
   "properties": {
     "soap_xml_b64": {
       "type": "string",
       "format": "base64",
-      "description": "Base64 of the raw SOAP envelope as received from the peer. Exact bytes — must not be re-serialised by caller."
+      "description": "Base64 of the SOAP envelope AFTER decrypt (output of /turvis/v1/decryptions/xmlenc.decrypted_soap_xml_b64). Exact bytes — must not be re-serialised by caller."
     },
     "attachments": {
       "type": "array",
@@ -252,16 +289,11 @@ All schemas below are JSON Schema (draft 2020-12). Field types are strict — no
           "bytes_b64": {
             "type": "string",
             "format": "base64",
-            "description": "Base64 of the attachment bytes AFTER decryption (edelivery decrypts first via /turvis/v1/decryptions/xmlenc)."
+            "description": "Base64 of attachment bytes AFTER decryption (from /turvis/v1/decryptions/xmlenc.decrypted_attachment_b64)."
           }
         }
       },
       "maxItems": 10
-    },
-    "claimed_signer_id": {
-      "type": "string",
-      "pattern": "^[A-Z]{2}-[A-Z0-9]{2,8}$",
-      "description": "The sender party ID as claimed in <eb:From><eb:PartyId>. Format: 'EU-XX' or 'EU-XXX-NN' etc."
     },
     "required_signed_xpaths": {
       "type": "array",
@@ -274,9 +306,24 @@ All schemas below are JSON Schema (draft 2020-12). Field types are strict — no
       "items": {"type": "string", "pattern": "^cid:[-a-zA-Z0-9._]+$"},
       "description": "Content-ID references that MUST appear in SignedInfo. e.g. ['cid:message']."
     },
+    "return_fields": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": ["signer", "matched_signed_xpaths", "matched_signed_cid_refs", "signature_digests", "ebms_routing"]
+      },
+      "uniqueItems": true,
+      "description": "Which auxiliary fields to include in the accept response. verdict + audit_ref are always returned. Unknown values → reject with UNKNOWN_RETURN_FIELD."
+    },
+    "claimed_signer_id": {
+      "type": "string",
+      "pattern": "^[A-Z]{2}-[A-Z0-9]{2,8}$",
+      "description": "OPTIONAL. If provided, Turvis checks that the signer cert's identity matches this value and rejects with SIGNER_IDENTITY_MISMATCH on mismatch. If omitted, Turvis extracts <eb:From>/<eb:PartyId> from the envelope and uses it. In either case the verified identity is returned in signer.verified_identity + ebms_routing.from_party_id."
+    },
     "trust_store_version": {
       "type": "string",
-      "description": "Optional. If caller wants verification against a specific trust-store generation (for shadow-mode comparison). Omit for default."
+      "description": "Optional. If caller wants verification against a specific trust-store generation. Omit for default."
     },
     "trace_id": {
       "type": "string",
@@ -289,15 +336,23 @@ All schemas below are JSON Schema (draft 2020-12). Field types are strict — no
 
 #### Response — accept (200 OK)
 
+Always returned: `verdict`, `audit_ref`. Other fields appear only if named in request's `return_fields`.
+
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
-  "required": ["verdict", "signer", "matched_signed_xpaths", "matched_signed_cid_refs", "audit_ref"],
+  "required": ["verdict", "audit_ref"],
   "properties": {
     "verdict": {"const": "accept"},
+    "audit_ref": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Opaque UUID for this verification decision. Lookup via GET /turvis/v1/audit/{audit_ref}."
+    },
     "signer": {
       "type": "object",
+      "description": "Projectable. Present only if 'signer' ∈ return_fields.",
       "required": ["cert_subject_dn", "cert_ski", "cert_serial", "verified_identity"],
       "properties": {
         "cert_subject_dn": {"type": "string"},
@@ -305,23 +360,46 @@ All schemas below are JSON Schema (draft 2020-12). Field types are strict — no
         "cert_serial": {"type": "string", "description": "Decimal serial number."},
         "verified_identity": {
           "type": "string",
-          "description": "The party ID this signature was verified as. Must match claimed_signer_id or Turvis returns reject with SIGNER_IDENTITY_MISMATCH."
+          "description": "The party ID this signature was verified as (authoritative — derived from signer cert)."
         }
       }
     },
     "matched_signed_xpaths": {
       "type": "array",
       "items": {"type": "string"},
-      "description": "Subset of required_signed_xpaths that were covered by SignedInfo."
+      "description": "Projectable. Subset of required_signed_xpaths that were covered by SignedInfo."
     },
     "matched_signed_cid_refs": {
       "type": "array",
-      "items": {"type": "string"}
+      "items": {"type": "string"},
+      "description": "Projectable."
     },
-    "audit_ref": {
-      "type": "string",
-      "format": "uuid",
-      "description": "Opaque UUID for this verification decision. Used for log cross-reference."
+    "signature_digests": {
+      "type": "array",
+      "description": "Projectable. Per-subtree digest list from the verified signature. Used by edelivery to build signed non-repudiation receipts (NRR) without re-computing crypto. Empty array in plaintext mode (no signature present).",
+      "items": {
+        "type": "object",
+        "required": ["subtree_xpath", "digest_b64", "algorithm"],
+        "properties": {
+          "subtree_xpath": {"type": "string"},
+          "digest_b64": {"type": "string", "format": "base64"},
+          "algorithm": {"type": "string", "enum": ["SHA-256"]}
+        }
+      }
+    },
+    "ebms_routing": {
+      "type": "object",
+      "description": "Projectable. ebMS 3.0 routing + correlation fields extracted from <eb:Messaging> by Turvis. edelivery uses these for routing/correlation without parsing the envelope.",
+      "required": ["message_id", "from_party_id", "to_party_id", "service", "action"],
+      "properties": {
+        "message_id": {"type": "string"},
+        "conversation_id": {"type": "string"},
+        "ref_to_message_id": {"type": "string", "description": "Empty string if no correlation."},
+        "from_party_id": {"type": "string"},
+        "to_party_id": {"type": "string"},
+        "service": {"type": "string"},
+        "action": {"type": "string"}
+      }
     }
   }
 }
@@ -354,12 +432,15 @@ Pure function of inputs. Same request → identical response (modulo `audit_ref`
 
 **Purpose**: create an XMLDSig signature on an outbound SOAP envelope.
 
+**Projectable fields** (opt in via `return_fields`): `signatures`.
+**Always returned**: `signed_xml_b64`, `audit_ref`.
+
 #### Request body schema
 
 ```json
 {
   "type": "object",
-  "required": ["soap_xml_b64", "sign_xpaths", "sign_cid_refs", "key_handle"],
+  "required": ["soap_xml_b64", "sign_xpaths", "sign_cid_refs", "key_handle", "return_fields"],
   "properties": {
     "soap_xml_b64": {
       "type": "string",
@@ -377,6 +458,16 @@ Pure function of inputs. Same request → identical response (modulo `audit_ref`
       "items": {"type": "string", "pattern": "^cid:[-a-zA-Z0-9._]+$"},
       "description": "Content-IDs for SwA attachment signing."
     },
+    "key_handle": {
+      "type": "string",
+      "description": "Fixed per gate = OWN_GATE_ID. See §7."
+    },
+    "return_fields": {
+      "type": "array",
+      "items": {"type": "string", "enum": ["signatures"]},
+      "uniqueItems": true,
+      "description": "Which auxiliary fields to include. signed_xml_b64 + audit_ref are always returned. Empty array is valid (then only the always-returned fields come back)."
+    },
     "attachment_bytes_b64": {
       "type": "array",
       "description": "If sign_cid_refs is non-empty, this provides the attachment bytes for digest computation.",
@@ -388,10 +479,6 @@ Pure function of inputs. Same request → identical response (modulo `audit_ref`
           "bytes_b64": {"type": "string", "format": "base64"}
         }
       }
-    },
-    "key_handle": {
-      "type": "string",
-      "description": "Fixed per gate = OWN_GATE_ID. See §7."
     },
     "trace_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"}
   }
@@ -410,9 +497,10 @@ Pure function of inputs. Same request → identical response (modulo `audit_ref`
       "format": "base64",
       "description": "Base64 of the SIGNED SOAP envelope. edelivery MUST send these bytes to the peer AS-IS (no re-serialisation, no re-canonicalisation)."
     },
+    "audit_ref": {"type": "string", "format": "uuid"},
     "signatures": {
       "type": "array",
-      "description": "Metadata about what was signed. Non-authoritative; the actual signature is embedded in the signed_xml_b64 bytes.",
+      "description": "Projectable. Per-subtree digest list for logging/audit. The actual signature is embedded in signed_xml_b64 bytes; this is metadata.",
       "items": {
         "type": "object",
         "properties": {
@@ -421,8 +509,7 @@ Pure function of inputs. Same request → identical response (modulo `audit_ref`
           "algorithm": {"type": "string"}
         }
       }
-    },
-    "audit_ref": {"type": "string", "format": "uuid"}
+    }
   }
 }
 ```
@@ -433,18 +520,21 @@ Same shape as verify reject, with `type: "https://efti.example/problem/turvis-si
 
 #### Idempotency
 
-**NOT byte-equal under retry.** XMLDSig signatures include deterministic-but-input-dependent fields (digest values); same input → same output bytes, **assuming** no randomness in signing path (RSA-PKCS1-v1_5 is deterministic; RSA-PSS is not). This spec requires RSA-SHA256 which is PKCS1-v1_5, so **signatures ARE byte-identical** under retry.
+**Byte-identical under retry.** XMLDSig with RSA-SHA256 (PKCS#1 v1.5, deterministic) + fixed canonicalisation input produces the same signed bytes for the same input. edelivery MAY dedup retries if desired.
 
 ### 4.3 `POST /turvis/v1/encryptions/xmlenc`
 
-**Purpose**: WS-Encryption of outbound payload for a specific receiver.
+**Purpose**: WS-Encryption of outbound payload for a specific receiver. Supports both encrypted (`profile: "wss-encrypted"`) and plaintext (`profile: "plaintext"`) output modes so edelivery has a single code path for both.
+
+**Projectable fields** (opt in via `return_fields`): `wrapped_key_xml`, `encrypted_data_xml`, `wrapped_key_b64`.
+**Always returned**: `encrypted_payload_b64`, `audit_ref`.
 
 #### Request body schema
 
 ```json
 {
   "type": "object",
-  "required": ["plaintext_bytes_b64", "receiver_party_id"],
+  "required": ["plaintext_bytes_b64", "receiver_party_id", "profile", "return_fields"],
   "properties": {
     "plaintext_bytes_b64": {
       "type": "string",
@@ -456,6 +546,17 @@ Same shape as verify reject, with `type: "https://efti.example/problem/turvis-si
       "pattern": "^[A-Z]{2}-[A-Z0-9]{2,8}$",
       "description": "Target party. Turvis looks up receiver cert in trust store."
     },
+    "profile": {
+      "type": "string",
+      "enum": ["wss-encrypted", "plaintext"],
+      "description": "'wss-encrypted' = real RSA-OAEP + AES-GCM output (Phase 2); 'plaintext' = empty XML fragments + input bytes passthrough so edelivery's splicing is a no-op. edelivery picks per outbound route config."
+    },
+    "return_fields": {
+      "type": "array",
+      "items": {"type": "string", "enum": ["wrapped_key_xml", "encrypted_data_xml", "wrapped_key_b64"]},
+      "uniqueItems": true,
+      "description": "Which auxiliary fields to include. encrypted_payload_b64 + audit_ref are always returned."
+    },
     "trace_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"}
   }
 }
@@ -466,67 +567,74 @@ Same shape as verify reject, with `type: "https://efti.example/problem/turvis-si
 ```json
 {
   "type": "object",
-  "required": ["wrapped_key_b64", "encrypted_payload_b64", "wrapped_key_xml", "encrypted_data_xml", "audit_ref"],
+  "required": ["encrypted_payload_b64", "audit_ref"],
   "properties": {
-    "wrapped_key_b64": {
-      "type": "string",
-      "format": "base64",
-      "description": "Base64 of RSA-OAEP(receiver_cert, ephemeral_aes_key)."
-    },
     "encrypted_payload_b64": {
       "type": "string",
       "format": "base64",
-      "description": "Base64 of AES-128-GCM(ephemeral_aes_key, iv || ciphertext || tag). edelivery MIME-wraps as attachment."
+      "description": "wss-encrypted mode: Base64 of AES-128-GCM(ephemeral_aes_key, iv || ciphertext || tag). plaintext mode: input plaintext_bytes_b64 passthrough. edelivery MIME-wraps either as attachment."
+    },
+    "audit_ref": {"type": "string", "format": "uuid"},
+    "wrapped_key_b64": {
+      "type": "string",
+      "description": "Projectable. wss-encrypted mode: Base64 of RSA-OAEP(receiver_cert, ephemeral_aes_key). plaintext mode: empty string."
     },
     "wrapped_key_xml": {
       "type": "string",
-      "description": "The <xenc:EncryptedKey> XML block, ready to splice into SOAP header. Includes KeyInfo + CipherValue."
+      "description": "Projectable. wss-encrypted mode: the <xenc:EncryptedKey> XML block ready to splice into SOAP header. plaintext mode: empty string — edelivery's splicing is a no-op."
     },
     "encrypted_data_xml": {
       "type": "string",
-      "description": "The <xenc:EncryptedData> XML block, ready to splice into SOAP header. Includes CipherReference pointing at cid:message."
-    },
-    "audit_ref": {"type": "string", "format": "uuid"}
+      "description": "Projectable. wss-encrypted mode: the <xenc:EncryptedData> XML block. plaintext mode: empty string."
+    }
   }
 }
 ```
 
 #### Response — reject (422 problem+json)
 
-Reasons: `RECEIVER_UNKNOWN`, `RECEIVER_CERT_EXPIRED`, `RECEIVER_CERT_UNTRUSTED`, `PAYLOAD_TOO_LARGE`, `ALGO_UNSUPPORTED`.
+Reasons: `RECEIVER_UNKNOWN`, `RECEIVER_CERT_EXPIRED`, `RECEIVER_CERT_UNTRUSTED`, `PAYLOAD_TOO_LARGE`, `ALGO_UNSUPPORTED`, `UNKNOWN_RETURN_FIELD`.
 
 #### Idempotency
 
-**NOT byte-equal under retry.** Each call generates a fresh ephemeral AES key + random IV. Each response is a valid WS-Encryption envelope for the same plaintext. Functionally equivalent, byte-different. edelivery must handle retries as "new call" (don't dedup).
+**NOT byte-equal under retry in wss-encrypted mode.** Each call generates a fresh ephemeral AES key + random IV. Each response is a valid WS-Encryption envelope for the same plaintext. edelivery must handle retries as "new call" (don't dedup). In plaintext mode, output is byte-identical under retry (passthrough).
 
 ### 4.4 `POST /turvis/v1/decryptions/xmlenc`
 
-**Purpose**: WS-Encryption decrypt of inbound payload with gate's private key.
+**Purpose**: WS-Encryption decrypt of inbound SOAP envelope + attachment with gate's private key. Turvis extracts the wrapped AES key from `<xenc:EncryptedKey>` and the recipient SKI from `<wsse:KeyIdentifier>` **itself** — edelivery passes the raw envelope and never parses crypto elements. Also handles plaintext (unencrypted) inbound messages via passthrough.
+
+**Projectable fields** (opt in via `return_fields`): `decrypted_soap_xml_b64`, `decrypted_attachment_b64`, `ebms_routing`.
+**Always returned**: `audit_ref`.
+
+(`decrypted_soap_xml_b64` + `decrypted_attachment_b64` are projectable because some callers may want only `ebms_routing` — e.g. a routing-only pre-check — without the body of the message. Default usage requests both.)
 
 #### Request body schema
 
 ```json
 {
   "type": "object",
-  "required": ["wrapped_aes_key_b64", "encrypted_payload_b64", "key_handle"],
+  "required": ["soap_xml_b64", "key_handle", "return_fields"],
   "properties": {
-    "wrapped_aes_key_b64": {
+    "soap_xml_b64": {
       "type": "string",
       "format": "base64",
-      "description": "The <xenc:EncryptedKey><xenc:CipherValue> content from the SOAP envelope. Base64 of RSA-OAEP(our_cert, aes_key)."
+      "description": "Base64 of the raw inbound SOAP envelope. Turvis extracts <wsse:Security>/<xenc:EncryptedKey> and <wsse:KeyIdentifier> internally. If no <xenc:EncryptedData> is present (plaintext mode), passthrough."
     },
-    "encrypted_payload_b64": {
+    "encrypted_attachment_b64": {
       "type": "string",
       "format": "base64",
-      "description": "The AES-GCM-encrypted attachment bytes (iv || ciphertext || tag)."
+      "description": "Raw encrypted attachment bytes. Omit if the message has no attachment. In plaintext mode, this is the plaintext attachment and passes through unchanged."
     },
     "key_handle": {
       "type": "string",
       "description": "Fixed per gate = OWN_GATE_ID."
     },
-    "claimed_recipient_ski": {
-      "type": "string",
-      "description": "Hex SKI from the inbound <wsse:KeyIdentifier>. Turvis checks this matches the key behind key_handle. Rejects with SKI_MISMATCH if not."
+    "return_fields": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "enum": ["decrypted_soap_xml_b64", "decrypted_attachment_b64", "ebms_routing"]},
+      "uniqueItems": true,
+      "description": "Which fields to include. audit_ref is always returned."
     },
     "trace_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"}
   }
@@ -538,21 +646,40 @@ Reasons: `RECEIVER_UNKNOWN`, `RECEIVER_CERT_EXPIRED`, `RECEIVER_CERT_UNTRUSTED`,
 ```json
 {
   "type": "object",
-  "required": ["plaintext_bytes_b64", "audit_ref"],
+  "required": ["audit_ref"],
   "properties": {
-    "plaintext_bytes_b64": {
+    "audit_ref": {"type": "string", "format": "uuid"},
+    "decrypted_soap_xml_b64": {
       "type": "string",
       "format": "base64",
-      "description": "Base64 of the decrypted business payload (gzip-compressed; edelivery decompresses after)."
+      "description": "Projectable. Base64 of the SOAP envelope with <xenc:EncryptedData> replaced by the decrypted plaintext element. In plaintext mode: input soap_xml_b64 passthrough."
     },
-    "audit_ref": {"type": "string", "format": "uuid"}
+    "decrypted_attachment_b64": {
+      "type": "string",
+      "format": "base64",
+      "description": "Projectable. Base64 of the decrypted (and gzip-compressed) business payload bytes. Same gzip convention as the sender used before encryption, in both wss-encrypted and plaintext modes. Empty string if the message has no attachment."
+    },
+    "ebms_routing": {
+      "type": "object",
+      "description": "Projectable. Same shape as §4.1 verify response ebms_routing. Returned here so callers that need routing before verify can get it from decrypt alone.",
+      "required": ["message_id", "from_party_id", "to_party_id", "service", "action"],
+      "properties": {
+        "message_id": {"type": "string"},
+        "conversation_id": {"type": "string"},
+        "ref_to_message_id": {"type": "string"},
+        "from_party_id": {"type": "string"},
+        "to_party_id": {"type": "string"},
+        "service": {"type": "string"},
+        "action": {"type": "string"}
+      }
+    }
   }
 }
 ```
 
 #### Response — reject (422 problem+json)
 
-Reasons: `WRAPPED_KEY_MALFORMED`, `KEY_HANDLE_UNKNOWN`, `SKI_MISMATCH`, `AES_UNWRAP_FAIL`, `PAYLOAD_DECRYPT_FAIL`, `ALGO_UNSUPPORTED`.
+Reasons: `WRAPPED_KEY_MALFORMED`, `KEY_HANDLE_UNKNOWN`, `SKI_MISMATCH`, `AES_UNWRAP_FAIL`, `PAYLOAD_DECRYPT_FAIL`, `ALGO_UNSUPPORTED`, `UNKNOWN_RETURN_FIELD`.
 
 #### Idempotency
 
@@ -578,13 +705,14 @@ Complete set across all four endpoints. Callers map each to a specific SOAP faul
 | `KEY_HANDLE_UNKNOWN` | 422 | signatures, decryptions | `key_handle` not registered. |
 | `KEY_UNAVAILABLE` | 503 | signatures, decryptions | KMS temporarily unreachable; retry safe. |
 | `WRAPPED_KEY_MALFORMED` | 422 | decryptions | RSA-OAEP ciphertext malformed. |
-| `SKI_MISMATCH` | 422 | decryptions | `claimed_recipient_ski` does not match the SKI of the key behind `key_handle`. |
+| `SKI_MISMATCH` | 422 | decryptions | SKI from inbound `<wsse:KeyIdentifier>` does not match the SKI of the key behind `key_handle`. |
 | `AES_UNWRAP_FAIL` | 422 | decryptions | RSA-OAEP decrypt returned error. |
 | `PAYLOAD_DECRYPT_FAIL` | 422 | decryptions | AES-GCM decrypt returned error (likely integrity tag mismatch — payload tampered). |
 | `RECEIVER_UNKNOWN` | 422 | encryptions | `receiver_party_id` not in trust store. |
 | `RECEIVER_CERT_EXPIRED` | 422 | encryptions | Receiver cert past `notAfter`. |
 | `RECEIVER_CERT_UNTRUSTED` | 422 | encryptions | Receiver cert does not chain to trust store. |
 | `PAYLOAD_TOO_LARGE` | 413 | encryptions | Payload exceeds `MAX_PAYLOAD_BYTES` (default 50 MiB). |
+| `UNKNOWN_RETURN_FIELD` | 422 | all | `return_fields` contains a value not in the endpoint's projectable set (see §4.0 + per-endpoint enum). Caller typo; code must align with SPEC. |
 | `ALGO_UNSUPPORTED` | 422 | all | Fallback for any algorithm choice not in the pinned allowlist. |
 | `TRUST_STORE_UNAVAILABLE` | 503 | all | Trust store load failed; retry safe. |
 | `TURVIS_INTERNAL` | 500 | all | Internal bug. Retry NOT safe without investigation. |
@@ -669,7 +797,18 @@ Policy table edelivery passes per call:
 | AS4 inbound `/services/msh` | `["//eb:Messaging", "//env:Body"]` | `["cid:message"]` |
 | AS4 outbound sign (same subtrees) | same | same |
 
-The policy table lives in edelivery config, not turvis state. Turvis's log hygiene, mesh-layer rejection of non-authorised clients, and egress restrictions are **Turvis's responsibility** — not duplicated here.
+The policy table lives in edelivery config, not Turvis state.
+
+### 9.3 edelivery's XML parsing surface after cutover
+
+**Zero.** After A9-SUB-4 cutover, edelivery does not parse untrusted XML at all:
+
+- **Inbound**: edelivery MIME-splits the multipart (standard HTTP framework, non-XML), hands raw bytes to Turvis's decrypt + verify endpoints, reads routing/signer fields from Turvis's JSON responses, dispatches to handlers.
+- **Outbound**: edelivery authors a SOAP envelope using string templating or DOM builder on **trusted** (edelivery-authored) input, calls Turvis to encrypt + sign, assembles multipart.
+
+edelivery's parser is explicitly **not hardened** (consistent with #307): the design assumes untrusted input never reaches it. Hardening at ingress is A8 Ruuter perimeter checks + Turvis as the sole parser that touches peer-authored bytes. This is intentional — defense in depth comes from the Turvis boundary, not from a second hardened parser in edelivery.
+
+Turvis's log hygiene, mesh-layer rejection of non-authorised clients, and egress restrictions are **Turvis's responsibility** — not duplicated here.
 
 ---
 
@@ -858,14 +997,15 @@ After A9-SUB-4 cutover:
 - `code/edelivery/src/edelivery/EDeliveryMessageGenerator`: signing + encryption methods deleted
 - `code/edelivery/src/edelivery/EDeliveryRoutes.decryptPayload`: body deleted (HTTP call to `/turvis/v1/decryptions/xmlenc` remains)
 
-**Data-model cleanup (MessageHeader stays ebMS-only):**
-- Any fields on `MessageHeader` referring to signature or encryption state — deleted. `MessageHeader` is the `<eb:Messaging>` element: business routing + correlation only (From, To, Service, Action, MessageId, RefToMessageId, ConversationId, timestamps). Signature + encryption live in `<wsse:Security>` as siblings and are handled by Turvis, not parsed into `MessageHeader`.
-- `WssSecurityHeader` / `WssSignatureInfo` / `WssEncryptedKey` data classes (if present): deleted. edelivery no longer needs a model for the `<wsse:Security>` element — Turvis takes the raw SOAP bytes and returns verdict JSON.
-- `CertificateChainValidator`, `TrustStoreLoader`, or similar cert-handling code: deleted. Signer identity comes to edelivery as `signer.cert_subject_dn` + `signer.cert_ski` fields in Turvis's verify response.
+**Data-model cleanup (edelivery stops parsing SOAP envelopes):**
+- Any fields on `MessageHeader` referring to signature or encryption state — deleted. If no non-crypto field on `MessageHeader` remains, delete the whole data class — routing fields now come from Turvis's `ebms_routing` response field (§4.1, §4.4), not from a locally-parsed `<eb:Messaging>` DOM.
+- `WssSecurityHeader` / `WssSignatureInfo` / `WssEncryptedKey` data classes: deleted. Turvis takes raw SOAP bytes and returns verdict JSON — no edelivery model for `<wsse:Security>`.
+- `CertificateChainValidator`, `TrustStoreLoader`, or any cert-handling code: deleted. Signer identity comes to edelivery as `signer.cert_subject_dn` + `signer.cert_ski` fields in Turvis's verify response.
+- Any `XmlParser`/`DomBuilder` configured for inbound untrusted XML: deleted or restricted to outbound/edelivery-authored content only (per §9.3).
 
 ### 13.7 Record-level fields for audit / incident response
 
-For audit, non-repudiation receipts, and incident lookup, edelivery stores a small set of per-message fields **alongside** the message record (new columns on the existing message/audit table, or a side table — edelivery's call). These are NOT inside `MessageHeader`; they are record metadata.
+For audit, non-repudiation receipts, and incident lookup, edelivery stores a small set of per-message fields **alongside** the message record (new columns on the existing message/audit table, or a side table — edelivery's call). These are record metadata; no `MessageHeader` data class is required.
 
 | Field | Source | Purpose |
 |---|---|---|
@@ -875,8 +1015,9 @@ For audit, non-repudiation receipts, and incident lookup, edelivery stores a sma
 | `turvis_audit_ref_encrypt` | Turvis encrypt response `audit_ref` | Same (outbound) |
 | `signer_identity` | Turvis verify response `signer.verified_identity` | Audit log + business authorisation |
 | `signer_cert_ski` | Turvis verify response `signer.cert_ski` | Operator-facing provenance; survives cert rotation |
+| `message_id`, `conversation_id`, `ref_to_message_id`, `from_party_id`, `to_party_id`, `service`, `action` | Turvis's `ebms_routing` (verify or decrypt response) | Routing + correlation; replaces any edelivery-side ebMS-header parse |
 
-If/when AS4 non-repudiation receipts (NRR) are implemented, the signature digests needed for the receipt come from Turvis's verify response (optional `signature_digests` field, to be added to SPEC §4.1 at that time). Still not stored in `MessageHeader`.
+For AS4 non-repudiation receipts (NRR), edelivery takes `signature_digests` from Turvis's verify response (§4.1) and places those digest values as text content in the receipt XML it builds; it then calls `/turvis/v1/signatures/xmldsig` to sign the receipt. edelivery never computes or verifies any digest.
 
 ---
 
@@ -897,12 +1038,14 @@ X-Request-Id: 9f3e2a9b-...
   "attachments": [
     {"cid": "cid:message", "bytes_b64": "PEZUSTAwNFVwbG9hZC..."}
   ],
-  "claimed_signer_id": "EU-FR",
   "required_signed_xpaths": ["//eb:Messaging", "//env:Body"],
   "required_signed_cid_refs": ["cid:message"],
+  "return_fields": ["signer", "matched_signed_xpaths", "matched_signed_cid_refs", "signature_digests", "ebms_routing"],
   "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736"
 }
 ```
+
+Note: `claimed_signer_id` is optional (omitted here — Turvis derives from `<eb:From>/<eb:PartyId>`).
 
 **Response**:
 
@@ -912,6 +1055,7 @@ Content-Type: application/json
 
 {
   "verdict": "accept",
+  "audit_ref": "9f3e2a9b-1234-5678-90ab-cdef12345678",
   "signer": {
     "cert_subject_dn": "CN=EU-FR-gate,O=DGITM",
     "cert_ski": "a1b2c3d4e5f6...",
@@ -920,7 +1064,19 @@ Content-Type: application/json
   },
   "matched_signed_xpaths": ["//eb:Messaging", "//env:Body"],
   "matched_signed_cid_refs": ["cid:message"],
-  "audit_ref": "9f3e2a9b-1234-5678-90ab-cdef12345678"
+  "signature_digests": [
+    {"subtree_xpath": "//eb:Messaging", "digest_b64": "DIjgcEkiAb...=", "algorithm": "SHA-256"},
+    {"subtree_xpath": "//env:Body", "digest_b64": "9m0VSvOx...=", "algorithm": "SHA-256"}
+  ],
+  "ebms_routing": {
+    "message_id": "fr-gate-20261016-00001@dgitm.fr",
+    "conversation_id": "fti-conv-00001",
+    "ref_to_message_id": "",
+    "from_party_id": "EU-FR",
+    "to_party_id": "EU-EE",
+    "service": "FTI004",
+    "action": "FTI004Upload"
+  }
 }
 ```
 
@@ -961,6 +1117,7 @@ Content-Type: application/json
     {"cid": "cid:message", "bytes_b64": "..."}
   ],
   "key_handle": "EU-EE",
+  "return_fields": ["signatures"],
   "trace_id": "..."
 }
 ```
@@ -973,15 +1130,15 @@ Content-Type: application/json
 
 {
   "signed_xml_b64": "PGVudjpFbnZlbG9wZSB4bWxuczp...",
+  "audit_ref": "...",
   "signatures": [
     {"subtree_xpath": "//eb:Messaging", "digest_b64": "...", "algorithm": "SHA-256"},
     {"subtree_xpath": "//env:Body", "digest_b64": "...", "algorithm": "SHA-256"}
-  ],
-  "audit_ref": "..."
+  ]
 }
 ```
 
-### 14.4 Encrypt — accept
+### 14.4 Encrypt — accept (wss-encrypted mode)
 
 **Request**:
 
@@ -992,6 +1149,8 @@ Content-Type: application/json
 {
   "plaintext_bytes_b64": "H4sIAAAAAAAA...",
   "receiver_party_id": "EU-FR",
+  "profile": "wss-encrypted",
+  "return_fields": ["wrapped_key_xml", "encrypted_data_xml", "wrapped_key_b64"],
   "trace_id": "..."
 }
 ```
@@ -1003,13 +1162,29 @@ HTTP/1.1 200 OK
 Content-Type: application/json
 
 {
-  "wrapped_key_b64": "aGVsbG8gd29ybGQ=",
   "encrypted_payload_b64": "AAAAAAAAAAAAAAAA...",
+  "audit_ref": "...",
+  "wrapped_key_b64": "aGVsbG8gd29ybGQ=",
   "wrapped_key_xml": "<xenc:EncryptedKey xmlns:xenc=\"...\" Id=\"EK-ID\">...</xenc:EncryptedKey>",
-  "encrypted_data_xml": "<xenc:EncryptedData xmlns:xenc=\"...\">...</xenc:EncryptedData>",
+  "encrypted_data_xml": "<xenc:EncryptedData xmlns:xenc=\"...\">...</xenc:EncryptedData>"
+}
+```
+
+### 14.4a Encrypt — accept (plaintext mode)
+
+Same request shape with `profile: "plaintext"` and (optionally) empty `return_fields: []`:
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "encrypted_payload_b64": "H4sIAAAAAAAA...",  // identical to request's plaintext_bytes_b64
   "audit_ref": "..."
 }
 ```
+
+edelivery's SOAP splicing is a no-op when the XML fragments are absent/empty.
 
 ### 14.5 Decrypt — accept
 
@@ -1020,10 +1195,10 @@ POST /turvis/v1/decryptions/xmlenc HTTP/1.1
 Content-Type: application/json
 
 {
-  "wrapped_aes_key_b64": "aGVsbG8gd29ybGQ=",
-  "encrypted_payload_b64": "AAAAAAAAAAAAAAAA...",
+  "soap_xml_b64": "PGVudjpFbnZlbG9wZS4uLg==",
+  "encrypted_attachment_b64": "AAAAAAAAAAAAAAAA...",
   "key_handle": "EU-EE",
-  "claimed_recipient_ski": "a1b2c3d4e5...",
+  "return_fields": ["decrypted_soap_xml_b64", "decrypted_attachment_b64", "ebms_routing"],
   "trace_id": "..."
 }
 ```
@@ -1035,8 +1210,18 @@ HTTP/1.1 200 OK
 Content-Type: application/json
 
 {
-  "plaintext_bytes_b64": "H4sIAAAAAAAA...",
-  "audit_ref": "..."
+  "audit_ref": "...",
+  "decrypted_soap_xml_b64": "PGVudjpFbnZl...",
+  "decrypted_attachment_b64": "H4sIAAAAAAAA...",
+  "ebms_routing": {
+    "message_id": "fr-gate-20261016-00001@dgitm.fr",
+    "conversation_id": "fti-conv-00001",
+    "ref_to_message_id": "",
+    "from_party_id": "EU-FR",
+    "to_party_id": "EU-EE",
+    "service": "FTI004",
+    "action": "FTI004Upload"
+  }
 }
 ```
 
@@ -1093,3 +1278,7 @@ Explicitly excluded from this build. If any of these later come into scope, that
 | 2026-10-16 | Component renamed: "sec service" / `sec-service` / `/sec/v1/` → "Turvis" / `turvis` / `/turvis/v1/`. Bürostack component naming (fleet-consistent with Ruuter / Resql / TIM). Problem+json type URIs, env var `SEC_SERVICE_URL`→`TURVIS_URL`, reason-code `SEC_SERVICE_INTERNAL`→`TURVIS_INTERNAL`, K8s identifiers all follow | User decision: adopt a new Bürostack component for the sec-service role, named Turvis |
 | 2026-10-16 | Scope framing: Turvis positioned as a Bürostack security-operations component (crypto + validation + hardened parse) rather than a crypto-only sidecar. Phase 1 contract remains the four cryptography endpoints; `/validations/*` + `/parsings/*` listed as planned follow-ups (not in this contract) to anchor the §3.1 extensibility story | User direction: "Turvis doesn't just do crypto, but also validates XML and other payloads — fully focused on sec-thirsty jobs" |
 | 2026-10-16 | §13.6 renamed "Private-key removal" → "Code deletions on cutover" and extended to list `MessageHeader` cleanup (sig/encryption fields removed; MessageHeader stays ebMS routing only) + WSS data-class deletions + cert-handling code deletions. Added §13.7 "Record-level fields for audit / incident response" (per-message `turvis_audit_ref_*` + `signer_identity` + `signer_cert_ski` fields stored alongside the message, NOT inside MessageHeader) | Dev-team question: does new edelivery's `MessageHeader` still need encryption + signature fields? Answer: no — call out the full data-model cleanup in SPEC |
+| 2026-10-16 | **Pattern B — `return_fields` on every request.** New §4.0 introduces per-request response-field projection: caller declares what it wants back; unknown values reject with `UNKNOWN_RETURN_FIELD` (new reason code). Projectable enum per endpoint (§4.1–§4.4). Phase 1 mock validates presence but returns full bundle; real Turvis enforces field-level filtering + enables future caller-capability policy | User direction: Pattern B wins over Pattern A — response-size, forward-compat, response-stuffing defense, and declaration-level security rules in future outweigh the extra mechanics |
+| 2026-10-16 | **Verify (§4.1): `claimed_signer_id` moved required → optional**, added `ebms_routing` + `signature_digests` as projectable fields. **Decrypt (§4.4): request shape changed to `soap_xml_b64` + `encrypted_attachment_b64`** (Turvis extracts `<xenc:EncryptedKey>` wrapped key + `<wsse:KeyIdentifier>` SKI internally — edelivery never parses crypto elements); response is `decrypted_soap_xml_b64` + `decrypted_attachment_b64` + `ebms_routing`. **Encrypt (§4.3): added `profile: "wss-encrypted" \| "plaintext"`** so edelivery has one code path for both modes; plaintext mode returns empty XML fragments + input passthrough. **Sign (§4.2): `signatures` moved from always-returned to projectable** (NRR callers request it; non-NRR callers can skip) | sviljus PR#311 review items 5-9. The verify/decrypt pair now ensures edelivery NEVER parses the SOAP envelope — all routing/signer/digest fields come from Turvis's JSON responses. Signature digests are in-contract now (not deferred to NRR epic) so edelivery's receipt code is stable across Phase 1 → Phase 2 |
+| 2026-10-16 | §9.3 added: "edelivery's XML parsing surface after cutover" = **zero**. §2.2 inbound flow diagram rewritten to show the no-parse pattern. §13.6 data-model cleanup made stricter (`MessageHeader` class deletable if no non-crypto field remains) and §13.7 adds `ebms_routing` fields to the record-level columns list | Aligns with Pattern B + new verify/decrypt shapes; resolves sviljus's "hardened vs unhardened parser contradiction with #307" concern |
+| 2026-10-16 | DSL correctness fixes (all 4 routes + guard) | sviljus PR#311 review items 1-4: `internal: true` → `false` (Ruuter ≥ 0.12 returned 404 on external POSTs); `${crypto.randomUUID()}` → Math.random UUIDv4 (`crypto` undefined in Ruuter engine); multi-line `${…}` conditions in `.guard.yml` folded to single line (YAML parse error); anchor/merge-key `&reject_template` removed by inlining reject blocks (dsl-lint warning) |
