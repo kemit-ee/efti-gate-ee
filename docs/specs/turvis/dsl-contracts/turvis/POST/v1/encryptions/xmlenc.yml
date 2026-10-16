@@ -1,0 +1,142 @@
+# Turvis: /turvis/v1/encryptions/xmlenc (Phase 1 mock, Phase 2 contract)
+#
+# Nested under /encryptions/<mechanism> so sibling mechanisms (/jwe per RFC 7516,
+# /cose-encrypt per RFC 8152) can be added without colliding on request/response
+# shape or reason-code enum. See A9-xml-validator/SPEC.md §4 for the extensibility
+# rationale.
+#
+# Dev-mode mock override: header `X-Mock-Verdict` with reject values below triggers
+# the matching reject response. Default returns stub encrypted bytes + XML fragments
+# (NOT a real encryption — the "wrapped_key_b64" and "encrypted_payload_b64" are
+# pass-through of the plaintext for shape testing only).
+#
+# PHASE 2 WARNING: real Turvis MUST perform RSA-OAEP wrap + AES-GCM encrypt per
+# W3C XML Encryption 1.1. Phase 1 mock output is for integration-testing shape only.
+
+declaration:
+  description: |
+    W3C XML Encryption 1.1 of outbound payload for a specific receiver.
+
+    Request: plaintext_bytes_b64 (base64 of gzip-compressed business payload),
+    receiver_party_id (target party for RSA-OAEP wrap target lookup), trace_id.
+
+    Response: 200 with {wrapped_key_b64, encrypted_payload_b64, wrapped_key_xml,
+    encrypted_data_xml, audit_ref}. NOT byte-idempotent under retry (fresh ephemeral
+    AES key per call).
+
+    Reason codes: RECEIVER_UNKNOWN, RECEIVER_CERT_EXPIRED, RECEIVER_CERT_UNTRUSTED,
+    PAYLOAD_TOO_LARGE, ALGO_UNSUPPORTED, TRUST_STORE_UNAVAILABLE,
+    TURVIS_INTERNAL. See A9-xml-validator/SPEC.md §5.
+  internal: true
+  additive: true
+  allowlist:
+    body:
+      - field: plaintext_bytes_b64
+        type: string
+        required: true
+      - field: receiver_party_id
+        type: string
+        required: true
+      - field: trace_id
+        type: string
+        required: false
+
+setup:
+  assign:
+    audit_ref: ${crypto.randomUUID()}
+    mock_verdict: ${incoming.headers['x-mock-verdict'] || 'accept'}
+
+dispatch:
+  switch:
+    - condition: ${mock_verdict == 'reject-receiver-unknown'}
+      next: reject_receiver_unknown
+    - condition: ${mock_verdict == 'reject-receiver-cert-expired'}
+      next: reject_receiver_cert_expired
+    - condition: ${mock_verdict == 'reject-receiver-cert-untrusted'}
+      next: reject_receiver_cert_untrusted
+    - condition: ${mock_verdict == 'reject-payload-too-large'}
+      next: reject_payload_too_large
+    - condition: ${mock_verdict == 'reject-algo-unsupported'}
+      next: reject_algo_unsupported
+    - condition: ${true}
+      next: accept
+
+accept:
+  return:
+    wrapped_key_b64: "bW9jay13cmFwcGVkLWtleQ=="
+    encrypted_payload_b64: ${incoming.body.plaintext_bytes_b64}
+    wrapped_key_xml: |
+      <xenc:EncryptedKey xmlns:xenc="http://www.w3.org/2001/04/xmlenc#" Id="EK-mock">
+        <xenc:EncryptionMethod Algorithm="http://www.w3.org/2009/xmlenc11#rsa-oaep"/>
+        <xenc:CipherData><xenc:CipherValue>bW9jay13cmFwcGVkLWtleQ==</xenc:CipherValue></xenc:CipherData>
+        <xenc:ReferenceList><xenc:DataReference URI="#ED-mock"/></xenc:ReferenceList>
+      </xenc:EncryptedKey>
+    encrypted_data_xml: |
+      <xenc:EncryptedData xmlns:xenc="http://www.w3.org/2001/04/xmlenc#" Id="ED-mock"
+                          MimeType="application/gzip">
+        <xenc:EncryptionMethod Algorithm="http://www.w3.org/2009/xmlenc11#aes128-gcm"/>
+        <xenc:CipherData><xenc:CipherReference URI="cid:message"/></xenc:CipherData>
+      </xenc:EncryptedData>
+    audit_ref: ${audit_ref}
+  status: 200
+  content_type: application/json
+
+reject_receiver_unknown:
+  return:
+    type: "https://efti.example/problem/turvis-encrypt-xmlenc-reject"
+    title: "Receiver party unknown"
+    status: 422
+    verdict: "reject"
+    reason_code: "RECEIVER_UNKNOWN"
+    detail: "mock: receiver_party_id not in trust store"
+    audit_ref: ${audit_ref}
+  status: 422
+  content_type: application/problem+json
+
+reject_receiver_cert_expired:
+  return:
+    type: "https://efti.example/problem/turvis-encrypt-xmlenc-reject"
+    title: "Receiver cert expired"
+    status: 422
+    verdict: "reject"
+    reason_code: "RECEIVER_CERT_EXPIRED"
+    detail: "mock"
+    audit_ref: ${audit_ref}
+  status: 422
+  content_type: application/problem+json
+
+reject_receiver_cert_untrusted:
+  return:
+    type: "https://efti.example/problem/turvis-encrypt-xmlenc-reject"
+    title: "Receiver cert untrusted"
+    status: 422
+    verdict: "reject"
+    reason_code: "RECEIVER_CERT_UNTRUSTED"
+    detail: "mock"
+    audit_ref: ${audit_ref}
+  status: 422
+  content_type: application/problem+json
+
+reject_payload_too_large:
+  return:
+    type: "https://efti.example/problem/turvis-encrypt-xmlenc-reject"
+    title: "Payload too large"
+    status: 413
+    verdict: "reject"
+    reason_code: "PAYLOAD_TOO_LARGE"
+    detail: "mock: exceeds MAX_PAYLOAD_BYTES (default 50 MiB)"
+    audit_ref: ${audit_ref}
+  status: 413
+  content_type: application/problem+json
+
+reject_algo_unsupported:
+  return:
+    type: "https://efti.example/problem/turvis-encrypt-xmlenc-reject"
+    title: "Algorithm unsupported"
+    status: 422
+    verdict: "reject"
+    reason_code: "ALGO_UNSUPPORTED"
+    detail: "mock"
+    audit_ref: ${audit_ref}
+  status: 422
+  content_type: application/problem+json

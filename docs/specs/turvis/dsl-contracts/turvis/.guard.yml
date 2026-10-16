@@ -1,0 +1,51 @@
+# Turvis guard: internal-only, called by edelivery.
+#
+# Phase 1 (now): X-Internal-Service-Token shared-secret auth, same pattern as the
+# gate's existing /efti/* internal routes. Fleet-consistent, immediately usable.
+#
+# Phase 2 (after A3 lands): strict mTLS mesh identity. The guard switches to a
+# ServiceAccount check once A3 ships the mesh. Both patterns are declared below;
+# the active one is selected via `AUTH_MODE` constant (= mtls / shared-token /
+# mtls-or-token, see A9-xml-validator/SPEC.md §11.2).
+
+declaration:
+  description: |
+    sec/* guard. Credential: X-Internal-Service-Token (Phase 1) OR mesh client cert
+    from edelivery's ServiceAccount (Phase 2). Rejects with 401 problem+json otherwise.
+  internal: true
+
+switch:
+  - condition: ${
+      '[#AUTH_MODE]' == 'mtls' &&
+      incoming.mtls?.verified == true &&
+      incoming.mtls?.client_subject_dn?.indexOf('serviceaccount:efti-gate/edelivery') > -1
+    }
+    next: accept
+  - condition: ${
+      ('[#AUTH_MODE]' == 'shared-token' || '[#AUTH_MODE]' == 'mtls-or-token') &&
+      incoming.headers['x-internal-service-token'] == '[#INTERNAL_SERVICE_TOKEN]'
+    }
+    next: accept
+  - condition: ${
+      '[#AUTH_MODE]' == 'mtls-or-token' &&
+      incoming.mtls?.verified == true &&
+      incoming.mtls?.client_subject_dn?.indexOf('serviceaccount:efti-gate/edelivery') > -1
+    }
+    next: accept
+  - condition: ${true}
+    next: deny
+
+accept:
+  return: ""
+  status: 204
+  wrapper: false
+
+deny:
+  return:
+    type: "https://efti.example/problem/turvis-authentication-failed"
+    title: "Authentication required"
+    status: 401
+    detail: "Turvis rejects: client did not authenticate per AUTH_MODE=[#AUTH_MODE]"
+  status: 401
+  content_type: application/problem+json
+  wrapper: false

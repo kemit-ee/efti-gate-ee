@@ -1,0 +1,163 @@
+# Turvis: /turvis/v1/decryptions/xmlenc (Phase 1 mock, Phase 2 contract)
+#
+# Nested under /decryptions/<mechanism> so sibling mechanisms (/jwe per RFC 7516,
+# /cose-encrypt per RFC 8152) can be added without colliding on request/response
+# shape or reason-code enum. See A9-xml-validator/SPEC.md §4 for the extensibility
+# rationale.
+#
+# Dev-mode mock override: header `X-Mock-Verdict` with reject values below triggers
+# the matching reject response. Default returns the encrypted_payload_b64 passed
+# through as "plaintext_bytes_b64" (NOT a real decryption — pass-through for shape
+# testing).
+#
+# PHASE 2 WARNING: real Turvis MUST perform RSA-OAEP unwrap + AES-GCM decrypt per
+# W3C XML Encryption 1.1. Phase 1 mock output is for integration-testing shape only.
+
+declaration:
+  description: |
+    W3C XML Encryption 1.1 decrypt of inbound payload with gate's private key.
+
+    Request: wrapped_aes_key_b64 (from inbound SOAP's <xenc:EncryptedKey>),
+    encrypted_payload_b64 (AES-GCM-encrypted attachment bytes), key_handle (fixed
+    per gate = OWN_GATE_ID), claimed_recipient_ski (hex SKI from inbound
+    <wsse:KeyIdentifier>; Turvis rejects on SKI_MISMATCH), trace_id.
+
+    Response: 200 with {plaintext_bytes_b64, audit_ref}. Pure function; safe to retry.
+
+    Reason codes: WRAPPED_KEY_MALFORMED, KEY_HANDLE_UNKNOWN, KEY_UNAVAILABLE,
+    SKI_MISMATCH, AES_UNWRAP_FAIL, PAYLOAD_DECRYPT_FAIL, ALGO_UNSUPPORTED,
+    TURVIS_INTERNAL. See A9-xml-validator/SPEC.md §5.
+  internal: true
+  additive: true
+  allowlist:
+    body:
+      - field: wrapped_aes_key_b64
+        type: string
+        required: true
+      - field: encrypted_payload_b64
+        type: string
+        required: true
+      - field: key_handle
+        type: string
+        required: true
+      - field: claimed_recipient_ski
+        type: string
+        required: false
+      - field: trace_id
+        type: string
+        required: false
+
+setup:
+  assign:
+    audit_ref: ${crypto.randomUUID()}
+    mock_verdict: ${incoming.headers['x-mock-verdict'] || 'accept'}
+
+dispatch:
+  switch:
+    - condition: ${mock_verdict == 'reject-wrapped-key-malformed'}
+      next: reject_wrapped_key_malformed
+    - condition: ${mock_verdict == 'reject-key-handle-unknown'}
+      next: reject_key_handle_unknown
+    - condition: ${mock_verdict == 'reject-key-unavailable'}
+      next: reject_key_unavailable
+    - condition: ${mock_verdict == 'reject-ski-mismatch'}
+      next: reject_ski_mismatch
+    - condition: ${mock_verdict == 'reject-aes-unwrap-fail'}
+      next: reject_aes_unwrap_fail
+    - condition: ${mock_verdict == 'reject-payload-decrypt-fail'}
+      next: reject_payload_decrypt_fail
+    - condition: ${mock_verdict == 'reject-algo-unsupported'}
+      next: reject_algo_unsupported
+    - condition: ${true}
+      next: accept
+
+accept:
+  return:
+    plaintext_bytes_b64: ${incoming.body.encrypted_payload_b64}
+    audit_ref: ${audit_ref}
+  status: 200
+  content_type: application/json
+
+reject_wrapped_key_malformed:
+  return:
+    type: "https://efti.example/problem/turvis-decrypt-xmlenc-reject"
+    title: "Wrapped key malformed"
+    status: 422
+    verdict: "reject"
+    reason_code: "WRAPPED_KEY_MALFORMED"
+    detail: "mock"
+    audit_ref: ${audit_ref}
+  status: 422
+  content_type: application/problem+json
+
+reject_key_handle_unknown:
+  return:
+    type: "https://efti.example/problem/turvis-decrypt-xmlenc-reject"
+    title: "Key handle unknown"
+    status: 422
+    verdict: "reject"
+    reason_code: "KEY_HANDLE_UNKNOWN"
+    detail: "mock"
+    audit_ref: ${audit_ref}
+  status: 422
+  content_type: application/problem+json
+
+reject_key_unavailable:
+  return:
+    type: "https://efti.example/problem/turvis-decrypt-xmlenc-reject"
+    title: "Key unavailable (KMS unreachable)"
+    status: 503
+    verdict: "reject"
+    reason_code: "KEY_UNAVAILABLE"
+    detail: "mock: retry safe"
+    audit_ref: ${audit_ref}
+  status: 503
+  content_type: application/problem+json
+
+reject_ski_mismatch:
+  return:
+    type: "https://efti.example/problem/turvis-decrypt-xmlenc-reject"
+    title: "SKI mismatch"
+    status: 422
+    verdict: "reject"
+    reason_code: "SKI_MISMATCH"
+    detail: "mock: claimed_recipient_ski does not match loaded key"
+    audit_ref: ${audit_ref}
+  status: 422
+  content_type: application/problem+json
+
+reject_aes_unwrap_fail:
+  return:
+    type: "https://efti.example/problem/turvis-decrypt-xmlenc-reject"
+    title: "AES unwrap failed"
+    status: 422
+    verdict: "reject"
+    reason_code: "AES_UNWRAP_FAIL"
+    detail: "mock"
+    audit_ref: ${audit_ref}
+  status: 422
+  content_type: application/problem+json
+
+reject_payload_decrypt_fail:
+  return:
+    type: "https://efti.example/problem/turvis-decrypt-xmlenc-reject"
+    title: "Payload decrypt failed"
+    status: 422
+    verdict: "reject"
+    reason_code: "PAYLOAD_DECRYPT_FAIL"
+    detail: "mock: AES-GCM integrity tag mismatch — likely tampered"
+    audit_ref: ${audit_ref}
+  status: 422
+  content_type: application/problem+json
+
+reject_algo_unsupported:
+  return:
+    type: "https://efti.example/problem/turvis-decrypt-xmlenc-reject"
+    title: "Algorithm unsupported"
+    status: 422
+    verdict: "reject"
+    reason_code: "ALGO_UNSUPPORTED"
+    detail: "mock"
+    audit_ref: ${audit_ref}
+  status: 422
+  content_type: application/problem+json

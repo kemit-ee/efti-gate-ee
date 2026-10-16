@@ -1,0 +1,188 @@
+# Turvis: /turvis/v1/verifications/xmldsig (Phase 1 mock, Phase 2 contract)
+#
+# Nested under /verifications/<mechanism> so sibling mechanisms (/jws per RFC 7515,
+# /cose per RFC 8152) can be added without colliding on request/response shape or
+# reason-code enum. See A9-xml-validator/SPEC.md §4 for the extensibility rationale.
+#
+# This DSL is the authoritative contract for the future Turvis's XMLDSig verify
+# endpoint. For Phase 1 (dev-team unblock) it serves as the turvis-mock implementation;
+# for Phase 2 the real Turvis must respond with the same request/response shape
+# and reason-code enum.
+#
+# Dev-mode mock override: header `X-Mock-Verdict` with values `reject-sig-crypto-fail`,
+# `reject-sig-policy-fail`, `reject-sig-missing`, `reject-signer-untrusted`,
+# `reject-signer-identity-mismatch`, `reject-sig-algo-unsupported`, `reject-xml-parse-fail`,
+# `reject-xml-attack-detected` triggers the matching reject response. Any other value or
+# absence returns a canned accept.
+
+declaration:
+  description: |
+    Verify XMLDSig (W3C XML Signature) on inbound AS4 SOAP envelope.
+
+    Request: soap_xml_b64 (base64 of raw SOAP envelope), attachments (array of
+    {cid, bytes_b64} for decrypted attachments), claimed_signer_id (party ID the
+    SOAP claims as sender), required_signed_xpaths + required_signed_cid_refs
+    (policy: nodes that MUST appear in SignedInfo.references).
+
+    Response: 200 with {verdict:"accept", signer:{...}, matched_signed_xpaths,
+    matched_signed_cid_refs, audit_ref} on crypto + policy pass.
+    422 application/problem+json {verdict:"reject", reason_code, detail, audit_ref}
+    on any failure.
+
+    Reason codes: XML_PARSE_FAIL, XML_ATTACK_DETECTED, SIG_MISSING, SIG_CRYPTO_FAIL,
+    SIG_POLICY_FAIL, SIG_ALGO_UNSUPPORTED, SIGNER_UNTRUSTED, SIGNER_IDENTITY_MISMATCH,
+    TRUST_STORE_UNAVAILABLE, TURVIS_INTERNAL. See A9-xml-validator/SPEC.md §5.
+  internal: true
+  additive: true
+  allowlist:
+    body:
+      - field: soap_xml_b64
+        type: string
+        required: true
+      - field: attachments
+        type: array
+        required: true
+      - field: claimed_signer_id
+        type: string
+        required: true
+      - field: required_signed_xpaths
+        type: array
+        required: true
+      - field: required_signed_cid_refs
+        type: array
+        required: true
+      - field: trust_store_version
+        type: string
+        required: false
+      - field: trace_id
+        type: string
+        required: false
+
+setup:
+  assign:
+    audit_ref: ${crypto.randomUUID()}
+    mock_verdict: ${incoming.headers['x-mock-verdict'] || 'accept'}
+
+dispatch:
+  switch:
+    - condition: ${mock_verdict == 'reject-xml-parse-fail'}
+      next: reject_xml_parse_fail
+    - condition: ${mock_verdict == 'reject-xml-attack-detected'}
+      next: reject_xml_attack
+    - condition: ${mock_verdict == 'reject-sig-missing'}
+      next: reject_sig_missing
+    - condition: ${mock_verdict == 'reject-sig-crypto-fail'}
+      next: reject_sig_crypto
+    - condition: ${mock_verdict == 'reject-sig-policy-fail'}
+      next: reject_sig_policy
+    - condition: ${mock_verdict == 'reject-sig-algo-unsupported'}
+      next: reject_sig_algo
+    - condition: ${mock_verdict == 'reject-signer-untrusted'}
+      next: reject_signer_untrusted
+    - condition: ${mock_verdict == 'reject-signer-identity-mismatch'}
+      next: reject_signer_identity_mismatch
+    - condition: ${true}
+      next: accept
+
+accept:
+  return:
+    verdict: "accept"
+    signer:
+      cert_subject_dn: "CN=mock-peer-${incoming.body.claimed_signer_id},O=mock,C=EU"
+      cert_ski: "0000000000000000000000000000000000000000"
+      cert_serial: "0"
+      verified_identity: ${incoming.body.claimed_signer_id}
+    matched_signed_xpaths: ${incoming.body.required_signed_xpaths}
+    matched_signed_cid_refs: ${incoming.body.required_signed_cid_refs}
+    audit_ref: ${audit_ref}
+  status: 200
+  content_type: application/json
+
+reject_xml_parse_fail: &reject_template
+  return:
+    type: "https://efti.example/problem/turvis-verify-xmldsig-reject"
+    title: "XML parse failed"
+    status: 422
+    verdict: "reject"
+    reason_code: "XML_PARSE_FAIL"
+    detail: "mock: XML would not parse to a well-formed DOM"
+    audit_ref: ${audit_ref}
+  status: 422
+  content_type: application/problem+json
+
+reject_xml_attack:
+  <<: *reject_template
+  return:
+    type: "https://efti.example/problem/turvis-verify-xmldsig-reject"
+    title: "Hostile XML detected"
+    status: 422
+    verdict: "reject"
+    reason_code: "XML_ATTACK_DETECTED"
+    detail: "mock: parser hit a size/depth/entity-expansion limit"
+    audit_ref: ${audit_ref}
+
+reject_sig_missing:
+  <<: *reject_template
+  return:
+    type: "https://efti.example/problem/turvis-verify-xmldsig-reject"
+    title: "Signature missing"
+    status: 422
+    verdict: "reject"
+    reason_code: "SIG_MISSING"
+    detail: "mock: no <ds:Signature> element found in envelope"
+    audit_ref: ${audit_ref}
+
+reject_sig_crypto:
+  <<: *reject_template
+  return:
+    type: "https://efti.example/problem/turvis-verify-xmldsig-reject"
+    title: "Signature validation failed"
+    status: 422
+    verdict: "reject"
+    reason_code: "SIG_CRYPTO_FAIL"
+    detail: "mock: signature.validate() returned false"
+    audit_ref: ${audit_ref}
+
+reject_sig_policy:
+  <<: *reject_template
+  return:
+    type: "https://efti.example/problem/turvis-verify-xmldsig-reject"
+    title: "Signature policy failed"
+    status: 422
+    verdict: "reject"
+    reason_code: "SIG_POLICY_FAIL"
+    detail: "mock: required subtree not in SignedInfo.references"
+    audit_ref: ${audit_ref}
+
+reject_sig_algo:
+  <<: *reject_template
+  return:
+    type: "https://efti.example/problem/turvis-verify-xmldsig-reject"
+    title: "Signature algorithm unsupported"
+    status: 422
+    verdict: "reject"
+    reason_code: "SIG_ALGO_UNSUPPORTED"
+    detail: "mock: algorithm not in allowlist (RSA-SHA256 only)"
+    audit_ref: ${audit_ref}
+
+reject_signer_untrusted:
+  <<: *reject_template
+  return:
+    type: "https://efti.example/problem/turvis-verify-xmldsig-reject"
+    title: "Signer cert untrusted"
+    status: 422
+    verdict: "reject"
+    reason_code: "SIGNER_UNTRUSTED"
+    detail: "mock: signer cert does not chain to trust store"
+    audit_ref: ${audit_ref}
+
+reject_signer_identity_mismatch:
+  <<: *reject_template
+  return:
+    type: "https://efti.example/problem/turvis-verify-xmldsig-reject"
+    title: "Signer identity mismatch"
+    status: 422
+    verdict: "reject"
+    reason_code: "SIGNER_IDENTITY_MISMATCH"
+    detail: "mock: signer cert's SKI/Subject does not match claimed_signer_id"
+    audit_ref: ${audit_ref}
