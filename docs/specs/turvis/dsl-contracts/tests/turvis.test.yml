@@ -1,0 +1,216 @@
+mode: inprocess
+
+# Phase 1 turvis-mock scenarios. Use `dsl-test` from the kemit-ee repo (same
+# runner as DSL-mock-tests/). Shared headers for all requests:
+#
+#   content-type: application/json
+#   x-internal-service-token: <value of TURVIS_INTERNAL_TOKEN>
+#
+# For brevity, we assume the shared-token guard is open in test mode (set
+# AUTH_MODE=shared-token + TURVIS_INTERNAL_TOKEN=dev-only-not-shipped).
+
+tests:
+  # ─────────────────────────────────────────────────────────────────────
+  # /verifications/xmldsig
+  # ─────────────────────────────────────────────────────────────────────
+  - name: verify — accept (full return_fields bundle)
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers:
+        content-type: "application/json"
+        x-internal-service-token: "dev-only-not-shipped"
+      body:
+        soap_xml_b64: "PGVudjpFbnZl..."
+        attachments:
+          - { cid: "cid:message", bytes_b64: "PEZUSTAwNFVwbG9hZC..." }
+        required_signed_xpaths: ["//eb:Messaging", "//env:Body"]
+        required_signed_cid_refs: ["cid:message"]
+        return_fields: ["signer", "matched_signed_xpaths", "matched_signed_cid_refs", "signature_digests", "ebms_routing"]
+        trace_id: "4bf92f3577b34da6a3ce929d0e0e4736"
+    expect:
+      status: 200
+      body_matches:
+        verdict: "accept"
+      body_has_keys: ["signer", "signature_digests", "ebms_routing", "audit_ref"]
+
+  - name: verify — reject (policy fail via mock verdict)
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers:
+        content-type: "application/json"
+        x-internal-service-token: "dev-only-not-shipped"
+        x-mock-verdict: "reject-sig-policy-fail"
+      body:
+        soap_xml_b64: "PGVudjpFbnZl..."
+        attachments: []
+        required_signed_xpaths: ["//env:Body"]
+        required_signed_cid_refs: []
+        return_fields: ["signer"]
+    expect:
+      status: 422
+      body_matches:
+        verdict: "reject"
+        reason_code: "SIG_POLICY_FAIL"
+
+  - name: verify — unknown return field (via mock verdict)
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers:
+        content-type: "application/json"
+        x-internal-service-token: "dev-only-not-shipped"
+        x-mock-verdict: "reject-unknown-return-field"
+      body:
+        soap_xml_b64: "x"
+        attachments: []
+        required_signed_xpaths: ["//env:Body"]
+        required_signed_cid_refs: []
+        return_fields: ["bogus"]
+    expect:
+      status: 422
+      body_matches:
+        verdict: "reject"
+        reason_code: "UNKNOWN_RETURN_FIELD"
+
+  # ─────────────────────────────────────────────────────────────────────
+  # /signatures/xmldsig
+  # ─────────────────────────────────────────────────────────────────────
+  - name: sign — accept (pass-through signed_xml_b64)
+    request:
+      method: POST
+      path: /turvis/v1/signatures/xmldsig
+      headers:
+        content-type: "application/json"
+        x-internal-service-token: "dev-only-not-shipped"
+      body:
+        soap_xml_b64: "PGVudjpFbnZlbG9wZS4uLg=="
+        sign_xpaths: ["//eb:Messaging", "//env:Body"]
+        sign_cid_refs: ["cid:message"]
+        key_handle: "EU-EE"
+        return_fields: ["signatures"]
+    expect:
+      status: 200
+      body_matches:
+        signed_xml_b64: "PGVudjpFbnZlbG9wZS4uLg=="   # pass-through
+      body_has_keys: ["audit_ref", "signatures"]
+
+  # ─────────────────────────────────────────────────────────────────────
+  # /encryptions/xmlenc — both profiles
+  # ─────────────────────────────────────────────────────────────────────
+  - name: encrypt — wss-encrypted mode (full accept bundle)
+    request:
+      method: POST
+      path: /turvis/v1/encryptions/xmlenc
+      headers:
+        content-type: "application/json"
+        x-internal-service-token: "dev-only-not-shipped"
+      body:
+        plaintext_bytes_b64: "H4sIAAAAAAAA..."
+        receiver_party_id: "EU-FR"
+        profile: "wss-encrypted"
+        return_fields: ["wrapped_key_xml", "encrypted_data_xml", "wrapped_key_b64"]
+    expect:
+      status: 200
+      body_matches:
+        encrypted_payload_b64: "H4sIAAAAAAAA..."   # pass-through in mock
+      body_has_keys: ["audit_ref", "wrapped_key_xml", "encrypted_data_xml", "wrapped_key_b64"]
+      body_matches_non_empty: ["wrapped_key_xml", "encrypted_data_xml"]
+
+  - name: encrypt — plaintext mode (empty XML fragments, passthrough bytes)
+    request:
+      method: POST
+      path: /turvis/v1/encryptions/xmlenc
+      headers:
+        content-type: "application/json"
+        x-internal-service-token: "dev-only-not-shipped"
+      body:
+        plaintext_bytes_b64: "H4sIAAAAAAAA..."
+        receiver_party_id: "EU-FR"
+        profile: "plaintext"
+        return_fields: ["wrapped_key_xml", "encrypted_data_xml", "wrapped_key_b64"]
+    expect:
+      status: 200
+      body_matches:
+        encrypted_payload_b64: "H4sIAAAAAAAA..."   # byte-identical to input
+        wrapped_key_xml: ""                        # empty — splicing is a no-op
+        encrypted_data_xml: ""                     # empty — splicing is a no-op
+        wrapped_key_b64: ""
+
+  # ─────────────────────────────────────────────────────────────────────
+  # /decryptions/xmlenc
+  # ─────────────────────────────────────────────────────────────────────
+  - name: decrypt — accept (passthrough SOAP + attachment)
+    request:
+      method: POST
+      path: /turvis/v1/decryptions/xmlenc
+      headers:
+        content-type: "application/json"
+        x-internal-service-token: "dev-only-not-shipped"
+      body:
+        soap_xml_b64: "PGVudjpFbnZlbG9wZS4uLg=="
+        encrypted_attachment_b64: "AAAAAAAAAAAAAAAA..."
+        key_handle: "EU-EE"
+        return_fields: ["decrypted_soap_xml_b64", "decrypted_attachment_b64", "ebms_routing"]
+    expect:
+      status: 200
+      body_matches:
+        decrypted_soap_xml_b64: "PGVudjpFbnZlbG9wZS4uLg=="   # pass-through in mock
+        decrypted_attachment_b64: "AAAAAAAAAAAAAAAA..."       # pass-through in mock
+      body_has_keys: ["audit_ref"]
+
+  - name: decrypt — SKI mismatch (via mock verdict)
+    request:
+      method: POST
+      path: /turvis/v1/decryptions/xmlenc
+      headers:
+        content-type: "application/json"
+        x-internal-service-token: "dev-only-not-shipped"
+        x-mock-verdict: "reject-ski-mismatch"
+      body:
+        soap_xml_b64: "x"
+        key_handle: "EU-EE"
+        return_fields: ["decrypted_soap_xml_b64"]
+    expect:
+      status: 422
+      body_matches:
+        verdict: "reject"
+        reason_code: "SKI_MISMATCH"
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Guard — authn
+  # ─────────────────────────────────────────────────────────────────────
+  - name: guard — rejects missing token
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers:
+        content-type: "application/json"
+        # intentionally no x-internal-service-token
+      body:
+        soap_xml_b64: "x"
+        attachments: []
+        required_signed_xpaths: ["//env:Body"]
+        required_signed_cid_refs: []
+        return_fields: ["signer"]
+    expect:
+      status: 401
+      body_matches:
+        type: "https://efti.example/problem/turvis-authentication-failed"
+
+  - name: guard — rejects wrong token
+    request:
+      method: POST
+      path: /turvis/v1/signatures/xmldsig
+      headers:
+        content-type: "application/json"
+        x-internal-service-token: "wrong"
+      body:
+        soap_xml_b64: "x"
+        sign_xpaths: ["//env:Body"]
+        sign_cid_refs: []
+        key_handle: "EU-EE"
+        return_fields: []
+    expect:
+      status: 401

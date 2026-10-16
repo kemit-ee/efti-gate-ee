@@ -1,0 +1,198 @@
+# Turvis: /turvis/v1/decryptions/xmlenc (Phase 1 mock, Phase 2 contract)
+#
+# Nested under /decryptions/<mechanism> so sibling mechanisms (/jwe per RFC 7516,
+# /cose-encrypt per RFC 8152) can be added without colliding on request/response
+# shape or reason-code enum. See SPEC.md §4 for the extensibility
+# rationale.
+#
+# `internal: false` + guard-enforced authn (see .guard.yml).
+#
+# Request shape (per Pattern B review): edelivery passes the raw SOAP envelope +
+# raw encrypted attachment bytes. Turvis extracts <xenc:EncryptedKey> wrapped AES
+# key and <wsse:KeyIdentifier> recipient SKI itself. edelivery never parses crypto
+# elements.
+#
+# Plaintext mode: if the inbound SOAP has no <xenc:EncryptedData>, Turvis returns
+# the input unchanged (plaintext passthrough) with the plaintext bytes
+# gzip-compressed as per the inbound AS4 convention.
+#
+# `return_fields` on request: edelivery declares which auxiliary fields it wants
+# back (SPEC §4.4 enum). Phase 1 mock returns the full accept bundle regardless.
+#
+# Dev-mode mock override: header `X-Mock-Verdict` with reject values below triggers
+# the matching reject response.
+#
+# PHASE 2 WARNING: real Turvis MUST perform RSA-OAEP unwrap + AES-GCM decrypt per
+# W3C XML Encryption 1.1. Phase 1 mock output is for integration-testing shape only.
+
+declaration:
+  description: |
+    W3C XML Encryption 1.1 decrypt of inbound SOAP envelope + attachment with
+    gate's private key.
+
+    Request: soap_xml_b64 (raw inbound SOAP envelope, Turvis extracts
+    <wsse:Security>/<xenc:EncryptedKey> + <wsse:KeyIdentifier> internally),
+    encrypted_attachment_b64 (raw encrypted attachment bytes; omit if no
+    attachment), key_handle, return_fields (required), trace_id.
+
+    Response: 200 with {decrypted_soap_xml_b64, decrypted_attachment_b64,
+    audit_ref, + requested fields}. decrypted_attachment_b64 is gzip-compressed
+    plaintext payload bytes (same convention as inbound before encryption).
+    Pure function; safe to retry.
+
+    Reason codes: WRAPPED_KEY_MALFORMED, KEY_HANDLE_UNKNOWN, KEY_UNAVAILABLE,
+    SKI_MISMATCH, AES_UNWRAP_FAIL, PAYLOAD_DECRYPT_FAIL, ALGO_UNSUPPORTED,
+    UNKNOWN_RETURN_FIELD, TURVIS_INTERNAL. See SPEC.md §5.
+  internal: false
+  additive: true
+  allowlist:
+    body:
+      - field: soap_xml_b64
+        type: string
+        required: true
+      - field: key_handle
+        type: string
+        required: true
+      - field: return_fields
+        type: array
+        required: true
+      - field: encrypted_attachment_b64
+        type: string
+        required: false
+      - field: trace_id
+        type: string
+        required: false
+
+setup:
+  assign:
+    audit_ref: "${'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) { var r = Math.floor(Math.random() * 16); return (c === 'x' ? r : (r & 3) | 8).toString(16); })}"
+    mock_verdict: "${incoming.headers['x-mock-verdict'] || 'accept'}"
+
+dispatch:
+  switch:
+    - condition: "${mock_verdict == 'reject-wrapped-key-malformed'}"
+      next: reject_wrapped_key_malformed
+    - condition: "${mock_verdict == 'reject-key-handle-unknown'}"
+      next: reject_key_handle_unknown
+    - condition: "${mock_verdict == 'reject-key-unavailable'}"
+      next: reject_key_unavailable
+    - condition: "${mock_verdict == 'reject-ski-mismatch'}"
+      next: reject_ski_mismatch
+    - condition: "${mock_verdict == 'reject-aes-unwrap-fail'}"
+      next: reject_aes_unwrap_fail
+    - condition: "${mock_verdict == 'reject-payload-decrypt-fail'}"
+      next: reject_payload_decrypt_fail
+    - condition: "${mock_verdict == 'reject-algo-unsupported'}"
+      next: reject_algo_unsupported
+    - condition: "${mock_verdict == 'reject-unknown-return-field'}"
+      next: reject_unknown_return_field
+    - condition: "${true}"
+      next: accept
+
+accept:
+  # Mock passthrough: decrypted_soap_xml_b64 = input soap_xml_b64,
+  # decrypted_attachment_b64 = input encrypted_attachment_b64 (or empty).
+  # Real Turvis replaces <xenc:EncryptedData> in the SOAP body with the
+  # decrypted plaintext element and decrypts the attachment bytes.
+  return:
+    decrypted_soap_xml_b64: "${incoming.body.soap_xml_b64}"
+    decrypted_attachment_b64: "${incoming.body.encrypted_attachment_b64 || ''}"
+    audit_ref: "${audit_ref}"
+  status: 200
+  content_type: application/json
+
+reject_wrapped_key_malformed:
+  return:
+    type: "https://efti.example/problem/turvis-decrypt-xmlenc-reject"
+    title: "Wrapped key malformed"
+    status: 422
+    verdict: "reject"
+    reason_code: "WRAPPED_KEY_MALFORMED"
+    detail: "mock"
+    audit_ref: "${audit_ref}"
+  status: 422
+  content_type: application/problem+json
+
+reject_key_handle_unknown:
+  return:
+    type: "https://efti.example/problem/turvis-decrypt-xmlenc-reject"
+    title: "Key handle unknown"
+    status: 422
+    verdict: "reject"
+    reason_code: "KEY_HANDLE_UNKNOWN"
+    detail: "mock"
+    audit_ref: "${audit_ref}"
+  status: 422
+  content_type: application/problem+json
+
+reject_key_unavailable:
+  return:
+    type: "https://efti.example/problem/turvis-decrypt-xmlenc-reject"
+    title: "Key unavailable (KMS unreachable)"
+    status: 503
+    verdict: "reject"
+    reason_code: "KEY_UNAVAILABLE"
+    detail: "mock: retry safe"
+    audit_ref: "${audit_ref}"
+  status: 503
+  content_type: application/problem+json
+
+reject_ski_mismatch:
+  return:
+    type: "https://efti.example/problem/turvis-decrypt-xmlenc-reject"
+    title: "SKI mismatch"
+    status: 422
+    verdict: "reject"
+    reason_code: "SKI_MISMATCH"
+    detail: "mock: <wsse:KeyIdentifier> SKI does not match the gate's loaded key"
+    audit_ref: "${audit_ref}"
+  status: 422
+  content_type: application/problem+json
+
+reject_aes_unwrap_fail:
+  return:
+    type: "https://efti.example/problem/turvis-decrypt-xmlenc-reject"
+    title: "AES unwrap failed"
+    status: 422
+    verdict: "reject"
+    reason_code: "AES_UNWRAP_FAIL"
+    detail: "mock"
+    audit_ref: "${audit_ref}"
+  status: 422
+  content_type: application/problem+json
+
+reject_payload_decrypt_fail:
+  return:
+    type: "https://efti.example/problem/turvis-decrypt-xmlenc-reject"
+    title: "Payload decrypt failed"
+    status: 422
+    verdict: "reject"
+    reason_code: "PAYLOAD_DECRYPT_FAIL"
+    detail: "mock: AES-GCM integrity tag mismatch — likely tampered"
+    audit_ref: "${audit_ref}"
+  status: 422
+  content_type: application/problem+json
+
+reject_algo_unsupported:
+  return:
+    type: "https://efti.example/problem/turvis-decrypt-xmlenc-reject"
+    title: "Algorithm unsupported"
+    status: 422
+    verdict: "reject"
+    reason_code: "ALGO_UNSUPPORTED"
+    detail: "mock"
+    audit_ref: "${audit_ref}"
+  status: 422
+  content_type: application/problem+json
+
+reject_unknown_return_field:
+  return:
+    type: "https://efti.example/problem/turvis-decrypt-xmlenc-reject"
+    title: "Unknown return field"
+    status: 422
+    verdict: "reject"
+    reason_code: "UNKNOWN_RETURN_FIELD"
+    detail: "mock: return_fields contains a value not in the endpoint's projectable set (see SPEC §4.4)"
+    audit_ref: "${audit_ref}"
+  status: 422
+  content_type: application/problem+json
