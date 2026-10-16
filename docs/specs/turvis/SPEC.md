@@ -66,24 +66,29 @@ Security-sensitive operations and the key material / policy state they need belo
 
 **In scope (Phase 1 — this contract)**:
 - Four cryptography HTTP endpoints (§3)
-- Trust store + private-key access (how it's loaded, rotated, stored — all **Turvis's responsibility**, see §7)
+- Private-key access (Turvis-only secret, see §7.1)
+- Shared trust store read access (same file as edelivery, see §7.2)
 - Audit log of every security decision
 - `/metrics` endpoint
 - Health probes
 
 **Future scope (same component, later phases — not in this contract)**:
-- Payload-validation endpoints (XSD, JSON Schema, …)
-- Hardened-parse endpoints (XML, JSON, …) — eventually replaces the in-process `XmlParser` in `edelivery` and in any other Bürostack service that currently rolls its own parse
+- Hardened XML/JSON parse endpoints (`/turvis/v1/parsings/xml`, `/parsings/json`, …) — a safe-parse boundary that any Bürostack service can call to turn untrusted bytes into a sanitised DOM/tree without rolling its own XXE-hardened parser
+- Generic schema-validation endpoints (`/turvis/v1/validations/xmlschema`, `/validations/jsonschema`) where the **caller supplies the schema per call** (hash-cached by Turvis). NOT eFTI-specific — Turvis never registers FTI004 or any other business schema internally.
 - Content-type sniffing / payload classification
 
 **Permanently out of scope (never in Turvis)**:
-- Business logic (eFTI FTI004/FTI007 semantic processing stays in edelivery / xml-mapper)
+- Business-schema validation (eFTI FTI004/FTI007 XSD stays in `xml-mapper` **permanently** — business concern, not security). The future `/validations/xmlschema` endpoint takes caller-supplied schemas; it does not become a registry of eFTI schemas.
+- Business logic (FTI004/FTI007 semantic processing stays in edelivery / xml-mapper)
 - SOAP envelope assembly (stays in edelivery — framing, not security)
-- Peer registry CRUD (stays in edelivery; Turvis reads a trust store, not a registry)
+- Peer registry CRUD and routing-URL management (stays in `registry` service + the shared trust store §7.2; Turvis is a read-only consumer of the trust slice)
 - MIME multipart assembly on outbound AS4 (stays in edelivery — framing)
 - X-Road integration
 - UI
 - WebSockets / SSE / streaming
+
+**Related finding ownership** (per audit cross-reference):
+- F-PV-3, F-XM-1, F-XM-2 (edelivery's XmlParser hardening): closed by **#307 perimeter trust model**, not by Turvis. edelivery's parser is explicitly unhardened by design (§9.3); hardening comes from the perimeter + Turvis as the sole parser touching peer bytes.
 
 ---
 
@@ -187,11 +192,11 @@ Planned follow-ups (same URL shape, **not part of this contract**):
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/turvis/v1/validations/xmlschema` | Validate XML against a registered XSD. |
-| POST | `/turvis/v1/validations/jsonschema` | Validate JSON against a registered JSON Schema. |
-| POST | `/turvis/v1/parsings/xml` | Hardened XML parse; returns a structured representation or a reject verdict. |
+| POST | `/turvis/v1/parsings/xml` | Hardened XML parse; returns a sanitised DOM/tree or a reject verdict. Replaces the in-process `XmlParser` in Bürostack services that touch untrusted XML. |
+| POST | `/turvis/v1/validations/xmlschema` | Validate well-formed XML against a **caller-supplied** XSD (identified by content hash; Turvis caches schemas by hash). Not a registry of pre-known schemas — eFTI's FTI004/FTI007 schemas remain in `xml-mapper`. |
+| POST | `/turvis/v1/validations/jsonschema` | Validate JSON against a caller-supplied JSON Schema (same hash-cache pattern). |
 
-These will be specified in a follow-up revision of this document when the sec-service team is ready to deliver them; for now they are listed only to anchor the extensibility story in §3.1.
+These are placeholders for future revisions — not design-level commitments on the exact field names. Listed here only to anchor the §3.1 extensibility story.
 
 ### 3.1 Extensibility — why `<operation>/<mechanism>` is nested
 
@@ -253,7 +258,7 @@ Every endpoint's request body includes a **required** `return_fields` array. The
 - Unknown field name in `return_fields` → reject with `UNKNOWN_RETURN_FIELD` (422).
 - No subfield projection (`signer.cert_ski` form). Top-level objects are atomic — request a whole subobject or omit it.
 - Each endpoint's projectable enum is enumerated in §4.1–§4.4.
-- **Phase 1 mock caveat**: the mock in `dsl-contracts/` validates `return_fields` presence but returns the **full** accept bundle regardless of its contents. Real Turvis in Phase 2 enforces field-level filtering. Well-behaved caller code reads only the fields it requested.
+- **Phase 1 mock caveat**: the mock in `dsl-contracts/` validates `return_fields` **presence** (every request MUST declare it) but returns the **full** accept bundle regardless of its contents, and does NOT inspect `return_fields` for unknown values. The `UNKNOWN_RETURN_FIELD` reject is therefore only reachable in the mock via the `X-Mock-Verdict: reject-unknown-return-field` header. Real Turvis in Phase 2 enforces field-level filtering from the request field itself. Well-behaved caller code reads only the fields it requested.
 
 ### 4.1 `POST /turvis/v1/verifications/xmldsig`
 
@@ -318,8 +323,8 @@ Every endpoint's request body includes a **required** `return_fields` array. The
     },
     "claimed_signer_id": {
       "type": "string",
-      "pattern": "^[A-Z]{2}-[A-Z0-9]{2,8}$",
-      "description": "OPTIONAL. If provided, Turvis checks that the signer cert's identity matches this value and rejects with SIGNER_IDENTITY_MISMATCH on mismatch. If omitted, Turvis extracts <eb:From>/<eb:PartyId> from the envelope and uses it. In either case the verified identity is returned in signer.verified_identity + ebms_routing.from_party_id."
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_\\-]{0,63}$",
+      "description": "OPTIONAL. If provided, Turvis checks that the signer cert's identity matches this value and rejects with SIGNER_IDENTITY_MISMATCH on mismatch. If omitted, Turvis extracts <eb:From>/<eb:PartyId> from the envelope and uses it. Formal cross-border gate IDs follow `^[A-Z]{2}-[A-Z0-9]{2,8}$` (EU-FR, EU-EE); the broader pattern here accommodates dev/test party IDs (mock, mock-edelivery, pikker). Production deploys may enforce the stricter pattern via a separate CI gate (see §13.10)."
     },
     "trust_store_version": {
       "type": "string",
@@ -747,17 +752,80 @@ Why dev team needs this: these URIs are what Turvis MUST emit on outbound sign/e
 
 ---
 
-## 7. Key material + trust store — **Turvis's responsibility**
+## 7. Key material + trust store
 
-Private-key format/handover, trust-store format, rotation procedure, and KMS integration are all internal to Turvis. The dev team never touches them.
+### 7.1 Private key — **Turvis's responsibility**
 
-**What the dev team DOES need to know (edelivery-side):**
+The gate's own private key is held exclusively inside Turvis (or a KMS behind it). edelivery has no access. Format, handover procedure, rotation runbook, and KMS integration are all internal to Turvis.
 
-- `key_handle` field (passed on every `/signatures/xmldsig` + `/decryptions/xmlenc` call): **fixed per gate = `OWN_GATE_ID`** (e.g. `EU-EE`). Turvis rejects with `KEY_HANDLE_UNKNOWN` if the handle doesn't match its loaded key. No multi-key support in v1.
-- `trust_store_version` field (optional on `/verifications/xmldsig`): opaque string, if present pins which trust-store version the verifier should use. Dev team can leave it unset to accept whichever version is loaded.
-- edelivery's `partyRegistry` **is no longer the authority** on peer certs after A9. Keep it for admin UI display + routing (`party.eDeliveryUrl` for outbound HTTP); drop any code path that reads `party.cert` for signature verification or encryption-target lookup.
+**What edelivery needs to know**:
+- `key_handle` field (passed on every `/signatures/xmldsig` + `/decryptions/xmlenc` call): **fixed per gate = `OWN_GATE_ID`** (e.g. `EU-EE`). Turvis rejects with `KEY_HANDLE_UNKNOWN` on mismatch. No multi-key support in v1.
 
-Everything else (p12 handover, rotation runbook, KMS choice, trust-store manifest signing) is handled by the turvis team.
+### 7.2 Shared trust store (parties file)
+
+Both Turvis and edelivery read the **same** parties file as their single source of truth for peer directory + trust state. This eliminates drift between the two services at the cost of a shared config dependency.
+
+**Mount**:
+- Path from env `TRUST_STORE_PATH` (default `/trust/parties.yml`).
+- Mounted **read-only** into both the Turvis pod and the edelivery pod.
+- Reload: both services watch the file and reload on change (atomic rename only — no partial reads).
+
+**Content** — only public or public-ish data. No private key material. No internal tokens.
+
+```yaml
+schema_version: "1.0"
+generation: "2026-10-16T12:00:00Z"
+signed_by: "cn=efti-trust-authority,o=efti-pki,c=eu"
+signature_b64: "..."
+signature_algorithm: "RS256"
+trust_anchors:
+  - alias: "efti-root-ca-2026"
+    cert_pem: "-----BEGIN CERTIFICATE-----\n..."
+parties:
+  - party_id: "EU-FR"
+    status: "ONLINE"                        # ONLINE / OFFLINE / DISABLED
+    edelivery:
+      url: "https://efti-fr.gov.fr/as4"     # edelivery reads this slice only
+    trust:                                  # Turvis reads this slice only
+      verified_identity: "EU-FR"
+      allowed_chain_anchors: ["efti-root-ca-2026"]
+      pinned_cert_pem: null                 # usually null; chain-of-trust (§9.4). Set for interim pinning.
+      cert_ski: "a1b2c3..."                 # advisory, for admin UI / monitoring
+      cert_subject_dn: "CN=EU-FR-gate,O=DGITM,C=FR"
+      valid_until: "2027-10-15T00:00:00Z"
+```
+
+**Which service reads which slice**:
+- **Turvis** reads `party_id`, `status`, `trust.*`, `trust_anchors[]`. Verifies the file signature at load. Ignores `edelivery.*`.
+- **edelivery** reads `party_id`, `status`, `edelivery.*`. **MUST ignore `trust.*`** — a CI greppable rule (reading `trust.cert_pem` from edelivery is a code-review red flag). Signature verification of the parties file in edelivery is **optional** (routing-only data; but recommended because routing to an attacker-controlled URL leaks message bodies).
+- **Admin UI** reads both — advisory cert fields are OK to display.
+- **Ops monitoring** reads both — `turvis_trust_party_days_to_expiry` metric is exposed by Turvis per entry; `edelivery_route_count` by edelivery.
+
+**Distribution**:
+- Phase 1: operator writes the file locally; signature verification may be stubbed (`signed_by: "LOCAL-DEV"`, Turvis configurable to skip signature check in dev mode via `TRUST_STORE_SIGNATURE_REQUIRED=false`).
+- Phase 2: eFTI PKI (A3) distributes a signed manifest; Turvis MUST verify the signature against a configured trust anchor before loading. **Fail-closed**: on signature verification failure, Turvis keeps the previously-loaded trust store (does not transition to the unsigned/tampered file) and emits `TRUST_STORE_UNAVAILABLE` on new requests.
+
+**Scope boundary**:
+- **Our own private key**: NOT in this file. Separate Turvis-only secret mount.
+- **TLS CA bundle for outbound HTTPS**: NOT in this file. Stays with edelivery (or the mesh); unrelated to AS4 signing.
+- **Internal service tokens / mTLS mesh material**: NOT in this file. Per-service secrets.
+
+### 7.3 Reload semantics
+
+- Change detection: file-watch (inotify on Linux) OR periodic poll at `TRUST_STORE_REFRESH_SECONDS` (default 300).
+- Atomic swap: writer renames `parties.yml.new` → `parties.yml` so readers never see partial content.
+- In-flight requests complete against the trust-store snapshot they started with; next request uses the new snapshot. No mid-request switch.
+- Load failure: current snapshot stays in use; the service emits an alert metric (`turvis_trust_store_load_failed_total`) and continues serving the previous content.
+
+### 7.4 Drift detection (CI, not runtime)
+
+Drift between edelivery's routing view and Turvis's trust view **is impossible by construction** — they read the same file. The only drift risk is between the shared file and the eFTI PKI registry (upstream). This is caught by:
+
+- **Deploy pipeline**: CI compares the deployed `parties.yml` against the upstream PKI manifest; refuses promotion on mismatch.
+- **Prometheus alerts**: `turvis_trust_store_last_reload_timestamp` age exceeds threshold → "trust store stale."
+- **Cron**: optional background job inside Turvis compares file hash against upstream manifest hash on a schedule; fails open (emits alert, doesn't block requests).
+
+The dev team does not need to add any edelivery-side drift check. Any mismatch surfaces as a reason-code reject at the first affected message (`RECEIVER_UNKNOWN` / `SIGNER_UNTRUSTED`).
 
 ---
 
@@ -810,6 +878,27 @@ edelivery's parser is explicitly **not hardened** (consistent with #307): the de
 
 Turvis's log hygiene, mesh-layer rejection of non-authorised clients, and egress restrictions are **Turvis's responsibility** — not duplicated here.
 
+### 9.4 Signer trust model — chain of trust
+
+In a 27-gate eFTI network with multiple CAs and platforms, per-peer **pinning** doesn't scale operationally — every peer cert rotation would require updating N-1 pinned lists, and adding a new gate would require updates in N-1 places. Turvis uses **chain of trust** with CA governance:
+
+Trust decision on verify:
+1. Signer cert MUST chain to a trusted root (listed in `trust_anchors[]` of the shared trust store, §7.2).
+2. Signer cert's `verified_identity` (derived from the cert's Subject or SAN) MUST equal the `trust.verified_identity` of some entry in the `parties[]` list.
+3. That party's `status` MUST be `ONLINE`.
+
+Failure modes map to §5 reason codes:
+- Chain fails → `SIGNER_UNTRUSTED`
+- Chain OK but no `parties[]` entry matches the verified identity → `SIGNER_UNTRUSTED` (treated the same operationally — not authorised to sign)
+- Chain OK, party matches, but `status != ONLINE` → `SIGNER_UNTRUSTED` with a detail line noting the status
+- Signer identity doesn't match caller's `claimed_signer_id` (when provided) → `SIGNER_IDENTITY_MISMATCH`
+
+**Interim pinning hook** (not recommended, but supported for networks without PKI governance):
+- If a `parties[]` entry has `trust.pinned_cert_pem` set to a non-null value, Turvis verifies the signer cert matches that exact PEM in addition to (or instead of) chain verification.
+- Fleet migration path: all 27 gates start with `pinned_cert_pem` set to the current cert, then transition to chain-anchor-only as the eFTI PKI governance ships. Turvis's code should treat `pinned_cert_pem` as optional per-entry so flipping an entry doesn't require code changes.
+
+**Current `singletonKeySelector` pattern in the legacy code**: incompatible with this model (hardwires a single pinned cert). Replaced wholesale by the shared-trust-store lookup during A9-SUB-4 cutover (§13.6).
+
 ---
 
 ## 10. Observability
@@ -852,14 +941,21 @@ Required metrics:
 
 | Metric name | Type | Labels | Meaning |
 |---|---|---|---|
-| `sec_requests_total` | counter | `endpoint`, `verdict` | Request count. |
-| `sec_request_duration_seconds` | histogram | `endpoint` | Latency. Buckets: 0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5. |
-| `sec_rejections_total` | counter | `endpoint`, `reason_code` | Reject count. |
-| `sec_trust_store_entries` | gauge | — | Count of entries in trust store. |
-| `sec_trust_store_last_reload_timestamp` | gauge | — | Unix timestamp of last successful reload. |
-| `sec_build_info` | gauge | `version`, `git_sha` | Static. |
+| `turvis_requests_total` | counter | `endpoint`, `verdict` | Request count. |
+| `turvis_request_duration_seconds` | histogram | `endpoint` | Latency. Buckets: 0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5. |
+| `turvis_rejections_total` | counter | `endpoint`, `reason_code` | Reject count. |
+| `turvis_trust_store_entries` | gauge | — | Count of entries in the shared trust store (§7.2). |
+| `turvis_trust_store_last_reload_timestamp` | gauge | — | Unix timestamp of last successful reload. |
+| `turvis_trust_store_load_failed_total` | counter | — | Count of trust store (re)load failures. Alert if increasing. |
+| `turvis_trust_party_days_to_expiry` | gauge | `party_id` | Days until `trust.valid_until` for each party in the shared trust store. Alert on < 30. |
+| `turvis_token_auth_after_mesh_total` | counter | — | Requests that authenticated via token when `AUTH_MODE=mtls-or-token`. **MUST be alerted on** — any non-zero value after mesh enrollment is a misconfiguration (SPEC §11.2). |
+| `turvis_build_info` | gauge | `version`, `git_sha` | Static. |
 
-Cardinality: `reason_code` label is bounded (see §5 enum). `endpoint` label is bounded (4 values). Do NOT add peer-party-id as a metric label — unbounded.
+Cardinality notes:
+- `reason_code` label is bounded (see §5 enum).
+- `endpoint` label is bounded (4 request endpoints + the audit-query endpoint).
+- `party_id` label on `turvis_trust_party_days_to_expiry` is bounded by the trust-store entry count (expected: 27 ± growth).
+- Do NOT add peer `party_id` as a label on request counters — attackers could flood that cardinality.
 
 ### 10.4 Structured application logs
 
@@ -896,16 +992,21 @@ Turvis runs under its own ServiceAccount; the exact name is pinned by the A3 dep
 
 ### 11.2 Interim authentication (pre-A3)
 
-A3 (strict mTLS mesh + NetworkPolicy) is a hard dependency on this build's final deployment, but ship-timeline-wise it may not be ready at first turvis deploy. During the interim window Turvis MUST support the fleet's existing shared-token pattern as a fallback authn mechanism:
+A3 (strict mTLS mesh + NetworkPolicy) is a hard dependency on this build's final deployment, but ship-timeline-wise it may not be ready at first Turvis deploy. During the interim window Turvis MUST support a Turvis-dedicated token as a fallback authn mechanism.
 
 - **Mechanism**: `X-Internal-Service-Token` request header. Shared-secret, compared constant-time via `MessageDigest.isEqual()` (JVM) or `subtle::ConstantTimeEq` (Rust).
-- **Secret source**: environment variable `INTERNAL_SERVICE_TOKEN` (secret-ref). Same convention as the fleet's `code/core/src/.../InternalServiceTokenAuth.kt`.
+- **Secret source**: environment variable **`TURVIS_INTERNAL_TOKEN`** (secret-ref). **Dedicated to Turvis — NOT the fleet's shared `INTERNAL_SERVICE_TOKEN`.** Turvis guards the private key; any internal service that knows the token has a sign/decrypt oracle. Separate secret = tight blast radius.
 - **Enforcement toggle**: environment variable `AUTH_MODE` with values:
   - `mtls` (default, production target) — requires strict mTLS; rejects any request without valid client cert from the configured ServiceAccount.
   - `shared-token` (interim) — accepts requests that present a valid `X-Internal-Service-Token` header.
-  - `mtls-or-token` (migration overlap) — accepts either. Logs a warning when a request arrives via `shared-token` so operators can track migration progress.
-- **Fail-closed**: on startup, if `AUTH_MODE=shared-token` or `mtls-or-token` and `INTERNAL_SERVICE_TOKEN` is unset or equals the known-weak default `dev-internal-service-token-change-me`, Turvis refuses to boot.
-- **Migration guidance**: deploy initially with `AUTH_MODE=mtls-or-token`; after mesh enrollment is verified for edelivery, flip to `AUTH_MODE=mtls` and remove the token secret from the deployment.
+  - `mtls-or-token` (migration overlap) — accepts either. **Expires at `AUTH_MODE_TOKEN_EXPIRY` (RFC 3339 timestamp env var)**; after this timestamp, token-bearer requests reject with 401 regardless of `AUTH_MODE`. Required to prevent "temporary" overlap becoming permanent.
+- **mTLS identity check**: ServiceAccount identity is in the client cert's **SAN (SubjectAlternativeName)** URI entries, typically formatted as `spiffe://cluster.local/ns/<namespace>/sa/<name>`. The guard matches against SAN entries, NOT the Subject DN (`client_subject_dn.indexOf(...)` would never match). See `.guard.yml` for the exact predicate.
+- **Fail-closed**:
+  - On startup: if `AUTH_MODE=shared-token` or `mtls-or-token` and `TURVIS_INTERNAL_TOKEN` is unset / equals a known-weak default / has length < 32 → Turvis refuses to boot.
+  - Known-weak defaults (minimum): `""`, `"dev-token-change-me"`, `"changeme"`, `"turvis-dev"`.
+  - This fail-closed check lives in the real Turvis startup code. The Phase 1 Ruuter mock **cannot** enforce it — that's a known gap documented here, not a mock bug.
+- **Alert on token-bearer post-mesh**: when `AUTH_MODE=mtls-or-token` AND a request arrives via token, Turvis emits `turvis_token_auth_after_mesh_total` + a WARN log line. **Operators MUST configure a Prometheus alert on this counter** — WARN logs alone are easily missed. The counter should drop to zero within hours of flipping edelivery into mesh mode; non-zero after that = investigation.
+- **Migration guidance**: deploy initially with `AUTH_MODE=mtls-or-token` + `AUTH_MODE_TOKEN_EXPIRY=` <date 2 weeks ahead>. After mesh enrollment is verified AND the alert metric is zero for 48h, flip to `AUTH_MODE=mtls` and remove the token secret from the deployment.
 - **Deprecation**: `shared-token` and `mtls-or-token` are removed in v2 of this SPEC. Target removal: once A3 lands production-wide.
 
 ---
@@ -945,6 +1046,41 @@ Deprecating a v1 path requires: 6-month advance notice + migration guide + telem
 
 Everything the gate's `edelivery` service (kemit-ee#305 implementation) must do.
 
+### 13.0 Transition model (legacy stays default until real Turvis verified)
+
+The gate must keep working against the mock while real Turvis is still being built; this contract is **additive**, not a hard cutover.
+
+**Default state after #305 lands**: legacy in-process crypto path is still the default. Turvis path is behind an environment-scoped feature flag:
+
+```
+TURVIS_INTEGRATION_MODE = legacy | shadow | turvis
+  legacy  — in-process crypto only (default). Turvis not called.
+  shadow  — in-process is authoritative; Turvis is called in parallel; results compared and logged.
+  turvis  — Turvis is authoritative; legacy path is NOT invoked (code still present).
+```
+
+**Rollout sequence**:
+1. **Dev / staging**: flip to `shadow`. Compare results across all in-flight messages. Discrepancies logged with `audit_ref` for triage.
+2. **Shadow success criteria** (ALL must hold for ≥ 2 weeks before `turvis` promotion in that env):
+   - Verify: `signer.verified_identity` matches between legacy and Turvis. `signature_digests` match byte-for-byte on sign. `ebms_routing` fields match.
+   - Encrypt: NOT byte-equal (fresh AES key per call); shadow comparison here is "structure + round-trip-decrypts-cleanly," not byte equality.
+   - Decrypt: `decrypted_attachment_b64` matches byte-for-byte. `decrypted_soap_xml_b64` matches modulo whitespace / namespace-prefix normalisation.
+   - Discrepancy threshold: < 0.01% of messages, no new class of discrepancy in the trailing 7 days.
+3. **Dev / staging**: flip to `turvis`. Legacy code remains in place but is NOT called in the hot path. Monitor for 1-2 weeks.
+4. **Prod**: repeat 1-3.
+5. **Only AFTER prod has run on `turvis` for ≥ 30 days** → the code deletions in §13.6 are safe to execute (A9-SUB-4 cutover). Legacy code deletion is **not** at #305 merge time; it's at the end of the rollout.
+
+**Mock-must-not-be-laxer-than-real rule**: anything the real Turvis rejects must be reachable via `X-Mock-Verdict` on the Phase 1 mock. Specifically — plaintext inbound (no `<xenc:*>`) in a context where encryption is required, identity mismatch, missing signature, bad algorithm. The mock's `/metadata` route (optional, future) can declare which reject reasons are reachable; a CI check compares against §5.
+
+**Shared-change backward compatibility**: any field added to `MessageHeader` or any shape change that is shared between the legacy path and the Turvis path must be backward-compatible — both paths must work in `shadow` mode. Tests cover BOTH paths while shadow is active.
+
+**Contract-drift CI gate (required, not recommended)**:
+- `dsl-lint --audit` on `dsl-contracts/turvis/` → 0 errors
+- `dsl-test` scenarios → 100% pass
+- Schema cross-check: every field required by SPEC §4 appears in the corresponding DSL `allowlist:` with matching type; every reason code in §5 is reachable via a mock scenario
+
+CI runs on every PR touching `docs/specs/turvis/` AND on every PR touching `edelivery/` code (because edelivery depends on this contract).
+
 ### 13.1 Request construction
 
 For each turvis call, edelivery:
@@ -958,24 +1094,65 @@ For each turvis call, edelivery:
 On 200 OK:
 - Parse response body
 - Log `audit_ref` cross-ref
-- Metrics increment: `edelivery_sec_calls_total{endpoint=..., verdict="accept"}`
+- Metrics increment: `edelivery_turvis_calls_total{endpoint=..., verdict="accept"}`
 - Proceed with returned data
 
 On 422 (reject):
 - Parse problem+json body
 - Log `audit_ref` cross-ref
-- Metrics increment: `edelivery_sec_calls_total{endpoint=..., reason_code=...}`
-- Map `reason_code` to a specific SOAP fault code (for AS4 inbound) OR specific internal exception (for admin paths)
+- Metrics increment: `edelivery_turvis_calls_total{endpoint=..., reason_code=...}`
+- Map `reason_code` to a specific SOAP fault code per the table below
 
 On 500 / 503 / network error:
 - Log + metric
-- Treat as transient; return 503 Service Unavailable upstream
+- Inbound path: return 503 Service Unavailable to the peer AS4 caller (peer will retry)
+- Outbound path: see §13.3a (async + retry policy)
+
+#### 13.2a `reason_code` → SOAP fault / internal exception mapping
+
+For inbound AS4 messages, Turvis reject responses must be translated to AS4 (ebMS 3.0) faults the peer can interpret. For admin/internal paths, map to specific exception classes.
+
+| reason_code | AS4 fault code (ebMS 3) | Short description | Internal exception |
+|---|---|---|---|
+| `XML_PARSE_FAIL` | `EBMS:0004` InvalidHeader | Malformed XML | `MalformedEnvelopeException` |
+| `XML_ATTACK_DETECTED` | `EBMS:0004` InvalidHeader | Parser safety limit hit | `HostileInputException` |
+| `SIG_MISSING` | `EBMS:0101` SignatureFailure | Required signature absent | `SignatureMissingException` |
+| `SIG_CRYPTO_FAIL` | `EBMS:0101` SignatureFailure | Signature invalid | `SignatureInvalidException` |
+| `SIG_POLICY_FAIL` | `EBMS:0101` SignatureFailure | Required subtree not signed | `SignaturePolicyException` |
+| `SIG_ALGO_UNSUPPORTED` | `EBMS:0101` SignatureFailure | Non-allowed algorithm | `SignatureAlgoException` |
+| `SIGNER_UNTRUSTED` | `EBMS:0101` SignatureFailure | Chain or authorisation failed | `SignerUntrustedException` |
+| `SIGNER_IDENTITY_MISMATCH` | `EBMS:0101` SignatureFailure | Cert identity ≠ claimed | `SignerIdentityMismatchException` |
+| `SIG_BUILD_FAIL` | (outbound-only) | Internal signing error | `OutboundSignBuildException` |
+| `KEY_HANDLE_UNKNOWN` | (outbound-only) | Internal — gate's key not loaded | `KeyHandleUnknownException` |
+| `KEY_UNAVAILABLE` | (outbound-only, transient) | KMS unreachable; retryable | `KeyUnavailableException` |
+| `WRAPPED_KEY_MALFORMED` | `EBMS:0102` DecryptionFailure | Bad wrapped key | `WrappedKeyException` |
+| `SKI_MISMATCH` | `EBMS:0102` DecryptionFailure | Wrong recipient key | `RecipientMismatchException` |
+| `AES_UNWRAP_FAIL` | `EBMS:0102` DecryptionFailure | Key unwrap failed | `KeyUnwrapException` |
+| `PAYLOAD_DECRYPT_FAIL` | `EBMS:0102` DecryptionFailure | Tag mismatch, likely tampered | `PayloadDecryptException` |
+| `RECEIVER_UNKNOWN` | (outbound-only, business) | Peer not in trust store | `ReceiverUnknownException` |
+| `RECEIVER_CERT_EXPIRED` | (outbound-only, business) | Peer cert expired | `ReceiverCertExpiredException` |
+| `RECEIVER_CERT_UNTRUSTED` | (outbound-only, business) | Peer cert chain fail | `ReceiverCertUntrustedException` |
+| `PAYLOAD_TOO_LARGE` | `EBMS:0003` ValueInconsistent | Oversize payload | `PayloadTooLargeException` |
+| `UNKNOWN_RETURN_FIELD` | (programmer error) | edelivery sent bad `return_fields` | `UnknownReturnFieldException` — ALERT, this is a code bug |
+| `ALGO_UNSUPPORTED` | `EBMS:0003` ValueInconsistent | Algorithm not allowed | `AlgoUnsupportedException` |
+| `TRUST_STORE_UNAVAILABLE` | (transient) | File reload failed; retryable | `TrustStoreUnavailableException` |
+| `TURVIS_INTERNAL` | `EBMS:0004` InvalidHeader (inbound) / exception (outbound) | Internal Turvis bug | `TurvisInternalException` — ALERT |
 
 ### 13.3 Timeout + retry
 
-- Per-call HTTP timeout: 10 seconds (well above p99 budget of 150ms)
-- Retries: NOT enabled on inbound verify / decrypt (idempotent but one-shot — peer retries on timeout)
-- Retries: NOT enabled on outbound sign / encrypt (encrypt is not byte-idempotent; retrying would use a new AES key per call, confusing downstream)
+- Per-call HTTP timeout: 10 seconds (well above p99 budget of 150ms).
+- **Retries on transient codes** (`KEY_UNAVAILABLE`, `TRUST_STORE_UNAVAILABLE`, network error, 503): 2 retries with exponential backoff (100ms, 300ms). After final failure, treat as fatal for the message.
+- **No retries on non-transient 4xx**: a `SIG_POLICY_FAIL` or `UNKNOWN_RETURN_FIELD` won't fix itself; retry is wasted and causes duplicate audit entries.
+- **No retries on `/encryptions/xmlenc` in wss-encrypted mode**: not byte-idempotent (fresh AES key per call). A failed encrypt leaves the message in `OUTBOUND_FAILED`; see §13.3a.
+
+#### 13.3a Async outbound failure handling
+
+Outbound AS4 messages are produced asynchronously: edelivery's handler returns before Turvis's sign/encrypt completes. There is no caller to return 503 to. On a non-transient failure during outbound:
+
+1. Mark the message `OUTBOUND_FAILED` with the Turvis `audit_ref` + `reason_code`.
+2. Emit an alert metric: `edelivery_outbound_turvis_failures_total{reason_code=...}`.
+3. The failed message is visible in the admin UI; operators can retry manually after the underlying cause is fixed (e.g. trust store updated, Turvis bug patched).
+4. **Do not** silently drop the message. **Do not** retry an encrypt automatically (fresh key per attempt accumulates audit noise + confuses downstream retry semantics).
 
 ### 13.4 Byte-fidelity preservation
 
@@ -1018,6 +1195,30 @@ For audit, non-repudiation receipts, and incident lookup, edelivery stores a sma
 | `message_id`, `conversation_id`, `ref_to_message_id`, `from_party_id`, `to_party_id`, `service`, `action` | Turvis's `ebms_routing` (verify or decrypt response) | Routing + correlation; replaces any edelivery-side ebMS-header parse |
 
 For AS4 non-repudiation receipts (NRR), edelivery takes `signature_digests` from Turvis's verify response (§4.1) and places those digest values as text content in the receipt XML it builds; it then calls `/turvis/v1/signatures/xmldsig` to sign the receipt. edelivery never computes or verifies any digest.
+
+### 13.8 Payload size budget
+
+A 50 MiB payload becomes ~67 MB when base64-encoded for JSON transport. edelivery must raise its own body-size cap to accommodate; Ruuter's 16 MiB default + edelivery's 10 MB default BOTH cap below the effective max. Target effective max for Phase 1: **40 MiB plaintext → ~54 MB base64 JSON**. If a larger message arrives from a peer, Ruuter should reject at the perimeter with HTTP 413 before Turvis is called.
+
+Note: this cap is driven by HTTP-body-handling costs on both sides, not by crypto limits. If a larger payload is operationally needed, consider streaming-mode endpoints as a future addition (not in this contract).
+
+### 13.9 Authoritative sender identity
+
+The authoritative sender for business authorisation is `signer.verified_identity` from Turvis's verify response. **NOT** `ebms_routing.from_party_id` (which is from the envelope — content, not cryptographic attestation).
+
+Business paths (party permission lookup, authz checks) use `signer.verified_identity`. If the two disagree, Turvis has already rejected with `SIGNER_IDENTITY_MISMATCH` when `claimed_signer_id` was passed; without `claimed_signer_id` they're identical by construction (Turvis extracts both from the envelope but the signature attestation wins).
+
+### 13.10 `claimed_signer_id` + party_id format
+
+The SPEC §4.1 regex `^[A-Z]{2}-[A-Z0-9]{2,8}$` is the FORMAL gate-identity format for cross-border AS4 (`EU-FR`, `EU-EE`). Dev/test environments use party IDs that don't fit (`mock`, `mock-edelivery`, `pikker`). The regex is therefore **advisory, not enforced** — Turvis accepts any non-empty string ≤ 64 chars matching `^[a-zA-Z0-9][a-zA-Z0-9_\-]{0,63}$`. Production deploys may enforce the stricter pattern via a separate CI gate on the shared trust store.
+
+### 13.11 Dev loopback replacement (no self-loop)
+
+The legacy `acceptsReceiver` pattern (EU-MOCK sharing EU-EE's cert for one-container self-testing) is **removed** at cutover. Replacement patterns:
+
+- **Preferred**: dev gate-to-gate testing uses `multiple-gates.sh` (estlandia/latveria/lithonia) in docker-compose. Each gate runs its own edelivery, pointing at a shared `turvis-mock` compose service. Mock pass-through semantics make the three mock gates self-consistent without needing cert-reuse.
+- **Alternative**: `turvis-mock` dev-mode toggle (not in this SPEC; separate from production turvis-mock behaviour): `TURVIS_MOCK_PERMISSIVE_IDENTITY=true` → accepts any `claimed_signer_id` without trust-store lookup. Scoped to `turvis-mock` only; the real Turvis never has this flag.
+- **Dropped**: `acceptsReceiver` + `isReceiverAccepted` methods in edelivery; EU-MOCK party entry in registry. Removed as part of §13.6 cutover.
 
 ---
 
@@ -1281,4 +1482,13 @@ Explicitly excluded from this build. If any of these later come into scope, that
 | 2026-10-16 | **Pattern B — `return_fields` on every request.** New §4.0 introduces per-request response-field projection: caller declares what it wants back; unknown values reject with `UNKNOWN_RETURN_FIELD` (new reason code). Projectable enum per endpoint (§4.1–§4.4). Phase 1 mock validates presence but returns full bundle; real Turvis enforces field-level filtering + enables future caller-capability policy | User direction: Pattern B wins over Pattern A — response-size, forward-compat, response-stuffing defense, and declaration-level security rules in future outweigh the extra mechanics |
 | 2026-10-16 | **Verify (§4.1): `claimed_signer_id` moved required → optional**, added `ebms_routing` + `signature_digests` as projectable fields. **Decrypt (§4.4): request shape changed to `soap_xml_b64` + `encrypted_attachment_b64`** (Turvis extracts `<xenc:EncryptedKey>` wrapped key + `<wsse:KeyIdentifier>` SKI internally — edelivery never parses crypto elements); response is `decrypted_soap_xml_b64` + `decrypted_attachment_b64` + `ebms_routing`. **Encrypt (§4.3): added `profile: "wss-encrypted" \| "plaintext"`** so edelivery has one code path for both modes; plaintext mode returns empty XML fragments + input passthrough. **Sign (§4.2): `signatures` moved from always-returned to projectable** (NRR callers request it; non-NRR callers can skip) | sviljus PR#311 review items 5-9. The verify/decrypt pair now ensures edelivery NEVER parses the SOAP envelope — all routing/signer/digest fields come from Turvis's JSON responses. Signature digests are in-contract now (not deferred to NRR epic) so edelivery's receipt code is stable across Phase 1 → Phase 2 |
 | 2026-10-16 | §9.3 added: "edelivery's XML parsing surface after cutover" = **zero**. §2.2 inbound flow diagram rewritten to show the no-parse pattern. §13.6 data-model cleanup made stricter (`MessageHeader` class deletable if no non-crypto field remains) and §13.7 adds `ebms_routing` fields to the record-level columns list | Aligns with Pattern B + new verify/decrypt shapes; resolves sviljus's "hardened vs unhardened parser contradiction with #307" concern |
-| 2026-10-16 | DSL correctness fixes (all 4 routes + guard) | sviljus PR#311 review items 1-4: `internal: true` → `false` (Ruuter ≥ 0.12 returned 404 on external POSTs); `${crypto.randomUUID()}` → Math.random UUIDv4 (`crypto` undefined in Ruuter engine); multi-line `${…}` conditions in `.guard.yml` folded to single line (YAML parse error); anchor/merge-key `&reject_template` removed by inlining reject blocks (dsl-lint warning) |
+| 2026-10-16 | DSL correctness fixes, round 1 (cba5173) | sviljus PR#311 review items 1-4 addressed in `cba5173`: `internal: true` → `false`; `${crypto.randomUUID()}` → Math.random UUIDv4; multi-line `${…}` conditions folded to single line; `&reject_template` anchor inlined. `.guard.yml` still had a `dsl-lint` error that cba5173 did not resolve. |
+| 2026-10-16 | DSL correctness fixes, round 2 (f470cd3, authored by sviljus) | sviljus directly pushed `f470cd3`: wrapped the guard's `switch:` under a `check_auth:` named step so dsl-lint parses it; added `wrapper: false` to every returning step in the 4 routes (otherwise responses come back wrapped as `{"response": {...}}`); added a comment on `reject_unknown_return_field` noting it's only reachable via `X-Mock-Verdict`. `dsl-lint --audit` now reports 0 errors. |
+| 2026-10-16 | sviljus follow-up items (SPEC §4.0 caveat + changelog attribution + dsl-test scenarios + minor lint) | Addressed in this commit. §4.0 caveat now states `UNKNOWN_RETURN_FIELD` on the mock is reachable only via `X-Mock-Verdict`; changelog corrected to attribute the guard fix to sviljus's `f470cd3`; dsl-test scenarios added under `dsl-contracts/tests/`; em-dash fix at `verifications/xmldsig.yml`. |
+| 2026-10-16 | **Shared trust store** adopted (SPEC §7.2) | User decision: both Turvis AND edelivery read the same `parties.yml` file as single source of truth. edelivery reads only the routing slice; Turvis reads only the trust slice. Zero drift by construction. Private key stays Turvis-only; TLS material stays with edelivery/mesh. Signed-manifest integrity verification by Turvis at load. Replaces an earlier proposal of a `GET /turvis/v1/trust/parties` API + runtime consistency check from edelivery. |
+| 2026-10-16 | **Transition model §13.0**: legacy stays default, flag-gated migration via `TURVIS_INTEGRATION_MODE=legacy\|shadow\|turvis`; code deletions (§13.6) delayed to post-cutover-30-days, not at #305/#308 merge | User + sviljus review: gate must keep working against the mock while real Turvis is being built. Required (not recommended) CI contract-drift gate added. Mock-must-not-be-laxer-than-real rule. Shadow-mode criteria defined (byte-equal where deterministic, structural-equal where not). |
+| 2026-10-16 | **Chain-of-trust signer model** (§9.4) replaces per-peer pinning | 27-gate network scale: pinning requires N-1 updates per cert rotation. Trust store now holds roots + per-party authorisation entries; `pinned_cert_pem` per-entry is optional interim. Current `singletonKeySelector` legacy pattern explicitly incompatible — replaced wholesale during cutover. |
+| 2026-10-16 | **XSD ownership clarified**: FTI004/FTI007 stays in `xml-mapper` permanently; Turvis's future `/validations/xmlschema` takes caller-supplied schemas (hash-cached), never eFTI-specific | Resolves sviljus's §1.4 contradiction. Turvis provides hardened parse (`/parsings/xml`, future) + generic schema validation (`/validations/*`, future); business schemas stay with the business service. |
+| 2026-10-16 | §13 extended: reason_code → SOAP fault table (§13.2a); async outbound failure handling (§13.3a); retry policy clarified; payload size reality (§13.8, 40 MiB effective max); signer.verified_identity as authoritative sender (§13.9); claimed_signer_id regex relaxed (§13.10); self-loop replacement (§13.11) | sviljus review body items on #305 contract completeness |
+| 2026-10-16 | §11.2 refined: dedicated `TURVIS_INTERNAL_TOKEN` (not shared `INTERNAL_SERVICE_TOKEN`); `mtls-or-token` expiry via `AUTH_MODE_TOKEN_EXPIRY`; alert metric `turvis_token_auth_after_mesh_total`; mTLS identity in SAN not DN | sviljus review body: avoid Turvis sign/decrypt oracle; prevent "temporary" overlap becoming permanent; SPIFFE-standard identity in SAN |
+| 2026-10-16 | Rename leftovers: `sec_*` metric names → `turvis_*` (§10.3); audit-workspace `A9-xml-validator/` path refs scrubbed from DSL files and SPEC cross-references | sviljus review body: rename leftover cleanup |

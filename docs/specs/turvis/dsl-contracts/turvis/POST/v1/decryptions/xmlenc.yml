@@ -2,7 +2,7 @@
 #
 # Nested under /decryptions/<mechanism> so sibling mechanisms (/jwe per RFC 7516,
 # /cose-encrypt per RFC 8152) can be added without colliding on request/response
-# shape or reason-code enum. See A9-xml-validator/SPEC.md §4 for the extensibility
+# shape or reason-code enum. See SPEC.md §4 for the extensibility
 # rationale.
 #
 # `internal: false` + guard-enforced authn (see .guard.yml).
@@ -42,7 +42,7 @@ declaration:
 
     Reason codes: WRAPPED_KEY_MALFORMED, KEY_HANDLE_UNKNOWN, KEY_UNAVAILABLE,
     SKI_MISMATCH, AES_UNWRAP_FAIL, PAYLOAD_DECRYPT_FAIL, ALGO_UNSUPPORTED,
-    UNKNOWN_RETURN_FIELD, TURVIS_INTERNAL. See A9-xml-validator/SPEC.md §5.
+    UNKNOWN_RETURN_FIELD, TURVIS_INTERNAL. See SPEC.md §5.
   internal: false
   additive: true
   allowlist:
@@ -100,7 +100,6 @@ accept:
     audit_ref: "${audit_ref}"
   status: 200
   content_type: application/json
-  wrapper: false
 
 reject_wrapped_key_malformed:
   return:
@@ -113,7 +112,6 @@ reject_wrapped_key_malformed:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
-  wrapper: false
 
 reject_key_handle_unknown:
   return:
@@ -126,7 +124,6 @@ reject_key_handle_unknown:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
-  wrapper: false
 
 reject_key_unavailable:
   return:
@@ -139,7 +136,6 @@ reject_key_unavailable:
     audit_ref: "${audit_ref}"
   status: 503
   content_type: application/problem+json
-  wrapper: false
 
 reject_ski_mismatch:
   return:
@@ -152,7 +148,6 @@ reject_ski_mismatch:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
-  wrapper: false
 
 reject_aes_unwrap_fail:
   return:
@@ -165,7 +160,6 @@ reject_aes_unwrap_fail:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
-  wrapper: false
 
 reject_payload_decrypt_fail:
   return:
@@ -178,7 +172,6 @@ reject_payload_decrypt_fail:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
-  wrapper: false
 
 reject_algo_unsupported:
   return:
@@ -191,11 +184,8 @@ reject_algo_unsupported:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
-  wrapper: false
 
 reject_unknown_return_field:
-  # The mock does not validate return_fields values; this 422 is only reachable via
-  # the `X-Mock-Verdict: reject-unknown-return-field` request header.
   return:
     type: "https://efti.example/problem/turvis-decrypt-xmlenc-reject"
     title: "Unknown return field"
@@ -206,4 +196,3 @@ reject_unknown_return_field:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
-  wrapper: false

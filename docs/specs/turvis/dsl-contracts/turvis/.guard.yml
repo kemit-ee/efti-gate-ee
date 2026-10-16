@@ -1,31 +1,37 @@
 # Turvis guard: internal-only, called by edelivery.
 #
-# Phase 1 (now): X-Internal-Service-Token shared-secret auth, same pattern as the
-# gate's existing /efti/* internal routes. Fleet-consistent, immediately usable.
+# Phase 1 (now): Turvis-dedicated X-Internal-Service-Token (TURVIS_INTERNAL_TOKEN
+# constant, NOT the fleet-shared INTERNAL_SERVICE_TOKEN — see SPEC §11.2).
+# Fleet-consistent header pattern; dedicated secret so a compromise of any other
+# internal service does not give that service a sign/decrypt oracle via Turvis.
 #
 # Phase 2 (after A3 lands): strict mTLS mesh identity. The guard switches to a
 # ServiceAccount check once A3 ships the mesh. Both patterns are declared below;
-# the active one is selected via `AUTH_MODE` constant (= mtls / shared-token /
-# mtls-or-token, see A9-xml-validator/SPEC.md §11.2).
+# the active one is selected via the `AUTH_MODE` constant (= mtls / shared-token /
+# mtls-or-token, see SPEC.md §11.2).
+#
+# mTLS identity: ServiceAccount identity lives in the client cert's SubjectAltName
+# URI entries, formatted as `spiffe://cluster.local/ns/<ns>/sa/<name>`. The guard
+# matches against SAN entries, NOT the Subject DN (which would never match in a
+# standard SPIFFE / Istio deployment).
 #
 # `internal: false` because edelivery calls these routes over the network;
 # Ruuter ≥ 0.12 would return 404 on an `internal: true` route to an external POST.
-# Access control for this route lives in the switch block below, not in the
-# internal flag.
 
 declaration:
   description: |
-    turvis/* guard. Credential: X-Internal-Service-Token (Phase 1) OR mesh client cert
-    from edelivery's ServiceAccount (Phase 2). Rejects with 401 problem+json otherwise.
+    turvis/* guard. Credential: Turvis-dedicated X-Internal-Service-Token
+    (Phase 1) OR mesh client cert from edelivery's ServiceAccount SAN (Phase 2).
+    Rejects with 401 problem+json otherwise.
   internal: false
 
 check_auth:
   switch:
-    - condition: "${'[#AUTH_MODE]' == 'mtls' && incoming.mtls?.verified == true && incoming.mtls?.client_subject_dn?.indexOf('serviceaccount:efti-gate/edelivery') > -1}"
+    - condition: "${'[#AUTH_MODE]' == 'mtls' && incoming.mtls?.verified == true && (incoming.mtls?.client_san_uris || []).indexOf('spiffe://cluster.local/ns/efti-gate/sa/edelivery') > -1}"
       next: accept
-    - condition: "${('[#AUTH_MODE]' == 'shared-token' || '[#AUTH_MODE]' == 'mtls-or-token') && incoming.headers['x-internal-service-token'] == '[#INTERNAL_SERVICE_TOKEN]'}"
+    - condition: "${('[#AUTH_MODE]' == 'shared-token' || '[#AUTH_MODE]' == 'mtls-or-token') && incoming.headers['x-internal-service-token'] == '[#TURVIS_INTERNAL_TOKEN]'}"
       next: accept
-    - condition: "${'[#AUTH_MODE]' == 'mtls-or-token' && incoming.mtls?.verified == true && incoming.mtls?.client_subject_dn?.indexOf('serviceaccount:efti-gate/edelivery') > -1}"
+    - condition: "${'[#AUTH_MODE]' == 'mtls-or-token' && incoming.mtls?.verified == true && (incoming.mtls?.client_san_uris || []).indexOf('spiffe://cluster.local/ns/efti-gate/sa/edelivery') > -1}"
       next: accept
     - condition: "${true}"
       next: deny

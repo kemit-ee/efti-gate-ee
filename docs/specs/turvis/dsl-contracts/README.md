@@ -33,7 +33,7 @@ DSL/Ruuter-turvis-mock/
 
 Phase 1 populates only the `xmldsig`/`xmlenc` leaves. Future format support is a drop-in sibling file (e.g. `verifications/jws.yml`) with its own schema, reason-code subset, and allowlist — no touch to existing leaves.
 
-Current audit workspace copies at `A9-xml-validator/dsl-contracts/turvis/` for review; eventual commit under `kemit-ee/efti-gate-ee` goes to `DSL/Ruuter-turvis-mock/`.
+Current audit workspace copies at `dsl-contracts/turvis/` for review; eventual commit under `kemit-ee/efti-gate-ee` goes to `DSL/Ruuter-turvis-mock/`.
 
 ## Phase 1 — mock deployment
 
@@ -83,7 +83,7 @@ Two migration options:
 - Replace the mock steps (`accept`, canned response construction) with calls to a thin crypto-worker binary via `call: http.post`.
 - Real Turvis becomes {DSL + crypto worker} jointly.
 
-A/B is the dev-team's call. SPEC §15 integration contract for edelivery doesn't care which — only the HTTP contract matters.
+A/B is the dev-team's call. SPEC §13 integration contract for edelivery doesn't care which — only the HTTP contract matters.
 
 ## What Ruuter DSL `allowlist:` can and can't express
 

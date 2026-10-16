@@ -2,7 +2,7 @@
 #
 # Nested under /encryptions/<mechanism> so sibling mechanisms (/jwe per RFC 7516,
 # /cose-encrypt per RFC 8152) can be added without colliding on request/response
-# shape or reason-code enum. See A9-xml-validator/SPEC.md §4 for the extensibility
+# shape or reason-code enum. See SPEC.md §4 for the extensibility
 # rationale.
 #
 # `internal: false` + guard-enforced authn (see .guard.yml).
@@ -37,7 +37,7 @@ declaration:
 
     Reason codes: RECEIVER_UNKNOWN, RECEIVER_CERT_EXPIRED, RECEIVER_CERT_UNTRUSTED,
     PAYLOAD_TOO_LARGE, ALGO_UNSUPPORTED, TRUST_STORE_UNAVAILABLE,
-    UNKNOWN_RETURN_FIELD, TURVIS_INTERNAL. See A9-xml-validator/SPEC.md §5.
+    UNKNOWN_RETURN_FIELD, TURVIS_INTERNAL. See SPEC.md §5.
   internal: false
   additive: true
   allowlist:
@@ -102,7 +102,6 @@ accept_encrypted:
     audit_ref: "${audit_ref}"
   status: 200
   content_type: application/json
-  wrapper: false
 
 accept_plaintext:
   # Plaintext mode: no encryption; edelivery's splicing is a no-op because
@@ -116,7 +115,6 @@ accept_plaintext:
     audit_ref: "${audit_ref}"
   status: 200
   content_type: application/json
-  wrapper: false
 
 reject_receiver_unknown:
   return:
@@ -129,7 +127,6 @@ reject_receiver_unknown:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
-  wrapper: false
 
 reject_receiver_cert_expired:
   return:
@@ -142,7 +139,6 @@ reject_receiver_cert_expired:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
-  wrapper: false
 
 reject_receiver_cert_untrusted:
   return:
@@ -155,7 +151,6 @@ reject_receiver_cert_untrusted:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
-  wrapper: false
 
 reject_payload_too_large:
   return:
@@ -168,7 +163,6 @@ reject_payload_too_large:
     audit_ref: "${audit_ref}"
   status: 413
   content_type: application/problem+json
-  wrapper: false
 
 reject_algo_unsupported:
   return:
@@ -181,11 +175,8 @@ reject_algo_unsupported:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
-  wrapper: false
 
 reject_unknown_return_field:
-  # The mock does not validate return_fields values; this 422 is only reachable via
-  # the `X-Mock-Verdict: reject-unknown-return-field` request header.
   return:
     type: "https://efti.example/problem/turvis-encrypt-xmlenc-reject"
     title: "Unknown return field"
@@ -196,4 +187,3 @@ reject_unknown_return_field:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
-  wrapper: false

@@ -2,7 +2,7 @@
 #
 # Nested under /signatures/<mechanism> so sibling mechanisms (/jws per RFC 7515,
 # /cose per RFC 8152) can be added without colliding on request/response shape or
-# reason-code enum. See A9-xml-validator/SPEC.md §4 for the extensibility rationale.
+# reason-code enum. See SPEC.md §4 for the extensibility rationale.
 #
 # `internal: false` + guard-enforced authn (see .guard.yml).
 #
@@ -31,7 +31,7 @@ declaration:
 
     Reason codes: XML_PARSE_FAIL, SIG_BUILD_FAIL, KEY_HANDLE_UNKNOWN,
     KEY_UNAVAILABLE, ALGO_UNSUPPORTED, UNKNOWN_RETURN_FIELD. See
-    A9-xml-validator/SPEC.md §5.
+    SPEC.md §5.
   internal: false
   additive: true
   allowlist:
@@ -93,7 +93,6 @@ accept:
     audit_ref: "${audit_ref}"
   status: 200
   content_type: application/json
-  wrapper: false
 
 reject_xml_parse_fail:
   return:
@@ -106,7 +105,6 @@ reject_xml_parse_fail:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
-  wrapper: false
 
 reject_sig_build_fail:
   return:
@@ -119,7 +117,6 @@ reject_sig_build_fail:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
-  wrapper: false
 
 reject_key_handle_unknown:
   return:
@@ -132,7 +129,6 @@ reject_key_handle_unknown:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
-  wrapper: false
 
 reject_key_unavailable:
   return:
@@ -145,7 +141,6 @@ reject_key_unavailable:
     audit_ref: "${audit_ref}"
   status: 503
   content_type: application/problem+json
-  wrapper: false
 
 reject_algo_unsupported:
   return:
@@ -158,11 +153,8 @@ reject_algo_unsupported:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
-  wrapper: false
 
 reject_unknown_return_field:
-  # The mock does not validate return_fields values; this 422 is only reachable via
-  # the `X-Mock-Verdict: reject-unknown-return-field` request header.
   return:
     type: "https://efti.example/problem/turvis-sign-xmldsig-reject"
     title: "Unknown return field"
@@ -173,4 +165,3 @@ reject_unknown_return_field:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
-  wrapper: false
