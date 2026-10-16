@@ -93,6 +93,7 @@ accept:
     audit_ref: "${audit_ref}"
   status: 200
   content_type: application/json
+  wrapper: false
 
 reject_xml_parse_fail:
   return:
@@ -105,6 +106,7 @@ reject_xml_parse_fail:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
+  wrapper: false
 
 reject_sig_build_fail:
   return:
@@ -117,6 +119,7 @@ reject_sig_build_fail:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
+  wrapper: false
 
 reject_key_handle_unknown:
   return:
@@ -129,6 +132,7 @@ reject_key_handle_unknown:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
+  wrapper: false
 
 reject_key_unavailable:
   return:
@@ -141,6 +145,7 @@ reject_key_unavailable:
     audit_ref: "${audit_ref}"
   status: 503
   content_type: application/problem+json
+  wrapper: false
 
 reject_algo_unsupported:
   return:
@@ -153,8 +158,11 @@ reject_algo_unsupported:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
+  wrapper: false
 
 reject_unknown_return_field:
+  # The mock does not validate return_fields values; this 422 is only reachable via
+  # the `X-Mock-Verdict: reject-unknown-return-field` request header.
   return:
     type: "https://efti.example/problem/turvis-sign-xmldsig-reject"
     title: "Unknown return field"
@@ -165,3 +173,4 @@ reject_unknown_return_field:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
+  wrapper: false

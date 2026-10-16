@@ -134,6 +134,7 @@ accept:
     audit_ref: "${audit_ref}"
   status: 200
   content_type: application/json
+  wrapper: false
 
 reject_xml_parse_fail:
   return:
@@ -146,6 +147,7 @@ reject_xml_parse_fail:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
+  wrapper: false
 
 reject_xml_attack:
   return:
@@ -158,6 +160,7 @@ reject_xml_attack:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
+  wrapper: false
 
 reject_sig_missing:
   return:
@@ -170,6 +173,7 @@ reject_sig_missing:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
+  wrapper: false
 
 reject_sig_crypto:
   return:
@@ -182,6 +186,7 @@ reject_sig_crypto:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
+  wrapper: false
 
 reject_sig_policy:
   return:
@@ -194,6 +199,7 @@ reject_sig_policy:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
+  wrapper: false
 
 reject_sig_algo:
   return:
@@ -206,6 +212,7 @@ reject_sig_algo:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
+  wrapper: false
 
 reject_signer_untrusted:
   return:
@@ -218,6 +225,7 @@ reject_signer_untrusted:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
+  wrapper: false
 
 reject_signer_identity_mismatch:
   return:
@@ -230,8 +238,11 @@ reject_signer_identity_mismatch:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
+  wrapper: false
 
 reject_unknown_return_field:
+  # The mock does not validate return_fields values; this 422 is only reachable via
+  # the `X-Mock-Verdict: reject-unknown-return-field` request header.
   return:
     type: "https://efti.example/problem/turvis-verify-xmldsig-reject"
     title: "Unknown return field"
@@ -242,3 +253,4 @@ reject_unknown_return_field:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
+  wrapper: false
