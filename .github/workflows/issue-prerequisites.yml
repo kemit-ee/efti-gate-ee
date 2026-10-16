@@ -1,0 +1,38 @@
+name: Issue prerequisites
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, closed, labeled, unlabeled, ready_for_review]
+  issues:
+    types: [closed, reopened, edited, deleted, transferred]
+  workflow_dispatch:
+  schedule:
+    - cron: '*/10 * * * *'
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+  statuses: write
+
+# Serialize refreshes so an older event cannot overwrite a newer verdict.
+concurrency:
+  group: issue-prerequisites
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Only trusted default-branch code runs with the status-writing token.
+      # Never check out or execute the pull request head in this workflow.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const {refresh} = require('./.github/scripts/issue-prerequisites.cjs');
+            await refresh(github, context, core);
