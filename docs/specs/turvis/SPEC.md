@@ -846,15 +846,37 @@ See §9.1 — hard contract.
 
 For every verification call, edelivery declares `required_signed_xpaths` and `required_signed_cid_refs` per the policy table in §9.2. Policy table lives in edelivery config, not turvis state.
 
-### 13.6 Private-key removal
+### 13.6 Code deletions on cutover
 
 After A9-SUB-4 cutover:
+
+**Private key + crypto code:**
 - `code/edelivery/src/edelivery/KeyManager.ownPrivateKey` field: deleted
 - Private-key secret volume mount: removed from edelivery container
 - `code/edelivery/src/edelivery/SignatureValidator.kt`: deleted
 - `code/edelivery/src/edelivery/Xml.kt::canonicalXml()`: deleted
 - `code/edelivery/src/edelivery/EDeliveryMessageGenerator`: signing + encryption methods deleted
 - `code/edelivery/src/edelivery/EDeliveryRoutes.decryptPayload`: body deleted (HTTP call to `/turvis/v1/decryptions/xmlenc` remains)
+
+**Data-model cleanup (MessageHeader stays ebMS-only):**
+- Any fields on `MessageHeader` referring to signature or encryption state — deleted. `MessageHeader` is the `<eb:Messaging>` element: business routing + correlation only (From, To, Service, Action, MessageId, RefToMessageId, ConversationId, timestamps). Signature + encryption live in `<wsse:Security>` as siblings and are handled by Turvis, not parsed into `MessageHeader`.
+- `WssSecurityHeader` / `WssSignatureInfo` / `WssEncryptedKey` data classes (if present): deleted. edelivery no longer needs a model for the `<wsse:Security>` element — Turvis takes the raw SOAP bytes and returns verdict JSON.
+- `CertificateChainValidator`, `TrustStoreLoader`, or similar cert-handling code: deleted. Signer identity comes to edelivery as `signer.cert_subject_dn` + `signer.cert_ski` fields in Turvis's verify response.
+
+### 13.7 Record-level fields for audit / incident response
+
+For audit, non-repudiation receipts, and incident lookup, edelivery stores a small set of per-message fields **alongside** the message record (new columns on the existing message/audit table, or a side table — edelivery's call). These are NOT inside `MessageHeader`; they are record metadata.
+
+| Field | Source | Purpose |
+|---|---|---|
+| `turvis_audit_ref_verify` | Turvis verify response `audit_ref` | Lookup via `GET /turvis/v1/audit/{ref}` on incident |
+| `turvis_audit_ref_decrypt` | Turvis decrypt response `audit_ref` | Same |
+| `turvis_audit_ref_sign` | Turvis sign response `audit_ref` | Same (outbound) |
+| `turvis_audit_ref_encrypt` | Turvis encrypt response `audit_ref` | Same (outbound) |
+| `signer_identity` | Turvis verify response `signer.verified_identity` | Audit log + business authorisation |
+| `signer_cert_ski` | Turvis verify response `signer.cert_ski` | Operator-facing provenance; survives cert rotation |
+
+If/when AS4 non-repudiation receipts (NRR) are implemented, the signature digests needed for the receipt come from Turvis's verify response (optional `signature_digests` field, to be added to SPEC §4.1 at that time). Still not stored in `MessageHeader`.
 
 ---
 
@@ -1070,3 +1092,4 @@ Explicitly excluded from this build. If any of these later come into scope, that
 | 2026-10-16 | Trimmed to dev-team contract scope: removed §1.5 language choice, §6.3 RNG, §7 internals, §8.2–§8.5 SLOs, §9.3–§9.5 log/mesh/egress internals, §11.2–§11.4 K8s YAMLs, §12 testing, §13 deployment. Items replaced by "sec service's responsibility" pointers | User direction: don't document sec-service internals in the dev-partner contract |
 | 2026-10-16 | Component renamed: "sec service" / `sec-service` / `/sec/v1/` → "Turvis" / `turvis` / `/turvis/v1/`. Bürostack component naming (fleet-consistent with Ruuter / Resql / TIM). Problem+json type URIs, env var `SEC_SERVICE_URL`→`TURVIS_URL`, reason-code `SEC_SERVICE_INTERNAL`→`TURVIS_INTERNAL`, K8s identifiers all follow | User decision: adopt a new Bürostack component for the sec-service role, named Turvis |
 | 2026-10-16 | Scope framing: Turvis positioned as a Bürostack security-operations component (crypto + validation + hardened parse) rather than a crypto-only sidecar. Phase 1 contract remains the four cryptography endpoints; `/validations/*` + `/parsings/*` listed as planned follow-ups (not in this contract) to anchor the §3.1 extensibility story | User direction: "Turvis doesn't just do crypto, but also validates XML and other payloads — fully focused on sec-thirsty jobs" |
+| 2026-10-16 | §13.6 renamed "Private-key removal" → "Code deletions on cutover" and extended to list `MessageHeader` cleanup (sig/encryption fields removed; MessageHeader stays ebMS routing only) + WSS data-class deletions + cert-handling code deletions. Added §13.7 "Record-level fields for audit / incident response" (per-message `turvis_audit_ref_*` + `signer_identity` + `signer_cert_ski` fields stored alongside the message, NOT inside MessageHeader) | Dev-team question: does new edelivery's `MessageHeader` still need encryption + signature fields? Answer: no — call out the full data-model cleanup in SPEC |

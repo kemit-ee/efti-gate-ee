@@ -22,6 +22,17 @@ Four `POST` endpoints under `/turvis/v1/<operation>/<mechanism>`:
 
 Future (same URL shape; not in this contract): `/turvis/v1/validations/{xmlschema,jsonschema}`, `/turvis/v1/parsings/{xml,json,…}`.
 
+## Phase 1 operating mode (no real Turvis yet, no external peers)
+
+Turvis itself doesn't exist yet. Until it does, this gate runs with `turvis-mock` (a Ruuter DSL compose service built from the DSL files in `dsl-contracts/`, delivered under #306) as its operational Turvis. In this mode:
+
+- Local gate-to-gate flows work (both ends talk to the same mock; pass-through signatures/encryption are self-consistent).
+- Internal gate functionality (upload, admin, UI, DB, X-Road) is unaffected.
+- **External AS4 traffic to real EU-member peers is deferred to Phase 2** — `turvis-mock`'s pass-through output will not survive peer signature verification against Domibus / Holodeck / phax4as4. Peer-interop readiness blocks on the real Turvis being deployed.
+- Pre-A3 interim auth (SPEC §11.2) with `AUTH_MODE=shared-token` + `INTERNAL_SERVICE_TOKEN` covers the window; mTLS mesh identity is pinned post-A3.
+
+Operational consequence: **#306 (turvis-mock deployment) is a hard dependency for #305 (edelivery integration) and #308 (cutover)**, not a parallel ticket. Without `turvis-mock` running, edelivery has no counterparty for its HTTP calls after the private-key deletions in SPEC §13.6.
+
 ## Scope boundary
 
 - **Dev-team work on `kemit-ee` side**: #305 (edelivery integration) · #306 (turvis-mock DSL deployment) · #307 (perimeter trust, blocked on #309 A3) · #308 (cutover).
