@@ -20,6 +20,15 @@ test('legacy-removal label and closing #312 inherit #313', () => {
     assert.deepEqual(prerequisites(pr), [313]);
   }
   assert.deepEqual(prerequisites({body: 'Related: #312 and #313'}), []);
+  assert.deepEqual(prerequisites({body: 'Closes https://github.com/kemit-ee/efti-gate-ee/issues/312'}), [313]);
+  assert.deepEqual(prerequisites({body: 'Resolves kemit-ee/efti-gate-ee#312'}), [313]);
+  assert.deepEqual(prerequisites({body: 'Closes other/repo#312'}), []);
+  assert.deepEqual(prerequisites({body: 'Closes #3120'}), []);
+});
+
+test('documentation and fenced examples do not declare dependencies', () => {
+  const body = 'Example: `Closes #312`\n```text\nDepends-On: #313\nCloses #312\n```\nRelated: #313';
+  assert.deepEqual(prerequisites({body}), []);
 });
 
 test('open, reopened, not-planned, deleted and PR dependencies cannot pass', async () => {
@@ -113,4 +122,24 @@ test('failed PR metadata fetch revokes success on the listed head SHA', async ()
   await refresh(h.github, h.context, h.core);
   assert.equal(h.statuses.at(-1).state, 'failure');
   assert.equal(h.statuses.at(-1).sha, 'head-sha');
+});
+
+test('unrelated PR passes without issue, GraphQL or metadata detail API calls', async () => {
+  const h = harness(new Error('issue API unavailable'));
+  h.pr.body = 'Ordinary change. Related: #312, #313';
+  h.github.graphql = async () => {throw new Error('GraphQL unavailable');};
+  h.github.rest.pulls.get = async () => {throw new Error('metadata detail unavailable');};
+  await refresh(h.github, h.context, h.core);
+  assert.equal(h.statuses.at(-1).state, 'success');
+  assert.equal(h.statuses.at(-1).description, 'No declared issue prerequisites');
+  assert.deepEqual(h.errors, []);
+});
+
+test('a blocked legacy PR does not block an unrelated PR on another SHA', async () => {
+  const h = harness({state: 'open'});
+  const other = {...h.pr, number: 11, body: 'Ordinary change', head: {sha: 'unrelated-sha'}};
+  h.github.paginate = async () => [h.pr, other];
+  await refresh(h.github, h.context, h.core);
+  assert.equal(h.statuses.filter(s => s.sha === 'head-sha').at(-1).state, 'failure');
+  assert.equal(h.statuses.filter(s => s.sha === 'unrelated-sha').at(-1).state, 'success');
 });

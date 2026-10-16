@@ -9,7 +9,7 @@ Depends-On: #313
 Multiple prerequisites use `Depends-On: #123, #456` or separate lines. The named
 issues must be **closed as completed**. Open/reopened issues, `not_planned`, missing
 issues, PR numbers used as issues, malformed declarations and API failures block
-the check. References in ordinary discussion do not declare dependencies.
+the check. References in ordinary discussion and fenced/inline code examples do not declare dependencies.
 
 For the A9 legacy removal, a PR with the `legacy-removal` label or a closing
 reference to #312 automatically inherits #313 even without a `Depends-On` line.
@@ -27,6 +27,9 @@ The `Issue prerequisites` workflow publishes a commit status named exactly
 refresh it. Issue closure/reopening/editing/deletion/transfer refresh all open PRs.
 Manual dispatch and a ten-minute schedule provide recovery/reconciliation.
 Shared head SHAs aggregate requirements from every open PR using that commit.
+A PR without prerequisites passes without calling issue or GraphQL APIs; a blocked
+PR does not block unrelated head SHAs. The shared workflow still needs GitHub
+Actions and the PR-list/status APIs to be operational.
 
 Updates are event-driven and asynchronous: reopening revokes success on the next
 refresh, not atomically with a merge. GitHub may delay scheduled runs. Repository
@@ -54,7 +57,8 @@ must complete this setup after reviewing/merging the implementation:
    its `statuses: write` permission. Do not grant it permission to run PR head code.
 3. Dispatch the workflow to publish statuses for open PRs.
 4. In the target branch ruleset/branch protection, **add** the required status check
-   `Issue prerequisites` from GitHub Actions. Preserve existing required checks and
+   `Issue prerequisites` from GitHub Actions (the published commit status, not
+   the workflow-wide `refresh` job). Preserve existing required checks and
    review rules. Prevent bypass where the team's policy requires it. Require the
    normal PR review for dependency metadata and policy changes.
 5. Verify an open prerequisite blocks merge, closing it as completed permits this

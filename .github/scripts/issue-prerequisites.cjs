@@ -4,8 +4,10 @@ const CONTEXT = 'Issue prerequisites';
 const LEGACY_ISSUE = 312;
 const LEGACY_AUDIT = 313;
 
-function prerequisites(pr) {
-  const body = pr.body || '';
+function prerequisites(pr, repo = {owner: 'kemit-ee', repo: 'efti-gate-ee'}) {
+  // Documentation examples are not actual dependency declarations.
+  const body = (pr.body || '').replace(/^\s*(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\s*\1\s*$/gm, '')
+    .replace(/`[^`\n]*`/g, '');
   const dependencies = new Set();
   for (const line of body.split(/\r?\n/)) {
     if (!/^\s*Depends-On\s*:/i.test(line)) continue;
@@ -18,9 +20,9 @@ function prerequisites(pr) {
     }
   }
   const labels = (pr.labels || []).map(label => typeof label === 'string' ? label : label.name);
-  // Match only same-repository shorthand here. Fully qualified closing links are
-  // resolved using GitHub's closingIssuesReferences below.
-  const closesLegacy = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#312\b/i.test(body);
+  const repository = `${repo.owner}/${repo.repo}`.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const reference = `(?:#312\\b|${repository}#312\\b|https://github\\.com/${repository}/issues/312(?:\\b|/))`;
+  const closesLegacy = new RegExp(`\\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\\s+${reference}`, 'i').test(body);
   if (labels.includes('legacy-removal') || closesLegacy ||
       (pr.closingIssueNumbers || []).includes(LEGACY_ISSUE)) {
     dependencies.add(LEGACY_AUDIT);
@@ -37,7 +39,7 @@ function issueFailure(issue, number) {
 }
 
 async function evaluate(github, repo, pr) {
-  const required = prerequisites(pr);
+  const required = prerequisites(pr, repo);
   const failures = [];
   for (const number of required) {
     const {data} = await github.rest.issues.get({...repo, issue_number: number});
@@ -45,31 +47,6 @@ async function evaluate(github, repo, pr) {
     if (failure) failures.push(failure);
   }
   return {required, failures};
-}
-
-async function closingIssues(github, repo, number) {
-  const result = [];
-  let cursor = null;
-  do {
-    const data = await github.graphql(`query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
-      repository(owner: $owner, name: $repo) {
-        pullRequest(number: $number) {
-          closingIssuesReferences(first: 100, after: $cursor) {
-            nodes { number repository { nameWithOwner } }
-            pageInfo { hasNextPage endCursor }
-          }
-        }
-      }
-    }`, {...repo, number, cursor});
-    const connection = data.repository.pullRequest.closingIssuesReferences;
-    for (const issue of connection.nodes) {
-      if (issue.repository.nameWithOwner.toLowerCase() === `${repo.owner}/${repo.repo}`.toLowerCase()) {
-        result.push(issue.number);
-      }
-    }
-    cursor = connection.pageInfo.hasNextPage ? connection.pageInfo.endCursor : null;
-  } while (cursor);
-  return result;
 }
 
 async function refresh(github, context, core) {
@@ -83,6 +60,15 @@ async function refresh(github, context, core) {
     let pr;
     let group;
     try {
+      // The list response is current API metadata. Unrelated PRs must not depend
+      // on issue/GraphQL availability or another PR's failing prerequisite.
+      if (prerequisites(candidate, repo).length === 0) {
+        if (!groups.has(candidate.head.sha)) {
+          groups.set(candidate.head.sha, {required: new Set(), failures: []});
+        }
+        core.info(`PR #${candidate.number}: no declared issue prerequisites`);
+        continue;
+      }
       // Fetch current metadata, not the possibly stale triggering event body.
       ({data: pr} = await github.rest.pulls.get({...repo, pull_number: candidate.number}));
       if (pr.state !== 'open') continue;
@@ -95,7 +81,6 @@ async function refresh(github, context, core) {
         ...repo, sha: pr.head.sha, context: CONTEXT, state: 'pending',
         description: 'Checking current prerequisite issue states',
       });
-      pr.closingIssueNumbers = await closingIssues(github, repo, pr.number);
       const {required, failures} = await evaluate(github, repo, pr);
       // Do not attach a verdict to a head that changed during evaluation.
       const {data: current} = await github.rest.pulls.get({...repo, pull_number: pr.number});
