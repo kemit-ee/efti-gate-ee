@@ -383,6 +383,8 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 
 ## CI/CD
 
+- `.github/workflows/issue-prerequisites.yml` publishes the `Issue prerequisites` commit status from trusted default-branch code. PR `Depends-On: #N` declarations require issues closed as completed; `legacy-removal` or closing #312 additionally requires #313. Issue events and scheduled/manual refresh revoke stale results. Administrator activation as a required branch check is separate; see `docs/developer/issue-prerequisites.md`. Unit tests run via `node --test .github/scripts/issue-prerequisites.test.cjs` and the separate read-only test workflow.
+
 - `.github/workflows/e2e.yml` — GitHub Actions:
   - `dsl-validate` — runs Ruuter's `dsl-lint --audit` + `dsl-test` straight from the runtime image
     (`turnerrainer/ruuter:0.12.1-rc`, which ships both binaries since #83) on both DSL roots +
