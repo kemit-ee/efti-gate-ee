@@ -1068,7 +1068,8 @@ TURVIS_INTEGRATION_MODE = legacy | shadow | turvis
    - Verify: `signer.verified_identity` matches between legacy and Turvis. `signature_digests` match byte-for-byte on sign. `ebms_routing` fields match.
    - Encrypt: NOT byte-equal (fresh AES key per call); shadow comparison here is "structure + round-trip-decrypts-cleanly," not byte equality.
    - Decrypt: `decrypted_attachment_b64` matches byte-for-byte. `decrypted_soap_xml_b64` matches modulo whitespace / namespace-prefix normalisation.
-   - Discrepancy threshold: < 0.01% of messages, no new class of discrepancy in the trailing 7 days.
+   - **Security decisions: zero unexplained discrepancies.** Accept/reject outcome, signer identity and signed-content coverage (`signer.verified_identity`, `matched_signed_*`, reject `reason_code`) differences are never absorbed by a percentage allowance; each one is resolved and retested before promotion.
+   - Discrepancy threshold for all other differences: < 0.01% of messages, no new class of discrepancy in the trailing 7 days.
 3. **Dev / staging**: flip to `turvis`. Legacy code remains in place but is NOT called in the hot path. Monitor for 1-2 weeks.
 4. **Prod**: repeat 1-3.
 5. **Only AFTER prod has run on `turvis` for ≥ 30 days** → the code deletions in §13.6 are safe to execute (A9-SUB-4 cutover). Legacy code deletion is **not** at #305 merge time; it's at the end of the rollout.
@@ -1489,3 +1490,4 @@ Explicitly excluded from this build. If any of these later come into scope, that
 | 2026-10-16 | §11.2 refined: dedicated `TURVIS_INTERNAL_TOKEN` (not shared `INTERNAL_SERVICE_TOKEN`); `mtls-or-token` expiry via `AUTH_MODE_TOKEN_EXPIRY`; alert metric `turvis_token_auth_after_mesh_total`; mTLS identity in SAN not DN | sviljus review body: avoid Turvis sign/decrypt oracle; prevent "temporary" overlap becoming permanent; SPIFFE-standard identity in SAN |
 | 2026-10-16 | Rename leftovers: `sec_*` metric names → `turvis_*` (§10.3); audit-workspace `A9-xml-validator/` path refs scrubbed from DSL files and SPEC cross-references | sviljus review body: rename leftover cleanup |
 | 2026-10-19 | §4.1/§4.2 `signature_digests` / `signatures` items now carry `reference_uri` + `transforms` (`subtree_xpath` optional, absent for `cid:` references); §4.1 verify `ebms_routing` is taken from the exact `<eb:Messaging>` covered by the verified signature (otherwise `SIG_POLICY_FAIL`); §4.4 decrypt `ebms_routing` is diagnostic only and §2.2 flow no longer requests it | #305 acceptance criteria (verified routing, NRR reference reconstruction), review of Turvis integration issues |
+| 2026-10-20 | §13.0 step 2: security-decision discrepancies must be zero unexplained; the `< 0.01%` allowance applies only to non-security differences | #304 / #308 position; shadow gate must not hide a wrong accept/reject |
