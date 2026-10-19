@@ -132,18 +132,17 @@ peer AS4 → Ruuter envelope checks (A8 perimeter)
        → edelivery POSTs /turvis/v1/decryptions/xmlenc           ← Turvis
          request: {soap_xml_b64, encrypted_attachment_b64, key_handle,
                    return_fields: [decrypted_soap_xml_b64,
-                                   decrypted_attachment_b64,
-                                   ebms_routing]}
+                                   decrypted_attachment_b64]}
          response: decrypted_soap_xml_b64 + decrypted_attachment_b64
-                   + ebms_routing (routing + correlation fields)
        → edelivery POSTs /turvis/v1/verifications/xmldsig        ← Turvis
          request: {soap_xml_b64=decrypted_soap_xml_b64,
                    attachments=[decrypted_attachment_b64],
                    required_signed_xpaths, required_signed_cid_refs,
-                   return_fields: [signer, signature_digests,
+                   return_fields: [signer, ebms_routing, signature_digests,
                                    matched_signed_xpaths,
                                    matched_signed_cid_refs]}
-         response: signer (verified identity) + signature_digests (for NRR)
+         response: signer (verified identity) + ebms_routing (from the
+                   signed <eb:Messaging>) + signature_digests (for NRR)
                    + matched_signed_* (policy acknowledgement)
        → edelivery reads ebms_routing + signer from Turvis responses
          (NO XML parse step in edelivery at any point)
@@ -381,20 +380,22 @@ Always returned: `verdict`, `audit_ref`. Other fields appear only if named in re
     },
     "signature_digests": {
       "type": "array",
-      "description": "Projectable. Per-subtree digest list from the verified signature. Used by edelivery to build signed non-repudiation receipts (NRR) without re-computing crypto. Empty array in plaintext mode (no signature present).",
+      "description": "Projectable. One entry per <ds:Reference> of the verified signature, in document order. Used by edelivery to build signed non-repudiation receipts (NRR) without re-computing crypto: the receipt references the same URIs, digests and transforms as the received signature. An XPath alone cannot reconstruct a Reference, hence reference_uri and transforms. Empty array in plaintext mode (no signature present).",
       "items": {
         "type": "object",
-        "required": ["subtree_xpath", "digest_b64", "algorithm"],
+        "required": ["reference_uri", "digest_b64", "algorithm", "transforms"],
         "properties": {
-          "subtree_xpath": {"type": "string"},
+          "reference_uri": {"type": "string", "description": "The original <ds:Reference>/@URI, e.g. '#MSG-ID', '#BODY-ID' or 'cid:message'."},
+          "subtree_xpath": {"type": "string", "description": "XPath of the referenced XML subtree. Absent for attachment (cid:) references."},
           "digest_b64": {"type": "string", "format": "base64"},
-          "algorithm": {"type": "string", "enum": ["SHA-256"]}
+          "algorithm": {"type": "string", "enum": ["SHA-256"]},
+          "transforms": {"type": "array", "items": {"type": "string"}, "description": "Transform algorithm URIs of the Reference, in order (e.g. exc-c14n, SwA attachment-content). Empty array if none."}
         }
       }
     },
     "ebms_routing": {
       "type": "object",
-      "description": "Projectable. ebMS 3.0 routing + correlation fields extracted from <eb:Messaging> by Turvis. edelivery uses these for routing/correlation without parsing the envelope.",
+      "description": "Projectable. ebMS 3.0 routing + correlation fields. AUTHORITATIVE: Turvis extracts them from the exact <eb:Messaging> element whose <ds:Reference> was validated by this signature, never from another matching element. If the envelope has more than one <eb:Messaging>, or the one present is not covered by a Reference, the call rejects with SIG_POLICY_FAIL. edelivery uses these fields for dispatch and correlation without parsing the envelope.",
       "required": ["message_id", "from_party_id", "to_party_id", "service", "action"],
       "properties": {
         "message_id": {"type": "string"},
@@ -509,9 +510,11 @@ Pure function of inputs. Same request → identical response (modulo `audit_ref`
       "items": {
         "type": "object",
         "properties": {
-          "subtree_xpath": {"type": "string"},
+          "reference_uri": {"type": "string", "description": "The <ds:Reference>/@URI created by this signature."},
+          "subtree_xpath": {"type": "string", "description": "Absent for attachment (cid:) references."},
           "digest_b64": {"type": "string"},
-          "algorithm": {"type": "string"}
+          "algorithm": {"type": "string"},
+          "transforms": {"type": "array", "items": {"type": "string"}}
         }
       }
     }
@@ -666,7 +669,7 @@ Reasons: `RECEIVER_UNKNOWN`, `RECEIVER_CERT_EXPIRED`, `RECEIVER_CERT_UNTRUSTED`,
     },
     "ebms_routing": {
       "type": "object",
-      "description": "Projectable. Same shape as §4.1 verify response ebms_routing. Returned here so callers that need routing before verify can get it from decrypt alone.",
+      "description": "Projectable. Same shape as §4.1 verify response ebms_routing, but DIAGNOSTIC ONLY: extracted from bytes whose signature has not been verified yet. It MUST NOT authorise dispatch, party lookup or business correlation; those use the ebms_routing of the verify response.",
       "required": ["message_id", "from_party_id", "to_party_id", "service", "action"],
       "properties": {
         "message_id": {"type": "string"},
@@ -1192,7 +1195,7 @@ For audit, non-repudiation receipts, and incident lookup, edelivery stores a sma
 | `turvis_audit_ref_encrypt` | Turvis encrypt response `audit_ref` | Same (outbound) |
 | `signer_identity` | Turvis verify response `signer.verified_identity` | Audit log + business authorisation |
 | `signer_cert_ski` | Turvis verify response `signer.cert_ski` | Operator-facing provenance; survives cert rotation |
-| `message_id`, `conversation_id`, `ref_to_message_id`, `from_party_id`, `to_party_id`, `service`, `action` | Turvis's `ebms_routing` (verify or decrypt response) | Routing + correlation; replaces any edelivery-side ebMS-header parse |
+| `message_id`, `conversation_id`, `ref_to_message_id`, `from_party_id`, `to_party_id`, `service`, `action` | Turvis's `ebms_routing` (verify response; the decrypt copy is diagnostic only) | Routing + correlation; replaces any edelivery-side ebMS-header parse |
 
 For AS4 non-repudiation receipts (NRR), edelivery takes `signature_digests` from Turvis's verify response (§4.1) and places those digest values as text content in the receipt XML it builds; it then calls `/turvis/v1/signatures/xmldsig` to sign the receipt. edelivery never computes or verifies any digest.
 
@@ -1266,8 +1269,9 @@ Content-Type: application/json
   "matched_signed_xpaths": ["//eb:Messaging", "//env:Body"],
   "matched_signed_cid_refs": ["cid:message"],
   "signature_digests": [
-    {"subtree_xpath": "//eb:Messaging", "digest_b64": "DIjgcEkiAb...=", "algorithm": "SHA-256"},
-    {"subtree_xpath": "//env:Body", "digest_b64": "9m0VSvOx...=", "algorithm": "SHA-256"}
+    {"reference_uri": "#MSG-ID", "subtree_xpath": "//eb:Messaging", "digest_b64": "DIjgcEkiAb...=", "algorithm": "SHA-256", "transforms": ["http://www.w3.org/2001/10/xml-exc-c14n#"]},
+    {"reference_uri": "#BODY-ID", "subtree_xpath": "//env:Body", "digest_b64": "9m0VSvOx...=", "algorithm": "SHA-256", "transforms": ["http://www.w3.org/2001/10/xml-exc-c14n#"]},
+    {"reference_uri": "cid:message", "digest_b64": "...", "algorithm": "SHA-256", "transforms": ["http://docs.oasis-open.org/wss/oasis-wss-SwAProfile-1.1#Attachment-Content-Signature-Transform"]}
   ],
   "ebms_routing": {
     "message_id": "fr-gate-20261016-00001@dgitm.fr",
@@ -1333,8 +1337,9 @@ Content-Type: application/json
   "signed_xml_b64": "PGVudjpFbnZlbG9wZSB4bWxuczp...",
   "audit_ref": "...",
   "signatures": [
-    {"subtree_xpath": "//eb:Messaging", "digest_b64": "...", "algorithm": "SHA-256"},
-    {"subtree_xpath": "//env:Body", "digest_b64": "...", "algorithm": "SHA-256"}
+    {"reference_uri": "#MSG-ID", "subtree_xpath": "//eb:Messaging", "digest_b64": "...", "algorithm": "SHA-256", "transforms": ["http://www.w3.org/2001/10/xml-exc-c14n#"]},
+    {"reference_uri": "#BODY-ID", "subtree_xpath": "//env:Body", "digest_b64": "...", "algorithm": "SHA-256", "transforms": ["http://www.w3.org/2001/10/xml-exc-c14n#"]},
+    {"reference_uri": "cid:message", "digest_b64": "...", "algorithm": "SHA-256", "transforms": ["http://docs.oasis-open.org/wss/oasis-wss-SwAProfile-1.1#Attachment-Content-Signature-Transform"]}
   ]
 }
 ```
@@ -1399,7 +1404,7 @@ Content-Type: application/json
   "soap_xml_b64": "PGVudjpFbnZlbG9wZS4uLg==",
   "encrypted_attachment_b64": "AAAAAAAAAAAAAAAA...",
   "key_handle": "EU-EE",
-  "return_fields": ["decrypted_soap_xml_b64", "decrypted_attachment_b64", "ebms_routing"],
+  "return_fields": ["decrypted_soap_xml_b64", "decrypted_attachment_b64"],
   "trace_id": "..."
 }
 ```
@@ -1413,16 +1418,7 @@ Content-Type: application/json
 {
   "audit_ref": "...",
   "decrypted_soap_xml_b64": "PGVudjpFbnZl...",
-  "decrypted_attachment_b64": "H4sIAAAAAAAA...",
-  "ebms_routing": {
-    "message_id": "fr-gate-20261016-00001@dgitm.fr",
-    "conversation_id": "fti-conv-00001",
-    "ref_to_message_id": "",
-    "from_party_id": "EU-FR",
-    "to_party_id": "EU-EE",
-    "service": "FTI004",
-    "action": "FTI004Upload"
-  }
+  "decrypted_attachment_b64": "H4sIAAAAAAAA..."
 }
 ```
 
@@ -1492,3 +1488,4 @@ Explicitly excluded from this build. If any of these later come into scope, that
 | 2026-10-16 | §13 extended: reason_code → SOAP fault table (§13.2a); async outbound failure handling (§13.3a); retry policy clarified; payload size reality (§13.8, 40 MiB effective max); signer.verified_identity as authoritative sender (§13.9); claimed_signer_id regex relaxed (§13.10); self-loop replacement (§13.11) | sviljus review body items on #305 contract completeness |
 | 2026-10-16 | §11.2 refined: dedicated `TURVIS_INTERNAL_TOKEN` (not shared `INTERNAL_SERVICE_TOKEN`); `mtls-or-token` expiry via `AUTH_MODE_TOKEN_EXPIRY`; alert metric `turvis_token_auth_after_mesh_total`; mTLS identity in SAN not DN | sviljus review body: avoid Turvis sign/decrypt oracle; prevent "temporary" overlap becoming permanent; SPIFFE-standard identity in SAN |
 | 2026-10-16 | Rename leftovers: `sec_*` metric names → `turvis_*` (§10.3); audit-workspace `A9-xml-validator/` path refs scrubbed from DSL files and SPEC cross-references | sviljus review body: rename leftover cleanup |
+| 2026-10-19 | §4.1/§4.2 `signature_digests` / `signatures` items now carry `reference_uri` + `transforms` (`subtree_xpath` optional, absent for `cid:` references); §4.1 verify `ebms_routing` is taken from the exact `<eb:Messaging>` covered by the verified signature (otherwise `SIG_POLICY_FAIL`); §4.4 decrypt `ebms_routing` is diagnostic only and §2.2 flow no longer requests it | #305 acceptance criteria (verified routing, NRR reference reconstruction), review of Turvis integration issues |

@@ -100,6 +100,7 @@ accept:
     audit_ref: "${audit_ref}"
   status: 200
   content_type: application/json
+  wrapper: false
 
 reject_wrapped_key_malformed:
   return:
@@ -112,6 +113,7 @@ reject_wrapped_key_malformed:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
+  wrapper: false
 
 reject_key_handle_unknown:
   return:
@@ -124,6 +126,7 @@ reject_key_handle_unknown:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
+  wrapper: false
 
 reject_key_unavailable:
   return:
@@ -136,6 +139,7 @@ reject_key_unavailable:
     audit_ref: "${audit_ref}"
   status: 503
   content_type: application/problem+json
+  wrapper: false
 
 reject_ski_mismatch:
   return:
@@ -148,6 +152,7 @@ reject_ski_mismatch:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
+  wrapper: false
 
 reject_aes_unwrap_fail:
   return:
@@ -160,6 +165,7 @@ reject_aes_unwrap_fail:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
+  wrapper: false
 
 reject_payload_decrypt_fail:
   return:
@@ -172,6 +178,7 @@ reject_payload_decrypt_fail:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
+  wrapper: false
 
 reject_algo_unsupported:
   return:
@@ -184,8 +191,11 @@ reject_algo_unsupported:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
+  wrapper: false
 
 reject_unknown_return_field:
+  # The mock does not validate return_fields values; this 422 is only reachable via
+  # the `X-Mock-Verdict: reject-unknown-return-field` request header.
   return:
     type: "https://efti.example/problem/turvis-decrypt-xmlenc-reject"
     title: "Unknown return field"
@@ -196,3 +206,4 @@ reject_unknown_return_field:
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
+  wrapper: false
