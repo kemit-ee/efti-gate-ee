@@ -51,7 +51,7 @@ The DSL files are deployed as a **separate compose service** (`turvis-mock`) mir
 ### CI gates (recommended before this directory is called a Phase 1 mock)
 
 - `dsl-lint --audit` on `turvis/` — zero warnings
-- `dsl-test` with one happy-path scenario per route, one reject scenario, one unknown-return-field scenario
+- `dsl-test` with one happy-path scenario per route, one reject scenario, one unknown-return-field scenario (`tests/turvis.test.yml`, run: `docker run --rm -v "$PWD:/w" -w /w turnerrainer/ruuter:0.12.1-rc dsl-test --dsl /w --tests /w/tests --constants /w/tests/constants.ini`)
 - JSON Schema cross-check: every SPEC §4 required field must appear in the corresponding `allowlist:` with the same type (there's drift risk when SPEC and DSL are edited separately)
 
 ### Safety guards (must-not-ship-to-production)
