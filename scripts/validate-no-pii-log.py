@@ -19,17 +19,24 @@ FORBIDDEN = re.compile(
     r"|\$\{?\w*(?:[rR]aw[bB]ody|[bB]odyBytes|[pP]ayloadXml|[dD]ecrypted|[aA]ttachment\w*[bB]ytes)\b(?!\.(?:size|length|sha256Hex)\b)"
     r"|\$\{?(?:xml|body|payload|response[bB]ody|resBody)\b(?!\.(?:size|length|toByteArray\(\)\.size)\b)"
     r"|\.(?:toString|joinToString)\(\)\s*\)?\s*$"
+    r"|\$\{?\w+\.(?:message|localizedMessage)\b"
 )
+ALLOW = "pii-ok"
 
 
 def statements(text):
-    """Yield (line_number, source) for each log call, up to its closing parenthesis."""
+    """Yield (line_number, source) for each log call, up to its closing parenthesis. A log call whose
+    line(s) carry a `// pii-ok: <reason>` comment is a reviewed exception and is skipped."""
+    lines = text.split("\n")
     for m in LOG_CALL.finditer(text):
         depth, i = 1, m.end()
         while i < len(text) and depth:
             depth += {"(": 1, ")": -1}.get(text[i], 0)
             i += 1
-        yield text.count("\n", 0, m.start()) + 1, text[m.start():i]
+        first, last = text.count("\n", 0, m.start()), text.count("\n", 0, i)
+        if ALLOW in "\n".join(lines[first:last + 1]):
+            continue
+        yield first + 1, text[m.start():i]
 
 
 def main():

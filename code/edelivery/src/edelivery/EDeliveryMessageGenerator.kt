@@ -299,14 +299,14 @@ class EDeliveryMessageGenerator(
         </eb:MessageInfo>
         <eb:Error category="${reason.category}" errorCode="${reason.ebmsCode}" origin="ebMS" severity="failure" shortDescription="${reason.shortDescription}">
           <eb:Description xml:lang="en">${reason.shortDescription}</eb:Description>
-          <eb:ErrorDetail>${reason.detail}</eb:ErrorDetail>
+          <eb:ErrorDetail>${reason.name}: ${reason.detail}</eb:ErrorDetail>
         </eb:Error>
       </eb:SignalMessage>
     </eb:Messaging>""",
     """<env:Body>
     <env:Fault>
       <env:Code><env:Value>env:Receiver</env:Value></env:Code>
-      <env:Reason><env:Text xml:lang="en">${reason.detail}</env:Text></env:Reason>
+      <env:Reason><env:Text xml:lang="en">${reason.name}: ${reason.detail}</env:Text></env:Reason>
     </env:Fault>
   </env:Body>"""
   ).canonicalXml()

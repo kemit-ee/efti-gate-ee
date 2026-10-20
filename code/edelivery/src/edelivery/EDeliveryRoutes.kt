@@ -143,7 +143,7 @@ internal fun gunzip(compressed: ByteArray): ByteArray {
       val read = gzip.read(buffer)
       if (read < 0) break
       total += read
-      if (total > maxBytes) throw MalformedPayloadException("Decompressed payload exceeds the $maxBytes byte limit")
+      if (total > maxBytes) throw PayloadTooLargeException("Decompressed payload exceeds the $maxBytes byte limit")
       out.write(buffer, 0, read)
     }
     return out.toByteArray()

@@ -45,7 +45,7 @@ class EDeliveryClient(
       fun <T> Any.get(field: String) = javaClass.getDeclaredField(field).apply { isAccessible = true }.get(impl) as T
 
     } catch (e: Exception) {
-      logger<EDeliveryClient>().warn("Error while building http client: ${e.message}")
+      logger<EDeliveryClient>().warn("Error while building http client: ${e.message}") // pii-ok: local TLS setup
     }
   }
 
@@ -112,7 +112,7 @@ class EDeliveryClient(
         log.warn("Request timed out on attempt ${attempt + 1} after $eDeliveryTimeout ms")
         throw e
       } catch (e: Exception) {
-        log.warn("Attempt ${attempt + 1} failed (${e.message}), retrying after $waitSec sec")
+        log.warn("Attempt ${attempt + 1} failed (${e.message}), retrying after $waitSec sec") // pii-ok: transport error, no payload
         Thread.sleep(waitSec * msInSec)
         waitSec++
       }

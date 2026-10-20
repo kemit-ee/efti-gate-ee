@@ -19,18 +19,18 @@ class SoapFaultReasonsTest {
 
   @Test fun `every exception class thrown on the msh path has a bucket`() {
     val expected = mapOf<Throwable, FaultReason>(
-      SecurityException("Invalid message signature") to FaultReason.AUTHENTICATION_FAILED,
-      XMLSignatureException("bad") to FaultReason.AUTHENTICATION_FAILED,
-      AEADBadTagException("Tag mismatch") to FaultReason.DECRYPTION_FAILED,
-      InvalidAlgorithmParameterException("params") to FaultReason.DECRYPTION_FAILED,
+      SecurityException("Invalid message signature") to FaultReason.SIG_CRYPTO_FAIL,
+      XMLSignatureException("bad") to FaultReason.SIG_CRYPTO_FAIL,
+      AEADBadTagException("Tag mismatch") to FaultReason.PAYLOAD_DECRYPT_FAIL,
+      InvalidAlgorithmParameterException("params") to FaultReason.PAYLOAD_DECRYPT_FAIL,
       UnsupportedOperationException("Unsupported message 'x'") to FaultReason.UNSUPPORTED_MESSAGE,
-      NoSuchElementException() to FaultReason.MALFORMED_MESSAGE,
-      ClassCastException() to FaultReason.MALFORMED_MESSAGE,
-      XMLStreamException("parse") to FaultReason.MALFORMED_MESSAGE,
-      IllegalArgumentException("No valid KeyIdentifier") to FaultReason.INVALID_HEADER,
-      ZipException("Not in GZIP format") to FaultReason.MALFORMED_MESSAGE,
-      EOFException("Unexpected end of ZLIB input stream") to FaultReason.MALFORMED_MESSAGE,
-      MalformedPayloadException("too large") to FaultReason.MALFORMED_MESSAGE,
+      NoSuchElementException() to FaultReason.XML_PARSE_FAIL,
+      ClassCastException() to FaultReason.XML_PARSE_FAIL,
+      XMLStreamException("parse") to FaultReason.XML_PARSE_FAIL,
+      IllegalArgumentException("No valid KeyIdentifier") to FaultReason.XML_PARSE_FAIL,
+      ZipException("Not in GZIP format") to FaultReason.XML_PARSE_FAIL,
+      EOFException("Unexpected end of ZLIB input stream") to FaultReason.XML_PARSE_FAIL,
+      PayloadTooLargeException("too large") to FaultReason.PAYLOAD_TOO_LARGE,
       IOException("down") to FaultReason.UNAVAILABLE,
       TimeoutException() to FaultReason.UNAVAILABLE,
     )
@@ -39,7 +39,7 @@ class SoapFaultReasonsTest {
 
   @Test fun `unknown exception falls back to Other`() {
     expect(FaultReason.of(IllegalStateException("surprise"))).toEqual(FaultReason.OTHER)
-    expect(FaultReason.of(GeneralSecurityException("x"))).toEqual(FaultReason.DECRYPTION_FAILED)
+    expect(FaultReason.of(GeneralSecurityException("x"))).toEqual(FaultReason.PAYLOAD_DECRYPT_FAIL)
   }
 
   @Test fun `soap fault carries only the bucket, never exception details`() {
