@@ -766,7 +766,7 @@ The gate's own private key is held exclusively inside Turvis (or a KMS behind it
 
 ### 7.2 Trust view generated from `registry/` (single source of truth)
 
-> **Status: agreed** (kemit-ee#304 merge condition 1; approved on PR #311). This section replaces the earlier separately maintained `parties.yml` design. The follow-up work (the `registry-to-json.py` extension that emits `turvis-trust.json`, and an ADR-011 amendment) is tracked outside this PR; the Phase-2 integrity mechanism (ADR-011 §2 release signing vs an A3 signed manifest) is left open.
+> **Status: agreed** (kemit-ee#304 merge condition 1; approved on PR #311). This section replaces the earlier separately maintained `parties.yml` design. The ADR-011 amendment recording this design is [ADR-011, "Täiendus: Turvise usaldusvaade"](../../architecture/decisions/011-registries-as-signed-config.md) (kemit-ee#316); the `registry-to-json.py` extension that emits `turvis-trust.json` is tracked in kemit-ee#315; the Phase-2 integrity mechanism (ADR-011 §2 release signing vs an A3 signed manifest) is left open.
 
 **Authoritative source.** `registry/` (ADR-011) stays the only human-edited store of peer identity, status and certificates. There is no second hand-maintained peer file. Turvis's trust configuration is **generated** from `registry/gates/*.yml` (and the optional `registry/trust-anchors/*.pem`) at build time.
 
@@ -782,7 +782,8 @@ edelivery keeps `RegistryClient` and its 60 s refresh; nothing about routing mov
 **Generation (build time, allowlist-based).**
 - `scripts/registry-to-json.py` (already converter and validator, ADR-011 §3) gains a second output, `turvis-trust.json`. Fields are copied by **allowlist**, never by denylist: `party_id` (the registry `id`), `status`, `verified_identity`, `cert_pem` (= `eDeliveryCert`), `cert_ski`, `cert_subject_dn`, `valid_until` (derived from the certificate), and `trust_anchors[]`.
 - Only `ONLINE` and `DISABLED` exist (the registry has no `OFFLINE`); `DISABLED` entries are kept in the view so Turvis can answer with a precise detail line instead of "unknown".
-- Build fails if: a party that is `ONLINE` has no parseable `eDeliveryCert`; a certificate is already expired; `verified_identity` is duplicated; the output contains any key outside the allowlist (a unit test asserts `apiKey`, `headers`, `tlsCert` and URLs never appear).
+- A gate **without** `eDeliveryCert` (optional in the registry) is **left out of the view**, exactly as edelivery leaves it out of the AS4 party map, so both sides deny it (ADR-011 amendment, "`eDeliveryCert` jääb valikuliseks"). `registry/trust-anchors/*.pem` is accepted by the converter only under that directory.
+- Build fails if: an existing `eDeliveryCert` does not parse; a certificate is already expired; an `allowed_chain_anchors` alias names no file in `registry/trust-anchors/`; `verified_identity` is duplicated; the output contains any key outside the allowlist (a unit test asserts `apiKey`, `headers`, `tlsCert` and URLs never appear).
 - The view is packaged as its own small static artifact (same build, same git SHA, separate image) and delivered to Turvis by image/volume, not through the apiKey-bearing `registry` image.
 
 ```json
@@ -840,6 +841,8 @@ Sharing a source does not make two pods agree on the generation they have loaded
 | `DISABLED` | `DISABLED` | `SIGNER_UNTRUSTED` | not sent |
 
 A row with different statuses is a **generation mismatch**, resolved by deploying the matching artifacts; it is never resolved by trusting the more permissive side.
+
+**While generations differ (deploy gap, replica difference).** A temporary difference is accepted and bounded by the 5-minute alert below; the request protocol carries no expected generation. Each side decides on its own view, the table above applies, each Turvis replica answers from its own snapshot and returns `X-Turvis-Trust-Generation`, which edelivery logs with the `audit_ref`. Residual risk: during a certificate rotation a pinned peer may be rejected (`SIGNER_UNTRUSTED`) by a replica still on the old certificate, and `DISABLED` takes full effect only once all replicas have the new generation. See ADR-011 amendment.
 
 **Certificate rotation.** Rotating a peer certificate changes `cert_pem` in `registry/gates/<id>.yml`; one build yields both artifacts. During the overlap a peer may sign with either generation's certificate, so rotation of a pinned party is performed by listing the new certificate in the same change and removing the old one after the peer cut over. Expiry is monitored by `turvis_trust_party_days_to_expiry`.
 

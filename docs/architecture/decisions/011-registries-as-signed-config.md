@@ -99,6 +99,134 @@ registri üle kirjutada. Muudatus peab jõustuma **release'iga**, mis jätab jä
 9. **Kasutajate CRUD jääb REST-iks** (ADR-002): kasutajad liituvad ja lahkuvad regulaarselt, see ei
    ole lepinguline artefakt.
 
+10. **Turvise usaldusvaade on registrist tuletatud (täiendus 20.10.2026, #316).** `registry/` jääb
+    ainsaks tõeallikaks; eraldi käsitsi hallatavat peer-/trust-faili ei ole. Turvis (A9, krüpto
+    `edelivery`-st välja) loeb ainult build-ajal genereeritud, allowlist-põhist
+    `turvis-trust.json`-i ja **ei pääse** `registry` teenuse juurde. Üksikasjad: järgmine jaotis.
+
+## Täiendus: Turvise usaldusvaade (A9, #316)
+
+Kontekst: [Turvise integratsioonileping](../../specs/turvis/SPEC.md) §7.2–7.4 (PR #311, otsus kinnitatud
+#304 merge-tingimusena 1). Käesolev jaotis fikseerib otsuse ADR-i tasemel; spetsifikatsioon kirjeldab
+protokolli ja välju. Genereerimise rakendus on #315.
+
+### Miks üks allikas
+
+Kui Turvisel oleks oma käsitsi hallatav peer-nimekiri, oleks gate'i sertifikaat ja staatus kahes
+kohas: rotatsioon või `DISABLED` unustataks ühes kohas ja usaldusotsus lahkneks vaikselt. Seetõttu:
+
+- `registry/gates/*.yml` (§1) on **ainus** inimese muudetav peer-identiteedi, staatuse ja sertifikaadi
+  allikas. Valikulised usaldusankrud (`registry/trust-anchors/*.pem`) on samuti selle puu osa.
+- Turvise konfiguratsioon on **tuletis**, mitte teine allikas: `scripts/registry-to-json.py` (§3)
+  väljastab lisaks registri JSON-ile `turvis-trust.json`-i samast puust, samas buildis, samal
+  git-revisioonil.
+
+### Miks Turvis ei loe `registry` teenust
+
+`registry` teenus serveerib ka `platforms.json`-i **avateksti `apiKey`-dega** (§5). Turvis vajab
+ainult gate'i identiteeti, staatust ja sertifikaati. Seepärast:
+
+- usaldusvaade genereeritakse **allowlist'i** (mitte denylist'i) alusel: `party_id`, `status`,
+  `verified_identity`, `cert_pem`, `cert_ski`, `cert_subject_dn`, `valid_until`, `trust_anchors[]`,
+  `allowed_chain_anchors`. `apiKey`, `headers`, URL-id, `tlsCert` ja platvormid ei saa vaatesse
+  sattuda; seda kontrollib test (#315);
+- artefakt pakendatakse **eraldi** väikese staatilise image'ina (või volume'ina), mitte
+  `apiKey`-e kandvas `registry` image'is;
+- Turvise egress'il `registry` teenusesse **ei ole teed**; #309 NetworkPolicy ei pea seda avama ja
+  kui artefakt toimetatakse volume'iga, ei ole Turvisel vaja ühtegi võrguteed.
+
+### Suhe selle ADR-i varasemate otsustega
+
+| Jaotis | Mõju |
+|---|---|
+| §1 allikad | Muutumatu: failid, mitte tabelid. Lisandub ainult valikuline `registry/trust-anchors/` (konverteri reegel allpool). |
+| §3 build-ajal tarne | Laieneb teise väljundiga (`turvis-trust.json`); sama konverter on endiselt valideerija. Build kukub, kui `ONLINE` partneri olemasolev `eDeliveryCert` ei parsi või on aegunud, `verified_identity` kordub, `allowed_chain_anchors` viitab olematule aliasele või väljund sisaldab allowlist'ist väljaspool olevat võtit. `eDeliveryCert` **jääb registris valikuliseks** (vt allpool). |
+| §4 andmebaasis ei ole registrit | Muutumatu; usaldusvaade ei puuduta andmebaasi. |
+| §5 avatekst `apiKey` | Muutumatu; just see on põhjus, miks Turvis `registry` teenust ei näe. |
+| §2 allkiri, §8 manifesti hash | **Endiselt rakendamata nõuded.** Need on Phase 2 integriteedi kandidaadid, vt allpool. |
+
+### Muudatused konverteris (#315 ulatus)
+
+- **`.pem` failid.** Praegu kukub build igal muul kui `.yml` failil tüübikataloogis (`README.md`,
+  `AGENTS.md`). Uus reegel: `.pem` on lubatud **ainult** `registry/trust-anchors/` all (failinimi miinus
+  `.pem` = ankru alias); mujal jääb keeld kehtima, sama kehtib teiste laiendite kohta ka selles kaustas.
+- **Testid.** `tests/registry/test_registry_to_json.py` saab testid: `.pem` trust-anchors all läheb
+  läbi; `.pem` `gates/` all kukub; vigane PEM ankrufailis kukub; `allowed_chain_anchors` viide
+  **olematule aliasele** kukub; duplikaatalias ei ole võimalik (failinimi on unikaalne).
+
+### `eDeliveryCert` jääb valikuliseks
+
+Registri leping ei muutu: `eDeliveryCert` on gate'il endiselt valikuline ja sertifikaadita gate jäetakse
+`edelivery` AS4 party mapist välja (`registry/README.md`). Kontroll kehtib **ainult vaate
+genereerimisel**:
+
+- **sertifikaadita** `ONLINE` gate **jäetakse Turvise vaatest välja** — täpselt nagu `edelivery` party
+  mapist. Mõlemad pooled keelavad, seega deny wins ei kao: inbound on `SIGNER_UNTRUSTED`, outbound ei
+  jõua Turvisse (partnerit ei ole party mapis);
+- **olemasolev, kuid parsimatu või aegunud** `eDeliveryCert` (`ONLINE` või `DISABLED` gate'il) **rikub
+  buildi**, sest see viitab vigasele sisendile, mitte teadlikult puuduvale sertifikaadile;
+- `DISABLED` gate **sertifikaadiga** jääb vaatesse (täpne vastuse detail, SPEC §7.2); `DISABLED` gate
+  ilma sertifikaadita jääb välja samal põhjusel kui ülal.
+
+### Staatusemudel: deny wins
+
+Registris on ainult `ONLINE` ja `DISABLED`. `DISABLED` kirjed jäävad Turvise vaatesse, et vastus
+saaks nimetada staatust, mitte öelda "tundmatu". Partner on kasutatav ainult siis, kui **mõlemad**
+vaated (`edelivery` registri vaade ja Turvise usaldusvaade) ütlevad `ONLINE`; kumbki pool ei tohi
+teise otsust laiendada. Erinevate staatustega rida on **genereerimise mittevastavus**, mida lahendab
+sobivate artefaktide deploy, mitte lubavama poole usaldamine. Tabel: SPEC §7.4.
+
+**Mida süsteem teeb, kuni artefaktid erinevad (deploy'i vahe, replikate erinevus).** Otsus: **ajutine
+erinevus on aktsepteeritud ja piiratud 5-minutilise alarmiga**; protokolli ei muudeta. Põhjus:
+`edelivery` ei saada päringuga oma `generation`-it kaasa ja Turvis ei näe `edelivery` registrit, seega
+ei saa Turvis ühe päringu raames generatsioone võrrelda. Seni kehtib:
+
+- iga pool otsustab **oma** vaate järgi ja partner on kasutatav ainult siis, kui **mõlemad** ütlevad
+  `ONLINE` (deny wins tabel, SPEC §7.4); kumbki pool ei laienda teise otsust;
+- erineva `generation`-iga Turvise replikad vastavad iga päring vastu oma snapshot'i ja tagastavad
+  `X-Turvis-Trust-Generation`; `edelivery` logib selle `audit_ref`-iga, seega on iga otsus tagantjärele
+  seostatav konkreetse generatsiooniga;
+- alarm käivitub, kui replikate või Turvise ja `edelivery` generatsioonid erinevad kauem kui 5
+  minutit; rolling deploy'ga kaasnev lühike kattuvus on oodatud.
+
+**Jääkrisk.** Sertifikaadi rotatsiooni ajal võib kinnitatud partneri allkiri ebaõnnestuda
+(`SIGNER_UNTRUSTED`) replikal, mis laadis vana sertifikaadi veel, või läbida replikal, mis ei ole
+veel `DISABLED`-iks läinud. Leevendus: uus sertifikaat lisatakse samas muudatuses ja vana eemaldatakse
+alles pärast partneri üleminekut (SPEC §7.4); `DISABLED` jõustub täielikult pärast kõigi replikate
+uuendamist, mitte hetkega.
+
+### Kinnitamine (pinning), usaldusahel ja nähtavus
+
+- **Vaikimisi pinning partneri kaupa**: tühi `allowed_chain_anchors` tähendab, et allkirjastaja
+  sertifikaat peab võrduma registri `eDeliveryCert`-iga. See on Phase 1 vaikimisi tulemus.
+- **Usaldusahel on partneri andmeväli**, mitte režiim koodis: `allowed_chain_anchors: [alias,…]`
+  lülitab ühe partneri ankrutele, kui eFTI PKI haldus need annab; koodimuudatust ei vaja (SPEC §9.4).
+- **Generatsioon on nähtav**: `generation` on kanoonilise sisu SHA-256; Turvis ja `edelivery`
+  eksporteerivad selle metrikana ja Turvis tagastab `X-Turvis-Trust-Generation` päise. Alarm, kui
+  replikate või Turvise ja `edelivery` generatsioonid erinevad kauem kui 5 minutit (SPEC §7.4).
+- **Rike**: eelmine edukas snapshot jääb kasutusse; esmakäivitusel ilma snapshot'ita on Turvis
+  mitte-ready ja vastab `TRUST_STORE_UNAVAILABLE` (SPEC §7.3).
+
+### Tagajärjed
+
+- Registri muudatus nõuab nüüd **mõlema** artefakti (`registry` ja usaldusvaade) uuesti buildimist ja
+  deploy'd; `restart` ei rakenda midagi (jätkub §3).
+- Sertifikaadi rotatsioon on üks commit: uus sertifikaat lisatakse samas muudatuses, vana eemaldatakse
+  pärast partneri üleminekut (SPEC §7.4).
+- Üks sama sisu hash annab mõlemale poolele võrreldava `generation`-i; erinevus on alarm, mitte
+  eeldus.
+
+### Phase 2 integriteet — LAHTINE
+
+Phase 1: Turvis arvutab `generation`-i laadimisel uuesti ja keeldub faili hash'i mittevastavusest;
+artefakt on seotud deploymentiga image digest'i kaudu. **See ei ole krüptograafiline allkiri.**
+
+Phase 2 (eraldatud allkiri üle `generation`-i, kontrollitud seadistatud ankru vastu enne laadimist)
+valik on **lahtine**: (a) selle ADR-i §2 release-aegne allkirjastamine (+ §8 manifesti hash) või
+(b) A3 allkirjastatud manifest. Kumbagi ei ole repos rakendatud; see on nõue, mitte praegune kontroll.
+Otsus tuleb teha enne, kui usaldusvaadet väidetakse krüptograafiliselt kaitstuks (jälgitav lahtise
+küsimusena nr 5 allpool).
+
 ## Kuidas allkirja rakendada
 
 Neli otsust, millest esimene määrab, kas allkirjast on üldse kasu:
@@ -175,9 +303,13 @@ Neli otsust, millest esimene määrab, kas allkirjast on üldse kasu:
    uut release'i ja et "image ei ole saladuse kandja" reegel taastuks?
 4. **Hotfix-release'i protsess** — lekkinud võtme või vigase kirje korral on ainus tee uus
    allkirjastatud release; vaja dokumenteeritud kiiret teed (nt kahe isiku reegel).
+5. **Turvise usaldusvaate Phase 2 integriteet** — release-aegne allkiri (§2/§8) või A3 allkirjastatud
+   manifest; vt "Täiendus: Turvise usaldusvaade". **Lahtine**, rakendamata.
 
 ## Seotud
 
+- [Turvise integratsioonileping](../../specs/turvis/SPEC.md) §7.2–7.4 (usaldusvaade), kemit-ee/efti-gate-ee#304,
+  #311, #315 (`turvis-trust.json` genereerimine), #316 (see täiendus), #309 (võrgupoliitika)
 - [ADR-002](002-status-over-isactive.md) (kasutajate CRUD jääb REST-iks),
   [ADR-004](004-platform-api-key.md) (**muudetud §5-ga**: võti on avatekst, mitte SHA-256),
   [ADR-006](006-xroad-identity-and-subsets.md) (asutuse `subsets` on autoriõiguse allikas),

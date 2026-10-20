@@ -140,6 +140,19 @@ database representation — `gates`, `platforms`, `authorities`, their read mode
 - **It does no filtering, no auth and no lookups.** The `status` checks, the `X-Api-Key` comparison and
   the authority `registryCode` ambiguity rule live in the Ruuter DSL. The whole-registry documents exist
   because **Ruuter has no loops** — a list or a by-code lookup cannot be assembled from N file fetches.
+- **Turvis trust view (A9; ADR-011 amendment "Täiendus: Turvise usaldusvaade", #316; Turvis SPEC
+  §7.2–7.4 in `docs/specs/turvis/SPEC.md`).** `registry/` stays the only hand-edited source of peer
+  identity/status/certificate; Turvis never reads the `registry` service (it serves plaintext platform
+  `apiKey`s, §5) and gets only a **generated, allowlist-filtered `turvis-trust.json`** built from the
+  same revision as a separate artifact. Generation is **not implemented yet** (#315). Status is
+  `ONLINE`/`DISABLED` with **deny wins** across edelivery's registry view and Turvis's view; pinning is
+  the per-party default, chain of trust is per-party data (`allowed_chain_anchors`). Phase-2 integrity
+  (release signing §2/§8 vs an A3 signed manifest) is **open**; Phase 1 is only a `generation` hash check,
+  not a signature. `eDeliveryCert` stays optional: a certless gate is left out of the view (as of the
+  AS4 party map), an existing unparseable/expired one fails the build. #315 will let the converter accept
+  `.pem` only under `registry/trust-anchors/` (elsewhere still a build failure). Generations may differ
+  temporarily (accepted, 5-minute alert, each side decides on its own view). Once #315 lands, a registry
+  edit needs both artifacts rebuilt.
 - **A registry edit needs `docker compose up --build registry`**: the JSON is generated and validated at
   build time, so `restart` alone applies nothing and `compose.override.yml` has no `develop.watch` entry
   for it any more (there is no mount to sync).
