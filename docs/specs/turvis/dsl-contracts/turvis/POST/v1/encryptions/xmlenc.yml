@@ -1,0 +1,199 @@
+# Turvis: /turvis/v1/encryptions/xmlenc (Phase 1 mock, Phase 2 contract)
+#
+# Nested under /encryptions/<mechanism> so sibling mechanisms (/jwe per RFC 7516,
+# /cose-encrypt per RFC 8152) can be added without colliding on request/response
+# shape or reason-code enum. See SPEC.md §4 for the extensibility
+# rationale.
+#
+# `internal: false` + guard-enforced authn (see .guard.yml).
+#
+# `profile` on request: "wss-encrypted" (default) produces real encryption outputs;
+# "plaintext" produces empty XML fragments + input bytes passthrough so edelivery's
+# splicing is a no-op. Phase 1 mock is pass-through either way.
+#
+# `return_fields` on request: edelivery declares which auxiliary fields it wants
+# back (SPEC §4.3 enum). Phase 1 mock returns the full accept bundle regardless.
+#
+# Dev-mode mock override: header `X-Mock-Verdict` with reject values below triggers
+# the matching reject response. Default returns stub encrypted bytes + XML fragments
+# (NOT a real encryption — the "wrapped_key_b64" and "encrypted_payload_b64" are
+# pass-through of the plaintext for shape testing only).
+#
+# PHASE 2 WARNING: real Turvis MUST perform RSA-OAEP wrap + AES-GCM encrypt per
+# W3C XML Encryption 1.1. Phase 1 mock output is for integration-testing shape only.
+
+declaration:
+  description: |
+    W3C XML Encryption 1.1 of outbound payload for a specific receiver.
+
+    Request: plaintext_bytes_b64 (base64 of gzip-compressed business payload),
+    receiver_party_id, profile ("wss-encrypted" | "plaintext"), return_fields
+    (required), trace_id.
+
+    Response: 200 with {encrypted_payload_b64, audit_ref, + requested fields}.
+    NOT byte-idempotent under retry in wss-encrypted mode (fresh ephemeral AES
+    key per call). In plaintext mode, encrypted_payload_b64 is the input bytes
+    passthrough and the XML fragments are empty strings.
+
+    Reason codes: RECEIVER_UNKNOWN, RECEIVER_CERT_EXPIRED, RECEIVER_CERT_UNTRUSTED,
+    PAYLOAD_TOO_LARGE, ALGO_UNSUPPORTED, TRUST_STORE_UNAVAILABLE,
+    UNKNOWN_RETURN_FIELD, TURVIS_INTERNAL. See SPEC.md §5.
+  internal: false
+  additive: true
+  allowlist:
+    body:
+      - field: plaintext_bytes_b64
+        type: string
+        required: true
+      - field: receiver_party_id
+        type: string
+        required: true
+      - field: profile
+        type: string
+        required: true
+      - field: return_fields
+        type: array
+        required: true
+      - field: trace_id
+        type: string
+        required: false
+
+setup:
+  assign:
+    audit_ref: "${'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) { var r = Math.floor(Math.random() * 16); return (c === 'x' ? r : (r & 3) | 8).toString(16); })}"
+    mock_verdict: "${incoming.headers['x-mock-verdict'] || 'accept'}"
+    is_plaintext: "${incoming.body.profile == 'plaintext'}"
+
+dispatch:
+  switch:
+    - condition: "${mock_verdict == 'reject-receiver-unknown'}"
+      next: reject_receiver_unknown
+    - condition: "${mock_verdict == 'reject-receiver-cert-expired'}"
+      next: reject_receiver_cert_expired
+    - condition: "${mock_verdict == 'reject-receiver-cert-untrusted'}"
+      next: reject_receiver_cert_untrusted
+    - condition: "${mock_verdict == 'reject-payload-too-large'}"
+      next: reject_payload_too_large
+    - condition: "${mock_verdict == 'reject-algo-unsupported'}"
+      next: reject_algo_unsupported
+    - condition: "${mock_verdict == 'reject-unknown-return-field'}"
+      next: reject_unknown_return_field
+    - condition: "${is_plaintext}"
+      next: accept_plaintext
+    - condition: "${true}"
+      next: accept_encrypted
+
+accept_encrypted:
+  return:
+    wrapped_key_b64: "bW9jay13cmFwcGVkLWtleQ=="
+    encrypted_payload_b64: "${incoming.body.plaintext_bytes_b64}"
+    wrapped_key_xml: |
+      <xenc:EncryptedKey xmlns:xenc="http://www.w3.org/2001/04/xmlenc#" Id="EK-mock">
+        <xenc:EncryptionMethod Algorithm="http://www.w3.org/2009/xmlenc11#rsa-oaep"/>
+        <xenc:CipherData><xenc:CipherValue>bW9jay13cmFwcGVkLWtleQ==</xenc:CipherValue></xenc:CipherData>
+        <xenc:ReferenceList><xenc:DataReference URI="#ED-mock"/></xenc:ReferenceList>
+      </xenc:EncryptedKey>
+    encrypted_data_xml: |
+      <xenc:EncryptedData xmlns:xenc="http://www.w3.org/2001/04/xmlenc#" Id="ED-mock"
+                          MimeType="application/gzip">
+        <xenc:EncryptionMethod Algorithm="http://www.w3.org/2009/xmlenc11#aes128-gcm"/>
+        <xenc:CipherData><xenc:CipherReference URI="cid:message"/></xenc:CipherData>
+      </xenc:EncryptedData>
+    audit_ref: "${audit_ref}"
+  status: 200
+  content_type: application/json
+  wrapper: false
+
+accept_plaintext:
+  # Plaintext mode: no encryption; edelivery's splicing is a no-op because
+  # wrapped_key_xml + encrypted_data_xml are empty strings. encrypted_payload_b64
+  # is the input bytes passthrough. wrapped_key_b64 is empty.
+  return:
+    wrapped_key_b64: ""
+    encrypted_payload_b64: "${incoming.body.plaintext_bytes_b64}"
+    wrapped_key_xml: ""
+    encrypted_data_xml: ""
+    audit_ref: "${audit_ref}"
+  status: 200
+  content_type: application/json
+  wrapper: false
+
+reject_receiver_unknown:
+  return:
+    type: "https://efti.example/problem/turvis-encrypt-xmlenc-reject"
+    title: "Receiver party unknown"
+    status: 422
+    verdict: "reject"
+    reason_code: "RECEIVER_UNKNOWN"
+    detail: "mock: receiver_party_id not in trust store"
+    audit_ref: "${audit_ref}"
+  status: 422
+  content_type: application/problem+json
+  wrapper: false
+
+reject_receiver_cert_expired:
+  return:
+    type: "https://efti.example/problem/turvis-encrypt-xmlenc-reject"
+    title: "Receiver cert expired"
+    status: 422
+    verdict: "reject"
+    reason_code: "RECEIVER_CERT_EXPIRED"
+    detail: "mock"
+    audit_ref: "${audit_ref}"
+  status: 422
+  content_type: application/problem+json
+  wrapper: false
+
+reject_receiver_cert_untrusted:
+  return:
+    type: "https://efti.example/problem/turvis-encrypt-xmlenc-reject"
+    title: "Receiver cert untrusted"
+    status: 422
+    verdict: "reject"
+    reason_code: "RECEIVER_CERT_UNTRUSTED"
+    detail: "mock"
+    audit_ref: "${audit_ref}"
+  status: 422
+  content_type: application/problem+json
+  wrapper: false
+
+reject_payload_too_large:
+  return:
+    type: "https://efti.example/problem/turvis-encrypt-xmlenc-reject"
+    title: "Payload too large"
+    status: 413
+    verdict: "reject"
+    reason_code: "PAYLOAD_TOO_LARGE"
+    detail: "mock: exceeds MAX_PAYLOAD_BYTES (default 50 MiB)"
+    audit_ref: "${audit_ref}"
+  status: 413
+  content_type: application/problem+json
+  wrapper: false
+
+reject_algo_unsupported:
+  return:
+    type: "https://efti.example/problem/turvis-encrypt-xmlenc-reject"
+    title: "Algorithm unsupported"
+    status: 422
+    verdict: "reject"
+    reason_code: "ALGO_UNSUPPORTED"
+    detail: "mock"
+    audit_ref: "${audit_ref}"
+  status: 422
+  content_type: application/problem+json
+  wrapper: false
+
+reject_unknown_return_field:
+  # The mock does not validate return_fields values; this 422 is only reachable via
+  # the `X-Mock-Verdict: reject-unknown-return-field` request header.
+  return:
+    type: "https://efti.example/problem/turvis-encrypt-xmlenc-reject"
+    title: "Unknown return field"
+    status: 422
+    verdict: "reject"
+    reason_code: "UNKNOWN_RETURN_FIELD"
+    detail: "mock: return_fields contains a value not in the endpoint's projectable set (see SPEC §4.3)"
+    audit_ref: "${audit_ref}"
+  status: 422
+  content_type: application/problem+json
+  wrapper: false
