@@ -437,6 +437,8 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   their devops charts exist, so they are not in
   `components:`) → SBOM/trivy → `package:charts` trigger into the `efti` devops repo →
   `release-pin` into `environments/dev/release.yaml`. Runs on the default branch and `release/*`.
+  The latest chart versions (kemitchart base chart, the `dev` release pin) are recorded, dated, in
+  `docs/specs/deploy/README.md` "Helm chart versions" — refresh it when they change.
   Header comment lists the CI/CD variables and the values still to confirm against the devops repo.
   **`registry` needs a matching wrapper chart component in `services/efti/devops`** — the
   `components:` list is mirrored from there, and the chart must **not** mount `registry/` (there is no
