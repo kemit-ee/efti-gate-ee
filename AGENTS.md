@@ -260,6 +260,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 
 ## Kotlin services
 
+- Inbound `msh` errors log only a body fingerprint (`body_sha256`, size, content type, part count), never the body or the exception message in the peer-facing reply: `soapFault(FaultReason)` (`SoapFaultReasons.kt`) sends a fixed bucket (`EBMS:` code + short text); the exception class is mapped by `FaultReason.of`, unknown classes fall back to `OTHER`. Add a new exception class to the mapping and its test.
 - eDelivery renders String responses as raw XML (including the empty poll response), not JSON-encoded strings. Ruuter ≥ 0.10.0 decodes upstream bodies by their declared Content-Type.
 
 - Framework: klite (lightweight, annotation-based)
@@ -414,7 +415,8 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   - `dsl-validate` — runs Ruuter's `dsl-lint --audit` + `dsl-test` straight from the runtime image
     (`turnerrainer/ruuter:0.12.1-rc`, which ships both binaries since #83) on both DSL roots +
     `DSL-tests/*.test.yml` (in-process scenarios) + `scripts/validate-dsl.py` (the efti-only
-    input-contract convention) + `scripts/registry-to-json.py` (validates `registry/**/*.yml` without
+    input-contract convention) + `scripts/validate-no-pii-log.py` (fails a Kotlin log call that writes a raw
+    message body, #322) + `scripts/registry-to-json.py` (validates `registry/**/*.yml` without
     building an image — the converter is the validator, ADR-011 §3) + `tests/registry/test_registry_to_json.py`.
   - `e2e` — builds the compose stack, runs the `tests/*/*.http` smoke suite via
     `docker compose run --rm http-tests`. This is the gate on PRs. `dsl-test` is the fast

@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+"""Fail when a Kotlin log call interpolates a raw message body (#322).
+
+AS4 bodies carry eFTI payload with personal data; logs are stored at a lower trust tier than the
+database. Log a fingerprint (sha256, size, content type) instead. This is a regression guard for the
+obvious patterns, not a taint analysis.
+"""
+import pathlib
+import re
+import sys
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+LOG_CALL = re.compile(r"\b(?:log|logger(?:<[^>]*>)?\(\))\s*\.\s*(?:trace|debug|info|warn|error)\s*\(")
+FORBIDDEN = re.compile(r"decodeToString\(\)|\bString\(\s*\w*[bB]ody\w*\s*\)|\bRaw content\b|\$\{?\w*[rR]aw[bB]ody")
+
+
+def statements(text):
+    """Yield (line_number, source) for each log call, up to its closing parenthesis."""
+    for m in LOG_CALL.finditer(text):
+        depth, i = 1, m.end()
+        while i < len(text) and depth:
+            depth += {"(": 1, ")": -1}.get(text[i], 0)
+            i += 1
+        yield text.count("\n", 0, m.start()) + 1, text[m.start():i]
+
+
+def main():
+    bad = []
+    for path in sorted((ROOT / "code").glob("*/src/**/*.kt")):
+        for line, stmt in statements(path.read_text()):
+            if FORBIDDEN.search(stmt):
+                bad.append(f"{path.relative_to(ROOT)}:{line}: {' '.join(stmt.split())[:120]}")
+    if bad:
+        print("Log calls that may write a raw message body:", *bad, sep="\n  ", file=sys.stderr)
+        return 1
+    print("no raw-body log calls found")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
