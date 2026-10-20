@@ -11,12 +11,23 @@ converter runs at **image build time** and emits:
     <out>/platforms/<id>.json     one platform
     <out>/authorities.json        all authorities, one array
     <out>/authorities/<id>.json   one authority
-    <out>/health.json             {status, gates, platforms, authorities}
+    <out>/health.json             {status, gates, platforms, authorities, trustViewGeneration}
+    <trust-out>/turvis-trust.json the Turvis trust view (ADR-011 amendment, SPEC section 7.2)
+    <trust-out>/health.json       {status, generation, parties, trustAnchors}
 
 It is also the **validator**: a malformed file stops the build (and therefore the deployment), so
 nothing unvalidated can ever be served. Run it with no `--out` in CI to validate without writing.
+The Turvis trust view is built (and therefore validated) on every run, with or without `--out`, so a
+registry the view cannot represent never produces a registry image either.
 
-Two things worth knowing:
+Things worth knowing:
+
+* **The trust view is allowlist-only.** It is assembled field by field from `registry/gates/*.yml`
+  and `registry/trust-anchors/*.pem`; platform entries, `apiKey`, `headers`, `tlsCert` and URLs have
+  no code path into it, and `assert_allowlist` re-checks the finished document.
+* **`eDeliveryCert` stays optional.** A gate without one is left out of the view (exactly as
+  edelivery leaves it out of the AS4 party map); an existing certificate that does not parse or has
+  expired fails the build.
 
 * **Absent optional keys are omitted** from the output, rather than written as `null`. Empty
   collections are *not* absent — `subsets: []` means "entitled to nothing" and stays.
@@ -24,19 +35,34 @@ Two things worth knowing:
   but ids were case-insensitive when they lived in a CITEXT column, so consumers lower-case the id
   before requesting. The canonical `id` is still what the documents and the arrays contain.
 
-Requires PyYAML.
+Requires PyYAML and cryptography.
 """
 
 import argparse
+import hashlib
 import json
+import os
 import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
 
 COUNTRY_CODE_RE = re.compile(r"^[A-Z]{2}$")
 SUBSET_RE = re.compile(r"^EU0[1-7]$")
 PEM_RE = re.compile(r"^-----BEGIN CERTIFICATE-----\n(?:[A-Za-z0-9+/=]+\n)+-----END CERTIFICATE-----\n?$")
+ANCHOR_ALIAS_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+# Keys of a gate that only the Turvis trust view needs. They are validated with the gate but are not
+# part of the registry documents edelivery and the DSL read (edelivery's loader rejects unknown keys).
+TRUST_ONLY_KEYS = {"gates": ("allowedChainAnchors",)}
+
+# The complete set of keys that may appear in turvis-trust.json (SPEC section 7.2). Anything else
+# fails the build.
+VIEW_KEYS = ("schema_version", "generation", "source_revision", "trust_anchors", "parties")
+PARTY_KEYS = ("party_id", "status", "verified_identity", "cert_pem", "cert_ski", "cert_subject_dn", "valid_until", "allowed_chain_anchors")
+ANCHOR_KEYS = ("alias", "cert_pem")
+TRUST_SCHEMA_VERSION = "1.0"
 
 
 class RegistryError(Exception):
@@ -70,6 +96,12 @@ def check_gate(entity, source):
         raise RegistryError(f"{source}: countryCode must be two upper-case letters, got {entity['countryCode']!r}")
     check_url(entity, source, "eDeliveryUrl")
     check_certs(entity, source)
+    anchors = entity.get("allowedChainAnchors")
+    if anchors is not None:
+        if not isinstance(anchors, list) or not all(isinstance(a, str) and ANCHOR_ALIAS_RE.match(a) for a in anchors):
+            raise RegistryError(f"{source}: allowedChainAnchors must be a list of trust-anchor aliases, got {anchors!r}")
+        if len(set(anchors)) != len(anchors):
+            raise RegistryError(f"{source}: allowedChainAnchors contains duplicates: {anchors!r}")
 
 
 def check_platform(entity, source):
@@ -98,7 +130,7 @@ STRING_FIELDS = ("id", "countryCode", "eDeliveryUrl", "baseUrl", "status", "eDel
 REGISTRIES = {
     "gates": {
         "required": ("id", "countryCode", "eDeliveryUrl", "status"),
-        "optional": ("eDeliveryCert", "tlsCert"),
+        "optional": ("eDeliveryCert", "tlsCert", "allowedChainAnchors"),
         "statuses": ("ONLINE", "DISABLED"),
         "check": check_gate,
     },
@@ -186,9 +218,128 @@ def load(kind, source_dir):
     return entities
 
 
+def parse_certificate(pem, what, now):
+    """Parse a PEM certificate and refuse an expired one; `what` names it in the error."""
+    from cryptography import x509
+
+    try:
+        certificate = x509.load_pem_x509_certificate(pem.encode())
+    except ValueError as e:
+        raise RegistryError(f"{what}: certificate does not parse: {e}") from e
+    if certificate.not_valid_after_utc <= now:
+        raise RegistryError(f"{what}: certificate expired on {certificate.not_valid_after_utc:%Y-%m-%dT%H:%M:%SZ}")
+    return certificate
+
+
+def load_trust_anchors(source_dir, now):
+    """`registry/trust-anchors/<alias>.pem` — the only place `.pem` files are allowed. Optional."""
+    directory = source_dir / "trust-anchors"
+    if not directory.exists():
+        return []
+    if not directory.is_dir():
+        raise RegistryError(f"{directory} must be a directory")
+
+    stray = sorted(p.name for p in directory.iterdir() if p.suffix != ".pem" and not p.name.startswith("."))
+    if stray:
+        raise RegistryError(f"{directory}: only <alias>.pem files are allowed, found {stray}")
+
+    anchors = []
+    for path in sorted(directory.glob("*.pem"), key=lambda p: p.stem.lower()):
+        if not ANCHOR_ALIAS_RE.match(path.stem):
+            raise RegistryError(f"{path}: the file name (minus .pem) is the anchor alias and must match {ANCHOR_ALIAS_RE.pattern}")
+        text = path.read_text()
+        if not PEM_RE.match(text):
+            raise RegistryError(f"{path}: not a PEM certificate (expected -----BEGIN/END CERTIFICATE-----)")
+        parse_certificate(text, str(path), now)
+        anchors.append({"alias": path.stem, "cert_pem": text})
+
+    aliases = [a["alias"].lower() for a in anchors]
+    duplicates = sorted({a for a in aliases if aliases.count(a) > 1})
+    if duplicates:
+        raise RegistryError(f"{directory}: duplicate anchor alias(es) {duplicates} (aliases are case-insensitive)")
+    return anchors
+
+
+def build_party(gate, anchors_by_alias, now):
+    from cryptography import x509
+
+    source = f"gates/{gate['id']}"
+    cert_pem = gate["eDeliveryCert"]
+    certificate = parse_certificate(cert_pem, f"{source}: eDeliveryCert", now)
+    try:
+        ski = certificate.extensions.get_extension_for_class(x509.SubjectKeyIdentifier).value
+    except x509.ExtensionNotFound:
+        ski = x509.SubjectKeyIdentifier.from_public_key(certificate.public_key())
+
+    chain_anchors = gate.get("allowedChainAnchors", [])
+    unknown = sorted(a for a in chain_anchors if a.lower() not in anchors_by_alias)
+    if unknown:
+        raise RegistryError(f"{source}: allowedChainAnchors names no file in trust-anchors/: {unknown}")
+
+    return {
+        "party_id": gate["id"],
+        "status": gate["status"],
+        "verified_identity": gate["id"],
+        "cert_pem": cert_pem,
+        "cert_ski": ski.digest.hex(),
+        "cert_subject_dn": certificate.subject.rfc4514_string(),
+        "valid_until": f"{certificate.not_valid_after_utc:%Y-%m-%dT%H:%M:%SZ}",
+        "allowed_chain_anchors": [anchors_by_alias[a.lower()] for a in chain_anchors],
+    }
+
+
+def assert_allowlist(view):
+    """Fail on any key outside the allowlist, wherever it sits in the document."""
+    def check(level, document, allowed):
+        extra = sorted(set(document) - set(allowed))
+        if extra:
+            raise RegistryError(f"turvis-trust.json: {level} has key(s) outside the allowlist: {extra}")
+
+    check("document", view, VIEW_KEYS)
+    for party in view["parties"]:
+        check(f"party {party.get('party_id')!r}", party, PARTY_KEYS)
+    for anchor in view["trust_anchors"]:
+        check(f"trust anchor {anchor.get('alias')!r}", anchor, ANCHOR_KEYS)
+
+
+def build_trust_view(gates, trust_anchors, now, source_revision="unknown"):
+    """The Turvis trust view (SPEC section 7.2): an allowlist projection of the gate registry.
+
+    A gate without `eDeliveryCert` is left out (edelivery leaves it out of the AS4 party map too, so
+    both sides deny it). `DISABLED` gates with a certificate stay in. `generation` is the SHA-256 of
+    the canonical `parties` + `trust_anchors`; the source revision is informational only.
+    """
+    anchors_by_alias = {a["alias"].lower(): a["alias"] for a in trust_anchors}
+    parties = [build_party(g, anchors_by_alias, now) for g in sorted(gates, key=lambda g: g["id"].lower()) if g.get("eDeliveryCert")]
+
+    identities = [p["verified_identity"].lower() for p in parties]
+    duplicates = sorted({i for i in identities if identities.count(i) > 1})
+    if duplicates:
+        raise RegistryError(f"turvis-trust.json: verified_identity is duplicated: {duplicates}")
+
+    anchors = [{"alias": a["alias"], "cert_pem": a["cert_pem"]} for a in sorted(trust_anchors, key=lambda a: a["alias"].lower())]
+    canonical = json.dumps({"parties": parties, "trust_anchors": anchors}, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    view = {
+        "schema_version": TRUST_SCHEMA_VERSION,
+        "generation": "sha256:" + hashlib.sha256(canonical.encode()).hexdigest(),
+        "source_revision": source_revision,
+        "trust_anchors": anchors,
+        "parties": parties,
+    }
+    assert_allowlist(view)
+    return view
+
+
+def public_entity(kind, entity):
+    """The entity as the registry documents carry it, without keys only the trust view uses."""
+    hidden = TRUST_ONLY_KEYS.get(kind, ())
+    return {k: v for k, v in entity.items() if k not in hidden}
+
+
 def write(out_dir, kind, entities):
     out = out_dir / kind
     out.mkdir(parents=True, exist_ok=True)
+    entities = [public_entity(kind, e) for e in entities]
     document = json.dumps(entities, indent=2, ensure_ascii=False) + "\n"
     (out_dir / f"{kind}.json").write_text(document)
     for entity in entities:
@@ -200,28 +351,47 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--source", default="registry", type=Path, help="registry source directory (default: registry)")
     parser.add_argument("--out", type=Path, help="output directory; omit to validate only")
+    parser.add_argument("--trust-out", type=Path, help="output directory for turvis-trust.json (the Turvis trust view)")
+    parser.add_argument(
+        "--source-revision",
+        default=os.environ.get("SOURCE_REVISION", "unknown"),
+        help="git revision the artifacts are built from, informational (default: $SOURCE_REVISION or 'unknown')",
+    )
     args = parser.parse_args()
 
     if not args.source.is_dir():
         print(f"registry-to-json: FAILED: {args.source} is not a directory", file=sys.stderr)
         return 1
 
+    now = datetime.now(timezone.utc)
     try:
         registries = {kind: load(kind, args.source) for kind in REGISTRIES}
+        trust_anchors = load_trust_anchors(args.source, now)
+        view = build_trust_view(registries["gates"], trust_anchors, now, args.source_revision)
     except RegistryError as e:
         print(f"registry-to-json: FAILED: {e}", file=sys.stderr)
         return 1
 
     counts = {kind: len(entities) for kind, entities in registries.items()}
+    trust_summary = f"turvis-trust parties={len(view['parties'])} trustAnchors={len(view['trust_anchors'])} generation={view['generation']}"
     if args.out:
         for kind, entities in registries.items():
             write(args.out, kind, entities)
         (args.out / "health.json").write_text(
-            json.dumps({"status": "ok", **counts}, indent=2) + "\n"
+            json.dumps({"status": "ok", **counts, "trustViewGeneration": view["generation"]}, indent=2) + "\n"
         )
         print("registry-to-json: wrote " + ", ".join(f"{kind}={n}" for kind, n in counts.items()) + f" to {args.out}")
     else:
         print("registry-to-json: validated " + ", ".join(f"{kind}={n}" for kind, n in counts.items()))
+    if args.trust_out:
+        args.trust_out.mkdir(parents=True, exist_ok=True)
+        (args.trust_out / "turvis-trust.json").write_text(json.dumps(view, indent=2, ensure_ascii=False) + "\n")
+        (args.trust_out / "health.json").write_text(
+            json.dumps({"status": "ok", "generation": view["generation"], "parties": len(view["parties"]), "trustAnchors": len(view["trust_anchors"])}, indent=2) + "\n"
+        )
+        print(f"registry-to-json: wrote {trust_summary} to {args.trust_out}")
+    else:
+        print(f"registry-to-json: validated {trust_summary}")
     return 0
 
 

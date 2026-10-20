@@ -6,15 +6,51 @@ Run: python3 tests/registry/test_registry_to_json.py
 """
 
 import importlib.util
+import json
 import shutil
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.x509.oid import NameOID
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location("registry_to_json", ROOT / "scripts" / "registry-to-json.py")
 converter = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(converter)
+
+# Certificates are generated per test: the committed dev fixtures expire (2027-08-25) and must not
+# be what the view rules are tested against.
+ISSUED = datetime(2026, 10, 1, tzinfo=timezone.utc)
+
+
+def make_cert(common_name, org=None, not_after=datetime(2027, 10, 20, tzinfo=timezone.utc)):
+    key = ec.generate_private_key(ec.SECP256R1())
+    attributes = [x509.NameAttribute(NameOID.COMMON_NAME, common_name)]
+    if org:
+        attributes.insert(0, x509.NameAttribute(NameOID.ORGANIZATION_NAME, org))
+    name = x509.Name(attributes)
+    certificate = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(min(ISSUED, not_after - timedelta(days=30)))
+        .not_valid_after(not_after)
+        .add_extension(x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False)
+        .sign(key, hashes.SHA256())
+    )
+    return certificate.public_bytes(serialization.Encoding.PEM).decode()
+
+
+def gate_yaml(id, cert, extra=""):
+    indented = "".join(f"  {line}\n" for line in cert.splitlines())
+    return f"id: {id}\ncountryCode: EE\neDeliveryUrl: https://x.example/msh\nstatus: ONLINE\neDeliveryCert: |\n{indented}{extra}"
 
 
 class RegistryToJsonTest(unittest.TestCase):
@@ -83,6 +119,170 @@ class RegistryToJsonTest(unittest.TestCase):
     def test_non_yml_file_is_rejected(self):
         self.write("gates", "EU-Y.yaml", "id: EU-Y\n")
         self.assert_rejected("gates", "only <id>.yml files are allowed")
+
+    def test_pem_file_is_still_rejected_in_a_registry_directory(self):
+        self.write("gates", "EU-Y.pem", make_cert("EU-Y"))
+        self.assert_rejected("gates", "only <id>.yml files are allowed")
+
+    def test_allowed_chain_anchors_must_be_a_list_of_aliases(self):
+        self.write("gates", "EU-X.yml", gate_yaml("EU-X", make_cert("EU-X"), extra="allowedChainAnchors: root\n"))
+        self.assert_rejected("gates", "allowedChainAnchors must be a list of trust-anchor aliases")
+
+    def test_allowed_chain_anchors_never_reach_the_registry_documents(self):
+        entity = converter.load("gates", self.source)[0]
+        entity = dict(entity, allowedChainAnchors=["root"])
+        self.assertNotIn("allowedChainAnchors", converter.public_entity("gates", entity))
+
+
+class TrustViewTest(unittest.TestCase):
+    """The Turvis trust view (ADR-011 amendment, SPEC section 7.2), built from crafted gates."""
+
+    NOW = datetime(2026, 10, 20, tzinfo=timezone.utc)
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.source = self.tmp / "registry"
+        shutil.copytree(ROOT / "registry", self.source)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp)
+
+    def gate(self, id, cert, status="ONLINE", **extra):
+        gate = {"id": id, "countryCode": "EE", "eDeliveryUrl": "https://x.example/msh", "status": status, **extra}
+        if cert is not None:
+            gate["eDeliveryCert"] = cert
+        return gate
+
+    def view(self, gates, anchors=()):
+        return converter.build_trust_view(gates, list(anchors), self.NOW)
+
+    def test_committed_registry_builds_a_view(self):
+        gates = converter.load("gates", self.source)
+        anchors = converter.load_trust_anchors(self.source, datetime.now(timezone.utc))
+        view = converter.build_trust_view(gates, anchors, datetime.now(timezone.utc))
+        self.assertEqual({g["id"] for g in gates if g.get("eDeliveryCert")}, {p["party_id"] for p in view["parties"]})
+
+    def test_no_credential_or_url_field_reaches_the_view(self):
+        gate = self.gate(
+            "EU-X", make_cert("EU-X"), tlsCert=make_cert("tls"),
+            apiKey="s3cret-api-key", headers={"X-Api-Key": "s3cret-header"},
+        )
+        text = json.dumps(self.view([gate]))
+        for forbidden in ("apiKey", "headers", "tlsCert", "eDeliveryUrl", "baseUrl", "s3cret", "x.example", "http"):
+            self.assertNotIn(forbidden, text)
+
+    def test_no_platform_data_can_reach_the_view(self):
+        platform_key = next(p["apiKey"] for p in converter.load("platforms", self.source) if p.get("apiKey"))
+        gates = converter.load("gates", self.source)
+        self.assertNotIn(platform_key, json.dumps(converter.build_trust_view(gates, [], datetime.now(timezone.utc))))
+
+    def test_keys_outside_the_allowlist_fail_the_build(self):
+        view = self.view([self.gate("EU-X", make_cert("EU-X"))])
+        view["parties"][0]["apiKey"] = "x"
+        with self.assertRaisesRegex(converter.RegistryError, "outside the allowlist"):
+            converter.assert_allowlist(view)
+        view = self.view([self.gate("EU-X", make_cert("EU-X"))])
+        view["internal"] = True
+        with self.assertRaisesRegex(converter.RegistryError, "outside the allowlist"):
+            converter.assert_allowlist(view)
+
+    def test_party_fields_come_from_the_certificate(self):
+        pem = make_cert("EU-X", org="DGITM")
+        party = self.view([self.gate("EU-X", pem)])["parties"][0]
+        self.assertEqual(
+            {"party_id": "EU-X", "status": "ONLINE", "verified_identity": "EU-X", "cert_pem": pem,
+             "cert_subject_dn": "CN=EU-X,O=DGITM", "valid_until": "2027-10-20T00:00:00Z", "allowed_chain_anchors": []},
+            {k: v for k, v in party.items() if k != "cert_ski"},
+        )
+        self.assertRegex(party["cert_ski"], r"^[0-9a-f]{40}$")
+
+    def test_generation_is_deterministic_and_ignores_the_revision(self):
+        gates = [self.gate("EU-A", make_cert("EU-A")), self.gate("EU-B", make_cert("EU-B"))]
+        first = converter.build_trust_view(gates, [], self.NOW, "git:aaaa")
+        second = converter.build_trust_view(list(reversed(gates)), [], self.NOW, "git:bbbb")
+        self.assertEqual(first["generation"], second["generation"])
+        self.assertEqual(first["parties"], second["parties"])
+        self.assertRegex(first["generation"], r"^sha256:[0-9a-f]{64}$")
+        self.assertEqual("git:aaaa", first["source_revision"])
+
+    def test_generation_changes_with_the_content(self):
+        a = self.view([self.gate("EU-A", make_cert("EU-A"))])
+        self.assertNotEqual(a["generation"], self.view([self.gate("EU-A", make_cert("EU-A"), status="DISABLED")])["generation"])
+        self.assertNotEqual(a["generation"], self.view([self.gate("EU-A", make_cert("EU-A", org="Other"))])["generation"])
+
+    def test_disabled_gate_stays_in_the_view(self):
+        view = self.view([self.gate("EU-X", make_cert("EU-X"), status="DISABLED")])
+        self.assertEqual([("EU-X", "DISABLED")], [(p["party_id"], p["status"]) for p in view["parties"]])
+
+    def test_gate_without_certificate_is_left_out_not_a_failure(self):
+        view = self.view([self.gate("EU-A", make_cert("EU-A")), self.gate("EU-NOCERT", None), self.gate("EU-OFF", None, status="DISABLED")])
+        self.assertEqual(["EU-A"], [p["party_id"] for p in view["parties"]])
+
+    def test_expired_certificate_fails_the_build(self):
+        for status in ("ONLINE", "DISABLED"):
+            with self.assertRaisesRegex(converter.RegistryError, "EU-X: eDeliveryCert: certificate expired on 2026-10-19"):
+                self.view([self.gate("EU-X", make_cert("EU-X", not_after=datetime(2026, 10, 19, tzinfo=timezone.utc)), status=status)])
+
+    def test_unparseable_certificate_fails_the_build(self):
+        garbage = "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n"
+        with self.assertRaisesRegex(converter.RegistryError, "EU-X: eDeliveryCert: certificate does not parse"):
+            self.view([self.gate("EU-X", garbage)])
+
+    def test_duplicate_verified_identity_fails_the_build(self):
+        with self.assertRaisesRegex(converter.RegistryError, r"verified_identity is duplicated: \['eu-x'\]"):
+            self.view([self.gate("EU-X", make_cert("a")), self.gate("eu-x", make_cert("b"))])
+
+    def test_pinning_is_the_default(self):
+        self.assertEqual([], self.view([self.gate("EU-X", make_cert("EU-X"))])["parties"][0]["allowed_chain_anchors"])
+
+    def test_chain_mode_is_per_party_data(self):
+        root = make_cert("root-ca")
+        gates = [self.gate("EU-A", make_cert("EU-A"), allowedChainAnchors=["Root-CA"]), self.gate("EU-B", make_cert("EU-B"))]
+        view = self.view(gates, [{"alias": "Root-CA", "cert_pem": root}])
+        by_id = {p["party_id"]: p for p in view["parties"]}
+        self.assertEqual(["Root-CA"], by_id["EU-A"]["allowed_chain_anchors"])
+        self.assertEqual([], by_id["EU-B"]["allowed_chain_anchors"])
+        self.assertEqual([{"alias": "Root-CA", "cert_pem": root}], view["trust_anchors"])
+
+    def test_reference_to_a_missing_anchor_alias_fails_the_build(self):
+        with self.assertRaisesRegex(converter.RegistryError, r"allowedChainAnchors names no file in trust-anchors/: \['nope'\]"):
+            self.view([self.gate("EU-X", make_cert("EU-X"), allowedChainAnchors=["nope"])])
+
+    def anchors_dir(self):
+        directory = self.source / "trust-anchors"
+        directory.mkdir()
+        return directory
+
+    def test_no_trust_anchors_directory_is_fine(self):
+        self.assertEqual([], converter.load_trust_anchors(self.source, self.NOW))
+
+    def test_pem_is_allowed_under_trust_anchors(self):
+        pem = make_cert("root-ca")
+        (self.anchors_dir() / "efti-root-ca-2026.pem").write_text(pem)
+        self.assertEqual([{"alias": "efti-root-ca-2026", "cert_pem": pem}], converter.load_trust_anchors(self.source, self.NOW))
+
+    def test_non_pem_file_under_trust_anchors_is_rejected(self):
+        (self.anchors_dir() / "root.yml").write_text("id: root\n")
+        with self.assertRaisesRegex(converter.RegistryError, "only <alias>.pem files are allowed"):
+            converter.load_trust_anchors(self.source, self.NOW)
+
+    def test_invalid_or_expired_anchor_is_rejected(self):
+        directory = self.anchors_dir()
+        (directory / "root.pem").write_text("not a certificate\n")
+        with self.assertRaisesRegex(converter.RegistryError, "not a PEM certificate"):
+            converter.load_trust_anchors(self.source, self.NOW)
+        (directory / "root.pem").write_text(make_cert("root", not_after=datetime(2026, 1, 1, tzinfo=timezone.utc)))
+        with self.assertRaisesRegex(converter.RegistryError, "certificate expired"):
+            converter.load_trust_anchors(self.source, self.NOW)
+
+    def test_anchor_aliases_are_case_insensitive_duplicates(self):
+        directory = self.anchors_dir()
+        (directory / "Root.pem").write_text(make_cert("a"))
+        (directory / "root.pem").write_text(make_cert("b"))
+        if len(list(directory.glob("*.pem"))) < 2:
+            self.skipTest("case-insensitive file system")
+        with self.assertRaisesRegex(converter.RegistryError, "duplicate anchor alias"):
+            converter.load_trust_anchors(self.source, self.NOW)
 
 
 if __name__ == "__main__":
