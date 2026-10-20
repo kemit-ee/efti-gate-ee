@@ -1,0 +1,278 @@
+# Turvis: /turvis/v1/signatures/xmldsig (Phase 1 mock, Phase 2 contract)
+#
+# Nested under /signatures/<mechanism> so sibling mechanisms (/jws per RFC 7515,
+# /cose per RFC 8152) can be added without colliding on request/response shape or
+# reason-code enum. See SPEC.md section 4 for the extensibility rationale.
+#
+# `internal: false` + guard-enforced authn (see .guard.yml).
+#
+# DEVELOPMENT AND TEST ONLY. There is no cryptography: the accept response passes
+# soap_xml_b64 through unchanged as signed_xml_b64, so the output is NOT a valid
+# XMLDSig and cannot be verified by a peer. The real Turvis MUST compute a real
+# signature (SPEC section 6) and keep byte-fidelity (SPEC section 9.1).
+#
+# Behaviour that IS real, so a consumer depending on it fails here instead of against the
+# real Turvis:
+# - `return_fields` is validated (an unknown value is a 422 UNKNOWN_RETURN_FIELD) and the
+#   accept response is PROJECTED: only signed_xml_b64 + audit_ref (always returned) and the
+#   fields named in return_fields come back (SPEC section 4.0).
+# - key_handle must equal OWN_GATE_ID (SPEC section 7.1), else 422 KEY_HANDLE_UNKNOWN.
+# - trace_id, when present, must be 32 lower-case hex characters, else 400.
+#
+# Dev-mode mock overrides: header `X-Mock-Audit-Ref: <value>` fixes audit_ref (default: a
+# random UUIDv4 built with Math.random, since crypto.randomUUID is not in Ruuter's expression
+# engine) so tests can assert the exact response body. Header `X-Mock-Verdict` with `reject-xml-parse-fail`,
+# `reject-sig-build-fail`, `reject-key-handle-unknown`, `reject-key-unavailable`,
+# `reject-algo-unsupported`, `reject-unknown-return-field`, `reject-trust-store-unavailable`
+# or `reject-turvis-internal` triggers the matching reject response. Any other value or
+# absence runs the real checks above and then returns the accept response.
+
+declaration:
+  description: |
+    Create XMLDSig (W3C XML Signature) on outbound AS4 SOAP envelope.
+
+    Request: soap_xml_b64 (base64 of unsigned SOAP envelope), sign_xpaths,
+    sign_cid_refs, attachment_bytes_b64 (optional), key_handle (must be the own
+    gate id), return_fields (required), trace_id (optional, 32 hex characters).
+
+    Response: 200 with {signed_xml_b64, audit_ref} plus the fields named in
+    return_fields (only `signatures` is projectable).
+    Byte-fidelity contract: caller (edelivery) MUST pass signed_xml_b64 through
+    to the peer AS-IS, no re-serialisation.
+
+    Reason codes: XML_PARSE_FAIL, SIG_BUILD_FAIL, KEY_HANDLE_UNKNOWN,
+    KEY_UNAVAILABLE, ALGO_UNSUPPORTED, UNKNOWN_RETURN_FIELD,
+    TRUST_STORE_UNAVAILABLE, TURVIS_INTERNAL. See SPEC.md section 5.
+    Mock limitations: no real signature; the signatures metadata is deterministic
+    fixture data derived from sign_xpaths / sign_cid_refs.
+  internal: false
+  returns:
+    - field: signed_xml_b64
+      type: string
+    - field: audit_ref
+      type: string
+    - field: signatures
+      type: array
+  additive: true
+  allowlist:
+    body:
+      - field: soap_xml_b64
+        type: string
+        required: true
+      - field: sign_xpaths
+        type: array
+        required: true
+      - field: sign_cid_refs
+        type: array
+        required: true
+      - field: key_handle
+        type: string
+        required: true
+      - field: return_fields
+        type: array
+        required: true
+      - field: attachment_bytes_b64
+        type: array
+        required: false
+      - field: trace_id
+        type: string
+        required: false
+
+setup:
+  assign:
+    audit_ref: "${incoming.headers['x-mock-audit-ref'] || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) { var r = Math.floor(Math.random() * 16); return (c === 'x' ? r : (r & 3) | 8).toString(16); })}"
+    mock_verdict: "${incoming.headers['x-mock-verdict'] || 'accept'}"
+    trace_ok: "${incoming.body.trace_id == null || /^[0-9a-f]{32}$/.test(incoming.body.trace_id)}"
+    key_known: "${incoming.body.key_handle == '[#OWN_GATE_ID]'}"
+    unknown_fields: "${(incoming.body.return_fields || []).filter(function (f) { return ['signatures'].indexOf(f) < 0; })}"
+    attachments_given: "${(incoming.body.attachment_bytes_b64 || []).length}"
+
+dispatch:
+  switch:
+    - condition: "${!trace_ok}"
+      next: reject_bad_request
+    - condition: "${mock_verdict == 'reject-xml-parse-fail'}"
+      next: reject_xml_parse_fail
+    - condition: "${mock_verdict == 'reject-sig-build-fail'}"
+      next: reject_sig_build_fail
+    - condition: "${mock_verdict == 'reject-key-handle-unknown'}"
+      next: reject_key_handle_unknown
+    - condition: "${mock_verdict == 'reject-key-unavailable'}"
+      next: reject_key_unavailable
+    - condition: "${mock_verdict == 'reject-algo-unsupported'}"
+      next: reject_algo_unsupported
+    - condition: "${mock_verdict == 'reject-unknown-return-field'}"
+      next: reject_unknown_return_field
+    - condition: "${mock_verdict == 'reject-trust-store-unavailable'}"
+      next: reject_trust_store_unavailable
+    - condition: "${mock_verdict == 'reject-turvis-internal'}"
+      next: reject_turvis_internal
+    - condition: "${unknown_fields.length > 0}"
+      next: reject_unknown_return_field
+    - condition: "${!key_known}"
+      next: reject_key_handle_unknown
+    - condition: "${true}"
+      next: build_bundle
+
+build_bundle:
+  # Deterministic metadata: one Reference per signed XPath and per signed cid, with fixed fake
+  # digests. verifications/xmldsig builds the same entries from the same policy, so a
+  # sign -> verify round trip yields the same reference URIs, digests and transforms.
+  assign:
+    bundle: |-
+      ${(function (xpaths, cids) {
+        var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+        function b64(s) {
+          var o = '';
+          for (var i = 0; i < s.length; i += 3) {
+            var a = s.charCodeAt(i), b = s.charCodeAt(i + 1), d = s.charCodeAt(i + 2);
+            var n = (a << 16) | ((b || 0) << 8) | (d || 0);
+            o += chars.charAt((n >> 18) & 63) + chars.charAt((n >> 12) & 63) + (i + 1 < s.length ? chars.charAt((n >> 6) & 63) : '=') + (i + 2 < s.length ? chars.charAt(n & 63) : '=');
+          }
+          return o;
+        }
+        var refs = [];
+        var extra = 0;
+        xpaths.forEach(function (xp) {
+          var uri, kind;
+          if (xp == '//eb:Messaging') { uri = '#MSG-ID'; kind = 'messaging'; }
+          else if (xp == '//env:Body') { uri = '#BODY-ID'; kind = 'body'; }
+          else { extra += 1; uri = '#REF-' + extra; kind = 'ref-' + extra; }
+          refs.push({ reference_uri: uri, subtree_xpath: xp, digest_b64: b64('mock-digest-' + kind + '-not-real-crypto'), algorithm: 'SHA-256', transforms: ['http://www.w3.org/2001/10/xml-exc-c14n#'] });
+        });
+        cids.forEach(function (cid) {
+          refs.push({ reference_uri: cid, digest_b64: b64('mock-digest-attachment-not-real-crypto'), algorithm: 'SHA-256', transforms: ['http://docs.oasis-open.org/wss/oasis-wss-SwAProfile-1.1#Attachment-Content-Signature-Transform'] });
+        });
+        return { signed_xml_b64: incoming.body.soap_xml_b64, audit_ref: audit_ref, signatures: refs };
+      })(incoming.body.sign_xpaths, incoming.body.sign_cid_refs)}
+
+project:
+  # signed_xml_b64 + audit_ref are always returned; every other field only if requested.
+  assign:
+    response: |-
+      ${(function (requested, all) {
+        var out = { signed_xml_b64: all.signed_xml_b64, audit_ref: all.audit_ref };
+        requested.forEach(function (k) { out[k] = all[k]; });
+        return out;
+      })(incoming.body.return_fields, bundle)}
+
+accept:
+  return: "${response}"
+  status: 200
+  content_type: application/json
+  wrapper: false
+
+reject_bad_request:
+  return:
+    type: "https://efti.example/problem/turvis-bad-request"
+    title: "Bad request"
+    status: 400
+    detail: "trace_id must be 32 lower-case hex characters"
+    audit_ref: "${audit_ref}"
+  status: 400
+  content_type: application/problem+json
+  wrapper: false
+
+reject_xml_parse_fail:
+  return:
+    type: "https://efti.example/problem/turvis-sign-xmldsig-reject"
+    title: "XML parse failed"
+    status: 422
+    verdict: "reject"
+    reason_code: "XML_PARSE_FAIL"
+    detail: "mock: XML would not parse to a well-formed DOM"
+    audit_ref: "${audit_ref}"
+  status: 422
+  content_type: application/problem+json
+  wrapper: false
+
+reject_sig_build_fail:
+  return:
+    type: "https://efti.example/problem/turvis-sign-xmldsig-reject"
+    title: "Signature build failed"
+    status: 422
+    verdict: "reject"
+    reason_code: "SIG_BUILD_FAIL"
+    detail: "mock: internal error while constructing the XMLDSig"
+    audit_ref: "${audit_ref}"
+  status: 422
+  content_type: application/problem+json
+  wrapper: false
+
+reject_key_handle_unknown:
+  return:
+    type: "https://efti.example/problem/turvis-sign-xmldsig-reject"
+    title: "Key handle unknown"
+    status: 422
+    verdict: "reject"
+    reason_code: "KEY_HANDLE_UNKNOWN"
+    detail: "mock: key_handle is not the own gate id"
+    audit_ref: "${audit_ref}"
+  status: 422
+  content_type: application/problem+json
+  wrapper: false
+
+reject_key_unavailable:
+  return:
+    type: "https://efti.example/problem/turvis-sign-xmldsig-reject"
+    title: "Key unavailable (KMS unreachable)"
+    status: 503
+    verdict: "reject"
+    reason_code: "KEY_UNAVAILABLE"
+    detail: "mock: transient, retry safe"
+    audit_ref: "${audit_ref}"
+  status: 503
+  content_type: application/problem+json
+  wrapper: false
+
+reject_algo_unsupported:
+  return:
+    type: "https://efti.example/problem/turvis-sign-xmldsig-reject"
+    title: "Algorithm unsupported"
+    status: 422
+    verdict: "reject"
+    reason_code: "ALGO_UNSUPPORTED"
+    detail: "mock: algorithm not in the pinned allowlist"
+    audit_ref: "${audit_ref}"
+  status: 422
+  content_type: application/problem+json
+  wrapper: false
+
+reject_unknown_return_field:
+  return:
+    type: "https://efti.example/problem/turvis-sign-xmldsig-reject"
+    title: "Unknown return field"
+    status: 422
+    verdict: "reject"
+    reason_code: "UNKNOWN_RETURN_FIELD"
+    detail: "return_fields contains a value not in the endpoint's projectable set (signatures; see SPEC section 4.2)"
+    audit_ref: "${audit_ref}"
+  status: 422
+  content_type: application/problem+json
+  wrapper: false
+
+reject_trust_store_unavailable:
+  return:
+    type: "https://efti.example/problem/turvis-sign-xmldsig-reject"
+    title: "Trust store unavailable"
+    status: 503
+    verdict: "reject"
+    reason_code: "TRUST_STORE_UNAVAILABLE"
+    detail: "mock: no usable trust snapshot, transient, retry safe"
+    audit_ref: "${audit_ref}"
+  status: 503
+  content_type: application/problem+json
+  wrapper: false
+
+reject_turvis_internal:
+  return:
+    type: "https://efti.example/problem/turvis-sign-xmldsig-reject"
+    title: "Turvis internal error"
+    status: 500
+    verdict: "reject"
+    reason_code: "TURVIS_INTERNAL"
+    detail: "mock: internal bug, not retried automatically"
+    audit_ref: "${audit_ref}"
+  status: 500
+  content_type: application/problem+json
+  wrapper: false

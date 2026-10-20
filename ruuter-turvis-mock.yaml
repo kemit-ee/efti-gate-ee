@@ -1,0 +1,28 @@
+port: 8091
+
+# Standalone Ruuter for the Turvis mock (/turvis/**), development and test only. It serves the
+# contract DSL of docs/specs/turvis/SPEC.md with no real cryptography. The statuses below are the ones
+# the four routes return (accept 200, reject problem+json 400/401/403/404/413/422, transient 500/502/
+# 504); an intended status must never be silently swapped for a generic error.
+http_codes_allow_list: [200, 201, 202, 204, 400, 401, 403, 404, 409, 413, 422, 500, 502, 503, 504]
+
+dsl:
+  # Fallback/label only: Ruuter resolves the project per request from the first URL segment against
+  # the directories under /app/DSL, which is `turvis/` here, so the surface is /turvis/**.
+  project: ruuter-turvis-mock
+
+guards:
+  enforce_on_methods: [GET, POST, PUT, DELETE]
+
+incoming_requests:
+  allowed_method_types: [GET, POST]
+
+internal_requests:
+  # This project makes NO outbound calls: every route answers from the request or a canned literal.
+  block_private_networks: true
+
+stop_in_case_of_exception: true
+
+logging:
+  display_request_content: false
+  display_response_content: false

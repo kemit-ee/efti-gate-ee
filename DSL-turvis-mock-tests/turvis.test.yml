@@ -1,0 +1,287 @@
+# Turvis mock scenarios, one block per route. Run from the repository root:
+#   docker run --rm -v "$PWD:/workdir" -w /workdir turnerrainer/ruuter:0.12.1-rc \
+#     dsl-test --dsl DSL/Ruuter-turvis-mock --tests DSL-turvis-mock-tests --constants constants-turvis-mock.ini
+mode: inprocess
+
+tests:
+  - name: guard - no token -> 401
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers: { content-type: "application/json" }
+      body: { soap_xml_b64: "PHg+", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: [] }
+    expect:
+      status: 401
+      body_matches: { status: 401 }
+
+  - name: guard - wrong token -> 401
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "wrong" }
+      body: { soap_xml_b64: "PHg+", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: [] }
+    expect:
+      status: 401
+
+  - name: verify - accept returns verdict, signer, routing and digests with reference data
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body:
+        soap_xml_b64: "PHg+"
+        attachments: [{ cid: "cid:message", bytes_b64: "QUJD" }]
+        required_signed_xpaths: ["//eb:Messaging", "//env:Body"]
+        required_signed_cid_refs: ["cid:message"]
+        return_fields: ["signer", "ebms_routing", "signature_digests"]
+    expect:
+      status: 200
+      body_matches:
+        verdict: "accept"
+        signer: { verified_identity: "EU-FR" }
+        ebms_routing: { from_party_id: "EU-FR", service: "FTI004" }
+        signature_digests:
+          - reference_uri: "#MSG-ID"
+            subtree_xpath: "//eb:Messaging"
+            digest_b64: "bW9jay1kaWdlc3QtbWVzc2FnaW5nLW5vdC1yZWFsLWNyeXB0bw=="
+            algorithm: "SHA-256"
+            transforms: ["http://www.w3.org/2001/10/xml-exc-c14n#"]
+          - reference_uri: "#BODY-ID"
+            subtree_xpath: "//env:Body"
+            digest_b64: "bW9jay1kaWdlc3QtYm9keS1ub3QtcmVhbC1jcnlwdG8="
+            algorithm: "SHA-256"
+            transforms: ["http://www.w3.org/2001/10/xml-exc-c14n#"]
+          - reference_uri: "cid:message"
+            digest_b64: "bW9jay1kaWdlc3QtYXR0YWNobWVudC1ub3QtcmVhbC1jcnlwdG8="
+            algorithm: "SHA-256"
+            transforms: ["http://docs.oasis-open.org/wss/oasis-wss-SwAProfile-1.1#Attachment-Content-Signature-Transform"]
+
+  - name: verify - claimed_signer_id is echoed as the verified identity
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "PHg+", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], claimed_signer_id: "EU-DE", return_fields: ["signer"] }
+    expect:
+      status: 200
+      body_matches: { signer: { verified_identity: "EU-DE" } }
+
+  - name: verify - reject-sig-policy-fail -> 422 SIG_POLICY_FAIL
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token", x-mock-verdict: "reject-sig-policy-fail" }
+      body: { soap_xml_b64: "PHg+", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: [] }
+    expect:
+      status: 422
+      body_matches: { verdict: "reject", reason_code: "SIG_POLICY_FAIL" }
+
+  - name: verify - unknown return_fields value is only rejected via the mock verdict header
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token", x-mock-verdict: "reject-unknown-return-field" }
+      body: { soap_xml_b64: "PHg+", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["bogus"] }
+    expect:
+      status: 422
+      body_matches: { reason_code: "UNKNOWN_RETURN_FIELD" }
+
+  - name: verify - missing required field -> 400
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "PHg+" }
+    expect:
+      status: 400
+
+  - name: sign - accept returns signed bytes unchanged
+    request:
+      method: POST
+      path: /turvis/v1/signatures/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "PHg+", sign_xpaths: ["//eb:Messaging"], sign_cid_refs: [], key_handle: "EU-EE", return_fields: ["signatures"] }
+    expect:
+      status: 200
+      body_matches: { signed_xml_b64: "PHg+" }
+
+  - name: sign - projected response carries only signed bytes, audit_ref and the requested signatures
+    request:
+      method: POST
+      path: /turvis/v1/signatures/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token", x-mock-audit-ref: "11111111-1111-4111-8111-111111111111" }
+      body: { soap_xml_b64: "PHg+", sign_xpaths: ["//eb:Messaging", "//env:Body"], sign_cid_refs: ["cid:message"], key_handle: "EU-EE", return_fields: ["signatures"] }
+    expect:
+      status: 200
+      body:
+        signed_xml_b64: "PHg+"
+        audit_ref: "11111111-1111-4111-8111-111111111111"
+        signatures:
+          - reference_uri: "#MSG-ID"
+            subtree_xpath: "//eb:Messaging"
+            digest_b64: "bW9jay1kaWdlc3QtbWVzc2FnaW5nLW5vdC1yZWFsLWNyeXB0bw=="
+            algorithm: "SHA-256"
+            transforms: ["http://www.w3.org/2001/10/xml-exc-c14n#"]
+          - reference_uri: "#BODY-ID"
+            subtree_xpath: "//env:Body"
+            digest_b64: "bW9jay1kaWdlc3QtYm9keS1ub3QtcmVhbC1jcnlwdG8="
+            algorithm: "SHA-256"
+            transforms: ["http://www.w3.org/2001/10/xml-exc-c14n#"]
+          - reference_uri: "cid:message"
+            digest_b64: "bW9jay1kaWdlc3QtYXR0YWNobWVudC1ub3QtcmVhbC1jcnlwdG8="
+            algorithm: "SHA-256"
+            transforms: ["http://docs.oasis-open.org/wss/oasis-wss-SwAProfile-1.1#Attachment-Content-Signature-Transform"]
+
+  - name: sign - empty return_fields returns exactly signed_xml_b64 and audit_ref
+    request:
+      method: POST
+      path: /turvis/v1/signatures/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token", x-mock-audit-ref: "11111111-1111-4111-8111-111111111111" }
+      body: { soap_xml_b64: "PHg+", sign_xpaths: ["//eb:Messaging"], sign_cid_refs: [], key_handle: "EU-EE", return_fields: [] }
+    expect:
+      status: 200
+      body: { signed_xml_b64: "PHg+", audit_ref: "11111111-1111-4111-8111-111111111111" }
+
+  - name: sign - unknown return_fields value is a real 422 UNKNOWN_RETURN_FIELD
+    request:
+      method: POST
+      path: /turvis/v1/signatures/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "PHg+", sign_xpaths: ["//eb:Messaging"], sign_cid_refs: [], key_handle: "EU-EE", return_fields: ["signatures", "nope"] }
+    expect:
+      status: 422
+      body_matches: { verdict: "reject", reason_code: "UNKNOWN_RETURN_FIELD" }
+
+  - name: sign - key_handle other than the own gate id is KEY_HANDLE_UNKNOWN
+    request:
+      method: POST
+      path: /turvis/v1/signatures/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "PHg+", sign_xpaths: ["//eb:Messaging"], sign_cid_refs: [], key_handle: "EU-FR", return_fields: [] }
+    expect:
+      status: 422
+      body_matches: { verdict: "reject", reason_code: "KEY_HANDLE_UNKNOWN" }
+
+  - name: sign - malformed trace_id is a 400
+    request:
+      method: POST
+      path: /turvis/v1/signatures/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "PHg+", sign_xpaths: ["//eb:Messaging"], sign_cid_refs: [], key_handle: "EU-EE", return_fields: [], trace_id: "not-hex" }
+    expect:
+      status: 400
+
+  - name: sign - reject-key-unavailable -> 503 (transient, retry safe)
+    request:
+      method: POST
+      path: /turvis/v1/signatures/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token", x-mock-verdict: "reject-key-unavailable" }
+      body: { soap_xml_b64: "PHg+", sign_xpaths: [], sign_cid_refs: [], key_handle: "EU-EE", return_fields: [] }
+    expect:
+      status: 503
+      body_matches: { reason_code: "KEY_UNAVAILABLE" }
+
+  - name: encrypt - wss-encrypted accept
+    request:
+      method: POST
+      path: /turvis/v1/encryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR", profile: "wss-encrypted", return_fields: ["wrapped_key_xml", "encrypted_data_xml"] }
+    expect:
+      status: 200
+
+  - name: encrypt - plaintext profile returns empty fragments and the input bytes
+    request:
+      method: POST
+      path: /turvis/v1/encryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR", profile: "plaintext", return_fields: ["wrapped_key_xml", "encrypted_data_xml"] }
+    expect:
+      status: 200
+      body_matches: { encrypted_payload_b64: "QUJD", wrapped_key_xml: "", encrypted_data_xml: "" }
+
+  - name: encrypt - plaintext profile with every projectable field returns exactly empty fragments, empty key and the input bytes
+    request:
+      method: POST
+      path: /turvis/v1/encryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token", x-mock-audit-ref: "22222222-2222-4222-8222-222222222222" }
+      body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR", profile: "plaintext", return_fields: ["wrapped_key_xml", "encrypted_data_xml", "wrapped_key_b64"] }
+    expect:
+      status: 200
+      body:
+        encrypted_payload_b64: "QUJD"
+        audit_ref: "22222222-2222-4222-8222-222222222222"
+        wrapped_key_xml: ""
+        encrypted_data_xml: ""
+        wrapped_key_b64: ""
+
+  - name: encrypt - wss-encrypted projection returns only the requested wrapped key
+    request:
+      method: POST
+      path: /turvis/v1/encryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token", x-mock-audit-ref: "22222222-2222-4222-8222-222222222222" }
+      body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR", profile: "wss-encrypted", return_fields: ["wrapped_key_b64"] }
+    expect:
+      status: 200
+      body: { encrypted_payload_b64: "QUJD", audit_ref: "22222222-2222-4222-8222-222222222222", wrapped_key_b64: "bW9jay13cmFwcGVkLWtleQ==" }
+
+  - name: encrypt - wss-encrypted fragments are non-empty stubs naming the receiver
+    request:
+      method: POST
+      path: /turvis/v1/encryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR", profile: "wss-encrypted", return_fields: ["wrapped_key_xml", "encrypted_data_xml"] }
+    expect:
+      status: 200
+      body_matches:
+        wrapped_key_xml: "$regex:<xenc:EncryptedKey[\\s\\S]*<ds:KeyName>EU-FR</ds:KeyName>"
+        encrypted_data_xml: "$regex:<xenc:EncryptedData[\\s\\S]*cid:message"
+
+  - name: encrypt - empty return_fields returns exactly encrypted_payload_b64 and audit_ref
+    request:
+      method: POST
+      path: /turvis/v1/encryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token", x-mock-audit-ref: "22222222-2222-4222-8222-222222222222" }
+      body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR", profile: "plaintext", return_fields: [] }
+    expect:
+      status: 200
+      body: { encrypted_payload_b64: "QUJD", audit_ref: "22222222-2222-4222-8222-222222222222" }
+
+  - name: encrypt - unknown return_fields value is a real 422 UNKNOWN_RETURN_FIELD
+    request:
+      method: POST
+      path: /turvis/v1/encryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR", profile: "plaintext", return_fields: ["signer"] }
+    expect:
+      status: 422
+      body_matches: { verdict: "reject", reason_code: "UNKNOWN_RETURN_FIELD" }
+
+  - name: encrypt - unsupported profile is a 400
+    request:
+      method: POST
+      path: /turvis/v1/encryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR", profile: "rot13", return_fields: [] }
+    expect:
+      status: 400
+
+  - name: decrypt - passthrough of envelope and attachment
+    request:
+      method: POST
+      path: /turvis/v1/decryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "PHg+", encrypted_attachment_b64: "QUJD", key_handle: "EU-EE", return_fields: ["decrypted_soap_xml_b64", "decrypted_attachment_b64"] }
+    expect:
+      status: 200
+      body_matches: { decrypted_soap_xml_b64: "PHg+", decrypted_attachment_b64: "QUJD" }
+
+  - name: decrypt - reject-key-handle-unknown -> 422
+    request:
+      method: POST
+      path: /turvis/v1/decryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token", x-mock-verdict: "reject-key-handle-unknown" }
+      body: { soap_xml_b64: "PHg+", key_handle: "EU-EE", return_fields: [] }
+    expect:
+      status: 422
+      body_matches: { reason_code: "KEY_HANDLE_UNKNOWN" }
