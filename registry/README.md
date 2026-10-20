@@ -15,13 +15,14 @@ image**. The Admin UI reads this data; it cannot write it, and neither can any H
 > the SBOM and the trivy scans). Never publish or ingress the `registry` port — it is internal-only,
 > exactly like ReSQL's.
 
-> **Turvis trust view (planned, #315).** Turvis (A9) never reads this folder through the `registry`
-> service. Its trust configuration is a *generated*, allowlist-filtered view of `gates/*.yml`
-> (`turvis-trust.json`, no `apiKey`, headers or URLs) built from the same revision and shipped as a
-> separate artifact; `registry/` stays the only hand-edited source. Not implemented yet — the
-> decision is recorded in [ADR-011, "Täiendus: Turvise usaldusvaade"](../docs/architecture/decisions/011-registries-as-signed-config.md)
-> and specified in [Turvis SPEC §7.2–7.4](../docs/specs/turvis/SPEC.md). A registry edit will then need
-> both artifacts rebuilt.
+> **Turvis trust view (#315).** Turvis (A9) never reads this folder through the `registry`
+> service. Its trust configuration is a *generated*, allowlist-filtered view of `gates/*.yml` and
+> `trust-anchors/*.pem` (`turvis-trust.json`: no `apiKey`, headers, `tlsCert` or URLs) built by the same
+> converter from the same revision and shipped as the separate `turvis-trust` image
+> (`docker/turvis-trust/Dockerfile`); `registry/` stays the only hand-edited source. See
+> [ADR-011, "Täiendus: Turvise usaldusvaade"](../docs/architecture/decisions/011-registries-as-signed-config.md)
+> and [Turvis SPEC §7.2–7.4](../docs/specs/turvis/SPEC.md) and "Turvis trust view" below. A registry edit
+> needs **both** images rebuilt (`docker compose up --build registry turvis-trust`).
 
 ## Layout
 
@@ -131,8 +132,9 @@ the arrays keeps its canonical casing.
 | `id` | string | yes | Logical id, e.g. `EU-EE`. Must equal the file name. |
 | `countryCode` | string | yes | ISO 3166-1 alpha-2, upper case (`^[A-Z]{2}$`). |
 | `eDeliveryUrl` | string | yes | AS4 access point, e.g. `http://edelivery:8081/services/msh`. |
-| `eDeliveryCert` | string | no | Public PEM used to verify AS4 messages from this gate. A gate without one is left out of the `edelivery` party map (logged as a warning). |
+| `eDeliveryCert` | string | no | Public PEM used to verify AS4 messages from this gate. A gate without one is left out of the `edelivery` party map (logged as a warning) **and of the Turvis trust view**. An existing one that does not parse, has expired or is not valid yet fails the build. |
 | `tlsCert` | string | no | Public TLS PEM for the gate's HTTPS endpoint. |
+| `allowedChainAnchors` | string[] | no | Aliases of `trust-anchors/<alias>.pem` this gate's certificate must chain to (Turvis chain-of-trust mode, SPEC §9.4). Absent or `[]` = **pinning**: the signer certificate must equal `eDeliveryCert`. An alias with no file fails the build. Only the Turvis view uses it; it is not part of the registry documents. |
 | `status` | string | yes | `ONLINE` or `DISABLED`. |
 
 ## Platform — `registry/platforms/<id>.yml`
@@ -178,6 +180,41 @@ gate must be able to read.
 
 Certificates are inline PEM in YAML literal blocks (`|`), so an entity is self-contained, its content
 is covered by the same review as the rest of the file, and newlines need no escaping.
+
+## Turvis trust view
+
+`scripts/registry-to-json.py` also builds `turvis-trust.json` on **every** run (also when it only
+validates), so a registry the view cannot represent fails CI and both image builds.
+
+- **Trust anchors:** optional `registry/trust-anchors/<alias>.pem` (public CA certificates; the file name
+  minus `.pem` is the alias, case-insensitively unique). This is the **only** directory where `.pem`
+  files are allowed; any other file there, or a `.pem` in `gates/`, `platforms/` or `authorities/`,
+  fails the build. A trust anchor that does not parse, has expired, is not valid yet or is not a CA certificate
+  (`BasicConstraints CA:TRUE`) fails the build.
+- **Allowlist:** each party carries `party_id` (the gate `id`), `status`, `verified_identity` (= the gate
+  `id`), `cert_pem` (= `eDeliveryCert`), `cert_ski`, `cert_subject_dn`, `valid_until` and
+  `allowed_chain_anchors`. Platforms, `apiKey`, `headers`, `tlsCert` and URLs have no code path into the
+  view, and the finished document is re-checked against the allowlist.
+- **Parties:** `ONLINE` and `DISABLED` gates with a certificate; gates without one are left out.
+  `verified_identity` duplicates fail the build.
+- **A certificate that expires or is not yet valid blocks both image builds** (the `registry` image runs
+  the same converter), also for a `DISABLED` gate, and also when only an unrelated change is being
+  deployed. Fix it by replacing the certificate or deleting the gate file; rebuilding an older revision
+  after a certificate expired fails the same way. This is the fail-closed build of ADR-011 §3, applied to
+  certificate validity.
+- **`generation`:** SHA-256 of the canonical `parties` + `trust_anchors`. It does not include the
+  revision, so equal content gives an equal `generation`. Certificates are re-encoded as PEM, so line
+  wrapping or a trailing newline in the YAML does not change it. `source_revision` is informational and comes
+  from the `SOURCE_REVISION` build argument (`--source-revision`, default `unknown`); pass the **same**
+  value to the `registry` and `turvis-trust` builds. The `registry` image's `health.json` carries the same
+  value as `trustViewGeneration`. GitHub Actions passes `git:<sha>` (compose interpolates
+  `SOURCE_REVISION`); the GitLab `builds:` entries pass **no** build argument yet, so images from that
+  pipeline report `unknown` until the platform component supports build args.
+- **Shared certificates:** two gates with the same certificate cannot be told apart under pinning. The
+  converter prints a `WARNING` (not a failure — the dev fixture `EU-EE`/`EU-MOCK` does this, and the SPEC
+  lists no such build failure); a production registry must not trigger it.
+- **Dev fixture:** `EU-EE` and `EU-MOCK` share one certificate (CN=EU-EE, valid until 2027-08-25), so the
+  committed registry builds until that date; replace it before then. SPEC §13.11 removes `EU-MOCK` at cutover.
 
 ## Environment-specific content
 

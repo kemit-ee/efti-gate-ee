@@ -1,7 +1,7 @@
 # eFTI Gate (EE) source pipeline — standard-service-delivery@8.0.1.
-# Ten images (liquibase and, until its devops chart exists, cronmanager are build-only;
+# Eleven images (liquibase, turvis-trust and, until its devops chart exists, cronmanager are build-only;
 # resql bakes the same RELEASE_VERSION into databaseMigration; registry is the ADR-011 registry
-# file server). Wrapper charts live in services/efti/devops. The edelivery image carries no AS4 keystore: its chart
+# file server, turvis-trust the generated Turvis trust view built from the same revision). Wrapper charts live in services/efti/devops. The edelivery image carries no AS4 keystore: its chart
 # must mount the per-environment Secret at /app/certs/own.p12 (KEYSTORE_PASSWORD alongside);
 # see docs/specs/deploy/resource-and-secrets-requirements.md §3.5.
 #
@@ -75,6 +75,12 @@ include:
         - name: registry
           image_repository: registry/images
           dockerfile: docker/registry/Dockerfile
+        # Turvis trust view (ADR-011 amendment): built and scanned from the same revision as `registry`,
+        # not yet deployed — nothing consumes it until the Turvis integration (#305/#308) and its
+        # `turvis-trust` component in services/efti/devops exist.
+        - name: turvis-trust
+          image_repository: turvis-trust/images
+          dockerfile: docker/turvis-trust/Dockerfile
         # Built and scanned, not yet deployed: the `cronmanager` component needs its wrapper chart
         # in services/efti/devops first (env OPS_AUTHORIZATION + CRONMANAGER_ADMIN_TOKEN from a
         # Secret, no exposed port). See docs/specs/deploy/README.md (CronManager).
@@ -120,10 +126,11 @@ secret_detection:
     - run dsl-lint --audit --dsl DSL/Ruuter-xroad-mock --constants constants-xroad-mock.ini
     - run dsl-test --dsl DSL/Ruuter --tests DSL-tests --constants constants.ini
     - run dsl-test --dsl DSL/Ruuter-xroad-mock --tests DSL-mock-tests --constants constants-xroad-mock.ini
-    - pip3 install --quiet pyyaml
+    - pip3 install --quiet pyyaml cryptography
     - python3 scripts/validate-dsl.py
     # registry/**/*.yml is converted to JSON at image build time by the same script, so this
     # validates the registry without building an image (ADR-011: the converter is the validator).
+    # The same run builds and validates the Turvis trust view (turvis-trust.json, ADR-011 amendment).
     - python3 scripts/registry-to-json.py
     - python3 tests/registry/test_registry_to_json.py
     - >-

@@ -27,11 +27,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install --quiet pyyaml
+      - run: pip install --quiet pyyaml cryptography
       - name: efti input-contract check
         run: python3 scripts/validate-dsl.py
       # registry/**/*.yml is converted to JSON at image build time by the same script, so this
       # validates the registry without building an image (ADR-011: the converter is the validator).
+      # The same run builds and validates the Turvis trust view (turvis-trust.json, ADR-011 amendment).
       - name: registry YAML validation
         run: |
           python3 scripts/registry-to-json.py
@@ -148,6 +149,10 @@ jobs:
           driver-opts: network=host
 
       - name: Build CI images
+        # compose.yml interpolates SOURCE_REVISION into the registry and turvis-trust build args, so both
+        # images (and the trust view's source_revision) carry the commit under test.
+        env:
+          SOURCE_REVISION: git:${{ github.sha }}
         run: |
           CI_TAG_ARGS=()
           while read -r CI_BUILD_SERVICE; do

@@ -6,7 +6,7 @@ Estonian national eFTI Gate (EU Regulation 2020/1056). Mediates dataset retrieva
 
 ## Architecture at a glance
 
-19 Docker Compose services (18 long-running/one-shot jobs + the `http-tests` runner). Three runtime layers:
+20 Docker Compose services (19 long-running/one-shot jobs + the `http-tests` runner; `turvis-trust` serves the generated Turvis trust view and has no consumer yet). Three runtime layers:
 
 | Layer | Tech | Port | Role |
 |-------|------|------|------|
@@ -102,8 +102,8 @@ database representation — `gates`, `platforms`, `authorities`, their read mode
   §3 the delivery (YAML → build-time JSON → static nginx), §4 no database tables, §5 plaintext
   credential, §7 no tombstone. Its §2 (release-time signing) and §8 (the manifest hash in
   `constants.ini` for drift detection) are stated requirements that are **not implemented yet**.
-- **`scripts/registry-to-json.py` (PyYAML) is converter *and* validator**, and it runs at **image build
-  time**: `docker/registry/Dockerfile` is two stages (`python:3.13-alpine` + PyYAML → `nginx:stable-alpine`).
+- **`scripts/registry-to-json.py` (PyYAML + `cryptography`) is converter *and* validator**, and it runs at **image build
+  time**: `docker/registry/Dockerfile` is two stages (`python:3.13-alpine` + PyYAML/cryptography → `nginx:stable-alpine`).
   It checks required keys, that every scalar is a **string** (an unquoted `registryCode: 70000099` or
   `countryCode: NO` would become an int/bool that the DSL's `===` never matches), `id` vs file name,
   the `status` enum, `countryCode`, absolute http(s) URLs, PEM shape, `subsets` codes (no duplicates),
@@ -144,15 +144,25 @@ database representation — `gates`, `platforms`, `authorities`, their read mode
   §7.2–7.4 in `docs/specs/turvis/SPEC.md`).** `registry/` stays the only hand-edited source of peer
   identity/status/certificate; Turvis never reads the `registry` service (it serves plaintext platform
   `apiKey`s, §5) and gets only a **generated, allowlist-filtered `turvis-trust.json`** built from the
-  same revision as a separate artifact. Generation is **not implemented yet** (#315). Status is
+  same revision as a separate artifact. Implemented by #315: the converter builds the view on **every**
+  run (so plain validation covers it), `docker/turvis-trust/Dockerfile` + compose `turvis-trust` serve it
+  (internal only, no consumer yet), the `registry` image's `health.json` carries the same `generation` as
+  `trustViewGeneration`, and `SOURCE_REVISION` (build arg) must be passed identically to both images (GitHub Actions does; the
+  GitLab `builds:` pass none yet, so it reads `unknown` there). The `turvis-trust` build stage copies only
+  `registry/gates` and `registry/trust-anchors` (no platform `apiKey` in its layers) and the final image
+  serves only `turvis-trust.json` + `health.json`. Trust anchors must be CA certificates; two gates sharing a
+  certificate (the dev `EU-EE`/`EU-MOCK`) only print a converter WARNING.
+  Fields come from an allowlist; `verified_identity` = the gate `id`; optional `registry/trust-anchors/<alias>.pem`
+  and per-gate `allowedChainAnchors` (view-only, stripped from the registry JSON). Status is
   `ONLINE`/`DISABLED` with **deny wins** across edelivery's registry view and Turvis's view; pinning is
   the per-party default, chain of trust is per-party data (`allowed_chain_anchors`). Phase-2 integrity
   (release signing §2/§8 vs an A3 signed manifest) is **open**; Phase 1 is only a `generation` hash check,
   not a signature. `eDeliveryCert` stays optional: a certless gate is left out of the view (as of the
-  AS4 party map), an existing unparseable/expired one fails the build. #315 will let the converter accept
-  `.pem` only under `registry/trust-anchors/` (elsewhere still a build failure). Generations may differ
-  temporarily (accepted, 5-minute alert, each side decides on its own view). Once #315 lands, a registry
-  edit needs both artifacts rebuilt.
+  AS4 party map), an existing unparseable/expired/not-yet-valid one fails the build. `.pem` is accepted only under
+  `registry/trust-anchors/` (elsewhere still a build failure). Generations may differ temporarily
+  (accepted, 5-minute alert, each side decides on its own view). A registry edit needs both images
+  rebuilt (`docker compose up --build registry turvis-trust`). The dev gates `EU-EE`/`EU-MOCK` share one
+  certificate valid until 2027-08-25: after that the converter (and CI) fail until it is replaced.
 - **A registry edit needs `docker compose up --build registry`**: the JSON is generated and validated at
   build time, so `restart` alone applies nothing and `compose.override.yml` has no `develop.watch` entry
   for it any more (there is no mount to sync).
@@ -380,10 +390,12 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   `developer/POST/v1/search.yml` filters its four canned rows with `get_consignments.sql`'s criteria
   semantics (AND, EQ/NE, date ranges, `transportMeansOrEquipmentId`) in its order (`created_at DESC,
   revision DESC`); a miss answers `[]` + `x-poll-more: true`, a poll `[]` + `false`.
-- `python3 scripts/registry-to-json.py` (PyYAML) validates `registry/**/*.yml` — the same converter the
-  `registry` image build runs, only without `--out` (nothing is written). Both CI jobs run it, so a
-  malformed registry fails CI without a Docker build (ADR-011 §3). Its rules are unit-tested by
-  `python3 tests/registry/test_registry_to_json.py`.
+- `python3 scripts/registry-to-json.py` (PyYAML + `cryptography`) validates `registry/**/*.yml` and builds
+  the Turvis trust view — the same converter the `registry` and `turvis-trust` image builds run, only without
+  `--out`/`--trust-out` (nothing is written). Both CI jobs run it (they `pip install pyyaml cryptography`), so a
+  malformed registry fails CI without a Docker build (ADR-011 §3). Its rules, including the trust-view ones
+  (allowlist, no credential/URL, deterministic `generation`, expired/not-yet-valid/unparseable certificate, missing anchor
+  alias, `.pem` only under `trust-anchors/`), are unit-tested by `python3 tests/registry/test_registry_to_json.py`.
 - `python3 tests/sql/regression.py` prepares all ReSQL queries under `app` and checks append-only, credential and search semantics in its own disposable PostgreSQL 18 container (no host ports, no persistent volume); the registry is no longer part of it (ADR-011 §4 — nothing about the registries is in SQL any more). Both DSL CI jobs run it. `--performance` additionally compares custom/generic plans with origin/dev on 100,000 synthetic records after VACUUM/ANALYZE.
 
 ## Branching
@@ -419,9 +431,10 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
     while per-module coverage baselines are still being raised (see
     `docker/ui/Dockerfile`, which only runs `npm run build`, never tests).
 - `.gitlab-ci.yml` — kemitaws platform pipeline (mirror): `secret_detection` + `validate:dsl`
-  (same `dsl-lint --audit` / `dsl-test` / `validate-dsl.py` as above) + sonar → ten
+  (same `dsl-lint --audit` / `dsl-test` / `validate-dsl.py` as above) + sonar → eleven
   `image-build`s (ruuter, ruuter-xroad-mock, resql, liquibase, tim, ui, edelivery, xml-mapper,
-  registry, cronmanager — the last build-only until its devops chart exists, so it is not in
+  registry, turvis-trust, cronmanager — turvis-trust (no consumer yet) and cronmanager are build-only until
+  their devops charts exist, so they are not in
   `components:`) → SBOM/trivy → `package:charts` trigger into the `efti` devops repo →
   `release-pin` into `environments/dev/release.yaml`. Runs on the default branch and `release/*`.
   Header comment lists the CI/CD variables and the values still to confirm against the devops repo.
