@@ -4,6 +4,20 @@ This directory holds the runtime deployment shape and, now that the implementati
 
 **[`resource-and-secrets-requirements.md`](resource-and-secrets-requirements.md)** — compiled from the actual running system (`compose.yml`, `constants.ini`, `docker/*`): per-component CPU/memory, every secret (name, consumer, purpose, dev value, deploy gotcha), the two separate PostgreSQL databases, the Liquibase `dev`-context seed data that must not ship to prod, the TIM JWT-key persistence requirement, the Ruuter `constants.ini` Secret file, the AS4 keystore (§3.5) and how every secret is stored, delivered and rotated (§3.0). Written for whoever does the first production deployment.
 
+## Helm chart versions
+
+The charts live in `services/efti/devops` (GitLab, `https://gitlab.kemitaws.ee/services/efti/devops`), not here. This section records the versions **as of 2026-10-20** so the numbers are findable from this repo; the devops repo is authoritative and this table goes stale whenever `release-pin` runs, so refresh it from the source below when you touch it.
+
+| What | Version | Source of truth |
+|---|---|---|
+| Base chart every wrapper chart depends on (`kemitchart`) | `0.27.1` (`oci://harbor.kemitaws.ee/charts`) | `charts/*/Chart.yaml` |
+| Latest released efti chart set, `dev` environment | `0.1.0-main.35.gc97559f7` (pinned 2026-10-07, devops commit `fa61041`) | `environments/dev/release.yaml` |
+| `version` inside the devops `charts/*/Chart.yaml` | `0.0.0` on purpose: the source pipeline stamps the real version when it packages the chart (`version_base: "0.1.0"` in `.gitlab-ci.yml`, then `-main.<n>.g<sha>`) | `.gitlab-ci.yml` |
+
+- All components pinned in `dev` use the same version, because one source pipeline packages them together and `release-pin` writes the result into `environments/dev/release.yaml`.
+- Charts in devops `main` at that date: `efti-config`, `resql`, `ruuter`, `ruuter-xroad-mock`, `tim`, `ui`, `edelivery`, `xml-mapper` and the retired `multiplexer` (still deployed there; ADR-013 replaced it with the Ruuter fan-out). **Not yet in `main`:** `cronmanager` (branch `feat/cronmanager-chart`), `registry` and `turvis-trust` (branch `feat/registry-and-turvis-trust-charts`, entries disabled at version `0.0.0` until the pipeline packages them). The `registry` component is required: without it every guard denies.
+- To read the current pin: `git -C <devops clone> show origin/main:environments/dev/release.yaml`.
+
 ## What's documented
 
 - **Deployment topology** — see [`../non-functional.md`](../non-functional.md) §3: two-node minimum, PostgreSQL primary + DR standby, Layer-7 LB, reverse proxy for TLS, AS4 access point (custom or Domibus), CronManager sibling.
