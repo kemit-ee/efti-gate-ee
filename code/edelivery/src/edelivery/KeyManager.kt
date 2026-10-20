@@ -83,7 +83,7 @@ class KeyManager (private val partyRegistry: PartyRegistry) {
         ks.setCertificateEntry(gate.id.toString(), gate.tlsCert!!.toX509())
         numCustom++
       } catch (e: Exception) {
-        log.error("Failed to initialize TLS cert for gate ${gate.id}: ${gate.tlsCert}: ${e.message}")
+        log.error("Failed to initialize TLS cert for gate ${gate.id}: ${gate.tlsCert}: ${e.message}") // pii-ok: public certificate
         numFailed++
       }
     }

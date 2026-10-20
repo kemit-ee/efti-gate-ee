@@ -13,6 +13,6 @@ fun refreshPeriodically(name: String, interval: Duration = registryRefreshInterv
   val log = logger(name)
   Executors.newSingleThreadScheduledExecutor { r -> Thread(r, name).apply { isDaemon = true } }
     .scheduleWithFixedDelay({
-      try { action() } catch (e: Exception) { log.warn("Periodic refresh failed: ${e.message}") }
+      try { action() } catch (e: Exception) { log.warn("Periodic refresh failed: ${e.javaClass.name}") }
     }, interval.inWholeMilliseconds, interval.inWholeMilliseconds, MILLISECONDS)
 }
