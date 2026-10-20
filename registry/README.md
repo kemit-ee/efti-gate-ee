@@ -132,7 +132,7 @@ the arrays keeps its canonical casing.
 | `id` | string | yes | Logical id, e.g. `EU-EE`. Must equal the file name. |
 | `countryCode` | string | yes | ISO 3166-1 alpha-2, upper case (`^[A-Z]{2}$`). |
 | `eDeliveryUrl` | string | yes | AS4 access point, e.g. `http://edelivery:8081/services/msh`. |
-| `eDeliveryCert` | string | no | Public PEM used to verify AS4 messages from this gate. A gate without one is left out of the `edelivery` party map (logged as a warning) **and of the Turvis trust view**. An existing one that does not parse or has expired fails the build. |
+| `eDeliveryCert` | string | no | Public PEM used to verify AS4 messages from this gate. A gate without one is left out of the `edelivery` party map (logged as a warning) **and of the Turvis trust view**. An existing one that does not parse, has expired or is not valid yet fails the build. |
 | `tlsCert` | string | no | Public TLS PEM for the gate's HTTPS endpoint. |
 | `allowedChainAnchors` | string[] | no | Aliases of `trust-anchors/<alias>.pem` this gate's certificate must chain to (Turvis chain-of-trust mode, SPEC §9.4). Absent or `[]` = **pinning**: the signer certificate must equal `eDeliveryCert`. An alias with no file fails the build. Only the Turvis view uses it; it is not part of the registry documents. |
 | `status` | string | yes | `ONLINE` or `DISABLED`. |
@@ -189,7 +189,7 @@ validates), so a registry the view cannot represent fails CI and both image buil
 - **Trust anchors:** optional `registry/trust-anchors/<alias>.pem` (public CA certificates; the file name
   minus `.pem` is the alias, case-insensitively unique). This is the **only** directory where `.pem`
   files are allowed; any other file there, or a `.pem` in `gates/`, `platforms/` or `authorities/`,
-  fails the build. A trust anchor that does not parse, has expired or is not a CA certificate
+  fails the build. A trust anchor that does not parse, has expired, is not valid yet or is not a CA certificate
   (`BasicConstraints CA:TRUE`) fails the build.
 - **Allowlist:** each party carries `party_id` (the gate `id`), `status`, `verified_identity` (= the gate
   `id`), `cert_pem` (= `eDeliveryCert`), `cert_ski`, `cert_subject_dn`, `valid_until` and

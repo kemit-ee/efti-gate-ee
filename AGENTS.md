@@ -158,7 +158,7 @@ database representation — `gates`, `platforms`, `authorities`, their read mode
   the per-party default, chain of trust is per-party data (`allowed_chain_anchors`). Phase-2 integrity
   (release signing §2/§8 vs an A3 signed manifest) is **open**; Phase 1 is only a `generation` hash check,
   not a signature. `eDeliveryCert` stays optional: a certless gate is left out of the view (as of the
-  AS4 party map), an existing unparseable/expired one fails the build. `.pem` is accepted only under
+  AS4 party map), an existing unparseable/expired/not-yet-valid one fails the build. `.pem` is accepted only under
   `registry/trust-anchors/` (elsewhere still a build failure). Generations may differ temporarily
   (accepted, 5-minute alert, each side decides on its own view). A registry edit needs both images
   rebuilt (`docker compose up --build registry turvis-trust`). The dev gates `EU-EE`/`EU-MOCK` share one
@@ -394,7 +394,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   the Turvis trust view — the same converter the `registry` and `turvis-trust` image builds run, only without
   `--out`/`--trust-out` (nothing is written). Both CI jobs run it (they `pip install pyyaml cryptography`), so a
   malformed registry fails CI without a Docker build (ADR-011 §3). Its rules, including the trust-view ones
-  (allowlist, no credential/URL, deterministic `generation`, expired/unparseable certificate, missing anchor
+  (allowlist, no credential/URL, deterministic `generation`, expired/not-yet-valid/unparseable certificate, missing anchor
   alias, `.pem` only under `trust-anchors/`), are unit-tested by `python3 tests/registry/test_registry_to_json.py`.
 - `python3 tests/sql/regression.py` prepares all ReSQL queries under `app` and checks append-only, credential and search semantics in its own disposable PostgreSQL 18 container (no host ports, no persistent volume); the registry is no longer part of it (ADR-011 §4 — nothing about the registries is in SQL any more). Both DSL CI jobs run it. `--performance` additionally compares custom/generic plans with origin/dev on 100,000 synthetic records after VACUUM/ANALYZE.
 

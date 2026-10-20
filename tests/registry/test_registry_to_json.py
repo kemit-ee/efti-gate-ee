@@ -30,7 +30,7 @@ spec.loader.exec_module(converter)
 ISSUED = datetime(2026, 10, 1, tzinfo=timezone.utc)
 
 
-def make_cert(common_name, org=None, not_after=datetime(2027, 10, 20, tzinfo=timezone.utc), ca=False):
+def make_cert(common_name, org=None, not_after=datetime(2027, 10, 20, tzinfo=timezone.utc), ca=False, not_before=None):
     key = ec.generate_private_key(ec.SECP256R1())
     attributes = [x509.NameAttribute(NameOID.COMMON_NAME, common_name)]
     if org:
@@ -42,7 +42,7 @@ def make_cert(common_name, org=None, not_after=datetime(2027, 10, 20, tzinfo=tim
         .issuer_name(name)
         .public_key(key.public_key())
         .serial_number(x509.random_serial_number())
-        .not_valid_before(min(ISSUED, not_after - timedelta(days=30)))
+        .not_valid_before(not_before or min(ISSUED, not_after - timedelta(days=30)))
         .not_valid_after(not_after)
         .add_extension(x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False)
         .add_extension(x509.BasicConstraints(ca=ca, path_length=None), critical=True)
@@ -264,6 +264,15 @@ class TrustViewTest(unittest.TestCase):
             with self.assertRaisesRegex(converter.RegistryError, "EU-X: eDeliveryCert: certificate expired on 2026-10-19"):
                 self.view([self.gate("EU-X", make_cert("EU-X", not_after=datetime(2026, 10, 19, tzinfo=timezone.utc)), status=status)])
 
+    def test_not_yet_valid_certificate_fails_the_build(self):
+        future = make_cert("EU-X", not_before=datetime(2026, 10, 21, tzinfo=timezone.utc))
+        for status in ("ONLINE", "DISABLED"):
+            with self.assertRaisesRegex(converter.RegistryError, "EU-X: eDeliveryCert: certificate is not valid before 2026-10-21"):
+                self.view([self.gate("EU-X", future, status=status)])
+
+    def test_certificate_valid_from_exactly_now_is_accepted(self):
+        self.view([self.gate("EU-X", make_cert("EU-X", not_before=self.NOW))])
+
     def test_unparseable_certificate_fails_the_build(self):
         garbage = "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n"
         with self.assertRaisesRegex(converter.RegistryError, "EU-X: eDeliveryCert: certificate does not parse"):
@@ -326,6 +335,11 @@ class TrustViewTest(unittest.TestCase):
             converter.load_trust_anchors(self.source, self.NOW)
         (directory / "root.pem").write_text(make_cert("root", ca=True, not_after=datetime(2026, 1, 1, tzinfo=timezone.utc)))
         with self.assertRaisesRegex(converter.RegistryError, "certificate expired"):
+            converter.load_trust_anchors(self.source, self.NOW)
+
+    def test_not_yet_valid_anchor_is_rejected(self):
+        (self.anchors_dir() / "root.pem").write_text(make_cert("root", ca=True, not_before=datetime(2026, 10, 21, tzinfo=timezone.utc)))
+        with self.assertRaisesRegex(converter.RegistryError, "certificate is not valid before 2026-10-21"):
             converter.load_trust_anchors(self.source, self.NOW)
 
     def test_anchor_aliases_are_case_insensitive_duplicates(self):

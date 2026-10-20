@@ -140,7 +140,7 @@ ainult gate'i identiteeti, staatust ja sertifikaati. Seepärast:
 | Jaotis | Mõju |
 |---|---|
 | §1 allikad | Muutumatu: failid, mitte tabelid. Lisandub ainult valikuline `registry/trust-anchors/` (konverteri reegel allpool). |
-| §3 build-ajal tarne | Laieneb teise väljundiga (`turvis-trust.json`); sama konverter on endiselt valideerija. Build kukub, kui `ONLINE` partneri olemasolev `eDeliveryCert` ei parsi või on aegunud, `verified_identity` kordub, `allowed_chain_anchors` viitab olematule aliasele või väljund sisaldab allowlist'ist väljaspool olevat võtit. `eDeliveryCert` **jääb registris valikuliseks** (vt allpool). |
+| §3 build-ajal tarne | Laieneb teise väljundiga (`turvis-trust.json`); sama konverter on endiselt valideerija. Build kukub, kui `ONLINE` partneri olemasolev `eDeliveryCert` ei parsi, on aegunud või veel kehtetu (`notBefore` tulevikus), `verified_identity` kordub, `allowed_chain_anchors` viitab olematule aliasele või väljund sisaldab allowlist'ist väljaspool olevat võtit. `eDeliveryCert` **jääb registris valikuliseks** (vt allpool). |
 | §4 andmebaasis ei ole registrit | Muutumatu; usaldusvaade ei puuduta andmebaasi. |
 | §5 avatekst `apiKey` | Muutumatu; just see on põhjus, miks Turvis `registry` teenust ei näe. |
 | §2 allkiri, §8 manifesti hash | **Endiselt rakendamata nõuded.** Need on Phase 2 integriteedi kandidaadid, vt allpool. |
@@ -163,7 +163,7 @@ genereerimisel**:
 - **sertifikaadita** `ONLINE` gate **jäetakse Turvise vaatest välja** — täpselt nagu `edelivery` party
   mapist. Mõlemad pooled keelavad, seega deny wins ei kao: inbound on `SIGNER_UNTRUSTED`, outbound ei
   jõua Turvisse (partnerit ei ole party mapis);
-- **olemasolev, kuid parsimatu või aegunud** `eDeliveryCert` (`ONLINE` või `DISABLED` gate'il) **rikub
+- **olemasolev, kuid parsimatu, aegunud või veel kehtetu** `eDeliveryCert` (`ONLINE` või `DISABLED` gate'il) **rikub
   buildi**, sest see viitab vigasele sisendile, mitte teadlikult puuduvale sertifikaadile;
 - `DISABLED` gate **sertifikaadiga** jääb vaatesse (täpne vastuse detail, SPEC §7.2); `DISABLED` gate
   ilma sertifikaadita jääb välja samal põhjusel kui ülal.

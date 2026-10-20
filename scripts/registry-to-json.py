@@ -26,8 +26,8 @@ Things worth knowing:
   and `registry/trust-anchors/*.pem`; platform entries, `apiKey`, `headers`, `tlsCert` and URLs have
   no code path into it, and `assert_allowlist` re-checks the finished document.
 * **`eDeliveryCert` stays optional.** A gate without one is left out of the view (exactly as
-  edelivery leaves it out of the AS4 party map); an existing certificate that does not parse or has
-  expired fails the build.
+  edelivery leaves it out of the AS4 party map); an existing certificate that does not parse, has
+  expired or is not valid yet fails the build.
 
 * **Absent optional keys are omitted** from the output, rather than written as `null`. Empty
   collections are *not* absent — `subsets: []` means "entitled to nothing" and stays.
@@ -219,13 +219,15 @@ def load(kind, source_dir):
 
 
 def parse_certificate(pem, what, now):
-    """Parse a PEM certificate and refuse an expired one; `what` names it in the error."""
+    """Parse a PEM certificate and refuse an expired or not-yet-valid one; `what` names it in the error."""
     from cryptography import x509
 
     try:
         certificate = x509.load_pem_x509_certificate(pem.encode())
     except ValueError as e:
         raise RegistryError(f"{what}: certificate does not parse: {e}") from e
+    if certificate.not_valid_before_utc > now:
+        raise RegistryError(f"{what}: certificate is not valid before {certificate.not_valid_before_utc:%Y-%m-%dT%H:%M:%SZ}")
     if certificate.not_valid_after_utc <= now:
         raise RegistryError(f"{what}: certificate expired on {certificate.not_valid_after_utc:%Y-%m-%dT%H:%M:%SZ}")
     return certificate
