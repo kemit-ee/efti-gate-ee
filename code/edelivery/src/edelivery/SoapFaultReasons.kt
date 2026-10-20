@@ -1,8 +1,10 @@
 package edelivery
 
+import java.io.EOFException
 import java.io.IOException
 import java.security.GeneralSecurityException
 import java.util.concurrent.TimeoutException
+import java.util.zip.ZipException
 import javax.xml.crypto.MarshalException
 import javax.xml.crypto.dsig.XMLSignatureException
 import javax.xml.stream.XMLStreamException
@@ -23,6 +25,7 @@ enum class FaultReason(val ebmsCode: String, val category: String, val shortDesc
   companion object {
     /** Unknown exception classes fall back to [OTHER]; the unit test lists every class thrown on the msh path. */
     fun of(ex: Throwable): FaultReason = when (ex) {
+      is MalformedPayloadException, is ZipException, is EOFException -> MALFORMED_MESSAGE
       is SecurityException, is XMLSignatureException, is MarshalException -> AUTHENTICATION_FAILED
       is GeneralSecurityException -> DECRYPTION_FAILED
       is UnsupportedOperationException -> UNSUPPORTED_MESSAGE
@@ -33,3 +36,13 @@ enum class FaultReason(val ebmsCode: String, val category: String, val shortDesc
     }
   }
 }
+
+/** The peer's payload cannot be unpacked (corrupt gzip, truncated stream, over the size limit): retrying the same bytes cannot succeed. */
+class MalformedPayloadException(message: String) : IllegalArgumentException(message)
+
+/**
+ * A copy of [this] for the log that keeps the class names and stack frames but none of the messages, which
+ * parsers fill with fragments of the input they choked on.
+ */
+internal fun Throwable.withoutMessages(): Throwable =
+  Throwable(javaClass.name, cause?.takeIf { it !== this }?.withoutMessages()).also { it.stackTrace = stackTrace }

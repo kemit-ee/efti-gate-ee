@@ -4,10 +4,12 @@ import ch.tutteli.atrium.api.fluent.en_GB.*
 import ch.tutteli.atrium.api.verbs.expect
 import io.mockk.mockk
 import org.junit.jupiter.api.Test
+import java.io.EOFException
 import java.io.IOException
 import java.security.GeneralSecurityException
 import java.security.InvalidAlgorithmParameterException
 import java.util.concurrent.TimeoutException
+import java.util.zip.ZipException
 import javax.crypto.AEADBadTagException
 import javax.xml.crypto.dsig.XMLSignatureException
 import javax.xml.stream.XMLStreamException
@@ -26,6 +28,9 @@ class SoapFaultReasonsTest {
       ClassCastException() to FaultReason.MALFORMED_MESSAGE,
       XMLStreamException("parse") to FaultReason.MALFORMED_MESSAGE,
       IllegalArgumentException("No valid KeyIdentifier") to FaultReason.INVALID_HEADER,
+      ZipException("Not in GZIP format") to FaultReason.MALFORMED_MESSAGE,
+      EOFException("Unexpected end of ZLIB input stream") to FaultReason.MALFORMED_MESSAGE,
+      MalformedPayloadException("too large") to FaultReason.MALFORMED_MESSAGE,
       IOException("down") to FaultReason.UNAVAILABLE,
       TimeoutException() to FaultReason.UNAVAILABLE,
     )
@@ -47,5 +52,14 @@ class SoapFaultReasonsTest {
       expect(fault).notToContain("Exception")
       expect(fault).notToContain("\tat ")
     }
+  }
+
+  @Test fun `logged exception keeps class names and frames but no messages`() {
+    val ex = IllegalStateException("<driver>Jaan Tamm</driver>", XMLStreamException("<id>EE123</id>"))
+    val logged = ex.withoutMessages()
+    expect(logged.toString()).notToContain("Jaan Tamm")
+    expect(logged.cause.toString()).notToContain("EE123")
+    expect(logged.cause!!.message).toEqual(XMLStreamException::class.java.name)
+    expect(logged.stackTrace.toList()).toEqual(ex.stackTrace.toList())
   }
 }

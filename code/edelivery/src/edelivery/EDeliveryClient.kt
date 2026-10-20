@@ -64,7 +64,7 @@ class EDeliveryClient(
   private val mimeEnd = ("\r\n--$mimeBoundary--").toByteArray()
 
   fun send(endpoint: URI, params: UserMessageParams, payload: String): String {
-    log.info("Sending message to $endpoint: $payload")
+    log.info("Sending message to $endpoint: conversationId=${params.requestKey} payload_size_bytes=${payload.toByteArray().size}")
     val message = eDeliveryMessageGenerator.requestMessage(params, payload)
 
     val body = ofByteArrays(listOf(

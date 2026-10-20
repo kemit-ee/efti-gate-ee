@@ -13,6 +13,7 @@ import java.security.MessageDigest
 import java.security.PrivateKey
 import java.security.spec.MGF1ParameterSpec
 import java.util.HexFormat
+import java.util.UUID.randomUUID
 import java.util.zip.GZIPInputStream
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
@@ -40,6 +41,7 @@ class EDeliveryRoutes(
   @POST("/msh")
   fun msh(e: HttpExchange) {
     val bodyBytes = e.requestStream.readBytes()
+    val auditRef = randomUUID().toString()
     var partCount: Int? = null
     try {
       val body = MultipartParser().parse(bodyBytes.inputStream())
@@ -77,8 +79,8 @@ class EDeliveryRoutes(
       }
     } catch (ex: Exception) {
       val reason = FaultReason.of(ex)
-      log.error("Error when processing message: reason=$reason body_sha256=${bodyBytes.sha256Hex()} " +
-        "body_size_bytes=${bodyBytes.size} content_type=${e.header("Content-Type")} multipart_part_count=$partCount", ex)
+      log.error("Error when processing message: audit_ref=$auditRef reason=$reason body_sha256=${bodyBytes.sha256Hex()} " +
+        "body_size_bytes=${bodyBytes.size} content_type=${e.header("Content-Type")} multipart_part_count=$partCount", ex.withoutMessages())
       e.send(InternalServerError, eDeliveryMessageGenerator.soapFault(reason), soap)
     }
   }
@@ -141,7 +143,7 @@ internal fun gunzip(compressed: ByteArray): ByteArray {
       val read = gzip.read(buffer)
       if (read < 0) break
       total += read
-      require(total <= maxBytes) { "Decompressed payload exceeds the $maxBytes byte limit" }
+      if (total > maxBytes) throw MalformedPayloadException("Decompressed payload exceeds the $maxBytes byte limit")
       out.write(buffer, 0, read)
     }
     return out.toByteArray()

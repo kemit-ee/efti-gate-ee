@@ -260,7 +260,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 
 ## Kotlin services
 
-- Inbound `msh` errors log only a body fingerprint (`body_sha256`, size, content type, part count), never the body or the exception message in the peer-facing reply: `soapFault(FaultReason)` (`SoapFaultReasons.kt`) sends a fixed bucket (`EBMS:` code + short text); the exception class is mapped by `FaultReason.of`, unknown classes fall back to `OTHER`. Add a new exception class to the mapping and its test.
+- Inbound `msh` errors log only a body fingerprint (`body_sha256`, size, content type, part count), never the body or the exception message in the peer-facing reply: `soapFault(FaultReason)` (`SoapFaultReasons.kt`) sends a fixed bucket (`EBMS:` code + short text); the exception class is mapped by `FaultReason.of`, unknown classes fall back to `OTHER`. Corrupt/truncated gzip and an over-limit payload (`MalformedPayloadException`) map to `MALFORMED_MESSAGE`, not `UNAVAILABLE`, so a peer is not told to retry bytes that cannot succeed. The error log carries a per-request `audit_ref` and the exception via `Throwable.withoutMessages()` (class names and frames, no messages, which parsers fill with input fragments). `scripts/validate-no-pii-log.py` also flags message-content variables (`payloadXml`, `decrypted`, `xml`, `body`) interpolated into a log call. Add a new exception class to the mapping and its test.
 - eDelivery renders String responses as raw XML (including the empty poll response), not JSON-encoded strings. Ruuter ≥ 0.10.0 decodes upstream bodies by their declared Content-Type.
 
 - Framework: klite (lightweight, annotation-based)

@@ -11,7 +11,15 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 LOG_CALL = re.compile(r"\b(?:log|logger(?:<[^>]*>)?\(\))\s*\.\s*(?:trace|debug|info|warn|error)\s*\(")
-FORBIDDEN = re.compile(r"decodeToString\(\)|\bString\(\s*\w*[bB]ody\w*\s*\)|\bRaw content\b|\$\{?\w*[rR]aw[bB]ody")
+# A raw body, decoded or not, or a variable that holds message content, interpolated into a log call.
+FORBIDDEN = re.compile(
+    r"decodeToString\(\)"
+    r"|\bString\(\s*\w*(?:[bB]ody|[pP]ayload|[dD]ecrypted|[aA]ttachment)\w*\s*(?:,[^)]*)?\)"
+    r"|\bRaw content\b"
+    r"|\$\{?\w*(?:[rR]aw[bB]ody|[bB]odyBytes|[pP]ayloadXml|[dD]ecrypted|[aA]ttachment\w*[bB]ytes)\b(?!\.(?:size|length|sha256Hex)\b)"
+    r"|\$\{?(?:xml|body|payload|response[bB]ody|resBody)\b(?!\.(?:size|length|toByteArray\(\)\.size)\b)"
+    r"|\.(?:toString|joinToString)\(\)\s*\)?\s*$"
+)
 
 
 def statements(text):
