@@ -2,7 +2,7 @@
 #
 # Nested under /decryptions/<mechanism> so sibling mechanisms (/jwe per RFC 7516,
 # /cose-encrypt per RFC 8152) can be added without colliding on request/response
-# shape or reason-code enum. See SPEC.md §4 for the extensibility
+# shape or reason-code enum. See SPEC.md section 4 for the extensibility
 # rationale.
 #
 # `internal: false` + guard-enforced authn (see .guard.yml).
@@ -12,18 +12,32 @@
 # key and <wsse:KeyIdentifier> recipient SKI itself. edelivery never parses crypto
 # elements.
 #
-# Plaintext mode: if the inbound SOAP has no <xenc:EncryptedData>, Turvis returns
-# the input unchanged (plaintext passthrough) with the plaintext bytes
-# gzip-compressed as per the inbound AS4 convention.
+# DEVELOPMENT AND TEST ONLY. There is no cryptography: the envelope and the attachment are
+# passed through unchanged (exactly what the real Turvis does in plaintext mode, where the
+# inbound SOAP has no <xenc:EncryptedData>), so an encrypted inbound message is NOT decrypted
+# here. The real Turvis MUST do RSA-OAEP unwrap + AES-GCM decrypt per W3C XML Encryption 1.1
+# (SPEC section 6).
 #
-# `return_fields` on request: edelivery declares which auxiliary fields it wants
-# back (SPEC §4.4 enum). Phase 1 mock returns the full accept bundle regardless.
+# Behaviour that IS real, so a consumer depending on it fails here instead of against the
+# real Turvis:
+# - `return_fields` must be non-empty (SPEC: minItems 1, else 400), unknown values are a 422
+#   UNKNOWN_RETURN_FIELD and the accept response is PROJECTED: audit_ref (always returned) plus
+#   the fields named in return_fields (SPEC section 4.0).
+# - ebms_routing is extracted from the decoded envelope (MessageId, ConversationId,
+#   RefToMessageId, From/To PartyId, Service, Action). Where the envelope has no such element
+#   (e.g. a short test string) a deterministic fallback derived from the envelope bytes is used,
+#   so verifications/xmldsig returns the same ids for the same bytes. DIAGNOSTIC ONLY (SPEC 4.4):
+#   it must not authorise dispatch.
+# - key_handle must equal OWN_GATE_ID (SPEC section 7.1), else 422 KEY_HANDLE_UNKNOWN.
+# - trace_id, when present, must be 32 lower-case hex characters, else 400.
 #
-# Dev-mode mock override: header `X-Mock-Verdict` with reject values below triggers
-# the matching reject response.
-#
-# PHASE 2 WARNING: real Turvis MUST perform RSA-OAEP unwrap + AES-GCM decrypt per
-# W3C XML Encryption 1.1. Phase 1 mock output is for integration-testing shape only.
+# Dev-mode mock overrides: header `X-Mock-Audit-Ref: <value>` fixes audit_ref (default: a
+# random UUIDv4 built with Math.random, since crypto.randomUUID is not in Ruuter's expression
+# engine). Header `X-Mock-Verdict` with `reject-wrapped-key-malformed`,
+# `reject-key-handle-unknown`, `reject-key-unavailable`, `reject-ski-mismatch`,
+# `reject-aes-unwrap-fail`, `reject-payload-decrypt-fail`, `reject-algo-unsupported`,
+# `reject-unknown-return-field`, `reject-trust-store-unavailable` or `reject-turvis-internal`
+# triggers the matching reject response.
 
 declaration:
   description: |
@@ -33,17 +47,28 @@ declaration:
     Request: soap_xml_b64 (raw inbound SOAP envelope, Turvis extracts
     <wsse:Security>/<xenc:EncryptedKey> + <wsse:KeyIdentifier> internally),
     encrypted_attachment_b64 (raw encrypted attachment bytes; omit if no
-    attachment), key_handle, return_fields (required), trace_id.
+    attachment), key_handle (must be the own gate id), return_fields (required,
+    non-empty), trace_id (optional, 32 hex characters).
 
-    Response: 200 with {decrypted_soap_xml_b64, decrypted_attachment_b64,
-    audit_ref, + requested fields}. decrypted_attachment_b64 is gzip-compressed
-    plaintext payload bytes (same convention as inbound before encryption).
-    Pure function; safe to retry.
+    Response: 200 with {audit_ref} plus the fields named in return_fields
+    (decrypted_soap_xml_b64, decrypted_attachment_b64, ebms_routing).
+    decrypted_attachment_b64 is gzip-compressed plaintext payload bytes (same
+    convention as inbound before encryption). Pure function; safe to retry.
 
     Reason codes: WRAPPED_KEY_MALFORMED, KEY_HANDLE_UNKNOWN, KEY_UNAVAILABLE,
     SKI_MISMATCH, AES_UNWRAP_FAIL, PAYLOAD_DECRYPT_FAIL, ALGO_UNSUPPORTED,
-    UNKNOWN_RETURN_FIELD, TURVIS_INTERNAL. See SPEC.md §5.
+    UNKNOWN_RETURN_FIELD, TRUST_STORE_UNAVAILABLE, TURVIS_INTERNAL. See SPEC.md
+    section 5. Mock limitations: no real decryption, see the file header.
   internal: false
+  returns:
+    - field: audit_ref
+      type: string
+    - field: decrypted_soap_xml_b64
+      type: string
+    - field: decrypted_attachment_b64
+      type: string
+    - field: ebms_routing
+      type: object
   additive: true
   allowlist:
     body:
@@ -65,11 +90,17 @@ declaration:
 
 setup:
   assign:
-    audit_ref: "${'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) { var r = Math.floor(Math.random() * 16); return (c === 'x' ? r : (r & 3) | 8).toString(16); })}"
+    audit_ref: "${incoming.headers['x-mock-audit-ref'] || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) { var r = Math.floor(Math.random() * 16); return (c === 'x' ? r : (r & 3) | 8).toString(16); })}"
     mock_verdict: "${incoming.headers['x-mock-verdict'] || 'accept'}"
+    trace_ok: "${incoming.body.trace_id == null || /^[0-9a-f]{32}$/.test(incoming.body.trace_id)}"
+    fields_ok: "${(incoming.body.return_fields || []).length > 0}"
+    key_known: "${incoming.body.key_handle == '[#OWN_GATE_ID]'}"
+    unknown_fields: "${(incoming.body.return_fields || []).filter(function (f) { return ['decrypted_soap_xml_b64', 'decrypted_attachment_b64', 'ebms_routing'].indexOf(f) < 0; })}"
 
 dispatch:
   switch:
+    - condition: "${!trace_ok || !fields_ok}"
+      next: reject_bad_request
     - condition: "${mock_verdict == 'reject-wrapped-key-malformed'}"
       next: reject_wrapped_key_malformed
     - condition: "${mock_verdict == 'reject-key-handle-unknown'}"
@@ -86,20 +117,98 @@ dispatch:
       next: reject_algo_unsupported
     - condition: "${mock_verdict == 'reject-unknown-return-field'}"
       next: reject_unknown_return_field
+    - condition: "${mock_verdict == 'reject-trust-store-unavailable'}"
+      next: reject_trust_store_unavailable
+    - condition: "${mock_verdict == 'reject-turvis-internal'}"
+      next: reject_turvis_internal
+    - condition: "${unknown_fields.length > 0}"
+      next: reject_unknown_return_field
+    - condition: "${!key_known}"
+      next: reject_key_handle_unknown
     - condition: "${true}"
-      next: accept
+      next: decode_envelope
+
+decode_envelope:
+  # The mock has no base64 helper in the expression engine, so the envelope is decoded by hand.
+  assign:
+    xml: |-
+      ${(function (b) {
+        var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+        var s = String(b).replace(/[^A-Za-z0-9+\/]/g, '');
+        var out = '';
+        var bits = 0;
+        var acc = 0;
+        for (var i = 0; i < s.length; i++) {
+          acc = ((acc << 6) | chars.indexOf(s.charAt(i))) & 0xffffff;
+          bits += 6;
+          if (bits >= 8) { bits -= 8; out += String.fromCharCode((acc >> bits) & 255); }
+        }
+        return out;
+      })(incoming.body.soap_xml_b64)}
+
+fingerprint:
+  # Deterministic stand-in id for envelopes that carry no ebMS element: djb2 over the decoded bytes.
+  assign:
+    xml_hash: |-
+      ${(function (s) {
+        var h = 5381;
+        for (var i = 0; i < s.length; i++) { h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; }
+        return h.toString(16);
+      })(xml)}
+
+extract_routing:
+  assign:
+    routing: |-
+      ${(function (x, h) {
+        function first(re) { var m = x.match(re); return m ? m[1].trim() : ''; }
+        return {
+          message_id: first(/<(?:\w+:)?MessageId\b[^>]*>([^<]*)</) || 'mock-msg-' + h,
+          conversation_id: first(/<(?:\w+:)?ConversationId\b[^>]*>([^<]*)</) || 'mock-conv-' + h,
+          ref_to_message_id: first(/<(?:\w+:)?RefToMessageId\b[^>]*>([^<]*)</),
+          from_party_id: first(/<(?:\w+:)?From\b[^>]*>[\s\S]*?<(?:\w+:)?PartyId\b[^>]*>([^<]*)</) || 'EU-FR',
+          to_party_id: first(/<(?:\w+:)?To\b[^>]*>[\s\S]*?<(?:\w+:)?PartyId\b[^>]*>([^<]*)</) || 'EU-EE',
+          service: first(/<(?:\w+:)?Service\b[^>]*>([^<]*)</) || 'FTI004',
+          action: first(/<(?:\w+:)?Action\b[^>]*>([^<]*)</) || 'FTI004Upload'
+        };
+      })(xml, xml_hash)}
+
+build_bundle:
+  # Passthrough: the decrypted envelope is the input envelope, the decrypted attachment is the input
+  # attachment (or an empty string when the message has none).
+  assign:
+    bundle: |-
+      ${({
+        audit_ref: audit_ref,
+        decrypted_soap_xml_b64: incoming.body.soap_xml_b64,
+        decrypted_attachment_b64: incoming.body.encrypted_attachment_b64 || '',
+        ebms_routing: routing
+      })}
+
+project:
+  # audit_ref is always returned; every other field only if requested.
+  assign:
+    response: |-
+      ${(function (requested, all) {
+        var out = { audit_ref: all.audit_ref };
+        requested.forEach(function (k) { out[k] = all[k]; });
+        return out;
+      })(incoming.body.return_fields, bundle)}
 
 accept:
-  # Mock passthrough: decrypted_soap_xml_b64 = input soap_xml_b64,
-  # decrypted_attachment_b64 = input encrypted_attachment_b64 (or empty).
-  # Real Turvis replaces <xenc:EncryptedData> in the SOAP body with the
-  # decrypted plaintext element and decrypts the attachment bytes.
-  return:
-    decrypted_soap_xml_b64: "${incoming.body.soap_xml_b64}"
-    decrypted_attachment_b64: "${incoming.body.encrypted_attachment_b64 || ''}"
-    audit_ref: "${audit_ref}"
+  return: "${response}"
   status: 200
   content_type: application/json
+  wrapper: false
+
+reject_bad_request:
+  return:
+    type: "https://efti.example/problem/turvis-bad-request"
+    title: "Bad request"
+    status: 400
+    detail: "return_fields must be non-empty and trace_id (if present) 32 lower-case hex characters"
+    audit_ref: "${audit_ref}"
+  status: 400
+  content_type: application/problem+json
   wrapper: false
 
 reject_wrapped_key_malformed:
@@ -109,7 +218,7 @@ reject_wrapped_key_malformed:
     status: 422
     verdict: "reject"
     reason_code: "WRAPPED_KEY_MALFORMED"
-    detail: "mock"
+    detail: "mock: RSA-OAEP ciphertext malformed"
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
@@ -122,7 +231,7 @@ reject_key_handle_unknown:
     status: 422
     verdict: "reject"
     reason_code: "KEY_HANDLE_UNKNOWN"
-    detail: "mock"
+    detail: "mock: key_handle is not the own gate id"
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
@@ -135,7 +244,7 @@ reject_key_unavailable:
     status: 503
     verdict: "reject"
     reason_code: "KEY_UNAVAILABLE"
-    detail: "mock: retry safe"
+    detail: "mock: transient, retry safe"
     audit_ref: "${audit_ref}"
   status: 503
   content_type: application/problem+json
@@ -148,7 +257,7 @@ reject_ski_mismatch:
     status: 422
     verdict: "reject"
     reason_code: "SKI_MISMATCH"
-    detail: "mock: <wsse:KeyIdentifier> SKI does not match the gate's loaded key"
+    detail: "mock: KeyIdentifier does not match the key behind key_handle"
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
@@ -157,11 +266,11 @@ reject_ski_mismatch:
 reject_aes_unwrap_fail:
   return:
     type: "https://efti.example/problem/turvis-decrypt-xmlenc-reject"
-    title: "AES unwrap failed"
+    title: "AES key unwrap failed"
     status: 422
     verdict: "reject"
     reason_code: "AES_UNWRAP_FAIL"
-    detail: "mock"
+    detail: "mock: RSA-OAEP decrypt returned an error"
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
@@ -174,7 +283,7 @@ reject_payload_decrypt_fail:
     status: 422
     verdict: "reject"
     reason_code: "PAYLOAD_DECRYPT_FAIL"
-    detail: "mock: AES-GCM integrity tag mismatch — likely tampered"
+    detail: "mock: AES-GCM integrity tag mismatch, likely tampered"
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
@@ -187,23 +296,47 @@ reject_algo_unsupported:
     status: 422
     verdict: "reject"
     reason_code: "ALGO_UNSUPPORTED"
-    detail: "mock"
+    detail: "mock: algorithm not in the pinned allowlist"
     audit_ref: "${audit_ref}"
   status: 422
   content_type: application/problem+json
   wrapper: false
 
 reject_unknown_return_field:
-  # The mock does not validate return_fields values; this 422 is only reachable via
-  # the `X-Mock-Verdict: reject-unknown-return-field` request header.
   return:
     type: "https://efti.example/problem/turvis-decrypt-xmlenc-reject"
     title: "Unknown return field"
     status: 422
     verdict: "reject"
     reason_code: "UNKNOWN_RETURN_FIELD"
-    detail: "mock: return_fields contains a value not in the endpoint's projectable set (see SPEC §4.4)"
+    detail: "return_fields contains a value not in the endpoint's projectable set (decrypted_soap_xml_b64, decrypted_attachment_b64, ebms_routing; see SPEC section 4.4)"
     audit_ref: "${audit_ref}"
   status: 422
+  content_type: application/problem+json
+  wrapper: false
+
+reject_trust_store_unavailable:
+  return:
+    type: "https://efti.example/problem/turvis-decrypt-xmlenc-reject"
+    title: "Trust store unavailable"
+    status: 503
+    verdict: "reject"
+    reason_code: "TRUST_STORE_UNAVAILABLE"
+    detail: "mock: no usable trust snapshot, transient, retry safe"
+    audit_ref: "${audit_ref}"
+  status: 503
+  content_type: application/problem+json
+  wrapper: false
+
+reject_turvis_internal:
+  return:
+    type: "https://efti.example/problem/turvis-decrypt-xmlenc-reject"
+    title: "Turvis internal error"
+    status: 500
+    verdict: "reject"
+    reason_code: "TURVIS_INTERNAL"
+    detail: "mock: internal bug, not retried automatically"
+    audit_ref: "${audit_ref}"
+  status: 500
   content_type: application/problem+json
   wrapper: false

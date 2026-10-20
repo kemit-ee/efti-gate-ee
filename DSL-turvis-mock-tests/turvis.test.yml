@@ -276,12 +276,92 @@ tests:
       status: 200
       body_matches: { decrypted_soap_xml_b64: "PHg+", decrypted_attachment_b64: "QUJD" }
 
+  - name: decrypt - ebms_routing is extracted from the envelope (diagnostic, FTI010 DE to EE with correlation)
+    request:
+      method: POST
+      path: /turvis/v1/decryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token", x-mock-audit-ref: "33333333-3333-4333-8333-333333333333" }
+      body:
+        soap_xml_b64: &fti010_response "PGVudjpFbnZlbG9wZSB4bWxuczplbnY9Imh0dHA6Ly93d3cudzMub3JnLzIwMDMvMDUvc29hcC1lbnZlbG9wZSIgeG1sbnM6ZWI9Imh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL2VieG1sLW1zZy9ucy92My4wL2VibXMvY29yZS8yMDA3MDQvIj48ZW52OkhlYWRlcj48ZWI6TWVzc2FnaW5nIGVudjptdXN0VW5kZXJzdGFuZD0idHJ1ZSIgd3N1OklkPSJNU0ctSUQiPjxlYjpVc2VyTWVzc2FnZT48ZWI6TWVzc2FnZUluZm8+PGViOlRpbWVzdGFtcD4yMDI2LTEwLTIwVDEwOjAwOjAwWjwvZWI6VGltZXN0YW1wPjxlYjpNZXNzYWdlSWQ+OWYxYzVhMmUtMDAwMS00YjdlLTlkMTEtYWFhYWFhYWFhYWFhQGV1LWRlLmV4YW1wbGU8L2ViOk1lc3NhZ2VJZD48ZWI6UmVmVG9NZXNzYWdlSWQ+NGQyZTdiMTAtMDAwMi00YzVhLThlMjItYmJiYmJiYmJiYmJiQGV1LWVlLmV4YW1wbGU8L2ViOlJlZlRvTWVzc2FnZUlkPjwvZWI6TWVzc2FnZUluZm8+PGViOlBhcnR5SW5mbz48ZWI6RnJvbT48ZWI6UGFydHlJZCB0eXBlPSJ1cm46b2FzaXM6bmFtZXM6dGM6ZWJjb3JlOnBhcnR5aWQtdHlwZTp1bnJlZ2lzdGVyZWQiPkVVLURFPC9lYjpQYXJ0eUlkPjxlYjpSb2xlPmh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL2VieG1sLW1zZy9lYm1zL3YzLjAvbnMvY29yZS8yMDA3MDQvaW5pdGlhdG9yPC9lYjpSb2xlPjwvZWI6RnJvbT48ZWI6VG8+PGViOlBhcnR5SWQgdHlwZT0idXJuOm9hc2lzOm5hbWVzOnRjOmViY29yZTpwYXJ0eWlkLXR5cGU6dW5yZWdpc3RlcmVkIj5FVS1FRTwvZWI6UGFydHlJZD48ZWI6Um9sZT5odHRwOi8vZG9jcy5vYXNpcy1vcGVuLm9yZy9lYnhtbC1tc2cvZWJtcy92My4wL25zL2NvcmUvMjAwNzA0L3Jlc3BvbmRlcjwvZWI6Um9sZT48L2ViOlRvPjwvZWI6UGFydHlJbmZvPjxlYjpDb2xsYWJvcmF0aW9uSW5mbz48ZWI6U2VydmljZT5GVEkwMTA8L2ViOlNlcnZpY2U+PGViOkFjdGlvbj5GVEkwMTBSZXNwb25zZTwvZWI6QWN0aW9uPjxlYjpDb252ZXJzYXRpb25JZD5jb252LTdlM2EtZGF0YXNldC0wMDQyPC9lYjpDb252ZXJzYXRpb25JZD48L2ViOkNvbGxhYm9yYXRpb25JbmZvPjwvZWI6VXNlck1lc3NhZ2U+PC9lYjpNZXNzYWdpbmc+PC9lbnY6SGVhZGVyPjxlbnY6Qm9keSB3c3U6SWQ9IkJPRFktSUQiLz48L2VudjpFbnZlbG9wZT4="
+        key_handle: "EU-EE"
+        return_fields: ["ebms_routing"]
+    expect:
+      status: 200
+      body:
+        audit_ref: "33333333-3333-4333-8333-333333333333"
+        ebms_routing:
+          message_id: "9f1c5a2e-0001-4b7e-9d11-aaaaaaaaaaaa@eu-de.example"
+          conversation_id: "conv-7e3a-dataset-0042"
+          ref_to_message_id: "4d2e7b10-0002-4c5a-8e22-bbbbbbbbbbbb@eu-ee.example"
+          from_party_id: "EU-DE"
+          to_party_id: "EU-EE"
+          service: "FTI010"
+          action: "FTI010Response"
+
+  - name: decrypt - envelope without ebMS elements gets a deterministic fallback derived from its bytes
+    request:
+      method: POST
+      path: /turvis/v1/decryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token", x-mock-audit-ref: "33333333-3333-4333-8333-333333333333" }
+      body: { soap_xml_b64: "PHg+", key_handle: "EU-EE", return_fields: ["ebms_routing"] }
+    expect:
+      status: 200
+      body:
+        audit_ref: "33333333-3333-4333-8333-333333333333"
+        ebms_routing:
+          message_id: "mock-msg-b8680df"
+          conversation_id: "mock-conv-b8680df"
+          ref_to_message_id: ""
+          from_party_id: "EU-FR"
+          to_party_id: "EU-EE"
+          service: "FTI004"
+          action: "FTI004Upload"
+
+  - name: decrypt - projection returns exactly the requested fields, empty attachment when the message has none
+    request:
+      method: POST
+      path: /turvis/v1/decryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token", x-mock-audit-ref: "33333333-3333-4333-8333-333333333333" }
+      body: { soap_xml_b64: "PHg+", key_handle: "EU-EE", return_fields: ["decrypted_soap_xml_b64", "decrypted_attachment_b64"] }
+    expect:
+      status: 200
+      body: { audit_ref: "33333333-3333-4333-8333-333333333333", decrypted_soap_xml_b64: "PHg+", decrypted_attachment_b64: "" }
+
+  - name: decrypt - empty return_fields is a 400 (SPEC minItems 1)
+    request:
+      method: POST
+      path: /turvis/v1/decryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "PHg+", key_handle: "EU-EE", return_fields: [] }
+    expect:
+      status: 400
+
+  - name: decrypt - unknown return_fields value is a real 422 UNKNOWN_RETURN_FIELD
+    request:
+      method: POST
+      path: /turvis/v1/decryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "PHg+", key_handle: "EU-EE", return_fields: ["signer"] }
+    expect:
+      status: 422
+      body_matches: { verdict: "reject", reason_code: "UNKNOWN_RETURN_FIELD" }
+
+  - name: decrypt - key_handle other than the own gate id is KEY_HANDLE_UNKNOWN
+    request:
+      method: POST
+      path: /turvis/v1/decryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "PHg+", key_handle: "EU-FR", return_fields: ["decrypted_soap_xml_b64"] }
+    expect:
+      status: 422
+      body_matches: { verdict: "reject", reason_code: "KEY_HANDLE_UNKNOWN" }
+
   - name: decrypt - reject-key-handle-unknown -> 422
     request:
       method: POST
       path: /turvis/v1/decryptions/xmlenc
       headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token", x-mock-verdict: "reject-key-handle-unknown" }
-      body: { soap_xml_b64: "PHg+", key_handle: "EU-EE", return_fields: [] }
+      body: { soap_xml_b64: "PHg+", key_handle: "EU-EE", return_fields: ["decrypted_soap_xml_b64"] }
     expect:
       status: 422
       body_matches: { reason_code: "KEY_HANDLE_UNKNOWN" }
