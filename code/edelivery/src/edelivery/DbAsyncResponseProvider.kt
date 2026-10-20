@@ -43,7 +43,7 @@ class DbAsyncResponseProvider(
   private fun claim(key: RequestKey): String? = try {
     resqlClient.claimAsyncResponse(key.toString())
   } catch (e: Exception) {
-    log.warn("Polling stored response for $key failed: ${e.message}")
+    log.warn("Polling stored response for $key failed: ${e.javaClass.name}")
     null
   }
 }
