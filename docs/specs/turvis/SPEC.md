@@ -10,7 +10,7 @@
 >
 > **Contract source of truth**: the Ruuter DSL files at `dsl-contracts/turvis/POST/v1/*/*.yml` are the AUTHORITATIVE REST contract. This document's §4 JSON Schemas are companion documentation for details Ruuter DSL `allowlist:` can't express (nested arrays, `format: base64`, oneOf accept/reject, enum constraints). See `dsl-contracts/README.md` for the contract-change workflow.
 >
-> **Last updated**: 2026-10-16.
+> **Last updated**: 2026-10-20.
 
 ---
 
@@ -67,7 +67,7 @@ Security-sensitive operations and the key material / policy state they need belo
 **In scope (Phase 1 — this contract)**:
 - Four cryptography HTTP endpoints (§3)
 - Private-key access (Turvis-only secret, see §7.1)
-- Shared trust store read access (same file as edelivery, see §7.2)
+- Read access to the generated trust view (derived from `registry/`, see §7.2)
 - Audit log of every security decision
 - `/metrics` endpoint
 - Health probes
@@ -81,7 +81,7 @@ Security-sensitive operations and the key material / policy state they need belo
 - Business-schema validation (eFTI FTI004/FTI007 XSD stays in `xml-mapper` **permanently** — business concern, not security). The future `/validations/xmlschema` endpoint takes caller-supplied schemas; it does not become a registry of eFTI schemas.
 - Business logic (FTI004/FTI007 semantic processing stays in edelivery / xml-mapper)
 - SOAP envelope assembly (stays in edelivery — framing, not security)
-- Peer registry CRUD and routing-URL management (stays in `registry` service + the shared trust store §7.2; Turvis is a read-only consumer of the trust slice)
+- Peer registry CRUD and routing-URL management (stays in `registry/` + the `registry` service, ADR-011; Turvis is a read-only consumer of the generated trust view §7.2, never of the registry service itself)
 - MIME multipart assembly on outbound AS4 (stays in edelivery — framing)
 - X-Road integration
 - UI
@@ -99,7 +99,7 @@ Security-sensitive operations and the key material / policy state they need belo
 ```
                 ┌───────────────────────────────┐
                 │ edelivery                     │  ──┐
-                │ (eFTI gate, Klite-based)      │    │ HTTP calls over mTLS mesh
+                │ (eFTI gate, Kotlin service)    │    │ HTTP calls over mTLS mesh
                 └───────────────────────────────┘    │
                                                      ▼
                 ┌─────────────────────────────────────────────────────────────────┐
@@ -327,7 +327,7 @@ Every endpoint's request body includes a **required** `return_fields` array. The
     },
     "trust_store_version": {
       "type": "string",
-      "description": "Optional. If caller wants verification against a specific trust-store generation. Omit for default."
+      "description": "Optional. If caller wants verification against a specific trust-view generation (§7.2 `generation`). Omit for default; a mismatch is rejected with TRUST_STORE_UNAVAILABLE."
     },
     "trace_id": {
       "type": "string",
@@ -711,19 +711,19 @@ Complete set across all four endpoints. Callers map each to a specific SOAP faul
 | `SIGNER_IDENTITY_MISMATCH` | 422 | verifications | Signer cert's SKI/Subject does not match `claimed_signer_id`. |
 | `SIG_BUILD_FAIL` | 422 | signatures | Internal error during XMLDSig construction. Rare; indicates library bug or input edge case. |
 | `KEY_HANDLE_UNKNOWN` | 422 | signatures, decryptions | `key_handle` not registered. |
-| `KEY_UNAVAILABLE` | 503 | signatures, decryptions | KMS temporarily unreachable; retry safe. |
+| `KEY_UNAVAILABLE` | 503 | signatures, decryptions | KMS temporarily unreachable; transient, retryable per §13.3. |
 | `WRAPPED_KEY_MALFORMED` | 422 | decryptions | RSA-OAEP ciphertext malformed. |
 | `SKI_MISMATCH` | 422 | decryptions | SKI from inbound `<wsse:KeyIdentifier>` does not match the SKI of the key behind `key_handle`. |
 | `AES_UNWRAP_FAIL` | 422 | decryptions | RSA-OAEP decrypt returned error. |
 | `PAYLOAD_DECRYPT_FAIL` | 422 | decryptions | AES-GCM decrypt returned error (likely integrity tag mismatch — payload tampered). |
-| `RECEIVER_UNKNOWN` | 422 | encryptions | `receiver_party_id` not in trust store. |
+| `RECEIVER_UNKNOWN` | 422 | encryptions | `receiver_party_id` absent from the trust view or not `ONLINE` there (detail names which). |
 | `RECEIVER_CERT_EXPIRED` | 422 | encryptions | Receiver cert past `notAfter`. |
 | `RECEIVER_CERT_UNTRUSTED` | 422 | encryptions | Receiver cert does not chain to trust store. |
 | `PAYLOAD_TOO_LARGE` | 413 | encryptions | Payload exceeds `MAX_PAYLOAD_BYTES` (default 50 MiB). |
 | `UNKNOWN_RETURN_FIELD` | 422 | all | `return_fields` contains a value not in the endpoint's projectable set (see §4.0 + per-endpoint enum). Caller typo; code must align with SPEC. |
 | `ALGO_UNSUPPORTED` | 422 | all | Fallback for any algorithm choice not in the pinned allowlist. |
-| `TRUST_STORE_UNAVAILABLE` | 503 | all | Trust store load failed; retry safe. |
-| `TURVIS_INTERNAL` | 500 | all | Internal bug. Retry NOT safe without investigation. |
+| `TRUST_STORE_UNAVAILABLE` | 503 | all | No usable trust snapshot; transient, retryable per §13.3 (including `encryptions`: a 503 reject never carries ciphertext). |
+| `TURVIS_INTERNAL` | 500 | all | Internal bug. Not retried automatically (§13.3). |
 
 Callers (edelivery) must handle every code. Unknown codes = treat as `SIG_CRYPTO_FAIL` equivalent (reject).
 
@@ -764,71 +764,93 @@ The gate's own private key is held exclusively inside Turvis (or a KMS behind it
 **What edelivery needs to know**:
 - `key_handle` field (passed on every `/signatures/xmldsig` + `/decryptions/xmlenc` call): **fixed per gate = `OWN_GATE_ID`** (e.g. `EU-EE`). Turvis rejects with `KEY_HANDLE_UNKNOWN` on mismatch. No multi-key support in v1.
 
-### 7.2 Shared trust store (parties file)
+### 7.2 Trust view generated from `registry/` (single source of truth)
 
-Both Turvis and edelivery read the **same** parties file as their single source of truth for peer directory + trust state. This eliminates drift between the two services at the cost of a shared config dependency.
+> **Status: proposed, pending explicit agreement** (kemit-ee#304, merge condition 1). This section replaces the earlier separately maintained `parties.yml` design, which was **not** approved. If an alternative is chosen instead, it must define the authoritative source and equivalent integrity, revocation and consistency guarantees (§7.4).
 
-**Mount**:
-- Path from env `TRUST_STORE_PATH` (default `/trust/parties.yml`).
-- Mounted **read-only** into both the Turvis pod and the edelivery pod.
-- Reload: both services watch the file and reload on change (atomic rename only — no partial reads).
+**Authoritative source.** `registry/` (ADR-011) stays the only human-edited store of peer identity, status and certificates. There is no second hand-maintained peer file. Turvis's trust configuration is **generated** from `registry/gates/*.yml` (and the optional `registry/trust-anchors/*.pem`) at build time.
 
-**Content** — only public or public-ish data. No private key material. No internal tokens.
+**Who reads what.**
 
-```yaml
-schema_version: "1.0"
-generation: "2026-10-16T12:00:00Z"
-signed_by: "cn=efti-trust-authority,o=efti-pki,c=eu"
-signature_b64: "..."
-signature_algorithm: "RS256"
-trust_anchors:
-  - alias: "efti-root-ca-2026"
-    cert_pem: "-----BEGIN CERTIFICATE-----\n..."
-parties:
-  - party_id: "EU-FR"
-    status: "ONLINE"                        # ONLINE / OFFLINE / DISABLED
-    edelivery:
-      url: "https://efti-fr.gov.fr/as4"     # edelivery reads this slice only
-    trust:                                  # Turvis reads this slice only
-      verified_identity: "EU-FR"
-      allowed_chain_anchors: ["efti-root-ca-2026"]
-      pinned_cert_pem: null                 # usually null; chain-of-trust (§9.4). Set for interim pinning.
-      cert_ski: "a1b2c3..."                 # advisory, for admin UI / monitoring
-      cert_subject_dn: "CN=EU-FR-gate,O=DGITM,C=FR"
-      valid_until: "2027-10-15T00:00:00Z"
+| Consumer | Reads | Does not read |
+|---|---|---|
+| edelivery | `registry` service (unchanged, ADR-011): `status`, `eDeliveryUrl`, `eDeliveryCert` for the AS4 party map and routing | the trust view |
+| Turvis | the generated **trust view** (below) | the `registry` service, platform entries, `apiKey`, `headers`, URLs, any other credential |
+
+edelivery keeps `RegistryClient` and its 60 s refresh; nothing about routing moves. Turvis never gains network access to the `registry` service, which also serves `platforms.json` with plaintext `apiKey` values (ADR-011 §5).
+
+**Generation (build time, allowlist-based).**
+- `scripts/registry-to-json.py` (already converter and validator, ADR-011 §3) gains a second output, `turvis-trust.json`. Fields are copied by **allowlist**, never by denylist: `party_id` (the registry `id`), `status`, `verified_identity`, `cert_pem` (= `eDeliveryCert`), `cert_ski`, `cert_subject_dn`, `valid_until` (derived from the certificate), and `trust_anchors[]`.
+- Only `ONLINE` and `DISABLED` exist (the registry has no `OFFLINE`); `DISABLED` entries are kept in the view so Turvis can answer with a precise detail line instead of "unknown".
+- Build fails if: a party that is `ONLINE` has no parseable `eDeliveryCert`; a certificate is already expired; `verified_identity` is duplicated; the output contains any key outside the allowlist (a unit test asserts `apiKey`, `headers`, `tlsCert` and URLs never appear).
+- The view is packaged as its own small static artifact (same build, same git SHA, separate image) and delivered to Turvis by image/volume, not through the apiKey-bearing `registry` image.
+
+```json
+{
+  "schema_version": "1.0",
+  "generation": "sha256:9f2c…",
+  "source_revision": "git:ce32e3e",
+  "trust_anchors": [{"alias": "efti-root-ca-2026", "cert_pem": "-----BEGIN CERTIFICATE-----\n…"}],
+  "parties": [
+    {"party_id": "EU-FR", "status": "ONLINE", "verified_identity": "EU-FR",
+     "cert_pem": "-----BEGIN CERTIFICATE-----\n…", "cert_ski": "a1b2c3…",
+     "cert_subject_dn": "CN=EU-FR-gate,O=DGITM,C=FR", "valid_until": "2027-10-15T00:00:00Z",
+     "allowed_chain_anchors": []}
+  ]
+}
 ```
 
-**Which service reads which slice**:
-- **Turvis** reads `party_id`, `status`, `trust.*`, `trust_anchors[]`. Verifies the file signature at load. Ignores `edelivery.*`.
-- **edelivery** reads `party_id`, `status`, `edelivery.*`. **MUST ignore `trust.*`** — a CI greppable rule (reading `trust.cert_pem` from edelivery is a code-review red flag). Signature verification of the parties file in edelivery is **optional** (routing-only data; but recommended because routing to an attacker-controlled URL leaks message bodies).
-- **Admin UI** reads both — advisory cert fields are OK to display.
-- **Ops monitoring** reads both — `turvis_trust_party_days_to_expiry` metric is exposed by Turvis per entry; `edelivery_route_count` by edelivery.
+`generation` is the SHA-256 of the canonical `parties`+`trust_anchors` content. The git revision is informational.
 
-**Distribution**:
-- Phase 1: operator writes the file locally; signature verification may be stubbed (`signed_by: "LOCAL-DEV"`, Turvis configurable to skip signature check in dev mode via `TRUST_STORE_SIGNATURE_REQUIRED=false`).
-- Phase 2: eFTI PKI (A3) distributes a signed manifest; Turvis MUST verify the signature against a configured trust anchor before loading. **Fail-closed**: on signature verification failure, Turvis keeps the previously-loaded trust store (does not transition to the unsigned/tampered file) and emits `TRUST_STORE_UNAVAILABLE` on new requests.
+**Pinning vs chain (explicit).** Both modes exist per party, and the mode is data-driven:
+- `allowed_chain_anchors: []` → the signer certificate must equal `cert_pem` (**pinning**, today's `singletonKeySelector` semantics per peer). This is the default produced from the registry in Phase 1.
+- `allowed_chain_anchors: [alias,…]` → the certificate must chain to one of those anchors (**chain of trust**, §9.4). Introduced per party when eFTI PKI governance supplies anchors.
 
-**Scope boundary**:
-- **Our own private key**: NOT in this file. Separate Turvis-only secret mount.
-- **TLS CA bundle for outbound HTTPS**: NOT in this file. Stays with edelivery (or the mesh); unrelated to AS4 signing.
-- **Internal service tokens / mTLS mesh material**: NOT in this file. Per-service secrets.
+**Integrity.**
+- Phase 1: Turvis recomputes `generation` on load and refuses a file whose hash does not match. The artifact itself is bound to the deployment by image digest (provenance via the existing SBOM/trivy pipeline).
+- Phase 2: a detached signature over `generation` (ADR-011 §2 release-time signing, or the A3 signed manifest) is verified against a configured anchor before loading. This is **not implemented yet** in the repo; it is a stated requirement, not a current control.
+- On any verification or parse failure Turvis keeps the previous snapshot and answers `TRUST_STORE_UNAVAILABLE` only if no snapshot was ever loaded (fail-closed at start-up; see §7.3).
+
+**Scope boundary.** Not in the view: our own private key (Turvis-only secret mount), the TLS CA bundle for outbound HTTPS (stays with edelivery or the mesh), internal tokens, mesh material, platform credentials.
 
 ### 7.3 Reload semantics
 
-- Change detection: file-watch (inotify on Linux) OR periodic poll at `TRUST_STORE_REFRESH_SECONDS` (default 300).
-- Atomic swap: writer renames `parties.yml.new` → `parties.yml` so readers never see partial content.
-- In-flight requests complete against the trust-store snapshot they started with; next request uses the new snapshot. No mid-request switch.
-- Load failure: current snapshot stays in use; the service emits an alert metric (`turvis_trust_store_load_failed_total`) and continues serving the previous content.
+- Delivery is image- or volume-based; Turvis re-reads the artifact on change (file watch) or at `TRUST_STORE_REFRESH_SECONDS` (default 60, matching edelivery's `REGISTRY_REFRESH_SECONDS`).
+- In-flight requests finish against the snapshot they started with; the next request uses the new one. No mid-request switch.
+- **Load failure after a successful earlier load**: the current snapshot stays in use, `turvis_trust_store_load_failed_total` increments, and the divergence alert (§7.4) fires if the failure persists.
+- **Load failure with no snapshot** (first start): `/readyz` stays non-ready and crypto endpoints answer `TRUST_STORE_UNAVAILABLE`.
+- A registry edit applies only after the registry **and** trust artifacts are rebuilt and deployed (ADR-011: a restart alone applies nothing).
 
-### 7.4 Drift detection (CI, not runtime)
+### 7.4 Consistency, revocation and divergence
 
-Drift between edelivery's routing view and Turvis's trust view **is impossible by construction** — they read the same file. The only drift risk is between the shared file and the eFTI PKI registry (upstream). This is caught by:
+Sharing a source does not make two pods agree on the generation they have loaded. The contract therefore makes generations visible and divergence an alert, not an assumption.
 
-- **Deploy pipeline**: CI compares the deployed `parties.yml` against the upstream PKI manifest; refuses promotion on mismatch.
-- **Prometheus alerts**: `turvis_trust_store_last_reload_timestamp` age exceeds threshold → "trust store stale."
-- **Cron**: optional background job inside Turvis compares file hash against upstream manifest hash on a schedule; fails open (emits alert, doesn't block requests).
+**Visible generations.**
+- Turvis exports `turvis_trust_generation_info{generation="…"} 1` and returns `X-Turvis-Trust-Generation` on every response; edelivery logs it with the `audit_ref`.
+- edelivery exports the generation of its loaded registry as `edelivery_registry_generation_info{generation="…"} 1`. The registry artifact and the trust artifact are built from the same revision, so their `generation` values are derived from the same content hash for the shared party fields.
+- **Alert**: more than one distinct `generation` among Turvis replicas, or Turvis and edelivery on different generations, for longer than 5 minutes. A rolling deploy produces short, expected overlap.
 
-The dev team does not need to add any edelivery-side drift check. Any mismatch surfaces as a reason-code reject at the first affected message (`RECEIVER_UNKNOWN` / `SIGNER_UNTRUSTED`).
+**Revocation and status (deny wins).** A party is usable only if **both** views say `ONLINE`. Neither side may widen the other's decision.
+
+| edelivery registry | Turvis trust view | Inbound (verify) | Outbound |
+|---|---|---|---|
+| `ONLINE` | `ONLINE` | accepted | sent |
+| `DISABLED` | `ONLINE` | verify accepts; edelivery rejects the sender as for an unknown id (ADR-011: `DISABLED` is a full stop) | not in AS4 party map; no Turvis call |
+| `ONLINE` | `DISABLED` / absent | `SIGNER_UNTRUSTED` (detail names the status) | `RECEIVER_UNKNOWN` → `OUTBOUND_FAILED` (§13.3a) + divergence alert |
+| `DISABLED` | `DISABLED` | `SIGNER_UNTRUSTED` | not sent |
+
+A row with different statuses is a **generation mismatch**, resolved by deploying the matching artifacts; it is never resolved by trusting the more permissive side.
+
+**Certificate rotation.** Rotating a peer certificate changes `cert_pem` in `registry/gates/<id>.yml`; one build yields both artifacts. During the overlap a peer may sign with either generation's certificate, so rotation of a pinned party is performed by listing the new certificate in the same change and removing the old one after the peer cut over. Expiry is monitored by `turvis_trust_party_days_to_expiry`.
+
+**Own certificate.** The private key lives only in Turvis. Turvis exposes `turvis_own_cert_info{ski="…"}` and `turvis_own_cert_days_to_expiry` for the key behind `key_handle`. A deploy-time check compares the SKI with `cert_ski` of `registry/gates/<OWN_GATE_ID>.yml`, which is the certificate peers receive; a mismatch blocks promotion.
+
+**Drift sources and controls.**
+- Registry vs trust view: impossible within one build (same files, one script); detected across deployments by the generation alert above.
+- Trust view vs upstream PKI manifest (Phase 2): deploy pipeline compares them and refuses promotion on mismatch.
+- Mock vs real: `turvis-mock` has no trust view; it is exercised via `X-Mock-Verdict` only (§13.0).
+
+**Network effect (#309).** Turvis needs no egress to the `registry` service. If the trust artifact is delivered by volume it needs no network path at all; if by HTTP, only its own artifact service.
 
 ---
 
@@ -857,6 +879,22 @@ Throughput, availability, error-rate SLOs, replica count, CPU/memory sizing — 
 
 Hard contract. Violations break signature verification on the peer side.
 
+#### 9.1a Attachment and decrypt/verify byte contract
+
+The legacy implementation signs and verifies the `cid:message` reference over the **decrypted, gzip-compressed payload** — never over the encrypted wire attachment. The contract keeps exactly that, so signed content stays verifiable across the four calls:
+
+| Direction | Bytes the `cid:message` digest covers | Where they come from |
+|---|---|---|
+| Outbound sign | gzip(plaintext payload) | edelivery passes them as `attachment_bytes_b64`; the same bytes are the input of `/encryptions/xmlenc` |
+| Outbound wire | `encrypted_payload_b64` (IV‖ciphertext‖tag) | encrypt response; **not** what is signed |
+| Inbound decrypt | — | `decrypted_attachment_b64` = the gzip(plaintext) the sender signed |
+| Inbound verify | gzip(plaintext payload) | edelivery passes `decrypted_attachment_b64` verbatim as `attachments[].bytes_b64` |
+
+Rules:
+- Decrypt MUST NOT alter any byte of an element covered by a `<ds:Reference>` (`eb:Messaging`, `env:Body`). In the AS4 profile the encrypted content is the attachment, so `decrypted_soap_xml_b64` equals the input envelope byte-for-byte (§13.0 compares "modulo whitespace" only to tolerate a different but equivalent encoder in `shadow`).
+- edelivery passes the decrypt output to verify without re-encoding. A decrypt that changed signed content surfaces as `SIG_CRYPTO_FAIL`, never as silent acceptance.
+- Plaintext profile: decrypt and encrypt pass bytes through unchanged; the same gzip convention applies, so one code path serves both profiles.
+
 ### 9.2 Policy enforcement on inbound verify
 
 Every verification call carries `required_signed_xpaths` + `required_signed_cid_refs`. Turvis rejects with `SIG_POLICY_FAIL` if any required subtree is not in `SignedInfo.references`.
@@ -872,7 +910,7 @@ The policy table lives in edelivery config, not Turvis state.
 
 ### 9.3 edelivery's XML parsing surface after cutover
 
-**Zero.** After A9-SUB-4 cutover, edelivery does not parse untrusted XML at all:
+**Zero.** In `turvis` mode (and permanently once #312 removes the legacy path), edelivery does not parse untrusted XML at all:
 
 - **Inbound**: edelivery MIME-splits the multipart (standard HTTP framework, non-XML), hands raw bytes to Turvis's decrypt + verify endpoints, reads routing/signer fields from Turvis's JSON responses, dispatches to handlers.
 - **Outbound**: edelivery authors a SOAP envelope using string templating or DOM builder on **trusted** (edelivery-authored) input, calls Turvis to encrypt + sign, assembles multipart.
@@ -886,8 +924,8 @@ Turvis's log hygiene, mesh-layer rejection of non-authorised clients, and egress
 In a 27-gate eFTI network with multiple CAs and platforms, per-peer **pinning** doesn't scale operationally — every peer cert rotation would require updating N-1 pinned lists, and adding a new gate would require updates in N-1 places. Turvis uses **chain of trust** with CA governance:
 
 Trust decision on verify:
-1. Signer cert MUST chain to a trusted root (listed in `trust_anchors[]` of the shared trust store, §7.2).
-2. Signer cert's `verified_identity` (derived from the cert's Subject or SAN) MUST equal the `trust.verified_identity` of some entry in the `parties[]` list.
+1. Signer cert MUST satisfy the party's trust mode (§7.2): equal the party's `cert_pem` (pinning, `allowed_chain_anchors` empty) or chain to one of its `allowed_chain_anchors` (chain of trust).
+2. Signer cert's `verified_identity` (derived from the cert's Subject or SAN) MUST equal the `verified_identity` of some entry in the trust view's `parties[]`.
 3. That party's `status` MUST be `ONLINE`.
 
 Failure modes map to §5 reason codes:
@@ -896,11 +934,10 @@ Failure modes map to §5 reason codes:
 - Chain OK, party matches, but `status != ONLINE` → `SIGNER_UNTRUSTED` with a detail line noting the status
 - Signer identity doesn't match caller's `claimed_signer_id` (when provided) → `SIGNER_IDENTITY_MISMATCH`
 
-**Interim pinning hook** (not recommended, but supported for networks without PKI governance):
-- If a `parties[]` entry has `trust.pinned_cert_pem` set to a non-null value, Turvis verifies the signer cert matches that exact PEM in addition to (or instead of) chain verification.
-- Fleet migration path: all 27 gates start with `pinned_cert_pem` set to the current cert, then transition to chain-anchor-only as the eFTI PKI governance ships. Turvis's code should treat `pinned_cert_pem` as optional per-entry so flipping an entry doesn't require code changes.
+**Pinning mode** (the Phase 1 default generated from the registry, §7.2): a party with no `allowed_chain_anchors` is verified against its exact `cert_pem`.
+- Fleet migration path: all gates start pinned to their registered `eDeliveryCert`, then move party by party to chain-anchor mode as eFTI PKI governance ships. The mode is data, so flipping a party needs no code change.
 
-**Current `singletonKeySelector` pattern in the legacy code**: incompatible with this model (hardwires a single pinned cert). Replaced wholesale by the shared-trust-store lookup during A9-SUB-4 cutover (§13.6).
+**Current `singletonKeySelector` pattern in the legacy code**: incompatible with this model (hardwires a single pinned cert). Superseded by the per-party trust-view lookup; the legacy selector is deleted by #312 (§13.6).
 
 ---
 
@@ -947,17 +984,20 @@ Required metrics:
 | `turvis_requests_total` | counter | `endpoint`, `verdict` | Request count. |
 | `turvis_request_duration_seconds` | histogram | `endpoint` | Latency. Buckets: 0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5. |
 | `turvis_rejections_total` | counter | `endpoint`, `reason_code` | Reject count. |
-| `turvis_trust_store_entries` | gauge | — | Count of entries in the shared trust store (§7.2). |
+| `turvis_trust_store_entries` | gauge | — | Count of parties in the loaded trust view (§7.2). |
 | `turvis_trust_store_last_reload_timestamp` | gauge | — | Unix timestamp of last successful reload. |
 | `turvis_trust_store_load_failed_total` | counter | — | Count of trust store (re)load failures. Alert if increasing. |
-| `turvis_trust_party_days_to_expiry` | gauge | `party_id` | Days until `trust.valid_until` for each party in the shared trust store. Alert on < 30. |
+| `turvis_trust_party_days_to_expiry` | gauge | `party_id` | Days until `valid_until` for each party in the loaded trust view. Alert on < 30. |
+| `turvis_trust_generation_info` | gauge | `generation` | Always 1; label is the loaded trust-view generation (§7.4). Alert on more than one distinct value for > 5 min. |
+| `turvis_own_cert_info` | gauge | `ski` | Always 1; SKI of the certificate behind `key_handle` (§7.4). |
+| `turvis_own_cert_days_to_expiry` | gauge | — | Days until the own certificate expires. Alert on < 30. |
 | `turvis_token_auth_after_mesh_total` | counter | — | Requests that authenticated via token when `AUTH_MODE=mtls-or-token`. **MUST be alerted on** — any non-zero value after mesh enrollment is a misconfiguration (SPEC §11.2). |
 | `turvis_build_info` | gauge | `version`, `git_sha` | Static. |
 
 Cardinality notes:
 - `reason_code` label is bounded (see §5 enum).
 - `endpoint` label is bounded (4 request endpoints + the audit-query endpoint).
-- `party_id` label on `turvis_trust_party_days_to_expiry` is bounded by the trust-store entry count (expected: 27 ± growth).
+- `party_id` label on `turvis_trust_party_days_to_expiry` is bounded by the trust-view party count (expected: 27 ± growth); `generation` by the number of live generations (≤ 2 outside a rolling deploy).
 - Do NOT add peer `party_id` as a label on request counters — attackers could flood that cardinality.
 
 ### 10.4 Structured application logs
@@ -1072,7 +1112,26 @@ TURVIS_INTEGRATION_MODE = legacy | shadow | turvis
    - Discrepancy threshold for all other differences: < 0.01% of messages, no new class of discrepancy in the trailing 7 days.
 3. **Dev / staging**: flip to `turvis`. Legacy code remains in place but is NOT called in the hot path. Monitor for 1-2 weeks.
 4. **Prod**: repeat 1-3.
-5. **Only AFTER prod has run on `turvis` for ≥ 30 days** → the code deletions in §13.6 are safe to execute (A9-SUB-4 cutover). Legacy code deletion is **not** at #305 merge time; it's at the end of the rollout.
+5. **Only AFTER prod has run on `turvis` for ≥ 30 days and the rollback window is formally closed** may legacy removal start (§13.6, kemit-ee#312, a dedicated PR). Legacy code deletion is **not** at #305 merge time and **not** part of #308.
+
+**Ownership and gates** (proposed, pending explicit agreement; this section replaces the earlier 7d/3d/30d sketch in #308):
+
+| Item | Owner |
+|---|---|
+| Integration code, `legacy`/`shadow`/`turvis` flag | #305 |
+| Mock and contract checks | #306 |
+| Real-service interop, shadow comparison, promotion, observation, **decision to close the rollback window** | #308 (named promotion owner + one independent reviewer record each decision with evidence) |
+| Mesh and NetworkPolicy enforcement | #309, verified through #307 |
+| Final code, key-access, flag and fallback removal | #312 |
+| Pre-removal audit (GO / NO-GO) | #313 |
+
+- **Rollback** is a configuration flip (`turvis` → `shadow` → `legacy`) and stays available from the first prod `turvis` flip until the rollback window is closed. The window ends only by a recorded #308 decision; #312 then removes the flag.
+- **Hard gate**: no removal work, PR or deployment starts until #313 is closed as completed with an explicit GO and the agreed CI suite is green for the recorded baseline SHA. Any relevant change invalidates the GO.
+- Shadow comparison is run against the **real** Turvis versus the legacy path, never against the mock.
+
+**Shadow-mode invariants** (assert each with a test): the Turvis call in `shadow` is bounded and isolated from the AS4 critical path (a slow, failing or crashing call adds no latency to and cannot fail the authoritative legacy path); discrepancies are counted by `endpoint` and `kind` so the promotion criteria above are queryable rather than log-read; verified routing and sender binding come from the verify response only (§13.9).
+
+**Start-up guard** (edelivery, not the mock): refuse to start when `TURVIS_URL` resolves to the `turvis-mock` host and `ENVIRONMENT`/`APP_ENV`/`DEPLOY_ENV` is `prod` or `staging`; the mock is excluded from production deployment manifests.
 
 **Mock-must-not-be-laxer-than-real rule**: anything the real Turvis rejects must be reachable via `X-Mock-Verdict` on the Phase 1 mock. Specifically — plaintext inbound (no `<xenc:*>`) in a context where encryption is required, identity mismatch, missing signature, bad algorithm. The mock's `/metadata` route (optional, future) can declare which reject reasons are reachable; a CI check compares against §5.
 
@@ -1140,14 +1199,16 @@ For inbound AS4 messages, Turvis reject responses must be translated to AS4 (ebM
 | `UNKNOWN_RETURN_FIELD` | (programmer error) | edelivery sent bad `return_fields` | `UnknownReturnFieldException` — ALERT, this is a code bug |
 | `ALGO_UNSUPPORTED` | `EBMS:0003` ValueInconsistent | Algorithm not allowed | `AlgoUnsupportedException` |
 | `TRUST_STORE_UNAVAILABLE` | (transient) | File reload failed; retryable | `TrustStoreUnavailableException` |
-| `TURVIS_INTERNAL` | `EBMS:0004` InvalidHeader (inbound) / exception (outbound) | Internal Turvis bug | `TurvisInternalException` — ALERT |
+| `TURVIS_INTERNAL` | HTTP 503 to the peer, no ebMS fault (inbound; not a peer error, §13.2) / exception (outbound) | Internal Turvis bug | `TurvisInternalException` — ALERT |
 
 ### 13.3 Timeout + retry
 
 - Per-call HTTP timeout: 10 seconds (well above p99 budget of 150ms).
-- **Retries on transient codes** (`KEY_UNAVAILABLE`, `TRUST_STORE_UNAVAILABLE`, network error, 503): 2 retries with exponential backoff (100ms, 300ms). After final failure, treat as fatal for the message.
-- **No retries on non-transient 4xx**: a `SIG_POLICY_FAIL` or `UNKNOWN_RETURN_FIELD` won't fix itself; retry is wasted and causes duplicate audit entries.
-- **No retries on `/encryptions/xmlenc` in wss-encrypted mode**: not byte-idempotent (fresh AES key per call). A failed encrypt leaves the message in `OUTBOUND_FAILED`; see §13.3a.
+- **Retried (max 2 retries, backoff 100 ms then 300 ms; then fatal for the message):** a 503 carrying `KEY_UNAVAILABLE` or `TRUST_STORE_UNAVAILABLE`, and, for the idempotent endpoints (`verifications`, `decryptions`, `signatures`; §4.1/§4.2/§4.4 "same request → identical response"), a network error or timeout.
+- **`/encryptions/xmlenc` in `wss-encrypted` profile** (not byte-idempotent, fresh AES key per call): retried **only** on a 503 reject with a reason code. A reject never carries ciphertext or a wrapped key, so a retry cannot leave two usable results. Network errors, timeouts and any response without a reason code are **not** retried, because the first call may have produced a key; the message goes to `OUTBOUND_FAILED` (§13.3a). `plaintext` profile has no such restriction.
+- **Never retried:** non-transient 4xx (`SIG_POLICY_FAIL`, `UNKNOWN_RETURN_FIELD`, …) and `TURVIS_INTERNAL` (500) — a retry only adds duplicate audit entries or masks a bug.
+- Retries run inside the asynchronous outbound job (§13.3a); they never block an inbound peer response beyond the inbound path rules in §13.2.
+- "Retry safe" in §5 therefore means *transient*, not "retry is unconditionally allowed"; this section is the only normative retry policy.
 
 #### 13.3a Async outbound failure handling
 
@@ -1166,13 +1227,14 @@ See §9.1 — hard contract.
 
 For every verification call, edelivery declares `required_signed_xpaths` and `required_signed_cid_refs` per the policy table in §9.2. Policy table lives in edelivery config, not turvis state.
 
-### 13.6 Code deletions on cutover
+### 13.6 Code deletions on legacy retirement (kemit-ee#312)
 
-After A9-SUB-4 cutover:
+These deletions are made **only** in the dedicated removal PR tracked by #312, after §13.0 step 5 and a #313 GO. #305 and #308 delete nothing. After retirement:
 
 **Private key + crypto code:**
 - `code/edelivery/src/edelivery/KeyManager.ownPrivateKey` field: deleted
-- Private-key secret volume mount: removed from edelivery container
+- Private-key secret volume mount (`/app/certs/own.p12`) and `KEYSTORE_PASSWORD`: removed from edelivery container and deployment guidance
+- `TURVIS_INTEGRATION_MODE` and shadow/fallback branches: removed; no supported way to enable legacy mode remains in current configuration or runbooks (historical ADRs stay as history)
 - `code/edelivery/src/edelivery/SignatureValidator.kt`: deleted
 - `code/edelivery/src/edelivery/Xml.kt::canonicalXml()`: deleted
 - `code/edelivery/src/edelivery/EDeliveryMessageGenerator`: signing + encryption methods deleted
@@ -1214,7 +1276,7 @@ Business paths (party permission lookup, authz checks) use `signer.verified_iden
 
 ### 13.10 `claimed_signer_id` + party_id format
 
-The SPEC §4.1 regex `^[A-Z]{2}-[A-Z0-9]{2,8}$` is the FORMAL gate-identity format for cross-border AS4 (`EU-FR`, `EU-EE`). Dev/test environments use party IDs that don't fit (`mock`, `mock-edelivery`, `pikker`). The regex is therefore **advisory, not enforced** — Turvis accepts any non-empty string ≤ 64 chars matching `^[a-zA-Z0-9][a-zA-Z0-9_\-]{0,63}$`. Production deploys may enforce the stricter pattern via a separate CI gate on the shared trust store.
+The SPEC §4.1 regex `^[A-Z]{2}-[A-Z0-9]{2,8}$` is the FORMAL gate-identity format for cross-border AS4 (`EU-FR`, `EU-EE`). Dev/test environments use party IDs that don't fit (`mock`, `mock-edelivery`, `pikker`). The regex is therefore **advisory, not enforced** — Turvis accepts any non-empty string ≤ 64 chars matching `^[a-zA-Z0-9][a-zA-Z0-9_\-]{0,63}$`. Production deploys may enforce the stricter pattern via a separate CI gate on the `registry/` ids.
 
 ### 13.11 Dev loopback replacement (no self-loop)
 
@@ -1222,7 +1284,7 @@ The legacy `acceptsReceiver` pattern (EU-MOCK sharing EU-EE's cert for one-conta
 
 - **Preferred**: dev gate-to-gate testing uses `multiple-gates.sh` (estlandia/latveria/lithonia) in docker-compose. Each gate runs its own edelivery, pointing at a shared `turvis-mock` compose service. Mock pass-through semantics make the three mock gates self-consistent without needing cert-reuse.
 - **Alternative**: `turvis-mock` dev-mode toggle (not in this SPEC; separate from production turvis-mock behaviour): `TURVIS_MOCK_PERMISSIVE_IDENTITY=true` → accepts any `claimed_signer_id` without trust-store lookup. Scoped to `turvis-mock` only; the real Turvis never has this flag.
-- **Dropped**: `acceptsReceiver` + `isReceiverAccepted` methods in edelivery; EU-MOCK party entry in registry. Removed as part of §13.6 cutover.
+- **Dropped**: `acceptsReceiver` + `isReceiverAccepted` methods in edelivery; EU-MOCK party entry in registry. Removed by #312 (§13.6).
 
 ---
 
@@ -1429,17 +1491,17 @@ Content-Type: application/json
 
 - **AS4**: OASIS ebMS 3.0 Advanced AS4 messaging profile. Specifies SOAP-with-attachments transport for business messages between e-delivery gateways.
 - **ebMS 3.0**: OASIS Electronic Business Messaging Services version 3.0. SOAP-based messaging specification.
-- **edelivery**: the Kotlin/Klite-based service in the eFTI gate that handles AS4 inbound/outbound traffic.
+- **edelivery**: the Kotlin service in the eFTI gate that handles AS4 inbound/outbound traffic.
 - **exc-c14n**: W3C Exclusive XML Canonicalisation 1.0. Tree-based deterministic serialisation algorithm for XMLDSig.
 - **FTI004 / FTI007 / etc.**: eFTI message schemas defining the business payload structure.
 - **KMS**: Key Management Service. Cloud / HSM-backed private key holder (AWS KMS, GCP KMS, HashiCorp Vault, etc.).
-- **Klite**: an in-house Kotlin HTTP framework by the fleet. The gate's `edelivery` + `xml-mapper` services are built on it.
+- **klite**: the Kotlin HTTP framework the gate's JVM services (`edelivery`, `xml-mapper`) are built on. It is a library, not a component of this contract.
 - **mTLS**: mutual TLS. Client + server both present + verify certificates.
 - **OWASP XXE Prevention**: canonical hardening guide for XML parsers against external entity attacks.
 - **RFC 7807**: HTTP problem+json error response format.
 - **SKI**: X.509 Subject Key Identifier. Hash of the public key, usable as a stable identity reference.
 - **SwA**: SOAP with Attachments. OASIS profile for binding non-XML content to SOAP messages via MIME multipart.
-- **Trust store**: collection of trusted peer certs used for signature verification + encryption-target lookup.
+- **Trust store**: the least-privilege trust view Turvis loads (peer identity, status, certificate, trust anchors). Generated from `registry/` (§7.2); never edited by hand.
 - **WS-Encryption**: OASIS Web Services Encryption. XML syntax for RSA-OAEP key wrapping + AES-GCM payload encryption of SOAP body / attachment.
 - **XMLDSig**: W3C XML Signature. XML syntax for digital signatures over XML content.
 
@@ -1491,3 +1553,4 @@ Explicitly excluded from this build. If any of these later come into scope, that
 | 2026-10-16 | Rename leftovers: `sec_*` metric names → `turvis_*` (§10.3); audit-workspace `A9-xml-validator/` path refs scrubbed from DSL files and SPEC cross-references | sviljus review body: rename leftover cleanup |
 | 2026-10-19 | §4.1/§4.2 `signature_digests` / `signatures` items now carry `reference_uri` + `transforms` (`subtree_xpath` optional, absent for `cid:` references); §4.1 verify `ebms_routing` is taken from the exact `<eb:Messaging>` covered by the verified signature (otherwise `SIG_POLICY_FAIL`); §4.4 decrypt `ebms_routing` is diagnostic only and §2.2 flow no longer requests it | #305 acceptance criteria (verified routing, NRR reference reconstruction), review of Turvis integration issues |
 | 2026-10-20 | §13.0 step 2: security-decision discrepancies must be zero unexplained; the `< 0.01%` allowance applies only to non-security differences | #304 / #308 position; shadow gate must not hide a wrong accept/reject |
+| 2026-10-20 | §7.2–7.4 rewritten: trust view generated from `registry/` (allowlist, no `apiKey`, pinning/chain per party, generation visibility, deny-wins status table) replacing the unapproved `parties.yml`; §13.0 ownership split (#305/#306/#308/#309/#312/#313), shadow invariants and start-up guard; §13.3 retry policy reconciled with §5; §13.6 deletions moved to #312; §9.1a attachment byte contract; `Klite` references removed | #304 merge conditions; **proposed, pending explicit agreement** |
