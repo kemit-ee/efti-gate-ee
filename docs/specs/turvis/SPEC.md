@@ -766,7 +766,7 @@ The gate's own private key is held exclusively inside Turvis (or a KMS behind it
 
 ### 7.2 Trust view generated from `registry/` (single source of truth)
 
-> **Status: proposed, pending explicit agreement** (kemit-ee#304, merge condition 1). This section replaces the earlier separately maintained `parties.yml` design, which was **not** approved. If an alternative is chosen instead, it must define the authoritative source and equivalent integrity, revocation and consistency guarantees (§7.4).
+> **Status: agreed** (kemit-ee#304 merge condition 1; approved on PR #311). This section replaces the earlier separately maintained `parties.yml` design. The follow-up work (the `registry-to-json.py` extension that emits `turvis-trust.json`, and an ADR-011 amendment) is tracked outside this PR; the Phase-2 integrity mechanism (ADR-011 §2 release signing vs an A3 signed manifest) is left open.
 
 **Authoritative source.** `registry/` (ADR-011) stays the only human-edited store of peer identity, status and certificates. There is no second hand-maintained peer file. Turvis's trust configuration is **generated** from `registry/gates/*.yml` (and the optional `registry/trust-anchors/*.pem`) at build time.
 
@@ -1045,6 +1045,7 @@ A3 (strict mTLS mesh + NetworkPolicy) is a hard dependency on this build's final
   - `mtls-or-token` (migration overlap) — accepts either. **Expires at `AUTH_MODE_TOKEN_EXPIRY` (RFC 3339 timestamp env var)**; after this timestamp, token-bearer requests reject with 401 regardless of `AUTH_MODE`. Required to prevent "temporary" overlap becoming permanent.
 - **mTLS identity check**: ServiceAccount identity is in the client cert's **SAN (SubjectAlternativeName)** URI entries, typically formatted as `spiffe://cluster.local/ns/<namespace>/sa/<name>`. The guard matches against SAN entries, NOT the Subject DN (`client_subject_dn.indexOf(...)` would never match). See `.guard.yml` for the exact predicate.
 - **Fail-closed**:
+  - **Environment guard**: with `ENVIRONMENT` / `APP_ENV` / `DEPLOY_ENV` set to `prod` or `staging`, Turvis refuses to start when `AUTH_MODE=shared-token` (same shape as the §13.0 start-up guard against the mock). `shared-token` is the Phase-1 interim for compose dev; `mtls` is the target once #309 lands. `mtls-or-token` remains allowed in those environments only as the time-boxed migration overlap (`AUTH_MODE_TOKEN_EXPIRY` required). Neither mode replaces WS-Security or the trust-view match on the AS4 side. The Phase-1 Ruuter mock cannot enforce this (see below); a real Turvis must.
   - On startup: if `AUTH_MODE=shared-token` or `mtls-or-token` and `TURVIS_INTERNAL_TOKEN` is unset / equals a known-weak default / has length < 32 → Turvis refuses to boot.
   - Known-weak defaults (minimum): `""`, `"dev-token-change-me"`, `"changeme"`, `"turvis-dev"`.
   - This fail-closed check lives in the real Turvis startup code. The Phase 1 Ruuter mock **cannot** enforce it — that's a known gap documented here, not a mock bug.
@@ -1114,7 +1115,7 @@ TURVIS_INTEGRATION_MODE = legacy | shadow | turvis
 4. **Prod**: repeat 1-3.
 5. **Only AFTER prod has run on `turvis` for ≥ 30 days and the rollback window is formally closed** may legacy removal start (§13.6, kemit-ee#312, a dedicated PR). Legacy code deletion is **not** at #305 merge time and **not** part of #308.
 
-**Ownership and gates** (proposed, pending explicit agreement; this section replaces the earlier 7d/3d/30d sketch in #308):
+**Ownership and gates** (agreed on PR #311; replaces the earlier 7d/3d/30d sketch in #308):
 
 | Item | Owner |
 |---|---|
@@ -1554,3 +1555,4 @@ Explicitly excluded from this build. If any of these later come into scope, that
 | 2026-10-19 | §4.1/§4.2 `signature_digests` / `signatures` items now carry `reference_uri` + `transforms` (`subtree_xpath` optional, absent for `cid:` references); §4.1 verify `ebms_routing` is taken from the exact `<eb:Messaging>` covered by the verified signature (otherwise `SIG_POLICY_FAIL`); §4.4 decrypt `ebms_routing` is diagnostic only and §2.2 flow no longer requests it | #305 acceptance criteria (verified routing, NRR reference reconstruction), review of Turvis integration issues |
 | 2026-10-20 | §13.0 step 2: security-decision discrepancies must be zero unexplained; the `< 0.01%` allowance applies only to non-security differences | #304 / #308 position; shadow gate must not hide a wrong accept/reject |
 | 2026-10-20 | §7.2–7.4 rewritten: trust view generated from `registry/` (allowlist, no `apiKey`, pinning/chain per party, generation visibility, deny-wins status table) replacing the unapproved `parties.yml`; §13.0 ownership split (#305/#306/#308/#309/#312/#313), shadow invariants and start-up guard; §13.3 retry policy reconciled with §5; §13.6 deletions moved to #312; §9.1a attachment byte contract; `Klite` references removed | #304 merge conditions; **proposed, pending explicit agreement** |
+| 2026-10-20 | §11.2 environment guard: `AUTH_MODE=shared-token` refused in prod/staging; §7.2 and §13.0 marked agreed | turnerrainer approval of the six decisions on PR #311 |
