@@ -1,5 +1,5 @@
 declaration:
-  description: "Cabotage-expiry sweep (Reg 2024/1942 Art 11(4)) — CronManager calls this on a timer
+  description: "Cabotage-expiry sweep (Reg 2024/1942 Art 11(4)) - CronManager calls this on a timer
     (Bearer ARCHIVE_OPS_TOKEN). Every current road consignment (transport mode 3, latest row ACTIVE)
     whose carrier acceptance date is more than 14 days ago gets an INACTIVE copy appended as its new
     latest row; nothing is updated or deleted. At most 1000 per call - `more: true` means re-invoke.

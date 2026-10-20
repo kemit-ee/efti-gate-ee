@@ -1,5 +1,5 @@
 declaration:
-  description: "Search-state retention — CronManager calls this on a short timer (Bearer
+  description: "Search-state retention - CronManager calls this on a short timer (Bearer
     ARCHIVE_OPS_TOKEN). Permanently deletes cross-gate search rows (search_results) older than
     keepMinutes; they are useless once the caller's polling window has passed. Body (optional):
     {keepMinutes: number}."

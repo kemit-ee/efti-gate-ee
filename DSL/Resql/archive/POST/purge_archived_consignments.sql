@@ -1,5 +1,5 @@
 /*
-description: (archive DB) cold-storage retention — permanently delete archived rows older than
+description: (archive DB) cold-storage retention - permanently delete archived rows older than
   keepDays. Separate from the copy flow so retention policy can be tuned on its own.
 params:
   keepDays: { type: number, default: 2555 }

@@ -34,7 +34,7 @@ consignment_to_json:
       x-dataset-id: ${incoming.params?.pathParams?.[0]}
   result: consignment_json
 
-# Transport failure reaching xml-mapper (issue #89, status 0) — without this the stub body
+# Transport failure reaching xml-mapper (issue #89, status 0) - without this the stub body
 # {error,message} would be POSTed to insert_consignment as if it were the parsed consignment.
 check_json:
   switch:

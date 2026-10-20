@@ -3,11 +3,11 @@ declaration:
     (ADR-006). Forwards to the gate's core REST API. No subset gate: a follow-up carries a message,
     not dataset content, and takes no subset parameter."
   # Inputs (X-Road-Client / X-Road-Id validated by xroad/.guard.yml):
-  #   body.uil          object, required — {gateId, platformId, datasetId}
-  #   body.referenceIds array,  required — dataset-request ids this follow-up refers to
-  #   body.message      string, required — the follow-up text
-  #   body.files        array,  optional — {fileName, base64Content, mimeType}
-  # No allowed_body — it would make `files` mandatory and strip anything core adds later; a proxy
+  #   body.uil          object, required - {gateId, platformId, datasetId}
+  #   body.referenceIds array,  required - dataset-request ids this follow-up refers to
+  #   body.message      string, required - the follow-up text
+  #   body.files        array,  optional - {fileName, base64Content, mimeType}
+  # No allowed_body - it would make `files` mandatory and strip anything core adds later; a proxy
   # should not strip fields core validates itself. `validate_input` below is the contract.
   internal: false
   returns: []
@@ -42,11 +42,11 @@ bad_request:
 
 # SCALE-2: cross-node request-id dedup via the shared request_id_cache table (not in-process
 # state). A follow-up is one-shot (no poll re-use of the same X-Road-Id), so a repeat is a genuine
-# retry/replay — reject it before forwarding to core rather than risking a duplicate follow-up.
+# retry/replay - reject it before forwarding to core rather than risking a duplicate follow-up.
 #
 # Known source of a rare, real duplicate: see dataset.yml's forward_to_core for why Ruuter's own
 # reqwest/tower retry budget can occasionally make this call's own retry look like a duplicate of
-# itself — not a logic bug here.
+# itself - not a logic bug here.
 forward_to_core:
   call: http.post
   args:
@@ -60,7 +60,7 @@ forward_to_core:
 
 # Only a successful 200 with an empty array (ON CONFLICT DO NOTHING fired, meaning a real duplicate)
 # routes to duplicate_request. Any non-200 falls through to do_forward_to_core instead of denying:
-# a best-effort idempotency aid, not an auth boundary — ReSql being unreachable must not block every
+# a best-effort idempotency aid, not an auth boundary - ReSql being unreachable must not block every
 # follow-up request.
 check_duplicate_result:
   switch:

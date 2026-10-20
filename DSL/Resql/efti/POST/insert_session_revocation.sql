@@ -15,7 +15,7 @@ params:
 -- token id), and putting anything other than the real `jti` claim into a column documented
 -- as "JWT ID claim (RFC 7519 §4.1.7)" would break the contract.
 --
--- :jwt_payload is the token's MIDDLE segment only — the caller strips the header and
+-- :jwt_payload is the token's MIDDLE segment only - the caller strips the header and
 -- signature, so the database never receives a replayable credential. The segment is
 -- base64url and unpadded, hence translate() for the URL-safe alphabet and repeat() to
 -- restore '=' padding. Each parameter is referenced exactly once.

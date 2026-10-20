@@ -1,4 +1,4 @@
-# efti/POST/api/v1/authority/dataset.yml validate_input — with a valid service token the guard
+# efti/POST/api/v1/authority/dataset.yml validate_input - with a valid service token the guard
 # passes inline and validate_input returns a 400 before any upstream call, so this runs
 # fully in-process.
 mode: inprocess

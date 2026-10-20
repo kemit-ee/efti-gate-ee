@@ -4,7 +4,7 @@ constants:
   RESQL_URL: "{MOCK}"
 
 tests:
-  # docs/specs/logging-spec.md §5.2: the audit_log INSERT is best-effort and post-commit —
+  # docs/specs/logging-spec.md §5.2: the audit_log INSERT is best-effort and post-commit -
   # a failure to write it must never fail or roll back the triggering operation.
   - name: user delete still succeeds when the audit-log write fails
     setup:

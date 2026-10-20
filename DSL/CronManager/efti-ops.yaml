@@ -1,5 +1,5 @@
 # CronManager job definitions for the gate's /ops/v1/* surface.
-# https://github.com/turnerrainer/CronManager — schema of turnerrainer/cronmanager:0.2.3-alpha
+# https://github.com/turnerrainer/CronManager - schema of turnerrainer/cronmanager:0.2.3-alpha
 # (docker/cronmanager/Dockerfile). Every field is checked at load with deny_unknown_fields, so a
 # typo here makes CronManager skip this whole file with an ERROR in its log.
 #
@@ -9,7 +9,7 @@
 # Credential: every job sends `Authorization` from the env var OPS_AUTHORIZATION, whose value is
 # the whole header, `Bearer <ARCHIVE_OPS_TOKEN>` (DSL/Ruuter/ops/.guard.yml compares it literally).
 # The value is read at every fire and never stored, logged or written to history. If the variable
-# is unset or empty, this file is not loaded at all — no job runs with a missing credential.
+# is unset or empty, this file is not loaded at all - no job runs with a missing credential.
 #
 # Target: `ruuter:8086` is the compose service name. A deployment where Ruuter has another
 # in-cluster name replaces the host in the image build context, the same way as registry/.
@@ -56,7 +56,7 @@ efti_gate_archive_purge:
 
 # Cabotage-expiry sweep (Reg 2024/1942 Art 11(4)): appends an INACTIVE row for every current road
 # consignment whose carrier acceptance date is more than 14 days ago. At most 1000 per call, so it
-# runs hourly rather than once a day — a run with nothing to expire is one index probe.
+# runs hourly rather than once a day - a run with nothing to expire is one index probe.
 efti_gate_expire_identifiers:
   trigger: "0 45 * * * ?"
   type: http

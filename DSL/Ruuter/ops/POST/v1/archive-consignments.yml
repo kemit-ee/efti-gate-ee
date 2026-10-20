@@ -1,5 +1,5 @@
 declaration:
-  description: "Scheduled archive sweep — CronManager calls this on a timer (Bearer ARCHIVE_OPS_TOKEN).
+  description: "Scheduled archive sweep - CronManager calls this on a timer (Bearer ARCHIVE_OPS_TOKEN).
     Everything goes through Ruuter + ReSql across two datasources: (1) SELECT a batch of superseded
     consignments rows from the live DB - those whose newer sibling is older than olderThanDays
     (default 2); (2) INSERT that batch into the separate archive DB; (3) read every row back from the
@@ -145,7 +145,7 @@ verify_failed:
       jobName: "archive-consignments"
       status: "FAILED"
       details:
-        reason: "archive verification mismatch — no rows deleted"
+        reason: "archive verification mismatch - no rows deleted"
         candidates: ${select_result.response.body[0].candidateCount}
         confirmed: ${verify_result.response.body[0].confirmedCount}
   result: verify_failed_log

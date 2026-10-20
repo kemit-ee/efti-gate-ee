@@ -1,5 +1,5 @@
 declaration:
-  description: "X-Road transport-means lookup (ADR-006). A transport-means identifier comes in — a
+  description: "X-Road transport-means lookup (ADR-006). A transport-means identifier comes in - a
     road registration plate, a vessel IMO, an aircraft registration, or a transport-equipment
     (container) id - and the identifier-level data this gate holds against it comes back.
     Mode-neutral by design: one service covers all of them.
@@ -36,11 +36,11 @@ declaration:
 # UUID-shaped X-Road-Id, resolved exactly one ACTIVE authority, and bound the row as ${authority}.
 #
 # Only proven-in-this-repo constructs: ?. and ?? are used widely. Deliberately no String() or
-# .trim() — neither appears anywhere in the DSL, so engine support is unproven. Consequence: the
+# .trim() - neither appears anywhere in the DSL, so engine support is unproven. Consequence: the
 # identifier is matched VERBATIM (no trimming, and case-sensitively because the columns are
 # TEXT/TEXT[] not CITEXT). Stated in openapi.yaml.
 #
-# No ternary either, though it has precedent at auth/POST/callback.yml:49 — a ternary contains
+# No ternary either, though it has precedent at auth/POST/callback.yml:49 - a ternary contains
 # ": " which terminates a YAML plain scalar, so it only works quoted.
 #
 # country_code and scope are QUOTED, so they always reach the next step as strings, never as a JSON
@@ -49,7 +49,7 @@ declaration:
 # would silently return found: 0. The SQL treats '' as "any country".
 #
 # poll is NOT quoted: it is only ever compared with `=== true`, so a JSON boolean must stay a
-# boolean. Anything else — "true" the string, 1, an object — fails the strict comparison and the
+# boolean. Anything else - "true" the string, 1, an object - fails the strict comparison and the
 # request is handled as a fresh lookup, which then demands an identifier. Fail-closed.
 setup:
   assign:
@@ -62,7 +62,7 @@ setup:
 # The `.length == null` clauses are a type check built from proven constructs: a string has a numeric
 # length, while a number, boolean or object has `undefined`, and `undefined == null` is true. Without
 # it a numeric identifier would reach ReSql, be rejected as a param type error, and surface as a
-# 502 gateway error — misreporting a caller mistake as a gate fault.
+# 502 gateway error - misreporting a caller mistake as a gate fault.
 #
 # countryCode is checked against the RAW body, not the assigned country_code: the assign quotes the
 # value, so by then a number has already become a string and the mistake is invisible.
@@ -73,11 +73,11 @@ setup:
 #
 # Known gap: a NON-EMPTY array identifier passes (['ABC'].length === 1) and yields 200 with
 # found: 0 / registered: false rather than 400, because distinguishing an array from a string needs
-# Array.isArray, unproven in this engine. Every other wrong type — null, empty string, number,
-# boolean, object, empty array — is rejected.
+# Array.isArray, unproven in this engine. Every other wrong type - null, empty string, number,
+# boolean, object, empty array - is rejected.
 check_input:
   switch:
-    # scope and countryCode are validated for polls too — the poll bypass below only waives the
+    # scope and countryCode are validated for polls too - the poll bypass below only waives the
     # identifier requirement. A poll echoes these fields back, and echoing a value the non-poll
     # path rejects would put an out-of-enum scope in a published response field.
     - condition: ${scope != 'existence' && scope != 'local' && scope != 'allgates'}
@@ -85,7 +85,7 @@ check_input:
     - condition: ${incoming.body?.countryCode != null && incoming.body.countryCode.length == null}
       next: bad_request_country
     # A poll ({poll: true} with the same X-Road-Id as the original allgates call) carries no
-    # identifier, so it skips the identifier check — but NOT the EU02 entitlement below: the
+    # identifier, so it skips the identifier check - but NOT the EU02 entitlement below: the
     # pending search_results row has no ownership check (ADR-006), so at minimum the poller must
     # itself be entitled to EU02-class data.
     - condition: ${poll === true}
@@ -95,7 +95,7 @@ check_input:
   next: check_subset_permission
 
 # EU02 is "means of transport (vehicle plate, container number)" per Delegated Reg 2024/2024, so
-# this response IS EU02-class data by definition — for every scope, including the bare boolean.
+# this response IS EU02-class data by definition - for every scope, including the bare boolean.
 # Read off the authority row the guard already resolved; no second authorities lookup. A missing or
 # non-array `subsets` on that row permits nothing. Deny is the fall-through branch.
 check_subset_permission:
@@ -136,7 +136,7 @@ lookup_existence:
   next: check_existence
 
 # Error is the fall-through. The accept requires exactly one row carrying a non-null `registered`,
-# which a string, object, number or null body all fail — the same discipline as check_lookup below.
+# which a string, object, number or null body all fail - the same discipline as check_lookup below.
 check_existence:
   switch:
     - condition: ${existence_res.response.status != 200}
@@ -155,7 +155,7 @@ respond_existence:
   status: 200
   next: end
 
-# Single local ReSql call — no timeout override needed, nowhere near core's 65s paths. The SQL
+# Single local ReSql call - no timeout override needed, nowhere near core's 65s paths. The SQL
 # deliberately returns no `xml`; see the header comment in get_consignments_by_transport_means.sql.
 lookup_local:
   call: http.post
@@ -176,7 +176,7 @@ lookup_local:
 # Distinguishing an array from a string needs care without Array.isArray (unproven in this engine):
 # `body.length >= 0` is true for a string as well, so a 200 carrying "oops" would be emitted as
 # four consignments. Instead, accept either an empty result, or a non-empty one whose first element
-# carries `uil` — a field get_consignments_by_transport_means always builds. Only proven constructs
+# carries `uil` - a field get_consignments_by_transport_means always builds. Only proven constructs
 # (.length, indexing, property access), and a string, object, number or null all fail both.
 check_lookup:
   switch:
@@ -189,7 +189,7 @@ check_lookup:
   next: local_lookup_failed
 
 # "We do not know this transport means" is a successful answer to the question asked, so an empty
-# result is 200 with found: 0 — not 404.
+# result is 200 with found: 0 - not 404.
 respond_local:
   return:
     identifier: ${identifier}
@@ -205,16 +205,16 @@ respond_local:
 #
 # Forwards to core authority/search, which is LOCAL-FIRST and NON-BLOCKING: a local hit answers
 # immediately (x-poll-more: false); a local miss registers the broadcast (a pending search_results
-# row) and answers [] with x-poll-more: true at once — the neighbour gates' results are collected via
+# row) and answers [] with x-poll-more: true at once - the neighbour gates' results are collected via
 # polling. Either way the result is normalised by xml-mapper to the same curated projection
 # scope: local returns, so the response shape is identical across scopes (ADR-007). Polling:
 # repeat the call with the same X-Road-Id and body {poll: true} while x-poll-more is true;
 # repeating identifier/countryCode/scope in the poll body is optional and only affects the echo
 # fields of the response.
 #
-# The criterion is transportMeansOrEquipmentId — the same three-way OR (main transport OR used OR
+# The criterion is transportMeansOrEquipmentId - the same three-way OR (main transport OR used OR
 # carried equipment) the local SQL applies. Known limitation: FTI019 has no OR criterion, so for the
-# cross-gate XML the xml-mapper degrades it to MainCarriageTransportMeansIDParameterScope —
+# cross-gate XML the xml-mapper degrades it to MainCarriageTransportMeansIDParameterScope -
 # equipment ids match locally but not on remote gates.
 #
 # Two forward steps rather than one: a conditional body field needs a ternary, which is unproven
@@ -225,9 +225,9 @@ route_allgates:
       next: forward_to_core_search_with_country
   next: forward_to_core_search
 
-# X-Road-Id becomes x-request-id — load-bearing, not tidy: core keys the search_results poll on it.
+# X-Road-Id becomes x-request-id - load-bearing, not tidy: core keys the search_results poll on it.
 # Core's first call returns the local slice immediately and never blocks on peer gates (the
-# broadcast is registered in the background), so 15s is generous — same as xroad/POST/v1/search.yml.
+# broadcast is registered in the background), so 15s is generous - same as xroad/POST/v1/search.yml.
 forward_to_core_search:
   call: http.post
   timeout: 15000
@@ -241,7 +241,7 @@ forward_to_core_search:
       transportMeansOrEquipmentId:
         operator: "EQ"
         id: "${identifier}"
-      # The local slice must apply the same ACTIVE allowlist as the curated projection — without it,
+      # The local slice must apply the same ACTIVE allowlist as the curated projection - without it,
       # allgates would disclose INACTIVE consignments that local and existence deliberately hide.
       # The xml-mapper drops this key from the broadcast XML (FTI019 has no status criterion), so
       # remote gates are unaffected.
@@ -275,10 +275,10 @@ forward_to_core_search_with_country:
 
 # The x-poll header is what makes core poll the stored search instead of searching. The criteria body
 # is sent anyway: core's poll branch ignores it, and if the header were ever lost the failure mode
-# is a fresh criteria-bound search (on a bare poll the identifier is '', which matches nothing) —
+# is a fresh criteria-bound search (on a bare poll the identifier is '', which matches nothing) -
 # not a criteria-less search that would match everything. The timeout ladder: core's poll_remaining
 # retries the search_results read for ~30s, core's own upstream timeout allows 35s, and this step
-# sits above both — a shorter timeout would turn a healthy long-poll into a spurious 502.
+# sits above both - a shorter timeout would turn a healthy long-poll into a spurious 502.
 poll_core:
   call: http.post
   timeout: 40000
@@ -302,7 +302,7 @@ poll_core:
 # Since Ruuter 0.9.15-rc (issue turnerrainer/Ruuter#89) a connection refusal, DNS failure, TLS
 # handshake error or the timeout expiring binds a stub {status: 0, error: <kind>} instead of
 # aborting the run, so the availability-failure class reaches core_search_unavailable's semantic
-# 502 — same pattern as xroad/POST/v1/search.yml's check_core_status.
+# 502 - same pattern as xroad/POST/v1/search.yml's check_core_status.
 check_core_search_status:
   switch:
     - condition: ${core_res.response.status == 0}
@@ -313,7 +313,7 @@ check_core_search_status:
 
 # Core does not answer in one shape: a local hit is raw get_consignments rows, broadcast/poll
 # results are xml-mapper ConsignmentRows. The normalizer accepts both and emits the same curated
-# projection as get_consignments_by_transport_means.sql — no xml blob, uil nested — which is what
+# projection as get_consignments_by_transport_means.sql - no xml blob, uil nested - which is what
 # keeps the local <-> allgates shape promise (ADR-007 variant A).
 normalize_results:
   call: http.post
@@ -341,10 +341,10 @@ check_normalize:
 
 # Same contract fields as respond_local, plus x-poll-more so the caller knows whether gates are
 # still answering. scope is a LITERAL, not the echo: every response through this step is a
-# cross-gate result — on the fresh path ${scope} is 'allgates' anyway, and on a poll the body's
+# cross-gate result - on the fresh path ${scope} is 'allgates' anyway, and on a poll the body's
 # scope (defaulted 'local' when omitted) describes the poll request, not the result. Labelling a
 # poll result 'local' or 'existence' would put a lie in a published enum field.
-# identifier/countryCode still echo the poll body — found and consignments are the meaningful
+# identifier/countryCode still echo the poll body - found and consignments are the meaningful
 # fields there.
 respond_allgates:
   return:
@@ -393,7 +393,7 @@ bad_request_scope:
   next: end
 
 # The denied/permitted sets are RFC 7807 extension members rather than interpolated into the detail
-# prose — every value is then a whole-value interpolation, and a machine caller can branch on the
+# prose - every value is then a whole-value interpolation, and a machine caller can branch on the
 # arrays directly. Same shape as dataset.yml.
 forbidden_subset:
   return:
@@ -492,7 +492,7 @@ normalize_failed:
     code: "GATEWAY_UNAVAILABLE"
     title: "Bad Gateway"
     status: 502
-    detail: "Normalising the cross-gate search results failed in the gate's mapping layer. This is not an authorisation decision. If this was a poll, the drained results are lost — the caller must re-issue the original search."
+    detail: "Normalising the cross-gate search results failed in the gate's mapping layer. This is not an authorisation decision. If this was a poll, the drained results are lost - the caller must re-issue the original search."
     failedStep: "transport-means-normalize"
     mapperStatus: ${norm_res.response.status}
   wrapper: false

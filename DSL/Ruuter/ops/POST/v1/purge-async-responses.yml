@@ -1,5 +1,5 @@
 declaration:
-  description: "AS4 hand-off retention — CronManager calls this on a short timer (Bearer
+  description: "AS4 hand-off retention - CronManager calls this on a short timer (Bearer
     ARCHIVE_OPS_TOKEN). Permanently deletes eDelivery hand-off rows (async_responses) older than
     keepMinutes; they are useless once the waiting authority call has ended. Body (optional):
     {keepMinutes: number}."

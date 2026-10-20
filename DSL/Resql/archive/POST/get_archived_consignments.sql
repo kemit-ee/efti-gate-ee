@@ -1,6 +1,6 @@
 /*
 description: (archive DB) one page of the archived (cold-storage) versions of a dataset. Used by the
-  history-read fallback — the caller merges these with the live current row(s). Metadata only, the xml
+  history-read fallback - the caller merges these with the live current row(s). Metadata only, the xml
   payload is deliberately not projected.
 params:
   datasetId: { type: string, required: true }
