@@ -130,6 +130,7 @@ secret_detection:
     - run dsl-test --dsl DSL/Ruuter-turvis-mock --tests DSL-turvis-mock-tests --constants constants-turvis-mock.ini
     - pip3 install --quiet pyyaml cryptography
     - python3 scripts/validate-dsl.py
+    - python3 scripts/validate-no-pii-log.py
     # registry/**/*.yml is converted to JSON at image build time by the same script, so this
     # validates the registry without building an image (ADR-011: the converter is the validator).
     # The same run builds and validates the Turvis trust view (turvis-trust.json, ADR-011 amendment).

@@ -1,5 +1,6 @@
 package edelivery
 
+import ch.tutteli.atrium.api.fluent.en_GB.notToContain
 import ch.tutteli.atrium.api.fluent.en_GB.toContain
 import ch.tutteli.atrium.api.fluent.en_GB.toEqual
 import ch.tutteli.atrium.api.fluent.en_GB.toThrow
@@ -92,12 +93,12 @@ class EDeliveryRoutesTest {
     val body = getBody("<hello>world</hello>") { keyIdentifierRegex.replace(it, "") }
 
     every { exchange.requestStream } returns body.inputStream()
-    val exception = slot<Exception>()
-    every { messageGenerator.soapFault(any(), capture(exception)) } returns "<fault/>"
+    val reason = slot<FaultReason>()
+    every { messageGenerator.soapFault(capture(reason)) } returns "<fault/>"
 
     routes.msh(exchange)
 
-    expect(exception.captured.message.orEmpty()).toContain("No valid KeyIdentifier or X509SerialNumber found in the message header.")
+    expect(reason.captured).toEqual(FaultReason.XML_PARSE_FAIL)
     verify { exchange.send(InternalServerError, "<fault/>", soap) }
   }
 
@@ -107,12 +108,12 @@ class EDeliveryRoutesTest {
     }
 
     every { exchange.requestStream } returns body.inputStream()
-    val exception = slot<Exception>()
-    every { messageGenerator.soapFault(any(), capture(exception)) } returns "<fault/>"
+    val reason = slot<FaultReason>()
+    every { messageGenerator.soapFault(capture(reason)) } returns "<fault/>"
 
     routes.msh(exchange)
 
-    expect(exception.captured.message.orEmpty()).toContain("Invalid KeyIdentifier \"invalid-ski\", expected \"${keyManager.ownCertSki}\"")
+    expect(reason.captured).toEqual(FaultReason.XML_PARSE_FAIL)
     verify { exchange.send(InternalServerError, "<fault/>", soap) }
   }
 
@@ -122,12 +123,12 @@ class EDeliveryRoutesTest {
     }
 
     every { exchange.requestStream } returns body.inputStream()
-    val exception = slot<Exception>()
-    every { messageGenerator.soapFault(any(), capture(exception)) } returns "<fault/>"
+    val reason = slot<FaultReason>()
+    every { messageGenerator.soapFault(capture(reason)) } returns "<fault/>"
 
     routes.msh(exchange)
 
-    expect(exception.captured.message.orEmpty()).toContain("Invalid X509SerialNumber \"123456789\", expected \"${keyManager.ownCertSerialNumber}\"")
+    expect(reason.captured).toEqual(FaultReason.XML_PARSE_FAIL)
     verify { exchange.send(InternalServerError, "<fault/>", soap) }
   }
 
@@ -151,7 +152,7 @@ class EDeliveryRoutesTest {
   @Test fun `gunzip rejects payload exceeding the limit`() {
     val bomb = realMessageGenerator.gzip(ByteArray(11 * 1024 * 1024))
 
-    expect { gunzip(bomb) }.toThrow<IllegalArgumentException>()
+    expect { gunzip(bomb) }.toThrow<PayloadTooLargeException>()
   }
 
   @Test fun `gunzip accepts payload within the limit`() {
@@ -167,7 +168,7 @@ class EDeliveryRoutesTest {
     every { exchange.requestStream } returns body.inputStream()
 
     every { messageHandlers.rootTags[any()] } returns null
-    every { messageGenerator.soapFault(any(), any()) } returns "<SOAP-ENV:Fault/>"
+    every { messageGenerator.soapFault(any()) } returns "<SOAP-ENV:Fault/>"
 
     routes.msh(exchange)
 
@@ -178,11 +179,60 @@ class EDeliveryRoutesTest {
 
   @Test fun `msh fails with invalid body`() {
     every { exchange.requestStream } returns "invalid".toByteArray().inputStream()
-    every { messageGenerator.soapFault(any(), any()) } returns "<fault/>"
+    every { messageGenerator.soapFault(any()) } returns "<fault/>"
 
     routes.msh(exchange)
 
     verify { exchange.send(InternalServerError, "<fault/>", soap) }
+  }
+
+  private val secret = "<driver>Jaan Tamm</driver> C:\\internal\\path CN=Internal"
+
+  private fun sentFault(): String {
+    val sent = slot<String>()
+    verify { exchange.send(InternalServerError, capture(sent), soap) }
+    return sent.captured
+  }
+
+  private fun assertBucketOnly(fault: String, reason: FaultReason) {
+    expect(fault).toContain(reason.ebmsCode)
+    expect(fault).toContain(reason.name)
+    expect(fault).notToContain("Jaan Tamm")
+    expect(fault).notToContain("internal")
+    expect(fault).notToContain("Exception")
+    expect(fault).notToContain("\tat ")
+    expect(fault).notToContain("edelivery.EDeliveryRoutes")
+  }
+
+  @Test fun `real SOAP fault never carries the message of the exception that was thrown`() {
+    val body = getBody("<hello>world</hello>")
+    every { exchange.requestStream } returns body.inputStream()
+    every { messageHandlers.rootTags } throws IllegalStateException(secret)
+
+    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator).msh(exchange)
+
+    assertBucketOnly(sentFault(), FaultReason.OTHER)
+  }
+
+  @Test fun `real SOAP fault for a security failure is the signature bucket without the exception text`() {
+    val body = getBody("<hello>world</hello>")
+    every { exchange.requestStream } returns body.inputStream()
+    every { messageHandlers.rootTags } throws SecurityException(secret)
+
+    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator).msh(exchange)
+
+    assertBucketOnly(sentFault(), FaultReason.SIG_CRYPTO_FAIL)
+  }
+
+  @Test fun `real SOAP fault for an unparsable body does not echo the body`() {
+    every { exchange.requestStream } returns "invalid $secret".toByteArray().inputStream()
+
+    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator).msh(exchange)
+
+    val fault = sentFault()
+    expect(fault).notToContain("Jaan Tamm")
+    expect(fault).notToContain("internal")
+    expect(fault).notToContain("Exception")
   }
 
   @Test fun `msh reaches handler lookup and fails`() {
@@ -191,7 +241,7 @@ class EDeliveryRoutesTest {
 
     every { exchange.requestStream } returns body.inputStream()
     every { messageHandlers.rootTags } returns emptyMap()
-    every { messageGenerator.soapFault(any(), any()) } returns "<fault/>"
+    every { messageGenerator.soapFault(any()) } returns "<fault/>"
 
     routes.msh(exchange)
 

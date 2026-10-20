@@ -264,6 +264,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 
 ## Kotlin services
 
+- Inbound `msh` errors log only a body fingerprint (`body_sha256`, size, content type, part count) plus a per-request `audit_ref`, never the body or the exception message; the exception goes through `Throwable.withoutMessages()` (class names and frames, no messages). The peer-facing reply is `soapFault(FaultReason)` (`SoapFaultReasons.kt`), a fixed bucket. `FaultReason` uses the reason codes of the Turvis contract (`docs/specs/turvis/SPEC.md` §5, ebMS codes from §13.2a): `XML_PARSE_FAIL`, `SIG_CRYPTO_FAIL`, `PAYLOAD_DECRYPT_FAIL`, `PAYLOAD_TOO_LARGE`, plus the local `UNSUPPORTED_MESSAGE`, `UNAVAILABLE` and `OTHER` that the catalogue has no code for (revisit at the Turvis cutover). Corrupt/truncated gzip is `XML_PARSE_FAIL`, an over-limit payload `PayloadTooLargeException` is `PAYLOAD_TOO_LARGE`; unknown classes fall back to `OTHER`. Add a new exception class to the mapping and its test. `scripts/validate-no-pii-log.py` also flags message-content variables (`payloadXml`, `decrypted`, `xml`, `body`) and `${x.message}` in a log call; a reviewed exception carries a `// pii-ok: <reason>` comment on the line.
 - eDelivery renders String responses as raw XML (including the empty poll response), not JSON-encoded strings. Ruuter ≥ 0.10.0 decodes upstream bodies by their declared Content-Type.
 
 - Framework: klite (lightweight, annotation-based)
@@ -423,6 +424,9 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
     building an image — the converter is the validator, ADR-011 §3) + `tests/registry/test_registry_to_json.py`
     + the Turvis mock (`dsl-lint --audit` and `dsl-test` on `DSL/Ruuter-turvis-mock` /
     `DSL-turvis-mock-tests`, plus `scripts/validate-turvis-contract.py` and its unit test).
+    input-contract convention) + `scripts/validate-no-pii-log.py` (fails a Kotlin log call that writes a raw
+    message body, #322) + `scripts/registry-to-json.py` (validates `registry/**/*.yml` without
+    building an image — the converter is the validator, ADR-011 §3) + `tests/registry/test_registry_to_json.py`.
   - `e2e` — builds the compose stack, runs the `tests/*/*.http` smoke suite via
     `docker compose run --rm http-tests`. This is the gate on PRs. `dsl-test` is the fast
     in-process check; `tests/*.http` is the full-stack integration gate.
