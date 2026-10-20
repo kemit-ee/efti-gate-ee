@@ -1,0 +1,36 @@
+# The guard must never let an empty credential match, even if TURVIS_INTERNAL_TOKEN were unset or empty
+# (AGENTS.md: deny is the fall-through, an absent or empty header can never match). The constant is
+# overridden for this file only; every other scenario runs with the committed dev token.
+mode: inprocess
+
+constants:
+  TURVIS_INTERNAL_TOKEN: ""
+
+tests:
+  - name: guard - empty token constant and an empty token header is still 401
+    request:
+      method: POST
+      path: /turvis/v1/signatures/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "" }
+      body: { soap_xml_b64: "PHg+", sign_xpaths: ["//eb:Messaging"], sign_cid_refs: [], key_handle: "EU-EE", return_fields: [] }
+    expect:
+      status: 401
+      headers: { Content-Type: "application/problem+json" }
+
+  - name: guard - empty token constant and no token header is 401
+    request:
+      method: POST
+      path: /turvis/v1/signatures/xmldsig
+      headers: { content-type: "application/json" }
+      body: { soap_xml_b64: "PHg+", sign_xpaths: ["//eb:Messaging"], sign_cid_refs: [], key_handle: "EU-EE", return_fields: [] }
+    expect:
+      status: 401
+
+  - name: guard - empty token constant and a non-empty guess is 401
+    request:
+      method: POST
+      path: /turvis/v1/signatures/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "anything" }
+      body: { soap_xml_b64: "PHg+", sign_xpaths: ["//eb:Messaging"], sign_cid_refs: [], key_handle: "EU-EE", return_fields: [] }
+    expect:
+      status: 401

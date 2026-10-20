@@ -1064,3 +1064,128 @@ tests:
       status: 422
       headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "KEY_HANDLE_UNKNOWN" }
+
+  - name: verify - newline between attributes is tolerated (original Reference and XPath still reported)
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token", x-mock-audit-ref: "55555555-5555-4555-8555-555555555555" }
+      body: { soap_xml_b64: "PGVudjpFbnZlbG9wZSB4bWxuczplbnY9Imh0dHA6Ly93d3cudzMub3JnLzIwMDMvMDUvc29hcC1lbnZlbG9wZSIgeG1sbnM6ZWI9Imh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL2VieG1sLW1zZy9ucy92My4wL2VibXMvY29yZS8yMDA3MDQvIj48ZW52OkhlYWRlcj48ZWI6TWVzc2FnaW5nCiAgICBlbnY6bXVzdFVuZGVyc3RhbmQ9InRydWUiCiAgICB3c3U6SWQ9Ik1TRy1JRCI+PGViOlVzZXJNZXNzYWdlPjxlYjpNZXNzYWdlSW5mbz48ZWI6TWVzc2FnZUlkPm5ld2xpbmUtdGVzdC0wMDAxQGV1LWRlLmV4YW1wbGU8L2ViOk1lc3NhZ2VJZD48L2ViOk1lc3NhZ2VJbmZvPjxlYjpQYXJ0eUluZm8+PGViOkZyb20+PGViOlBhcnR5SWQ+RVUtREU8L2ViOlBhcnR5SWQ+PC9lYjpGcm9tPjxlYjpUbz48ZWI6UGFydHlJZD5FVS1FRTwvZWI6UGFydHlJZD48L2ViOlRvPjwvZWI6UGFydHlJbmZvPjxlYjpDb2xsYWJvcmF0aW9uSW5mbz48ZWI6U2VydmljZT5GVEkwMTA8L2ViOlNlcnZpY2U+PGViOkFjdGlvbj5GVEkwMTBSZXNwb25zZTwvZWI6QWN0aW9uPjxlYjpDb252ZXJzYXRpb25JZD5jb252LW5ld2xpbmUtMDAwMTwvZWI6Q29udmVyc2F0aW9uSWQ+PC9lYjpDb2xsYWJvcmF0aW9uSW5mbz48L2ViOlVzZXJNZXNzYWdlPjwvZWI6TWVzc2FnaW5nPjxkczpTaWduYXR1cmUgeG1sbnM6ZHM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvMDkveG1sZHNpZyMiPjxkczpTaWduZWRJbmZvPjxkczpSZWZlcmVuY2UKICAgIFVSST0iI01TRy1JRCI+PGRzOlRyYW5zZm9ybXM+PGRzOlRyYW5zZm9ybQogICAgQWxnb3JpdGhtPSJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzEwL3htbC1leGMtYzE0biMiLz48L2RzOlRyYW5zZm9ybXM+PGRzOkRpZ2VzdE1ldGhvZAogICAgQWxnb3JpdGhtPSJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzA0L3htbGVuYyNzaGEyNTYiLz48ZHM6RGlnZXN0VmFsdWU+WkdsblpYTjBMVzF6Wnc9PTwvZHM6RGlnZXN0VmFsdWU+PC9kczpSZWZlcmVuY2U+PC9kczpTaWduZWRJbmZvPjxkczpTaWduYXR1cmVWYWx1ZT5BQUFBPC9kczpTaWduYXR1cmVWYWx1ZT48L2RzOlNpZ25hdHVyZT48L2VudjpIZWFkZXI+PGVudjpCb2R5Lz48L2VudjpFbnZlbG9wZT4=", attachments: [], required_signed_xpaths: ["//eb:Messaging"], required_signed_cid_refs: [], return_fields: ["signature_digests", "ebms_routing"] }
+    expect:
+      status: 200
+      headers: { Content-Type: "application/json" }
+      body:
+        verdict: "accept"
+        audit_ref: "55555555-5555-4555-8555-555555555555"
+        signature_digests:
+          - reference_uri: "#MSG-ID"
+            subtree_xpath: "//eb:Messaging"
+            digest_b64: "ZGlnZXN0LW1zZw=="
+            algorithm: "SHA-256"
+            transforms: ["http://www.w3.org/2001/10/xml-exc-c14n#"]
+        ebms_routing:
+          message_id: "newline-test-0001@eu-de.example"
+          conversation_id: "conv-newline-0001"
+          ref_to_message_id: ""
+          from_party_id: "EU-DE"
+          to_party_id: "EU-EE"
+          service: "FTI010"
+          action: "FTI010Response"
+
+  - name: verify - single-quoted attribute values are tolerated (Reference is not silently skipped)
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token", x-mock-audit-ref: "55555555-5555-4555-8555-555555555555" }
+      body: { soap_xml_b64: "PGVudjpFbnZlbG9wZSB4bWxuczplbnY9Imh0dHA6Ly93d3cudzMub3JnLzIwMDMvMDUvc29hcC1lbnZlbG9wZSIgeG1sbnM6ZWI9Imh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL2VieG1sLW1zZy9ucy92My4wL2VibXMvY29yZS8yMDA3MDQvIj48ZW52OkhlYWRlcj48ZWI6TWVzc2FnaW5nIGVudjptdXN0VW5kZXJzdGFuZD0ndHJ1ZScgd3N1OklkPSdNU0ctSUQnPjxlYjpVc2VyTWVzc2FnZT48ZWI6TWVzc2FnZUluZm8+PGViOk1lc3NhZ2VJZD5uZXdsaW5lLXRlc3QtMDAwMUBldS1kZS5leGFtcGxlPC9lYjpNZXNzYWdlSWQ+PC9lYjpNZXNzYWdlSW5mbz48ZWI6UGFydHlJbmZvPjxlYjpGcm9tPjxlYjpQYXJ0eUlkPkVVLURFPC9lYjpQYXJ0eUlkPjwvZWI6RnJvbT48ZWI6VG8+PGViOlBhcnR5SWQ+RVUtRUU8L2ViOlBhcnR5SWQ+PC9lYjpUbz48L2ViOlBhcnR5SW5mbz48ZWI6Q29sbGFib3JhdGlvbkluZm8+PGViOlNlcnZpY2U+RlRJMDEwPC9lYjpTZXJ2aWNlPjxlYjpBY3Rpb24+RlRJMDEwUmVzcG9uc2U8L2ViOkFjdGlvbj48ZWI6Q29udmVyc2F0aW9uSWQ+Y29udi1uZXdsaW5lLTAwMDE8L2ViOkNvbnZlcnNhdGlvbklkPjwvZWI6Q29sbGFib3JhdGlvbkluZm8+PC9lYjpVc2VyTWVzc2FnZT48L2ViOk1lc3NhZ2luZz48ZHM6U2lnbmF0dXJlIHhtbG5zOmRzPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwLzA5L3htbGRzaWcjIj48ZHM6U2lnbmVkSW5mbz48ZHM6UmVmZXJlbmNlIFVSST0nI01TRy1JRCc+PGRzOlRyYW5zZm9ybXM+PGRzOlRyYW5zZm9ybSBBbGdvcml0aG09J2h0dHA6Ly93d3cudzMub3JnLzIwMDEvMTAveG1sLWV4Yy1jMTRuIycvPjwvZHM6VHJhbnNmb3Jtcz48ZHM6RGlnZXN0TWV0aG9kIEFsZ29yaXRobT0naHR0cDovL3d3dy53My5vcmcvMjAwMS8wNC94bWxlbmMjc2hhMjU2Jy8+PGRzOkRpZ2VzdFZhbHVlPlpHbG5aWE4wTFcxelp3PT08L2RzOkRpZ2VzdFZhbHVlPjwvZHM6UmVmZXJlbmNlPjwvZHM6U2lnbmVkSW5mbz48ZHM6U2lnbmF0dXJlVmFsdWU+QUFBQTwvZHM6U2lnbmF0dXJlVmFsdWU+PC9kczpTaWduYXR1cmU+PC9lbnY6SGVhZGVyPjxlbnY6Qm9keS8+PC9lbnY6RW52ZWxvcGU+", attachments: [], required_signed_xpaths: ["//eb:Messaging"], required_signed_cid_refs: [], return_fields: ["signature_digests", "ebms_routing"] }
+    expect:
+      status: 200
+      headers: { Content-Type: "application/json" }
+      body:
+        verdict: "accept"
+        audit_ref: "55555555-5555-4555-8555-555555555555"
+        signature_digests:
+          - reference_uri: "#MSG-ID"
+            subtree_xpath: "//eb:Messaging"
+            digest_b64: "ZGlnZXN0LW1zZw=="
+            algorithm: "SHA-256"
+            transforms: ["http://www.w3.org/2001/10/xml-exc-c14n#"]
+        ebms_routing:
+          message_id: "newline-test-0001@eu-de.example"
+          conversation_id: "conv-newline-0001"
+          ref_to_message_id: ""
+          from_party_id: "EU-DE"
+          to_party_id: "EU-EE"
+          service: "FTI010"
+          action: "FTI010Response"
+
+  - name: verify - soap_xml_b64 that is not base64 is a 400
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "!!notb64", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
+    expect:
+      status: 400
+      headers: { Content-Type: "application/problem+json" }
+
+  - name: verify - attachment bytes_b64 that is not base64 is a 400
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "PHg+", attachments: [{ cid: "cid:message", bytes_b64: "!!notb64" }], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
+    expect:
+      status: 400
+      headers: { Content-Type: "application/problem+json" }
+
+  - name: decrypt - soap_xml_b64 that is not base64 is a 400
+    request:
+      method: POST
+      path: /turvis/v1/decryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "!!!", key_handle: "EU-EE", return_fields: ["ebms_routing"] }
+    expect:
+      status: 400
+      headers: { Content-Type: "application/problem+json" }
+
+  - name: decrypt - encrypted_attachment_b64 that is not base64 is a 400
+    request:
+      method: POST
+      path: /turvis/v1/decryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "PHg+", encrypted_attachment_b64: "@@", key_handle: "EU-EE", return_fields: ["ebms_routing"] }
+    expect:
+      status: 400
+      headers: { Content-Type: "application/problem+json" }
+
+  - name: encrypt - plaintext_bytes_b64 that is not base64 is a 400
+    request:
+      method: POST
+      path: /turvis/v1/encryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { plaintext_bytes_b64: "%%%", receiver_party_id: "EU-FR", profile: "plaintext", return_fields: [] }
+    expect:
+      status: 400
+      headers: { Content-Type: "application/problem+json" }
+
+  - name: encrypt - receiver_party_id is XML-escaped inside the stub KeyName
+    request:
+      method: POST
+      path: /turvis/v1/encryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR</ds:KeyName><x/>&", profile: "wss-encrypted", return_fields: ["wrapped_key_xml"] }
+    expect:
+      status: 200
+      body_matches:
+        wrapped_key_xml: "$regex:<ds:KeyName>EU-FR&lt;/ds:KeyName&gt;&lt;x/&gt;&amp;</ds:KeyName>"
+
+  - name: verify - base64 with line breaks is tolerated
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "PHg+\nPHg+", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
+    expect:
+      status: 200
+      headers: { Content-Type: "application/json" }

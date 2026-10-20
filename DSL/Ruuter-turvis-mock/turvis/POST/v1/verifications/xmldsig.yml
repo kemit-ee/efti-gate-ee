@@ -37,9 +37,13 @@
 #   built from the policy, the same ones signatures/xmldsig returns for the same policy.
 # - trust_store_version, when present, must be `mock` (the mock's only generation), else 503
 #   TRUST_STORE_UNAVAILABLE (SPEC section 4.1).
-# - attachments must be at most 10 items, each {cid matching ^cid:[-a-zA-Z0-9._]+$, bytes_b64 string}, else
-#   400 (SPEC section 4.1). The attachment bytes are not hashed: there is no real signature to compare
-#   them with.
+# - soap_xml_b64 and every attachment bytes_b64 must be base64 (whitespace tolerated), and attachments
+#   at most 10 items, each {cid matching ^cid:[-a-zA-Z0-9._]+$, bytes_b64 string}, else 400 (SPEC
+#   section 4.1). The attachment bytes are not hashed: there is no real signature to compare them with.
+# - The envelope reader accepts any whitespace between attributes and either quote character around
+#   attribute values (<ds:Reference URI='#MSG-1'>); the XPath it infers for a referenced element is
+#   //eb:Messaging or //env:Body for those two element names and //<prefix:name> otherwise, so a
+#   policy written with another prefix (e.g. //soap:Body) is reported as not covered.
 # - trace_id, when present, must be 32 lower-case hex characters, else 400.
 #
 # Dev-mode mock overrides: header `X-Mock-Audit-Ref: <value>` fixes audit_ref (default: a random
@@ -126,14 +130,15 @@ setup:
     attachments_ok: |-
       ${(function (list) {
         if (!Array.isArray(list) || list.length > 10) { return false; }
-        return list.every(function (a) { return a != null && typeof a.cid == 'string' && /^cid:[-a-zA-Z0-9._]+$/.test(a.cid) && typeof a.bytes_b64 == 'string'; });
+        return list.every(function (a) { return a != null && typeof a.cid == 'string' && /^cid:[-a-zA-Z0-9._]+$/.test(a.cid) && typeof a.bytes_b64 == 'string' && /^[A-Za-z0-9+\/\s]*={0,2}$/.test(a.bytes_b64); });
       })(incoming.body.attachments)}
+    soap_ok: "${/^[A-Za-z0-9+\\/\\s]*={0,2}$/.test(incoming.body.soap_xml_b64)}"
     trust_ok: "${incoming.body.trust_store_version == null || incoming.body.trust_store_version == 'mock'}"
     unknown_fields: "${(incoming.body.return_fields || []).filter(function (f) { return ['signer', 'matched_signed_xpaths', 'matched_signed_cid_refs', 'signature_digests', 'ebms_routing'].indexOf(f) < 0; })}"
 
 dispatch:
   switch:
-    - condition: "${!trace_ok || !fields_ok || !attachments_ok}"
+    - condition: "${!trace_ok || !fields_ok || !attachments_ok || !soap_ok}"
       next: reject_bad_request
     - condition: "${mock_verdict == 'reject-xml-parse-fail'}"
       next: reject_xml_parse_fail
@@ -207,22 +212,22 @@ analyse:
         var re = /<(?:\w+:)?Reference\b([^>]*)>([\s\S]*?)<\/(?:\w+:)?Reference>/g;
         var m;
         while ((m = re.exec(x)) !== null) {
-          var uriMatch = m[1].match(/\bURI=\x22([^\x22]*)\x22/);
+          var uriMatch = m[1].match(/\bURI\s*=\s*[\x22\x27]([^\x22\x27]*)[\x22\x27]/);
           if (!uriMatch) { continue; }
           var uri = uriMatch[1];
           var transforms = [];
-          var tre = /<(?:\w+:)?Transform\b[^>]*\bAlgorithm=\x22([^\x22]*)\x22/g;
+          var tre = /<(?:\w+:)?Transform\b[^>]*\bAlgorithm\s*=\s*[\x22\x27]([^\x22\x27]*)[\x22\x27]/g;
           var t;
           while ((t = tre.exec(m[2])) !== null) { transforms.push(t[1]); }
-          var digestMethod = m[2].match(/<(?:\w+:)?DigestMethod\b[^>]*\bAlgorithm=\x22([^\x22]*)\x22/);
+          var digestMethod = m[2].match(/<(?:\w+:)?DigestMethod\b[^>]*\bAlgorithm\s*=\s*[\x22\x27]([^\x22\x27]*)[\x22\x27]/);
           if (digestMethod && digestMethod[1] != 'http://www.w3.org/2001/04/xmlenc#sha256') { unsupported = true; }
           var digestValue = m[2].match(/<(?:\w+:)?DigestValue>([^<]*)</);
           var item = { reference_uri: uri, digest_b64: digestValue ? digestValue[1].trim() : '', algorithm: 'SHA-256', transforms: transforms };
           if (uri.charAt(0) == '#') {
-            var at = x.indexOf('Id=\x22' + uri.substring(1) + '\x22');
+            var at = Math.max(x.indexOf('Id=\x22' + uri.substring(1) + '\x22'), x.indexOf('Id=\x27' + uri.substring(1) + '\x27'));
             if (at > 0) {
               var open = x.lastIndexOf('<', at);
-              var qname = x.substring(open + 1, x.indexOf(' ', open));
+              var qname = (x.substring(open + 1).match(/^[^\s>\/]+/) || [''])[0];
               var local = qname.substring(qname.indexOf(':') + 1);
               item.subtree_xpath = local == 'Messaging' ? '//eb:Messaging' : (local == 'Body' ? '//env:Body' : '//' + qname);
             }
@@ -329,7 +334,7 @@ reject_bad_request:
     type: "https://efti.example/problem/turvis-bad-request"
     title: "Bad request"
     status: 400
-    detail: "return_fields must be non-empty, attachments at most 10 items of {cid: cid:<id>, bytes_b64}, trace_id (if present) 32 lower-case hex characters"
+    detail: "return_fields must be non-empty, soap_xml_b64 and attachment bytes_b64 valid base64, attachments at most 10 items of {cid: cid:<id>, bytes_b64}, trace_id (if present) 32 lower-case hex characters"
     audit_ref: "${audit_ref}"
   status: 400
   headers:

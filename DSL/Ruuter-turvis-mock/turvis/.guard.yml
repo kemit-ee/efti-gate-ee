@@ -29,7 +29,7 @@ check_auth:
   switch:
     - condition: "${'[#AUTH_MODE]' == 'mtls' && incoming.mtls?.verified == true && (incoming.mtls?.client_san_uris || []).indexOf('spiffe://cluster.local/ns/efti-gate/sa/edelivery') > -1}"
       next: accept
-    - condition: "${('[#AUTH_MODE]' == 'shared-token' || '[#AUTH_MODE]' == 'mtls-or-token') && incoming.headers['x-internal-service-token'] == '[#TURVIS_INTERNAL_TOKEN]'}"
+    - condition: "${('[#AUTH_MODE]' == 'shared-token' || '[#AUTH_MODE]' == 'mtls-or-token') && '[#TURVIS_INTERNAL_TOKEN]' != '' && incoming.headers['x-internal-service-token'] != null && incoming.headers['x-internal-service-token'] != '' && incoming.headers['x-internal-service-token'] == '[#TURVIS_INTERNAL_TOKEN]'}"
       next: accept
     - condition: "${'[#AUTH_MODE]' == 'mtls-or-token' && incoming.mtls?.verified == true && (incoming.mtls?.client_san_uris || []).indexOf('spiffe://cluster.local/ns/efti-gate/sa/edelivery') > -1}"
       next: accept
