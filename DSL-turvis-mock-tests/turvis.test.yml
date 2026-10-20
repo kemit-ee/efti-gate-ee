@@ -1189,3 +1189,125 @@ tests:
     expect:
       status: 200
       headers: { Content-Type: "application/json" }
+
+  - name: verify - whitespace around the equals sign of an Id attribute is tolerated
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "PGVudjpFbnZlbG9wZSB4bWxuczplbnY9Imh0dHA6Ly93d3cudzMub3JnLzIwMDMvMDUvc29hcC1lbnZlbG9wZSIgeG1sbnM6ZWI9Imh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL2VieG1sLW1zZy9ucy92My4wL2VibXMvY29yZS8yMDA3MDQvIj48ZW52OkhlYWRlcj48ZWI6TWVzc2FnaW5nIHdzdTpJZCA9ICJNU0ctMSI+PGViOlVzZXJNZXNzYWdlPjxlYjpNZXNzYWdlSW5mbz48ZWI6TWVzc2FnZUlkPnNwYWNlZC1pZC0wMDAxQGV1LWRlLmV4YW1wbGU8L2ViOk1lc3NhZ2VJZD48L2ViOk1lc3NhZ2VJbmZvPjxlYjpQYXJ0eUluZm8+PGViOkZyb20+PGViOlBhcnR5SWQ+RVUtREU8L2ViOlBhcnR5SWQ+PC9lYjpGcm9tPjxlYjpUbz48ZWI6UGFydHlJZD5FVS1FRTwvZWI6UGFydHlJZD48L2ViOlRvPjwvZWI6UGFydHlJbmZvPjxlYjpDb2xsYWJvcmF0aW9uSW5mbz48ZWI6U2VydmljZT5GVEkwMTA8L2ViOlNlcnZpY2U+PGViOkFjdGlvbj5GVEkwMTBSZXNwb25zZTwvZWI6QWN0aW9uPjxlYjpDb252ZXJzYXRpb25JZD5jb252LXNwYWNlZC0wMDAxPC9lYjpDb252ZXJzYXRpb25JZD48L2ViOkNvbGxhYm9yYXRpb25JbmZvPjwvZWI6VXNlck1lc3NhZ2U+PC9lYjpNZXNzYWdpbmc+PGRzOlNpZ25hdHVyZSB4bWxuczpkcz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC8wOS94bWxkc2lnIyI+PGRzOlNpZ25lZEluZm8+PGRzOlJlZmVyZW5jZSBVUkk9IiNNU0ctMSI+PGRzOlRyYW5zZm9ybXM+PGRzOlRyYW5zZm9ybSBBbGdvcml0aG09Imh0dHA6Ly93d3cudzMub3JnLzIwMDEvMTAveG1sLWV4Yy1jMTRuIyIvPjwvZHM6VHJhbnNmb3Jtcz48ZHM6RGlnZXN0TWV0aG9kIEFsZ29yaXRobT0iaHR0cDovL3d3dy53My5vcmcvMjAwMS8wNC94bWxlbmMjc2hhMjU2Ii8+PGRzOkRpZ2VzdFZhbHVlPlpHbG5aWE4wTFcxelp3PT08L2RzOkRpZ2VzdFZhbHVlPjwvZHM6UmVmZXJlbmNlPjwvZHM6U2lnbmVkSW5mbz48ZHM6U2lnbmF0dXJlVmFsdWU+QUFBQTwvZHM6U2lnbmF0dXJlVmFsdWU+PC9kczpTaWduYXR1cmU+PC9lbnY6SGVhZGVyPjxlbnY6Qm9keS8+PC9lbnY6RW52ZWxvcGU+", attachments: [], required_signed_xpaths: ["//eb:Messaging"], required_signed_cid_refs: [], return_fields: ["signature_digests"] }
+    expect:
+      status: 200
+      body_matches:
+        signature_digests:
+          - reference_uri: "#MSG-1"
+            subtree_xpath: "//eb:Messaging"
+            digest_b64: "ZGlnZXN0LW1zZw=="
+            algorithm: "SHA-256"
+            transforms: ["http://www.w3.org/2001/10/xml-exc-c14n#"]
+
+  - name: verify - base64 with a trailing line break after the padding is accepted
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "QQ==\n", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
+    expect:
+      status: 200
+      headers: { Content-Type: "application/json" }
+
+  - name: verify - base64 without padding is accepted
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "PHg", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
+    expect:
+      status: 200
+
+  - name: verify - empty base64 string is accepted
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
+    expect:
+      status: 200
+
+  - name: verify - base64 of impossible length (one character) is rejected
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "A", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
+    expect:
+      status: 400
+      headers: { Content-Type: "application/problem+json" }
+
+  - name: verify - base64 with short padding (QQ=) is rejected
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "QQ=", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
+    expect:
+      status: 400
+      headers: { Content-Type: "application/problem+json" }
+
+  - name: verify - base64 with three padding characters is rejected
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "QQ===", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
+    expect:
+      status: 400
+      headers: { Content-Type: "application/problem+json" }
+
+  - name: verify - url-safe base64 alphabet is rejected
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "PH-_", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
+    expect:
+      status: 400
+      headers: { Content-Type: "application/problem+json" }
+
+  - name: decrypt - base64 attachment with a trailing line break is accepted
+    request:
+      method: POST
+      path: /turvis/v1/decryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "PHg+", encrypted_attachment_b64: "QUJD\n", key_handle: "EU-EE", return_fields: ["decrypted_attachment_b64"] }
+    expect:
+      status: 200
+
+  - name: decrypt - attachment of impossible base64 length is rejected
+    request:
+      method: POST
+      path: /turvis/v1/decryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "PHg+", encrypted_attachment_b64: "A", key_handle: "EU-EE", return_fields: ["decrypted_attachment_b64"] }
+    expect:
+      status: 400
+      headers: { Content-Type: "application/problem+json" }
+
+  - name: encrypt - plaintext bytes with a trailing line break are accepted
+    request:
+      method: POST
+      path: /turvis/v1/encryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { plaintext_bytes_b64: "QUJD\n", receiver_party_id: "EU-FR", profile: "plaintext", return_fields: [] }
+    expect:
+      status: 200
+
+  - name: encrypt - plaintext bytes with short padding are rejected
+    request:
+      method: POST
+      path: /turvis/v1/encryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { plaintext_bytes_b64: "QQ=", receiver_party_id: "EU-FR", profile: "plaintext", return_fields: [] }
+    expect:
+      status: 400
+      headers: { Content-Type: "application/problem+json" }

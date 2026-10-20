@@ -37,7 +37,8 @@
 #   built from the policy, the same ones signatures/xmldsig returns for the same policy.
 # - trust_store_version, when present, must be `mock` (the mock's only generation), else 503
 #   TRUST_STORE_UNAVAILABLE (SPEC section 4.1).
-# - soap_xml_b64 and every attachment bytes_b64 must be base64 (whitespace tolerated), and attachments
+# - soap_xml_b64 and every attachment bytes_b64 must be standard-alphabet base64 (whitespace anywhere
+#   tolerated, padding optional, impossible lengths and wrong padding rejected), and attachments
 #   at most 10 items, each {cid matching ^cid:[-a-zA-Z0-9._]+$, bytes_b64 string}, else 400 (SPEC
 #   section 4.1). The attachment bytes are not hashed: there is no real signature to compare them with.
 # - The envelope reader accepts any whitespace between attributes and either quote character around
@@ -129,10 +130,22 @@ setup:
     fields_ok: "${(incoming.body.return_fields || []).length > 0}"
     attachments_ok: |-
       ${(function (list) {
+        function b64(s) {
+          var t = String(s).replace(/\s+/g, '');
+          if (!/^[A-Za-z0-9+\/]*={0,2}$/.test(t)) { return false; }
+          var core = t.replace(/=+$/, '');
+          return core.length % 4 != 1 && (t.length == core.length || t.length % 4 == 0);
+        }
         if (!Array.isArray(list) || list.length > 10) { return false; }
-        return list.every(function (a) { return a != null && typeof a.cid == 'string' && /^cid:[-a-zA-Z0-9._]+$/.test(a.cid) && typeof a.bytes_b64 == 'string' && /^[A-Za-z0-9+\/\s]*={0,2}$/.test(a.bytes_b64); });
+        return list.every(function (a) { return a != null && typeof a.cid == 'string' && /^cid:[-a-zA-Z0-9._]+$/.test(a.cid) && typeof a.bytes_b64 == 'string' && b64(a.bytes_b64); });
       })(incoming.body.attachments)}
-    soap_ok: "${/^[A-Za-z0-9+\\/\\s]*={0,2}$/.test(incoming.body.soap_xml_b64)}"
+    soap_ok: |-
+      ${(function (s) {
+        var t = String(s).replace(/\s+/g, '');
+        if (!/^[A-Za-z0-9+\/]*={0,2}$/.test(t)) { return false; }
+        var core = t.replace(/=+$/, '');
+        return core.length % 4 != 1 && (t.length == core.length || t.length % 4 == 0);
+      })(incoming.body.soap_xml_b64)}
     trust_ok: "${incoming.body.trust_store_version == null || incoming.body.trust_store_version == 'mock'}"
     unknown_fields: "${(incoming.body.return_fields || []).filter(function (f) { return ['signer', 'matched_signed_xpaths', 'matched_signed_cid_refs', 'signature_digests', 'ebms_routing'].indexOf(f) < 0; })}"
 
@@ -224,7 +237,9 @@ analyse:
           var digestValue = m[2].match(/<(?:\w+:)?DigestValue>([^<]*)</);
           var item = { reference_uri: uri, digest_b64: digestValue ? digestValue[1].trim() : '', algorithm: 'SHA-256', transforms: transforms };
           if (uri.charAt(0) == '#') {
-            var at = Math.max(x.indexOf('Id=\x22' + uri.substring(1) + '\x22'), x.indexOf('Id=\x27' + uri.substring(1) + '\x27'));
+            var idPart = uri.substring(1).replace(/[^A-Za-z0-9_.:-]/g, '');
+            var idMatch = idPart == uri.substring(1) ? new RegExp('\\bId\\s*=\\s*[\\x22\\x27]' + idPart + '[\\x22\\x27]').exec(x) : null;
+            var at = idMatch ? idMatch.index : -1;
             if (at > 0) {
               var open = x.lastIndexOf('<', at);
               var qname = (x.substring(open + 1).match(/^[^\s>\/]+/) || [''])[0];

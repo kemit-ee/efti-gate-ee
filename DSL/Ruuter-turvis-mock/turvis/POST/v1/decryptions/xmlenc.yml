@@ -95,7 +95,16 @@ setup:
     trace_ok: "${incoming.body.trace_id == null || /^[0-9a-f]{32}$/.test(incoming.body.trace_id)}"
     fields_ok: "${(incoming.body.return_fields || []).length > 0}"
     key_known: "${incoming.body.key_handle == '[#OWN_GATE_ID]'}"
-    b64_ok: "${/^[A-Za-z0-9+\\/\\s]*={0,2}$/.test(incoming.body.soap_xml_b64) && (incoming.body.encrypted_attachment_b64 == null || /^[A-Za-z0-9+\\/\\s]*={0,2}$/.test(incoming.body.encrypted_attachment_b64))}"
+    b64_ok: |-
+      ${(function (envelope, attachment) {
+        function b64(s) {
+          var t = String(s).replace(/\s+/g, '');
+          if (!/^[A-Za-z0-9+\/]*={0,2}$/.test(t)) { return false; }
+          var core = t.replace(/=+$/, '');
+          return core.length % 4 != 1 && (t.length == core.length || t.length % 4 == 0);
+        }
+        return b64(envelope) && (attachment == null || b64(attachment));
+      })(incoming.body.soap_xml_b64, incoming.body.encrypted_attachment_b64)}
     unknown_fields: "${(incoming.body.return_fields || []).filter(function (f) { return ['decrypted_soap_xml_b64', 'decrypted_attachment_b64', 'ebms_routing'].indexOf(f) < 0; })}"
 
 dispatch:

@@ -87,7 +87,13 @@ setup:
     is_plaintext: "${incoming.body.profile == 'plaintext'}"
     profile_ok: "${incoming.body.profile == 'plaintext' || incoming.body.profile == 'wss-encrypted'}"
     trace_ok: "${incoming.body.trace_id == null || /^[0-9a-f]{32}$/.test(incoming.body.trace_id)}"
-    plain_ok: "${/^[A-Za-z0-9+\\/\\s]*={0,2}$/.test(incoming.body.plaintext_bytes_b64)}"
+    plain_ok: |-
+      ${(function (s) {
+        var t = String(s).replace(/\s+/g, '');
+        if (!/^[A-Za-z0-9+\/]*={0,2}$/.test(t)) { return false; }
+        var core = t.replace(/=+$/, '');
+        return core.length % 4 != 1 && (t.length == core.length || t.length % 4 == 0);
+      })(incoming.body.plaintext_bytes_b64)}
     unknown_fields: "${(incoming.body.return_fields || []).filter(function (f) { return ['wrapped_key_xml', 'encrypted_data_xml', 'wrapped_key_b64'].indexOf(f) < 0; })}"
 
 dispatch:
