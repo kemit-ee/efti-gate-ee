@@ -189,7 +189,8 @@ validates), so a registry the view cannot represent fails CI and both image buil
 - **Trust anchors:** optional `registry/trust-anchors/<alias>.pem` (public CA certificates; the file name
   minus `.pem` is the alias, case-insensitively unique). This is the **only** directory where `.pem`
   files are allowed; any other file there, or a `.pem` in `gates/`, `platforms/` or `authorities/`,
-  fails the build. A trust anchor that does not parse or has expired fails the build.
+  fails the build. A trust anchor that does not parse, has expired or is not a CA certificate
+  (`BasicConstraints CA:TRUE`) fails the build.
 - **Allowlist:** each party carries `party_id` (the gate `id`), `status`, `verified_identity` (= the gate
   `id`), `cert_pem` (= `eDeliveryCert`), `cert_ski`, `cert_subject_dn`, `valid_until` and
   `allowed_chain_anchors`. Platforms, `apiKey`, `headers`, `tlsCert` and URLs have no code path into the
@@ -200,7 +201,12 @@ validates), so a registry the view cannot represent fails CI and both image buil
   revision, so equal content gives an equal `generation`. `source_revision` is informational and comes
   from the `SOURCE_REVISION` build argument (`--source-revision`, default `unknown`); pass the **same**
   value to the `registry` and `turvis-trust` builds. The `registry` image's `health.json` carries the same
-  value as `trustViewGeneration`.
+  value as `trustViewGeneration`. GitHub Actions passes `git:<sha>` (compose interpolates
+  `SOURCE_REVISION`); the GitLab `builds:` entries pass **no** build argument yet, so images from that
+  pipeline report `unknown` until the platform component supports build args.
+- **Shared certificates:** two gates with the same certificate cannot be told apart under pinning. The
+  converter prints a `WARNING` (not a failure — the dev fixture `EU-EE`/`EU-MOCK` does this, and the SPEC
+  lists no such build failure); a production registry must not trigger it.
 - **Dev fixture:** `EU-EE` and `EU-MOCK` share one certificate (CN=EU-EE, valid until 2027-08-25), so the
   committed registry builds until that date; replace it before then. SPEC §13.11 removes `EU-MOCK` at cutover.
 

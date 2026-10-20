@@ -149,6 +149,10 @@ jobs:
           driver-opts: network=host
 
       - name: Build CI images
+        # compose.yml interpolates SOURCE_REVISION into the registry and turvis-trust build args, so both
+        # images (and the trust view's source_revision) carry the commit under test.
+        env:
+          SOURCE_REVISION: git:${{ github.sha }}
         run: |
           CI_TAG_ARGS=()
           while read -r CI_BUILD_SERVICE; do

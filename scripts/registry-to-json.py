@@ -231,6 +231,32 @@ def parse_certificate(pem, what, now):
     return certificate
 
 
+def require_ca(certificate, what):
+    """A trust anchor must be a CA certificate; a leaf placed there would anchor nothing meaningful."""
+    from cryptography import x509
+
+    try:
+        constraints = certificate.extensions.get_extension_for_class(x509.BasicConstraints).value
+    except x509.ExtensionNotFound:
+        constraints = None
+    if constraints is None or not constraints.ca:
+        raise RegistryError(f"{what}: trust anchor is not a CA certificate (BasicConstraints CA:TRUE required)")
+
+
+def shared_certificate_warnings(parties):
+    """Two parties pinned to one certificate cannot be told apart by their signature (the dev fixture
+    EU-EE/EU-MOCK does exactly that, SPEC section 13.11). Not a build failure: the SPEC's list of
+    failures does not include it and the committed dev registry would no longer build."""
+    owners = {}
+    for party in parties:
+        owners.setdefault(party["cert_ski"], []).append(party["party_id"])
+    return [
+        f"parties {sorted(ids)} share one certificate (cert_ski {ski}); under pinning a signature cannot tell them apart"
+        for ski, ids in sorted(owners.items())
+        if len(ids) > 1
+    ]
+
+
 def load_trust_anchors(source_dir, now):
     """`registry/trust-anchors/<alias>.pem` — the only place `.pem` files are allowed. Optional."""
     directory = source_dir / "trust-anchors"
@@ -250,7 +276,7 @@ def load_trust_anchors(source_dir, now):
         text = path.read_text()
         if not PEM_RE.match(text):
             raise RegistryError(f"{path}: not a PEM certificate (expected -----BEGIN/END CERTIFICATE-----)")
-        parse_certificate(text, str(path), now)
+        require_ca(parse_certificate(text, str(path), now), str(path))
         anchors.append({"alias": path.stem, "cert_pem": text})
 
     aliases = [a["alias"].lower() for a in anchors]
@@ -371,6 +397,9 @@ def main():
     except RegistryError as e:
         print(f"registry-to-json: FAILED: {e}", file=sys.stderr)
         return 1
+
+    for warning in shared_certificate_warnings(view["parties"]):
+        print(f"registry-to-json: WARNING: {warning}", file=sys.stderr)
 
     counts = {kind: len(entities) for kind, entities in registries.items()}
     trust_summary = f"turvis-trust parties={len(view['parties'])} trustAnchors={len(view['trust_anchors'])} generation={view['generation']}"

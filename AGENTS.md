@@ -147,7 +147,11 @@ database representation — `gates`, `platforms`, `authorities`, their read mode
   same revision as a separate artifact. Implemented by #315: the converter builds the view on **every**
   run (so plain validation covers it), `docker/turvis-trust/Dockerfile` + compose `turvis-trust` serve it
   (internal only, no consumer yet), the `registry` image's `health.json` carries the same `generation` as
-  `trustViewGeneration`, and `SOURCE_REVISION` (build arg) must be passed identically to both images.
+  `trustViewGeneration`, and `SOURCE_REVISION` (build arg) must be passed identically to both images (GitHub Actions does; the
+  GitLab `builds:` pass none yet, so it reads `unknown` there). The `turvis-trust` build stage copies only
+  `registry/gates` and `registry/trust-anchors` (no platform `apiKey` in its layers) and the final image
+  serves only `turvis-trust.json` + `health.json`. Trust anchors must be CA certificates; two gates sharing a
+  certificate (the dev `EU-EE`/`EU-MOCK`) only print a converter WARNING.
   Fields come from an allowlist; `verified_identity` = the gate `id`; optional `registry/trust-anchors/<alias>.pem`
   and per-gate `allowedChainAnchors` (view-only, stripped from the registry JSON). Status is
   `ONLINE`/`DISABLED` with **deny wins** across edelivery's registry view and Turvis's view; pinning is

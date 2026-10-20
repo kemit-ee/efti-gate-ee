@@ -8,6 +8,8 @@ Run: python3 tests/registry/test_registry_to_json.py
 import importlib.util
 import json
 import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -28,7 +30,7 @@ spec.loader.exec_module(converter)
 ISSUED = datetime(2026, 10, 1, tzinfo=timezone.utc)
 
 
-def make_cert(common_name, org=None, not_after=datetime(2027, 10, 20, tzinfo=timezone.utc)):
+def make_cert(common_name, org=None, not_after=datetime(2027, 10, 20, tzinfo=timezone.utc), ca=False):
     key = ec.generate_private_key(ec.SECP256R1())
     attributes = [x509.NameAttribute(NameOID.COMMON_NAME, common_name)]
     if org:
@@ -43,6 +45,7 @@ def make_cert(common_name, org=None, not_after=datetime(2027, 10, 20, tzinfo=tim
         .not_valid_before(min(ISSUED, not_after - timedelta(days=30)))
         .not_valid_after(not_after)
         .add_extension(x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False)
+        .add_extension(x509.BasicConstraints(ca=ca, path_length=None), critical=True)
         .sign(key, hashes.SHA256())
     )
     return certificate.public_bytes(serialization.Encoding.PEM).decode()
@@ -129,9 +132,47 @@ class RegistryToJsonTest(unittest.TestCase):
         self.assert_rejected("gates", "allowedChainAnchors must be a list of trust-anchor aliases")
 
     def test_allowed_chain_anchors_never_reach_the_registry_documents(self):
-        entity = converter.load("gates", self.source)[0]
-        entity = dict(entity, allowedChainAnchors=["root"])
-        self.assertNotIn("allowedChainAnchors", converter.public_entity("gates", entity))
+        self.write("gates", "EU-X.yml", gate_yaml("EU-X", make_cert("EU-X"), extra="allowedChainAnchors: [root]\n"))
+        loaded = {g["id"]: g for g in converter.load("gates", self.source)}
+        self.assertEqual(["root"], loaded["EU-X"]["allowedChainAnchors"])
+        self.assertNotIn("allowedChainAnchors", converter.public_entity("gates", loaded["EU-X"]))
+
+
+class CommandLineTest(unittest.TestCase):
+    """The script as the Dockerfiles run it: files written, generation shared between the two outputs."""
+
+    def run_script(self, *args, source=ROOT / "registry"):
+        return subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "registry-to-json.py"), "--source", str(source), *args],
+            capture_output=True, text=True,
+        )
+
+    def test_out_and_trust_out_share_one_generation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out, trust = Path(tmp) / "registry", Path(tmp) / "trust"
+            done = self.run_script("--out", str(out), "--trust-out", str(trust), "--source-revision", "rev-abc123")
+            self.assertEqual(0, done.returncode, done.stderr)
+            view = json.loads((trust / "turvis-trust.json").read_text())
+            self.assertEqual("rev-abc123", view["source_revision"])
+            self.assertEqual(view["generation"], json.loads((out / "health.json").read_text())["trustViewGeneration"])
+            self.assertEqual(view["generation"], json.loads((trust / "health.json").read_text())["generation"])
+            self.assertFalse((trust / "platforms.json").exists())
+            self.assertNotIn("turvis-trust.json", [p.name for p in out.iterdir()])
+
+    def test_validation_only_run_builds_the_view_and_writes_nothing(self):
+        done = self.run_script()
+        self.assertEqual(0, done.returncode, done.stderr)
+        self.assertIn("validated turvis-trust parties=", done.stdout)
+
+    def test_failing_view_fails_the_command(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "registry"
+            shutil.copytree(ROOT / "registry", source)
+            expired = make_cert("EU-X", not_after=datetime(2020, 1, 1, tzinfo=timezone.utc))
+            (source / "gates" / "EU-X.yml").write_text(gate_yaml("EU-X", expired))
+            done = self.run_script(source=source)
+            self.assertEqual(1, done.returncode)
+            self.assertIn("certificate expired", done.stderr)
 
 
 class TrustViewTest(unittest.TestCase):
@@ -250,16 +291,28 @@ class TrustViewTest(unittest.TestCase):
 
     def anchors_dir(self):
         directory = self.source / "trust-anchors"
-        directory.mkdir()
+        directory.mkdir(exist_ok=True)
         return directory
 
     def test_no_trust_anchors_directory_is_fine(self):
         self.assertEqual([], converter.load_trust_anchors(self.source, self.NOW))
 
     def test_pem_is_allowed_under_trust_anchors(self):
-        pem = make_cert("root-ca")
+        pem = make_cert("root-ca", ca=True)
         (self.anchors_dir() / "efti-root-ca-2026.pem").write_text(pem)
         self.assertEqual([{"alias": "efti-root-ca-2026", "cert_pem": pem}], converter.load_trust_anchors(self.source, self.NOW))
+
+    def test_leaf_certificate_is_not_accepted_as_a_trust_anchor(self):
+        (self.anchors_dir() / "leaf.pem").write_text(make_cert("leaf"))
+        with self.assertRaisesRegex(converter.RegistryError, "trust anchor is not a CA certificate"):
+            converter.load_trust_anchors(self.source, self.NOW)
+
+    def test_parties_sharing_a_certificate_are_warned_about_not_rejected(self):
+        shared = make_cert("shared")
+        view = self.view([self.gate("EU-A", shared), self.gate("EU-B", shared), self.gate("EU-C", make_cert("c"))])
+        warnings = converter.shared_certificate_warnings(view["parties"])
+        self.assertEqual(1, len(warnings))
+        self.assertIn("['EU-A', 'EU-B']", warnings[0])
 
     def test_non_pem_file_under_trust_anchors_is_rejected(self):
         (self.anchors_dir() / "root.yml").write_text("id: root\n")
@@ -271,14 +324,14 @@ class TrustViewTest(unittest.TestCase):
         (directory / "root.pem").write_text("not a certificate\n")
         with self.assertRaisesRegex(converter.RegistryError, "not a PEM certificate"):
             converter.load_trust_anchors(self.source, self.NOW)
-        (directory / "root.pem").write_text(make_cert("root", not_after=datetime(2026, 1, 1, tzinfo=timezone.utc)))
+        (directory / "root.pem").write_text(make_cert("root", ca=True, not_after=datetime(2026, 1, 1, tzinfo=timezone.utc)))
         with self.assertRaisesRegex(converter.RegistryError, "certificate expired"):
             converter.load_trust_anchors(self.source, self.NOW)
 
     def test_anchor_aliases_are_case_insensitive_duplicates(self):
         directory = self.anchors_dir()
-        (directory / "Root.pem").write_text(make_cert("a"))
-        (directory / "root.pem").write_text(make_cert("b"))
+        (directory / "Root.pem").write_text(make_cert("a", ca=True))
+        (directory / "root.pem").write_text(make_cert("b", ca=True))
         if len(list(directory.glob("*.pem"))) < 2:
             self.skipTest("case-insensitive file system")
         with self.assertRaisesRegex(converter.RegistryError, "duplicate anchor alias"):
