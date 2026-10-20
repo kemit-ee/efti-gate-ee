@@ -310,7 +310,6 @@ Neli otsust, millest esimene määrab, kas allkirjast on üldse kasu:
 
 - [Turvise integratsioonileping](../../specs/turvis/SPEC.md) §7.2–7.4 (usaldusvaade), kemit-ee/efti-gate-ee#304,
   #311, #315 (`turvis-trust.json` genereerimine), #316 (see täiendus), #309 (võrgupoliitika)
-
 - [ADR-002](002-status-over-isactive.md) (kasutajate CRUD jääb REST-iks),
   [ADR-004](004-platform-api-key.md) (**muudetud §5-ga**: võti on avatekst, mitte SHA-256),
   [ADR-006](006-xroad-identity-and-subsets.md) (asutuse `subsets` on autoriõiguse allikas),
