@@ -1,4 +1,4 @@
-# efti/POST/api/v1/authority/.guard.yml — gate-internal, X-Internal-Service-Token only.
+# efti/POST/api/v1/authority/.guard.yml - gate-internal, X-Internal-Service-Token only.
 # The credential check is inline (a switch against the constant), so it runs fully in-process.
 mode: inprocess
 

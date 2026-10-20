@@ -1,7 +1,7 @@
 /*
 description: pick a batch of superseded consignments rows (live DB) for the archive flow to move.
   A candidate has a NEWER sibling row for the same (platform_id, dataset_id) AND that newer sibling
-  is itself older than olderThanDays — so the current row of every dataset, including a DELETED
+  is itself older than olderThanDays - so the current row of every dataset, including a DELETED
   tombstone, is never a candidate.
 params:
   olderThanDays: { type: number, default: 2 }

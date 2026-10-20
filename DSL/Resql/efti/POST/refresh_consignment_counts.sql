@@ -1,5 +1,5 @@
 /*
-description: ADR-012 read-model refresh — writes one full snapshot of the current (latest-row) consignment
+description: ADR-012 read-model refresh - writes one full snapshot of the current (latest-row) consignment
   counts per gate, platform and status as a new generation, then publishes it by inserting the pointer row.
   Everything is one statement, so a reader sees either the previous generation or the complete new one,
   never a partial snapshot. An advisory transaction lock serialises overlapping CronManager runs.

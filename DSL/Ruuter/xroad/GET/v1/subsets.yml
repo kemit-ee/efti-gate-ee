@@ -8,7 +8,7 @@ declaration:
     from this list - a dataset request may name up to seven subsets, and one call covers all of
     them."
   # Inputs: X-Road-Client (memberCode resolves the calling organisation) and X-Road-Id are
-  # validated by xroad/.guard.yml. No body, no query params. No allowlist block — an
+  # validated by xroad/.guard.yml. No body, no query params. No allowlist block - an
   # allowlist.header strips every header not listed, including the ones the guard reads.
   internal: false
   returns:
@@ -48,10 +48,10 @@ match_authority:
 # handler discloses subset entitlements, so it re-checks rather than trusting the guard: a match set
 # larger than one must never resolve to matches[0], because that would hand one organisation
 # another's entitlement. Deny is the fall-through branch and every accept path is an explicit
-# positive condition — a non-array body yields [] from match_authority, so it lands on `forbidden`.
+# positive condition - a non-array body yields [] from match_authority, so it lands on `forbidden`.
 check_authority:
   switch:
-    # A registry transport failure (status 0) is a gate-side outage, not an authorisation answer —
+    # A registry transport failure (status 0) is a gate-side outage, not an authorisation answer -
     # it must not be reported to the caller as "you are not a competent authority". Kept ahead of
     # the != 200 catch-all.
     - condition: ${authority_res.response.status == 0 || authority_res.response.status >= 300}

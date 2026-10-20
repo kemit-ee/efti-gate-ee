@@ -1,5 +1,5 @@
 declaration:
-  description: "Query local platform for a dataset — shared by eDelivery and Authority API"
+  description: "Query local platform for a dataset - shared by eDelivery and Authority API"
   internal: false
   returns: []
   additive: true

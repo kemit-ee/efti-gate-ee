@@ -1,5 +1,5 @@
 /*
-description: (archive DB) confirm the given row_ids are present AND their payload reads back —
+description: (archive DB) confirm the given row_ids are present AND their payload reads back -
   proof the batch reached cold storage and is accessible there, before the live rows are deleted.
 params:
   rowIds: { type: array, items: { type: string } }

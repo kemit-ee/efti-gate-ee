@@ -1,4 +1,4 @@
-# POST /ops/v1/expire-identifiers — CronManager's cabotage-expiry sweep (Reg 2024/1942 Art 11(4)).
+# POST /ops/v1/expire-identifiers - CronManager's cabotage-expiry sweep (Reg 2024/1942 Art 11(4)).
 # The ops guard is a literal Bearer compare; a ReSql error must be a 502, never a 200 with a bogus
 # count; a dry run reports the candidates and writes no jobs_execution_log row.
 mode: mock-http

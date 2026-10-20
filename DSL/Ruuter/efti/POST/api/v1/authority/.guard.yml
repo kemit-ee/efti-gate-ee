@@ -1,4 +1,4 @@
-# Authority API (search, follow-up, and dataset once wired) — gate-internal only, no JWT
+# Authority API (search, follow-up, and dataset once wired) - gate-internal only, no JWT
 # path. A competent authority proper is an organisation authenticated over X-Road
 # (DSL/Ruuter/xroad/.guard.yml → authorities.registry_code); there is no "authority" flag
 # on users, and there is no gate-operator JWT escape hatch on this surface any more.
@@ -7,7 +7,7 @@
 # the internal network. Today that is the X-Road adapter (the xroad/ project on this same
 # Ruuter), which resolves the calling organisation from X-Road-Client and enforces
 # authorities.subsets itself before forwarding; the same token is earmarked for G2G inbound.
-# This is a GENERIC internal-service credential — core stays unaware of X-Road, and the
+# This is a GENERIC internal-service credential - core stays unaware of X-Road, and the
 # handlers below are identity-blind anyway (dataset.yml reads only body.uil/body.subsets,
 # follow-up.yml hardcodes requestingUserId). The caller authorises itself before forwarding.
 #
@@ -21,7 +21,7 @@
 # (0.9.11–0.9.12-rc). 0.9.13-rc: guard-stack (juba jooksev guard jäetakse vahele) +
 # `MAX_GUARD_DEPTH = 32`. Siinne guard on `switch`-põhine, seega fix on ohutusvõrk.
 #
-# override_ancestors: true — see guard kordab efti/POST/api/v1/.guard.yml-i
+# override_ancestors: true - see guard kordab efti/POST/api/v1/.guard.yml-i
 # X-Internal-Service-Token kontrolli täpselt üks-ühele, seega ancestor-guardi
 # uuesti jooksutamine oleks lihtsalt topelttöö igal authority/* päringul
 # (mõõdetud: ~jõudlusanalüüs §4j). Asendame ancestor-ahela selle guardiga.
@@ -32,7 +32,7 @@
 
 declaration:
   override_ancestors: true
-  description: "efti/POST/api/v1/authority guard — gate-internal. Credential:
+  description: "efti/POST/api/v1/authority guard - gate-internal. Credential:
     X-Internal-Service-Token (required), must be present, non-empty, and equal
     INTERNAL_SERVICE_TOKEN. No JWT path. Replaces the identical ancestor check
     (efti/POST/api/v1/.guard.yml) so it does not run twice per request."

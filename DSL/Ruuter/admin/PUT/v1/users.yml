@@ -85,7 +85,7 @@ check_update:
 
 # Best-effort, post-commit (docs/specs/logging-spec.md §5.2): a failure here never
 # fails or rolls back the user write above; its result is intentionally unchecked.
-# secret_hash is never copied into the audit row (§5.1) — update_user's RETURNING
+# secret_hash is never copied into the audit row (§5.1) - update_user's RETURNING
 # clause never includes it, so update_result.response.body[0] is already safe to log whole.
 write_audit_log:
   call: http.post

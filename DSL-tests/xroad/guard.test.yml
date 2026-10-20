@@ -1,4 +1,4 @@
-# xroad/.guard.yml — the X-Road-Client / X-Road-Id shape checks are inline switches that run
+# xroad/.guard.yml - the X-Road-Client / X-Road-Id shape checks are inline switches that run
 # before resolve_authority (the only upstream call), so the reject paths run in-process.
 mode: inprocess
 

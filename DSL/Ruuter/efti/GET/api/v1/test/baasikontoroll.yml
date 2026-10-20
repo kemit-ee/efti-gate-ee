@@ -1,5 +1,5 @@
 declaration:
-  description: "Public health diagnostic — returns the database status. No inputs (see the
+  description: "Public health diagnostic - returns the database status. No inputs (see the
     efti/GET/api/v1/test/.guard.yml override that keeps this endpoint public)."
   internal: false
   returns: []

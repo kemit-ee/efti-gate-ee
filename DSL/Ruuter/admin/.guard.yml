@@ -1,4 +1,4 @@
-# Admin only — one project-level guard (Ruuter #39) for the whole admin surface:
+# Admin only - one project-level guard (Ruuter #39) for the whole admin surface:
 # every GET/POST/PUT/DELETE under /admin/** requires authentication per
 # docs/specs/permissions-matrix.md §3.3. Replaces the four byte-identical
 # admin/{GET,POST,PUT,DELETE}/v1/.guard.yml files.

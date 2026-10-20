@@ -108,7 +108,7 @@ audit_login_success:
 
 # Step 3: Return the JWT in the response body.
 # The frontend stores it in sessionStorage and sends it as Authorization: Bearer
-# on every API call. No cookie, no CSRF token — per
+# on every API call. No cookie, no CSRF token - per
 # docs/architecture/user-interfaces/README.md §1.3.
 return_token:
   return:

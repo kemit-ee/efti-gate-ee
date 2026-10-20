@@ -1,5 +1,5 @@
 /*
-description: Identifier-level lookup of consignments by transport-means identifier — a road
+description: Identifier-level lookup of consignments by transport-means identifier - a road
   registration plate, a vessel IMO, an aircraft registration, or a transport-equipment (container)
   id. Backs the X-Road transport-means service.
 params:
@@ -10,13 +10,13 @@ params:
 --
 --   1. It returns a stable, explicit field contract to an external X-Road consumer. get_consignments
 --      selects identifier metadata plus the raw `xml` blob, whose schema belongs to the platform
---      (FTI004UploadIdentifierRequest), not to this gate — so its shape can change under us.
+--      (FTI004UploadIdentifierRequest), not to this gate - so its shape can change under us.
 --   2. `consignments.xml` is redundant here: it is the *identifier* XML as received from the platform
 --      (006-consignments.sql:54) and carries the same fields already denormalised into the columns
 --      below. Shipping it would roughly double the response for no new information, on a route meant
 --      to be cheap and high-volume.
 --
--- NOT because it would leak dataset content: it would not. Dataset content never enters Postgres —
+-- NOT because it would leak dataset content: it would not. Dataset content never enters Postgres -
 -- authority/dataset.yml fetches it from the platform with `?subsetId=...`, and that is where subset
 -- entitlement is enforced. An earlier version of this comment claimed reusing get_consignments would
 -- "bypass authorities.subsets"; that was wrong, and the same wrong premise was used to accuse
@@ -27,7 +27,7 @@ params:
 --   used_equipment_ids     transport equipment in use (container / swap-body / trailer ids)
 --   carried_equipment_ids  equipment carried on the transport means
 -- A border check on a container number must not answer "not registered" just because the number is
--- on the equipment rather than the tractor. All three are indexed —
+-- on the equipment rather than the tractor. All three are indexed -
 -- idx_consignments_main_transport_id (btree) and idx_consignments_{used,carried}_equip_ids (GIN).
 --
 -- Matching is CASE-SENSITIVE: these are TEXT / TEXT[] columns, not CITEXT, so '123abc' does not match
@@ -35,7 +35,7 @@ params:
 -- column type change or functional indexes on three columns.
 -- LATEST-ROW SEMANTICS: a consignment is returned only if its LATEST row (created_at DESC, revision
 -- DESC) still carries the identifier and is ACTIVE. Expressed as "a matching ACTIVE row that has no
--- newer row for its (platform_id, dataset_id)" — the same self-correlated anti-join as
+-- newer row for its (platform_id, dataset_id)" - the same self-correlated anti-join as
 -- get_consignments.sql (ADR-009). A matching row with a newer sibling is a superseded version and is
 -- dropped, so a corrected plate or a soft-delete still hides the old identifier.
 --
