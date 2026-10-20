@@ -37,6 +37,9 @@
 #   built from the policy, the same ones signatures/xmldsig returns for the same policy.
 # - trust_store_version, when present, must be `mock` (the mock's only generation), else 503
 #   TRUST_STORE_UNAVAILABLE (SPEC section 4.1).
+# - attachments must be at most 10 items, each {cid matching ^cid:[-a-zA-Z0-9._]+$, bytes_b64 string}, else
+#   400 (SPEC section 4.1). The attachment bytes are not hashed: there is no real signature to compare
+#   them with.
 # - trace_id, when present, must be 32 lower-case hex characters, else 400.
 #
 # Dev-mode mock overrides: header `X-Mock-Audit-Ref: <value>` fixes audit_ref (default: a random
@@ -120,12 +123,17 @@ setup:
     mock_verdict: "${incoming.headers['x-mock-verdict'] || 'accept'}"
     trace_ok: "${incoming.body.trace_id == null || /^[0-9a-f]{32}$/.test(incoming.body.trace_id)}"
     fields_ok: "${(incoming.body.return_fields || []).length > 0}"
+    attachments_ok: |-
+      ${(function (list) {
+        if (!Array.isArray(list) || list.length > 10) { return false; }
+        return list.every(function (a) { return a != null && typeof a.cid == 'string' && /^cid:[-a-zA-Z0-9._]+$/.test(a.cid) && typeof a.bytes_b64 == 'string'; });
+      })(incoming.body.attachments)}
     trust_ok: "${incoming.body.trust_store_version == null || incoming.body.trust_store_version == 'mock'}"
     unknown_fields: "${(incoming.body.return_fields || []).filter(function (f) { return ['signer', 'matched_signed_xpaths', 'matched_signed_cid_refs', 'signature_digests', 'ebms_routing'].indexOf(f) < 0; })}"
 
 dispatch:
   switch:
-    - condition: "${!trace_ok || !fields_ok}"
+    - condition: "${!trace_ok || !fields_ok || !attachments_ok}"
       next: reject_bad_request
     - condition: "${mock_verdict == 'reject-xml-parse-fail'}"
       next: reject_xml_parse_fail
@@ -314,7 +322,6 @@ project:
 accept:
   return: "${response}"
   status: 200
-  content_type: application/json
   wrapper: false
 
 reject_bad_request:
@@ -322,10 +329,11 @@ reject_bad_request:
     type: "https://efti.example/problem/turvis-bad-request"
     title: "Bad request"
     status: 400
-    detail: "return_fields must be non-empty and trace_id (if present) 32 lower-case hex characters"
+    detail: "return_fields must be non-empty, attachments at most 10 items of {cid: cid:<id>, bytes_b64}, trace_id (if present) 32 lower-case hex characters"
     audit_ref: "${audit_ref}"
   status: 400
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_xml_parse_fail:
@@ -338,7 +346,8 @@ reject_xml_parse_fail:
     detail: "mock: XML would not parse to a well-formed DOM"
     audit_ref: "${audit_ref}"
   status: 422
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_xml_attack:
@@ -351,7 +360,8 @@ reject_xml_attack:
     detail: "mock: parser hit a size/depth/entity-expansion limit"
     audit_ref: "${audit_ref}"
   status: 422
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_sig_missing:
@@ -364,7 +374,8 @@ reject_sig_missing:
     detail: "mock: no <ds:Signature> element found in envelope"
     audit_ref: "${audit_ref}"
   status: 422
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_sig_crypto:
@@ -377,7 +388,8 @@ reject_sig_crypto:
     detail: "mock: signature.validate() returned false"
     audit_ref: "${audit_ref}"
   status: 422
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_sig_policy:
@@ -390,7 +402,8 @@ reject_sig_policy:
     detail: "mock: required subtree not in SignedInfo.references, or more than one <eb:Messaging> element"
     audit_ref: "${audit_ref}"
   status: 422
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_sig_algo:
@@ -403,7 +416,8 @@ reject_sig_algo:
     detail: "mock: algorithm not in allowlist (RSA-SHA256 and SHA-256 digests only)"
     audit_ref: "${audit_ref}"
   status: 422
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_signer_untrusted:
@@ -416,7 +430,8 @@ reject_signer_untrusted:
     detail: "mock: signer cert does not chain to trust store"
     audit_ref: "${audit_ref}"
   status: 422
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_signer_identity_mismatch:
@@ -429,7 +444,8 @@ reject_signer_identity_mismatch:
     detail: "mock: signer identity (envelope From PartyId) does not match claimed_signer_id"
     audit_ref: "${audit_ref}"
   status: 422
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_unknown_return_field:
@@ -442,7 +458,8 @@ reject_unknown_return_field:
     detail: "return_fields contains a value not in the endpoint's projectable set (see SPEC section 4.1)"
     audit_ref: "${audit_ref}"
   status: 422
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_algo_unsupported:
@@ -455,7 +472,8 @@ reject_algo_unsupported:
     detail: "mock: algorithm not in the pinned allowlist"
     audit_ref: "${audit_ref}"
   status: 422
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_trust_store_unavailable:
@@ -468,7 +486,8 @@ reject_trust_store_unavailable:
     detail: "mock: no usable trust snapshot or trust_store_version mismatch, transient, retry safe"
     audit_ref: "${audit_ref}"
   status: 503
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_turvis_internal:
@@ -481,5 +500,6 @@ reject_turvis_internal:
     detail: "mock: internal bug, not retried automatically"
     audit_ref: "${audit_ref}"
   status: 500
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false

@@ -169,6 +169,27 @@ services:
       retries: 20
       start_period: 10s
 
+  # Turvis mock (issue #306): the Turvis contract DSL (docs/specs/turvis/SPEC.md) served by a standalone
+  # Ruuter, no database, no dependency on the gate, no real cryptography. DEVELOPMENT AND TEST ONLY: it has
+  # a committed dev token (constants-turvis-mock.ini) and must never be deployed to production. It is not
+  # built or deployed by .gitlab-ci.yml and has no devops chart. Nothing calls it yet (the edelivery
+  # integration is #305), so no other service depends on it. The published port is loopback-only
+  # (compose.override.yml).
+  turvis-mock:
+    container_name: efti_turvis_mock
+    build:
+      context: .
+      dockerfile: docker/turvis-mock/Dockerfile
+    platform: linux/amd64
+    cpus: '0.25'
+    mem_limit: 128M
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8091/turvis/health/ready || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
   # Scheduler for the gate's /ops/v1/* jobs (archive sweep, purges, read-model refresh). Job set:
   # DSL/CronManager/efti-ops.yaml, baked into the image (docker/cronmanager/Dockerfile) — a job
   # change needs `docker compose up --build cronmanager`. Internal only, like resql/registry: no

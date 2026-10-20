@@ -48,5 +48,6 @@ deny:
     status: 401
     detail: "Turvis rejects: client did not authenticate per AUTH_MODE=[#AUTH_MODE]"
   status: 401
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false

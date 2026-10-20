@@ -6,7 +6,7 @@ Estonian national eFTI Gate (EU Regulation 2020/1056). Mediates dataset retrieva
 
 ## Architecture at a glance
 
-20 Docker Compose services (19 long-running/one-shot jobs + the `http-tests` runner; `turvis-trust` serves the generated Turvis trust view and has no consumer yet). Three runtime layers:
+21 Docker Compose services (20 long-running/one-shot jobs + the `http-tests` runner; `turvis-trust` serves the generated Turvis trust view and `turvis-mock` is the dev/test Turvis stand-in, neither has a consumer yet). Three runtime layers:
 
 | Layer | Tech | Port | Role |
 |-------|------|------|------|
@@ -71,6 +71,10 @@ DSL/
   Ruuter-xroad-mock/     # PUBLIC X-Road mock — separate container (ruuter-xroad-mock:8088),
     developer/          #   no DB / no core, canned responses. Served under /developer/.
                         #   See docs/developer/x_road_developer_mock.md.
+  Ruuter-turvis-mock/    # Turvis mock (#306) — separate container (turvis-mock:8091, DEV/TEST ONLY), no DB /
+    turvis/             #   no core, no real crypto. The four contract routes under POST/v1/ + GET/health/ready,
+                        #   served under /turvis/. Contract: docs/specs/turvis/SPEC.md, run notes:
+                        #   docs/specs/turvis/dsl-contracts/README.md.
   Resql/efti/POST/      # SQL endpoint files (*.sql)
   Liquibase/            # DB migrations (initial/ + changelog/)
   CronManager/          # CronManager job set (efti-ops.yaml) — baked into the cronmanager image
@@ -367,6 +371,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   A scenario `request` with a `body` must also send `content-type: "application/json"` in `headers`:
   without it the body is not parsed, every `incoming.body.*` reads `undefined`, and the scenario still
   passes while exercising nothing.
+- `DSL-turvis-mock-tests/turvis.test.yml` (84+ `dsl-test` scenarios, `constants-turvis-mock.ini`) covers the Turvis mock (`DSL/Ruuter-turvis-mock`, issue #306): per route happy path, projection by **exact body** (`X-Mock-Audit-Ref` fixes `audit_ref`), every SPEC §5 reason code via `X-Mock-Verdict`, content types (`application/problem+json` on rejects), plaintext/encrypted profile, deterministic routing across decrypt and verify, receipt metadata incl. `cid:message`. The mock has **no real cryptography** (an accept proves nothing about a real message; no finding is closed by it) but enforces what the real Turvis would: `return_fields` projection and `UNKNOWN_RETURN_FIELD`, `key_handle` = `OWN_GATE_ID`, routing/sender extracted from the envelope, signed-subtree policy when `<ds:Reference>` elements exist. `scripts/validate-turvis-contract.py` (+ `tests/turvis/test_validate_turvis_contract.py`) fails CI when SPEC §4/§5 and the DSL drift. Ruuter engine gotchas found here: a `content_type:` key on a return step is **ignored** (use `headers:`), values assigned in one `assign:` block do not see each other, and an odd number of `"` inside a `${...}` expression leaves it unevaluated as a literal string. Compose: loopback `127.0.0.1:${EFTI_TURVIS_MOCK_PORT:-8091}`; the mock is not built by `.gitlab-ci.yml` and has no devops chart, and nothing depends on it until #305.
 - `DSL-mock-tests/*.test.yml` verifies standalone mock UUID and dataset permission contracts against `DSL/Ruuter-xroad-mock` and `constants-xroad-mock.ini`. Rich synthetic dataset UIL is `EU-EE/mock/550e8400-e29b-41d4-a716-446655440002` (every FTI010 element, meaningful distinct values from an enrichment pass over the XSD walk; two items and two carried containers show repeats; field catalogue `docs/developer/fti010-field-catalogue.md`, written by `scripts/sync-mock-datasets.py`); `...0011`–`...0013` are the `MOCK-PLATE-3` shipments with meaningful values; other UILs get the minimal `MOCK-PLATE-1` response. XML is not subset-filtered.
 - **The developer mock and the live gate share one contract (1:1 means request/response shape, not data):** both answer
   `dataset` as `{uil, subsets, xml, consignment}`: the live `xroad/POST/v1/dataset.yml` adds `uil`/`subsets`
@@ -415,7 +420,9 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
     (`turnerrainer/ruuter:0.12.1-rc`, which ships both binaries since #83) on both DSL roots +
     `DSL-tests/*.test.yml` (in-process scenarios) + `scripts/validate-dsl.py` (the efti-only
     input-contract convention) + `scripts/registry-to-json.py` (validates `registry/**/*.yml` without
-    building an image — the converter is the validator, ADR-011 §3) + `tests/registry/test_registry_to_json.py`.
+    building an image — the converter is the validator, ADR-011 §3) + `tests/registry/test_registry_to_json.py`
+    + the Turvis mock (`dsl-lint --audit` and `dsl-test` on `DSL/Ruuter-turvis-mock` /
+    `DSL-turvis-mock-tests`, plus `scripts/validate-turvis-contract.py` and its unit test).
   - `e2e` — builds the compose stack, runs the `tests/*/*.http` smoke suite via
     `docker compose run --rm http-tests`. This is the gate on PRs. `dsl-test` is the fast
     in-process check; `tests/*.http` is the full-stack integration gate.

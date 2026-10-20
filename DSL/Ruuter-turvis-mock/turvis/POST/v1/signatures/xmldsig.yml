@@ -159,7 +159,6 @@ project:
 accept:
   return: "${response}"
   status: 200
-  content_type: application/json
   wrapper: false
 
 reject_bad_request:
@@ -170,7 +169,8 @@ reject_bad_request:
     detail: "trace_id must be 32 lower-case hex characters"
     audit_ref: "${audit_ref}"
   status: 400
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_xml_parse_fail:
@@ -183,7 +183,8 @@ reject_xml_parse_fail:
     detail: "mock: XML would not parse to a well-formed DOM"
     audit_ref: "${audit_ref}"
   status: 422
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_sig_build_fail:
@@ -196,7 +197,8 @@ reject_sig_build_fail:
     detail: "mock: internal error while constructing the XMLDSig"
     audit_ref: "${audit_ref}"
   status: 422
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_key_handle_unknown:
@@ -209,7 +211,8 @@ reject_key_handle_unknown:
     detail: "mock: key_handle is not the own gate id"
     audit_ref: "${audit_ref}"
   status: 422
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_key_unavailable:
@@ -222,7 +225,8 @@ reject_key_unavailable:
     detail: "mock: transient, retry safe"
     audit_ref: "${audit_ref}"
   status: 503
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_algo_unsupported:
@@ -235,7 +239,8 @@ reject_algo_unsupported:
     detail: "mock: algorithm not in the pinned allowlist"
     audit_ref: "${audit_ref}"
   status: 422
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_unknown_return_field:
@@ -248,7 +253,8 @@ reject_unknown_return_field:
     detail: "return_fields contains a value not in the endpoint's projectable set (signatures; see SPEC section 4.2)"
     audit_ref: "${audit_ref}"
   status: 422
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_trust_store_unavailable:
@@ -261,7 +267,8 @@ reject_trust_store_unavailable:
     detail: "mock: no usable trust snapshot, transient, retry safe"
     audit_ref: "${audit_ref}"
   status: 503
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_turvis_internal:
@@ -274,5 +281,6 @@ reject_turvis_internal:
     detail: "mock: internal bug, not retried automatically"
     audit_ref: "${audit_ref}"
   status: 500
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false

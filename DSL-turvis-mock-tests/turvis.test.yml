@@ -12,6 +12,7 @@ tests:
       body: { soap_xml_b64: "PHg+", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
     expect:
       status: 401
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { status: 401 }
 
   - name: guard - wrong token -> 401
@@ -22,6 +23,7 @@ tests:
       body: { soap_xml_b64: "PHg+", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
     expect:
       status: 401
+      headers: { Content-Type: "application/problem+json" }
 
   - name: verify - accept returns verdict, signer, routing and digests with reference data
     request:
@@ -36,6 +38,7 @@ tests:
         return_fields: ["signer", "ebms_routing", "signature_digests"]
     expect:
       status: 200
+      headers: { Content-Type: "application/json" }
       body_matches:
         verdict: "accept"
         signer: { verified_identity: "EU-FR" }
@@ -64,6 +67,7 @@ tests:
       body: { soap_xml_b64: "PHg+", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], claimed_signer_id: "EU-DE", return_fields: ["signer"] }
     expect:
       status: 200
+      headers: { Content-Type: "application/json" }
       body_matches: { signer: { verified_identity: "EU-DE" } }
 
   - name: verify - reject-sig-policy-fail -> 422 SIG_POLICY_FAIL
@@ -74,6 +78,7 @@ tests:
       body: { soap_xml_b64: "PHg+", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "SIG_POLICY_FAIL" }
 
   - name: verify - unknown return_fields value is only rejected via the mock verdict header
@@ -84,6 +89,7 @@ tests:
       body: { soap_xml_b64: "PHg+", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["bogus"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { reason_code: "UNKNOWN_RETURN_FIELD" }
 
   - name: verify - missing required field -> 400
@@ -103,6 +109,7 @@ tests:
       body: { soap_xml_b64: "PHg+", sign_xpaths: ["//eb:Messaging"], sign_cid_refs: [], key_handle: "EU-EE", return_fields: ["signatures"] }
     expect:
       status: 200
+      headers: { Content-Type: "application/json" }
       body_matches: { signed_xml_b64: "PHg+" }
 
   - name: sign - projected response carries only signed bytes, audit_ref and the requested signatures
@@ -113,6 +120,7 @@ tests:
       body: { soap_xml_b64: "PHg+", sign_xpaths: ["//eb:Messaging", "//env:Body"], sign_cid_refs: ["cid:message"], key_handle: "EU-EE", return_fields: ["signatures"] }
     expect:
       status: 200
+      headers: { Content-Type: "application/json" }
       body:
         signed_xml_b64: "PHg+"
         audit_ref: "11111111-1111-4111-8111-111111111111"
@@ -140,6 +148,7 @@ tests:
       body: { soap_xml_b64: "PHg+", sign_xpaths: ["//eb:Messaging"], sign_cid_refs: [], key_handle: "EU-EE", return_fields: [] }
     expect:
       status: 200
+      headers: { Content-Type: "application/json" }
       body: { signed_xml_b64: "PHg+", audit_ref: "11111111-1111-4111-8111-111111111111" }
 
   - name: sign - unknown return_fields value is a real 422 UNKNOWN_RETURN_FIELD
@@ -150,6 +159,7 @@ tests:
       body: { soap_xml_b64: "PHg+", sign_xpaths: ["//eb:Messaging"], sign_cid_refs: [], key_handle: "EU-EE", return_fields: ["signatures", "nope"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "UNKNOWN_RETURN_FIELD" }
 
   - name: sign - key_handle other than the own gate id is KEY_HANDLE_UNKNOWN
@@ -160,6 +170,7 @@ tests:
       body: { soap_xml_b64: "PHg+", sign_xpaths: ["//eb:Messaging"], sign_cid_refs: [], key_handle: "EU-FR", return_fields: [] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "KEY_HANDLE_UNKNOWN" }
 
   - name: sign - malformed trace_id is a 400
@@ -170,6 +181,7 @@ tests:
       body: { soap_xml_b64: "PHg+", sign_xpaths: ["//eb:Messaging"], sign_cid_refs: [], key_handle: "EU-EE", return_fields: [], trace_id: "not-hex" }
     expect:
       status: 400
+      headers: { Content-Type: "application/problem+json" }
 
   - name: sign - reject-key-unavailable -> 503 (transient, retry safe)
     request:
@@ -179,6 +191,7 @@ tests:
       body: { soap_xml_b64: "PHg+", sign_xpaths: [], sign_cid_refs: [], key_handle: "EU-EE", return_fields: [] }
     expect:
       status: 503
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { reason_code: "KEY_UNAVAILABLE" }
 
   - name: encrypt - wss-encrypted accept
@@ -189,6 +202,7 @@ tests:
       body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR", profile: "wss-encrypted", return_fields: ["wrapped_key_xml", "encrypted_data_xml"] }
     expect:
       status: 200
+      headers: { Content-Type: "application/json" }
 
   - name: encrypt - plaintext profile returns empty fragments and the input bytes
     request:
@@ -198,6 +212,7 @@ tests:
       body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR", profile: "plaintext", return_fields: ["wrapped_key_xml", "encrypted_data_xml"] }
     expect:
       status: 200
+      headers: { Content-Type: "application/json" }
       body_matches: { encrypted_payload_b64: "QUJD", wrapped_key_xml: "", encrypted_data_xml: "" }
 
   - name: encrypt - plaintext profile with every projectable field returns exactly empty fragments, empty key and the input bytes
@@ -208,6 +223,7 @@ tests:
       body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR", profile: "plaintext", return_fields: ["wrapped_key_xml", "encrypted_data_xml", "wrapped_key_b64"] }
     expect:
       status: 200
+      headers: { Content-Type: "application/json" }
       body:
         encrypted_payload_b64: "QUJD"
         audit_ref: "22222222-2222-4222-8222-222222222222"
@@ -223,6 +239,7 @@ tests:
       body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR", profile: "wss-encrypted", return_fields: ["wrapped_key_b64"] }
     expect:
       status: 200
+      headers: { Content-Type: "application/json" }
       body: { encrypted_payload_b64: "QUJD", audit_ref: "22222222-2222-4222-8222-222222222222", wrapped_key_b64: "bW9jay13cmFwcGVkLWtleQ==" }
 
   - name: encrypt - wss-encrypted fragments are non-empty stubs naming the receiver
@@ -233,6 +250,7 @@ tests:
       body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR", profile: "wss-encrypted", return_fields: ["wrapped_key_xml", "encrypted_data_xml"] }
     expect:
       status: 200
+      headers: { Content-Type: "application/json" }
       body_matches:
         wrapped_key_xml: "$regex:<xenc:EncryptedKey[\\s\\S]*<ds:KeyName>EU-FR</ds:KeyName>"
         encrypted_data_xml: "$regex:<xenc:EncryptedData[\\s\\S]*cid:message"
@@ -245,6 +263,7 @@ tests:
       body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR", profile: "plaintext", return_fields: [] }
     expect:
       status: 200
+      headers: { Content-Type: "application/json" }
       body: { encrypted_payload_b64: "QUJD", audit_ref: "22222222-2222-4222-8222-222222222222" }
 
   - name: encrypt - unknown return_fields value is a real 422 UNKNOWN_RETURN_FIELD
@@ -255,6 +274,7 @@ tests:
       body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR", profile: "plaintext", return_fields: ["signer"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "UNKNOWN_RETURN_FIELD" }
 
   - name: encrypt - unsupported profile is a 400
@@ -265,6 +285,7 @@ tests:
       body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR", profile: "rot13", return_fields: [] }
     expect:
       status: 400
+      headers: { Content-Type: "application/problem+json" }
 
   - name: decrypt - passthrough of envelope and attachment
     request:
@@ -274,6 +295,7 @@ tests:
       body: { soap_xml_b64: "PHg+", encrypted_attachment_b64: "QUJD", key_handle: "EU-EE", return_fields: ["decrypted_soap_xml_b64", "decrypted_attachment_b64"] }
     expect:
       status: 200
+      headers: { Content-Type: "application/json" }
       body_matches: { decrypted_soap_xml_b64: "PHg+", decrypted_attachment_b64: "QUJD" }
 
   - name: decrypt - ebms_routing is extracted from the envelope (diagnostic, FTI010 DE to EE with correlation)
@@ -287,6 +309,7 @@ tests:
         return_fields: ["ebms_routing"]
     expect:
       status: 200
+      headers: { Content-Type: "application/json" }
       body:
         audit_ref: "33333333-3333-4333-8333-333333333333"
         ebms_routing:
@@ -306,6 +329,7 @@ tests:
       body: { soap_xml_b64: "PHg+", key_handle: "EU-EE", return_fields: ["ebms_routing"] }
     expect:
       status: 200
+      headers: { Content-Type: "application/json" }
       body:
         audit_ref: "33333333-3333-4333-8333-333333333333"
         ebms_routing:
@@ -325,6 +349,7 @@ tests:
       body: { soap_xml_b64: "PHg+", key_handle: "EU-EE", return_fields: ["decrypted_soap_xml_b64", "decrypted_attachment_b64"] }
     expect:
       status: 200
+      headers: { Content-Type: "application/json" }
       body: { audit_ref: "33333333-3333-4333-8333-333333333333", decrypted_soap_xml_b64: "PHg+", decrypted_attachment_b64: "" }
 
   - name: decrypt - empty return_fields is a 400 (SPEC minItems 1)
@@ -335,6 +360,7 @@ tests:
       body: { soap_xml_b64: "PHg+", key_handle: "EU-EE", return_fields: [] }
     expect:
       status: 400
+      headers: { Content-Type: "application/problem+json" }
 
   - name: decrypt - unknown return_fields value is a real 422 UNKNOWN_RETURN_FIELD
     request:
@@ -344,6 +370,7 @@ tests:
       body: { soap_xml_b64: "PHg+", key_handle: "EU-EE", return_fields: ["signer"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "UNKNOWN_RETURN_FIELD" }
 
   - name: decrypt - key_handle other than the own gate id is KEY_HANDLE_UNKNOWN
@@ -354,6 +381,7 @@ tests:
       body: { soap_xml_b64: "PHg+", key_handle: "EU-FR", return_fields: ["decrypted_soap_xml_b64"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "KEY_HANDLE_UNKNOWN" }
 
   - name: decrypt - reject-key-handle-unknown -> 422
@@ -364,6 +392,7 @@ tests:
       body: { soap_xml_b64: "PHg+", key_handle: "EU-EE", return_fields: ["decrypted_soap_xml_b64"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { reason_code: "KEY_HANDLE_UNKNOWN" }
 
   - name: verify - ebms_routing is extracted from the signed envelope (FTI010 DE to EE with conversation and ref-to)
@@ -374,6 +403,7 @@ tests:
       body: { soap_xml_b64: "PGVudjpFbnZlbG9wZSB4bWxuczplbnY9Imh0dHA6Ly93d3cudzMub3JnLzIwMDMvMDUvc29hcC1lbnZlbG9wZSIgeG1sbnM6ZWI9Imh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL2VieG1sLW1zZy9ucy92My4wL2VibXMvY29yZS8yMDA3MDQvIj48ZW52OkhlYWRlcj48ZWI6TWVzc2FnaW5nIGVudjptdXN0VW5kZXJzdGFuZD0idHJ1ZSIgd3N1OklkPSJNU0ctSUQiPjxlYjpVc2VyTWVzc2FnZT48ZWI6TWVzc2FnZUluZm8+PGViOlRpbWVzdGFtcD4yMDI2LTEwLTIwVDEwOjAwOjAwWjwvZWI6VGltZXN0YW1wPjxlYjpNZXNzYWdlSWQ+OWYxYzVhMmUtMDAwMS00YjdlLTlkMTEtYWFhYWFhYWFhYWFhQGV1LWRlLmV4YW1wbGU8L2ViOk1lc3NhZ2VJZD48ZWI6UmVmVG9NZXNzYWdlSWQ+NGQyZTdiMTAtMDAwMi00YzVhLThlMjItYmJiYmJiYmJiYmJiQGV1LWVlLmV4YW1wbGU8L2ViOlJlZlRvTWVzc2FnZUlkPjwvZWI6TWVzc2FnZUluZm8+PGViOlBhcnR5SW5mbz48ZWI6RnJvbT48ZWI6UGFydHlJZCB0eXBlPSJ1cm46b2FzaXM6bmFtZXM6dGM6ZWJjb3JlOnBhcnR5aWQtdHlwZTp1bnJlZ2lzdGVyZWQiPkVVLURFPC9lYjpQYXJ0eUlkPjxlYjpSb2xlPmh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL2VieG1sLW1zZy9lYm1zL3YzLjAvbnMvY29yZS8yMDA3MDQvaW5pdGlhdG9yPC9lYjpSb2xlPjwvZWI6RnJvbT48ZWI6VG8+PGViOlBhcnR5SWQgdHlwZT0idXJuOm9hc2lzOm5hbWVzOnRjOmViY29yZTpwYXJ0eWlkLXR5cGU6dW5yZWdpc3RlcmVkIj5FVS1FRTwvZWI6UGFydHlJZD48ZWI6Um9sZT5odHRwOi8vZG9jcy5vYXNpcy1vcGVuLm9yZy9lYnhtbC1tc2cvZWJtcy92My4wL25zL2NvcmUvMjAwNzA0L3Jlc3BvbmRlcjwvZWI6Um9sZT48L2ViOlRvPjwvZWI6UGFydHlJbmZvPjxlYjpDb2xsYWJvcmF0aW9uSW5mbz48ZWI6U2VydmljZT5GVEkwMTA8L2ViOlNlcnZpY2U+PGViOkFjdGlvbj5GVEkwMTBSZXNwb25zZTwvZWI6QWN0aW9uPjxlYjpDb252ZXJzYXRpb25JZD5jb252LTdlM2EtZGF0YXNldC0wMDQyPC9lYjpDb252ZXJzYXRpb25JZD48L2ViOkNvbGxhYm9yYXRpb25JbmZvPjwvZWI6VXNlck1lc3NhZ2U+PC9lYjpNZXNzYWdpbmc+PC9lbnY6SGVhZGVyPjxlbnY6Qm9keSB3c3U6SWQ9IkJPRFktSUQiLz48L2VudjpFbnZlbG9wZT4=", attachments: [{ cid: "cid:message", bytes_b64: "QUJD" }], required_signed_xpaths: ["//eb:Messaging", "//env:Body"], required_signed_cid_refs: ["cid:message"], return_fields: ["ebms_routing"] }
     expect:
       status: 200
+      headers: { Content-Type: "application/json" }
       body:
         verdict: "accept"
         audit_ref: "44444444-4444-4444-8444-444444444444"
@@ -394,6 +424,7 @@ tests:
       body: { soap_xml_b64: "PGVudjpFbnZlbG9wZSB4bWxuczplbnY9Imh0dHA6Ly93d3cudzMub3JnLzIwMDMvMDUvc29hcC1lbnZlbG9wZSIgeG1sbnM6ZWI9Imh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL2VieG1sLW1zZy9ucy92My4wL2VibXMvY29yZS8yMDA3MDQvIj48ZW52OkhlYWRlcj48ZWI6TWVzc2FnaW5nIGVudjptdXN0VW5kZXJzdGFuZD0idHJ1ZSIgd3N1OklkPSJNU0ctSUQiPjxlYjpVc2VyTWVzc2FnZT48ZWI6TWVzc2FnZUluZm8+PGViOlRpbWVzdGFtcD4yMDI2LTEwLTIwVDEwOjAwOjAwWjwvZWI6VGltZXN0YW1wPjxlYjpNZXNzYWdlSWQ+OWYxYzVhMmUtMDAwMS00YjdlLTlkMTEtYWFhYWFhYWFhYWFhQGV1LWRlLmV4YW1wbGU8L2ViOk1lc3NhZ2VJZD48ZWI6UmVmVG9NZXNzYWdlSWQ+NGQyZTdiMTAtMDAwMi00YzVhLThlMjItYmJiYmJiYmJiYmJiQGV1LWVlLmV4YW1wbGU8L2ViOlJlZlRvTWVzc2FnZUlkPjwvZWI6TWVzc2FnZUluZm8+PGViOlBhcnR5SW5mbz48ZWI6RnJvbT48ZWI6UGFydHlJZCB0eXBlPSJ1cm46b2FzaXM6bmFtZXM6dGM6ZWJjb3JlOnBhcnR5aWQtdHlwZTp1bnJlZ2lzdGVyZWQiPkVVLURFPC9lYjpQYXJ0eUlkPjxlYjpSb2xlPmh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL2VieG1sLW1zZy9lYm1zL3YzLjAvbnMvY29yZS8yMDA3MDQvaW5pdGlhdG9yPC9lYjpSb2xlPjwvZWI6RnJvbT48ZWI6VG8+PGViOlBhcnR5SWQgdHlwZT0idXJuOm9hc2lzOm5hbWVzOnRjOmViY29yZTpwYXJ0eWlkLXR5cGU6dW5yZWdpc3RlcmVkIj5FVS1FRTwvZWI6UGFydHlJZD48ZWI6Um9sZT5odHRwOi8vZG9jcy5vYXNpcy1vcGVuLm9yZy9lYnhtbC1tc2cvZWJtcy92My4wL25zL2NvcmUvMjAwNzA0L3Jlc3BvbmRlcjwvZWI6Um9sZT48L2ViOlRvPjwvZWI6UGFydHlJbmZvPjxlYjpDb2xsYWJvcmF0aW9uSW5mbz48ZWI6U2VydmljZT5GVEkwMTA8L2ViOlNlcnZpY2U+PGViOkFjdGlvbj5GVEkwMTBSZXNwb25zZTwvZWI6QWN0aW9uPjxlYjpDb252ZXJzYXRpb25JZD5jb252LTdlM2EtZGF0YXNldC0wMDQyPC9lYjpDb252ZXJzYXRpb25JZD48L2ViOkNvbGxhYm9yYXRpb25JbmZvPjwvZWI6VXNlck1lc3NhZ2U+PC9lYjpNZXNzYWdpbmc+PC9lbnY6SGVhZGVyPjxlbnY6Qm9keSB3c3U6SWQ9IkJPRFktSUQiLz48L2VudjpFbnZlbG9wZT4=", attachments: [{ cid: "cid:message", bytes_b64: "QUJD" }], required_signed_xpaths: ["//eb:Messaging", "//env:Body"], required_signed_cid_refs: ["cid:message"], return_fields: ["signer"] }
     expect:
       status: 200
+      headers: { Content-Type: "application/json" }
       body:
         verdict: "accept"
         audit_ref: "44444444-4444-4444-8444-444444444444"
@@ -411,6 +442,7 @@ tests:
       body: { soap_xml_b64: "PGVudjpFbnZlbG9wZSB4bWxuczplbnY9Imh0dHA6Ly93d3cudzMub3JnLzIwMDMvMDUvc29hcC1lbnZlbG9wZSIgeG1sbnM6ZWI9Imh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL2VieG1sLW1zZy9ucy92My4wL2VibXMvY29yZS8yMDA3MDQvIj48ZW52OkhlYWRlcj48ZWI6TWVzc2FnaW5nIGVudjptdXN0VW5kZXJzdGFuZD0idHJ1ZSIgd3N1OklkPSJNU0ctSUQiPjxlYjpVc2VyTWVzc2FnZT48ZWI6TWVzc2FnZUluZm8+PGViOlRpbWVzdGFtcD4yMDI2LTEwLTIwVDEwOjAwOjAwWjwvZWI6VGltZXN0YW1wPjxlYjpNZXNzYWdlSWQ+OWYxYzVhMmUtMDAwMS00YjdlLTlkMTEtYWFhYWFhYWFhYWFhQGV1LWRlLmV4YW1wbGU8L2ViOk1lc3NhZ2VJZD48ZWI6UmVmVG9NZXNzYWdlSWQ+NGQyZTdiMTAtMDAwMi00YzVhLThlMjItYmJiYmJiYmJiYmJiQGV1LWVlLmV4YW1wbGU8L2ViOlJlZlRvTWVzc2FnZUlkPjwvZWI6TWVzc2FnZUluZm8+PGViOlBhcnR5SW5mbz48ZWI6RnJvbT48ZWI6UGFydHlJZCB0eXBlPSJ1cm46b2FzaXM6bmFtZXM6dGM6ZWJjb3JlOnBhcnR5aWQtdHlwZTp1bnJlZ2lzdGVyZWQiPkVVLURFPC9lYjpQYXJ0eUlkPjxlYjpSb2xlPmh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL2VieG1sLW1zZy9lYm1zL3YzLjAvbnMvY29yZS8yMDA3MDQvaW5pdGlhdG9yPC9lYjpSb2xlPjwvZWI6RnJvbT48ZWI6VG8+PGViOlBhcnR5SWQgdHlwZT0idXJuOm9hc2lzOm5hbWVzOnRjOmViY29yZTpwYXJ0eWlkLXR5cGU6dW5yZWdpc3RlcmVkIj5FVS1FRTwvZWI6UGFydHlJZD48ZWI6Um9sZT5odHRwOi8vZG9jcy5vYXNpcy1vcGVuLm9yZy9lYnhtbC1tc2cvZWJtcy92My4wL25zL2NvcmUvMjAwNzA0L3Jlc3BvbmRlcjwvZWI6Um9sZT48L2ViOlRvPjwvZWI6UGFydHlJbmZvPjxlYjpDb2xsYWJvcmF0aW9uSW5mbz48ZWI6U2VydmljZT5GVEkwMTA8L2ViOlNlcnZpY2U+PGViOkFjdGlvbj5GVEkwMTBSZXNwb25zZTwvZWI6QWN0aW9uPjxlYjpDb252ZXJzYXRpb25JZD5jb252LTdlM2EtZGF0YXNldC0wMDQyPC9lYjpDb252ZXJzYXRpb25JZD48L2ViOkNvbGxhYm9yYXRpb25JbmZvPjwvZWI6VXNlck1lc3NhZ2U+PC9lYjpNZXNzYWdpbmc+PC9lbnY6SGVhZGVyPjxlbnY6Qm9keSB3c3U6SWQ9IkJPRFktSUQiLz48L2VudjpFbnZlbG9wZT4=", attachments: [{ cid: "cid:message", bytes_b64: "QUJD" }], required_signed_xpaths: ["//eb:Messaging", "//env:Body"], required_signed_cid_refs: ["cid:message"], return_fields: ["signer"], claimed_signer_id: "eu-de" }
     expect:
       status: 200
+      headers: { Content-Type: "application/json" }
       body_matches: { signer: { verified_identity: "EU-DE" } }
 
   - name: verify - claimed_signer_id differing from the envelope From PartyId is SIGNER_IDENTITY_MISMATCH
@@ -421,6 +453,7 @@ tests:
       body: { soap_xml_b64: "PGVudjpFbnZlbG9wZSB4bWxuczplbnY9Imh0dHA6Ly93d3cudzMub3JnLzIwMDMvMDUvc29hcC1lbnZlbG9wZSIgeG1sbnM6ZWI9Imh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL2VieG1sLW1zZy9ucy92My4wL2VibXMvY29yZS8yMDA3MDQvIj48ZW52OkhlYWRlcj48ZWI6TWVzc2FnaW5nIGVudjptdXN0VW5kZXJzdGFuZD0idHJ1ZSIgd3N1OklkPSJNU0ctSUQiPjxlYjpVc2VyTWVzc2FnZT48ZWI6TWVzc2FnZUluZm8+PGViOlRpbWVzdGFtcD4yMDI2LTEwLTIwVDEwOjAwOjAwWjwvZWI6VGltZXN0YW1wPjxlYjpNZXNzYWdlSWQ+OWYxYzVhMmUtMDAwMS00YjdlLTlkMTEtYWFhYWFhYWFhYWFhQGV1LWRlLmV4YW1wbGU8L2ViOk1lc3NhZ2VJZD48ZWI6UmVmVG9NZXNzYWdlSWQ+NGQyZTdiMTAtMDAwMi00YzVhLThlMjItYmJiYmJiYmJiYmJiQGV1LWVlLmV4YW1wbGU8L2ViOlJlZlRvTWVzc2FnZUlkPjwvZWI6TWVzc2FnZUluZm8+PGViOlBhcnR5SW5mbz48ZWI6RnJvbT48ZWI6UGFydHlJZCB0eXBlPSJ1cm46b2FzaXM6bmFtZXM6dGM6ZWJjb3JlOnBhcnR5aWQtdHlwZTp1bnJlZ2lzdGVyZWQiPkVVLURFPC9lYjpQYXJ0eUlkPjxlYjpSb2xlPmh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL2VieG1sLW1zZy9lYm1zL3YzLjAvbnMvY29yZS8yMDA3MDQvaW5pdGlhdG9yPC9lYjpSb2xlPjwvZWI6RnJvbT48ZWI6VG8+PGViOlBhcnR5SWQgdHlwZT0idXJuOm9hc2lzOm5hbWVzOnRjOmViY29yZTpwYXJ0eWlkLXR5cGU6dW5yZWdpc3RlcmVkIj5FVS1FRTwvZWI6UGFydHlJZD48ZWI6Um9sZT5odHRwOi8vZG9jcy5vYXNpcy1vcGVuLm9yZy9lYnhtbC1tc2cvZWJtcy92My4wL25zL2NvcmUvMjAwNzA0L3Jlc3BvbmRlcjwvZWI6Um9sZT48L2ViOlRvPjwvZWI6UGFydHlJbmZvPjxlYjpDb2xsYWJvcmF0aW9uSW5mbz48ZWI6U2VydmljZT5GVEkwMTA8L2ViOlNlcnZpY2U+PGViOkFjdGlvbj5GVEkwMTBSZXNwb25zZTwvZWI6QWN0aW9uPjxlYjpDb252ZXJzYXRpb25JZD5jb252LTdlM2EtZGF0YXNldC0wMDQyPC9lYjpDb252ZXJzYXRpb25JZD48L2ViOkNvbGxhYm9yYXRpb25JbmZvPjwvZWI6VXNlck1lc3NhZ2U+PC9lYjpNZXNzYWdpbmc+PC9lbnY6SGVhZGVyPjxlbnY6Qm9keSB3c3U6SWQ9IkJPRFktSUQiLz48L2VudjpFbnZlbG9wZT4=", attachments: [{ cid: "cid:message", bytes_b64: "QUJD" }], required_signed_xpaths: ["//eb:Messaging", "//env:Body"], required_signed_cid_refs: ["cid:message"], return_fields: ["signer"], claimed_signer_id: "EU-FR" }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "SIGNER_IDENTITY_MISMATCH" }
 
   - name: verify - signature_digests reports the references as written in the envelope (original URIs, digests, transforms, cid:message)
@@ -431,6 +464,7 @@ tests:
       body: { soap_xml_b64: "PGVudjpFbnZlbG9wZSB4bWxuczplbnY9Imh0dHA6Ly93d3cudzMub3JnLzIwMDMvMDUvc29hcC1lbnZlbG9wZSIgeG1sbnM6ZWI9Imh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL2VieG1sLW1zZy9ucy92My4wL2VibXMvY29yZS8yMDA3MDQvIj48ZW52OkhlYWRlcj48ZWI6TWVzc2FnaW5nIGVudjptdXN0VW5kZXJzdGFuZD0idHJ1ZSIgd3N1OklkPSJNU0ctSUQiPjxlYjpVc2VyTWVzc2FnZT48ZWI6TWVzc2FnZUluZm8+PGViOlRpbWVzdGFtcD4yMDI2LTEwLTIwVDEwOjAwOjAwWjwvZWI6VGltZXN0YW1wPjxlYjpNZXNzYWdlSWQ+OWYxYzVhMmUtMDAwMS00YjdlLTlkMTEtYWFhYWFhYWFhYWFhQGV1LWRlLmV4YW1wbGU8L2ViOk1lc3NhZ2VJZD48ZWI6UmVmVG9NZXNzYWdlSWQ+NGQyZTdiMTAtMDAwMi00YzVhLThlMjItYmJiYmJiYmJiYmJiQGV1LWVlLmV4YW1wbGU8L2ViOlJlZlRvTWVzc2FnZUlkPjwvZWI6TWVzc2FnZUluZm8+PGViOlBhcnR5SW5mbz48ZWI6RnJvbT48ZWI6UGFydHlJZCB0eXBlPSJ1cm46b2FzaXM6bmFtZXM6dGM6ZWJjb3JlOnBhcnR5aWQtdHlwZTp1bnJlZ2lzdGVyZWQiPkVVLURFPC9lYjpQYXJ0eUlkPjxlYjpSb2xlPmh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL2VieG1sLW1zZy9lYm1zL3YzLjAvbnMvY29yZS8yMDA3MDQvaW5pdGlhdG9yPC9lYjpSb2xlPjwvZWI6RnJvbT48ZWI6VG8+PGViOlBhcnR5SWQgdHlwZT0idXJuOm9hc2lzOm5hbWVzOnRjOmViY29yZTpwYXJ0eWlkLXR5cGU6dW5yZWdpc3RlcmVkIj5FVS1FRTwvZWI6UGFydHlJZD48ZWI6Um9sZT5odHRwOi8vZG9jcy5vYXNpcy1vcGVuLm9yZy9lYnhtbC1tc2cvZWJtcy92My4wL25zL2NvcmUvMjAwNzA0L3Jlc3BvbmRlcjwvZWI6Um9sZT48L2ViOlRvPjwvZWI6UGFydHlJbmZvPjxlYjpDb2xsYWJvcmF0aW9uSW5mbz48ZWI6U2VydmljZT5GVEkwMTA8L2ViOlNlcnZpY2U+PGViOkFjdGlvbj5GVEkwMTBSZXNwb25zZTwvZWI6QWN0aW9uPjxlYjpDb252ZXJzYXRpb25JZD5jb252LTdlM2EtZGF0YXNldC0wMDQyPC9lYjpDb252ZXJzYXRpb25JZD48L2ViOkNvbGxhYm9yYXRpb25JbmZvPjwvZWI6VXNlck1lc3NhZ2U+PC9lYjpNZXNzYWdpbmc+PGRzOlNpZ25hdHVyZSB4bWxuczpkcz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC8wOS94bWxkc2lnIyI+PGRzOlNpZ25lZEluZm8+PGRzOlJlZmVyZW5jZSBVUkk9IiNNU0ctSUQiPjxkczpUcmFuc2Zvcm1zPjxkczpUcmFuc2Zvcm0gQWxnb3JpdGhtPSJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzEwL3htbC1leGMtYzE0biMiLz48L2RzOlRyYW5zZm9ybXM+PGRzOkRpZ2VzdE1ldGhvZCBBbGdvcml0aG09Imh0dHA6Ly93d3cudzMub3JnLzIwMDEvMDQveG1sZW5jI3NoYTI1NiIvPjxkczpEaWdlc3RWYWx1ZT5aR2xuWlhOMExXMXpadz09PC9kczpEaWdlc3RWYWx1ZT48L2RzOlJlZmVyZW5jZT48ZHM6UmVmZXJlbmNlIFVSST0iI0JPRFktSUQiPjxkczpUcmFuc2Zvcm1zPjxkczpUcmFuc2Zvcm0gQWxnb3JpdGhtPSJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzEwL3htbC1leGMtYzE0biMiLz48L2RzOlRyYW5zZm9ybXM+PGRzOkRpZ2VzdE1ldGhvZCBBbGdvcml0aG09Imh0dHA6Ly93d3cudzMub3JnLzIwMDEvMDQveG1sZW5jI3NoYTI1NiIvPjxkczpEaWdlc3RWYWx1ZT5aR2xuWlhOMExXSnZaSGs9PC9kczpEaWdlc3RWYWx1ZT48L2RzOlJlZmVyZW5jZT48ZHM6UmVmZXJlbmNlIFVSST0iY2lkOm1lc3NhZ2UiPjxkczpUcmFuc2Zvcm1zPjxkczpUcmFuc2Zvcm0gQWxnb3JpdGhtPSJodHRwOi8vZG9jcy5vYXNpcy1vcGVuLm9yZy93c3Mvb2FzaXMtd3NzLVN3QVByb2ZpbGUtMS4xI0F0dGFjaG1lbnQtQ29udGVudC1TaWduYXR1cmUtVHJhbnNmb3JtIi8+PC9kczpUcmFuc2Zvcm1zPjxkczpEaWdlc3RNZXRob2QgQWxnb3JpdGhtPSJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzA0L3htbGVuYyNzaGEyNTYiLz48ZHM6RGlnZXN0VmFsdWU+WkdsblpYTjBMV0YwZEE9PTwvZHM6RGlnZXN0VmFsdWU+PC9kczpSZWZlcmVuY2U+PC9kczpTaWduZWRJbmZvPjxkczpTaWduYXR1cmVWYWx1ZT5BQUFBPC9kczpTaWduYXR1cmVWYWx1ZT48L2RzOlNpZ25hdHVyZT48L2VudjpIZWFkZXI+PGVudjpCb2R5IHdzdTpJZD0iQk9EWS1JRCIvPjwvZW52OkVudmVsb3BlPg==", attachments: [{ cid: "cid:message", bytes_b64: "QUJD" }], required_signed_xpaths: ["//eb:Messaging", "//env:Body"], required_signed_cid_refs: ["cid:message"], return_fields: ["signature_digests", "matched_signed_xpaths", "matched_signed_cid_refs"] }
     expect:
       status: 200
+      headers: { Content-Type: "application/json" }
       body:
         verdict: "accept"
         audit_ref: "44444444-4444-4444-8444-444444444444"
@@ -460,6 +494,7 @@ tests:
       body: { soap_xml_b64: "PGVudjpFbnZlbG9wZSB4bWxuczplbnY9Imh0dHA6Ly93d3cudzMub3JnLzIwMDMvMDUvc29hcC1lbnZlbG9wZSIgeG1sbnM6ZWI9Imh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL2VieG1sLW1zZy9ucy92My4wL2VibXMvY29yZS8yMDA3MDQvIj48ZW52OkhlYWRlcj48ZWI6TWVzc2FnaW5nIGVudjptdXN0VW5kZXJzdGFuZD0idHJ1ZSIgd3N1OklkPSJNU0ctSUQiPjxlYjpVc2VyTWVzc2FnZT48ZWI6TWVzc2FnZUluZm8+PGViOlRpbWVzdGFtcD4yMDI2LTEwLTIwVDEwOjAwOjAwWjwvZWI6VGltZXN0YW1wPjxlYjpNZXNzYWdlSWQ+OWYxYzVhMmUtMDAwMS00YjdlLTlkMTEtYWFhYWFhYWFhYWFhQGV1LWRlLmV4YW1wbGU8L2ViOk1lc3NhZ2VJZD48ZWI6UmVmVG9NZXNzYWdlSWQ+NGQyZTdiMTAtMDAwMi00YzVhLThlMjItYmJiYmJiYmJiYmJiQGV1LWVlLmV4YW1wbGU8L2ViOlJlZlRvTWVzc2FnZUlkPjwvZWI6TWVzc2FnZUluZm8+PGViOlBhcnR5SW5mbz48ZWI6RnJvbT48ZWI6UGFydHlJZCB0eXBlPSJ1cm46b2FzaXM6bmFtZXM6dGM6ZWJjb3JlOnBhcnR5aWQtdHlwZTp1bnJlZ2lzdGVyZWQiPkVVLURFPC9lYjpQYXJ0eUlkPjxlYjpSb2xlPmh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL2VieG1sLW1zZy9lYm1zL3YzLjAvbnMvY29yZS8yMDA3MDQvaW5pdGlhdG9yPC9lYjpSb2xlPjwvZWI6RnJvbT48ZWI6VG8+PGViOlBhcnR5SWQgdHlwZT0idXJuOm9hc2lzOm5hbWVzOnRjOmViY29yZTpwYXJ0eWlkLXR5cGU6dW5yZWdpc3RlcmVkIj5FVS1FRTwvZWI6UGFydHlJZD48ZWI6Um9sZT5odHRwOi8vZG9jcy5vYXNpcy1vcGVuLm9yZy9lYnhtbC1tc2cvZWJtcy92My4wL25zL2NvcmUvMjAwNzA0L3Jlc3BvbmRlcjwvZWI6Um9sZT48L2ViOlRvPjwvZWI6UGFydHlJbmZvPjxlYjpDb2xsYWJvcmF0aW9uSW5mbz48ZWI6U2VydmljZT5GVEkwMTA8L2ViOlNlcnZpY2U+PGViOkFjdGlvbj5GVEkwMTBSZXNwb25zZTwvZWI6QWN0aW9uPjxlYjpDb252ZXJzYXRpb25JZD5jb252LTdlM2EtZGF0YXNldC0wMDQyPC9lYjpDb252ZXJzYXRpb25JZD48L2ViOkNvbGxhYm9yYXRpb25JbmZvPjwvZWI6VXNlck1lc3NhZ2U+PC9lYjpNZXNzYWdpbmc+PGRzOlNpZ25hdHVyZSB4bWxuczpkcz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC8wOS94bWxkc2lnIyI+PGRzOlNpZ25lZEluZm8+PGRzOlJlZmVyZW5jZSBVUkk9IiNNU0ctSUQiPjxkczpUcmFuc2Zvcm1zPjxkczpUcmFuc2Zvcm0gQWxnb3JpdGhtPSJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzEwL3htbC1leGMtYzE0biMiLz48L2RzOlRyYW5zZm9ybXM+PGRzOkRpZ2VzdE1ldGhvZCBBbGdvcml0aG09Imh0dHA6Ly93d3cudzMub3JnLzIwMDEvMDQveG1sZW5jI3NoYTI1NiIvPjxkczpEaWdlc3RWYWx1ZT5aR2xuWlhOMExXMXpadz09PC9kczpEaWdlc3RWYWx1ZT48L2RzOlJlZmVyZW5jZT48ZHM6UmVmZXJlbmNlIFVSST0iI0JPRFktSUQiPjxkczpUcmFuc2Zvcm1zPjxkczpUcmFuc2Zvcm0gQWxnb3JpdGhtPSJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzEwL3htbC1leGMtYzE0biMiLz48L2RzOlRyYW5zZm9ybXM+PGRzOkRpZ2VzdE1ldGhvZCBBbGdvcml0aG09Imh0dHA6Ly93d3cudzMub3JnLzIwMDEvMDQveG1sZW5jI3NoYTI1NiIvPjxkczpEaWdlc3RWYWx1ZT5aR2xuWlhOMExXSnZaSGs9PC9kczpEaWdlc3RWYWx1ZT48L2RzOlJlZmVyZW5jZT48ZHM6UmVmZXJlbmNlIFVSST0iY2lkOm1lc3NhZ2UiPjxkczpUcmFuc2Zvcm1zPjxkczpUcmFuc2Zvcm0gQWxnb3JpdGhtPSJodHRwOi8vZG9jcy5vYXNpcy1vcGVuLm9yZy93c3Mvb2FzaXMtd3NzLVN3QVByb2ZpbGUtMS4xI0F0dGFjaG1lbnQtQ29udGVudC1TaWduYXR1cmUtVHJhbnNmb3JtIi8+PC9kczpUcmFuc2Zvcm1zPjxkczpEaWdlc3RNZXRob2QgQWxnb3JpdGhtPSJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzA0L3htbGVuYyNzaGEyNTYiLz48ZHM6RGlnZXN0VmFsdWU+WkdsblpYTjBMV0YwZEE9PTwvZHM6RGlnZXN0VmFsdWU+PC9kczpSZWZlcmVuY2U+PC9kczpTaWduZWRJbmZvPjxkczpTaWduYXR1cmVWYWx1ZT5BQUFBPC9kczpTaWduYXR1cmVWYWx1ZT48L2RzOlNpZ25hdHVyZT48L2VudjpIZWFkZXI+PGVudjpCb2R5IHdzdTpJZD0iQk9EWS1JRCIvPjwvZW52OkVudmVsb3BlPg==", attachments: [{ cid: "cid:message", bytes_b64: "QUJD" }], required_signed_xpaths: ["//eb:Messaging", "//env:Header"], required_signed_cid_refs: ["cid:message"], return_fields: ["signer"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "SIG_POLICY_FAIL" }
 
   - name: verify - a required cid not covered by any Reference is SIG_POLICY_FAIL
@@ -470,6 +505,7 @@ tests:
       body: { soap_xml_b64: "PGVudjpFbnZlbG9wZSB4bWxuczplbnY9Imh0dHA6Ly93d3cudzMub3JnLzIwMDMvMDUvc29hcC1lbnZlbG9wZSIgeG1sbnM6ZWI9Imh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL2VieG1sLW1zZy9ucy92My4wL2VibXMvY29yZS8yMDA3MDQvIj48ZW52OkhlYWRlcj48ZWI6TWVzc2FnaW5nIGVudjptdXN0VW5kZXJzdGFuZD0idHJ1ZSIgd3N1OklkPSJNU0ctSUQiPjxlYjpVc2VyTWVzc2FnZT48ZWI6TWVzc2FnZUluZm8+PGViOlRpbWVzdGFtcD4yMDI2LTEwLTIwVDEwOjAwOjAwWjwvZWI6VGltZXN0YW1wPjxlYjpNZXNzYWdlSWQ+OWYxYzVhMmUtMDAwMS00YjdlLTlkMTEtYWFhYWFhYWFhYWFhQGV1LWRlLmV4YW1wbGU8L2ViOk1lc3NhZ2VJZD48ZWI6UmVmVG9NZXNzYWdlSWQ+NGQyZTdiMTAtMDAwMi00YzVhLThlMjItYmJiYmJiYmJiYmJiQGV1LWVlLmV4YW1wbGU8L2ViOlJlZlRvTWVzc2FnZUlkPjwvZWI6TWVzc2FnZUluZm8+PGViOlBhcnR5SW5mbz48ZWI6RnJvbT48ZWI6UGFydHlJZCB0eXBlPSJ1cm46b2FzaXM6bmFtZXM6dGM6ZWJjb3JlOnBhcnR5aWQtdHlwZTp1bnJlZ2lzdGVyZWQiPkVVLURFPC9lYjpQYXJ0eUlkPjxlYjpSb2xlPmh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL2VieG1sLW1zZy9lYm1zL3YzLjAvbnMvY29yZS8yMDA3MDQvaW5pdGlhdG9yPC9lYjpSb2xlPjwvZWI6RnJvbT48ZWI6VG8+PGViOlBhcnR5SWQgdHlwZT0idXJuOm9hc2lzOm5hbWVzOnRjOmViY29yZTpwYXJ0eWlkLXR5cGU6dW5yZWdpc3RlcmVkIj5FVS1FRTwvZWI6UGFydHlJZD48ZWI6Um9sZT5odHRwOi8vZG9jcy5vYXNpcy1vcGVuLm9yZy9lYnhtbC1tc2cvZWJtcy92My4wL25zL2NvcmUvMjAwNzA0L3Jlc3BvbmRlcjwvZWI6Um9sZT48L2ViOlRvPjwvZWI6UGFydHlJbmZvPjxlYjpDb2xsYWJvcmF0aW9uSW5mbz48ZWI6U2VydmljZT5GVEkwMTA8L2ViOlNlcnZpY2U+PGViOkFjdGlvbj5GVEkwMTBSZXNwb25zZTwvZWI6QWN0aW9uPjxlYjpDb252ZXJzYXRpb25JZD5jb252LTdlM2EtZGF0YXNldC0wMDQyPC9lYjpDb252ZXJzYXRpb25JZD48L2ViOkNvbGxhYm9yYXRpb25JbmZvPjwvZWI6VXNlck1lc3NhZ2U+PC9lYjpNZXNzYWdpbmc+PGRzOlNpZ25hdHVyZSB4bWxuczpkcz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC8wOS94bWxkc2lnIyI+PGRzOlNpZ25lZEluZm8+PGRzOlJlZmVyZW5jZSBVUkk9IiNNU0ctSUQiPjxkczpUcmFuc2Zvcm1zPjxkczpUcmFuc2Zvcm0gQWxnb3JpdGhtPSJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzEwL3htbC1leGMtYzE0biMiLz48L2RzOlRyYW5zZm9ybXM+PGRzOkRpZ2VzdE1ldGhvZCBBbGdvcml0aG09Imh0dHA6Ly93d3cudzMub3JnLzIwMDEvMDQveG1sZW5jI3NoYTI1NiIvPjxkczpEaWdlc3RWYWx1ZT5aR2xuWlhOMExXMXpadz09PC9kczpEaWdlc3RWYWx1ZT48L2RzOlJlZmVyZW5jZT48ZHM6UmVmZXJlbmNlIFVSST0iI0JPRFktSUQiPjxkczpUcmFuc2Zvcm1zPjxkczpUcmFuc2Zvcm0gQWxnb3JpdGhtPSJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzEwL3htbC1leGMtYzE0biMiLz48L2RzOlRyYW5zZm9ybXM+PGRzOkRpZ2VzdE1ldGhvZCBBbGdvcml0aG09Imh0dHA6Ly93d3cudzMub3JnLzIwMDEvMDQveG1sZW5jI3NoYTI1NiIvPjxkczpEaWdlc3RWYWx1ZT5aR2xuWlhOMExXSnZaSGs9PC9kczpEaWdlc3RWYWx1ZT48L2RzOlJlZmVyZW5jZT48ZHM6UmVmZXJlbmNlIFVSST0iY2lkOm1lc3NhZ2UiPjxkczpUcmFuc2Zvcm1zPjxkczpUcmFuc2Zvcm0gQWxnb3JpdGhtPSJodHRwOi8vZG9jcy5vYXNpcy1vcGVuLm9yZy93c3Mvb2FzaXMtd3NzLVN3QVByb2ZpbGUtMS4xI0F0dGFjaG1lbnQtQ29udGVudC1TaWduYXR1cmUtVHJhbnNmb3JtIi8+PC9kczpUcmFuc2Zvcm1zPjxkczpEaWdlc3RNZXRob2QgQWxnb3JpdGhtPSJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzA0L3htbGVuYyNzaGEyNTYiLz48ZHM6RGlnZXN0VmFsdWU+WkdsblpYTjBMV0YwZEE9PTwvZHM6RGlnZXN0VmFsdWU+PC9kczpSZWZlcmVuY2U+PC9kczpTaWduZWRJbmZvPjxkczpTaWduYXR1cmVWYWx1ZT5BQUFBPC9kczpTaWduYXR1cmVWYWx1ZT48L2RzOlNpZ25hdHVyZT48L2VudjpIZWFkZXI+PGVudjpCb2R5IHdzdTpJZD0iQk9EWS1JRCIvPjwvZW52OkVudmVsb3BlPg==", attachments: [{ cid: "cid:message", bytes_b64: "QUJD" }], required_signed_xpaths: ["//eb:Messaging", "//env:Body"], required_signed_cid_refs: ["cid:message", "cid:other"], return_fields: ["signer"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "SIG_POLICY_FAIL" }
 
   - name: verify - a DigestMethod other than SHA-256 is SIG_ALGO_UNSUPPORTED
@@ -480,6 +516,7 @@ tests:
       body: { soap_xml_b64: "PGVudjpFbnZlbG9wZSB4bWxuczplbnY9Imh0dHA6Ly93d3cudzMub3JnLzIwMDMvMDUvc29hcC1lbnZlbG9wZSIgeG1sbnM6ZWI9Imh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL2VieG1sLW1zZy9ucy92My4wL2VibXMvY29yZS8yMDA3MDQvIj48ZW52OkhlYWRlcj48ZWI6TWVzc2FnaW5nIGVudjptdXN0VW5kZXJzdGFuZD0idHJ1ZSIgd3N1OklkPSJNU0ctSUQiPjxlYjpVc2VyTWVzc2FnZT48ZWI6TWVzc2FnZUluZm8+PGViOlRpbWVzdGFtcD4yMDI2LTEwLTIwVDEwOjAwOjAwWjwvZWI6VGltZXN0YW1wPjxlYjpNZXNzYWdlSWQ+OWYxYzVhMmUtMDAwMS00YjdlLTlkMTEtYWFhYWFhYWFhYWFhQGV1LWRlLmV4YW1wbGU8L2ViOk1lc3NhZ2VJZD48ZWI6UmVmVG9NZXNzYWdlSWQ+NGQyZTdiMTAtMDAwMi00YzVhLThlMjItYmJiYmJiYmJiYmJiQGV1LWVlLmV4YW1wbGU8L2ViOlJlZlRvTWVzc2FnZUlkPjwvZWI6TWVzc2FnZUluZm8+PGViOlBhcnR5SW5mbz48ZWI6RnJvbT48ZWI6UGFydHlJZCB0eXBlPSJ1cm46b2FzaXM6bmFtZXM6dGM6ZWJjb3JlOnBhcnR5aWQtdHlwZTp1bnJlZ2lzdGVyZWQiPkVVLURFPC9lYjpQYXJ0eUlkPjxlYjpSb2xlPmh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL2VieG1sLW1zZy9lYm1zL3YzLjAvbnMvY29yZS8yMDA3MDQvaW5pdGlhdG9yPC9lYjpSb2xlPjwvZWI6RnJvbT48ZWI6VG8+PGViOlBhcnR5SWQgdHlwZT0idXJuOm9hc2lzOm5hbWVzOnRjOmViY29yZTpwYXJ0eWlkLXR5cGU6dW5yZWdpc3RlcmVkIj5FVS1FRTwvZWI6UGFydHlJZD48ZWI6Um9sZT5odHRwOi8vZG9jcy5vYXNpcy1vcGVuLm9yZy9lYnhtbC1tc2cvZWJtcy92My4wL25zL2NvcmUvMjAwNzA0L3Jlc3BvbmRlcjwvZWI6Um9sZT48L2ViOlRvPjwvZWI6UGFydHlJbmZvPjxlYjpDb2xsYWJvcmF0aW9uSW5mbz48ZWI6U2VydmljZT5GVEkwMTA8L2ViOlNlcnZpY2U+PGViOkFjdGlvbj5GVEkwMTBSZXNwb25zZTwvZWI6QWN0aW9uPjxlYjpDb252ZXJzYXRpb25JZD5jb252LTdlM2EtZGF0YXNldC0wMDQyPC9lYjpDb252ZXJzYXRpb25JZD48L2ViOkNvbGxhYm9yYXRpb25JbmZvPjwvZWI6VXNlck1lc3NhZ2U+PC9lYjpNZXNzYWdpbmc+PGRzOlNpZ25hdHVyZSB4bWxuczpkcz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC8wOS94bWxkc2lnIyI+PGRzOlNpZ25lZEluZm8+PGRzOlJlZmVyZW5jZSBVUkk9IiNNU0ctSUQiPjxkczpUcmFuc2Zvcm1zPjxkczpUcmFuc2Zvcm0gQWxnb3JpdGhtPSJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzEwL3htbC1leGMtYzE0biMiLz48L2RzOlRyYW5zZm9ybXM+PGRzOkRpZ2VzdE1ldGhvZCBBbGdvcml0aG09Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvMDkveG1sZHNpZyNzaGExIi8+PGRzOkRpZ2VzdFZhbHVlPlpHbG5aWE4wTFcxelp3PT08L2RzOkRpZ2VzdFZhbHVlPjwvZHM6UmVmZXJlbmNlPjxkczpSZWZlcmVuY2UgVVJJPSIjQk9EWS1JRCI+PGRzOlRyYW5zZm9ybXM+PGRzOlRyYW5zZm9ybSBBbGdvcml0aG09Imh0dHA6Ly93d3cudzMub3JnLzIwMDEvMTAveG1sLWV4Yy1jMTRuIyIvPjwvZHM6VHJhbnNmb3Jtcz48ZHM6RGlnZXN0TWV0aG9kIEFsZ29yaXRobT0iaHR0cDovL3d3dy53My5vcmcvMjAwMS8wNC94bWxlbmMjc2hhMjU2Ii8+PGRzOkRpZ2VzdFZhbHVlPlpHbG5aWE4wTFdKdlpIaz08L2RzOkRpZ2VzdFZhbHVlPjwvZHM6UmVmZXJlbmNlPjxkczpSZWZlcmVuY2UgVVJJPSJjaWQ6bWVzc2FnZSI+PGRzOlRyYW5zZm9ybXM+PGRzOlRyYW5zZm9ybSBBbGdvcml0aG09Imh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL3dzcy9vYXNpcy13c3MtU3dBUHJvZmlsZS0xLjEjQXR0YWNobWVudC1Db250ZW50LVNpZ25hdHVyZS1UcmFuc2Zvcm0iLz48L2RzOlRyYW5zZm9ybXM+PGRzOkRpZ2VzdE1ldGhvZCBBbGdvcml0aG09Imh0dHA6Ly93d3cudzMub3JnLzIwMDEvMDQveG1sZW5jI3NoYTI1NiIvPjxkczpEaWdlc3RWYWx1ZT5aR2xuWlhOMExXRjBkQT09PC9kczpEaWdlc3RWYWx1ZT48L2RzOlJlZmVyZW5jZT48L2RzOlNpZ25lZEluZm8+PGRzOlNpZ25hdHVyZVZhbHVlPkFBQUE8L2RzOlNpZ25hdHVyZVZhbHVlPjwvZHM6U2lnbmF0dXJlPjwvZW52OkhlYWRlcj48ZW52OkJvZHkgd3N1OklkPSJCT0RZLUlEIi8+PC9lbnY6RW52ZWxvcGU+", attachments: [{ cid: "cid:message", bytes_b64: "QUJD" }], required_signed_xpaths: ["//eb:Messaging", "//env:Body"], required_signed_cid_refs: ["cid:message"], return_fields: ["signer"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "SIG_ALGO_UNSUPPORTED" }
 
   - name: verify - more than one eb:Messaging element is SIG_POLICY_FAIL
@@ -490,6 +527,7 @@ tests:
       body: { soap_xml_b64: "PGVudjpFbnZlbG9wZSB4bWxuczplbnY9Imh0dHA6Ly93d3cudzMub3JnLzIwMDMvMDUvc29hcC1lbnZlbG9wZSIgeG1sbnM6ZWI9Imh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL2VieG1sLW1zZy9ucy92My4wL2VibXMvY29yZS8yMDA3MDQvIj48ZW52OkhlYWRlcj48ZWI6TWVzc2FnaW5nIGVudjptdXN0VW5kZXJzdGFuZD0idHJ1ZSIgd3N1OklkPSJNU0ctSUQiPjxlYjpVc2VyTWVzc2FnZT48ZWI6TWVzc2FnZUluZm8+PGViOlRpbWVzdGFtcD4yMDI2LTEwLTIwVDEwOjAwOjAwWjwvZWI6VGltZXN0YW1wPjxlYjpNZXNzYWdlSWQ+OWYxYzVhMmUtMDAwMS00YjdlLTlkMTEtYWFhYWFhYWFhYWFhQGV1LWRlLmV4YW1wbGU8L2ViOk1lc3NhZ2VJZD48ZWI6UmVmVG9NZXNzYWdlSWQ+NGQyZTdiMTAtMDAwMi00YzVhLThlMjItYmJiYmJiYmJiYmJiQGV1LWVlLmV4YW1wbGU8L2ViOlJlZlRvTWVzc2FnZUlkPjwvZWI6TWVzc2FnZUluZm8+PGViOlBhcnR5SW5mbz48ZWI6RnJvbT48ZWI6UGFydHlJZCB0eXBlPSJ1cm46b2FzaXM6bmFtZXM6dGM6ZWJjb3JlOnBhcnR5aWQtdHlwZTp1bnJlZ2lzdGVyZWQiPkVVLURFPC9lYjpQYXJ0eUlkPjxlYjpSb2xlPmh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL2VieG1sLW1zZy9lYm1zL3YzLjAvbnMvY29yZS8yMDA3MDQvaW5pdGlhdG9yPC9lYjpSb2xlPjwvZWI6RnJvbT48ZWI6VG8+PGViOlBhcnR5SWQgdHlwZT0idXJuOm9hc2lzOm5hbWVzOnRjOmViY29yZTpwYXJ0eWlkLXR5cGU6dW5yZWdpc3RlcmVkIj5FVS1FRTwvZWI6UGFydHlJZD48ZWI6Um9sZT5odHRwOi8vZG9jcy5vYXNpcy1vcGVuLm9yZy9lYnhtbC1tc2cvZWJtcy92My4wL25zL2NvcmUvMjAwNzA0L3Jlc3BvbmRlcjwvZWI6Um9sZT48L2ViOlRvPjwvZWI6UGFydHlJbmZvPjxlYjpDb2xsYWJvcmF0aW9uSW5mbz48ZWI6U2VydmljZT5GVEkwMTA8L2ViOlNlcnZpY2U+PGViOkFjdGlvbj5GVEkwMTBSZXNwb25zZTwvZWI6QWN0aW9uPjxlYjpDb252ZXJzYXRpb25JZD5jb252LTdlM2EtZGF0YXNldC0wMDQyPC9lYjpDb252ZXJzYXRpb25JZD48L2ViOkNvbGxhYm9yYXRpb25JbmZvPjwvZWI6VXNlck1lc3NhZ2U+PC9lYjpNZXNzYWdpbmc+PGViOk1lc3NhZ2luZyB3c3U6SWQ9Ik1TRy0yIj48ZWI6VXNlck1lc3NhZ2UvPjwvZWI6TWVzc2FnaW5nPjwvZW52OkhlYWRlcj48ZW52OkJvZHkgd3N1OklkPSJCT0RZLUlEIi8+PC9lbnY6RW52ZWxvcGU+", attachments: [{ cid: "cid:message", bytes_b64: "QUJD" }], required_signed_xpaths: ["//eb:Messaging", "//env:Body"], required_signed_cid_refs: ["cid:message"], return_fields: ["ebms_routing"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "SIG_POLICY_FAIL" }
 
   - name: verify - without Reference elements the signature_digests are the same fixtures signatures/xmldsig returns for the policy
@@ -500,6 +538,7 @@ tests:
       body: { soap_xml_b64: "PHg+", attachments: [{ cid: "cid:message", bytes_b64: "QUJD" }], required_signed_xpaths: ["//eb:Messaging", "//env:Body"], required_signed_cid_refs: ["cid:message"], return_fields: ["signature_digests"] }
     expect:
       status: 200
+      headers: { Content-Type: "application/json" }
       body:
         verdict: "accept"
         audit_ref: "44444444-4444-4444-8444-444444444444"
@@ -527,6 +566,7 @@ tests:
       body: { soap_xml_b64: "PHg+", attachments: [{ cid: "cid:message", bytes_b64: "QUJD" }], required_signed_xpaths: ["//eb:Messaging", "//env:Body"], required_signed_cid_refs: ["cid:message"], return_fields: [] }
     expect:
       status: 400
+      headers: { Content-Type: "application/problem+json" }
 
   - name: verify - unknown return_fields value is a real 422 UNKNOWN_RETURN_FIELD
     request:
@@ -536,6 +576,7 @@ tests:
       body: { soap_xml_b64: "PHg+", attachments: [{ cid: "cid:message", bytes_b64: "QUJD" }], required_signed_xpaths: ["//eb:Messaging", "//env:Body"], required_signed_cid_refs: ["cid:message"], return_fields: ["signer", "nope"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "UNKNOWN_RETURN_FIELD" }
 
   - name: verify - trust_store_version other than the mock generation is TRUST_STORE_UNAVAILABLE (503)
@@ -546,6 +587,7 @@ tests:
       body: { soap_xml_b64: "PHg+", attachments: [{ cid: "cid:message", bytes_b64: "QUJD" }], required_signed_xpaths: ["//eb:Messaging", "//env:Body"], required_signed_cid_refs: ["cid:message"], return_fields: ["signer"], trust_store_version: "sha256:other" }
     expect:
       status: 503
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "TRUST_STORE_UNAVAILABLE" }
 
   - name: verify - malformed trace_id is a 400
@@ -556,6 +598,7 @@ tests:
       body: { soap_xml_b64: "PHg+", attachments: [{ cid: "cid:message", bytes_b64: "QUJD" }], required_signed_xpaths: ["//eb:Messaging", "//env:Body"], required_signed_cid_refs: ["cid:message"], return_fields: ["signer"], trace_id: "XYZ" }
     expect:
       status: 400
+      headers: { Content-Type: "application/problem+json" }
 
   - name: reason code - verify reject-xml-parse-fail -> 422 XML_PARSE_FAIL
     request:
@@ -565,6 +608,7 @@ tests:
       body: { soap_xml_b64: "PHg+", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "XML_PARSE_FAIL" }
 
   - name: reason code - verify reject-xml-attack-detected -> 422 XML_ATTACK_DETECTED
@@ -575,6 +619,7 @@ tests:
       body: { soap_xml_b64: "PHg+", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "XML_ATTACK_DETECTED" }
 
   - name: reason code - verify reject-sig-missing -> 422 SIG_MISSING
@@ -585,6 +630,7 @@ tests:
       body: { soap_xml_b64: "PHg+", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "SIG_MISSING" }
 
   - name: reason code - verify reject-sig-crypto-fail -> 422 SIG_CRYPTO_FAIL
@@ -595,6 +641,7 @@ tests:
       body: { soap_xml_b64: "PHg+", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "SIG_CRYPTO_FAIL" }
 
   - name: reason code - verify reject-sig-algo-unsupported -> 422 SIG_ALGO_UNSUPPORTED
@@ -605,6 +652,7 @@ tests:
       body: { soap_xml_b64: "PHg+", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "SIG_ALGO_UNSUPPORTED" }
 
   - name: reason code - verify reject-signer-untrusted -> 422 SIGNER_UNTRUSTED
@@ -615,6 +663,7 @@ tests:
       body: { soap_xml_b64: "PHg+", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "SIGNER_UNTRUSTED" }
 
   - name: reason code - verify reject-signer-identity-mismatch -> 422 SIGNER_IDENTITY_MISMATCH
@@ -625,6 +674,7 @@ tests:
       body: { soap_xml_b64: "PHg+", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "SIGNER_IDENTITY_MISMATCH" }
 
   - name: reason code - verify reject-unknown-return-field -> 422 UNKNOWN_RETURN_FIELD
@@ -635,6 +685,7 @@ tests:
       body: { soap_xml_b64: "PHg+", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "UNKNOWN_RETURN_FIELD" }
 
   - name: reason code - verify reject-algo-unsupported -> 422 ALGO_UNSUPPORTED
@@ -645,6 +696,7 @@ tests:
       body: { soap_xml_b64: "PHg+", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "ALGO_UNSUPPORTED" }
 
   - name: reason code - verify reject-trust-store-unavailable -> 503 TRUST_STORE_UNAVAILABLE
@@ -655,6 +707,7 @@ tests:
       body: { soap_xml_b64: "PHg+", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
     expect:
       status: 503
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "TRUST_STORE_UNAVAILABLE" }
 
   - name: reason code - verify reject-turvis-internal -> 500 TURVIS_INTERNAL
@@ -665,6 +718,7 @@ tests:
       body: { soap_xml_b64: "PHg+", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
     expect:
       status: 500
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "TURVIS_INTERNAL" }
 
   - name: reason code - sign reject-xml-parse-fail -> 422 XML_PARSE_FAIL
@@ -675,6 +729,7 @@ tests:
       body: { soap_xml_b64: "PHg+", sign_xpaths: ["//eb:Messaging"], sign_cid_refs: [], key_handle: "EU-EE", return_fields: [] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "XML_PARSE_FAIL" }
 
   - name: reason code - sign reject-sig-build-fail -> 422 SIG_BUILD_FAIL
@@ -685,6 +740,7 @@ tests:
       body: { soap_xml_b64: "PHg+", sign_xpaths: ["//eb:Messaging"], sign_cid_refs: [], key_handle: "EU-EE", return_fields: [] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "SIG_BUILD_FAIL" }
 
   - name: reason code - sign reject-key-handle-unknown -> 422 KEY_HANDLE_UNKNOWN
@@ -695,6 +751,7 @@ tests:
       body: { soap_xml_b64: "PHg+", sign_xpaths: ["//eb:Messaging"], sign_cid_refs: [], key_handle: "EU-EE", return_fields: [] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "KEY_HANDLE_UNKNOWN" }
 
   - name: reason code - sign reject-algo-unsupported -> 422 ALGO_UNSUPPORTED
@@ -705,6 +762,7 @@ tests:
       body: { soap_xml_b64: "PHg+", sign_xpaths: ["//eb:Messaging"], sign_cid_refs: [], key_handle: "EU-EE", return_fields: [] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "ALGO_UNSUPPORTED" }
 
   - name: reason code - sign reject-unknown-return-field -> 422 UNKNOWN_RETURN_FIELD
@@ -715,6 +773,7 @@ tests:
       body: { soap_xml_b64: "PHg+", sign_xpaths: ["//eb:Messaging"], sign_cid_refs: [], key_handle: "EU-EE", return_fields: [] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "UNKNOWN_RETURN_FIELD" }
 
   - name: reason code - sign reject-trust-store-unavailable -> 503 TRUST_STORE_UNAVAILABLE
@@ -725,6 +784,7 @@ tests:
       body: { soap_xml_b64: "PHg+", sign_xpaths: ["//eb:Messaging"], sign_cid_refs: [], key_handle: "EU-EE", return_fields: [] }
     expect:
       status: 503
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "TRUST_STORE_UNAVAILABLE" }
 
   - name: reason code - sign reject-turvis-internal -> 500 TURVIS_INTERNAL
@@ -735,6 +795,7 @@ tests:
       body: { soap_xml_b64: "PHg+", sign_xpaths: ["//eb:Messaging"], sign_cid_refs: [], key_handle: "EU-EE", return_fields: [] }
     expect:
       status: 500
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "TURVIS_INTERNAL" }
 
   - name: reason code - encrypt reject-receiver-unknown -> 422 RECEIVER_UNKNOWN
@@ -745,6 +806,7 @@ tests:
       body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR", profile: "plaintext", return_fields: [] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "RECEIVER_UNKNOWN" }
 
   - name: reason code - encrypt reject-receiver-cert-expired -> 422 RECEIVER_CERT_EXPIRED
@@ -755,6 +817,7 @@ tests:
       body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR", profile: "plaintext", return_fields: [] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "RECEIVER_CERT_EXPIRED" }
 
   - name: reason code - encrypt reject-receiver-cert-untrusted -> 422 RECEIVER_CERT_UNTRUSTED
@@ -765,6 +828,7 @@ tests:
       body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR", profile: "plaintext", return_fields: [] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "RECEIVER_CERT_UNTRUSTED" }
 
   - name: reason code - encrypt reject-payload-too-large -> 413 PAYLOAD_TOO_LARGE
@@ -775,6 +839,7 @@ tests:
       body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR", profile: "plaintext", return_fields: [] }
     expect:
       status: 413
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "PAYLOAD_TOO_LARGE" }
 
   - name: reason code - encrypt reject-algo-unsupported -> 422 ALGO_UNSUPPORTED
@@ -785,6 +850,7 @@ tests:
       body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR", profile: "plaintext", return_fields: [] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "ALGO_UNSUPPORTED" }
 
   - name: reason code - encrypt reject-unknown-return-field -> 422 UNKNOWN_RETURN_FIELD
@@ -795,6 +861,7 @@ tests:
       body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR", profile: "plaintext", return_fields: [] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "UNKNOWN_RETURN_FIELD" }
 
   - name: reason code - encrypt reject-trust-store-unavailable -> 503 TRUST_STORE_UNAVAILABLE
@@ -805,6 +872,7 @@ tests:
       body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR", profile: "plaintext", return_fields: [] }
     expect:
       status: 503
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "TRUST_STORE_UNAVAILABLE" }
 
   - name: reason code - encrypt reject-turvis-internal -> 500 TURVIS_INTERNAL
@@ -815,6 +883,7 @@ tests:
       body: { plaintext_bytes_b64: "QUJD", receiver_party_id: "EU-FR", profile: "plaintext", return_fields: [] }
     expect:
       status: 500
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "TURVIS_INTERNAL" }
 
   - name: reason code - decrypt reject-wrapped-key-malformed -> 422 WRAPPED_KEY_MALFORMED
@@ -825,6 +894,7 @@ tests:
       body: { soap_xml_b64: "PHg+", key_handle: "EU-EE", return_fields: ["ebms_routing"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "WRAPPED_KEY_MALFORMED" }
 
   - name: reason code - decrypt reject-key-unavailable -> 503 KEY_UNAVAILABLE
@@ -835,6 +905,7 @@ tests:
       body: { soap_xml_b64: "PHg+", key_handle: "EU-EE", return_fields: ["ebms_routing"] }
     expect:
       status: 503
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "KEY_UNAVAILABLE" }
 
   - name: reason code - decrypt reject-ski-mismatch -> 422 SKI_MISMATCH
@@ -845,6 +916,7 @@ tests:
       body: { soap_xml_b64: "PHg+", key_handle: "EU-EE", return_fields: ["ebms_routing"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "SKI_MISMATCH" }
 
   - name: reason code - decrypt reject-aes-unwrap-fail -> 422 AES_UNWRAP_FAIL
@@ -855,6 +927,7 @@ tests:
       body: { soap_xml_b64: "PHg+", key_handle: "EU-EE", return_fields: ["ebms_routing"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "AES_UNWRAP_FAIL" }
 
   - name: reason code - decrypt reject-payload-decrypt-fail -> 422 PAYLOAD_DECRYPT_FAIL
@@ -865,6 +938,7 @@ tests:
       body: { soap_xml_b64: "PHg+", key_handle: "EU-EE", return_fields: ["ebms_routing"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "PAYLOAD_DECRYPT_FAIL" }
 
   - name: reason code - decrypt reject-algo-unsupported -> 422 ALGO_UNSUPPORTED
@@ -875,6 +949,7 @@ tests:
       body: { soap_xml_b64: "PHg+", key_handle: "EU-EE", return_fields: ["ebms_routing"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "ALGO_UNSUPPORTED" }
 
   - name: reason code - decrypt reject-unknown-return-field -> 422 UNKNOWN_RETURN_FIELD
@@ -885,6 +960,7 @@ tests:
       body: { soap_xml_b64: "PHg+", key_handle: "EU-EE", return_fields: ["ebms_routing"] }
     expect:
       status: 422
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "UNKNOWN_RETURN_FIELD" }
 
   - name: reason code - decrypt reject-trust-store-unavailable -> 503 TRUST_STORE_UNAVAILABLE
@@ -895,6 +971,7 @@ tests:
       body: { soap_xml_b64: "PHg+", key_handle: "EU-EE", return_fields: ["ebms_routing"] }
     expect:
       status: 503
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "TRUST_STORE_UNAVAILABLE" }
 
   - name: reason code - decrypt reject-turvis-internal -> 500 TURVIS_INTERNAL
@@ -905,4 +982,85 @@ tests:
       body: { soap_xml_b64: "PHg+", key_handle: "EU-EE", return_fields: ["ebms_routing"] }
     expect:
       status: 500
+      headers: { Content-Type: "application/problem+json" }
       body_matches: { verdict: "reject", reason_code: "TURVIS_INTERNAL" }
+
+  - name: verify - an attachment cid that does not match cid:<id> is a 400
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "PHg+", attachments: [{ cid: "message", bytes_b64: "QUJD" }], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
+    expect:
+      status: 400
+      headers: { Content-Type: "application/problem+json" }
+
+  - name: verify - more than 10 attachments is a 400
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "PHg+", attachments: [{ cid: "cid:a1", bytes_b64: "QQ==" }, { cid: "cid:a2", bytes_b64: "QQ==" }, { cid: "cid:a3", bytes_b64: "QQ==" }, { cid: "cid:a4", bytes_b64: "QQ==" }, { cid: "cid:a5", bytes_b64: "QQ==" }, { cid: "cid:a6", bytes_b64: "QQ==" }, { cid: "cid:a7", bytes_b64: "QQ==" }, { cid: "cid:a8", bytes_b64: "QQ==" }, { cid: "cid:a9", bytes_b64: "QQ==" }, { cid: "cid:a10", bytes_b64: "QQ==" }, { cid: "cid:a11", bytes_b64: "QQ==" }], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
+    expect:
+      status: 400
+      headers: { Content-Type: "application/problem+json" }
+
+  - name: verify - ten attachments is accepted
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token" }
+      body: { soap_xml_b64: "PHg+", attachments: [{ cid: "cid:a1", bytes_b64: "QQ==" }, { cid: "cid:a2", bytes_b64: "QQ==" }, { cid: "cid:a3", bytes_b64: "QQ==" }, { cid: "cid:a4", bytes_b64: "QQ==" }, { cid: "cid:a5", bytes_b64: "QQ==" }, { cid: "cid:a6", bytes_b64: "QQ==" }, { cid: "cid:a7", bytes_b64: "QQ==" }, { cid: "cid:a8", bytes_b64: "QQ==" }, { cid: "cid:a9", bytes_b64: "QQ==" }, { cid: "cid:a10", bytes_b64: "QQ==" }], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
+    expect:
+      status: 200
+      headers: { Content-Type: "application/json" }
+
+  - name: health - readiness probe is public (no token) and answers 200
+    request:
+      method: GET
+      path: /turvis/health/ready
+    expect:
+      status: 200
+
+  - name: guard - the project guard still protects the crypto routes next to the public health route
+    request:
+      method: POST
+      path: /turvis/v1/signatures/xmldsig
+      headers: { content-type: "application/json" }
+      body: { soap_xml_b64: "PHg+", sign_xpaths: ["//eb:Messaging"], sign_cid_refs: [], key_handle: "EU-EE", return_fields: [] }
+    expect:
+      status: 401
+      headers: { Content-Type: "application/problem+json" }
+
+  - name: reason code - verify reject-sig-policy-fail -> 422 SIG_POLICY_FAIL
+    request:
+      method: POST
+      path: /turvis/v1/verifications/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token", x-mock-verdict: "reject-sig-policy-fail" }
+      body: { soap_xml_b64: "PHg+", attachments: [], required_signed_xpaths: [], required_signed_cid_refs: [], return_fields: ["signer"] }
+    expect:
+      status: 422
+      headers: { Content-Type: "application/problem+json" }
+      body_matches: { verdict: "reject", reason_code: "SIG_POLICY_FAIL" }
+
+  - name: reason code - sign reject-key-unavailable -> 503 KEY_UNAVAILABLE
+    request:
+      method: POST
+      path: /turvis/v1/signatures/xmldsig
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token", x-mock-verdict: "reject-key-unavailable" }
+      body: { soap_xml_b64: "PHg+", sign_xpaths: ["//eb:Messaging"], sign_cid_refs: [], key_handle: "EU-EE", return_fields: [] }
+    expect:
+      status: 503
+      headers: { Content-Type: "application/problem+json" }
+      body_matches: { verdict: "reject", reason_code: "KEY_UNAVAILABLE" }
+
+  - name: reason code - decrypt reject-key-handle-unknown -> 422 KEY_HANDLE_UNKNOWN
+    request:
+      method: POST
+      path: /turvis/v1/decryptions/xmlenc
+      headers: { content-type: "application/json", x-internal-service-token: "dev-turvis-mock-token", x-mock-verdict: "reject-key-handle-unknown" }
+      body: { soap_xml_b64: "PHg+", key_handle: "EU-EE", return_fields: ["ebms_routing"] }
+    expect:
+      status: 422
+      headers: { Content-Type: "application/problem+json" }
+      body_matches: { verdict: "reject", reason_code: "KEY_HANDLE_UNKNOWN" }

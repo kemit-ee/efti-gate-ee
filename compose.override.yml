@@ -41,6 +41,19 @@ services:
         - action: sync+restart
           path: ./DSL/Ruuter-xroad-mock
           target: /app/DSL
+  # Loopback-only, unlike the public developer mock above: the Turvis mock answers sign/decrypt/encrypt
+  # for anyone holding the committed dev token, so it is no more developer-public than resql or registry.
+  turvis-mock:
+    ports:
+      - "127.0.0.1:${EFTI_TURVIS_MOCK_PORT:-8091}:8091"
+    healthcheck:
+      start_interval: 1s
+      interval: 60s
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./DSL/Ruuter-turvis-mock
+          target: /app/DSL
   edelivery:
     ports:
       - 8081:8081

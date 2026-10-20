@@ -197,7 +197,6 @@ project:
 accept:
   return: "${response}"
   status: 200
-  content_type: application/json
   wrapper: false
 
 reject_bad_request:
@@ -208,7 +207,8 @@ reject_bad_request:
     detail: "return_fields must be non-empty and trace_id (if present) 32 lower-case hex characters"
     audit_ref: "${audit_ref}"
   status: 400
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_wrapped_key_malformed:
@@ -221,7 +221,8 @@ reject_wrapped_key_malformed:
     detail: "mock: RSA-OAEP ciphertext malformed"
     audit_ref: "${audit_ref}"
   status: 422
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_key_handle_unknown:
@@ -234,7 +235,8 @@ reject_key_handle_unknown:
     detail: "mock: key_handle is not the own gate id"
     audit_ref: "${audit_ref}"
   status: 422
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_key_unavailable:
@@ -247,7 +249,8 @@ reject_key_unavailable:
     detail: "mock: transient, retry safe"
     audit_ref: "${audit_ref}"
   status: 503
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_ski_mismatch:
@@ -260,7 +263,8 @@ reject_ski_mismatch:
     detail: "mock: KeyIdentifier does not match the key behind key_handle"
     audit_ref: "${audit_ref}"
   status: 422
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_aes_unwrap_fail:
@@ -273,7 +277,8 @@ reject_aes_unwrap_fail:
     detail: "mock: RSA-OAEP decrypt returned an error"
     audit_ref: "${audit_ref}"
   status: 422
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_payload_decrypt_fail:
@@ -286,7 +291,8 @@ reject_payload_decrypt_fail:
     detail: "mock: AES-GCM integrity tag mismatch, likely tampered"
     audit_ref: "${audit_ref}"
   status: 422
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_algo_unsupported:
@@ -299,7 +305,8 @@ reject_algo_unsupported:
     detail: "mock: algorithm not in the pinned allowlist"
     audit_ref: "${audit_ref}"
   status: 422
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_unknown_return_field:
@@ -312,7 +319,8 @@ reject_unknown_return_field:
     detail: "return_fields contains a value not in the endpoint's projectable set (decrypted_soap_xml_b64, decrypted_attachment_b64, ebms_routing; see SPEC section 4.4)"
     audit_ref: "${audit_ref}"
   status: 422
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_trust_store_unavailable:
@@ -325,7 +333,8 @@ reject_trust_store_unavailable:
     detail: "mock: no usable trust snapshot, transient, retry safe"
     audit_ref: "${audit_ref}"
   status: 503
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false
 
 reject_turvis_internal:
@@ -338,5 +347,6 @@ reject_turvis_internal:
     detail: "mock: internal bug, not retried automatically"
     audit_ref: "${audit_ref}"
   status: 500
-  content_type: application/problem+json
+  headers:
+    Content-Type: "application/problem+json"
   wrapper: false

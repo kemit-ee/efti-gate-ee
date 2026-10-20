@@ -1,0 +1,13 @@
+# Health probe must stay public: the project-level turvis/.guard.yml would otherwise demand the
+# Turvis service token on GET /turvis/health/*, and the compose healthcheck cannot send it.
+# override_ancestors replaces the project guard for this subtree only (mirrors
+# DSL/Ruuter-xroad-mock/developer/GET/health/.guard.yml).
+declaration:
+  description: "Overrides the project-level turvis/.guard.yml to keep GET /turvis/health/* public."
+  override_ancestors: true
+
+allow:
+  return: "success"
+  status: 200
+  wrapper: false
+  next: end

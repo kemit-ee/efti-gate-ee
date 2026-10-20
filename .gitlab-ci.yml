@@ -124,8 +124,10 @@ secret_detection:
     - run() { docker run --rm -v "$PWD:/workdir" -w /workdir "$IMAGE" "$@"; }
     - run dsl-lint --audit --dsl DSL/Ruuter            --constants constants.ini
     - run dsl-lint --audit --dsl DSL/Ruuter-xroad-mock --constants constants-xroad-mock.ini
+    - run dsl-lint --audit --dsl DSL/Ruuter-turvis-mock --constants constants-turvis-mock.ini
     - run dsl-test --dsl DSL/Ruuter --tests DSL-tests --constants constants.ini
     - run dsl-test --dsl DSL/Ruuter-xroad-mock --tests DSL-mock-tests --constants constants-xroad-mock.ini
+    - run dsl-test --dsl DSL/Ruuter-turvis-mock --tests DSL-turvis-mock-tests --constants constants-turvis-mock.ini
     - pip3 install --quiet pyyaml cryptography
     - python3 scripts/validate-dsl.py
     # registry/**/*.yml is converted to JSON at image build time by the same script, so this
@@ -133,6 +135,9 @@ secret_detection:
     # The same run builds and validates the Turvis trust view (turvis-trust.json, ADR-011 amendment).
     - python3 scripts/registry-to-json.py
     - python3 tests/registry/test_registry_to_json.py
+    # docs/specs/turvis/SPEC.md sections 4/5 vs the Turvis mock DSL and its scenarios: drift fails the job.
+    - python3 scripts/validate-turvis-contract.py
+    - python3 tests/turvis/test_validate_turvis_contract.py
     - >-
       docker run --rm -v "$PWD:/workdir:ro" -w /workdir python:3.12-slim
       sh -ec 'apt-get update -qq && apt-get install -y -qq libxml2-utils && pip install --quiet pyyaml && python3 tests/mock/dataset.py'
