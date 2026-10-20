@@ -15,6 +15,14 @@ image**. The Admin UI reads this data; it cannot write it, and neither can any H
 > the SBOM and the trivy scans). Never publish or ingress the `registry` port — it is internal-only,
 > exactly like ReSQL's.
 
+> **Turvis trust view (planned, #315).** Turvis (A9) never reads this folder through the `registry`
+> service. Its trust configuration is a *generated*, allowlist-filtered view of `gates/*.yml`
+> (`turvis-trust.json`, no `apiKey`, headers or URLs) built from the same revision and shipped as a
+> separate artifact; `registry/` stays the only hand-edited source. Not implemented yet — the
+> decision is recorded in [ADR-011, "Täiendus: Turvise usaldusvaade"](../docs/architecture/decisions/011-registries-as-signed-config.md)
+> and specified in [Turvis SPEC §7.2–7.4](../docs/specs/turvis/SPEC.md). A registry edit will then need
+> both artifacts rebuilt.
+
 ## Layout
 
 ```

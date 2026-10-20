@@ -766,7 +766,7 @@ The gate's own private key is held exclusively inside Turvis (or a KMS behind it
 
 ### 7.2 Trust view generated from `registry/` (single source of truth)
 
-> **Status: agreed** (kemit-ee#304 merge condition 1; approved on PR #311). This section replaces the earlier separately maintained `parties.yml` design. The follow-up work (the `registry-to-json.py` extension that emits `turvis-trust.json`, and an ADR-011 amendment) is tracked outside this PR; the Phase-2 integrity mechanism (ADR-011 §2 release signing vs an A3 signed manifest) is left open.
+> **Status: agreed** (kemit-ee#304 merge condition 1; approved on PR #311). This section replaces the earlier separately maintained `parties.yml` design. The ADR-011 amendment recording this design is [ADR-011, "Täiendus: Turvise usaldusvaade"](../../architecture/decisions/011-registries-as-signed-config.md) (kemit-ee#316); the `registry-to-json.py` extension that emits `turvis-trust.json` is tracked in kemit-ee#315; the Phase-2 integrity mechanism (ADR-011 §2 release signing vs an A3 signed manifest) is left open.
 
 **Authoritative source.** `registry/` (ADR-011) stays the only human-edited store of peer identity, status and certificates. There is no second hand-maintained peer file. Turvis's trust configuration is **generated** from `registry/gates/*.yml` (and the optional `registry/trust-anchors/*.pem`) at build time.
 
