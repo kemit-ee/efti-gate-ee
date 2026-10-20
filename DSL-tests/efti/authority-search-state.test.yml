@@ -1,7 +1,7 @@
 mode: mock-http
 # DB-backed cross-gate search state (K4). The poll branch reads search_results via ReSql; the
 # broadcast branch registers a pending row and then fans out. Only the branches reachable before
-# the detached fan-out are asserted here — the full broadcast (eDelivery + xml-mapper) is covered
+# the detached fan-out are asserted here - the full broadcast (eDelivery + xml-mapper) is covered
 # end to end by tests/authority/*.http.
 constants:
   REGISTRY_URL: "{MOCK}"

@@ -1,5 +1,5 @@
 declaration:
-  description: "List users, or get one by id (admin, TARA JWT). Path: userId (optional — absent
+  description: "List users, or get one by id (admin, TARA JWT). Path: userId (optional - absent
     lists). Query: limit, offset (optional). No body."
   internal: false
   returns:

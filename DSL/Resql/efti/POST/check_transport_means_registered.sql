@@ -1,5 +1,5 @@
 /*
-description: Existence check for a transport-means identifier — does this gate hold any ACTIVE
+description: Existence check for a transport-means identifier - does this gate hold any ACTIVE
   consignment for it? Returns exactly one row carrying a single boolean flag, and no consignment
   data. Backs the existence scope on the X-Road transport-means service (the ANTS border-check path).
 params:
@@ -16,7 +16,7 @@ params:
 --     SELECT EXISTS (SELECT 1 FROM consignments WHERE main_transport_id = :id)
 --
 -- would answer `registered: true` for a consignment that has since been soft-deleted, or whose
--- plate was corrected — the old row is still there forever. At a border that is the worst possible
+-- plate was corrected - the old row is still there forever. At a border that is the worst possible
 -- error: a truck reported as having a valid eFTI dataset when it does not. So the EXISTS wraps the
 -- SAME latest-row-then-filter query the projection uses, and inherits its correctness:
 -- candidates are narrowed by index, each consignment's LATEST row is resolved unfiltered, and only

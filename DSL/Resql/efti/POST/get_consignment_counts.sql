@@ -1,5 +1,5 @@
 /*
-description: ADR-012 read model — current consignment counts per gate, platform and status, served from the
+description: ADR-012 read model - current consignment counts per gate, platform and status, served from the
   latest published generation by primary-key range. Staleness-tolerant (reporting); never use for
   entitlement or verify-after-write decisions.
 params:

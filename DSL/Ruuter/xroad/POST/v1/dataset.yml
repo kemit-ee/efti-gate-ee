@@ -4,11 +4,11 @@ declaration:
     to the gate's core REST API. Body is the same {uil, subsets} contract core's
     efti/POST/api/v1/authority/dataset expects."
   # Inputs (X-Road-Client / X-Road-Id are validated by xroad/.guard.yml):
-  #   body.uil      object, required — {gateId, platformId, datasetId}, forwarded to core verbatim
-  #   body.subsets  array,  required — eFTI subset codes, min 1 (EU01–EU07)
+  #   body.uil      object, required - {gateId, platformId, datasetId}, forwarded to core verbatim
+  #   body.subsets  array,  required - eFTI subset codes, min 1 (EU01–EU07)
   # Deliberately no allowed_body. The field-list form makes every listed key mandatory (a missing
   # one is a 500 in a pre-DSL `declare` step, which would make the MISSING_SUBSET / BAD_REQUEST
-  # branches below unreachable) and strips everything else — and a proxy should not silently strip
+  # branches below unreachable) and strips everything else - and a proxy should not silently strip
   # fields core validates itself. `check_input` below is the contract instead.
   internal: false
   returns:
@@ -63,14 +63,14 @@ evaluate_permission:
 
 # SCALE-2: cross-node request-id dedup via the shared request_id_cache table (not in-process state).
 # Unlike search.yml/transport-means.yml, a dataset request is one-shot (no poll re-use of the same
-# X-Road-Id), so a repeat here is a genuine retry/replay, not a legitimate second call — reject it
+# X-Road-Id), so a repeat here is a genuine retry/replay, not a legitimate second call - reject it
 # before forwarding to core rather than risking duplicate work there.
 #
 # Known source of a rare, real duplicate: Ruuter's own HTTP client (reqwest + a tower retry budget,
 # verified in the runtime binary's symbol table) can transparently retry an http.* call under a
 # transient connection blip. If that happens to THIS call, the first attempt's INSERT already
 # succeeded server-side even though Ruuter retries, so the retry correctly sees its own prior attempt
-# as a duplicate — occasionally visible as a single flaky 409 in the http-tests suite under heavy
+# as a duplicate - occasionally visible as a single flaky 409 in the http-tests suite under heavy
 # concurrent load, not a logic bug here.
 forward_to_core:
   call: http.post
@@ -127,7 +127,7 @@ do_forward_to_core:
 # handshake error or the 70s timeout expiring no longer aborts the run: the http.post binds a stub
 # `{status: 0, error: <kind>}` to core_res and falls through here, so the availability-failure class
 # finally reaches a semantic 502 instead of Ruuter's generic 500. Policy pre-flight rejections
-# (SSRF, host-allowlist, malformed URL, size cap) still raise — those are ops decisions.
+# (SSRF, host-allowlist, malformed URL, size cap) still raise - those are ops decisions.
 check_core_status:
   switch:
     - condition: ${core_res.response.status == 0}
@@ -150,7 +150,7 @@ respond:
 #
 # Normalised to 502 GATEWAY_UNAVAILABLE rather than passing core's status through. errors.json pins
 # each code to exactly one status (GATEWAY_UNAVAILABLE = 502, type .../bad-gateway), and RFC 7807
-# requires the body's `status` to match the HTTP status — so forwarding core's arbitrary status
+# requires the body's `status` to match the HTTP status - so forwarding core's arbitrary status
 # would force either an invented code or a code/status mismatch. From the X-Road caller's position
 # the adapter IS the gateway and core is upstream, so 502 is the honest classification. Core's real
 # status and payload are carried verbatim in coreStatus / coreResponse, so no diagnostic is lost.

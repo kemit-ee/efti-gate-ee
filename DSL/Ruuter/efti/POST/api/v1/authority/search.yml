@@ -1,5 +1,5 @@
 declaration:
-  description: "Authority search for consignments — local-first, then broadcast. A local match is
+  description: "Authority search for consignments - local-first, then broadcast. A local match is
     returned at once with x-poll-more:false (this gate is authoritative for its own
     consignments). With no local match the response is [] with x-poll-more:true: the search is
     registered as a pending row in the gate DB and the other gates are queried in the background

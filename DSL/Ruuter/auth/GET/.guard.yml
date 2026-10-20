@@ -1,4 +1,4 @@
-# Any authenticated user — validates JWT via TIM + DB lookup. On success the caller
+# Any authenticated user - validates JWT via TIM + DB lookup. On success the caller
 # row is exposed as ${caller} for the handler (shared execution context), so
 # auth/GET/user.yml does not re-run this lookup.
 

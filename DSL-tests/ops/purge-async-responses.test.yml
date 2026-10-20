@@ -1,4 +1,4 @@
-# POST /ops/v1/purge-async-responses — CronManager's AS4 hand-off retention timer. The ops guard
+# POST /ops/v1/purge-async-responses - CronManager's AS4 hand-off retention timer. The ops guard
 # is a literal Bearer compare; a ReSql error must be a 502, never a 200 with a bogus count.
 mode: mock-http
 constants:

@@ -4,7 +4,7 @@ declaration:
     Called by the X-Road adapter (xroad/POST/v1/dataset.yml) after it has resolved the calling
     organisation and enforced authorities.subsets. The GET/path form for authority officers lives at
     efti/GET/api/v1/authority/dataset.yml; both delegate to the api/v1/dataset-local template."
-  # Body: uil (object, required — {gateId, platformId, datasetId}) and subsets (array, required,
+  # Body: uil (object, required - {gateId, platformId, datasetId}) and subsets (array, required,
   # min 1). No allowed_body here (it would strip fields core validates itself); the dataset-local
   # template this delegates to declares allowed_body: [uil, subsets]. validate_input is the 400.
   internal: false

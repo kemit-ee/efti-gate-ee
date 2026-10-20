@@ -1,5 +1,5 @@
 /*
-description: one page of the LIVE versions of a dataset (newest first) — not just the current one. Metadata
+description: one page of the LIVE versions of a dataset (newest first) - not just the current one. Metadata
   only, the xml payload is deliberately not projected, so a dataset an uploader has versioned many times
   cannot inflate the response. Pair with archive/get_archived_consignments for the rows swept to cold storage.
 params:

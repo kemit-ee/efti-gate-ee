@@ -1,4 +1,4 @@
-# services/POST/.guard.yml — the media-type allow-list and AS4 envelope-shape checks are
+# services/POST/.guard.yml - the media-type allow-list and AS4 envelope-shape checks are
 # pure header switches that run before the proxy opens any upstream connection, so every
 # reject path is reachable in-process.
 mode: inprocess

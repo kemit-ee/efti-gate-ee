@@ -1,5 +1,5 @@
 declaration:
-  description: "Readiness probe — returns 200 only if the database is reachable, 503 otherwise.
+  description: "Readiness probe - returns 200 only if the database is reachable, 503 otherwise.
     No inputs."
   internal: false
   returns: []

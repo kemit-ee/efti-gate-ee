@@ -1,5 +1,5 @@
 /*
-description: insert audit log entry (best-effort, post-commit — see docs/specs/logging-spec.md §5.2)
+description: insert audit log entry (best-effort, post-commit - see docs/specs/logging-spec.md §5.2)
 params:
   action: { type: string, required: true }
   details: { type: string }

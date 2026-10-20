@@ -1,5 +1,5 @@
 declaration:
-  description: "ADR-012 read-model refresh — CronManager calls this on a timer (Bearer ARCHIVE_OPS_TOKEN).
+  description: "ADR-012 read-model refresh - CronManager calls this on a timer (Bearer ARCHIVE_OPS_TOKEN).
     (1) Writes new full snapshot generations of the consignment-counts and consignment-summary read models, each published in
     the same SQL statement as its snapshot (readers never see a partial snapshot; overlapping runs are serialised by an
     advisory lock). (2) Deletes generations older than keepGenerations. The source tables stay canonical;
@@ -102,7 +102,7 @@ refresh_failed:
       jobName: "refresh-read-models"
       status: "FAILED"
       details:
-        reason: "the snapshot ReSql step returned an error — previous generation stays current"
+        reason: "the snapshot ReSql step returned an error - previous generation stays current"
   result: refresh_failed_log
   next: failed_respond
 

@@ -1,5 +1,5 @@
 declaration:
-  description: "Cold-storage retention — CronManager calls this on a slow timer (Bearer
+  description: "Cold-storage retention - CronManager calls this on a slow timer (Bearer
     ARCHIVE_OPS_TOKEN). Permanently deletes archived consignments rows older than keepDays
     (default 2555 ≈ 7 years) from the separate archive DB. Body (optional): {keepDays: number}."
   allowlist:

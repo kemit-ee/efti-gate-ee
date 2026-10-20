@@ -1,10 +1,10 @@
-# Platform API-key guard (ADR-004, amended by ADR-011) — one project-level guard (Ruuter #39) for the
-# whole platforms surface — covers consignments.yml (direct platform upload) and consignments-xml.yml
+# Platform API-key guard (ADR-004, amended by ADR-011) - one project-level guard (Ruuter #39) for the
+# whole platforms surface - covers consignments.yml (direct platform upload) and consignments-xml.yml
 # (eDelivery-delivered upload). The X-Api-Key header must be present and must equal the apiKey
 # declared for an ONLINE platform in registry/platforms/<id>.json, served by the registry service.
 #
 # The credential is compared in plaintext inside the DSL because Ruuter's expression engine has no
-# hash function at all (no crypto / crypto.subtle / TextEncoder — verified against the running
+# hash function at all (no crypto / crypto.subtle / TextEncoder - verified against the running
 # engine). ADR-004's "store only the SHA-256" rule was therefore dropped in ADR-011: the registry is
 # a secret store and must never be reachable outside the Compose network.
 
@@ -29,12 +29,12 @@ resolve_platforms:
       Content-Type: "application/json"
   result: platforms_res
 
-# DENY IS THE FALL-THROUGH BRANCH and every accept path is an explicit positive condition — same
+# DENY IS THE FALL-THROUGH BRANCH and every accept path is an explicit positive condition - same
 # posture as the X-Road guard. A non-array body (an error object, a truncated response) makes every
 # length comparison false, so it must land on guard_fail, not guard_success.
 check_platforms:
   switch:
-    # A registry transport failure surfaces as status 0, already covered by `!= 200` here — the guard
+    # A registry transport failure surfaces as status 0, already covered by `!= 200` here - the guard
     # fails closed (401), the correct posture for a credential check. Called out explicitly so the
     # availability-failure path is auditable.
     - condition: ${platforms_res.response.status != 200 || !Array.isArray(platforms_res.response.body)}

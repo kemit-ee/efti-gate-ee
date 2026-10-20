@@ -1,5 +1,5 @@
 declaration:
-  description: "Send follow-up message to local platform — shared by eDelivery and Authority API
+  description: "Send follow-up message to local platform - shared by eDelivery and Authority API
     (gate-internal, X-Internal-Service-Token; also invoked via template:). Body: uil (object,
     required), referenceIds (array, required), message (string, required), files (array, optional)."
   internal: false
@@ -15,7 +15,7 @@ declaration:
         type: array
 
 # Shared step: reached directly (Authority API) and via template: (the -xml G2G wrapper, whose
-# body is xml-mapper's FTI025 → JSON). Only `uil` is checked — it is dereferenced unconditionally
+# body is xml-mapper's FTI025 → JSON). Only `uil` is checked - it is dereferenced unconditionally
 # below and by every caller; `referenceIds` / `message` presence is the caller's contract
 # (authority/follow-up.yml checks them for the officer-facing 400).
 validate_input:
@@ -57,7 +57,7 @@ insert_log:
 
 check_insert:
   switch:
-    # Transport failure reaching ReSql (issue #89, status 0) — the follow-up log write did not land.
+    # Transport failure reaching ReSql (issue #89, status 0) - the follow-up log write did not land.
     - condition: ${log_result.response.status == 0 || log_result.response.status >= 300}
       next: insert_failed
     - condition: ${log_result.response.status >= 400 || !log_result.response.body.length}

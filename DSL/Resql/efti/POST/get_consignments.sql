@@ -77,7 +77,7 @@ WHERE c.status != 'DELETED'
   )
   -- transportMeansOrEquipmentId: OR across the three identifier families (main transport, used
   -- equipment, carried equipment). The other criteria are ANDed, so this is the only way to express
-  -- "this identifier, wherever it appears" — used by /xroad/v1/transport-means scope: allgates
+  -- "this identifier, wherever it appears" - used by /xroad/v1/transport-means scope: allgates
   -- (issue #125). Semantically the same match as get_consignments_by_transport_means.sql and
   -- check_transport_means_registered.sql, but written with `@>` instead of `= any(...)`: the
   -- array-on-the-right ANY form has no index path, while `@>` uses the GIN indexes
@@ -89,7 +89,7 @@ WHERE c.status != 'DELETED'
             OR used_equipment_ids @> ARRAY[:criteria->'transportMeansOrEquipmentId'->>'id']
             OR carried_equipment_ids @> ARRAY[:criteria->'transportMeansOrEquipmentId'->>'id'])
        -- NE coalesces every operand: a NULL column makes its comparison NULL, the OR can then be
-       -- NULL, and NOT NULL is NULL — the row would silently drop out of an NE search. Under EQ the
+       -- NULL, and NOT NULL is NULL - the row would silently drop out of an NE search. Under EQ the
        -- same NULLs just fail to match, which is correct.
        OR :criteria->'transportMeansOrEquipmentId'->>'operator' = 'NE' AND NOT (
             coalesce(main_transport_id, '') = :criteria->'transportMeansOrEquipmentId'->>'id'
@@ -98,7 +98,7 @@ WHERE c.status != 'DELETED'
   )
   -- status: lets a caller narrow to one lifecycle status. Added for /xroad/v1/transport-means
   -- scope: allgates, whose local slice must apply the same status = 'ACTIVE' allowlist as the
-  -- curated projection (get_consignments_by_transport_means.sql) — without it, allgates would
+  -- curated projection (get_consignments_by_transport_means.sql) - without it, allgates would
   -- disclose INACTIVE consignments that scope: local and scope: existence deliberately hide.
   -- Compared as ::text so an unknown value matches nothing instead of failing an enum cast.
   AND (:criteria->>'status' IS NULL
