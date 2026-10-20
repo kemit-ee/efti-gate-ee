@@ -139,11 +139,34 @@ ainult gate'i identiteeti, staatust ja sertifikaati. Seepärast:
 
 | Jaotis | Mõju |
 |---|---|
-| §1 allikad | Muutumatu: failid, mitte tabelid. Lisandub ainult valikuline `registry/trust-anchors/`. |
-| §3 build-ajal tarne | Laieneb teise väljundiga (`turvis-trust.json`); sama konverter on endiselt valideerija. Build kukub, kui `ONLINE` partneril pole parsitavat `eDeliveryCert`-i, sertifikaat on aegunud, `verified_identity` kordub või väljund sisaldab allowlist'ist väljaspool olevat võtit. |
+| §1 allikad | Muutumatu: failid, mitte tabelid. Lisandub ainult valikuline `registry/trust-anchors/` (konverteri reegel allpool). |
+| §3 build-ajal tarne | Laieneb teise väljundiga (`turvis-trust.json`); sama konverter on endiselt valideerija. Build kukub, kui `ONLINE` partneri olemasolev `eDeliveryCert` ei parsi või on aegunud, `verified_identity` kordub, `allowed_chain_anchors` viitab olematule aliasele või väljund sisaldab allowlist'ist väljaspool olevat võtit. `eDeliveryCert` **jääb registris valikuliseks** (vt allpool). |
 | §4 andmebaasis ei ole registrit | Muutumatu; usaldusvaade ei puuduta andmebaasi. |
 | §5 avatekst `apiKey` | Muutumatu; just see on põhjus, miks Turvis `registry` teenust ei näe. |
 | §2 allkiri, §8 manifesti hash | **Endiselt rakendamata nõuded.** Need on Phase 2 integriteedi kandidaadid, vt allpool. |
+
+### Muudatused konverteris (#315 ulatus)
+
+- **`.pem` failid.** Praegu kukub build igal muul kui `.yml` failil tüübikataloogis (`README.md`,
+  `AGENTS.md`). Uus reegel: `.pem` on lubatud **ainult** `registry/trust-anchors/` all (failinimi miinus
+  `.pem` = ankru alias); mujal jääb keeld kehtima, sama kehtib teiste laiendite kohta ka selles kaustas.
+- **Testid.** `tests/registry/test_registry_to_json.py` saab testid: `.pem` trust-anchors all läheb
+  läbi; `.pem` `gates/` all kukub; vigane PEM ankrufailis kukub; `allowed_chain_anchors` viide
+  **olematule aliasele** kukub; duplikaatalias ei ole võimalik (failinimi on unikaalne).
+
+### `eDeliveryCert` jääb valikuliseks
+
+Registri leping ei muutu: `eDeliveryCert` on gate'il endiselt valikuline ja sertifikaadita gate jäetakse
+`edelivery` AS4 party mapist välja (`registry/README.md`). Kontroll kehtib **ainult vaate
+genereerimisel**:
+
+- **sertifikaadita** `ONLINE` gate **jäetakse Turvise vaatest välja** — täpselt nagu `edelivery` party
+  mapist. Mõlemad pooled keelavad, seega deny wins ei kao: inbound on `SIGNER_UNTRUSTED`, outbound ei
+  jõua Turvisse (partnerit ei ole party mapis);
+- **olemasolev, kuid parsimatu või aegunud** `eDeliveryCert` (`ONLINE` või `DISABLED` gate'il) **rikub
+  buildi**, sest see viitab vigasele sisendile, mitte teadlikult puuduvale sertifikaadile;
+- `DISABLED` gate **sertifikaadiga** jääb vaatesse (täpne vastuse detail, SPEC §7.2); `DISABLED` gate
+  ilma sertifikaadita jääb välja samal põhjusel kui ülal.
 
 ### Staatusemudel: deny wins
 
@@ -152,6 +175,25 @@ saaks nimetada staatust, mitte öelda "tundmatu". Partner on kasutatav ainult si
 vaated (`edelivery` registri vaade ja Turvise usaldusvaade) ütlevad `ONLINE`; kumbki pool ei tohi
 teise otsust laiendada. Erinevate staatustega rida on **genereerimise mittevastavus**, mida lahendab
 sobivate artefaktide deploy, mitte lubavama poole usaldamine. Tabel: SPEC §7.4.
+
+**Mida süsteem teeb, kuni artefaktid erinevad (deploy'i vahe, replikate erinevus).** Otsus: **ajutine
+erinevus on aktsepteeritud ja piiratud 5-minutilise alarmiga**; protokolli ei muudeta. Põhjus:
+`edelivery` ei saada päringuga oma `generation`-it kaasa ja Turvis ei näe `edelivery` registrit, seega
+ei saa Turvis ühe päringu raames generatsioone võrrelda. Seni kehtib:
+
+- iga pool otsustab **oma** vaate järgi ja partner on kasutatav ainult siis, kui **mõlemad** ütlevad
+  `ONLINE` (deny wins tabel, SPEC §7.4); kumbki pool ei laienda teise otsust;
+- erineva `generation`-iga Turvise replikad vastavad iga päring vastu oma snapshot'i ja tagastavad
+  `X-Turvis-Trust-Generation`; `edelivery` logib selle `audit_ref`-iga, seega on iga otsus tagantjärele
+  seostatav konkreetse generatsiooniga;
+- alarm käivitub, kui replikate või Turvise ja `edelivery` generatsioonid erinevad kauem kui 5
+  minutit; rolling deploy'ga kaasnev lühike kattuvus on oodatud.
+
+**Jääkrisk.** Sertifikaadi rotatsiooni ajal võib kinnitatud partneri allkiri ebaõnnestuda
+(`SIGNER_UNTRUSTED`) replikal, mis laadis vana sertifikaadi veel, või läbida replikal, mis ei ole
+veel `DISABLED`-iks läinud. Leevendus: uus sertifikaat lisatakse samas muudatuses ja vana eemaldatakse
+alles pärast partneri üleminekut (SPEC §7.4); `DISABLED` jõustub täielikult pärast kõigi replikate
+uuendamist, mitte hetkega.
 
 ### Kinnitamine (pinning), usaldusahel ja nähtavus
 
