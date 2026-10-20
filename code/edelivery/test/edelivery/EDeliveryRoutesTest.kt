@@ -92,12 +92,12 @@ class EDeliveryRoutesTest {
     val body = getBody("<hello>world</hello>") { keyIdentifierRegex.replace(it, "") }
 
     every { exchange.requestStream } returns body.inputStream()
-    val exception = slot<Exception>()
-    every { messageGenerator.soapFault(any(), capture(exception)) } returns "<fault/>"
+    val reason = slot<FaultReason>()
+    every { messageGenerator.soapFault(capture(reason)) } returns "<fault/>"
 
     routes.msh(exchange)
 
-    expect(exception.captured.message.orEmpty()).toContain("No valid KeyIdentifier or X509SerialNumber found in the message header.")
+    expect(reason.captured).toEqual(FaultReason.INVALID_HEADER)
     verify { exchange.send(InternalServerError, "<fault/>", soap) }
   }
 
@@ -107,12 +107,12 @@ class EDeliveryRoutesTest {
     }
 
     every { exchange.requestStream } returns body.inputStream()
-    val exception = slot<Exception>()
-    every { messageGenerator.soapFault(any(), capture(exception)) } returns "<fault/>"
+    val reason = slot<FaultReason>()
+    every { messageGenerator.soapFault(capture(reason)) } returns "<fault/>"
 
     routes.msh(exchange)
 
-    expect(exception.captured.message.orEmpty()).toContain("Invalid KeyIdentifier \"invalid-ski\", expected \"${keyManager.ownCertSki}\"")
+    expect(reason.captured).toEqual(FaultReason.INVALID_HEADER)
     verify { exchange.send(InternalServerError, "<fault/>", soap) }
   }
 
@@ -122,12 +122,12 @@ class EDeliveryRoutesTest {
     }
 
     every { exchange.requestStream } returns body.inputStream()
-    val exception = slot<Exception>()
-    every { messageGenerator.soapFault(any(), capture(exception)) } returns "<fault/>"
+    val reason = slot<FaultReason>()
+    every { messageGenerator.soapFault(capture(reason)) } returns "<fault/>"
 
     routes.msh(exchange)
 
-    expect(exception.captured.message.orEmpty()).toContain("Invalid X509SerialNumber \"123456789\", expected \"${keyManager.ownCertSerialNumber}\"")
+    expect(reason.captured).toEqual(FaultReason.INVALID_HEADER)
     verify { exchange.send(InternalServerError, "<fault/>", soap) }
   }
 
@@ -167,7 +167,7 @@ class EDeliveryRoutesTest {
     every { exchange.requestStream } returns body.inputStream()
 
     every { messageHandlers.rootTags[any()] } returns null
-    every { messageGenerator.soapFault(any(), any()) } returns "<SOAP-ENV:Fault/>"
+    every { messageGenerator.soapFault(any()) } returns "<SOAP-ENV:Fault/>"
 
     routes.msh(exchange)
 
@@ -178,7 +178,7 @@ class EDeliveryRoutesTest {
 
   @Test fun `msh fails with invalid body`() {
     every { exchange.requestStream } returns "invalid".toByteArray().inputStream()
-    every { messageGenerator.soapFault(any(), any()) } returns "<fault/>"
+    every { messageGenerator.soapFault(any()) } returns "<fault/>"
 
     routes.msh(exchange)
 
@@ -191,7 +191,7 @@ class EDeliveryRoutesTest {
 
     every { exchange.requestStream } returns body.inputStream()
     every { messageHandlers.rootTags } returns emptyMap()
-    every { messageGenerator.soapFault(any(), any()) } returns "<fault/>"
+    every { messageGenerator.soapFault(any()) } returns "<fault/>"
 
     routes.msh(exchange)
 

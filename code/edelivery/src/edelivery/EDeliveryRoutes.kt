@@ -9,8 +9,10 @@ import klite.xml.XmlParser
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.lang.Thread.currentThread
+import java.security.MessageDigest
 import java.security.PrivateKey
 import java.security.spec.MGF1ParameterSpec
+import java.util.HexFormat
 import java.util.zip.GZIPInputStream
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
@@ -38,8 +40,10 @@ class EDeliveryRoutes(
   @POST("/msh")
   fun msh(e: HttpExchange) {
     val bodyBytes = e.requestStream.readBytes()
+    var partCount: Int? = null
     try {
       val body = MultipartParser().parse(bodyBytes.inputStream())
+      partCount = body.size
       val xml = body.values.first() as String
       val encryptedPayload = body.values.last() as ByteArray
 
@@ -72,10 +76,10 @@ class EDeliveryRoutes(
           eDeliveryClient.send(party.eDeliveryUrl, UserMessageParams(responseKey), result)
       }
     } catch (ex: Exception) {
-      log.error("Error when processing message: ${ex.message}. Raw content: ${bodyBytes.decodeToString()}", ex)
-      e.send(InternalServerError,
-        eDeliveryMessageGenerator.soapFault("Failed to process eDelivery message", ex),
-        soap)
+      val reason = FaultReason.of(ex)
+      log.error("Error when processing message: reason=$reason body_sha256=${bodyBytes.sha256Hex()} " +
+        "body_size_bytes=${bodyBytes.size} content_type=${e.header("Content-Type")} multipart_part_count=$partCount", ex)
+      e.send(InternalServerError, eDeliveryMessageGenerator.soapFault(reason), soap)
     }
   }
 
@@ -123,6 +127,8 @@ class EDeliveryRoutes(
     return DecryptedPayload(decryptedBytes, xml)
   }
 }
+
+private fun ByteArray.sha256Hex() = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(this))
 
 internal fun gunzip(compressed: ByteArray): ByteArray {
   val maxBytes = Config.optional("BODY_LIMIT_MD", "10").toLong() * 1024 * 1024
