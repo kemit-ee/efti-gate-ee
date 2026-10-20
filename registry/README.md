@@ -197,8 +197,14 @@ validates), so a registry the view cannot represent fails CI and both image buil
   view, and the finished document is re-checked against the allowlist.
 - **Parties:** `ONLINE` and `DISABLED` gates with a certificate; gates without one are left out.
   `verified_identity` duplicates fail the build.
+- **A certificate that expires or is not yet valid blocks both image builds** (the `registry` image runs
+  the same converter), also for a `DISABLED` gate, and also when only an unrelated change is being
+  deployed. Fix it by replacing the certificate or deleting the gate file; rebuilding an older revision
+  after a certificate expired fails the same way. This is the fail-closed build of ADR-011 §3, applied to
+  certificate validity.
 - **`generation`:** SHA-256 of the canonical `parties` + `trust_anchors`. It does not include the
-  revision, so equal content gives an equal `generation`. `source_revision` is informational and comes
+  revision, so equal content gives an equal `generation`. Certificates are re-encoded as PEM, so line
+  wrapping or a trailing newline in the YAML does not change it. `source_revision` is informational and comes
   from the `SOURCE_REVISION` build argument (`--source-revision`, default `unknown`); pass the **same**
   value to the `registry` and `turvis-trust` builds. The `registry` image's `health.json` carries the same
   value as `trustViewGeneration`. GitHub Actions passes `git:<sha>` (compose interpolates

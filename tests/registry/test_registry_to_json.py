@@ -131,11 +131,37 @@ class RegistryToJsonTest(unittest.TestCase):
         self.write("gates", "EU-X.yml", gate_yaml("EU-X", make_cert("EU-X"), extra="allowedChainAnchors: root\n"))
         self.assert_rejected("gates", "allowedChainAnchors must be a list of trust-anchor aliases")
 
+    def test_allowed_chain_anchors_duplicates_are_case_insensitive(self):
+        self.write("gates", "EU-X.yml", gate_yaml("EU-X", make_cert("EU-X"), extra="allowedChainAnchors: [Root, root]\n"))
+        self.assert_rejected("gates", "allowedChainAnchors contains duplicates")
+
     def test_allowed_chain_anchors_never_reach_the_registry_documents(self):
         self.write("gates", "EU-X.yml", gate_yaml("EU-X", make_cert("EU-X"), extra="allowedChainAnchors: [root]\n"))
         loaded = {g["id"]: g for g in converter.load("gates", self.source)}
         self.assertEqual(["root"], loaded["EU-X"]["allowedChainAnchors"])
         self.assertNotIn("allowedChainAnchors", converter.public_entity("gates", loaded["EU-X"]))
+
+
+class RevisionWiringTest(unittest.TestCase):
+    """SOURCE_REVISION must reach the converter in both images, or `source_revision` silently reads
+    `unknown` (no Docker needed: compose.yml and the Dockerfiles are read as text)."""
+
+    def test_compose_passes_the_same_revision_to_both_images(self):
+        import yaml
+
+        services = yaml.safe_load((ROOT / "compose.yml").read_text())["services"]
+        values = {name: services[name]["build"]["args"]["SOURCE_REVISION"] for name in ("registry", "turvis-trust")}
+        self.assertEqual({"registry": "${SOURCE_REVISION:-unknown}", "turvis-trust": "${SOURCE_REVISION:-unknown}"}, values)
+
+    def test_dockerfiles_hand_the_argument_to_the_converter(self):
+        for name in ("registry", "turvis-trust"):
+            text = (ROOT / "docker" / name / "Dockerfile").read_text()
+            self.assertIn("ARG SOURCE_REVISION", text, name)
+            self.assertIn('--source-revision "$SOURCE_REVISION"', text, name)
+
+    def test_github_ci_sets_the_revision_for_the_image_build(self):
+        text = (ROOT / ".github" / "workflows" / "e2e.yml").read_text()
+        self.assertIn("SOURCE_REVISION: git:${{ github.sha }}", text)
 
 
 class CommandLineTest(unittest.TestCase):
@@ -245,6 +271,23 @@ class TrustViewTest(unittest.TestCase):
         self.assertEqual(first["parties"], second["parties"])
         self.assertRegex(first["generation"], r"^sha256:[0-9a-f]{64}$")
         self.assertEqual("git:aaaa", first["source_revision"])
+
+    def test_generation_does_not_depend_on_the_pem_layout(self):
+        pem = make_cert("EU-X")
+        body = "".join(pem.splitlines()[1:-1])
+        rewrapped = "-----BEGIN CERTIFICATE-----\n" + "\n".join(body[i:i + 40] for i in range(0, len(body), 40)) + "\n-----END CERTIFICATE-----"
+        self.assertNotEqual(pem, rewrapped)
+        original = self.view([self.gate("EU-X", pem)])
+        other = self.view([self.gate("EU-X", rewrapped + "\n")])
+        self.assertEqual(original["generation"], other["generation"])
+        self.assertEqual(pem, other["parties"][0]["cert_pem"])
+
+    def test_anchor_pem_layout_is_normalised_too(self):
+        pem = make_cert("root", ca=True)
+        directory = self.source / "trust-anchors"
+        directory.mkdir(exist_ok=True)
+        (directory / "root.pem").write_text(pem.rstrip("\n"))
+        self.assertEqual(pem, converter.load_trust_anchors(self.source, self.NOW)[0]["cert_pem"])
 
     def test_generation_changes_with_the_content(self):
         a = self.view([self.gate("EU-A", make_cert("EU-A"))])

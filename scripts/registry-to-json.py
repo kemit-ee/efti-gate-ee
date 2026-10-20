@@ -100,7 +100,7 @@ def check_gate(entity, source):
     if anchors is not None:
         if not isinstance(anchors, list) or not all(isinstance(a, str) and ANCHOR_ALIAS_RE.match(a) for a in anchors):
             raise RegistryError(f"{source}: allowedChainAnchors must be a list of trust-anchor aliases, got {anchors!r}")
-        if len(set(anchors)) != len(anchors):
+        if len({a.lower() for a in anchors}) != len(anchors):
             raise RegistryError(f"{source}: allowedChainAnchors contains duplicates: {anchors!r}")
 
 
@@ -233,6 +233,14 @@ def parse_certificate(pem, what, now):
     return certificate
 
 
+def canonical_pem(certificate):
+    """The certificate re-encoded as PEM, so line wrapping and trailing newlines in the source file
+    cannot change the view or its `generation`."""
+    from cryptography.hazmat.primitives import serialization
+
+    return certificate.public_bytes(serialization.Encoding.PEM).decode()
+
+
 def require_ca(certificate, what):
     """A trust anchor must be a CA certificate; a leaf placed there would anchor nothing meaningful."""
     from cryptography import x509
@@ -278,8 +286,9 @@ def load_trust_anchors(source_dir, now):
         text = path.read_text()
         if not PEM_RE.match(text):
             raise RegistryError(f"{path}: not a PEM certificate (expected -----BEGIN/END CERTIFICATE-----)")
-        require_ca(parse_certificate(text, str(path), now), str(path))
-        anchors.append({"alias": path.stem, "cert_pem": text})
+        certificate = parse_certificate(text, str(path), now)
+        require_ca(certificate, str(path))
+        anchors.append({"alias": path.stem, "cert_pem": canonical_pem(certificate)})
 
     aliases = [a["alias"].lower() for a in anchors]
     duplicates = sorted({a for a in aliases if aliases.count(a) > 1})
@@ -292,8 +301,7 @@ def build_party(gate, anchors_by_alias, now):
     from cryptography import x509
 
     source = f"gates/{gate['id']}"
-    cert_pem = gate["eDeliveryCert"]
-    certificate = parse_certificate(cert_pem, f"{source}: eDeliveryCert", now)
+    certificate = parse_certificate(gate["eDeliveryCert"], f"{source}: eDeliveryCert", now)
     try:
         ski = certificate.extensions.get_extension_for_class(x509.SubjectKeyIdentifier).value
     except x509.ExtensionNotFound:
@@ -308,7 +316,7 @@ def build_party(gate, anchors_by_alias, now):
         "party_id": gate["id"],
         "status": gate["status"],
         "verified_identity": gate["id"],
-        "cert_pem": cert_pem,
+        "cert_pem": canonical_pem(certificate),
         "cert_ski": ski.digest.hex(),
         "cert_subject_dn": certificate.subject.rfc4514_string(),
         "valid_until": f"{certificate.not_valid_after_utc:%Y-%m-%dT%H:%M:%SZ}",
