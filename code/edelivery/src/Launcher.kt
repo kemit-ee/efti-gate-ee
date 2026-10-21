@@ -29,6 +29,7 @@ fun main() {
     // #305a: available for injection, not used by any call site yet; the default mode is legacy (Turvis is never called).
     register(turvisConfig)
     register<TurvisClient>()
+    register<TurvisInbound>()
     register<RuuterClient>(if (Config.isProd) RuuterClient::class else RuuterClientDev::class)
     register<PartyRegistry>(EDeliveryPartyRegistry::class)
     register<AsyncResponseProvider>(DbAsyncResponseProvider::class)

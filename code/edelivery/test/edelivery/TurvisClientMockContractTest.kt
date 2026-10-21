@@ -68,6 +68,22 @@ class TurvisClientMockContractTest {
     assertNotNull(verified.signatureDigests.single { it.referenceUri == "cid:message" }.transforms.firstOrNull())
   }
 
+  @Test fun `the inbound pass splits, decrypts and verifies a multipart message against the mock`() {
+    needMock()
+    val payload = "<hello>world</hello>"
+    val gzipped = java.io.ByteArrayOutputStream().also { o -> java.util.zip.GZIPOutputStream(o).use { it.write(payload.toByteArray()) } }.toByteArray()
+    val soap = Base64.getDecoder().decode(envelope)
+    val body = "--bnd\r\nContent-Type: application/soap+xml\r\n\r\n".toByteArray() + soap +
+      "\r\n--bnd\r\nContent-ID: <message>\r\n\r\n".toByteArray() + gzipped + "\r\n--bnd--\r\n".toByteArray()
+
+    val inbound = TurvisInbound(TurvisConfig(TurvisIntegrationMode.TURVIS, URI(mockUrl), token, "EU-EE"), client()).process(body)
+
+    assertEquals(routing, inbound.routing)
+    assertEquals("EU-DE", inbound.signer.verifiedIdentity)
+    assertEquals(payload, inbound.payloadXml)
+    assertEquals(listOf("#MSG-ID", "#BODY-ID", "cid:message"), inbound.signatureDigests.map { it.referenceUri })
+  }
+
   @Test fun `verify binds the sender with and without a claimed signer id`() {
     needMock()
     fun verify(claimed: String?) = client().verify(envelope, emptyList(), emptyList(), emptyList(), setOf(TurvisVerifyField.SIGNER), claimed)

@@ -62,4 +62,25 @@ class SoapFaultReasonsTest {
     expect(logged.cause!!.message).toEqual(XMLStreamException::class.java.name)
     expect(logged.stackTrace.toList()).toEqual(ex.stackTrace.toList())
   }
+
+  @Test fun `every Turvis reason answered with a fault has a bucket with the same ebMS code`() {
+    TurvisReason.entries.filter { it.answeredWithFault }.forEach { r ->
+      val fault = FaultReason.ofTurvis(r)
+      expect(fault).notToEqualNull()
+      expect(fault!!.name).toEqual(r.name)
+      expect(fault.ebmsCode).toEqual(r.ebmsCode!!)
+      expect(fault.shortDescription).toEqual(r.ebmsShortDescription!!)
+    }
+  }
+
+  @Test fun `Turvis reasons answered with 503 have no fault bucket`() {
+    TurvisReason.entries.filter { !it.answeredWithFault }.forEach { expect(FaultReason.ofTurvis(it)).toEqual(null) }
+    expect(FaultReason.of(KeyUnavailableException(TurvisRejection("verifications", 503, "KEY_UNAVAILABLE", "a", null)))).toEqual(FaultReason.UNAVAILABLE)
+  }
+
+  @Test fun `a reject maps through its reason, an unknown code fails closed`() {
+    val untrusted = TurvisRejection("verifications", 422, "SIGNER_UNTRUSTED", "a", null)
+    expect(FaultReason.of(SignerUntrustedException(untrusted))).toEqual(FaultReason.SIGNER_UNTRUSTED)
+    expect(FaultReason.of(untrusted.copy(reasonCode = "SOMETHING_NEW").toException())).toEqual(FaultReason.SIG_CRYPTO_FAIL)
+  }
 }
