@@ -8,7 +8,7 @@
 >
 > **Not in this document.** How Turvis implements the crypto, stores keys, rotates them, deploys, runs tests, or chooses a stack — all **Turvis's responsibility**, tracked separately when the turvis repo is provisioned (external tracker, TBD, e.g. `turnerrainer/turvis`).
 >
-> **Contract source of truth**: the Ruuter DSL files at `dsl-contracts/turvis/POST/v1/*/*.yml` are the AUTHORITATIVE REST contract. This document's §4 JSON Schemas are companion documentation for details Ruuter DSL `allowlist:` can't express (nested arrays, `format: base64`, oneOf accept/reject, enum constraints). See `dsl-contracts/README.md` for the contract-change workflow.
+> **Contract source of truth**: the Ruuter DSL files at `DSL/Ruuter-turvis-mock/turvis/POST/v1/*/*.yml` (served by the `turvis-mock` compose service, #306) are the AUTHORITATIVE REST contract. This document's §4 JSON Schemas are companion documentation for details Ruuter DSL `allowlist:` can't express (nested arrays, `format: base64`, oneOf accept/reject, enum constraints). See `dsl-contracts/README.md` for the contract-change workflow.
 >
 > **Last updated**: 2026-10-20.
 
@@ -220,7 +220,7 @@ Nesting isolates each spec cleanly. Two axes extend independently:
 | `/turvis/v1/encryptions/` | `xmlenc` (W3C XML Encryption 1.1) | `jwe` (RFC 7516), `cose-encrypt` (RFC 8152) |
 | `/turvis/v1/decryptions/` | `xmlenc` (W3C XML Encryption 1.1) | `jwe` (RFC 7516), `cose-encrypt` (RFC 8152) |
 
-A new mechanism is a drop-in sibling file in `dsl-contracts/` (e.g. `verifications/jws.yml`) with its own `allowlist:`, response schema, and reason-code set added to §5 as a dedicated subsection. A new operation family is a new top-level directory. No change to existing leaves; no `/v2/` bump. edelivery picks a leaf per-route (XMLDSig for AS4; JWS for a hypothetical JSON peer), not via content negotiation on a single endpoint.
+A new mechanism is a drop-in sibling file in `DSL/Ruuter-turvis-mock/turvis/POST/v1/` (e.g. `verifications/jws.yml`) with its own `allowlist:`, response schema, and reason-code set added to §5 as a dedicated subsection. A new operation family is a new top-level directory. No change to existing leaves; no `/v2/` bump. edelivery picks a leaf per-route (XMLDSig for AS4; JWS for a hypothetical JSON peer), not via content negotiation on a single endpoint.
 
 Plus support endpoints:
 
@@ -257,7 +257,7 @@ Every endpoint's request body includes a **required** `return_fields` array. The
 - Unknown field name in `return_fields` → reject with `UNKNOWN_RETURN_FIELD` (422).
 - No subfield projection (`signer.cert_ski` form). Top-level objects are atomic — request a whole subobject or omit it.
 - Each endpoint's projectable enum is enumerated in §4.1–§4.4.
-- **Phase 1 mock caveat**: the mock in `dsl-contracts/` validates `return_fields` **presence** (every request MUST declare it) but returns the **full** accept bundle regardless of its contents, and does NOT inspect `return_fields` for unknown values. The `UNKNOWN_RETURN_FIELD` reject is therefore only reachable in the mock via the `X-Mock-Verdict: reject-unknown-return-field` header. Real Turvis in Phase 2 enforces field-level filtering from the request field itself. Well-behaved caller code reads only the fields it requested.
+- **Phase 1 mock behaviour**: the mock (`DSL/Ruuter-turvis-mock/`, #306) enforces this section so that a consumer depending on a field it did not request fails against the mock, not first against the real Turvis. It validates `return_fields` (every request MUST declare it; an empty array is a 400 on verify and decrypt, where the schema has `minItems: 1`), rejects an unknown value with a real `UNKNOWN_RETURN_FIELD` (422), and **projects** the accept response: the always-returned fields plus exactly the requested projectable fields. `X-Mock-Verdict: reject-unknown-return-field` still forces the reject for tests. What the mock does not do is differ from the real Turvis only in cryptography: it validates no signature and decrypts nothing (see `dsl-contracts/README.md`).
 
 ### 4.1 `POST /turvis/v1/verifications/xmldsig`
 
@@ -1142,9 +1142,9 @@ TURVIS_INTEGRATION_MODE = legacy | shadow | turvis
 **Shared-change backward compatibility**: any field added to `MessageHeader` or any shape change that is shared between the legacy path and the Turvis path must be backward-compatible — both paths must work in `shadow` mode. Tests cover BOTH paths while shadow is active.
 
 **Contract-drift CI gate (required, not recommended)**:
-- `dsl-lint --audit` on `dsl-contracts/turvis/` → 0 errors
-- `dsl-test` scenarios → 100% pass
-- Schema cross-check: every field required by SPEC §4 appears in the corresponding DSL `allowlist:` with matching type; every reason code in §5 is reachable via a mock scenario
+- `dsl-lint --audit` on `DSL/Ruuter-turvis-mock/` → 0 errors, 0 warnings
+- `dsl-test` scenarios (`DSL-turvis-mock-tests/`) → 100% pass
+- Schema cross-check (`scripts/validate-turvis-contract.py`, unit-tested by `tests/turvis/test_validate_turvis_contract.py`): the fields required by SPEC §4 and the DSL `allowlist:` are the same set with matching types, the accept-response fields match the DSL `returns:`, and every reason code in §5 is a reject step with the §5 status and has a mock scenario
 
 CI runs on every PR touching `docs/specs/turvis/` AND on every PR touching `edelivery/` code (because edelivery depends on this contract).
 
@@ -1559,3 +1559,4 @@ Explicitly excluded from this build. If any of these later come into scope, that
 | 2026-10-20 | §13.0 step 2: security-decision discrepancies must be zero unexplained; the `< 0.01%` allowance applies only to non-security differences | #304 / #308 position; shadow gate must not hide a wrong accept/reject |
 | 2026-10-20 | §7.2–7.4 rewritten: trust view generated from `registry/` (allowlist, no `apiKey`, pinning/chain per party, generation visibility, deny-wins status table) replacing the unapproved `parties.yml`; §13.0 ownership split (#305/#306/#308/#309/#312/#313), shadow invariants and start-up guard; §13.3 retry policy reconciled with §5; §13.6 deletions moved to #312; §9.1a attachment byte contract; `Klite` references removed | #304 merge conditions; **proposed, pending explicit agreement** |
 | 2026-10-20 | §11.2 environment guard: `AUTH_MODE=shared-token` refused in prod/staging; §7.2 and §13.0 marked agreed | turnerrainer approval of the six decisions on PR #311 |
+| 2026-10-20 | §4.0 mock caveat replaced: the mock (#306) validates and projects `return_fields`, rejects unknown values with a real `UNKNOWN_RETURN_FIELD`, extracts `ebms_routing` and the sender from the envelope, checks `key_handle`, and reports `<ds:Reference>` elements as written; §13.0 drift gate names the script and the unit test; DSL moved to `DSL/Ruuter-turvis-mock/` | #306 implementation (mock behaviour only, no change to the real contract) |

@@ -9,7 +9,7 @@ This directory holds the **Phase 1 slice of the Turvis contract that this gate's
 | File | Purpose |
 |---|---|
 | [`SPEC.md`](./SPEC.md) | **Authoritative integration contract.** Endpoint catalogue, JSON Schemas, reason-code enum, algorithm URIs, auth modes (interim shared-token + post-A3 mTLS), latency budget, observability + audit query API, edelivery-side integration contract, examples. |
-| [`dsl-contracts/`](./dsl-contracts/) | **Authoritative REST contract source.** Four Ruuter DSL files that double as (a) the Phase 1 `turvis-mock` compose service and (b) the Phase 2 contract the real Turvis MUST honour. SPEC §4 JSON Schemas are companion documentation for details DSL `allowlist:` can't express. See `dsl-contracts/README.md` for the contract-change workflow. |
+| [`dsl-contracts/README.md`](./dsl-contracts/README.md) | How the contract is implemented and checked: the four Ruuter DSL files live in [`DSL/Ruuter-turvis-mock/`](../../../DSL/Ruuter-turvis-mock/) and double as (a) the Phase 1 `turvis-mock` compose service and (b) the Phase 2 contract the real Turvis MUST honour. SPEC §4 JSON Schemas are companion documentation for details DSL `allowlist:` can't express. The README holds the run commands, mock behaviour and the contract-change workflow. |
 
 ## Endpoints (Phase 1)
 
@@ -24,12 +24,12 @@ Future (same URL shape; not in this contract): `/turvis/v1/validations/{xmlschem
 
 ## Phase 1 operating mode (no real Turvis yet, no external peers)
 
-Turvis itself doesn't exist yet. Until it does, this gate runs with `turvis-mock` (a Ruuter DSL compose service built from the DSL files in `dsl-contracts/`, delivered under #306) as its operational Turvis. In this mode:
+Turvis itself doesn't exist yet. Until it does, this gate runs with `turvis-mock` (a Ruuter DSL compose service built from `DSL/Ruuter-turvis-mock/`, delivered under #306) as its operational Turvis. In this mode:
 
 - Local gate-to-gate flows work (both ends talk to the same mock; pass-through signatures/encryption are self-consistent).
 - Internal gate functionality (upload, admin, UI, DB, X-Road) is unaffected.
 - **External AS4 traffic to real EU-member peers is deferred to Phase 2** — `turvis-mock`'s pass-through output will not survive peer signature verification against Domibus / Holodeck / phax4as4. Peer-interop readiness blocks on the real Turvis being deployed.
-- Pre-A3 interim auth (SPEC §11.2) with `AUTH_MODE=shared-token` + `INTERNAL_SERVICE_TOKEN` covers the window; mTLS mesh identity is pinned post-A3.
+- Pre-A3 interim auth (SPEC §11.2) with `AUTH_MODE=shared-token` and the Turvis-dedicated `TURVIS_INTERNAL_TOKEN` (not the fleet's `INTERNAL_SERVICE_TOKEN`) covers the window; mTLS mesh identity is pinned post-A3.
 
 Operational consequence: **#306 (turvis-mock deployment) is a hard dependency for #305 (edelivery integration) and #308 (cutover)**, not a parallel ticket. Without `turvis-mock` running, edelivery has no counterparty for its HTTP calls after the private-key deletions in SPEC §13.6.
 

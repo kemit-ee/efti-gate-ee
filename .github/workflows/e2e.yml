@@ -21,8 +21,10 @@ jobs:
           run() { docker run --rm -v "$PWD:/workdir" -w /workdir "$IMAGE" "$@"; }
           run dsl-lint --audit --dsl DSL/Ruuter            --constants constants.ini
           run dsl-lint --audit --dsl DSL/Ruuter-xroad-mock --constants constants-xroad-mock.ini
+          run dsl-lint --audit --dsl DSL/Ruuter-turvis-mock --constants constants-turvis-mock.ini
           run dsl-test --dsl DSL/Ruuter --tests DSL-tests --constants constants.ini
           run dsl-test --dsl DSL/Ruuter-xroad-mock --tests DSL-mock-tests --constants constants-xroad-mock.ini
+          run dsl-test --dsl DSL/Ruuter-turvis-mock --tests DSL-turvis-mock-tests --constants constants-turvis-mock.ini
 
       - uses: actions/setup-python@v5
         with:
@@ -39,6 +41,11 @@ jobs:
         run: |
           python3 scripts/registry-to-json.py
           python3 tests/registry/test_registry_to_json.py
+      # docs/specs/turvis/SPEC.md sections 4/5 vs the Turvis mock DSL and its scenarios: drift fails the job.
+      - name: Turvis contract drift check
+        run: |
+          python3 scripts/validate-turvis-contract.py
+          python3 tests/turvis/test_validate_turvis_contract.py
       - name: rich mock dataset XSD and field-coverage checks
         run: |
           sudo apt-get update -qq
