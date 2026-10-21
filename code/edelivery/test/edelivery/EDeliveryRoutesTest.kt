@@ -28,6 +28,8 @@ class EDeliveryRoutesTest {
   val eDeliveryClient = mockk<EDeliveryClient>(relaxed = true)
   val exchange = mockk<HttpExchange>(relaxed = true)
   val signatureValidator = SignatureValidator()
+  /** Mode legacy (the default): the Turvis inbound pass is not used and the client is never called. */
+  val legacyInbound = TurvisInbound(TurvisConfig(keyHandle = "EU-EE"), mockk(relaxed = true))
 
   private val keyIdentifierRegex = Regex("<wsse:KeyIdentifier\\b[^>]*>.*?</wsse:KeyIdentifier>", setOf(RegexOption.DOT_MATCHES_ALL))
 
@@ -35,7 +37,7 @@ class EDeliveryRoutesTest {
     every { keyManager.receiverCert(any()) } returns keyManager.ownCert
   }
 
-  val routes = EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator)
+  val routes = EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound)
 
   private val boundary = "----boundary"
   private val cipherValueRegex = Regex("(<xenc:CipherValue>)(.*?)(</xenc:CipherValue>)", setOf(RegexOption.DOT_MATCHES_ALL))
@@ -209,7 +211,7 @@ class EDeliveryRoutesTest {
     every { exchange.requestStream } returns body.inputStream()
     every { messageHandlers.rootTags } throws IllegalStateException(secret)
 
-    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator).msh(exchange)
+    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound).msh(exchange)
 
     assertBucketOnly(sentFault(), FaultReason.OTHER)
   }
@@ -219,7 +221,7 @@ class EDeliveryRoutesTest {
     every { exchange.requestStream } returns body.inputStream()
     every { messageHandlers.rootTags } throws SecurityException(secret)
 
-    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator).msh(exchange)
+    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound).msh(exchange)
 
     assertBucketOnly(sentFault(), FaultReason.SIG_CRYPTO_FAIL)
   }
@@ -227,7 +229,7 @@ class EDeliveryRoutesTest {
   @Test fun `real SOAP fault for an unparsable body does not echo the body`() {
     every { exchange.requestStream } returns "invalid $secret".toByteArray().inputStream()
 
-    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator).msh(exchange)
+    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound).msh(exchange)
 
     val fault = sentFault()
     expect(fault).notToContain("Jaan Tamm")

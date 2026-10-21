@@ -3,6 +3,8 @@ package edelivery
 import klite.*
 import klite.StatusCode.Companion.InternalServerError
 import klite.StatusCode.Companion.OK
+import klite.StatusCode.Companion.ServiceUnavailable
+import java.util.UUID
 import klite.annotations.GET
 import klite.annotations.POST
 import klite.xml.XmlParser
@@ -29,7 +31,8 @@ class EDeliveryRoutes(
   private val eDeliveryMessageGenerator: EDeliveryMessageGenerator,
   private val eDeliveryClient: EDeliveryClient,
   private val partyRegistry: PartyRegistry,
-  private val signatureValidator: SignatureValidator
+  private val signatureValidator: SignatureValidator,
+  private val turvisInbound: TurvisInbound,
 ) {
   private val rootTagRegex = "<\\s*(?:\\w+:)?(\\w+)".toRegex()
 
@@ -42,6 +45,7 @@ class EDeliveryRoutes(
   fun msh(e: HttpExchange) {
     val bodyBytes = e.requestStream.readBytes()
     val auditRef = randomUUID().toString()
+    if (turvisInbound.authoritative) return mshViaTurvis(e, bodyBytes, auditRef)
     var partCount: Int? = null
     try {
       val body = MultipartParser().parse(bodyBytes.inputStream())
@@ -82,6 +86,56 @@ class EDeliveryRoutes(
       log.error("Error when processing message: audit_ref=$auditRef reason=$reason body_sha256=${bodyBytes.sha256Hex()} " +
         "body_size_bytes=${bodyBytes.size} content_type=${e.header("Content-Type")} multipart_part_count=$partCount", ex.withoutMessages())
       e.send(InternalServerError, eDeliveryMessageGenerator.soapFault(reason), soap)
+    }
+  }
+
+  /**
+   * Inbound with Turvis as the authority (`TURVIS_INTEGRATION_MODE=turvis`, SPEC 2.2/9): no XML is parsed here,
+   * routing and the sender come from Turvis's verify response, nothing is dispatched before verify succeeds.
+   *
+   * NOT COMPLETE until 305c: the receipt (the signed response to the peer) is built and signed in-process today,
+   * and the in-process path is exactly what this mode must not call, so this answers 200 without a receipt.
+   * The mode stays off by default and is not to be switched on before 305c.
+   */
+  private fun mshViaTurvis(e: HttpExchange, bodyBytes: ByteArray, auditRef: String) {
+    try {
+      val inbound = turvisInbound.process(bodyBytes)
+      val routing = inbound.routing
+      val conversationId = routing.conversationId?.let(UUID::fromString) ?: throw IllegalArgumentException("Message has no conversation id")
+      currentThread().name = conversationId.toString()
+
+      val receiverId = PartyId(routing.toPartyId)
+      if (receiverId != keyManager.partyId) log.warn("Unknown receiver: $receiverId")
+      val senderId = PartyId(inbound.signer.verifiedIdentity) // the signature's identity, never routing.fromPartyId
+      val party = partyRegistry[senderId]
+      e.attr("client", party.id)
+
+      val rootTag = rootTagRegex.from(inbound.payloadXml)
+      val responseKey = RequestKey(senderId, conversationId, receiverId)
+      val handler = messageHandlers.rootTags[rootTag] ?: throw UnsupportedOperationException("Unsupported message '$rootTag' from $responseKey")
+      EDeliveryMetrics.inbound(rootTag)
+      log.info("Handling '$rootTag' from $responseKey (turvis decrypt=${inbound.decryptAuditRef} verify=${inbound.verifyAuditRef})")
+
+      e.send(OK, "", soap)
+
+      AppScope.async {
+        val result = handler(MessageContext(responseKey, inbound.payloadXml))
+        if (result != null)
+          eDeliveryClient.send(party.eDeliveryUrl, UserMessageParams(responseKey), result)
+      }
+    } catch (ex: Exception) {
+      // Internal, transient or unreachable Turvis is not the peer's fault: HTTP 503 and no ebMS fault (SPEC 13.2).
+      val noFault = when (ex) {
+        is TurvisUnavailableException, is TurvisProtocolException, is TurvisAuthException -> true
+        is TurvisRejectException -> FaultReason.ofTurvis(ex.rejection.effectiveReason) == null
+        else -> false
+      }
+      val reason = if (noFault) "TURVIS_UNAVAILABLE" else FaultReason.of(ex).name
+      val turvisAuditRef = (ex as? TurvisRejectException)?.auditRef
+      log.error("Error when processing message via turvis: audit_ref=$auditRef reason=$reason turvis_audit_ref=$turvisAuditRef " +
+        "body_sha256=${bodyBytes.sha256Hex()} body_size_bytes=${bodyBytes.size} content_type=${e.header("Content-Type")}", ex.withoutMessages())
+      if (noFault) e.send(ServiceUnavailable, "", soap)
+      else e.send(InternalServerError, eDeliveryMessageGenerator.soapFault(FaultReason.of(ex)), soap)
     }
   }
 
