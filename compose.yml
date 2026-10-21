@@ -233,6 +233,12 @@ services:
       - LOGGER_SERVICE_NAME=edelivery
       - KEYSTORE_DIR=/app/certs
       - KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD:-changeit}
+      # Turvis (#305): legacy in-process crypto is the default and Turvis is never called unless the mode is
+      # shadow or turvis. TURVIS_URL and the dedicated TURVIS_INTERNAL_TOKEN have no default here, so this file
+      # alone never ships a known token; compose.override.yml (dev/CI) points them at the turvis-mock.
+      - TURVIS_INTEGRATION_MODE=${TURVIS_INTEGRATION_MODE:-legacy}
+      - TURVIS_URL
+      - TURVIS_INTERNAL_TOKEN
     volumes:
       - ./code/certs:/app/certs:ro
     build:

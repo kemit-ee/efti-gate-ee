@@ -60,6 +60,10 @@ services:
       - 5051:5051
     environment:
       - INTERNAL_SERVICE_TOKEN=${INTERNAL_SERVICE_TOKEN:-dev-internal-service-token-change-me}
+      # Dev/CI default target of the Turvis calls: the turvis-mock (start it with `docker compose up turvis-mock`
+      # before switching TURVIS_INTEGRATION_MODE to shadow or turvis). The default mode stays legacy.
+      - TURVIS_URL=${TURVIS_URL:-http://turvis-mock:8091}
+      - TURVIS_INTERNAL_TOKEN=${TURVIS_INTERNAL_TOKEN:-dev-turvis-mock-token}
       - JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5051
   xml-mapper:
     ports:

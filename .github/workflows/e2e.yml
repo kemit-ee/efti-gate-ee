@@ -83,6 +83,20 @@ jobs:
         working-directory: code
         run: ./gradlew test
 
+      # The Turvis client (code/edelivery TurvisClient) against the real turvis-mock service (#306) over HTTP:
+      # the contract as the mock enforces it. The class is skipped in the step above (no TURVIS_MOCK_URL); this
+      # step builds and starts only the mock (loopback port from compose.override.yml) and re-runs it.
+      - name: start turvis-mock
+        run: docker compose up --build -d --wait turvis-mock
+      - name: Turvis client contract test against the turvis-mock
+        working-directory: code
+        env:
+          TURVIS_MOCK_URL: http://127.0.0.1:8091
+        run: ./gradlew edelivery:test --rerun --tests 'edelivery.TurvisClientMockContractTest'
+      - name: stop turvis-mock
+        if: always()
+        run: docker compose down -v
+
       - name: gradlew jacocoTestCoverageVerification
         # Mirrors .gitlab-ci.yml's backend:coverage-gate: allow_failure until every module's
         # 80% line-coverage baseline is raised (core cleared it; edelivery is still
