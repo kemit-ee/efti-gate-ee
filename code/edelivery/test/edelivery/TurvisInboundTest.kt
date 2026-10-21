@@ -45,7 +45,7 @@ class TurvisInboundTest {
     identity: String = "DE",
     xpaths: List<String> = TurvisInbound.REQUIRED_SIGNED_XPATHS,
     cids: List<String> = TurvisInbound.REQUIRED_SIGNED_CID_REFS,
-  ) = TurvisVerifyResponse("ver-1", signer(identity), xpaths, cids, listOf(TurvisSignatureReference("#id", null, "ZGlnZXN0", "sha256", emptyList())), routing(from))
+  ) = TurvisVerifyResponse("ver-1", signer(identity), xpaths, cids, listOf(TurvisSignatureReference("#id", null, "ZGlnZXN0", "SHA-256", emptyList())), routing(from))
 
   private fun reject(endpoint: String, code: String) =
     TurvisResult.Reject(TurvisRejection(endpoint, TurvisReason.of(code)!!.httpStatus, code, "aud-1", "detail from turvis"))
@@ -162,6 +162,7 @@ class TurvisInboundTest {
   @Test fun `malformed multipart never reaches Turvis`() {
     expect { inbound().process("not multipart".toByteArray()) }.toThrow<IllegalArgumentException>()
     expect { inbound().process("--b1\r\nX: 1\r\n\r\nonly one\r\n--b1--\r\n".toByteArray()) }.toThrow<IllegalArgumentException>()
+    expect { inbound().process("--b1\r\n\r\na\r\n--b1\r\n\r\nb\r\n--b1\r\n\r\nc\r\n--b1--\r\n".toByteArray()) }.toThrow<IllegalArgumentException>()
 
     verify(exactly = 0) { client.decrypt(any(), any(), any(), any()) }
   }

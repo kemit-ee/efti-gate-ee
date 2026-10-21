@@ -36,7 +36,8 @@ class TurvisInbound(private val config: TurvisConfig, private val client: Turvis
 
   fun process(body: ByteArray): VerifiedInbound {
     val parts = MimeSplitter.split(body)
-    require(parts.size >= 2) { "AS4 message needs a SOAP part and an attachment part" }
+    // Exactly two parts: a third one (the legacy detached key part) never reaches Turvis, so it is refused instead of dropped silently.
+    require(parts.size == 2) { "AS4 message needs exactly a SOAP part and an attachment part" }
     val soap = parts.first().bytes
     val attachment = parts.last().bytes
 

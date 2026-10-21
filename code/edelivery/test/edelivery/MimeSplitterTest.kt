@@ -85,6 +85,13 @@ class MimeSplitterTest {
     expect { MimeSplitter.split("--b1".toByteArray()) }.toThrow<IllegalArgumentException>()
   }
 
+  @Test fun `empty lines before the first delimiter are tolerated like the legacy parser`() {
+    val parts = MimeSplitter.split("\r\n\r\n".toByteArray() + body("b1", "X: 1" to "a".toByteArray(), "X: 2" to "b".toByteArray()))
+
+    expect(parts.size).toEqual(2)
+    expect(String(parts[1].bytes)).toEqual("b")
+  }
+
   @Test fun `preamble before the first boundary is rejected`() {
     expect { MimeSplitter.split(body("b1", "X: 1" to "a".toByteArray(), preamble = "junk\r\n")) }.toThrow<IllegalArgumentException>()
   }

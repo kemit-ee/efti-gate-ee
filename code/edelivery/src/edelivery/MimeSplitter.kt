@@ -11,7 +11,7 @@ class MimePart(val headers: Map<String, String>, val bytes: ByteArray) {
  * attachment is binary (SPEC docs/specs/turvis/SPEC.md 2.2 and 9.3: "edelivery's only envelope-byte handling
  * is MIME-split").
  *
- * RFC 2046 framing only: the delimiter is the first line of the body (`--boundary`), parts are separated by
+ * RFC 2046 framing only: the delimiter is the first non-empty line of the body (`--boundary`), parts are separated by
  * CRLF + delimiter, the end by `--boundary--`, and a part's headers end at the first empty line. The boundary
  * is taken from the body, not from the Content-Type header (the legacy path does the same). Anything else
  * (no delimiter, no closing delimiter, bare LF line ends, too many parts) is a malformed message and throws
@@ -23,13 +23,15 @@ object MimeSplitter {
   private val HEADER_END = "\r\n\r\n".toByteArray()
 
   fun split(body: ByteArray): List<MimePart> {
-    val firstLineEnd = body.indexOf(CRLF, 0)
-    require(firstLineEnd > 2 && body[0] == '-'.code.toByte() && body[1] == '-'.code.toByte()) { "Multipart body does not start with a boundary line" }
-    val delimiter = body.copyOfRange(0, firstLineEnd).trimTrailingBlanks()
+    var start = 0
+    while (body.startsWith(CRLF, start)) start += CRLF.size // empty lines before the first delimiter, as the legacy parser tolerates
+    val firstLineEnd = body.indexOf(CRLF, start)
+    require(firstLineEnd > start + 2 && body[start] == '-'.code.toByte() && body[start + 1] == '-'.code.toByte()) { "Multipart body does not start with a boundary line" }
+    val delimiter = body.copyOfRange(start, firstLineEnd).trimTrailingBlanks()
     val separator = CRLF + delimiter
 
     val parts = mutableListOf<MimePart>()
-    var cursor = delimiter.size // just after the opening delimiter
+    var cursor = start + delimiter.size // just after the opening delimiter
     while (true) {
       if (body.startsWith("--".toByteArray(), cursor)) return parts.also { require(it.isNotEmpty()) { "Multipart body has no parts" } }
       val lineEnd = body.indexOf(CRLF, cursor)
