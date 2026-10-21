@@ -13,6 +13,9 @@ fun main() {
   Config.useEnvFile()
   if (Config.optional("PORT") == null) Config["PORT"] = "8081"
 
+  // Fail closed on a bad or unsafe Turvis configuration (e.g. the mock URL in prod/staging), in any mode.
+  val turvisConfig = TurvisConfig.load()
+
   val registry = DependencyInjectingRegistry().apply {
     register<RequestLogger>(RequestLogger { ms ->
       "<" + attr<String?>("client") + "> " + defaultRequestLogFormatter(ms)
@@ -23,6 +26,9 @@ fun main() {
   Server(requestIdGenerator = RequestIdHandler(), registry = registry).apply {
     useOnly<EDeliveryBody>()
     register(httpClient())
+    // #305a: available for injection, not used by any call site yet; the default mode is legacy (Turvis is never called).
+    register(turvisConfig)
+    register<TurvisClient>()
     register<RuuterClient>(if (Config.isProd) RuuterClient::class else RuuterClientDev::class)
     register<PartyRegistry>(EDeliveryPartyRegistry::class)
     register<AsyncResponseProvider>(DbAsyncResponseProvider::class)
