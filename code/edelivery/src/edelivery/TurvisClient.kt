@@ -13,8 +13,13 @@ import java.net.http.HttpRequest
 import java.net.http.HttpRequest.BodyPublishers
 import java.net.http.HttpResponse
 import java.net.http.HttpResponse.BodyHandlers
+import java.net.http.HttpTimeoutException
 import java.security.SecureRandom
 import java.time.Duration
+import java.util.concurrent.CompletionException
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 /** An attachment as the contract carries it: the Content-ID and the base64 of the bytes. */
 data class TurvisAttachment(val cid: String, val bytesB64: String)
@@ -140,7 +145,7 @@ class TurvisClient(
     return call(Endpoint.DECRYPT, request, returnFields.map { it.wire }, idempotent = true) { m ->
       TurvisDecryptResponse(
         m.string("audit_ref")!!,
-        m.string("decrypted_soap_xml_b64"),
+        m.string("decrypted_soap_xml_b64", nonEmpty = true),
         m.string("decrypted_attachment_b64"),
         m.obj("ebms_routing")?.let(::routing),
       )
@@ -172,11 +177,15 @@ class TurvisClient(
       TurvisVerifyResponse(
         m.string("audit_ref")!!,
         m.obj("signer")?.let {
-          TurvisSigner(it.string("cert_subject_dn", true)!!, it.string("cert_ski", true)!!, it.string("cert_serial", true)!!, it.string("verified_identity", true)!!)
+          // verified_identity is the authoritative sender (SPEC 13.9), so an empty value is a protocol error, not an identity.
+          TurvisSigner(
+            it.string("cert_subject_dn", true, nonEmpty = true)!!, it.string("cert_ski", true, nonEmpty = true)!!,
+            it.string("cert_serial", true, nonEmpty = true)!!, it.string("verified_identity", true, nonEmpty = true)!!,
+          )
         },
         m.strings("matched_signed_xpaths"),
         m.strings("matched_signed_cid_refs"),
-        m.objects("signature_digests")?.map(::reference),
+        m.objects("signature_digests")?.map(::verifyReference),
         m.obj("ebms_routing")?.let(::routing),
       )
     }
@@ -199,7 +208,7 @@ class TurvisClient(
     return call(Endpoint.ENCRYPT, request, returnFields.map { it.wire }, idempotent = profile == TurvisEncryptProfile.PLAINTEXT) { m ->
       TurvisEncryptResponse(
         m.string("audit_ref")!!,
-        m.string("encrypted_payload_b64", true)!!,
+        m.string("encrypted_payload_b64", true, nonEmpty = true)!!,
         m.string("wrapped_key_b64"),
         m.string("wrapped_key_xml"),
         m.string("encrypted_data_xml"),
@@ -225,7 +234,7 @@ class TurvisClient(
       put("trace_id", traceId)
     }
     return call(Endpoint.SIGN, request, returnFields.map { it.wire }, idempotent = true) { m ->
-      TurvisSignResponse(m.string("audit_ref")!!, m.string("signed_xml_b64", true)!!, m.objects("signatures")?.map(::reference))
+      TurvisSignResponse(m.string("audit_ref")!!, m.string("signed_xml_b64", true, nonEmpty = true)!!, m.objects("signatures")?.map(::signReference))
     }
   }
 
@@ -268,16 +277,33 @@ class TurvisClient(
     }
   }
 
-  private fun send(endpoint: Endpoint, body: String): Attempt = try {
+  /**
+   * One HTTP exchange bounded by [timeout] **as a whole**, response body included: `HttpRequest.timeout` only
+   * covers the wait for the response headers, so a Turvis that sends headers and then stalls would hold the
+   * thread forever. The deadline is on the future; on expiry it is cancelled (which aborts the exchange) and
+   * counted as a timeout, i.e. an IOException like [HttpTimeoutException].
+   */
+  private fun send(endpoint: Endpoint, body: String): Attempt {
     val req = HttpRequest.newBuilder(config.baseUrl.resolveTurvis(endpoint.path))
       .timeout(timeout)
       .header("Content-Type", "application/json")
       .header("X-Internal-Service-Token", config.internalToken)
       .POST(BodyPublishers.ofString(body))
       .build()
-    Attempt.Answered(http.send(req, BodyHandlers.ofString()))
-  } catch (e: IOException) { // HttpTimeoutException and ConnectException are IOExceptions
-    Attempt.Failed(e)
+    val future = http.sendAsync(req, BodyHandlers.ofString())
+    return try {
+      Attempt.Answered(future.get(timeout.toMillis(), TimeUnit.MILLISECONDS))
+    } catch (e: TimeoutException) {
+      future.cancel(true)
+      Attempt.Failed(HttpTimeoutException("no complete response from Turvis within $timeout"))
+    } catch (e: ExecutionException) {
+      val cause = (e.cause as? CompletionException)?.cause ?: e.cause
+      if (cause is IOException) Attempt.Failed(cause) else throw cause ?: e
+    } catch (e: InterruptedException) {
+      future.cancel(true)
+      Thread.currentThread().interrupt()
+      throw e
+    }
   }
 
   private fun <T> finish(endpoint: Endpoint, response: HttpResponse<String>, requested: List<String>, parse: (Map<String, Any?>) -> T): TurvisResult<T> {
@@ -301,6 +327,7 @@ class TurvisClient(
         throw e
       }
     }
+    if (status in 201..299) protocolError(endpoint, "answered HTTP $status, the contract only has 200")
     if (rejection == null) protocolError(endpoint, "answered HTTP $status without a reason_code")
     EDeliveryMetrics.turvisCall(endpoint.metricName, "reject")
     // Bounded cardinality: only the codes of the contract get their own counter, anything else is one bucket.
@@ -320,8 +347,9 @@ class TurvisClient(
   private fun <T> validated(endpoint: Endpoint, map: Map<String, Any?>, requested: List<String>, parse: (Map<String, Any?>) -> T): T {
     val allowed = endpoint.alwaysReturned + requested
     map.keys.firstOrNull { it !in allowed }?.let { throw TurvisProtocolException("response contains the unrequested field '$it'") }
-    (endpoint.alwaysReturned + requested).firstOrNull { it !in map }?.let { throw TurvisProtocolException("response lacks the field '$it'") }
-    if (map.string("audit_ref").isNullOrEmpty()) throw TurvisProtocolException("response has no audit_ref")
+    // Present is not enough: a requested field that is null is as missing as an absent one.
+    (endpoint.alwaysReturned + requested).firstOrNull { map[it] == null }?.let { throw TurvisProtocolException("response lacks the field '$it' (absent or null)") }
+    if (!UUID_FORMAT.matches(map.string("audit_ref")!!)) throw TurvisProtocolException("audit_ref is not a UUID")
     return parse(map)
   }
 
@@ -331,25 +359,44 @@ class TurvisClient(
     val map = parseObject(response.body()) ?: return null
     // A well-formed code this build does not know is still a reject (fail closed); anything else is not a reject body.
     val code = map.string("reason_code")?.takeIf { REASON_CODE.matches(it) } ?: return null
-    return TurvisRejection(endpoint.metricName, response.statusCode(), code, map.string("audit_ref"), map.string("detail"))
+    // audit_ref goes into logs and the exception message: only a UUID is kept, so no peer-controlled text reaches a log line.
+    val auditRef = (map["audit_ref"] as? String)?.takeIf { UUID_FORMAT.matches(it) }
+    return TurvisRejection(endpoint.metricName, response.statusCode(), code, auditRef, map["detail"] as? String)
   }
 
   private fun parseObject(body: String?): Map<String, Any?>? =
     try { body?.takeIf { it.isNotBlank() }?.let { jsonMapper.parse<Map<String, Any?>>(it) } } catch (e: Exception) { null }
 
+  /** The five fields the contract requires must be present and non-empty; conversation and ref-to may be empty. */
   private fun routing(m: Map<String, Any?>) = TurvisEbmsRouting(
-    m.string("message_id", true)!!, m.string("conversation_id"), m.string("ref_to_message_id"),
-    m.string("from_party_id", true)!!, m.string("to_party_id", true)!!, m.string("service", true)!!, m.string("action", true)!!,
+    m.string("message_id", true, nonEmpty = true)!!, m.string("conversation_id"), m.string("ref_to_message_id"),
+    m.string("from_party_id", true, nonEmpty = true)!!, m.string("to_party_id", true, nonEmpty = true)!!,
+    m.string("service", true, nonEmpty = true)!!, m.string("action", true, nonEmpty = true)!!,
   )
 
-  private fun reference(m: Map<String, Any?>) = TurvisSignatureReference(
+  /**
+   * A verify reference feeds the receipt, so it is strict: URI, digest and transforms are required, and the
+   * algorithm must be SHA-256 (SPEC 4.1). A sign reference is metadata only (SPEC 4.2 requires nothing).
+   */
+  private fun verifyReference(m: Map<String, Any?>): TurvisSignatureReference {
+    val algorithm = m.string("algorithm", true, nonEmpty = true)!!
+    if (algorithm != "SHA-256") throw TurvisProtocolException("signature digest algorithm is '$algorithm', the contract only allows SHA-256")
+    return TurvisSignatureReference(
+      m.string("reference_uri", true, nonEmpty = true)!!, m.string("subtree_xpath"), m.string("digest_b64", true, nonEmpty = true)!!, algorithm,
+      m.strings("transforms") ?: throw TurvisProtocolException("response lacks the field 'transforms'"),
+    )
+  }
+
+  private fun signReference(m: Map<String, Any?>) = TurvisSignatureReference(
     m.string("reference_uri") ?: "", m.string("subtree_xpath"), m.string("digest_b64") ?: "", m.string("algorithm") ?: "", m.strings("transforms") ?: emptyList(),
   )
 
-  private fun Map<String, Any?>.string(key: String, required: Boolean = false): String? {
+  private fun Map<String, Any?>.string(key: String, required: Boolean = false, nonEmpty: Boolean = false): String? {
     val v = this[key]
     if (v == null) { if (required) throw TurvisProtocolException("response lacks the field '$key'"); return null }
-    return v as? String ?: throw TurvisProtocolException("field '$key' is not a string")
+    val s = v as? String ?: throw TurvisProtocolException("field '$key' is not a string")
+    if (nonEmpty && s.isEmpty()) throw TurvisProtocolException("field '$key' is empty")
+    return s
   }
 
   private fun Map<String, Any?>.strings(key: String): List<String>? {
@@ -375,6 +422,7 @@ class TurvisClient(
     /** SPEC 13.3: at most 2 retries, 100 ms then 300 ms. */
     val RETRY_BACKOFF_MS = listOf(100L, 300L)
     private val REASON_CODE = Regex("[A-Z][A-Z0-9_]{0,63}")
+    private val UUID_FORMAT = Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
   }
 }
 

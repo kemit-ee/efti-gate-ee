@@ -2,6 +2,7 @@ package edelivery
 
 import klite.Config
 import java.net.URI
+import java.net.URISyntaxException
 
 /**
  * How edelivery uses Turvis for XML signature/encryption (docs/specs/turvis/SPEC.md section 13.0).
@@ -48,6 +49,10 @@ data class TurvisConfig(
   val token: String? = null,
   val keyHandle: String,
 ) {
+  /** Never prints the token or any credential in the URL: a logged or thrown config must not leak them. */
+  override fun toString() =
+    "TurvisConfig(mode=$mode, url=${url?.let { "${it.scheme}://${it.host}${if (it.port > 0) ":${it.port}" else ""}" }}, token=${if (token == null) "unset" else "***"}, keyHandle=$keyHandle)"
+
   /** The URL to call; only valid when [mode] is not legacy. */
   val baseUrl: URI get() = requireNotNull(url) { "TURVIS_URL is not set" }
   val internalToken: String get() = requireNotNull(token) { "TURVIS_INTERNAL_TOKEN is not set" }
@@ -59,14 +64,20 @@ data class TurvisConfig(
 
     fun load(get: (String) -> String? = { Config.optional(it) }): TurvisConfig {
       val mode = TurvisIntegrationMode.parse(get("TURVIS_INTEGRATION_MODE"))
-      val url = get("TURVIS_URL")?.trim()?.takeIf { it.isNotEmpty() }?.let { URI(it) }
+      // An unparseable URL is only a start-up error when it would be used; legacy needs nothing from Turvis.
+      // The message never repeats the value: a URL may carry credentials.
+      val url = get("TURVIS_URL")?.trim()?.takeIf { it.isNotEmpty() }?.let {
+        try { URI(it) } catch (e: URISyntaxException) {
+          if (mode == TurvisIntegrationMode.LEGACY) null else throw IllegalArgumentException("TURVIS_URL is not a valid URL")
+        }
+      }
       val token = get("TURVIS_INTERNAL_TOKEN")?.takeIf { it.isNotEmpty() }
       val keyHandle = checkNotNull(get("OWN_GATE_ID")?.takeIf { it.isNotBlank() }) { "OWN_GATE_ID is not set" }
 
       if (url != null) {
         require(url.scheme in setOf("http", "https") && !url.host.isNullOrEmpty()) { "TURVIS_URL must be an absolute http(s) URL, got '$url'" }
         val restricted = environments(get).intersect(RESTRICTED_ENVIRONMENTS)
-        check(!(url.host.equals(MOCK_HOST, ignoreCase = true) && restricted.isNotEmpty())) {
+        check(!(isMockHost(url.host) && restricted.isNotEmpty())) {
           "TURVIS_URL points at the turvis-mock host in a ${restricted.first()} environment: refusing to start"
         }
       }
@@ -78,6 +89,15 @@ data class TurvisConfig(
         }
       }
       return TurvisConfig(mode, url, token, keyHandle)
+    }
+
+    /**
+     * The mock by name: `turvis-mock`, its fully-qualified forms (`turvis-mock.`, `turvis-mock.<namespace>`,
+     * `turvis-mock.svc.cluster.local`) in any case. A hostname check cannot see an IP address or an unrelated alias.
+     */
+    internal fun isMockHost(host: String?): Boolean {
+      val h = host.orEmpty().lowercase().trimEnd('.')
+      return h == MOCK_HOST || h.startsWith("$MOCK_HOST.")
     }
 
     /**

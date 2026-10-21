@@ -16,6 +16,7 @@ import java.net.http.HttpTimeoutException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Flow
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
@@ -36,14 +37,21 @@ class TurvisClientTest {
   private val script = ArrayDeque<Any>()
   private val client = TurvisClient(config, http, json, sleeper = { sleeps += it }, newTraceId = { "0123456789abcdef0123456789abcdef" })
 
+  /** Never completes: a Turvis that sends nothing more. The client must give up and cancel it. */
+  private val stalled = CompletableFuture<HttpResponse<String>>()
+  private var sentAsync = 0
+
   init {
-    every { http.send(any(), any<BodyHandler<String>>()) } answers {
+    every { http.sendAsync(any(), any<BodyHandler<String>>()) } answers {
       val request = firstArg<HttpRequest>()
       requests += request
       bodies += request.bodyPublisher().get().let(::readBody)
+      sentAsync++
+      @Suppress("UNCHECKED_CAST")
       when (val next = script.removeFirstOrNull() ?: error("no scripted answer left")) {
-        is Throwable -> throw next
-        else -> next as HttpResponse<String>
+        is Throwable -> CompletableFuture.failedFuture(next)
+        is CompletableFuture<*> -> next as CompletableFuture<HttpResponse<String>>
+        else -> CompletableFuture.completedFuture(next as HttpResponse<String>)
       }
     }
   }
@@ -457,7 +465,9 @@ class TurvisClientTest {
 
   // ---------------------------------------------------------------- the contract in SPEC.md
 
-  private val spec = Files.readString(Path.of("../../docs/specs/turvis/SPEC.md"))
+  /** SPEC.md from the repository root, found by walking up from the working directory (Gradle runs tests in code/edelivery, an IDE may not). */
+  private val spec = generateSequence(Path.of("").toAbsolutePath()) { it.parent }
+    .map { it.resolve("docs/specs/turvis/SPEC.md") }.first { Files.exists(it) }.let(Files::readString)
 
   private fun requestSchema(endpoint: String): Map<String, Any?> {
     val section = Regex("(?s)### 4\\.\\d+ `POST $endpoint`\\n(.*?)(?=\\n### |\\n---\\n)").find(spec)!!.groupValues[1]
@@ -527,6 +537,149 @@ class TurvisClientTest {
       assertEquals(fault?.groupValues?.get(1), reason.ebmsCode, reason.code)
       assertEquals(fault?.groupValues?.get(2), reason.ebmsShortDescription, reason.code)
     }
+  }
+
+  // ---------------------------------------------------------------- the timeout covers the whole exchange
+
+  @Test fun `a response that never completes is cancelled after the timeout and retried like a network error`() {
+    val fast = TurvisClient(config, http, json, sleeper = { sleeps += it }, timeout = Duration.ofMillis(50))
+    val hung = List(3) { CompletableFuture<HttpResponse<String>>() }
+    script.addAll(hung)
+
+    val e = assertFailsWith<TurvisUnavailableException> { fast.decrypt("U09BUA==", null, setOf(TurvisDecryptField.DECRYPTED_SOAP_XML_B64)) }
+
+    assertEquals(3, requests.size)
+    assertEquals(listOf(100L, 300L), sleeps)
+    assertTrue(hung.all { it.isCancelled }, "every stalled exchange must be cancelled")
+    assertIs<HttpTimeoutException>(e.cause)
+  }
+
+  @Test fun `a stalled encrypt in the wss-encrypted profile is cancelled and not retried`() {
+    val fast = TurvisClient(config, http, json, sleeper = { sleeps += it }, timeout = Duration.ofMillis(50))
+    val hung = CompletableFuture<HttpResponse<String>>()
+    script.add(hung)
+
+    assertFailsWith<TurvisUnavailableException> { fast.encrypt("QUJD", "EU-FR", TurvisEncryptProfile.WSS_ENCRYPTED, emptySet()) }
+
+    assertEquals(1, requests.size)
+    assertTrue(hung.isCancelled)
+    assertTrue(sleeps.isEmpty())
+  }
+
+  @Test fun `a real server that sends the headers and then stalls on the body cannot hold the call past the timeout`() {
+    val hits = java.util.concurrent.atomic.AtomicInteger()
+    val server = com.sun.net.httpserver.HttpServer.create(java.net.InetSocketAddress(java.net.InetAddress.getLoopbackAddress(), 0), 0).apply {
+      executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()
+      createContext("/") { exchange ->
+        hits.incrementAndGet()
+        exchange.sendResponseHeaders(200, 100_000) // promises 100 kB ...
+        exchange.responseBody.write('{'.code) // ... delivers one byte ...
+        exchange.responseBody.flush()
+        Thread.sleep(15_000) // ... and goes quiet
+        exchange.close()
+      }
+      start()
+    }
+    try {
+      val real = TurvisClient(
+        TurvisConfig(TurvisIntegrationMode.TURVIS, URI("http://127.0.0.1:${server.address.port}"), "t", "EU-EE"),
+        HttpClient.newHttpClient(), json, timeout = Duration.ofMillis(300),
+      )
+      val started = System.nanoTime()
+
+      assertFailsWith<TurvisUnavailableException> { real.decrypt("U09BUA==", null, setOf(TurvisDecryptField.DECRYPTED_SOAP_XML_B64)) }
+
+      val elapsedMs = (System.nanoTime() - started) / 1_000_000
+      assertTrue(elapsedMs < 6_000, "took $elapsedMs ms, the timeout must bound the whole exchange")
+      assertEquals(3, hits.get(), "idempotent decrypt is retried twice")
+    } finally {
+      server.stop(0)
+    }
+  }
+
+  // ---------------------------------------------------------------- values are validated, not only keys
+
+  private fun refusesAs(message: String, body: String, call: () -> Any = { verifyCall(TurvisVerifyField.entries.toSet()) }) {
+    script += answer(body = body)
+    val e = assertFailsWith<TurvisProtocolException>(body) { call() }
+    assertContains(e.message!!, message)
+  }
+
+  private val fullVerify = """{"verdict":"accept","audit_ref":"$audit","signer":{"cert_subject_dn":"CN=x","cert_ski":"ab","cert_serial":"1","verified_identity":"EU-DE"},"matched_signed_xpaths":["//eb:Messaging"],"matched_signed_cid_refs":[],"signature_digests":$referencesJson,"ebms_routing":$routingJson}"""
+
+  @Test fun `a requested field that is null is as missing as an absent one`() {
+    for (field in listOf("signer", "matched_signed_xpaths", "matched_signed_cid_refs", "signature_digests", "ebms_routing")) {
+      val map = json.parse<MutableMap<String, Any?>>(fullVerify).apply { put(field, null) }
+      refusesAs("lacks the field '$field'", json.render(map))
+    }
+    refusesAs("lacks the field 'decrypted_soap_xml_b64'", """{"audit_ref":"$audit","decrypted_soap_xml_b64":null}""") {
+      client.decrypt("U09BUA==", null, setOf(TurvisDecryptField.DECRYPTED_SOAP_XML_B64))
+    }
+  }
+
+  @Test fun `an empty signer field is refused, in particular the verified identity`() {
+    for (field in listOf("cert_subject_dn", "cert_ski", "cert_serial", "verified_identity")) {
+      refusesAs("field '$field' is empty", fullVerify.replace(Regex("\"$field\":\"[^\"]*\""), "\"$field\":\"\""))
+    }
+  }
+
+  @Test fun `an empty required routing field is refused, an empty conversation id or ref-to is not`() {
+    for (field in listOf("message_id", "from_party_id", "to_party_id", "service", "action")) {
+      refusesAs("field '$field' is empty", fullVerify.replace(Regex("\"$field\":\"[^\"]*\""), "\"$field\":\"\""))
+    }
+    script += answer(body = fullVerify.replace("\"conversation_id\":\"c-1\"", "\"conversation_id\":\"\""))
+    assertIs<TurvisResult.Accept<*>>(verifyCall(TurvisVerifyField.entries.toSet()))
+  }
+
+  @Test fun `a verify signature digest must have URI, digest, transforms and the SHA-256 algorithm`() {
+    refusesAs("lacks the field 'algorithm'", fullVerify.replace(referencesJson, """[{}]"""))
+    refusesAs("lacks the field 'reference_uri'", fullVerify.replace(referencesJson, """[{"algorithm":"SHA-256","digest_b64":"ZA==","transforms":[]}]"""))
+    refusesAs("field 'digest_b64' is empty", fullVerify.replace(referencesJson, """[{"reference_uri":"#MSG-ID","digest_b64":"","algorithm":"SHA-256","transforms":[]}]"""))
+    refusesAs("only allows SHA-256", fullVerify.replace(referencesJson, """[{"reference_uri":"#MSG-ID","digest_b64":"ZA==","algorithm":"MD5","transforms":[]}]"""))
+    refusesAs("lacks the field 'transforms'", fullVerify.replace(referencesJson, """[{"reference_uri":"#MSG-ID","digest_b64":"ZA==","algorithm":"SHA-256"}]"""))
+    script += answer(body = fullVerify.replace(referencesJson, """[{"reference_uri":"#MSG-ID","digest_b64":"ZA==","algorithm":"SHA-256","transforms":[]}]"""))
+    assertIs<TurvisResult.Accept<*>>(verifyCall(TurvisVerifyField.entries.toSet())) // no transforms is a valid, empty list
+  }
+
+  @Test fun `empty signed bytes, an empty ciphertext and an empty decrypted envelope are refused`() {
+    script += answer(body = """{"signed_xml_b64":"","audit_ref":"$audit"}""")
+    assertFailsWith<TurvisProtocolException> { client.sign("U09BUA==", listOf("//eb:Messaging"), emptyList(), emptySet()) }
+    script += answer(body = """{"encrypted_payload_b64":"","audit_ref":"$audit"}""")
+    assertFailsWith<TurvisProtocolException> { client.encrypt("QUJD", "EU-FR", TurvisEncryptProfile.PLAINTEXT, emptySet()) }
+    script += answer(body = """{"audit_ref":"$audit","decrypted_soap_xml_b64":""}""")
+    assertFailsWith<TurvisProtocolException> { client.decrypt("U09BUA==", null, setOf(TurvisDecryptField.DECRYPTED_SOAP_XML_B64)) }
+  }
+
+  @Test fun `audit_ref must be a UUID on a 200, and on a reject only a UUID is kept`() {
+    refusesAs("audit_ref is not a UUID", fullVerify.replace(audit, "<script>alert(1)</script>"))
+    script += answer(body = """{"verdict":"reject","reason_code":"SIG_POLICY_FAIL","audit_ref":"line1\nFAKE LOG LINE","detail":"x"}""".replace("\\n", "\\n"), status = 422)
+    val rejection = assertIs<TurvisResult.Reject>(verifyCall()).rejection
+    assertNull(rejection.auditRef)
+    assertFalse(rejection.toException().message!!.contains("FAKE LOG LINE"))
+  }
+
+  @Test fun `a 2xx other than 200 is a protocol error even with a reason code, and a transient code on a non-503 is not retried`() {
+    script += answer(204, """{"reason_code":"SIG_POLICY_FAIL"}""")
+    assertFailsWith<TurvisProtocolException> { verifyCall() }
+    script += answer(201, "{}")
+    assertFailsWith<TurvisProtocolException> { verifyCall() }
+    script += reject(500, "KEY_UNAVAILABLE")
+    assertIs<TurvisResult.Reject>(verifyCall())
+    script += reject(502, "TRUST_STORE_UNAVAILABLE")
+    assertIs<TurvisResult.Reject>(verifyCall())
+    assertEquals(4, requests.size, "none of these may be retried")
+    assertTrue(sleeps.isEmpty())
+  }
+
+  @Test fun `logging a config or a rejection prints neither the token, URL credentials nor Turvis's detail`() {
+    val secret = TurvisConfig(TurvisIntegrationMode.TURVIS, URI("http://user:pw@turvis:8080/x"), "super-secret-token", "EU-EE")
+    assertFalse(secret.toString().contains("super-secret-token"))
+    assertFalse(secret.toString().contains("pw"))
+    assertContains(secret.toString(), "http://turvis:8080")
+    assertContains(TurvisConfig(keyHandle = "EU-EE").toString(), "token=unset")
+    val rejection = TurvisRejection("verifications", 422, "SIG_POLICY_FAIL", audit, "fragment-of-the-envelope")
+    assertFalse(rejection.toString().contains("fragment-of-the-envelope"))
+    assertContains(rejection.toString(), "SIG_POLICY_FAIL")
   }
 
   @Test fun `the client registers through klite dependency injection with its defaults`() {

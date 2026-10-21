@@ -64,6 +64,9 @@ data class TurvisRejection(
   val auditRef: String?,
   val detail: String?,
 ) {
+  /** Without [detail]: Turvis's text must not reach a log line by logging the rejection. */
+  override fun toString() = "TurvisRejection(endpoint=$endpoint, httpStatus=$httpStatus, reasonCode=$reasonCode, auditRef=$auditRef)"
+
   val reason: TurvisReason? get() = TurvisReason.of(reasonCode)
 
   /**

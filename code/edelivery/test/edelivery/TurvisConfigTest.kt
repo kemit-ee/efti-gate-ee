@@ -67,6 +67,29 @@ class TurvisConfigTest {
     assertFailsWith<IllegalStateException> { load("TURVIS_URL" to "http://Turvis-Mock:8091", "ENV" to "prod") }
   }
 
+  @Test fun `fully-qualified and differently written forms of the mock host are refused too`() {
+    for (host in listOf("turvis-mock.", "TURVIS-MOCK", "turvis-mock.efti", "turvis-mock.svc.cluster.local", "Turvis-Mock.Efti.Svc.", "turvis-mock.example.com")) {
+      assertFailsWith<IllegalStateException>(host) { load("TURVIS_URL" to "http://$host:8091", "ENVIRONMENT" to "prod") }
+    }
+    assertTrue(TurvisConfig.isMockHost("turvis-mock."))
+    assertTrue(TurvisConfig.isMockHost("turvis-mock.svc"))
+  }
+
+  @Test fun `similar names that are not the mock are not refused`() {
+    for (host in listOf("turvis-mocked", "my-turvis-mock", "turvis", "turvis-mock-2", "evil.example", "127.0.0.1")) {
+      load("TURVIS_URL" to "http://$host:8091", "ENVIRONMENT" to "prod")
+    }
+    assertEquals(false, TurvisConfig.isMockHost(null))
+  }
+
+  @Test fun `an unparseable URL does not stop legacy, fails the other modes and is never echoed`() {
+    assertNull(load("TURVIS_URL" to "http://a b:pw@x").url)
+    for (mode in listOf("shadow", "turvis")) {
+      val e = assertFailsWith<IllegalArgumentException> { load("TURVIS_INTEGRATION_MODE" to mode, "TURVIS_URL" to "http://user:pw@a b", "TURVIS_INTERNAL_TOKEN" to "t") }
+      assertEquals(false, e.message!!.contains("pw"))
+    }
+  }
+
   @Test fun `the mock host is allowed outside prod and staging and other hosts are allowed everywhere`() {
     load("TURVIS_URL" to "http://turvis-mock:8091")
     load("TURVIS_URL" to "http://turvis-mock:8091", "ENVIRONMENT" to "dev")
