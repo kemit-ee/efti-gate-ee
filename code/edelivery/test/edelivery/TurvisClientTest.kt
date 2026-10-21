@@ -5,6 +5,7 @@ import io.mockk.mockk
 import klite.Metrics
 import klite.json.JsonMapper
 import klite.json.parse
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
 import java.io.IOException
 import java.net.URI
@@ -466,8 +467,15 @@ class TurvisClientTest {
   // ---------------------------------------------------------------- the contract in SPEC.md
 
   /** SPEC.md from the repository root, found by walking up from the working directory (Gradle runs tests in code/edelivery, an IDE may not). */
-  private val spec = generateSequence(Path.of("").toAbsolutePath()) { it.parent }
-    .map { it.resolve("docs/specs/turvis/SPEC.md") }.first { Files.exists(it) }.let(Files::readString)
+  private val specPath = generateSequence(Path.of("").toAbsolutePath()) { it.parent }
+    .map { it.resolve("docs/specs/turvis/SPEC.md") }.firstOrNull { Files.exists(it) }
+  private val spec by lazy { Files.readString(specPath!!) }
+
+  /**
+   * The Docker image build runs `gradlew edelivery:build` with only `code/` as its context, where there is no
+   * docs/ directory: the SPEC tests are skipped there and run in the `backend` job, which has the whole checkout.
+   */
+  private fun needSpec() = assumeTrue(specPath != null, "docs/specs/turvis/SPEC.md is not in the build context")
 
   private fun requestSchema(endpoint: String): Map<String, Any?> {
     val section = Regex("(?s)### 4\\.\\d+ `POST $endpoint`\\n(.*?)(?=\\n### |\\n---\\n)").find(spec)!!.groupValues[1]
@@ -488,6 +496,7 @@ class TurvisClientTest {
   }
 
   @Test fun `every request body matches the SPEC section 4 schema, with every optional field set`() {
+    needSpec()
     script += answer(body = """{"audit_ref":"$audit","decrypted_soap_xml_b64":"YQ==","decrypted_attachment_b64":"Yg==","ebms_routing":$routingJson}""")
     script += answer(body = """{"verdict":"accept","audit_ref":"$audit","signer":{"cert_subject_dn":"a","cert_ski":"b","cert_serial":"1","verified_identity":"x"},"matched_signed_xpaths":[],"matched_signed_cid_refs":[],"signature_digests":[],"ebms_routing":$routingJson}""")
     script += answer(body = """{"encrypted_payload_b64":"YQ==","audit_ref":"$audit","wrapped_key_xml":"<k/>","encrypted_data_xml":"<d/>","wrapped_key_b64":"YQ=="}""")
@@ -505,6 +514,7 @@ class TurvisClientTest {
   }
 
   @Test fun `the return field enums of the client are exactly the SPEC projectable sets`() {
+    needSpec()
     @Suppress("UNCHECKED_CAST")
     fun specEnum(endpoint: String) = ((((requestSchema(endpoint)["properties"] as Map<String, Any?>)["return_fields"] as Map<String, Any?>)["items"] as Map<String, Any?>)["enum"] as List<String>).toSet()
     assertEquals(specEnum("/turvis/v1/decryptions/xmlenc"), TurvisDecryptField.entries.map { it.wire }.toSet())
@@ -517,6 +527,7 @@ class TurvisClientTest {
   }
 
   @Test fun `the reason code table is the one in SPEC sections 5 and 13_2a`() {
+    needSpec()
     val table5 = spec.substringAfter("## 5. Reason code enum").substringBefore("## 6.").lines()
       .filter { Regex("^\\| `[A-Z_]+` \\|").containsMatchIn(it) }
       .associate { line -> line.split("|").map(String::trim).let { it[1].trim('`') to it[2].toInt() } }
