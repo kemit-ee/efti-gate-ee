@@ -108,7 +108,7 @@ class TurvisClientTest {
   }
 
   @Test fun `decrypt omits the attachment when the message has none`() {
-    script += answer(body = """{"audit_ref":"$audit","decrypted_soap_xml_b64":"x"}""")
+    script += answer(body = """{"audit_ref":"$audit","decrypted_soap_xml_b64":"eA=="}""")
     client.decrypt("U09BUA==", null, setOf(TurvisDecryptField.DECRYPTED_SOAP_XML_B64))
     assertFalse("encrypted_attachment_b64" in body())
   }
@@ -145,7 +145,7 @@ class TurvisClientTest {
   }
 
   @Test fun `a trailing slash on the base URL does not double up`() {
-    script += answer(body = """{"audit_ref":"$audit","decrypted_soap_xml_b64":"x"}""")
+    script += answer(body = """{"audit_ref":"$audit","decrypted_soap_xml_b64":"eA=="}""")
     client.decrypt("U09BUA==", null, setOf(TurvisDecryptField.DECRYPTED_SOAP_XML_B64))
     assertEquals("/turvis/v1/decryptions/xmlenc", requests.single().uri().path)
   }
@@ -201,15 +201,15 @@ class TurvisClientTest {
 
   @Test fun `strings come back exactly as sent, without trimming and with an empty string kept, whatever the shared mapper does`() {
     assertTrue(json.trimToNull, "the default mapper is the one that would trim")
-    script += answer(body = """{"encrypted_payload_b64":"QUJD","audit_ref":"$audit","wrapped_key_xml":"  <k/>\n  ","encrypted_data_xml":"","wrapped_key_b64":" "}""")
+    script += answer(body = """{"encrypted_payload_b64":"QUJD","audit_ref":"$audit","wrapped_key_xml":"  <k/>\n  ","encrypted_data_xml":"","wrapped_key_b64":""}""")
 
     val accept = assertIs<TurvisResult.Accept<TurvisEncryptResponse>>(
-      client.encrypt("QUJD", "EU-FR", TurvisEncryptProfile.WSS_ENCRYPTED, TurvisEncryptField.entries.toSet()),
+      client.encrypt("QUJD", "EU-FR", TurvisEncryptProfile.PLAINTEXT, TurvisEncryptField.entries.toSet()),
     ).value
 
     assertEquals("  <k/>\n  ", accept.wrappedKeyXml)
     assertEquals("", accept.encryptedDataXml)
-    assertEquals(" ", accept.wrappedKeyB64)
+    assertEquals("", accept.wrappedKeyB64)
   }
 
   @Test fun `a sign accept returns the signed bytes untouched`() {
@@ -400,7 +400,7 @@ class TurvisClientTest {
       { client.encrypt("QUJD", "EU-FR", TurvisEncryptProfile.PLAINTEXT, emptySet()) },
     )
     val accepts = listOf(
-      """{"audit_ref":"$audit","decrypted_soap_xml_b64":"x"}""", verifyAccept,
+      """{"audit_ref":"$audit","decrypted_soap_xml_b64":"eA=="}""", verifyAccept,
       """{"signed_xml_b64":"U0lH","audit_ref":"$audit"}""", """{"encrypted_payload_b64":"QUJD","audit_ref":"$audit"}""",
     )
     calls.zip(accepts).forEachIndexed { i, (call, accept) ->
@@ -488,10 +488,10 @@ class TurvisClientTest {
   }
 
   @Test fun `every request body matches the SPEC section 4 schema, with every optional field set`() {
-    script += answer(body = """{"audit_ref":"$audit","decrypted_soap_xml_b64":"a","decrypted_attachment_b64":"b","ebms_routing":$routingJson}""")
+    script += answer(body = """{"audit_ref":"$audit","decrypted_soap_xml_b64":"YQ==","decrypted_attachment_b64":"Yg==","ebms_routing":$routingJson}""")
     script += answer(body = """{"verdict":"accept","audit_ref":"$audit","signer":{"cert_subject_dn":"a","cert_ski":"b","cert_serial":"1","verified_identity":"x"},"matched_signed_xpaths":[],"matched_signed_cid_refs":[],"signature_digests":[],"ebms_routing":$routingJson}""")
-    script += answer(body = """{"encrypted_payload_b64":"a","audit_ref":"$audit","wrapped_key_xml":"","encrypted_data_xml":"","wrapped_key_b64":""}""")
-    script += answer(body = """{"signed_xml_b64":"a","audit_ref":"$audit","signatures":[]}""")
+    script += answer(body = """{"encrypted_payload_b64":"YQ==","audit_ref":"$audit","wrapped_key_xml":"<k/>","encrypted_data_xml":"<d/>","wrapped_key_b64":"YQ=="}""")
+    script += answer(body = """{"signed_xml_b64":"YQ==","audit_ref":"$audit","signatures":[]}""")
 
     client.decrypt("U09BUA==", "QUJD", TurvisDecryptField.entries.toSet())
     client.verify("U09BUA==", listOf(TurvisAttachment("cid:message", "QUJD")), listOf("//eb:Messaging"), listOf("cid:message"), TurvisVerifyField.entries.toSet(), "EU-DE", "gen-1")
@@ -680,6 +680,53 @@ class TurvisClientTest {
     val rejection = TurvisRejection("verifications", 422, "SIG_POLICY_FAIL", audit, "fragment-of-the-envelope")
     assertFalse(rejection.toString().contains("fragment-of-the-envelope"))
     assertContains(rejection.toString(), "SIG_POLICY_FAIL")
+  }
+
+  @Test fun `blank values and control characters are refused where an identifier is required`() {
+    for (blank in listOf("  ", "\\t", "EU-DE\\n", "EU-DE\\u0000", " \\n ")) {
+      refusesAs("empty or blank or has control characters", fullVerify.replace("\"verified_identity\":\"EU-DE\"", "\"verified_identity\":\"$blank\""))
+      refusesAs("empty or blank or has control characters", fullVerify.replace("\"message_id\":\"m-1\"", "\"message_id\":\"$blank\""))
+      refusesAs("empty or blank or has control characters", fullVerify.replace("\"reference_uri\":\"#MSG-ID\"", "\"reference_uri\":\"$blank\""))
+    }
+    script += answer(body = """{"signed_xml_b64":"  ","audit_ref":"$audit"}""")
+    assertFailsWith<TurvisProtocolException> { client.sign("U09BUA==", listOf("//eb:Messaging"), emptyList(), emptySet()) }
+  }
+
+  @Test fun `base64 fields must be padded standard base64, and an empty attachment is still fine`() {
+    for (bad in listOf("!!not base64!!", "QQ=", "A", "PH-_")) {
+      script += answer(body = """{"signed_xml_b64":"$bad","audit_ref":"$audit"}""")
+      val e = assertFailsWith<TurvisProtocolException>(bad) { client.sign("U09BUA==", listOf("//eb:Messaging"), emptyList(), emptySet()) }
+      assertContains(e.message!!, "not base64")
+    }
+    for (bad in listOf("QQ==\\n", "QQ== ")) { // whitespace is not part of the alphabet either
+      script += answer(body = """{"signed_xml_b64":"$bad","audit_ref":"$audit"}""")
+      assertFailsWith<TurvisProtocolException>(bad) { client.sign("U09BUA==", listOf("//eb:Messaging"), emptyList(), emptySet()) }
+    }
+    refusesAs("field 'digest_b64' is not base64", fullVerify.replace("\"digest_b64\":\"ZA==\"", "\"digest_b64\":\"%%%\""))
+    refusesAs("field 'decrypted_attachment_b64' is not base64", """{"audit_ref":"$audit","decrypted_attachment_b64":"@@"}""") {
+      client.decrypt("U09BUA==", null, setOf(TurvisDecryptField.DECRYPTED_ATTACHMENT_B64))
+    }
+    script += answer(body = """{"audit_ref":"$audit","decrypted_attachment_b64":""}""")
+    assertIs<TurvisResult.Accept<*>>(client.decrypt("U09BUA==", null, setOf(TurvisDecryptField.DECRYPTED_ATTACHMENT_B64)))
+  }
+
+  @Test fun `an unrequested field inside signer, routing or a digest is refused like one at the top level`() {
+    refusesAs("signer contains the unrequested field 'extra'", fullVerify.replace("\"cert_serial\":\"1\"", "\"cert_serial\":\"1\",\"extra\":\"x\""))
+    refusesAs("ebms_routing contains the unrequested field 'extra'", fullVerify.replace("\"service\":\"FTI010\"", "\"service\":\"FTI010\",\"extra\":\"x\""))
+    refusesAs("signature_digests item contains the unrequested field 'extra'", fullVerify.replace("\"digest_b64\":\"ZA==\"", "\"digest_b64\":\"ZA==\",\"extra\":\"x\""))
+    script += answer(body = """{"signed_xml_b64":"YQ==","audit_ref":"$audit","signatures":[{"reference_uri":"#MSG-ID","extra":"x"}]}""")
+    assertFailsWith<TurvisProtocolException> { client.sign("U09BUA==", listOf("//eb:Messaging"), emptyList(), setOf(TurvisSignField.SIGNATURES)) }
+  }
+
+  @Test fun `a wss-encrypted answer with an empty key or fragment is refused, the plaintext profile may have them empty`() {
+    val ok = """"wrapped_key_xml":"<k/>","encrypted_data_xml":"<d/>","wrapped_key_b64":"YQ==""""
+    for (field in listOf("wrapped_key_xml", "encrypted_data_xml", "wrapped_key_b64")) {
+      val body = """{"encrypted_payload_b64":"QUJD","audit_ref":"$audit",$ok}""".replace(Regex("\"$field\":\"[^\"]*\""), "\"$field\":\"\"")
+      script += answer(body = body)
+      assertFailsWith<TurvisProtocolException>(field) { client.encrypt("QUJD", "EU-FR", TurvisEncryptProfile.WSS_ENCRYPTED, TurvisEncryptField.entries.toSet()) }
+    }
+    script += answer(body = """{"encrypted_payload_b64":"QUJD","audit_ref":"$audit","wrapped_key_xml":"","encrypted_data_xml":"","wrapped_key_b64":""}""")
+    assertIs<TurvisResult.Accept<*>>(client.encrypt("QUJD", "EU-FR", TurvisEncryptProfile.PLAINTEXT, TurvisEncryptField.entries.toSet()))
   }
 
   @Test fun `the client registers through klite dependency injection with its defaults`() {

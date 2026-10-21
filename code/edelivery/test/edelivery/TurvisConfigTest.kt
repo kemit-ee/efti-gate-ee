@@ -46,9 +46,14 @@ class TurvisConfigTest {
     load("TURVIS_INTEGRATION_MODE" to "shadow", "TURVIS_URL" to "http://turvis:8080", "TURVIS_INTERNAL_TOKEN" to "own", "INTERNAL_SERVICE_TOKEN" to "other")
   }
 
-  @Test fun `an invalid Turvis URL is refused`() {
-    assertFailsWith<IllegalArgumentException> { load("TURVIS_URL" to "ftp://turvis") }
-    assertFailsWith<IllegalArgumentException> { load("TURVIS_URL" to "turvis:8080") }
+  @Test fun `an unusable Turvis URL is ignored in legacy and refused, without echoing it, in the other modes`() {
+    for (url in listOf("ftp://user:pass@turvis", "turvis:8080", "/relative/path", "http://", "http://user:pw@a b")) {
+      assertNull(load("TURVIS_URL" to url).url, url)
+      for (mode in listOf("shadow", "turvis")) {
+        val e = assertFailsWith<IllegalArgumentException>("$mode $url") { load("TURVIS_INTEGRATION_MODE" to mode, "TURVIS_URL" to url, "TURVIS_INTERNAL_TOKEN" to "t") }
+        assertEquals(false, e.message!!.contains("pass") || e.message!!.contains("pw") || e.message!!.contains(url))
+      }
+    }
   }
 
   @Test fun `OWN_GATE_ID is required for the key handle`() {

@@ -145,8 +145,8 @@ class TurvisClient(
     return call(Endpoint.DECRYPT, request, returnFields.map { it.wire }, idempotent = true) { m ->
       TurvisDecryptResponse(
         m.string("audit_ref")!!,
-        m.string("decrypted_soap_xml_b64", nonEmpty = true),
-        m.string("decrypted_attachment_b64"),
+        m.string("decrypted_soap_xml_b64", nonEmpty = true, base64 = true),
+        m.string("decrypted_attachment_b64", base64 = true),
         m.obj("ebms_routing")?.let(::routing),
       )
     }
@@ -178,6 +178,7 @@ class TurvisClient(
         m.string("audit_ref")!!,
         m.obj("signer")?.let {
           // verified_identity is the authoritative sender (SPEC 13.9), so an empty value is a protocol error, not an identity.
+          it.only("signer", "cert_subject_dn", "cert_ski", "cert_serial", "verified_identity")
           TurvisSigner(
             it.string("cert_subject_dn", true, nonEmpty = true)!!, it.string("cert_ski", true, nonEmpty = true)!!,
             it.string("cert_serial", true, nonEmpty = true)!!, it.string("verified_identity", true, nonEmpty = true)!!,
@@ -208,10 +209,11 @@ class TurvisClient(
     return call(Endpoint.ENCRYPT, request, returnFields.map { it.wire }, idempotent = profile == TurvisEncryptProfile.PLAINTEXT) { m ->
       TurvisEncryptResponse(
         m.string("audit_ref")!!,
-        m.string("encrypted_payload_b64", true, nonEmpty = true)!!,
-        m.string("wrapped_key_b64"),
-        m.string("wrapped_key_xml"),
-        m.string("encrypted_data_xml"),
+        m.string("encrypted_payload_b64", true, nonEmpty = true, base64 = true)!!,
+        // Empty only in the plaintext profile (SPEC 4.3); a wss-encrypted answer with an empty key or fragment is broken.
+        m.string("wrapped_key_b64", base64 = true).requiredIf(profile == TurvisEncryptProfile.WSS_ENCRYPTED, "wrapped_key_b64"),
+        m.string("wrapped_key_xml").requiredIf(profile == TurvisEncryptProfile.WSS_ENCRYPTED, "wrapped_key_xml"),
+        m.string("encrypted_data_xml").requiredIf(profile == TurvisEncryptProfile.WSS_ENCRYPTED, "encrypted_data_xml"),
       )
     }
   }
@@ -234,7 +236,7 @@ class TurvisClient(
       put("trace_id", traceId)
     }
     return call(Endpoint.SIGN, request, returnFields.map { it.wire }, idempotent = true) { m ->
-      TurvisSignResponse(m.string("audit_ref")!!, m.string("signed_xml_b64", true, nonEmpty = true)!!, m.objects("signatures")?.map(::signReference))
+      TurvisSignResponse(m.string("audit_ref")!!, m.string("signed_xml_b64", true, nonEmpty = true, base64 = true)!!, m.objects("signatures")?.map(::signReference))
     }
   }
 
@@ -368,35 +370,57 @@ class TurvisClient(
     try { body?.takeIf { it.isNotBlank() }?.let { jsonMapper.parse<Map<String, Any?>>(it) } } catch (e: Exception) { null }
 
   /** The five fields the contract requires must be present and non-empty; conversation and ref-to may be empty. */
-  private fun routing(m: Map<String, Any?>) = TurvisEbmsRouting(
-    m.string("message_id", true, nonEmpty = true)!!, m.string("conversation_id"), m.string("ref_to_message_id"),
-    m.string("from_party_id", true, nonEmpty = true)!!, m.string("to_party_id", true, nonEmpty = true)!!,
-    m.string("service", true, nonEmpty = true)!!, m.string("action", true, nonEmpty = true)!!,
-  )
+  private fun routing(m: Map<String, Any?>) = m.only("ebms_routing", "message_id", "conversation_id", "ref_to_message_id", "from_party_id", "to_party_id", "service", "action").let {
+    TurvisEbmsRouting(
+      m.string("message_id", true, nonEmpty = true)!!, m.string("conversation_id"), m.string("ref_to_message_id"),
+      m.string("from_party_id", true, nonEmpty = true)!!, m.string("to_party_id", true, nonEmpty = true)!!,
+      m.string("service", true, nonEmpty = true)!!, m.string("action", true, nonEmpty = true)!!,
+    )
+  }
 
   /**
    * A verify reference feeds the receipt, so it is strict: URI, digest and transforms are required, and the
    * algorithm must be SHA-256 (SPEC 4.1). A sign reference is metadata only (SPEC 4.2 requires nothing).
    */
   private fun verifyReference(m: Map<String, Any?>): TurvisSignatureReference {
+    m.only("signature_digests item", "reference_uri", "subtree_xpath", "digest_b64", "algorithm", "transforms")
     val algorithm = m.string("algorithm", true, nonEmpty = true)!!
     if (algorithm != "SHA-256") throw TurvisProtocolException("signature digest algorithm is '$algorithm', the contract only allows SHA-256")
     return TurvisSignatureReference(
-      m.string("reference_uri", true, nonEmpty = true)!!, m.string("subtree_xpath"), m.string("digest_b64", true, nonEmpty = true)!!, algorithm,
+      m.string("reference_uri", true, nonEmpty = true)!!, m.string("subtree_xpath"), m.string("digest_b64", true, nonEmpty = true, base64 = true)!!, algorithm,
       m.strings("transforms") ?: throw TurvisProtocolException("response lacks the field 'transforms'"),
     )
   }
 
-  private fun signReference(m: Map<String, Any?>) = TurvisSignatureReference(
-    m.string("reference_uri") ?: "", m.string("subtree_xpath"), m.string("digest_b64") ?: "", m.string("algorithm") ?: "", m.strings("transforms") ?: emptyList(),
-  )
+  private fun signReference(m: Map<String, Any?>) = m.only("signatures item", "reference_uri", "subtree_xpath", "digest_b64", "algorithm", "transforms").let {
+    TurvisSignatureReference(
+      m.string("reference_uri") ?: "", m.string("subtree_xpath"), m.string("digest_b64") ?: "", m.string("algorithm") ?: "", m.strings("transforms") ?: emptyList(),
+    )
+  }
 
-  private fun Map<String, Any?>.string(key: String, required: Boolean = false, nonEmpty: Boolean = false): String? {
+  /**
+   * [nonEmpty]: an identifier-like value, so not empty, not blank and without control characters (a trailing
+   * newline in a party id is a different party id). [base64]: standard alphabet, padded.
+   */
+  private fun Map<String, Any?>.string(key: String, required: Boolean = false, nonEmpty: Boolean = false, base64: Boolean = false): String? {
     val v = this[key]
     if (v == null) { if (required) throw TurvisProtocolException("response lacks the field '$key'"); return null }
     val s = v as? String ?: throw TurvisProtocolException("field '$key' is not a string")
-    if (nonEmpty && s.isEmpty()) throw TurvisProtocolException("field '$key' is empty")
+    if (nonEmpty && (s.isBlank() || s.any { it.isISOControl() })) throw TurvisProtocolException("field '$key' is empty or blank or has control characters")
+    if (base64 && !(s.length % 4 == 0 && BASE64.matches(s))) throw TurvisProtocolException("field '$key' is not base64")
     return s
+  }
+
+  /** A value that may be empty (plaintext profile) must not be when [required]; absent stays null for a field that was not requested. */
+  private fun String?.requiredIf(required: Boolean, key: String): String? {
+    if (required && this != null && this.isBlank()) throw TurvisProtocolException("field '$key' is empty in the wss-encrypted profile")
+    return this
+  }
+
+  /** Nested objects are checked like the top level: a field the contract does not define is refused. */
+  private fun Map<String, Any?>.only(what: String, vararg allowed: String): Map<String, Any?> {
+    keys.firstOrNull { it !in allowed }?.let { throw TurvisProtocolException("$what contains the unrequested field '$it'") }
+    return this
   }
 
   private fun Map<String, Any?>.strings(key: String): List<String>? {
@@ -422,6 +446,7 @@ class TurvisClient(
     /** SPEC 13.3: at most 2 retries, 100 ms then 300 ms. */
     val RETRY_BACKOFF_MS = listOf(100L, 300L)
     private val REASON_CODE = Regex("[A-Z][A-Z0-9_]{0,63}")
+    private val BASE64 = Regex("[A-Za-z0-9+/]*={0,2}")
     private val UUID_FORMAT = Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
   }
 }

@@ -66,16 +66,17 @@ data class TurvisConfig(
       val mode = TurvisIntegrationMode.parse(get("TURVIS_INTEGRATION_MODE"))
       // An unparseable URL is only a start-up error when it would be used; legacy needs nothing from Turvis.
       // The message never repeats the value: a URL may carry credentials.
+      // "Unusable" covers a syntax error, a non-http(s) scheme and a missing host.
       val url = get("TURVIS_URL")?.trim()?.takeIf { it.isNotEmpty() }?.let {
-        try { URI(it) } catch (e: URISyntaxException) {
-          if (mode == TurvisIntegrationMode.LEGACY) null else throw IllegalArgumentException("TURVIS_URL is not a valid URL")
-        }
+        val parsed = try { URI(it) } catch (e: URISyntaxException) { null }
+        if (parsed != null && parsed.scheme?.lowercase() in setOf("http", "https") && !parsed.host.isNullOrEmpty()) parsed
+        else if (mode == TurvisIntegrationMode.LEGACY) null
+        else throw IllegalArgumentException("TURVIS_URL must be an absolute http(s) URL")
       }
       val token = get("TURVIS_INTERNAL_TOKEN")?.takeIf { it.isNotEmpty() }
       val keyHandle = checkNotNull(get("OWN_GATE_ID")?.takeIf { it.isNotBlank() }) { "OWN_GATE_ID is not set" }
 
       if (url != null) {
-        require(url.scheme in setOf("http", "https") && !url.host.isNullOrEmpty()) { "TURVIS_URL must be an absolute http(s) URL, got '$url'" }
         val restricted = environments(get).intersect(RESTRICTED_ENVIRONMENTS)
         check(!(isMockHost(url.host) && restricted.isNotEmpty())) {
           "TURVIS_URL points at the turvis-mock host in a ${restricted.first()} environment: refusing to start"
