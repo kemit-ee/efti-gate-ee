@@ -1,0 +1,80 @@
+mode: mock-http
+constants:
+  DEV_LOGIN_ENABLED: "true"
+  TIM_URL: "{MOCK}"
+  RESQL_URL: "{MOCK}"
+
+tests:
+  - name: valid personal code mints a token
+    setup:
+      mocks:
+        - url_matches: /jwt/custom/generate
+          method: POST
+          body: { token: "t" }
+        - url_matches: /efti/insert_audit_log
+          method: POST
+          body: []
+    request:
+      method: POST
+      path: /auth/dev-login
+      headers: { content-type: "application/json" }
+      body: { personalCode: "60001017727" }
+    expect:
+      status: 200
+      body: { token: "t" }
+
+  - name: wrong check digit is refused
+    setup:
+      mocks:
+        - url_matches: /efti/insert_audit_log
+          method: POST
+          body: []
+    request:
+      method: POST
+      path: /auth/dev-login
+      headers: { content-type: "application/json" }
+      body: { personalCode: "60001019900" }
+    expect:
+      status: 400
+
+  - name: wrong length is refused
+    setup:
+      mocks:
+        - url_matches: /efti/insert_audit_log
+          method: POST
+          body: []
+    request:
+      method: POST
+      path: /auth/dev-login
+      headers: { content-type: "application/json" }
+      body: { personalCode: "6000101990" }
+    expect:
+      status: 400
+
+  - name: trailing whitespace is refused
+    setup:
+      mocks:
+        - url_matches: /efti/insert_audit_log
+          method: POST
+          body: []
+    request:
+      method: POST
+      path: /auth/dev-login
+      headers: { content-type: "application/json" }
+      body: { personalCode: "60001019906 " }
+    expect:
+      status: 400
+
+  - name: non-digit characters are refused
+    setup:
+      mocks:
+        - url_matches: /efti/insert_audit_log
+          method: POST
+          body: []
+    request:
+      method: POST
+      path: /auth/dev-login
+      headers: { content-type: "application/json" }
+      body: { personalCode: "6000101990a" }
+    expect:
+      status: 400
