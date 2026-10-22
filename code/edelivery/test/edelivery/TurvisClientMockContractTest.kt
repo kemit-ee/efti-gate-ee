@@ -109,7 +109,7 @@ class TurvisClientMockContractTest {
   @Test fun `the outbound pass encrypts, splices and signs against the mock, in both profiles`() {
     needMock()
     val config = TurvisConfig(TurvisIntegrationMode.TURVIS, URI(mockUrl), token, "EU-EE")
-    val outbound = TurvisOutbound(config, client(), EDeliveryMessageGenerator(io.mockk.mockk { io.mockk.every { partyId } returns PartyId("EU-EE") }))
+    val outbound = TurvisOutbound(config, client(), EDeliveryMessageGenerator(io.mockk.mockk { io.mockk.every { partyId } returns PartyId("EU-EE") }), allowUnsignedEcho = true)
     val params = UserMessageParams(RequestKey(PartyId("EU-FR"), senderId = PartyId("EU-EE")))
 
     val encrypted = outbound.requestMessage(params, "<hello>world</hello>")

@@ -8,7 +8,7 @@ import java.util.UUID.randomUUID
 interface AsyncResponseProvider {
   fun register(key: RequestKey)
   /** Drops a registered waiter that will never be waited for (the send failed). */
-  fun unregister(key: RequestKey) {}
+  fun unregister(key: RequestKey)
   fun waitForResponse(key: RequestKey): String
   fun provideResponse(key: RequestKey, payload: String): Boolean
 }

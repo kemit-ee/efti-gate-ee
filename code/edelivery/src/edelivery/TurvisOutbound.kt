@@ -32,6 +32,8 @@ class TurvisOutbound(
   private val config: TurvisConfig,
   private val client: TurvisClient,
   private val generator: EDeliveryMessageGenerator,
+  /** Only the dev/CI turvis-mock (no cryptography) echoes its input unsigned; the start-up guard keeps that host out of prod/staging. */
+  internal val allowUnsignedEcho: Boolean = TurvisConfig.isMockHost(config.url?.host),
 ) {
   private val log = logger()
 
@@ -68,12 +70,13 @@ class TurvisOutbound(
    * inserted as the last child of the `wsse:Security` header. This is the shape the legacy path writes (key, data,
    * signature) and the one a peer reads in document order; anything else (a signature in front of the encryption
    * block, a changed `eb:Messaging` or body byte) would fail on the peer, so it is refused here instead.
-   * The position is our assumption, not yet in SPEC 4.2. An answer identical to the input is let through (turvis-mock).
+   * The position is our assumption, not yet in SPEC 4.2. An answer identical to the input is let through only for the turvis-mock host ([allowUnsignedEcho]).
    */
   internal fun requireSignatureOnlyInserted(unsigned: ByteArray, signed: ByteArray) {
-    // turvis-mock has no cryptography and returns its input unchanged (it must never run in prod/staging, start-up guard);
-    // a real Turvis always adds a signature, and an unsigned message would be refused by the peer, not accepted.
-    if (signed.contentEquals(unsigned)) return
+    if (signed.contentEquals(unsigned)) {
+      if (!allowUnsignedEcho) throw TurvisProtocolException("sign returned the envelope unchanged")
+      return
+    }
     val at = unsigned.lastIndexOf(SECURITY_CLOSE)
     val tail = unsigned.size - at
     val inserted = signed.size - unsigned.size

@@ -100,11 +100,12 @@ class EDeliveryClient(
 
   fun sendAndReceive(eDeliveryUrl: URI, params: UserMessageParams, payload: String): String {
     asyncResponseProvider.register(params.requestKey)
+    var sent = false
     try {
       send(eDeliveryUrl, params, payload)
-    } catch (e: Exception) {
-      asyncResponseProvider.unregister(params.requestKey) // nobody will wait for it: do not leak the waiter
-      throw e
+      sent = true
+    } finally {
+      if (!sent) asyncResponseProvider.unregister(params.requestKey) // nobody will wait for it: do not leak the waiter
     }
     return asyncResponseProvider.waitForResponse(params.requestKey)
   }

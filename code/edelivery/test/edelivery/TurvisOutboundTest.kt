@@ -20,8 +20,8 @@ class TurvisOutboundTest {
   private val client = mockk<TurvisClient>()
   private val keyManager = mockk<KeyManager> { every { partyId } returns PartyId("EU-EE") }
   private val generator = EDeliveryMessageGenerator(keyManager)
-  private fun outbound(mode: TurvisIntegrationMode = TurvisIntegrationMode.TURVIS) =
-    TurvisOutbound(TurvisConfig(mode = mode, keyHandle = "EU-EE"), client, generator)
+  private fun outbound(mode: TurvisIntegrationMode = TurvisIntegrationMode.TURVIS, allowUnsignedEcho: Boolean = false) =
+    TurvisOutbound(TurvisConfig(mode = mode, keyHandle = "EU-EE"), client, generator, allowUnsignedEcho)
 
   private val params = UserMessageParams(RequestKey(PartyId("EU-FR"), senderId = PartyId("EU-EE")))
   private val payload = "<hello>world</hello>"
@@ -192,10 +192,28 @@ class TurvisOutboundTest {
 
   @Test fun `an inserted element that is not a signature is refused`() = refused { withSignature(it, sig = "<ds:Other/>".toByteArray()) }
 
-  @Test fun `an answer identical to the input, which is what turvis-mock returns, is let through`() {
-    stub(sign = { unsigned -> TurvisResult.Accept(TurvisSignResponse("sig-1", unsigned.base64Encode(), null)) })
+  @Test fun `an unchanged answer is refused for a real Turvis`() = refused { it }
+
+  @Test fun `echo is allowed by default only for the turvis-mock host`() {
+    fun default(url: String) = TurvisOutbound(TurvisConfig(TurvisIntegrationMode.TURVIS, java.net.URI(url), "t", "EU-EE"), client, generator).allowUnsignedEcho
+    expect(default("http://turvis-mock:8091")).toEqual(true)
+    expect(default("http://turvis:8080")).toEqual(false)
+    expect(default("http://127.0.0.1:8091")).toEqual(false)
+  }
+
+  @Test fun `a fragment that contains the closing security tag still passes`() {
+    val tricky = "<xenc:EncryptedData Id=\"ED-ID\">x</wsse:Security>y</xenc:EncryptedData>"
+    stub(encrypt = TurvisResult.Accept(TurvisEncryptResponse("enc-1", wirePayload.base64Encode(), "a2V5", wrappedKey, tricky)))
 
     val message = outbound().requestMessage(params, payload)
+
+    assertContentEquals(lastSigned, message.signedSoap)
+  }
+
+  @Test fun `an answer identical to the input, which is what turvis-mock returns, is let through for the mock host`() {
+    stub(sign = { unsigned -> TurvisResult.Accept(TurvisSignResponse("sig-1", unsigned.base64Encode(), null)) })
+
+    val message = outbound(allowUnsignedEcho = true).requestMessage(params, payload)
 
     expect(String(message.signedSoap)).toContain("<wsse:Security")
   }
