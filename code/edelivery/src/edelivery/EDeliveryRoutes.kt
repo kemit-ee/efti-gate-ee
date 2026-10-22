@@ -34,6 +34,7 @@ class EDeliveryRoutes(
   private val signatureValidator: SignatureValidator,
   private val turvisInbound: TurvisInbound,
   private val turvisShadow: TurvisShadow,
+  private val turvisOutbound: TurvisOutbound,
 ) {
   private val rootTagRegex = "<\\s*(?:\\w+:)?(\\w+)".toRegex()
 
@@ -113,9 +114,9 @@ class EDeliveryRoutes(
    * Inbound with Turvis as the authority (`TURVIS_INTEGRATION_MODE=turvis`, SPEC 2.2/9): no XML is parsed here,
    * routing and the sender come from Turvis's verify response, nothing is dispatched before verify succeeds.
    *
-   * NOT COMPLETE until 305c: the receipt (the signed response to the peer) is built and signed in-process today,
-   * and the in-process path is exactly what this mode must not call, so this answers 200 without a receipt.
-   * The mode stays off by default and is not to be switched on before 305c.
+   * The receipt (NRR response) is built from the references Turvis's verify reported and signed by Turvis, before
+   * anything is dispatched; if that fails the peer gets HTTP 503 and the message is not handled (it will retry).
+   * Still not to be switched on before real-service interoperability (#308): the mock proves shapes, not crypto.
    */
   private fun mshViaTurvis(e: HttpExchange, bodyBytes: ByteArray, auditRef: String) {
     try {
@@ -136,7 +137,14 @@ class EDeliveryRoutes(
       EDeliveryMetrics.inbound(rootTag)
       log.info("Handling '$rootTag' from $responseKey (turvis decrypt=${inbound.decryptAuditRef} verify=${inbound.verifyAuditRef})")
 
-      e.send(OK, "", soap)
+      val receipt = try {
+        turvisOutbound.receipt(routing.messageId, inbound.signatureDigests, conversationId)
+      } catch (ex: Exception) {
+        // Not signing OUR receipt is never the peer's fault: 503 without a fault, so the peer retries (SPEC 13.2).
+        // The exact reason is already counted and logged inside receipt().
+        throw TurvisUnavailableException("receipt not signed", ex)
+      }
+      e.send(OK, receipt.signedSoap, soap)
 
       AppScope.async {
         val result = handler(MessageContext(responseKey, inbound.payloadXml))

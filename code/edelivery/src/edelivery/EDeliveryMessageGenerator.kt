@@ -67,6 +67,46 @@ class EDeliveryMessageGenerator(
     emptySoapBody(),
   )
 
+  /**
+   * The unsigned receipt (NRR response) Turvis signs (SPEC 13.7): an `eb:SignalMessage` that refers to the received
+   * message and repeats the references of the signature that was verified, exactly as Turvis's verify response
+   * reported them (URI, digest, transforms). Nothing is computed here: the digests are Turvis's, and every value that
+   * comes from the peer or from Turvis is XML-escaped, because this is the one place peer-authored text is written
+   * into XML edelivery signs (the received message id).
+   */
+  fun unsignedReceiptEnvelope(refToMessageId: String, references: List<TurvisSignatureReference>): String = soapEnvelope(
+    receiptMessagingXml(refToMessageId, references) +
+      """<wsse:Security xmlns:wsse="$wsseNs" xmlns:wsu="$wsuNs" env:mustUnderstand="true"></wsse:Security>""",
+    emptySoapBody(),
+  )
+
+  private fun receiptMessagingXml(refToMessageId: String, references: List<TurvisSignatureReference>): String {
+    val parts = references.joinToString("") { ref ->
+      val transforms = if (ref.transforms.isEmpty()) "" else
+        "<ds:Transforms>" + ref.transforms.joinToString("") { """<ds:Transform Algorithm="${it.xmlEscaped()}"></ds:Transform>""" } + "</ds:Transforms>"
+      """<ebbp:MessagePartNRInformation><ds:Reference xmlns:ds="$dsNs" URI="${ref.referenceUri.xmlEscaped()}">$transforms""" +
+        """<ds:DigestMethod Algorithm="$xencSha256"></ds:DigestMethod><ds:DigestValue>${ref.digestB64.xmlEscaped()}</ds:DigestValue></ds:Reference></ebbp:MessagePartNRInformation>"""
+    }
+    // Only the template is normalised; the peer's and Turvis's values go in afterwards, so whitespace inside them survives.
+    val template = /*language=xml*/ """
+    <eb:Messaging xmlns:eb="$ebNs" xmlns:env="$soapNs" xmlns:wsu="$wsuNs" wsu:Id="$messagingWsuId" env:mustUnderstand="true">
+      <eb:SignalMessage>
+        <eb:MessageInfo>
+          <eb:Timestamp>${timestamp()}</eb:Timestamp>
+          <eb:MessageId>${randomUUID()}@${keyManager.partyId}</eb:MessageId>
+          <eb:RefToMessageId>$REF_SLOT</eb:RefToMessageId>
+        </eb:MessageInfo>
+        <eb:Receipt>
+          <ebbp:NonRepudiationInformation xmlns:ebbp="http://docs.oasis-open.org/ebxml-bp/ebbp-signals-2.0">$PARTS_SLOT</ebbp:NonRepudiationInformation>
+        </eb:Receipt>
+      </eb:SignalMessage>
+    </eb:Messaging>
+    """.canonicalXml()
+    // One pass, so a value that happens to contain a slot name is never substituted into.
+    return template.substringBefore(REF_SLOT) + refToMessageId.xmlEscaped() +
+      template.substringAfter(REF_SLOT).let { it.substringBefore(PARTS_SLOT) + parts + it.substringAfter(PARTS_SLOT) }
+  }
+
   internal fun generateAESKey(): SecretKey = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
 
   fun responseMessage(header: MessageHeader): String {
@@ -322,4 +362,13 @@ class EDeliveryMessageGenerator(
     </env:Fault>
   </env:Body>"""
   ).canonicalXml()
+}
+
+private const val REF_SLOT = "@@REF@@"
+private const val PARTS_SLOT = "@@PARTS@@"
+
+/** Escapes a value for element text or a double-quoted attribute; refuses what XML 1.0 cannot carry at all (a control character would make the envelope unparseable, so Turvis would refuse it). */
+private fun String.xmlEscaped(): String {
+  if (any { it < ' ' && it != '\t' && it != '\n' && it != '\r' }) throw TurvisProtocolException("a value has a character XML 1.0 cannot carry")
+  return replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&apos;")
 }

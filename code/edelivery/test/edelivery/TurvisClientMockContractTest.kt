@@ -82,6 +82,11 @@ class TurvisClientMockContractTest {
     assertEquals("EU-DE", inbound.signer.verifiedIdentity)
     assertEquals(payload, inbound.payloadXml)
     assertEquals(listOf("#MSG-ID", "#BODY-ID", "cid:message"), inbound.signatureDigests.map { it.referenceUri })
+
+    val outbound = TurvisOutbound(TurvisConfig(TurvisIntegrationMode.TURVIS, URI(mockUrl), token, "EU-EE"), client(), EDeliveryMessageGenerator(io.mockk.mockk { io.mockk.every { partyId } returns PartyId("EU-EE") })).also { it.allowUnsignedEcho = true }
+    val receipt = String(outbound.receipt(inbound.routing.messageId, inbound.signatureDigests).signedSoap)
+    assertTrue(receipt.contains("<eb:RefToMessageId>contract-0001@eu-de.example</eb:RefToMessageId>"))
+    listOf("#MSG-ID", "#BODY-ID", "cid:message").forEach { assertTrue(receipt.contains("URI=\"$it\""), "receipt references $it") }
   }
 
   @Test fun `shadow comparison against the mock agrees with a matching legacy outcome and flags a different sender`() {
