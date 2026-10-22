@@ -30,6 +30,7 @@ private const val verifierWsuNs = "http://docs.oasis-open.org/wss/2004/01/oasis-
 
 class SignatureValidator {
   private val xmlSignatureFactory = XMLSignatureFactory.getInstance("DOM")
+  // Legacy peer-XML parser, not reached in turvis mode (Turvis is then the only parser of peer bytes, SPEC 9.3); deleted by #312. Audit sheet: docs/architecture/security-and-compliance/perimeter-trust-model.md
   private val documentBuilderFactory = DocumentBuilderFactory.newInstance().apply {
     isNamespaceAware = true
     isXIncludeAware = false

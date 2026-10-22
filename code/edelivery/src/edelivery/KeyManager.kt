@@ -31,6 +31,7 @@ class KeyManager (private val partyRegistry: PartyRegistry) {
 
   val partyId = Config.partyId
   private val ownAlias = partyId.value.takeIf { ownKeys.containsAlias(it) } ?: "poc"
+  // Legacy in-process key access: superseded by Turvis in turvis mode (SPEC 7.1), removed by #312. Trust model: docs/architecture/security-and-compliance/perimeter-trust-model.md
   val ownPrivateKey = ownKeys.getKey(ownAlias, keyStorePassword) as PrivateKey
   val ownCert = ownKeys.getCertificate(ownAlias) as X509Certificate
   val ownCertSki = certSki(ownCert)

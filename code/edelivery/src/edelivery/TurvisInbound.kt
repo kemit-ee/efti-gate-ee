@@ -46,6 +46,7 @@ class TurvisInbound(private val config: TurvisConfig, private val client: Turvis
     require(attachmentPart.contentId.let { it == null || it == ATTACHMENT_CID.removePrefix("cid:") }) { "AS4 attachment part is not cid:message" }
     val attachment = attachmentPart.bytes
 
+    // The answers of decrypt and verify are trusted without re-verification: only safe once the mesh (#309) authenticates Turvis and limits egress (docs/architecture/security-and-compliance/perimeter-trust-model.md, path 3).
     val decrypted = client.decrypt(soap.base64Encode(), attachment.base64Encode(), DECRYPT_FIELDS, randomTraceId()).orThrow()
     val soapB64 = decrypted.decryptedSoapXmlB64!!
     val attachmentB64 = decrypted.decryptedAttachmentB64!!
