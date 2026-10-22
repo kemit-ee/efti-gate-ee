@@ -205,6 +205,14 @@ class TurvisOutboundTest {
 
   @Test fun `an unchanged answer is refused for a real Turvis`() = refused { it }
 
+  @Test fun `a SignatureConfirmation is not a signature`() = refused { withSignature(it, sig = "<ds:SignatureConfirmation xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\"/>".toByteArray()) }
+
+  @Test fun `an empty self-closing Signature is refused`() = refused { withSignature(it, sig = "<ds:Signature/>".toByteArray()) }
+
+  @Test fun `a shorter answer is a protocol error`() = refused { it.copyOfRange(0, it.size - 20) }
+
+  @Test fun `a same-length different answer is a protocol error`() = refused { it.copyOf().also { b -> b[b.size / 2] = 'X'.code.toByte() } }
+
   @Test fun `echo is allowed by default only for the turvis-mock host`() {
     fun default(url: String) = TurvisOutbound(TurvisConfig(TurvisIntegrationMode.TURVIS, java.net.URI(url), "t", "EU-EE"), client, generator).allowUnsignedEcho
     expect(default("http://turvis-mock:8091")).toEqual(true)
