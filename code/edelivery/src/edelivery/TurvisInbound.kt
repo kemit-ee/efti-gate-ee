@@ -62,7 +62,7 @@ class TurvisInbound(private val config: TurvisConfig, private val client: Turvis
       throw SignaturePolicyException(rejection("SIG_POLICY_FAIL", verified.auditRef, "verify did not cover the required signed content"))
 
     val attachmentBytes = attachmentB64.base64Decode()
-    val payloadXml = String(gunzip(attachmentBytes))
+    val payloadXml = String(gunzip(attachmentBytes, config.maxPayloadBytes))
     return VerifiedInbound(routing, signer, verified.signatureDigests!!, payloadXml, decrypted.auditRef, verified.auditRef, soapB64.base64Decode(), attachmentBytes)
   }
 

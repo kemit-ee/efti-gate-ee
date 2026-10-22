@@ -240,6 +240,7 @@ services:
       - TURVIS_URL
       - TURVIS_INTERNAL_TOKEN
       - TURVIS_SHADOW_MAX_INFLIGHT=${TURVIS_SHADOW_MAX_INFLIGHT:-8}
+      - TURVIS_MAX_PAYLOAD_MIB=${TURVIS_MAX_PAYLOAD_MIB:-40}
     volumes:
       - ./code/certs:/app/certs:ro
     build:

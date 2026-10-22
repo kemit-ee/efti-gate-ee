@@ -109,7 +109,11 @@ class TurvisShadow(private val config: TurvisConfig, private val inbound: Turvis
       is LegacyDecision.NotComparable -> return
       is LegacyDecision.Rejected -> when (turvis) {
         is Outcome.Rejected -> if (decision.reason.ebmsCode != turvis.fault.ebmsCode) discrepancy(auditRef, turvis.endpoint, "reject_reason", security = true, turvis.turvisAuditRef)
-        is Outcome.Accepted -> discrepancy(auditRef, "verifications", "outcome_reject_vs_accept", security = true, turvis.value.verifyAuditRef)
+        is Outcome.Accepted ->
+          // Only a payload that really is above the legacy cap is a difference of configured budgets, not of verdicts.
+          if (decision.reason == FaultReason.PAYLOAD_TOO_LARGE && turvis.value.payloadXml.toByteArray().size > legacyPayloadLimit())
+            discrepancy(auditRef, "inbound", "size_budget", security = false, turvis.value.verifyAuditRef)
+          else discrepancy(auditRef, "verifications", "outcome_reject_vs_accept", security = true, turvis.value.verifyAuditRef)
       }
       is LegacyDecision.Accepted -> when (turvis) {
         is Outcome.Rejected -> discrepancy(auditRef, turvis.endpoint, "outcome_accept_vs_reject", security = true, turvis.turvisAuditRef)

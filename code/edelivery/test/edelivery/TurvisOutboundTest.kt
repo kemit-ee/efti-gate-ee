@@ -68,6 +68,18 @@ class TurvisOutboundTest {
     expect(registry.require(TurvisOutbound::class).authoritative).toEqual(false)
   }
 
+  @Test fun `a payload over the budget is refused before Turvis is called and counted`() {
+    stub()
+    val small = TurvisOutbound(TurvisConfig(mode = TurvisIntegrationMode.TURVIS, keyHandle = "EU-EE", maxPayloadMib = 1), client, generator)
+    val before = failures("payload_too_large")
+
+    assertFailsWith<PayloadTooLargeException> { small.requestMessage(params, "x".repeat(1024 * 1024 + 1)) }
+
+    verify(exactly = 0) { client.encrypt(any(), any(), any(), any(), any()) }
+    expect(failures("payload_too_large")).toEqual(before + 1)
+    expect(small.requestMessage(params, "x".repeat(1024 * 1024)).signedSoap.isNotEmpty()).toEqual(true)
+  }
+
   @Test fun `authoritative only in turvis mode`() {
     expect(outbound(TurvisIntegrationMode.TURVIS).authoritative).toEqual(true)
     expect(outbound(TurvisIntegrationMode.LEGACY).authoritative).toEqual(false)

@@ -1270,11 +1270,15 @@ For audit, non-repudiation receipts, and incident lookup, edelivery stores a sma
 | `signer_cert_ski` | Turvis verify response `signer.cert_ski` | Operator-facing provenance; survives cert rotation |
 | `message_id`, `conversation_id`, `ref_to_message_id`, `from_party_id`, `to_party_id`, `service`, `action` | Turvis's `ebms_routing` (verify response; the decrypt copy is diagnostic only) | Routing + correlation; replaces any edelivery-side ebMS-header parse |
 
+edelivery's implementation (#305d-2) is one structured log line per message (`turvis_audit direction=inbound|outbound`, ids only, values outside a narrow character set written as `?`), because edelivery has no message table; a durable table remains open.
+
 For AS4 non-repudiation receipts (NRR), edelivery takes `signature_digests` from Turvis's verify response (§4.1) and places those digest values as text content in the receipt XML it builds; it then calls `/turvis/v1/signatures/xmldsig` to sign the receipt. edelivery never computes or verifies any digest.
 
 ### 13.8 Payload size budget
 
 A 50 MiB payload becomes ~67 MB when base64-encoded for JSON transport. edelivery must raise its own body-size cap to accommodate; Ruuter's 16 MiB default + edelivery's 10 MB default BOTH cap below the effective max. Target effective max for Phase 1: **40 MiB plaintext → ~54 MB base64 JSON**. If a larger message arrives from a peer, Ruuter should reject at the perimeter with HTTP 413 before Turvis is called.
+
+edelivery's side of the budget is `TURVIS_MAX_PAYLOAD_MIB` (default 40): the decompressed inbound payload and the outbound payload are refused above it, and a Turvis answer is read only up to a bound derived from it (a larger answer, or one that repeats a JSON key, is a protocol error). The HTTP body caps (`BODY_LIMIT_MD`, the Ruuter perimeter) are deployment settings that must be raised to match, but not above `payload * 4/3` plus the envelope, and the edelivery memory limit must allow several ~54 MB copies of a maximum payload. In shadow mode a legacy size refusal against a Turvis accept of a larger payload is the non-security discrepancy `size_budget`.
 
 Note: this cap is driven by HTTP-body-handling costs on both sides, not by crypto limits. If a larger payload is operationally needed, consider streaming-mode endpoints as a future addition (not in this contract).
 

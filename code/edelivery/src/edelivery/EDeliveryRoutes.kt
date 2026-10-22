@@ -140,11 +140,13 @@ class EDeliveryRoutes(
       val receipt = try {
         turvisOutbound.receipt(routing.messageId, inbound.signatureDigests, conversationId)
       } catch (ex: Exception) {
+        log.info(TurvisAudit.inbound(auditRef, inbound, null))
         // Not signing OUR receipt is never the peer's fault: 503 without a fault, so the peer retries (SPEC 13.2).
         // The exact reason is already counted and logged inside receipt().
         throw TurvisUnavailableException("receipt not signed", ex)
       }
       e.send(OK, receipt.signedSoap, soap)
+      log.info(TurvisAudit.inbound(auditRef, inbound, receipt.signAuditRef))
 
       AppScope.async {
         val result = handler(MessageContext(responseKey, inbound.payloadXml))
@@ -214,9 +216,10 @@ class EDeliveryRoutes(
 
 private fun ByteArray.sha256Hex() = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(this))
 
-internal fun gunzip(compressed: ByteArray): ByteArray {
-  val maxBytes = Config.optional("BODY_LIMIT_MD", "10").toLong() * 1024 * 1024
+/** The legacy path's decompression cap; the shadow compares the Turvis budget against it. */
+internal fun legacyPayloadLimit(): Long = Config.optional("BODY_LIMIT_MD", "10").toLong() * 1024 * 1024
 
+internal fun gunzip(compressed: ByteArray, maxBytes: Long = legacyPayloadLimit()): ByteArray {
   GZIPInputStream(ByteArrayInputStream(compressed)).use { gzip ->
     val out = ByteArrayOutputStream()
     val buffer = ByteArray(8192)

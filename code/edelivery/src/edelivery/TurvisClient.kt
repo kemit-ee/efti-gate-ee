@@ -292,7 +292,7 @@ class TurvisClient(
       .header("X-Internal-Service-Token", config.internalToken)
       .POST(BodyPublishers.ofString(body))
       .build()
-    val future = http.sendAsync(req, BodyHandlers.ofString())
+    val future = http.sendAsync(req, boundedString(config.maxResponseBytes))
     return try {
       Attempt.Answered(future.get(timeout.toMillis(), TimeUnit.MILLISECONDS))
     } catch (e: TimeoutException) {
@@ -300,6 +300,7 @@ class TurvisClient(
       Attempt.Failed(HttpTimeoutException("no complete response from Turvis within $timeout"))
     } catch (e: ExecutionException) {
       val cause = (e.cause as? CompletionException)?.cause ?: e.cause
+      if (cause is ResponseTooLargeException) protocolError(endpoint, "answered with a body over the ${config.maxResponseBytes} byte limit")
       if (cause is IOException) Attempt.Failed(cause) else throw cause ?: e
     } catch (e: InterruptedException) {
       future.cancel(true)
@@ -315,6 +316,8 @@ class TurvisClient(
       log.error("Turvis ${endpoint.metricName}: credential refused (HTTP $status), check TURVIS_INTERNAL_TOKEN") // pii-ok: no payload
       throw TurvisAuthException(status, endpoint.metricName)
     }
+    // The mapper keeps the last of two equal keys, so a body that repeats one could read as another verdict: refuse it.
+    if (response.body()?.let(JsonKeys::hasDuplicate) == true) protocolError(endpoint, "answered with a JSON body that repeats a key")
     val rejection = rejection(endpoint, response)
     if (status == 200) {
       val map = parseObject(response.body()) ?: protocolError(endpoint, "answered 200 with a body that is not a JSON object")
@@ -339,6 +342,22 @@ class TurvisClient(
     if (rejection.reason?.alert != false) log.error("$line (ALERT)") else log.warn(line) // pii-ok: reason code and audit_ref only
     return TurvisResult.Reject(rejection)
   }
+
+  /** A string body that is cut off, with an [ResponseTooLargeException], as soon as more than [limit] bytes arrive. */
+  private fun boundedString(limit: Long) = HttpResponse.BodyHandler<String> { info ->
+    val delegate = HttpResponse.BodySubscribers.ofString(java.nio.charset.StandardCharsets.UTF_8)
+    object : HttpResponse.BodySubscriber<String> by delegate {
+      private var received = 0L
+      private var subscription: java.util.concurrent.Flow.Subscription? = null
+      override fun onSubscribe(s: java.util.concurrent.Flow.Subscription) { subscription = s; delegate.onSubscribe(s) }
+      override fun onNext(item: List<java.nio.ByteBuffer>) {
+        received += item.sumOf { it.remaining().toLong() }
+        if (received > limit) { subscription?.cancel(); delegate.onError(ResponseTooLargeException()) } else delegate.onNext(item)
+      }
+    }
+  }
+
+
 
   private fun protocolError(endpoint: Endpoint, what: String): Nothing {
     EDeliveryMetrics.turvisCall(endpoint.metricName, "error")
@@ -455,3 +474,6 @@ private val secureRandom = SecureRandom()
 
 /** 32 lower-case hex characters, the `trace_id` format of the contract (a W3C trace id). */
 fun randomTraceId(): String = ByteArray(16).also(secureRandom::nextBytes).joinToString("") { "%02x".format(it) }
+
+/** The Turvis answer went over the size limit while it was being read; a protocol error, never retried. */
+internal class ResponseTooLargeException : IOException("Turvis answer is over the size limit")

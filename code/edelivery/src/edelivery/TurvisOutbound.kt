@@ -2,6 +2,7 @@ package edelivery
 
 import klite.base64Decode
 import klite.base64Encode
+import klite.info
 import klite.logger
 import klite.warn
 
@@ -70,7 +71,9 @@ class TurvisOutbound(
 
   internal fun requestMessage(params: UserMessageParams, payload: String, profile: TurvisEncryptProfile): OutboundMessage =
     guarded("Outbound message", params.requestKey.requestId) {
-      val compressed = generator.gzip(payload.toByteArray())
+      val raw = payload.toByteArray()
+      if (raw.size > config.maxPayloadBytes) throw PayloadTooLargeException("Outbound payload exceeds the ${config.maxPayloadBytes} byte limit")
+      val compressed = generator.gzip(raw)
       val compressedB64 = compressed.base64Encode()
 
       val encrypted = client.encrypt(compressedB64, params.requestKey.receiverId.toString(), profile, ENCRYPT_FIELDS, randomTraceId()).orThrow()
@@ -83,6 +86,7 @@ class TurvisOutbound(
       val signedSoap = signed.signedXmlB64.base64Decode()
       requireSignatureOnlyInserted(unsigned.toByteArray(), signedSoap)
       OutboundMessage(signedSoap, encrypted.encryptedPayloadB64.base64Decode(), encrypted.auditRef, signed.auditRef)
+        .also { log.info(TurvisAudit.outbound(params, it)) }
     }
 
   private fun <T> guarded(what: String, conversation: Any?, block: () -> T): T =
@@ -125,6 +129,7 @@ class TurvisOutbound(
     is TurvisUnavailableException -> "turvis_unavailable"
     is TurvisProtocolException -> "turvis_protocol"
     is TurvisAuthException -> "turvis_auth"
+    is PayloadTooLargeException -> "payload_too_large"
     else -> "internal"
   }
 

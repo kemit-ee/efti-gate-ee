@@ -25,6 +25,17 @@ class TurvisConfigTest {
     listOf("0", "65", "-1", "many", "1.5").forEach { assertFailsWith<IllegalArgumentException>(it) { load("TURVIS_SHADOW_MAX_INFLIGHT" to it) } }
   }
 
+  @Test fun `payload budget defaults to 40 MiB and accepts 1 to 256 only, the answer limit follows from it`() {
+    assertEquals(40, load().maxPayloadMib)
+    assertEquals(40L * 1024 * 1024, load().maxPayloadBytes)
+    assertEquals(1, load("TURVIS_MAX_PAYLOAD_MIB" to "1").maxPayloadMib)
+    assertEquals(256, load("TURVIS_MAX_PAYLOAD_MIB" to " 256 ").maxPayloadMib)
+    assertEquals(40, load("TURVIS_MAX_PAYLOAD_MIB" to "").maxPayloadMib)
+    listOf("0", "257", "-1", "big", "1.5").forEach { assertFailsWith<IllegalArgumentException>(it) { load("TURVIS_MAX_PAYLOAD_MIB" to it) } }
+    // 40 MiB of payload is ~54 MB of base64: the answer limit must leave room for it.
+    assertEquals(true, load().maxResponseBytes > 40L * 1024 * 1024 * 4 / 3)
+  }
+
   @Test fun `mode parsing accepts the three wire values case-insensitively and rejects anything else`() {
     assertEquals(TurvisIntegrationMode.LEGACY, TurvisIntegrationMode.parse(null))
     assertEquals(TurvisIntegrationMode.LEGACY, TurvisIntegrationMode.parse(" "))

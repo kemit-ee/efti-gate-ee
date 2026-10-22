@@ -37,6 +37,8 @@ enum class TurvisIntegrationMode {
  *   the mode is legacy. It is **dedicated** to Turvis (SPEC section 11.2): it must not equal the fleet-wide
  *   `INTERNAL_SERVICE_TOKEN`.
  * - `TURVIS_SHADOW_MAX_INFLIGHT` = concurrent shadow comparisons, 1 to 64 (default 8); only used in shadow mode.
+ * - `TURVIS_MAX_PAYLOAD_MIB` = largest business payload of the Turvis path, 1 to 256 (default 40, SPEC 13.8); bounds
+ *   the decompressed inbound payload, the outbound payload and, derived from it, the largest Turvis answer read.
  * - The key handle sent to Turvis is the own gate id (`OWN_GATE_ID`, SPEC section 7.1).
  *
  * Start-up guard (SPEC section 13.0): the service refuses to start when `TURVIS_URL` points at the `turvis-mock`
@@ -51,7 +53,14 @@ data class TurvisConfig(
   val keyHandle: String,
   /** Shadow mode only: how many Turvis comparisons may run at once; a message over the limit is dropped and counted, never queued. */
   val shadowMaxInflight: Int = DEFAULT_SHADOW_MAX_INFLIGHT,
+  /** Largest business payload, in MiB, the Turvis path accepts (inbound after decompression, outbound before it): SPEC 13.8. */
+  val maxPayloadMib: Int = DEFAULT_MAX_PAYLOAD_MIB,
 ) {
+  val maxPayloadBytes: Long get() = maxPayloadMib * MIB
+
+  /** The largest Turvis answer read: base64 of a payload-sized attachment (4/3) with margin for gzip overhead and the envelope. */
+  val maxResponseBytes: Long get() = maxPayloadBytes * 3 / 2 + 4 * MIB
+
   /** Never prints the token or any credential in the URL: a logged or thrown config must not leak them. */
   override fun toString() =
     "TurvisConfig(mode=$mode, url=${url?.let { "${it.scheme}://${it.host}${if (it.port > 0) ":${it.port}" else ""}" }}, token=${if (token == null) "unset" else "***"}, keyHandle=$keyHandle)"
@@ -63,6 +72,8 @@ data class TurvisConfig(
   companion object {
     const val MOCK_HOST = "turvis-mock"
     const val DEFAULT_SHADOW_MAX_INFLIGHT = 8
+    const val DEFAULT_MAX_PAYLOAD_MIB = 40
+    private const val MIB = 1024L * 1024
     private val RESTRICTED_ENVIRONMENTS = setOf("prod", "production", "staging")
     private val ENVIRONMENT_VARIABLES = listOf("ENVIRONMENT", "APP_ENV", "DEPLOY_ENV")
 
@@ -96,7 +107,10 @@ data class TurvisConfig(
       val maxInflight = get("TURVIS_SHADOW_MAX_INFLIGHT")?.trim()?.takeIf { it.isNotEmpty() }?.let {
         requireNotNull(it.toIntOrNull()?.takeIf { n -> n in 1..64 }) { "TURVIS_SHADOW_MAX_INFLIGHT must be an integer from 1 to 64" }
       } ?: DEFAULT_SHADOW_MAX_INFLIGHT
-      return TurvisConfig(mode, url, token, keyHandle, maxInflight)
+      val maxPayloadMib = get("TURVIS_MAX_PAYLOAD_MIB")?.trim()?.takeIf { it.isNotEmpty() }?.let {
+        requireNotNull(it.toIntOrNull()?.takeIf { n -> n in 1..256 }) { "TURVIS_MAX_PAYLOAD_MIB must be an integer from 1 to 256" }
+      } ?: DEFAULT_MAX_PAYLOAD_MIB
+      return TurvisConfig(mode, url, token, keyHandle, maxInflight, maxPayloadMib)
     }
 
     /**
