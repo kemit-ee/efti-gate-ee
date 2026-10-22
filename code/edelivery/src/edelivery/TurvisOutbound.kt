@@ -63,6 +63,7 @@ class TurvisOutbound(
     guarded("Receipt", conversation) {
       if (references.isEmpty()) throw TurvisProtocolException("verify reported no signature references to build a receipt from")
       val unsigned = generator.unsignedReceiptEnvelope(refToMessageId, references)
+      // The signed bytes are taken from Turvis after a byte guard only, no re-verification: trust path 3, safe only once the mesh (#309) is enforced (docs/architecture/security-and-compliance/perimeter-trust-model.md).
       val signed = client.sign(unsigned.toByteArray().base64Encode(), SIGNED_XPATHS, emptyList(), emptySet(), emptyList(), randomTraceId()).orThrow()
       val signedSoap = signed.signedXmlB64.base64Decode()
       requireSignatureOnlyInserted(unsigned.toByteArray(), signedSoap)
@@ -76,6 +77,7 @@ class TurvisOutbound(
       val compressed = generator.gzip(raw)
       val compressedB64 = compressed.base64Encode()
 
+      // Same trust basis as the receipt sign above: Turvis's answer is consumed as-is (docs/architecture/security-and-compliance/perimeter-trust-model.md, path 3).
       val encrypted = client.encrypt(compressedB64, params.requestKey.receiverId.toString(), profile, ENCRYPT_FIELDS, randomTraceId()).orThrow()
       val unsigned = generator.unsignedRequestEnvelope(params, encrypted.wrappedKeyXml.orEmpty() + encrypted.encryptedDataXml.orEmpty())
 

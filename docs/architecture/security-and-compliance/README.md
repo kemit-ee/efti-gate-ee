@@ -11,6 +11,7 @@
 **Sub-architectures in this theme** (each is the architectural surface for the AC tracked in the linked epic):
 
 - [Security](security.md) — AC: [`docs/cfr/security-and-compliance/security.md`](../../cfr/security-and-compliance/security.md)
+- [Perimeter trust model](perimeter-trust-model.md) — edelivery / Turvis / xml-mapper trust boundaries, traffic model, XML surface audit sheet (#307)
 - [Audit and GDPR Compliance](audit_and_gdpr.md) — AC: [`docs/cfr/security-and-compliance/audit_and_gdpr.md`](../../cfr/security-and-compliance/audit_and_gdpr.md)
 
 ---

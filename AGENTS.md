@@ -428,6 +428,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
     building an image — the converter is the validator, ADR-011 §3) + `tests/registry/test_registry_to_json.py`
     + the Turvis mock (`dsl-lint --audit` and `dsl-test` on `DSL/Ruuter-turvis-mock` /
     `DSL-turvis-mock-tests`, plus `scripts/validate-turvis-contract.py` and its unit test).
+    + `scripts/validate-xml-surface.py` (+ `tests/xmlsurface/test_validate_xml_surface.py`, #307): whole-tree grep that fails with `file:line` when a JVM XML parser/signature API (`code/*/src`), a call to one of the four Turvis operations or a `/turvis/` URL (code or Ruuter DSL, the mock excepted) or a Ruuter DSL calling xml-mapper appears without an entry (kind, path, hit count, reason) in `scripts/xml-surface-allowlist.txt`; a changed count or a stale entry fails too. The reviewed sheet is `docs/architecture/security-and-compliance/perimeter-trust-model.md` (trust boundaries, traffic model, audit sheet, proposed path-6 decision on xml-mapper's klite parser, which `code/xml-mapper/test/efti/XmlParserHardeningTest.kt` pins: DTD entities are refused, not expanded). Add the allowlist line and the sheet row in the same change as a new site.
   - `e2e` — builds the compose stack, runs the `tests/*/*.http` smoke suite via
     `docker compose run --rm http-tests`. This is the gate on PRs. `dsl-test` is the fast
     in-process check; `tests/*.http` is the full-stack integration gate.

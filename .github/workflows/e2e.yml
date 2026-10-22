@@ -46,6 +46,8 @@ jobs:
         run: |
           python3 scripts/validate-turvis-contract.py
           python3 tests/turvis/test_validate_turvis_contract.py
+          python3 scripts/validate-xml-surface.py
+          python3 tests/xmlsurface/test_validate_xml_surface.py
       - name: rich mock dataset XSD and field-coverage checks
         run: |
           sudo apt-get update -qq

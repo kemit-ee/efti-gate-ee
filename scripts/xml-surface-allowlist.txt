@@ -1,0 +1,28 @@
+# kind | path | expected hit count | reason (trust chain). Checked by scripts/validate-xml-surface.py (#307).
+# Adding, removing or moving a site needs a line here AND a row in the audit sheet of
+# docs/architecture/security-and-compliance/perimeter-trust-model.md, reviewed together.
+
+# --- XML parser / signature sites in code/*/src -----------------------------------------------------------
+xml-parser | code/edelivery/src/edelivery/EDeliveryRoutes.kt | 1 | klite XmlParser (secure StAX factory: DTD and external entities off) reads the peer's ebMS header in the LEGACY inbound path only; in turvis mode edelivery parses no peer XML (SPEC 9.3). Deleted by #312.
+xml-parser | code/edelivery/src/edelivery/SignatureValidator.kt | 2 | legacy in-process XMLDSig verify of the peer envelope (DOM, disallow-doctype-decl, no external DTD/schema); not reached in turvis mode. Deleted by #312.
+xml-parser | code/xml-mapper/src/efti/xml/fti/FTIMessages.kt | 1 | the single xml-mapper parser (klite XmlParser, secure StAX factory) for eFTI business XML FTI004/009/010/019/021/025/029/030, including peer-authored XML after decrypt+verify (trust-model path 6).
+
+# --- Turvis call sites in code/*/src --------------------------------------------------------------------
+turvis-call | code/edelivery/src/edelivery/TurvisClient.kt | 4 | the four endpoint URL literals (decryptions/xmlenc, verifications/xmldsig, encryptions/xmlenc, signatures/xmldsig); SPEC 4.
+turvis-call | code/edelivery/src/edelivery/TurvisInbound.kt | 2 | inbound decrypt then verify with the SPEC 9.2 policy; routing and signer from verify only (SPEC 2.2, 9).
+turvis-call | code/edelivery/src/edelivery/TurvisOutbound.kt | 3 | outbound encrypt + sign of the request message, and sign of the receipt (SPEC 2.3, 13.7).
+
+# --- xml-mapper callers in Ruuter DSL (path 6). "parses" = a *-to-json endpoint reads XML; "builds" = a *-to-xml endpoint writes it.
+xml-mapper-call | DSL/Ruuter/efti/GET/api/v1/authority/dataset.yml | 2 | builds the FTI009 request, parses the answering gate's FTI010 reply (peer-authored, signature-verified in transit).
+xml-mapper-call | DSL/Ruuter/efti/POST/api/v1/authority/dataset.yml | 2 | same as the GET route: builds FTI009, parses the FTI010 reply (peer-authored).
+xml-mapper-call | DSL/Ruuter/efti/POST/api/v1/authority/follow-up.yml | 2 | builds FTI025, parses the FTI030 reply (peer-authored).
+xml-mapper-call | DSL/Ruuter/efti/POST/api/v1/authority/search.yml | 2 | builds FTI019, parses each peer's FTI021 reply in the K4 fan-out (peer-authored).
+xml-mapper-call | DSL/Ruuter/efti/POST/api/v1/consignments/search-xml.yml | 2 | G2G inbound: parses a peer's FTI019 request (after edelivery verified it), builds the FTI021 answer.
+xml-mapper-call | DSL/Ruuter/efti/POST/api/v1/dataset-local.yml | 1 | builds the FTI009 request for the own platform (gate-authored); no XML parsed.
+xml-mapper-call | DSL/Ruuter/efti/POST/api/v1/dataset-xml.yml | 2 | G2G inbound: parses a peer's FTI009 request (after edelivery verified it), builds the FTI010 answer.
+xml-mapper-call | DSL/Ruuter/efti/POST/api/v1/follow-up-local.yml | 1 | builds the FTI025 request for the own platform (gate-authored); no XML parsed.
+xml-mapper-call | DSL/Ruuter/efti/POST/api/v1/follow-up-xml.yml | 2 | G2G inbound: parses a peer's FTI025 request (after edelivery verified it), builds the FTI030 answer.
+xml-mapper-call | DSL/Ruuter/platforms/POST/v1/consignments-xml.yml | 1 | builds the FTI029 answer to a platform upload; no XML parsed.
+xml-mapper-call | DSL/Ruuter/platforms/POST/v1/consignments.yml | 1 | parses the platform's FTI004 upload (platform API key, platform-authored, no signature).
+xml-mapper-call | DSL/Ruuter/xroad/POST/v1/search.yml | 1 | transport-means/normalize: JSON rows in, JSON out; no XML parsed.
+xml-mapper-call | DSL/Ruuter/xroad/POST/v1/transport-means.yml | 1 | transport-means/normalize: JSON rows in, JSON out; no XML parsed.
