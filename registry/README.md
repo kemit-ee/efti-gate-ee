@@ -129,7 +129,7 @@ the arrays keeps its canonical casing.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `id` | string | yes | Logical id, e.g. `EU-EE`. Must equal the file name. |
+| `id` | string | yes | Logical id, e.g. `EU-EE`. Must equal the file name and be ASCII (`A-Za-z0-9`, `.`, `_`, `-`; first character alphanumeric; max 64), because ids are compared case-insensitively and a look-alike such as a dotless `ı` must not fold onto a real id. |
 | `countryCode` | string | yes | ISO 3166-1 alpha-2, upper case (`^[A-Z]{2}$`). |
 | `eDeliveryUrl` | string | yes | AS4 access point, e.g. `http://edelivery:8081/services/msh`. |
 | `eDeliveryCert` | string | no | Public PEM used to verify AS4 messages from this gate. A gate without one is left out of the `edelivery` party map (logged as a warning) **and of the Turvis trust view**. An existing one that does not parse, has expired or is not valid yet fails the build. |

@@ -111,7 +111,7 @@ database representation — `gates`, `platforms`, `authorities`, their read mode
   It checks required keys, that every scalar is a **string** (an unquoted `registryCode: 70000099` or
   `countryCode: NO` would become an int/bool that the DSL's `===` never matches), `id` vs file name,
   the `status` enum, `countryCode`, absolute http(s) URLs, PEM shape, `subsets` codes (no duplicates),
-  `headers` as string→string, unknown keys, case-insensitive duplicate ids, a platform `apiKey` shared
+  `headers` as string→string, unknown keys, ids that are not plain ASCII (`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`), case-insensitive duplicate ids, a platform `apiKey` shared
   by several files (the guard would 403 both) and stray non-`.yml` files, and any failure fails the build.
   `tests/registry/test_registry_to_json.py` (unittest) covers these rules and runs in both CI jobs. CI runs the same converter
   with no `--out` (both `.github/workflows/e2e.yml` and `.gitlab-ci.yml`), so a bad registry fails CI
