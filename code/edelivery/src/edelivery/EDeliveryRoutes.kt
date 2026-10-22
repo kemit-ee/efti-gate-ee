@@ -106,7 +106,7 @@ class EDeliveryRoutes(
   private fun legacyDecision(observed: LegacyObservation, reason: FaultReason) = when (observed.stage) {
     LegacyObservation.Stage.VERIFIED -> LegacyDecision.Accepted(observed)
     LegacyObservation.Stage.PARTY_LOOKUP -> LegacyDecision.NotComparable
-    else -> LegacyDecision.Rejected(reason)
+    else -> LegacyDecision.Rejected(reason, observed.senderId)
   }
 
   /**

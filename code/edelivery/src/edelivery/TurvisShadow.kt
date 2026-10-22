@@ -22,7 +22,7 @@ class LegacyObservation {
 /** The security decision of the legacy path for one message: the thing Turvis is compared against. */
 sealed interface LegacyDecision {
   data class Accepted(val observation: LegacyObservation) : LegacyDecision
-  data class Rejected(val reason: FaultReason) : LegacyDecision
+  data class Rejected(val reason: FaultReason, val peer: PartyId? = null) : LegacyDecision
   /** Legacy refused before any cryptography (unknown sender party): a registry decision, nothing for Turvis to agree or disagree with. */
   data object NotComparable : LegacyDecision
 }
@@ -59,7 +59,7 @@ class TurvisShadow(private val config: TurvisConfig, private val inbound: Turvis
     var acquired = false
     try {
       if (decision is LegacyDecision.NotComparable) return EDeliveryMetrics.shadowSkipped("not_comparable")
-      EDeliveryMetrics.shadowAttempted()
+      EDeliveryMetrics.shadowAttempted("inbound")
       if (inflight.incrementAndGet() > config.shadowMaxInflight) {
         inflight.decrementAndGet()
         return EDeliveryMetrics.shadowDropped()
@@ -82,18 +82,23 @@ class TurvisShadow(private val config: TurvisConfig, private val inbound: Turvis
   }
 
   internal fun compare(auditRef: String, body: ByteArray, decision: LegacyDecision) {
+    val peer = when (decision) {
+      is LegacyDecision.Accepted -> decision.observation.senderId
+      is LegacyDecision.Rejected -> decision.peer
+      LegacyDecision.NotComparable -> null
+    }
     val turvis = try {
       Outcome.Accepted(inbound.process(body))
     } catch (ex: TurvisRejectException) {
       val fault = FaultReason.ofTurvis(ex.rejection.effectiveReason)
-      if (fault == null) return skipped(auditRef, ex.rejection.endpoint, "no_verdict", ex.auditRef)
+      if (fault == null) return skipped(auditRef, ex.rejection.endpoint, "no_verdict", peer, ex.auditRef)
       Outcome.Rejected(fault, ex.rejection.endpoint, ex.auditRef)
     } catch (ex: TurvisUnavailableException) {
-      return skipped(auditRef, "inbound", "unavailable")
+      return skipped(auditRef, "inbound", "unavailable", peer)
     } catch (ex: TurvisProtocolException) {
-      return skipped(auditRef, "inbound", "protocol")
+      return skipped(auditRef, "inbound", "protocol", peer)
     } catch (ex: TurvisAuthException) {
-      return skipped(auditRef, ex.endpoint, "auth")
+      return skipped(auditRef, ex.endpoint, "auth", peer)
     } catch (ex: Exception) {
       // Our own refusal of the bytes (malformed multipart, bad gzip, oversize): a verdict Turvis never saw, but a verdict.
       Outcome.Rejected(FaultReason.of(ex), "inbound", null)
@@ -148,9 +153,9 @@ class TurvisShadow(private val config: TurvisConfig, private val inbound: Turvis
     log.warn("Turvis shadow discrepancy: audit_ref=$auditRef endpoint=$endpoint kind=$kind security=$security turvis_audit_ref=$turvisAuditRef")
   }
 
-  private fun skipped(auditRef: String, endpoint: String, kind: String, turvisAuditRef: String? = null) {
+  private fun skipped(auditRef: String, endpoint: String, kind: String, peer: PartyId?, turvisAuditRef: String? = null) {
     EDeliveryMetrics.shadowError(endpoint, kind)
-    log.warn("Turvis shadow comparison skipped: audit_ref=$auditRef endpoint=$endpoint kind=$kind turvis_audit_ref=$turvisAuditRef")
+    log.warn("Turvis shadow comparison skipped: audit_ref=$auditRef peer=$peer endpoint=$endpoint kind=$kind turvis_audit_ref=$turvisAuditRef")
   }
 
   private sealed interface Outcome {

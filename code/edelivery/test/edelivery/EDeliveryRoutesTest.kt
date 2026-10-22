@@ -281,7 +281,7 @@ class EDeliveryRoutesTest {
 
     EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, shadow).msh(exchange)
 
-    expect(decision.captured).toEqual(LegacyDecision.Rejected(FaultReason.SIG_CRYPTO_FAIL))
+    expect(decision.captured).toEqual(LegacyDecision.Rejected(FaultReason.SIG_CRYPTO_FAIL, party.id))
     verify(exactly = 0) { messageHandlers.rootTags }
   }
 

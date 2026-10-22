@@ -129,13 +129,13 @@ class TurvisShadowTest {
 
   @Test fun `compareInbound counts every comparable message as attempted, a skipped legacy refusal not`() {
     every { inbound.process(any()) } returns verified()
-    val before = counter("edeliveryTurvisShadowAttemptedTotal")
+    val before = counter("edeliveryTurvisShadowAttemptedTotal", "inbound")
 
     shadow().compareInbound("a-1", body, LegacyDecision.NotComparable)
-    assertEquals(before, counter("edeliveryTurvisShadowAttemptedTotal"))
+    assertEquals(before, counter("edeliveryTurvisShadowAttemptedTotal", "inbound"))
 
     shadow().compareInbound("a-2", body, accepted())
-    assertEquals(before + 1, counter("edeliveryTurvisShadowAttemptedTotal"))
+    assertEquals(before + 1, counter("edeliveryTurvisShadowAttemptedTotal", "inbound"))
   }
 
   @Test fun `decrypted attachment that differs byte for byte is counted but not a security kind`() {
