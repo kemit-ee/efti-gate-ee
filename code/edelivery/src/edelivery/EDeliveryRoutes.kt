@@ -33,6 +33,7 @@ class EDeliveryRoutes(
   private val partyRegistry: PartyRegistry,
   private val signatureValidator: SignatureValidator,
   private val turvisInbound: TurvisInbound,
+  private val turvisShadow: TurvisShadow,
 ) {
   private val rootTagRegex = "<\\s*(?:\\w+:)?(\\w+)".toRegex()
 
@@ -47,6 +48,7 @@ class EDeliveryRoutes(
     val auditRef = randomUUID().toString()
     if (turvisInbound.authoritative) return mshViaTurvis(e, bodyBytes, auditRef)
     var partCount: Int? = null
+    val observed = LegacyObservation()
     try {
       val body = MultipartParser().parse(bodyBytes.inputStream())
       partCount = body.size
@@ -57,15 +59,23 @@ class EDeliveryRoutes(
       currentThread().name = header.conversationId.toString()
 
       if (header.receiverId != keyManager.partyId) log.warn("Unknown receiver: ${header.receiverId}")
+      observed.stage = LegacyObservation.Stage.PARTY_LOOKUP
       val party = partyRegistry[header.senderId]
       e.attr("client", party.id)
+      observed.stage = LegacyObservation.Stage.CRYPTO
+      observed.senderId = header.senderId
+      observed.receiverId = header.receiverId
+      observed.conversationId = header.conversationId.toString()
 
       val encryptedSymmetricKey = header.cipherValue?.trim()
         ?.takeIf { it.isNotBlank() }?.base64Decode()
         ?: body.values.toList().getOrNull(1) as ByteArray
       val decrypted = decryptPayload(header, keyManager.ownPrivateKey, encryptedPayload, encryptedSymmetricKey)
+      observed.attachment = decrypted.attachmentBytes
       signatureValidator.verify(xml, header, keyManager.receiverCert(header.senderId), decrypted.attachmentBytes)
+      observed.stage = LegacyObservation.Stage.VERIFIED
       val payloadXml = decrypted.xml
+      observed.payloadXml = payloadXml
 
       val rootTag = rootTagRegex.from(payloadXml)
       val responseKey = RequestKey(header.senderId, header.conversationId, header.receiverId)
@@ -75,6 +85,7 @@ class EDeliveryRoutes(
 
       val responseXml = eDeliveryMessageGenerator.responseMessage(header)
       e.send(OK, responseXml, soap)
+      turvisShadow.compareInbound(auditRef, bodyBytes, LegacyDecision.Accepted(observed))
 
       AppScope.async {
         val result = handler(MessageContext(responseKey, payloadXml))
@@ -86,7 +97,15 @@ class EDeliveryRoutes(
       log.error("Error when processing message: audit_ref=$auditRef reason=$reason body_sha256=${bodyBytes.sha256Hex()} " +
         "body_size_bytes=${bodyBytes.size} content_type=${e.header("Content-Type")} multipart_part_count=$partCount", ex.withoutMessages())
       e.send(InternalServerError, eDeliveryMessageGenerator.soapFault(reason), soap)
+      turvisShadow.compareInbound(auditRef, bodyBytes, legacyDecision(observed, reason))
     }
+  }
+
+  /** Verification passed in the legacy path even if a later step (unsupported root tag, handler lookup) failed: that is not a security decision. */
+  private fun legacyDecision(observed: LegacyObservation, reason: FaultReason) = when (observed.stage) {
+    LegacyObservation.Stage.VERIFIED -> LegacyDecision.Accepted(observed)
+    LegacyObservation.Stage.PARTY_LOOKUP -> LegacyDecision.NotComparable
+    else -> LegacyDecision.Rejected(reason)
   }
 
   /**

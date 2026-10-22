@@ -36,6 +36,7 @@ enum class TurvisIntegrationMode {
  * - `TURVIS_INTERNAL_TOKEN` = the credential edelivery presents in `X-Internal-Service-Token`; required unless
  *   the mode is legacy. It is **dedicated** to Turvis (SPEC section 11.2): it must not equal the fleet-wide
  *   `INTERNAL_SERVICE_TOKEN`.
+ * - `TURVIS_SHADOW_MAX_INFLIGHT` = concurrent shadow comparisons, 1 to 64 (default 8); only used in shadow mode.
  * - The key handle sent to Turvis is the own gate id (`OWN_GATE_ID`, SPEC section 7.1).
  *
  * Start-up guard (SPEC section 13.0): the service refuses to start when `TURVIS_URL` points at the `turvis-mock`
@@ -48,6 +49,8 @@ data class TurvisConfig(
   val url: URI? = null,
   val token: String? = null,
   val keyHandle: String,
+  /** Shadow mode only: how many Turvis comparisons may run at once; a message over the limit is dropped and counted, never queued. */
+  val shadowMaxInflight: Int = DEFAULT_SHADOW_MAX_INFLIGHT,
 ) {
   /** Never prints the token or any credential in the URL: a logged or thrown config must not leak them. */
   override fun toString() =
@@ -59,6 +62,7 @@ data class TurvisConfig(
 
   companion object {
     const val MOCK_HOST = "turvis-mock"
+    const val DEFAULT_SHADOW_MAX_INFLIGHT = 8
     private val RESTRICTED_ENVIRONMENTS = setOf("prod", "production", "staging")
     private val ENVIRONMENT_VARIABLES = listOf("ENVIRONMENT", "APP_ENV", "DEPLOY_ENV")
 
@@ -89,7 +93,10 @@ data class TurvisConfig(
           "TURVIS_INTERNAL_TOKEN must be a dedicated credential, not the fleet's INTERNAL_SERVICE_TOKEN"
         }
       }
-      return TurvisConfig(mode, url, token, keyHandle)
+      val maxInflight = get("TURVIS_SHADOW_MAX_INFLIGHT")?.trim()?.takeIf { it.isNotEmpty() }?.let {
+        requireNotNull(it.toIntOrNull()?.takeIf { n -> n in 1..64 }) { "TURVIS_SHADOW_MAX_INFLIGHT must be an integer from 1 to 64" }
+      } ?: DEFAULT_SHADOW_MAX_INFLIGHT
+      return TurvisConfig(mode, url, token, keyHandle, maxInflight)
     }
 
     /**

@@ -84,6 +84,28 @@ class TurvisClientMockContractTest {
     assertEquals(listOf("#MSG-ID", "#BODY-ID", "cid:message"), inbound.signatureDigests.map { it.referenceUri })
   }
 
+  @Test fun `shadow comparison against the mock agrees with a matching legacy outcome and flags a different sender`() {
+    needMock()
+    val payload = "<hello>world</hello>"
+    val gzipped = java.io.ByteArrayOutputStream().also { o -> java.util.zip.GZIPOutputStream(o).use { it.write(payload.toByteArray()) } }.toByteArray()
+    val body = "--bnd\r\nContent-Type: application/soap+xml\r\n\r\n".toByteArray() + Base64.getDecoder().decode(envelope) +
+      "\r\n--bnd\r\nContent-ID: <message>\r\n\r\n".toByteArray() + gzipped + "\r\n--bnd--\r\n".toByteArray()
+    val config = TurvisConfig(TurvisIntegrationMode.SHADOW, URI(mockUrl), token, "EU-EE")
+    val shadow = TurvisShadow(config, TurvisInbound(config, client()))
+    fun observation(sender: String) = LegacyObservation().apply {
+      stage = LegacyObservation.Stage.VERIFIED; senderId = PartyId(sender); receiverId = PartyId("EU-EE")
+      conversationId = "conv-contract-0001"; attachment = gzipped; payloadXml = payload
+    }
+    fun security() = (klite.Metrics.data["edeliveryTurvisShadowSecurityDiscrepanciesTotal"] as Number?)?.toLong() ?: 0L
+
+    val before = security()
+    shadow.compare("contract-1", body, LegacyDecision.Accepted(observation("EU-DE")))
+    assertEquals(before, security())
+
+    shadow.compare("contract-2", body, LegacyDecision.Accepted(observation("EU-FR")))
+    assertEquals(before + 1, security())
+  }
+
   @Test fun `verify binds the sender with and without a claimed signer id`() {
     needMock()
     fun verify(claimed: String?) = client().verify(envelope, emptyList(), emptyList(), emptyList(), setOf(TurvisVerifyField.SIGNER), claimed)
