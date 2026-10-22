@@ -119,6 +119,17 @@ class RegistryToJsonTest(unittest.TestCase):
             self.skipTest("case-insensitive file system: EU-X.yml and eu-x.yml are the same file")
         self.assert_rejected("gates", "duplicate id(s) ['eu-x']")
 
+    def test_ids_must_be_plain_ascii(self):
+        for name in ("eu-d\u0131", "EU X", "-EU", "EU:X", "a" * 65):
+            with self.subTest(id=name):
+                self.write("gates", f"{name}.yml", f"id: {name!r}\ncountryCode: EE\neDeliveryUrl: https://x.example\nstatus: ONLINE\n")
+                self.assert_rejected("gates", "id must be ASCII letters, digits")
+                (self.source / "gates" / f"{name}.yml").unlink()
+
+    def test_ascii_ids_with_dot_underscore_and_hyphen_are_accepted(self):
+        self.write("gates", "EU-X_1.a.yml", "id: EU-X_1.a\ncountryCode: EE\neDeliveryUrl: https://x.example\nstatus: ONLINE\n")
+        self.assertIn("EU-X_1.a", [g["id"] for g in converter.load("gates", self.source)])
+
     def test_non_yml_file_is_rejected(self):
         self.write("gates", "EU-Y.yaml", "id: EU-Y\n")
         self.assert_rejected("gates", "only <id>.yml files are allowed")

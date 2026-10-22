@@ -52,6 +52,8 @@ COUNTRY_CODE_RE = re.compile(r"^[A-Z]{2}$")
 SUBSET_RE = re.compile(r"^EU0[1-7]$")
 PEM_RE = re.compile(r"^-----BEGIN CERTIFICATE-----\n(?:[A-Za-z0-9+/=]+\n)+-----END CERTIFICATE-----\n?$")
 ANCHOR_ALIAS_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+# Ids are compared case-insensitively (PartyId, the DSL lower-casing); a non-ASCII id such as a dotless i would fold onto an ASCII one.
+ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 
 # Keys of a gate that only the Turvis trust view needs. They are validated with the gate but are not
 # part of the registry documents edelivery and the DSL read (edelivery's loader rejects unknown keys).
@@ -166,6 +168,9 @@ def validate(kind, registry, source, entity):
 
     if entity["id"] != source.stem:
         raise RegistryError(f"{source}: id {entity['id']!r} does not match the file name (must be {source.stem!r})")
+
+    if not ID_RE.match(entity["id"]):
+        raise RegistryError(f"{source}: id must be ASCII letters, digits, '.', '_' or '-' (max 64 characters): {entity['id']!r}")
 
     if registry["statuses"] is not None and entity["status"] not in registry["statuses"]:
         raise RegistryError(f"{source}: status must be one of {list(registry['statuses'])}, got {entity['status']!r}")
