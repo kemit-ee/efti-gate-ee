@@ -687,6 +687,21 @@ class TurvisClientTest {
     refused("a nested Reference", msgRefXml.replace("<ds:Transforms>", "<ds:Reference><ds:Transforms>"))
     refused("a self-closing Reference", """<ds:Reference xmlns:ds="http://www.w3.org/2000/09/xmldsig#" URI="#a"/>""")
     refused("a prefix lookalike", msgRefXml.replace("ds:Reference", "ds:References"))
+    refused("a CDATA end", msgRefXml.replace("ZA==", "ZA==]]>"))
+    refused("no namespace declaration", msgRefXml.replace(""" xmlns:ds="http://www.w3.org/2000/09/xmldsig#"""", ""))
+    refused("a wrong namespace", msgRefXml.replace("http://www.w3.org/2000/09/xmldsig#", "urn:evil"))
+    refused("the namespace only on a child", msgRefXml.replace(""" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" URI""", " URI").replace("<ds:DigestValue>", """<ds:DigestValue xmlns:ds="http://www.w3.org/2000/09/xmldsig#">"""))
+    refused("a different reference than reported", msgRefXml.replace("""URI="#MSG-ID"""", """URI="#OTHER""""))
+    refused("no URI", msgRefXml.replace(""" URI="#MSG-ID"""", ""))
+  }
+
+  @Test fun `a default-namespace reference and an escaped URI match what is reported`() {
+    val dflt = """<Reference xmlns="http://www.w3.org/2000/09/xmldsig#" URI="cid:a&amp;b"><DigestValue>ZA==</DigestValue></Reference>"""
+    script += answer(body = fullVerify.replace(b64(msgRefXml), b64(dflt)).replaceFirst("\"reference_uri\":\"#MSG-ID\"", "\"reference_uri\":\"cid:a&b\""))
+
+    val accept = verifyCall(TurvisVerifyField.entries.toSet()) as TurvisResult.Accept<TurvisVerifyResponse>
+
+    assertEquals(dflt, accept.value.signatureDigests!!.first().referenceXml)
   }
 
   @Test fun `a verbatim reference that is not base64, not UTF-8, empty or too large is refused`() {

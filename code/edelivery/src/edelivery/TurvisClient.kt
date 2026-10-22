@@ -410,10 +410,11 @@ class TurvisClient(
     m.only("signature_digests item", "reference_uri", "subtree_xpath", "digest_b64", "algorithm", "transforms", "reference_xml_b64")
     val algorithm = m.string("algorithm", true, nonEmpty = true)!!
     if (algorithm != "SHA-256") throw TurvisProtocolException("signature digest algorithm is '$algorithm', the contract only allows SHA-256")
+    val uri = m.string("reference_uri", true, nonEmpty = true)!!
     return TurvisSignatureReference(
-      m.string("reference_uri", true, nonEmpty = true)!!, m.string("subtree_xpath"), m.string("digest_b64", true, nonEmpty = true, base64 = true)!!, algorithm,
+      uri, m.string("subtree_xpath"), m.string("digest_b64", true, nonEmpty = true, base64 = true)!!, algorithm,
       m.strings("transforms") ?: throw TurvisProtocolException("response lacks the field 'transforms'"),
-      ReferenceXml.decode(m.string("reference_xml_b64", true, nonEmpty = false, base64 = true)!!),
+      ReferenceXml.decode(m.string("reference_xml_b64", true, nonEmpty = false, base64 = true)!!, uri),
     )
   }
 
