@@ -287,7 +287,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 ## eDelivery / mock gate
 
 - Gate-to-gate communication uses AS4 messaging via edelivery service
-- edelivery party registry loads the **`ONLINE`** gates + platforms from the `registry` service (`RegistryClient`), refreshes every 60 s; a `DISABLED` party or a gate without `eDeliveryCert` is not an AS4 party
+- edelivery party registry loads the **`ONLINE`** gates + platforms from the `registry` service (`RegistryClient`), refreshes every `REGISTRY_REFRESH_SECONDS` (default 10 s); a `DISABLED` party or a gate without `eDeliveryCert` is not an AS4 party
 - Mock gate: register a second gate (e.g., EU-MOCK) with same `eDeliveryUrl` + `eDeliveryCert` as own gate; messages loop back to self
 - No message bus: cross-node AS4 replies go through `async_responses` (`DbAsyncResponseProvider`: insert when no local waiter, atomic claim by `RequestKey`; `POST /ops/v1/purge-async-responses` via CronManager). `edelivery` reloads gates/platforms from the `registry` service every `REGISTRY_REFRESH_SECONDS` (default 10); admin DSLs do not notify.
 - Cross-gate identifier search is Ruuter-owned (K4, ADR-013; the Klite `multiplexer` is retired): `efti/POST/api/v1/authority/search.yml` registers a `pending` row in `search_results`, `detach`es a `parallel_http collect_all` fan-out to every ONLINE peer via `edelivery /api/v1/send/{gateId}`, converts each FTI021 reply with `xml-mapper /search/response-to-json`, and writes the flattened `ConsignmentRow[]` as a `complete` JSONB row. A poll (`X-Request-Id` + `X-Poll: true`) reads the latest row, waiting ~30s while `pending`. Rows are purged by `POST /ops/v1/purge-search-results` via CronManager.
