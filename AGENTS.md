@@ -354,6 +354,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 
 ## Testing
 
+- `TurvisShadowTest`: create shadows only through its `shadow()` helper, so the `@AfterEach` waits for their comparison threads. The shadow counters are process-wide (`EDeliveryMetrics`) and a comparison thread that outlives its test lands in the next test's exact-delta assertion (#346).
 - `tests/*/*.http` — IntelliJ HTTP Client format; run all with `docker compose run --rm http-tests`
   - `TEST_FILES=tests/admin/gates.http` can be prefixed to run only specific tests
   - `tests/admin/{gates,platforms,authorities}.http` are **read-only** registry tests (ADR-011 §6): they
