@@ -70,7 +70,7 @@ class TurvisOutbound(
    * inserted as the last child of the `wsse:Security` header. This is the shape the legacy path writes (key, data,
    * signature) and the one a peer reads in document order; anything else (a signature in front of the encryption
    * block, a changed `eb:Messaging` or body byte) would fail on the peer, so it is refused here instead.
-   * The position is our assumption, not yet in SPEC 4.2. An answer identical to the input is let through only for the turvis-mock host ([allowUnsignedEcho]).
+   * The position is fixed by SPEC 4.2 "Signature placement". An answer identical to the input is let through only for the turvis-mock host ([allowUnsignedEcho]).
    */
   internal fun requireSignatureOnlyInserted(unsigned: ByteArray, signed: ByteArray) {
     if (signed.contentEquals(unsigned)) {
