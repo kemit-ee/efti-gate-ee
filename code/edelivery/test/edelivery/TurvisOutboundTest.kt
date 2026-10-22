@@ -28,8 +28,14 @@ class TurvisOutboundTest {
   private val wrappedKey = """<xenc:EncryptedKey xmlns:xenc="http://www.w3.org/2001/04/xmlenc#" Id="EK-ID"> <xenc:CipherData/> </xenc:EncryptedKey>"""
   private val encryptedData = """<xenc:EncryptedData xmlns:xenc="http://www.w3.org/2001/04/xmlenc#" Id="ED-ID"/>"""
   private val wirePayload = ByteArray(40) { (it * 7).toByte() }
-  // Bytes a real signer might return: mixed line endings, trailing space, a non-UTF-8 byte. None of it may be touched.
-  private val signedBytes = "<env:Envelope>\r\n  <x/> \n</env:Envelope> ".toByteArray() + byteArrayOf(0x0b, 0x7f)
+  // What a real signer might put in: mixed line endings, trailing space, control bytes. None of it may be touched.
+  private val signature = "<ds:Signature xmlns:ds=\"http://www.w3.org/2000/09/xmldsig#\">\r\n  <x/> \n".toByteArray() + byteArrayOf(0x0b, 0x7f) + "</ds:Signature>".toByteArray()
+  private fun withSignature(unsigned: ByteArray, at: String = "</wsse:Security>", sig: ByteArray = signature): ByteArray {
+    val text = String(unsigned)
+    val i = text.lastIndexOf(at)
+    return text.substring(0, i).toByteArray() + sig + text.substring(i).toByteArray()
+  }
+  private var lastSigned = ByteArray(0)
 
   private val encryptPlaintext = slot<String>()
   private val encryptReceiver = slot<String>()
@@ -43,10 +49,10 @@ class TurvisOutboundTest {
 
   private fun stub(
     encrypt: TurvisResult<TurvisEncryptResponse> = TurvisResult.Accept(TurvisEncryptResponse("enc-1", wirePayload.base64Encode(), "a2V5", wrappedKey, encryptedData)),
-    sign: TurvisResult<TurvisSignResponse> = TurvisResult.Accept(TurvisSignResponse("sig-1", signedBytes.base64Encode(), null)),
+    sign: ((ByteArray) -> TurvisResult<TurvisSignResponse>) = { unsigned -> TurvisResult.Accept(TurvisSignResponse("sig-1", withSignature(unsigned).also { lastSigned = it }.base64Encode(), null)) },
   ) {
     every { client.encrypt(capture(encryptPlaintext), capture(encryptReceiver), capture(encryptProfile), capture(encryptFields), any()) } returns encrypt
-    every { client.sign(capture(signSoap), capture(signXpaths), capture(signCids), capture(signFields), capture(signAttachments), any()) } returns sign
+    every { client.sign(capture(signSoap), capture(signXpaths), capture(signCids), capture(signFields), capture(signAttachments), any()) } answers { sign(signSoap.captured.base64Decode()) }
   }
 
   private fun failures(reason: String) = ((Metrics.data["edeliveryOutboundTurvisFailuresTotal"] as Map<*, *>?)?.get(reason) as Number?)?.toLong() ?: 0L
@@ -62,7 +68,7 @@ class TurvisOutboundTest {
 
     val message = outbound().requestMessage(params, payload)
 
-    assertContentEquals(signedBytes, message.signedSoap)
+    assertContentEquals(lastSigned, message.signedSoap)
     assertContentEquals(wirePayload, message.encryptedAttachment)
     expect(message.encryptAuditRef).toEqual("enc-1")
     expect(message.signAuditRef).toEqual("sig-1")
@@ -111,7 +117,7 @@ class TurvisOutboundTest {
 
     expect(encryptProfile.captured).toEqual(TurvisEncryptProfile.PLAINTEXT)
     expect(String(signSoap.captured.base64Decode())).toContain("env:mustUnderstand=\"true\"></wsse:Security>")
-    assertContentEquals(signedBytes, message.signedSoap)
+    assertContentEquals(lastSigned, message.signedSoap)
   }
 
   @Test fun `a rejected encrypt sends nothing, never reaches sign, and is counted`() {
@@ -125,7 +131,7 @@ class TurvisOutboundTest {
   }
 
   @Test fun `a rejected sign is rethrown and counted under its reason code`() {
-    stub(sign = TurvisResult.Reject(TurvisRejection("signatures", 422, "SIG_BUILD_FAIL", "aud-9", null)))
+    stub(sign = { TurvisResult.Reject(TurvisRejection("signatures", 422, "SIG_BUILD_FAIL", "aud-9", null)) })
     val before = failures("sig_build_fail")
 
     assertFailsWith<OutboundSignBuildException> { outbound().requestMessage(params, payload) }
@@ -134,7 +140,7 @@ class TurvisOutboundTest {
   }
 
   @Test fun `an unknown reason code is counted in one bucket`() {
-    stub(sign = TurvisResult.Reject(TurvisRejection("signatures", 422, "SOMETHING_NEW", "aud-9", null)))
+    stub(sign = { TurvisResult.Reject(TurvisRejection("signatures", 422, "SOMETHING_NEW", "aud-9", null)) })
     val before = failures("unrecognised")
 
     assertFailsWith<UnrecognisedRejectException> { outbound().requestMessage(params, payload) }
@@ -165,5 +171,32 @@ class TurvisOutboundTest {
     assertFailsWith<IllegalStateException> { outbound().requestMessage(params, payload) }
 
     assertEquals(before + 1, failures("internal"))
+  }
+
+  private fun refused(sign: (ByteArray) -> ByteArray) {
+    stub(sign = { unsigned -> TurvisResult.Accept(TurvisSignResponse("sig-1", sign(unsigned).base64Encode(), null)) })
+    val before = failures("turvis_protocol")
+
+    assertFailsWith<TurvisProtocolException> { outbound().requestMessage(params, payload) }
+
+    expect(failures("turvis_protocol")).toEqual(before + 1)
+  }
+
+  @Test fun `a signature in front of the encryption block is refused`() = refused { withSignature(it, at = "$wrappedKey$encryptedData") }
+
+  @Test fun `a signature after the security header is refused`() = refused { withSignature(it, at = "</env:Header>") }
+
+  @Test fun `a byte changed in eb Messaging is refused`() = refused { withSignature(String(it).replace("<eb:Messaging", "<eb:Messagin2").toByteArray()) }
+
+  @Test fun `a byte changed after the security header is refused`() = refused { withSignature(it).also { b -> b[b.size - 3] = 'X'.code.toByte() } }
+
+  @Test fun `an inserted element that is not a signature is refused`() = refused { withSignature(it, sig = "<ds:Other/>".toByteArray()) }
+
+  @Test fun `an answer identical to the input, which is what turvis-mock returns, is let through`() {
+    stub(sign = { unsigned -> TurvisResult.Accept(TurvisSignResponse("sig-1", unsigned.base64Encode(), null)) })
+
+    val message = outbound().requestMessage(params, payload)
+
+    expect(String(message.signedSoap)).toContain("<wsse:Security")
   }
 }

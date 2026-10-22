@@ -82,6 +82,20 @@ class EDeliveryClientTest {
     verify(exactly = 0) { turvisOutbound.requestMessage(any(), any(), any()) }
   }
 
+  @Test fun `a failed send drops the waiter instead of leaking it`() {
+    val provider = mockk<AsyncResponseProvider>(relaxed = true)
+    val client = EDeliveryClient(provider, keyManager, messageGenerator, partyRegistry, turvisOutbound, msInSec = 10L)
+    every { turvisOutbound.authoritative } returns true
+    every { turvisOutbound.requestMessage(any(), any()) } throws TurvisUnavailableException("down")
+    val params = UserMessageParams(RequestKey(PartyId("EU-FR")))
+
+    assertFailsWith<TurvisUnavailableException> { client.sendAndReceive(URI("https://example.com/services/msh"), params, "<payload/>") }
+
+    verify { provider.register(params.requestKey) }
+    verify { provider.unregister(params.requestKey) }
+    verify(exactly = 0) { provider.waitForResponse(any()) }
+  }
+
   @Test fun `a failed Turvis outbound is thrown to the caller and nothing is posted`() {
     every { turvisOutbound.authoritative } returns true
     every { turvisOutbound.requestMessage(any(), any()) } throws TurvisUnavailableException("down")

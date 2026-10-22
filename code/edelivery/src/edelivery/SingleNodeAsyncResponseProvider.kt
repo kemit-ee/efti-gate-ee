@@ -16,6 +16,10 @@ open class SingleNodeAsyncResponseProvider: AsyncResponseProvider {
     pendingResponses[key] = ArrayBlockingQueue(1)
   }
 
+  override fun unregister(key: RequestKey) {
+    pendingResponses.remove(key)
+  }
+
   override fun waitForResponse(key: RequestKey): String {
     val queue = pendingResponses[key] ?: error("$key not registered")
     return queue.receive(eDeliveryTimeout).also { pendingResponses.remove(key) }

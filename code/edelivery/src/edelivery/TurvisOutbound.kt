@@ -38,7 +38,10 @@ class TurvisOutbound(
   /** Whether Turvis is the authority for outbound messages. In legacy and shadow the in-process path is. */
   val authoritative get() = config.mode == TurvisIntegrationMode.TURVIS
 
-  fun requestMessage(params: UserMessageParams, payload: String, profile: TurvisEncryptProfile = TurvisEncryptProfile.WSS_ENCRYPTED): OutboundMessage =
+  /** The production entry point: the profile is always `wss-encrypted`; there is no way to ask for plaintext from outside. */
+  fun requestMessage(params: UserMessageParams, payload: String): OutboundMessage = requestMessage(params, payload, TurvisEncryptProfile.WSS_ENCRYPTED)
+
+  internal fun requestMessage(params: UserMessageParams, payload: String, profile: TurvisEncryptProfile): OutboundMessage =
     try {
       val compressed = generator.gzip(payload.toByteArray())
       val compressedB64 = compressed.base64Encode()
@@ -50,13 +53,39 @@ class TurvisOutbound(
         unsigned.toByteArray().base64Encode(), SIGNED_XPATHS, SIGNED_CID_REFS, emptySet(), listOf(TurvisAttachment(ATTACHMENT_CID, compressedB64)), randomTraceId(),
       ).orThrow()
 
-      OutboundMessage(signed.signedXmlB64.base64Decode(), encrypted.encryptedPayloadB64.base64Decode(), encrypted.auditRef, signed.auditRef)
+      val signedSoap = signed.signedXmlB64.base64Decode()
+      requireSignatureOnlyInserted(unsigned.toByteArray(), signedSoap)
+      OutboundMessage(signedSoap, encrypted.encryptedPayloadB64.base64Decode(), encrypted.auditRef, signed.auditRef)
     } catch (ex: Exception) {
       val reason = failureReason(ex)
       EDeliveryMetrics.outboundTurvisFailure(reason)
-      log.warn("Outbound message not sent, Turvis failed: conversation=${params.requestKey.requestId} reason=$reason audit_ref=${(ex as? TurvisRejectException)?.auditRef}")
+      log.warn("Outbound message not sent, Turvis failed: conversation=${params.requestKey.requestId} reason=$reason audit_ref=${(ex as? TurvisRejectException)?.auditRef}", ex.withoutMessages())
       throw ex
     }
+
+  /**
+   * Cheap byte guard, no XML parsing: the signed envelope must be the unsigned one plus one `Signature` element
+   * inserted as the last child of the `wsse:Security` header. This is the shape the legacy path writes (key, data,
+   * signature) and the one a peer reads in document order; anything else (a signature in front of the encryption
+   * block, a changed `eb:Messaging` or body byte) would fail on the peer, so it is refused here instead.
+   * The position is our assumption, not yet in SPEC 4.2. An answer identical to the input is let through (turvis-mock).
+   */
+  internal fun requireSignatureOnlyInserted(unsigned: ByteArray, signed: ByteArray) {
+    // turvis-mock has no cryptography and returns its input unchanged (it must never run in prod/staging, start-up guard);
+    // a real Turvis always adds a signature, and an unsigned message would be refused by the peer, not accepted.
+    if (signed.contentEquals(unsigned)) return
+    val at = unsigned.lastIndexOf(SECURITY_CLOSE)
+    val tail = unsigned.size - at
+    val inserted = signed.size - unsigned.size
+    val ok = at >= 0 && inserted > 0 &&
+      signed.copyOfRange(0, at).contentEquals(unsigned.copyOfRange(0, at)) &&
+      signed.copyOfRange(signed.size - tail, signed.size).contentEquals(unsigned.copyOfRange(at, unsigned.size)) &&
+      SIGNATURE_START.containsMatchIn(String(signed, at, minOf(inserted, 64), Charsets.UTF_8).trimStart())
+    if (!ok) throw TurvisProtocolException("signed envelope is not the unsigned one plus a trailing ds:Signature")
+  }
+
+  private fun ByteArray.lastIndexOf(needle: ByteArray) =
+    (size - needle.size downTo 0).firstOrNull { i -> needle.indices.all { this[i + it] == needle[it] } } ?: -1
 
   private fun failureReason(ex: Exception) = when (ex) {
     is TurvisRejectException -> ex.rejection.reason?.code ?: "unrecognised"
@@ -67,6 +96,8 @@ class TurvisOutbound(
   }
 
   companion object {
+    private val SECURITY_CLOSE = "</wsse:Security>".toByteArray()
+    private val SIGNATURE_START = Regex("^<([A-Za-z_][\\w.-]*:)?Signature[\\s>]")
     /** The outbound signing policy (SPEC 13.5): the same subtrees the inbound policy requires of a peer. */
     val SIGNED_XPATHS = TurvisInbound.REQUIRED_SIGNED_XPATHS
     val SIGNED_CID_REFS = TurvisInbound.REQUIRED_SIGNED_CID_REFS
