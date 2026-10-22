@@ -816,7 +816,7 @@ edelivery keeps `RegistryClient` and its 60 s refresh; nothing about routing mov
 
 ### 7.3 Reload semantics
 
-- Delivery is image- or volume-based; Turvis re-reads the artifact on change (file watch) or at `TRUST_STORE_REFRESH_SECONDS` (default 60, matching edelivery's `REGISTRY_REFRESH_SECONDS`).
+- Delivery is image- or volume-based; Turvis re-reads the artifact on change (file watch) or at `TRUST_STORE_REFRESH_SECONDS` (default 60; edelivery's `REGISTRY_REFRESH_SECONDS` default is 10).
 - In-flight requests finish against the snapshot they started with; the next request uses the new one. No mid-request switch.
 - **Load failure after a successful earlier load**: the current snapshot stays in use, `turvis_trust_store_load_failed_total` increments, and the divergence alert (§7.4) fires if the failure persists.
 - **Load failure with no snapshot** (first start): `/readyz` stays non-ready and crypto endpoints answer `TRUST_STORE_UNAVAILABLE`.

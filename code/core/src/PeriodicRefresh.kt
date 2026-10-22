@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit.MILLISECONDS
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
-val registryRefreshInterval: Duration = Config.optional("REGISTRY_REFRESH_SECONDS", "60").toLong().seconds
+val registryRefreshInterval: Duration = Config.optional("REGISTRY_REFRESH_SECONDS", "10").toLong().seconds
 
 /** Runs [action] every [interval] on a daemon thread; a failed run is logged and retried on the next tick. */
 fun refreshPeriodically(name: String, interval: Duration = registryRefreshInterval, action: () -> Unit) {
