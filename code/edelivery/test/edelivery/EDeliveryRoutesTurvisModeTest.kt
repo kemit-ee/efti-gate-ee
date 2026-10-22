@@ -99,6 +99,10 @@ class EDeliveryRoutesTurvisModeTest {
       OutboundSignBuildException(rejection("SIG_BUILD_FAIL")),
       TurvisUnavailableException("down"),
       TurvisProtocolException("signed envelope is not the unsigned one plus a trailing ds:Signature"),
+      MalformedEnvelopeException(rejection("XML_PARSE_FAIL")),
+      AlgoUnsupportedException(rejection("ALGO_UNSUPPORTED")),
+      TurvisRejection("signatures", 422, "BRAND_NEW_CODE", "aud-1", null).toException(),
+      IllegalStateException("generator bug"),
     ).forEach { ex ->
       clearMocks(exchange, generator, handler, answers = false, recordedCalls = true)
       every { exchange.requestStream } returns "raw body".toByteArray().inputStream()
@@ -111,6 +115,16 @@ class EDeliveryRoutesTurvisModeTest {
       verify(exactly = 0) { generator.soapFault(any()) }
       verify(exactly = 0) { handler.invoke(any()) }
     }
+  }
+
+  @Test fun `the receipt is signed and sent before the message is dispatched`() {
+    every { turvis.process(any()) } returns verified()
+    every { handler.invoke(any()) } returns null
+
+    routes.msh(exchange)
+
+    verify(timeout = 5000) { handler.invoke(any()) }
+    verifyOrder { outbound.receipt(any(), any(), any()); exchange.send(OK, receiptBytes, soap); handler.invoke(any()) }
   }
 
   @Test fun `the party is looked up by the signature identity, not by the envelope sender`() {

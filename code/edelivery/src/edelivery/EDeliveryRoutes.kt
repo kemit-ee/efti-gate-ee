@@ -137,7 +137,13 @@ class EDeliveryRoutes(
       EDeliveryMetrics.inbound(rootTag)
       log.info("Handling '$rootTag' from $responseKey (turvis decrypt=${inbound.decryptAuditRef} verify=${inbound.verifyAuditRef})")
 
-      val receipt = turvisOutbound.receipt(routing.messageId, inbound.signatureDigests, conversationId)
+      val receipt = try {
+        turvisOutbound.receipt(routing.messageId, inbound.signatureDigests, conversationId)
+      } catch (ex: Exception) {
+        // Not signing OUR receipt is never the peer's fault: 503 without a fault, so the peer retries (SPEC 13.2).
+        // The exact reason is already counted and logged inside receipt().
+        throw TurvisUnavailableException("receipt not signed", ex)
+      }
       e.send(OK, receipt.signedSoap, soap)
 
       AppScope.async {

@@ -306,4 +306,56 @@ class TurvisOutboundTest {
     assertFailsWith<TurvisProtocolException> { outbound().receipt("m-1@x", references) }
     expect(outbound(allowUnsignedEcho = true).receipt("m-1@x", references).signedSoap.isNotEmpty()).toEqual(true)
   }
+
+  @Test fun `the receipt keeps reference order, every transform and exact attribute values`() {
+    stub()
+    val refs = listOf(
+      TurvisSignatureReference("cid:a&b", null, "YQ==", "SHA-256", listOf("t1&x", "t2")),
+      TurvisSignatureReference("#MSG-ID", "//eb:Messaging", "bXNn", "SHA-256", listOf("http://www.w3.org/2001/10/xml-exc-c14n#")),
+    )
+
+    outbound().receipt("m-1@x", refs)
+
+    val doc = parse(String(signSoap.captured.base64Decode()))
+    val ds = "http://www.w3.org/2000/09/xmldsig#"
+    fun attrs(list: org.w3c.dom.NodeList, a: String) = (0 until list.length).map { (list.item(it) as org.w3c.dom.Element).getAttribute(a) }
+    val r = doc.getElementsByTagNameNS(ds, "Reference")
+    expect(attrs(r, "URI")).toEqual(refs.map { it.referenceUri })
+    expect(attrs((r.item(0) as org.w3c.dom.Element).getElementsByTagNameNS(ds, "Transform"), "Algorithm")).toEqual(listOf("t1&x", "t2"))
+    val d = doc.getElementsByTagNameNS(ds, "DigestValue")
+    expect((0 until d.length).map { d.item(it).textContent }).toEqual(refs.map { it.digestB64 })
+  }
+
+  @Test fun `whitespace inside the peer's message id and the reference URIs is kept exactly`() {
+    stub()
+    val id = "  id  with   spaces@x "
+
+    outbound().receipt(id, listOf(TurvisSignatureReference("#MSG ID  x", null, "ZGln", "SHA-256", emptyList())))
+
+    val doc = parse(String(signSoap.captured.base64Decode()))
+    expect(doc.getElementsByTagNameNS("http://docs.oasis-open.org/ebxml-msg/ebms/v3.0/ns/core/200704/", "RefToMessageId").item(0).textContent).toEqual(id)
+    expect((doc.getElementsByTagNameNS("http://www.w3.org/2000/09/xmldsig#", "Reference").item(0) as org.w3c.dom.Element).getAttribute("URI")).toEqual("#MSG ID  x")
+  }
+
+  @Test fun `a value that contains a slot name is not substituted into`() {
+    stub()
+    val id = "@@PARTS@@"
+
+    outbound().receipt(id, references)
+
+    val doc = parse(String(signSoap.captured.base64Decode()))
+    expect(doc.getElementsByTagNameNS("http://docs.oasis-open.org/ebxml-msg/ebms/v3.0/ns/core/200704/", "RefToMessageId").item(0).textContent).toEqual(id)
+  }
+
+  @Test fun `a control character in a value is a protocol error, never an unparseable envelope`() {
+    stub()
+    val before = failures("turvis_protocol")
+
+    assertFailsWith<TurvisProtocolException> {
+      outbound().receipt("m-1@x", listOf(TurvisSignatureReference("#a", null, "ZGln", "SHA-256", listOf("a\u0001b"))))
+    }
+
+    verify(exactly = 0) { client.sign(any(), any(), any(), any(), any(), any()) }
+    expect(failures("turvis_protocol")).toEqual(before + 1)
+  }
 }
