@@ -1276,6 +1276,8 @@ For AS4 non-repudiation receipts (NRR), edelivery takes `signature_digests` from
 
 A 50 MiB payload becomes ~67 MB when base64-encoded for JSON transport. edelivery must raise its own body-size cap to accommodate; Ruuter's 16 MiB default + edelivery's 10 MB default BOTH cap below the effective max. Target effective max for Phase 1: **40 MiB plaintext → ~54 MB base64 JSON**. If a larger message arrives from a peer, Ruuter should reject at the perimeter with HTTP 413 before Turvis is called.
 
+edelivery's side of the budget is `TURVIS_MAX_PAYLOAD_MIB` (default 40): the decompressed inbound payload and the outbound payload are refused above it, and a Turvis answer is read only up to a bound derived from it (a larger answer, or one that repeats a JSON key, is a protocol error). The HTTP body caps (`BODY_LIMIT_MD`, the Ruuter perimeter) are deployment settings that must be raised to match.
+
 Note: this cap is driven by HTTP-body-handling costs on both sides, not by crypto limits. If a larger payload is operationally needed, consider streaming-mode endpoints as a future addition (not in this contract).
 
 ### 13.9 Authoritative sender identity

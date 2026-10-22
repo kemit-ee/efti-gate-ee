@@ -214,9 +214,7 @@ class EDeliveryRoutes(
 
 private fun ByteArray.sha256Hex() = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(this))
 
-internal fun gunzip(compressed: ByteArray): ByteArray {
-  val maxBytes = Config.optional("BODY_LIMIT_MD", "10").toLong() * 1024 * 1024
-
+internal fun gunzip(compressed: ByteArray, maxBytes: Long = Config.optional("BODY_LIMIT_MD", "10").toLong() * 1024 * 1024): ByteArray {
   GZIPInputStream(ByteArrayInputStream(compressed)).use { gzip ->
     val out = ByteArrayOutputStream()
     val buffer = ByteArray(8192)

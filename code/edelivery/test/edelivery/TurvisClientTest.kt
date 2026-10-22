@@ -41,11 +41,13 @@ class TurvisClientTest {
   /** Never completes: a Turvis that sends nothing more. The client must give up and cancel it. */
   private val stalled = CompletableFuture<HttpResponse<String>>()
   private var sentAsync = 0
+  private val handlers = mutableListOf<BodyHandler<String>>()
 
   init {
     every { http.sendAsync(any(), any<BodyHandler<String>>()) } answers {
       val request = firstArg<HttpRequest>()
       requests += request
+      handlers += secondArg<BodyHandler<String>>()
       bodies += request.bodyPublisher().get().let(::readBody)
       sentAsync++
       @Suppress("UNCHECKED_CAST")
@@ -748,5 +750,49 @@ class TurvisClientTest {
       register(TurvisClient::class, TurvisClient::class)
     }
     assertIs<TurvisClient>(registry.require(TurvisClient::class))
+  }
+
+  @Test fun `a body that repeats a key is refused, it could read as another verdict`() {
+    script += answer(body = """{"verdict":"reject","verdict":"accept","audit_ref":"$audit","signer":{"cert_subject_dn":"CN=x","cert_ski":"00","cert_serial":"1","verified_identity":"EU-DE"}}""")
+
+    assertFailsWith<TurvisProtocolException> { verifyCall() }
+    assertEquals(1, sentAsync)
+  }
+
+  @Test fun `a reject body that repeats a key is a protocol error, not a reject`() {
+    script += answer(422, """{"reason_code":"SIG_CRYPTO_FAIL","reason_code":"SIG_MISSING","audit_ref":"$audit"}""")
+
+    assertFailsWith<TurvisProtocolException> { verifyCall() }
+  }
+
+  @Test fun `an answer that goes over the size limit is a protocol error and is not retried`() {
+    script += CompletableFuture.failedFuture<HttpResponse<String>>(ResponseTooLargeException())
+
+    assertFailsWith<TurvisProtocolException> { verifyCall() }
+    assertEquals(1, sentAsync)
+    assertTrue(sleeps.isEmpty())
+  }
+
+  @Test fun `the answer body handler cuts the read off at the limit and passes a smaller body through`() {
+    script += answer(body = verifyAccept)
+    verifyCall()
+    val handler = handlers.last()
+
+    val small = handler.apply(mockk(relaxed = true))
+    small.onSubscribe(object : Flow.Subscription { override fun request(n: Long) {}; override fun cancel() {} })
+    small.onNext(listOf(java.nio.ByteBuffer.wrap("{\"a\":1}".toByteArray())))
+    small.onComplete()
+    assertEquals("{\"a\":1}", small.body.toCompletableFuture().get())
+
+    val big = handler.apply(mockk(relaxed = true))
+    var cancelled = false
+    big.onSubscribe(object : Flow.Subscription { override fun request(n: Long) {}; override fun cancel() { cancelled = true } })
+    val mib = ByteArray(1024 * 1024)
+    var sent = 0L
+    while (!cancelled && sent < config.maxResponseBytes / (1024 * 1024) + 3) { big.onNext(listOf(java.nio.ByteBuffer.wrap(mib))); sent++ }
+    assertTrue(cancelled, "the read was cancelled")
+    assertTrue(sent * 1024 * 1024 <= config.maxResponseBytes + 1024 * 1024, "at most one chunk over the limit was taken")
+    val failure = assertFailsWith<java.util.concurrent.ExecutionException> { big.body.toCompletableFuture().get() }
+    assertIs<ResponseTooLargeException>(failure.cause)
   }
 }

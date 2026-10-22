@@ -11,6 +11,7 @@ import klite.base64Encode
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPOutputStream
+import kotlin.test.assertFailsWith
 
 class TurvisInboundTest {
   private val client = mockk<TurvisClient>()
@@ -61,6 +62,14 @@ class TurvisInboundTest {
   private fun stub(decrypt: TurvisResult<TurvisDecryptResponse> = TurvisResult.Accept(decryptResponse), verify: TurvisResult<TurvisVerifyResponse> = TurvisResult.Accept(verifyResponse())) {
     every { client.decrypt(capture(decryptCall), captureNullable(attachmentCall), capture(decryptFields), any()) } returns decrypt
     every { client.verify(capture(verifySoap), capture(verifyAttachments), any(), any(), capture(verifyFields), captureNullable(verifyClaimed), any(), any()) } returns verify
+  }
+
+  @Test fun `a decompressed payload over the budget is refused`() {
+    val big = gzip("x".repeat(1024 * 1024 + 1))
+    stub(decrypt = TurvisResult.Accept(TurvisDecryptResponse("dec-1", decryptedSoap.base64Encode(), big.base64Encode(), null)))
+    val small = TurvisInbound(TurvisConfig(mode = TurvisIntegrationMode.TURVIS, keyHandle = "EU-EE", maxPayloadMib = 1), client)
+
+    assertFailsWith<PayloadTooLargeException> { small.process(message()) }
   }
 
   @Test fun `authoritative only in turvis mode`() {
@@ -184,10 +193,17 @@ class TurvisInboundTest {
     expect(FaultReason.of(ex)).toEqual(FaultReason.XML_PARSE_FAIL)
   }
 
-  @Test fun `decompressed payload over the limit is rejected`() {
-    val big = ByteArrayOutputStream().also { o -> GZIPOutputStream(o).use { it.write(ByteArray(11 * 1024 * 1024)) } }.toByteArray()
+  @Test fun `decompressed payload over the default budget is rejected`() {
+    val big = ByteArrayOutputStream().also { o -> GZIPOutputStream(o).use { it.write(ByteArray(41 * 1024 * 1024)) } }.toByteArray()
     stub(decrypt = TurvisResult.Accept(decryptResponse.copy(decryptedAttachmentB64 = big.base64Encode())))
 
     expect { inbound().process(message()) }.toThrow<PayloadTooLargeException>()
+  }
+
+  @Test fun `a payload between the legacy limit and the budget is accepted on the turvis path`() {
+    val mid = ByteArrayOutputStream().also { o -> GZIPOutputStream(o).use { it.write(ByteArray(11 * 1024 * 1024) { 'x'.code.toByte() }) } }.toByteArray()
+    stub(decrypt = TurvisResult.Accept(decryptResponse.copy(decryptedAttachmentB64 = mid.base64Encode())))
+
+    expect(inbound().process(message()).payloadXml.length).toEqual(11 * 1024 * 1024)
   }
 }

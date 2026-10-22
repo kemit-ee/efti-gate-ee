@@ -70,7 +70,9 @@ class TurvisOutbound(
 
   internal fun requestMessage(params: UserMessageParams, payload: String, profile: TurvisEncryptProfile): OutboundMessage =
     guarded("Outbound message", params.requestKey.requestId) {
-      val compressed = generator.gzip(payload.toByteArray())
+      val raw = payload.toByteArray()
+      if (raw.size > config.maxPayloadBytes) throw PayloadTooLargeException("Outbound payload exceeds the ${config.maxPayloadBytes} byte limit")
+      val compressed = generator.gzip(raw)
       val compressedB64 = compressed.base64Encode()
 
       val encrypted = client.encrypt(compressedB64, params.requestKey.receiverId.toString(), profile, ENCRYPT_FIELDS, randomTraceId()).orThrow()
@@ -125,6 +127,7 @@ class TurvisOutbound(
     is TurvisUnavailableException -> "turvis_unavailable"
     is TurvisProtocolException -> "turvis_protocol"
     is TurvisAuthException -> "turvis_auth"
+    is PayloadTooLargeException -> "payload_too_large"
     else -> "internal"
   }
 
