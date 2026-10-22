@@ -526,6 +526,10 @@ Pure function of inputs. Same request → identical response (modulo `audit_ref`
 
 Same shape as verify reject, with `type: "https://efti.example/problem/turvis-sign-xmldsig-reject"`.
 
+#### Signature placement
+
+The unsigned envelope edelivery sends holds exactly one `<wsse:Security>` header (with the encryption fragments, empty in the plaintext profile). Turvis inserts exactly one `<ds:Signature>` as the last child of that existing `wsse:Security` header and changes no other byte of the envelope, so everything before the insertion point and everything after it is byte-for-byte the input. edelivery checks this on the returned bytes without parsing them and refuses a response that differs (a protocol error, counted as `turvis_protocol`).
+
 #### Idempotency
 
 **Byte-identical under retry.** XMLDSig with RSA-SHA256 (PKCS#1 v1.5, deterministic) + fixed canonicalisation input produces the same signed bytes for the same input. edelivery MAY dedup retries if desired.
@@ -1562,3 +1566,4 @@ Explicitly excluded from this build. If any of these later come into scope, that
 | 2026-10-20 | §7.2–7.4 rewritten: trust view generated from `registry/` (allowlist, no `apiKey`, pinning/chain per party, generation visibility, deny-wins status table) replacing the unapproved `parties.yml`; §13.0 ownership split (#305/#306/#308/#309/#312/#313), shadow invariants and start-up guard; §13.3 retry policy reconciled with §5; §13.6 deletions moved to #312; §9.1a attachment byte contract; `Klite` references removed | #304 merge conditions; **proposed, pending explicit agreement** |
 | 2026-10-20 | §11.2 environment guard: `AUTH_MODE=shared-token` refused in prod/staging; §7.2 and §13.0 marked agreed | turnerrainer approval of the six decisions on PR #311 |
 | 2026-10-20 | §4.0 mock caveat replaced: the mock (#306) validates and projects `return_fields`, rejects unknown values with a real `UNKNOWN_RETURN_FIELD`, extracts `ebms_routing` and the sender from the envelope, checks `key_handle`, and reports `<ds:Reference>` elements as written; §13.0 drift gate names the script and the unit test; DSL moved to `DSL/Ruuter-turvis-mock/` | #306 implementation (mock behaviour only, no change to the real contract) |
+| 2026-10-22 | §4.2 "Signature placement": Turvis inserts exactly one `<ds:Signature>` as the last child of the existing `wsse:Security` header and changes no other byte of the envelope | #305c-1 review: edelivery refuses a signed envelope that is not the unsigned one plus that insertion; the position was an implementation assumption until now |

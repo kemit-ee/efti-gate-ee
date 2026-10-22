@@ -106,6 +106,22 @@ class TurvisClientMockContractTest {
     assertEquals(before + 1, security())
   }
 
+  @Test fun `the outbound pass encrypts, splices and signs against the mock, in both profiles`() {
+    needMock()
+    val config = TurvisConfig(TurvisIntegrationMode.TURVIS, URI(mockUrl), token, "EU-EE")
+    val outbound = TurvisOutbound(config, client(), EDeliveryMessageGenerator(io.mockk.mockk { io.mockk.every { partyId } returns PartyId("EU-EE") })).also { it.allowUnsignedEcho = true }
+    val params = UserMessageParams(RequestKey(PartyId("EU-FR"), senderId = PartyId("EU-EE")))
+
+    val encrypted = outbound.requestMessage(params, "<hello>world</hello>")
+    val envelope = String(encrypted.signedSoap)
+    assertTrue(envelope.contains("<xenc:EncryptedKey") && envelope.contains("<xenc:EncryptedData"), "the mock's fragments are spliced into the envelope")
+    assertTrue(envelope.contains("<eb:Messaging") && envelope.contains("EU-FR"))
+
+    val plain = outbound.requestMessage(params, "<hello>world</hello>", TurvisEncryptProfile.PLAINTEXT)
+    assertTrue(!String(plain.signedSoap).contains("<xenc:EncryptedKey"), "plaintext profile splices nothing")
+    assertEquals(java.util.zip.GZIPInputStream(plain.encryptedAttachment.inputStream()).readBytes().decodeToString(), "<hello>world</hello>")
+  }
+
   @Test fun `verify binds the sender with and without a claimed signer id`() {
     needMock()
     fun verify(claimed: String?) = client().verify(envelope, emptyList(), emptyList(), emptyList(), setOf(TurvisVerifyField.SIGNER), claimed)

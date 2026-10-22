@@ -22,6 +22,7 @@ class EDeliveryClient(
   private val keyManager: KeyManager,
   private val eDeliveryMessageGenerator: EDeliveryMessageGenerator,
   partyRegistry: PartyRegistry,
+  private val turvisOutbound: TurvisOutbound,
   private val msInSec: Long = 1000L
 ) {
   private val log = logger()
@@ -65,13 +66,18 @@ class EDeliveryClient(
 
   fun send(endpoint: URI, params: UserMessageParams, payload: String): String {
     log.info("Sending message to $endpoint: conversationId=${params.requestKey} payload_size_bytes=${payload.toByteArray().size}")
-    val message = eDeliveryMessageGenerator.requestMessage(params, payload)
+    // In turvis mode Turvis encrypts and signs and the signed bytes go out untouched; otherwise the in-process path does (legacy, shadow).
+    val (soapBytes, attachment) = if (turvisOutbound.authoritative) {
+      turvisOutbound.requestMessage(params, payload).let { it.signedSoap to it.encryptedAttachment }
+    } else {
+      eDeliveryMessageGenerator.requestMessage(params, payload).let { it.first.toByteArray() to it.second }
+    }
 
     val body = ofByteArrays(listOf(
       mimePart1,
-      message.first.toByteArray(),
+      soapBytes,
       mimePart2,
-      message.second,
+      attachment,
       mimeEnd
     ))
 
@@ -94,7 +100,13 @@ class EDeliveryClient(
 
   fun sendAndReceive(eDeliveryUrl: URI, params: UserMessageParams, payload: String): String {
     asyncResponseProvider.register(params.requestKey)
-    send(eDeliveryUrl, params, payload)
+    var sent = false
+    try {
+      send(eDeliveryUrl, params, payload)
+      sent = true
+    } finally {
+      if (!sent) asyncResponseProvider.unregister(params.requestKey) // nobody will wait for it: do not leak the waiter
+    }
     return asyncResponseProvider.waitForResponse(params.requestKey)
   }
 

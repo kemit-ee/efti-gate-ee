@@ -23,6 +23,12 @@ class SingleNodeAsyncResponseProviderTest {
     assertEquals("payload", provider.waitForResponse(key))
   }
 
+  @Test fun `unregister drops the waiter so a late response is not queued`() {
+    provider.register(key)
+    provider.unregister(key)
+    assertFalse(provider.provideResponse(key, "payload"))
+  }
+
   @Test fun `receive throws TimeoutException when nothing arrives in time`() {
     val queue = ArrayBlockingQueue<String>(1)
     assertThrows(TimeoutException::class.java) { queue.receive(1.milliseconds) }
