@@ -13,6 +13,7 @@ import java.net.URI
 
 /** The inbound route with `TURVIS_INTEGRATION_MODE=turvis` (#305b-1): Turvis is the authority, nothing is dispatched without a verify. */
 class EDeliveryRoutesTurvisModeTest {
+  private val audit = mockk<AsyncFailureAudit>(relaxed = true)
   private val sender = EDeliveryParty(PartyId("de"), URI("http://de"), "")
   private val partyRegistry = mockk<PartyRegistry> {
     every { get(PartyId("DE")) } returns sender
@@ -33,7 +34,7 @@ class EDeliveryRoutesTurvisModeTest {
     every { receipt(any(), any(), any()) } returns SignedReceipt(receiptBytes, "sig-1")
   }
 
-  private val routes = EDeliveryRoutes(keyManager, messageHandlers, generator, eDeliveryClient, partyRegistry, SignatureValidator(), turvis, TurvisShadow(TurvisConfig(keyHandle = "EU-EE"), turvis), outbound)
+  private val routes = EDeliveryRoutes(keyManager, messageHandlers, generator, eDeliveryClient, partyRegistry, SignatureValidator(), turvis, TurvisShadow(TurvisConfig(keyHandle = "EU-EE"), turvis), outbound, audit)
 
   private val conversation = "11111111-1111-1111-1111-111111111111"
 
@@ -281,7 +282,7 @@ class EDeliveryRoutesTurvisModeTest {
         TurvisRejection("verifications", 422, "SIG_CRYPTO_FAIL", "00000000-0000-4000-8000-000000000002", "detail"))
     }
     val config = TurvisConfig(mode = TurvisIntegrationMode.TURVIS, keyHandle = "EU-EE")
-    val real = EDeliveryRoutes(keyManager, messageHandlers, generator, eDeliveryClient, partyRegistry, SignatureValidator(), TurvisInbound(config, client), TurvisShadow(config, turvis), outbound)
+    val real = EDeliveryRoutes(keyManager, messageHandlers, generator, eDeliveryClient, partyRegistry, SignatureValidator(), TurvisInbound(config, client), TurvisShadow(config, turvis), outbound, audit)
     every { exchange.requestStream } returns "--b\r\n\r\n<s/>\r\n--b\r\nContent-ID: <message>\r\n\r\nAB\r\n--b--".toByteArray().inputStream()
     every { generator.soapFault(any()) } returns "<fault/>"
 
@@ -295,7 +296,7 @@ class EDeliveryRoutesTurvisModeTest {
 
   @Test fun `the peer never sees the exception text of a failure`() {
     every { turvis.process(any()) } throws IllegalStateException("<driver>Jaan Tamm</driver> C:\\internal")
-    val real = EDeliveryRoutes(keyManager, messageHandlers, EDeliveryMessageGenerator(mockk(relaxed = true)), eDeliveryClient, partyRegistry, SignatureValidator(), turvis, TurvisShadow(TurvisConfig(keyHandle = "EU-EE"), turvis), outbound)
+    val real = EDeliveryRoutes(keyManager, messageHandlers, EDeliveryMessageGenerator(mockk(relaxed = true)), eDeliveryClient, partyRegistry, SignatureValidator(), turvis, TurvisShadow(TurvisConfig(keyHandle = "EU-EE"), turvis), outbound, audit)
     val sent = slot<String>()
     every { exchange.send(InternalServerError, capture(sent), soap) } just Runs
 

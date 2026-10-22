@@ -72,4 +72,15 @@ class ResqlClientTest {
     kotlin.test.assertFailsWith<java.io.IOException> { client.claimAsyncResponse("req-1") }
     assertEquals(1, calls)
   }
+
+  @Test fun `insertAuditLog posts the declared parameters with details as a JSON string`() {
+    val requestSlot = slot<HttpRequest>()
+    every { http.send(capture(requestSlot), any<BodyHandler<String>>()) } returns stringResponse()
+
+    client.insertAuditLog("as4.handler_failed", "as4_message", "ref-1", mapOf("reason" to "OTHER"))
+
+    assertEquals(URI("http://resql:8090/efti/insert_audit_log"), requestSlot.captured.uri())
+    assertEquals("POST", requestSlot.captured.method())
+  }
 }
+

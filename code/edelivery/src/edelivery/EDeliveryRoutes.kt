@@ -36,6 +36,7 @@ class EDeliveryRoutes(
   private val turvisInbound: TurvisInbound,
   private val turvisShadow: TurvisShadow,
   private val turvisOutbound: TurvisOutbound,
+  private val asyncFailureAudit: AsyncFailureAudit,
 ) {
   private val rootTagRegex = "<\\s*(?:\\w+:)?(\\w+)".toRegex()
 
@@ -92,7 +93,7 @@ class EDeliveryRoutes(
       e.send(OK, responseXml, soap)
       turvisShadow.compareInbound(auditRef, bodyBytes, LegacyDecision.Accepted(observed))
 
-      auditAsync(auditRef, "handler") {
+      auditAsync(asyncFailureAudit, auditRef, "handler", mapOf("response_key" to responseKey.toString())) {
         val result = handler(MessageContext(responseKey, payloadXml))
         if (result != null)
           eDeliveryClient.send(party.eDeliveryUrl, UserMessageParams(responseKey), result)
@@ -151,7 +152,7 @@ class EDeliveryRoutes(
       e.send(OK, receipt.signedSoap, soap)
       log.info(TurvisAudit.inbound(auditRef, inbound, receipt.signAuditRef))
 
-      auditAsync(auditRef, "handler") {
+      auditAsync(asyncFailureAudit, auditRef, "handler", mapOf("response_key" to responseKey.toString())) {
         val result = handler(MessageContext(responseKey, inbound.payloadXml))
         if (result != null)
           eDeliveryClient.send(party.eDeliveryUrl, UserMessageParams(responseKey), result)
