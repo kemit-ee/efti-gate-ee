@@ -17,6 +17,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 class EDeliveryRoutesTest {
+  val audit = mockk<AsyncFailureAudit>(relaxed = true)
   val party = EDeliveryParty(PartyId("fi-tst"), URI("http://ee"), "")
   val partyRegistry = mockk<PartyRegistry>(relaxUnitFun = true) {
     every { get(party.id) } returns party
@@ -39,7 +40,7 @@ class EDeliveryRoutesTest {
     every { keyManager.receiverCert(any()) } returns keyManager.ownCert
   }
 
-  val routes = EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, legacyShadow, mockk(relaxed = true))
+  val routes = EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, legacyShadow, mockk(relaxed = true), audit)
 
   private val boundary = "----boundary"
   private val cipherValueRegex = Regex("(<xenc:CipherValue>)(.*?)(</xenc:CipherValue>)", setOf(RegexOption.DOT_MATCHES_ALL))
@@ -226,6 +227,9 @@ class EDeliveryRoutesTest {
     val deadline = System.currentTimeMillis() + 5000
     while ((EDeliveryMetrics.asyncHandlerFailureCounts()["unsupported_message"] ?: 0) <= before && System.currentTimeMillis() < deadline) Thread.sleep(10)
     expect(EDeliveryMetrics.asyncHandlerFailureCounts()["unsupported_message"] ?: 0).toEqual(before + 1)
+    verify(timeout = 5000) {
+      audit.record(any(), "handler", FaultReason.UNSUPPORTED_MESSAGE, match { it.keys == setOf("response_key") && !it.values.any { v -> v.contains("secret") } })
+    }
   }
 
   private val secret = "<driver>Jaan Tamm</driver> C:\\internal\\path CN=Internal"
@@ -251,7 +255,7 @@ class EDeliveryRoutesTest {
     every { exchange.requestStream } returns body.inputStream()
     every { messageHandlers.rootTags } throws IllegalStateException(secret)
 
-    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, legacyShadow, mockk(relaxed = true)).msh(exchange)
+    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, legacyShadow, mockk(relaxed = true), audit).msh(exchange)
 
     assertBucketOnly(sentFault(), FaultReason.OTHER)
   }
@@ -261,7 +265,7 @@ class EDeliveryRoutesTest {
     every { exchange.requestStream } returns body.inputStream()
     every { messageHandlers.rootTags } throws SecurityException(secret)
 
-    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, legacyShadow, mockk(relaxed = true)).msh(exchange)
+    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, legacyShadow, mockk(relaxed = true), audit).msh(exchange)
 
     assertBucketOnly(sentFault(), FaultReason.SIG_CRYPTO_FAIL)
   }
@@ -269,7 +273,7 @@ class EDeliveryRoutesTest {
   @Test fun `real SOAP fault for an unparsable body does not echo the body`() {
     every { exchange.requestStream } returns "invalid $secret".toByteArray().inputStream()
 
-    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, legacyShadow, mockk(relaxed = true)).msh(exchange)
+    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, legacyShadow, mockk(relaxed = true), audit).msh(exchange)
 
     val fault = sentFault(BadRequest)
     expect(fault).notToContain("Jaan Tamm")
@@ -299,7 +303,7 @@ class EDeliveryRoutesTest {
     every { mockHandler.invoke(any()) } returns null
     every { messageHandlers.rootTags } returns mapOf("data" to mockHandler)
 
-    EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, shadow, mockk(relaxed = true)).msh(exchange)
+    EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, shadow, mockk(relaxed = true), audit).msh(exchange)
 
     verifyOrder {
       exchange.send(OK, "<response/>", soap)
@@ -318,7 +322,7 @@ class EDeliveryRoutesTest {
     every { shadow.compareInbound(any(), any(), capture(decision)) } just Runs
     every { exchange.requestStream } returns getBody("<data/>", tamper = true).inputStream()
 
-    EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, shadow, mockk(relaxed = true)).msh(exchange)
+    EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, shadow, mockk(relaxed = true), audit).msh(exchange)
 
     expect(decision.captured).toEqual(LegacyDecision.Rejected(FaultReason.SIG_CRYPTO_FAIL, party.id))
     verify(exactly = 0) { messageHandlers.rootTags }
@@ -331,7 +335,7 @@ class EDeliveryRoutesTest {
     every { exchange.requestStream } returns getBody("<data/>").inputStream()
     every { partyRegistry[party.id] } throws NoSuchElementException("unknown")
 
-    EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, shadow, mockk(relaxed = true)).msh(exchange)
+    EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, shadow, mockk(relaxed = true), audit).msh(exchange)
 
     expect(decision.captured).toEqual(LegacyDecision.NotComparable)
   }
@@ -343,7 +347,7 @@ class EDeliveryRoutesTest {
     every { exchange.requestStream } returns getBody("<unknown/>").inputStream()
     every { messageHandlers.rootTags } returns emptyMap()
 
-    EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, shadow, mockk(relaxed = true)).msh(exchange)
+    EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, shadow, mockk(relaxed = true), audit).msh(exchange)
 
     expect(decision.captured is LegacyDecision.Accepted).toEqual(true)
   }
