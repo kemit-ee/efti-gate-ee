@@ -83,6 +83,10 @@ Admin registrinimekirjad (gates, platforms, authorities) loevad generatsiooni-sn
 
 Authority-põhine kokkuvõte: loendused päeva kaupa (registreerimispäev) dimensioonide kaupa, iga dimensioon seotud eFTI subset'iga (EU02 ohtlikud veosed, EU03 laadimis-/mahalaadimisriik, EU04 transpordiliik/-tüüp/registreerimisriik); subset'ita rida on kõigile lubatud kogusumma. Periood on käsitsi vahemik (`from`/`to`, kaasa arvatud). Autoriteet ja tema `subsets` loetakse alati allikatabelist `authorities`, mitte read-model'ist; read-model annab ainult arve. EU01, EU06 ja EU07 jaoks ei ole `consignments`-il denormaliseeritud veerge, seega neile kokkuvõtet ei ole.
 
+## DENORM-3 lahendus
+
+DENORM-3 (gate'i register lahendatud sertifikaadiga) on suletud ADR-011-ga ja eraldi read-model'it ei ehitata. Register on `registry/gates/<id>.yml`, ehitusajal genereeritud staatiline JSON (`/gates/<id>.json`), kus gate'i praegune sertifikaat on sees: marsruutimine loeb seda ühe lookup'iga, projektsioon on nimeline ja allikas on kanooniline. `edelivery` värskendab party mappi iga `REGISTRY_REFRESH_SECONDS` (vaikimisi 10 s, vastab issue'i 10 sekundi tolerantsile).
+
 ## Lahtised küsimused
 
 - Kas versioonitud INSERT-only read-model (ilma generatsioonideta) annab piisavalt kasu võrreldes `LATERAL`-iga? Eeldatavasti mitte.

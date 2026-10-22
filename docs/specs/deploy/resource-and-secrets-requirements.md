@@ -52,7 +52,7 @@ väärtust:
 |---|---|---|
 | `OWN_GATE_ID` | Selle värava eFTI identifikaator. Peab olema sama `constants.ini`-s (Ruuter) ja `edelivery`/`xml-mapper` env-is, ning võrduma `registry/gates/<OWN_GATE_ID>.yml` failinime ja AS4 võtmehoidla aliasega (§3.5) | `EU-EE` |
 | `RUUTER_URL`, `RESQL_URL`, `REGISTRY_URL`, `EDELIVERY_URL`, `XML_MAPPER_URL`, `TIM_URL` | Teenustevahelised URL-id (K8s-is Service DNS-nimed) | `http://<service>:<port>` |
-| `REGISTRY_REFRESH_SECONDS` | Kui tihti `edelivery` registrit uuesti loeb | `60` |
+| `REGISTRY_REFRESH_SECONDS` | Kui tihti `edelivery` registrit uuesti loeb | `10` |
 | `TURVIS_INTEGRATION_MODE` (`edelivery`) | `legacy` (vaikimisi: ainult protsessisisene krüpto, Turvist ei kutsuta), `shadow` või `turvis` (Turvis autoriteetne). Vigane väärtus peatab käivituse | `legacy` |
 | `TURVIS_URL` (`edelivery`) | Turvise baas-URL; nõutav, kui režiim pole `legacy`. **Käivituse guard:** kui host on `turvis-mock` (ka `turvis-mock.` ja `turvis-mock.<järelliide>`, mis tahes tähesuurus) ja mõni muutujatest `ENVIRONMENT`/`APP_ENV`/`DEPLOY_ENV`/`ENV` (komaeraldatud) on `prod`/`production`/`staging`, `edelivery` ei käivitu (igas režiimis; IP-aadressi hostinimekontroll ei näe) | `http://turvis-mock:8091` (ainult `compose.override.yml`) |
 | `TURVIS_INTERNAL_TOKEN` (`edelivery`, **saladus**) | Turvisele pühendatud mandaat päises `X-Internal-Service-Token` (SPEC §11.2); nõutav, kui režiim pole `legacy`; **ei tohi olla võrdne `INTERNAL_SERVICE_TOKEN`-iga** (käivitus keeldub). Tootmises Secret, mitte `compose.yml` | `dev-turvis-mock-token` (ainult `compose.override.yml`, mocki enda dev-token) |

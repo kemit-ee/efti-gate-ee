@@ -15,7 +15,7 @@
    (`edelivery_parties_online_total`) to see whether the registry even has a route to the peer.
 2. Confirm the peer is `ONLINE` in our own registry (`registry/gates/<id>.yml` / served as
    `/gates/<id>.json`) — a `DISABLED` peer is excluded from `edelivery`'s AS4 party map entirely
-   (`EDeliveryPartyRegistry`/`RegistryClient`, refreshed every `REGISTRY_REFRESH_SECONDS`, default 60s).
+   (`EDeliveryPartyRegistry`/`RegistryClient`, refreshed every `REGISTRY_REFRESH_SECONDS`, default 10s).
    If you just flipped a peer's status, allow one refresh interval before assuming it's broken.
 3. `docker compose logs edelivery` — look for:
    - `SignatureValidator` failures on inbound messages — usually a cert mismatch (see
