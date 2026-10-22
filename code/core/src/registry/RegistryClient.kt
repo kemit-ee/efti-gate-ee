@@ -5,12 +5,15 @@ import edelivery.PartyId
 import klite.Config
 import klite.http.bodyOrThrow
 import klite.http.get
+import klite.http.timeout
 import klite.info
 import klite.json.JsonMapper
 import klite.json.parse
 import klite.logger
 import klite.plus
 import klite.warn
+import registryTimeout
+import retryIdempotent
 import java.net.URI
 import java.net.http.HttpClient
 
@@ -27,7 +30,7 @@ class RegistryClient(
   private val log = logger()
 
   private inline fun <reified T> fetch(path: String): List<T> =
-    jsonMapper.parse(http.get(baseUrl + path).bodyOrThrow())
+    jsonMapper.parse(retryIdempotent("registry GET $path") { http.get(baseUrl + path) { timeout(registryTimeout) }.bodyOrThrow() })
 
   fun getGates() = fetch<RegistryGate>("/gates.json").filter { it.status == ONLINE }.mapNotNull { g ->
     if (g.eDeliveryCert == null) log.warn("Gate ${g.id} has no eDeliveryCert, skipped")

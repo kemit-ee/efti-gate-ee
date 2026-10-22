@@ -3,11 +3,13 @@ package resql
 import klite.Config
 import klite.http.bodyOrThrow
 import klite.http.post
+import klite.http.timeout
 import klite.json.JsonMapper
 import klite.json.parse
 import klite.plus
 import java.net.URI
 import java.net.http.HttpClient
+import resqlTimeout
 
 class ResqlClient(
   private val baseUrl: URI = URI(Config["RESQL_URL"] + "/efti"),
@@ -15,11 +17,11 @@ class ResqlClient(
   private val jsonMapper: JsonMapper,
 ) {
   fun insertAsyncResponse(requestKey: String, body: String) {
-    http.post(baseUrl + "/insert_async_response", jsonMapper.render(mapOf("requestKey" to requestKey, "body" to body))).bodyOrThrow()
+    http.post(baseUrl + "/insert_async_response", jsonMapper.render(mapOf("requestKey" to requestKey, "body" to body))) { timeout(resqlTimeout) }.bodyOrThrow()
   }
 
   fun claimAsyncResponse(requestKey: String): String? {
-    val res = http.post(baseUrl + "/claim_async_response", jsonMapper.render(mapOf("requestKey" to requestKey)))
+    val res = http.post(baseUrl + "/claim_async_response", jsonMapper.render(mapOf("requestKey" to requestKey))) { timeout(resqlTimeout) }
     return jsonMapper.parse<List<AsyncResponseRow>>(res.bodyOrThrow()).firstOrNull()?.body
   }
 }

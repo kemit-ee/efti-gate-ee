@@ -2,10 +2,12 @@ import edelivery.PartyId
 import klite.Config
 import klite.http.bodyOrThrow
 import klite.http.post
+import klite.http.timeout
 import klite.plus
 import java.net.URI
 import java.net.http.HttpClient
 import java.util.*
+import ruuterTimeout
 
 /** Forwards raw EFTI XMLs to Ruuter for further processing */
 open class RuuterClient(
@@ -27,6 +29,7 @@ open class RuuterClient(
 
   fun HttpClient.sendXml(url: URI, xml: String, requestId: UUID, platformId: PartyId? = null) =
     post(url, xml) {
+      timeout(ruuterTimeout)
       header("Content-Type", "text/xml")
       header("X-Internal-Service-Token", internalServiceToken)
       platformId?.let { header("X-Platform-Id", it.toString()) }
