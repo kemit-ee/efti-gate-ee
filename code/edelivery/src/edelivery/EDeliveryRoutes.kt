@@ -140,11 +140,13 @@ class EDeliveryRoutes(
       val receipt = try {
         turvisOutbound.receipt(routing.messageId, inbound.signatureDigests, conversationId)
       } catch (ex: Exception) {
+        log.info(TurvisAudit.inbound(auditRef, inbound, null))
         // Not signing OUR receipt is never the peer's fault: 503 without a fault, so the peer retries (SPEC 13.2).
         // The exact reason is already counted and logged inside receipt().
         throw TurvisUnavailableException("receipt not signed", ex)
       }
       e.send(OK, receipt.signedSoap, soap)
+      log.info(TurvisAudit.inbound(auditRef, inbound, receipt.signAuditRef))
 
       AppScope.async {
         val result = handler(MessageContext(responseKey, inbound.payloadXml))

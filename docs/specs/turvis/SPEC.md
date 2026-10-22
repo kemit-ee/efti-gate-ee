@@ -1270,6 +1270,8 @@ For audit, non-repudiation receipts, and incident lookup, edelivery stores a sma
 | `signer_cert_ski` | Turvis verify response `signer.cert_ski` | Operator-facing provenance; survives cert rotation |
 | `message_id`, `conversation_id`, `ref_to_message_id`, `from_party_id`, `to_party_id`, `service`, `action` | Turvis's `ebms_routing` (verify response; the decrypt copy is diagnostic only) | Routing + correlation; replaces any edelivery-side ebMS-header parse |
 
+edelivery's implementation (#305d-2) is one structured log line per message (`turvis_audit direction=inbound|outbound`, ids only, values outside a narrow character set written as `?`), because edelivery has no message table; a durable table remains open.
+
 For AS4 non-repudiation receipts (NRR), edelivery takes `signature_digests` from Turvis's verify response (§4.1) and places those digest values as text content in the receipt XML it builds; it then calls `/turvis/v1/signatures/xmldsig` to sign the receipt. edelivery never computes or verifies any digest.
 
 ### 13.8 Payload size budget

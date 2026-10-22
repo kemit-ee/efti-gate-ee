@@ -2,6 +2,7 @@ package edelivery
 
 import klite.base64Decode
 import klite.base64Encode
+import klite.info
 import klite.logger
 import klite.warn
 
@@ -85,6 +86,7 @@ class TurvisOutbound(
       val signedSoap = signed.signedXmlB64.base64Decode()
       requireSignatureOnlyInserted(unsigned.toByteArray(), signedSoap)
       OutboundMessage(signedSoap, encrypted.encryptedPayloadB64.base64Decode(), encrypted.auditRef, signed.auditRef)
+        .also { log.info(TurvisAudit.outbound(params, it)) }
     }
 
   private fun <T> guarded(what: String, conversation: Any?, block: () -> T): T =
