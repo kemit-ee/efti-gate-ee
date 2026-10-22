@@ -37,11 +37,11 @@ class TurvisClientMockContractTest {
     """<env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope" xmlns:eb="http://docs.oasis-open.org/ebxml-msg/ns/v3.0/ebms/core/200704/"><env:Header>""" +
       """<eb:Messaging wsu:Id="MSG-ID"><eb:UserMessage><eb:MessageInfo><eb:MessageId>contract-0001@eu-de.example</eb:MessageId><eb:RefToMessageId>earlier-0000@eu-ee.example</eb:RefToMessageId></eb:MessageInfo>""" +
       """<eb:PartyInfo><eb:From><eb:PartyId>EU-DE</eb:PartyId></eb:From><eb:To><eb:PartyId>EU-EE</eb:PartyId></eb:To></eb:PartyInfo>""" +
-      """<eb:CollaborationInfo><eb:Service>FTI010</eb:Service><eb:Action>FTI010Response</eb:Action><eb:ConversationId>conv-contract-0001</eb:ConversationId></eb:CollaborationInfo></eb:UserMessage></eb:Messaging>""" +
+      """<eb:CollaborationInfo><eb:Service>FTI010</eb:Service><eb:Action>FTI010Response</eb:Action><eb:ConversationId>11111111-1111-1111-1111-111111111111</eb:ConversationId></eb:CollaborationInfo></eb:UserMessage></eb:Messaging>""" +
       """</env:Header><env:Body wsu:Id="BODY-ID"/></env:Envelope>""",
   )
 
-  private val routing = TurvisEbmsRouting("contract-0001@eu-de.example", "conv-contract-0001", "earlier-0000@eu-ee.example", "EU-DE", "EU-EE", "FTI010", "FTI010Response")
+  private val routing = TurvisEbmsRouting("contract-0001@eu-de.example", "11111111-1111-1111-1111-111111111111", "earlier-0000@eu-ee.example", "EU-DE", "EU-EE", "FTI010", "FTI010Response")
 
   private fun needMock() = assumeTrue(mockUrl != null, "TURVIS_MOCK_URL is not set")
 
@@ -82,6 +82,28 @@ class TurvisClientMockContractTest {
     assertEquals("EU-DE", inbound.signer.verifiedIdentity)
     assertEquals(payload, inbound.payloadXml)
     assertEquals(listOf("#MSG-ID", "#BODY-ID", "cid:message"), inbound.signatureDigests.map { it.referenceUri })
+  }
+
+  @Test fun `shadow comparison against the mock agrees with a matching legacy outcome and flags a different sender`() {
+    needMock()
+    val payload = "<hello>world</hello>"
+    val gzipped = java.io.ByteArrayOutputStream().also { o -> java.util.zip.GZIPOutputStream(o).use { it.write(payload.toByteArray()) } }.toByteArray()
+    val body = "--bnd\r\nContent-Type: application/soap+xml\r\n\r\n".toByteArray() + Base64.getDecoder().decode(envelope) +
+      "\r\n--bnd\r\nContent-ID: <message>\r\n\r\n".toByteArray() + gzipped + "\r\n--bnd--\r\n".toByteArray()
+    val config = TurvisConfig(TurvisIntegrationMode.SHADOW, URI(mockUrl), token, "EU-EE")
+    val shadow = TurvisShadow(config, TurvisInbound(config, client()))
+    fun observation(sender: String) = LegacyObservation().apply {
+      stage = LegacyObservation.Stage.VERIFIED; senderId = PartyId(sender); receiverId = PartyId("EU-EE")
+      conversationId = "11111111-1111-1111-1111-111111111111"; messageId = "contract-0001@eu-de.example"; attachment = gzipped; payloadXml = payload
+    }
+    fun security() = (klite.Metrics.data["edeliveryTurvisShadowSecurityDiscrepanciesTotal"] as Number?)?.toLong() ?: 0L
+
+    val before = security()
+    shadow.compare("contract-1", body, LegacyDecision.Accepted(observation("EU-DE")))
+    assertEquals(before, security())
+
+    shadow.compare("contract-2", body, LegacyDecision.Accepted(observation("EU-FR")))
+    assertEquals(before + 1, security())
   }
 
   @Test fun `verify binds the sender with and without a claimed signer id`() {

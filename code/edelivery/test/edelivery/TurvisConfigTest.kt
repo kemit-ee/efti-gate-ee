@@ -17,6 +17,14 @@ class TurvisConfigTest {
     assertEquals("EU-EE", config.keyHandle)
   }
 
+  @Test fun `shadow concurrency defaults to 8 and accepts 1 to 64 only`() {
+    assertEquals(8, load().shadowMaxInflight)
+    assertEquals(1, load("TURVIS_SHADOW_MAX_INFLIGHT" to "1").shadowMaxInflight)
+    assertEquals(64, load("TURVIS_SHADOW_MAX_INFLIGHT" to " 64 ").shadowMaxInflight)
+    assertEquals(8, load("TURVIS_SHADOW_MAX_INFLIGHT" to "").shadowMaxInflight)
+    listOf("0", "65", "-1", "many", "1.5").forEach { assertFailsWith<IllegalArgumentException>(it) { load("TURVIS_SHADOW_MAX_INFLIGHT" to it) } }
+  }
+
   @Test fun `mode parsing accepts the three wire values case-insensitively and rejects anything else`() {
     assertEquals(TurvisIntegrationMode.LEGACY, TurvisIntegrationMode.parse(null))
     assertEquals(TurvisIntegrationMode.LEGACY, TurvisIntegrationMode.parse(" "))

@@ -239,6 +239,7 @@ services:
       - TURVIS_INTEGRATION_MODE=${TURVIS_INTEGRATION_MODE:-legacy}
       - TURVIS_URL
       - TURVIS_INTERNAL_TOKEN
+      - TURVIS_SHADOW_MAX_INFLIGHT=${TURVIS_SHADOW_MAX_INFLIGHT:-8}
     volumes:
       - ./code/certs:/app/certs:ro
     build:

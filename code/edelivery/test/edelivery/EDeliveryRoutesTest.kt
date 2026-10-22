@@ -30,6 +30,7 @@ class EDeliveryRoutesTest {
   val signatureValidator = SignatureValidator()
   /** Mode legacy (the default): the Turvis inbound pass is not used and the client is never called. */
   val legacyInbound = TurvisInbound(TurvisConfig(keyHandle = "EU-EE"), mockk(relaxed = true))
+  val legacyShadow = TurvisShadow(TurvisConfig(keyHandle = "EU-EE"), legacyInbound)
 
   private val keyIdentifierRegex = Regex("<wsse:KeyIdentifier\\b[^>]*>.*?</wsse:KeyIdentifier>", setOf(RegexOption.DOT_MATCHES_ALL))
 
@@ -37,7 +38,7 @@ class EDeliveryRoutesTest {
     every { keyManager.receiverCert(any()) } returns keyManager.ownCert
   }
 
-  val routes = EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound)
+  val routes = EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, legacyShadow)
 
   private val boundary = "----boundary"
   private val cipherValueRegex = Regex("(<xenc:CipherValue>)(.*?)(</xenc:CipherValue>)", setOf(RegexOption.DOT_MATCHES_ALL))
@@ -211,7 +212,7 @@ class EDeliveryRoutesTest {
     every { exchange.requestStream } returns body.inputStream()
     every { messageHandlers.rootTags } throws IllegalStateException(secret)
 
-    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound).msh(exchange)
+    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, legacyShadow).msh(exchange)
 
     assertBucketOnly(sentFault(), FaultReason.OTHER)
   }
@@ -221,7 +222,7 @@ class EDeliveryRoutesTest {
     every { exchange.requestStream } returns body.inputStream()
     every { messageHandlers.rootTags } throws SecurityException(secret)
 
-    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound).msh(exchange)
+    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, legacyShadow).msh(exchange)
 
     assertBucketOnly(sentFault(), FaultReason.SIG_CRYPTO_FAIL)
   }
@@ -229,7 +230,7 @@ class EDeliveryRoutesTest {
   @Test fun `real SOAP fault for an unparsable body does not echo the body`() {
     every { exchange.requestStream } returns "invalid $secret".toByteArray().inputStream()
 
-    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound).msh(exchange)
+    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, legacyShadow).msh(exchange)
 
     val fault = sentFault()
     expect(fault).notToContain("Jaan Tamm")
@@ -248,6 +249,64 @@ class EDeliveryRoutesTest {
     routes.msh(exchange)
 
     verify { exchange.send(InternalServerError, "<fault/>", soap) }
+  }
+
+  @Test fun `shadow mode is told what legacy decided, after the peer was answered`() {
+    val shadow = mockk<TurvisShadow>(relaxed = true)
+    val decision = slot<LegacyDecision>()
+    every { shadow.compareInbound(any(), any(), capture(decision)) } just Runs
+    every { exchange.requestStream } returns getBody("<data/>").inputStream()
+    every { messageGenerator.responseMessage(any()) } returns "<response/>"
+    every { mockHandler.invoke(any()) } returns null
+    every { messageHandlers.rootTags } returns mapOf("data" to mockHandler)
+
+    EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, shadow).msh(exchange)
+
+    verifyOrder {
+      exchange.send(OK, "<response/>", soap)
+      shadow.compareInbound(any(), any(), any())
+    }
+    val observed = (decision.captured as LegacyDecision.Accepted).observation
+    expect(observed.stage).toEqual(LegacyObservation.Stage.VERIFIED)
+    expect(observed.senderId).toEqual(party.id)
+    expect(observed.payloadXml).toEqual("<data/>")
+    expect(observed.attachment!!.isNotEmpty()).toEqual(true)
+  }
+
+  @Test fun `shadow mode sees a legacy signature rejection as a reject with its bucket`() {
+    val shadow = mockk<TurvisShadow>(relaxed = true)
+    val decision = slot<LegacyDecision>()
+    every { shadow.compareInbound(any(), any(), capture(decision)) } just Runs
+    every { exchange.requestStream } returns getBody("<data/>", tamper = true).inputStream()
+
+    EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, shadow).msh(exchange)
+
+    expect(decision.captured).toEqual(LegacyDecision.Rejected(FaultReason.SIG_CRYPTO_FAIL, party.id))
+    verify(exactly = 0) { messageHandlers.rootTags }
+  }
+
+  @Test fun `an unknown sender party is not a comparable legacy decision`() {
+    val shadow = mockk<TurvisShadow>(relaxed = true)
+    val decision = slot<LegacyDecision>()
+    every { shadow.compareInbound(any(), any(), capture(decision)) } just Runs
+    every { exchange.requestStream } returns getBody("<data/>").inputStream()
+    every { partyRegistry[party.id] } throws NoSuchElementException("unknown")
+
+    EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, shadow).msh(exchange)
+
+    expect(decision.captured).toEqual(LegacyDecision.NotComparable)
+  }
+
+  @Test fun `a failure after verification (unsupported root tag) is still an accepted security decision`() {
+    val shadow = mockk<TurvisShadow>(relaxed = true)
+    val decision = slot<LegacyDecision>()
+    every { shadow.compareInbound(any(), any(), capture(decision)) } just Runs
+    every { exchange.requestStream } returns getBody("<unknown/>").inputStream()
+    every { messageHandlers.rootTags } returns emptyMap()
+
+    EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, shadow).msh(exchange)
+
+    expect(decision.captured is LegacyDecision.Accepted).toEqual(true)
   }
 
   @Test fun `msh success`() {

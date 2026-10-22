@@ -4,6 +4,7 @@ import ch.tutteli.atrium.api.fluent.en_GB.*
 import ch.tutteli.atrium.api.verbs.expect
 import io.mockk.*
 import klite.HttpExchange
+import klite.base64Encode
 import klite.StatusCode.Companion.InternalServerError
 import klite.StatusCode.Companion.OK
 import klite.StatusCode.Companion.ServiceUnavailable
@@ -27,7 +28,7 @@ class EDeliveryRoutesTurvisModeTest {
   }
   private val turvis = mockk<TurvisInbound> { every { authoritative } returns true }
 
-  private val routes = EDeliveryRoutes(keyManager, messageHandlers, generator, eDeliveryClient, partyRegistry, SignatureValidator(), turvis)
+  private val routes = EDeliveryRoutes(keyManager, messageHandlers, generator, eDeliveryClient, partyRegistry, SignatureValidator(), turvis, TurvisShadow(TurvisConfig(keyHandle = "EU-EE"), turvis))
 
   private val conversation = "11111111-1111-1111-1111-111111111111"
 
@@ -205,9 +206,30 @@ class EDeliveryRoutesTurvisModeTest {
     verify(exactly = 0) { exchange.send(OK, any<String>(), any()) }
   }
 
+  @Test fun `with the real TurvisInbound a verify reject is answered with a fault and never dispatched`() {
+    val gzipped = java.io.ByteArrayOutputStream().also { o -> java.util.zip.GZIPOutputStream(o).use { it.write("<hello/>".toByteArray()) } }.toByteArray()
+    val client = mockk<TurvisClient> {
+      every { decrypt(any(), any(), any(), any()) } returns TurvisResult.Accept(
+        TurvisDecryptResponse("00000000-0000-4000-8000-000000000001", "PHMvPg==", gzipped.base64Encode(), null))
+      every { verify(any(), any(), any(), any(), any(), any(), any(), any()) } returns TurvisResult.Reject(
+        TurvisRejection("verifications", 422, "SIG_CRYPTO_FAIL", "00000000-0000-4000-8000-000000000002", "detail"))
+    }
+    val config = TurvisConfig(mode = TurvisIntegrationMode.TURVIS, keyHandle = "EU-EE")
+    val real = EDeliveryRoutes(keyManager, messageHandlers, generator, eDeliveryClient, partyRegistry, SignatureValidator(), TurvisInbound(config, client), TurvisShadow(config, turvis))
+    every { exchange.requestStream } returns "--b\r\n\r\n<s/>\r\n--b\r\nContent-ID: <message>\r\n\r\nAB\r\n--b--".toByteArray().inputStream()
+    every { generator.soapFault(any()) } returns "<fault/>"
+
+    real.msh(exchange)
+
+    verify { generator.soapFault(FaultReason.SIG_CRYPTO_FAIL) }
+    verify { exchange.send(InternalServerError, "<fault/>", soap) }
+    verify(exactly = 0) { handler.invoke(any()) }
+    verify(exactly = 0) { partyRegistry[any()] }
+  }
+
   @Test fun `the peer never sees the exception text of a failure`() {
     every { turvis.process(any()) } throws IllegalStateException("<driver>Jaan Tamm</driver> C:\\internal")
-    val real = EDeliveryRoutes(keyManager, messageHandlers, EDeliveryMessageGenerator(mockk(relaxed = true)), eDeliveryClient, partyRegistry, SignatureValidator(), turvis)
+    val real = EDeliveryRoutes(keyManager, messageHandlers, EDeliveryMessageGenerator(mockk(relaxed = true)), eDeliveryClient, partyRegistry, SignatureValidator(), turvis, TurvisShadow(TurvisConfig(keyHandle = "EU-EE"), turvis))
     val sent = slot<String>()
     every { exchange.send(InternalServerError, capture(sent), soap) } just Runs
 

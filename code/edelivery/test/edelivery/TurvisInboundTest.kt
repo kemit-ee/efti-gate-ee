@@ -167,6 +167,14 @@ class TurvisInboundTest {
     verify(exactly = 0) { client.decrypt(any(), any(), any(), any()) }
   }
 
+  @Test fun `an attachment with another Content-ID is refused before Turvis is called`() {
+    val other = "--b1\r\n\r\n<s/>\r\n--b1\r\nContent-ID: <other>\r\n\r\nAB\r\n--b1--".toByteArray()
+
+    expect { inbound().process(other) }.toThrow<IllegalArgumentException>()
+
+    verify(exactly = 0) { client.decrypt(any(), any(), any(), any()) }
+  }
+
   @Test fun `attachment that is not gzip is a parse failure, not a crash`() {
     stub(decrypt = TurvisResult.Accept(decryptResponse.copy(decryptedAttachmentB64 = "plain, not gzip".toByteArray().base64Encode())))
 

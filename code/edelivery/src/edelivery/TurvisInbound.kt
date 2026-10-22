@@ -15,6 +15,9 @@ class VerifiedInbound(
   val payloadXml: String,
   val decryptAuditRef: String,
   val verifyAuditRef: String,
+  /** What decrypt returned, as bytes: the shadow comparison reads them; nothing else needs them. */
+  val decryptedSoap: ByteArray = ByteArray(0),
+  val decryptedAttachment: ByteArray = ByteArray(0),
 )
 
 /**
@@ -39,7 +42,9 @@ class TurvisInbound(private val config: TurvisConfig, private val client: Turvis
     // Exactly two parts: a third one (the legacy detached key part) never reaches Turvis, so it is refused instead of dropped silently.
     require(parts.size == 2) { "AS4 message needs exactly a SOAP part and an attachment part" }
     val soap = parts.first().bytes
-    val attachment = parts.last().bytes
+    val attachmentPart = parts.last()
+    require(attachmentPart.contentId.let { it == null || it == ATTACHMENT_CID.removePrefix("cid:") }) { "AS4 attachment part is not cid:message" }
+    val attachment = attachmentPart.bytes
 
     val decrypted = client.decrypt(soap.base64Encode(), attachment.base64Encode(), DECRYPT_FIELDS, randomTraceId()).orThrow()
     val soapB64 = decrypted.decryptedSoapXmlB64!!
@@ -56,8 +61,9 @@ class TurvisInbound(private val config: TurvisConfig, private val client: Turvis
     if (!verified.matchedSignedXpaths!!.containsAll(REQUIRED_SIGNED_XPATHS) || !verified.matchedSignedCidRefs!!.containsAll(REQUIRED_SIGNED_CID_REFS))
       throw SignaturePolicyException(rejection("SIG_POLICY_FAIL", verified.auditRef, "verify did not cover the required signed content"))
 
-    val payloadXml = String(gunzip(attachmentB64.base64Decode()))
-    return VerifiedInbound(routing, signer, verified.signatureDigests!!, payloadXml, decrypted.auditRef, verified.auditRef)
+    val attachmentBytes = attachmentB64.base64Decode()
+    val payloadXml = String(gunzip(attachmentBytes))
+    return VerifiedInbound(routing, signer, verified.signatureDigests!!, payloadXml, decrypted.auditRef, verified.auditRef, soapB64.base64Decode(), attachmentBytes)
   }
 
   private fun rejection(code: String, auditRef: String, detail: String) =
