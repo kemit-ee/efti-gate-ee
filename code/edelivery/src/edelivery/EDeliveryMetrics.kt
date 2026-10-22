@@ -16,6 +16,7 @@ object EDeliveryMetrics {
   private val shadowErrors = ConcurrentHashMap<String, LongAdder>()
   private val shadowSkipped = ConcurrentHashMap<String, LongAdder>()
   private val shadowDropped = LongAdder()
+  private val shadowAttempted = LongAdder()
 
   init {
     Metrics.register("edeliveryMessagesInboundTotal") { inbound.mapValues { it.value.sum() } }
@@ -26,6 +27,7 @@ object EDeliveryMetrics {
     Metrics.register("edeliveryTurvisRejectsTotal") { turvisRejects.mapValues { it.value.sum() } }
     Metrics.register("edeliveryTurvisRetriesTotal") { turvisRetries.mapValues { it.value.sum() } }
     // Shadow mode (#305b-2): the promotion gate of SPEC 13.0 is queried from these. Security discrepancies must stay at zero.
+    Metrics.register("edeliveryTurvisShadowAttemptedTotal") { shadowAttempted.sum() }
     Metrics.register("edeliveryTurvisShadowComparedTotal") { shadowCompared.mapValues { it.value.sum() } }
     Metrics.register("edeliveryTurvisShadowDiscrepanciesTotal") { shadowDiscrepancies.mapValues { it.value.sum() } }
     Metrics.register("edeliveryTurvisShadowSecurityDiscrepanciesTotal") { shadowSecurityDiscrepancies.sum() }
@@ -41,7 +43,9 @@ object EDeliveryMetrics {
 
   private fun key(s: String) = s.lowercase().replace(Regex("[^a-z0-9]"), "_")
 
-  /** One message compared; the denominator of the 0.01 % criterion. */
+  /** Every comparable message handed to the shadow, before it is run, dropped or errors out: the denominator that errors and drops are measured against. */
+  fun shadowAttempted() = shadowAttempted.increment()
+  /** One message compared (Turvis gave a verdict). */
   fun shadowCompared(endpoint: String) = shadowCompared.getOrPut(key(endpoint)) { LongAdder() }.increment()
   /** Keys become `edelivery_turvis_shadow_discrepancies_total_<endpoint>_<kind>`. [security] also counts in the single security counter. */
   fun shadowDiscrepancy(endpoint: String, kind: String, security: Boolean) {

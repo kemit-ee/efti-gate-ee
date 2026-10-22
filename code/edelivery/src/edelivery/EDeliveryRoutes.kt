@@ -66,6 +66,7 @@ class EDeliveryRoutes(
       observed.senderId = header.senderId
       observed.receiverId = header.receiverId
       observed.conversationId = header.conversationId.toString()
+      observed.messageId = header.messageId
 
       val encryptedSymmetricKey = header.cipherValue?.trim()
         ?.takeIf { it.isNotBlank() }?.base64Decode()

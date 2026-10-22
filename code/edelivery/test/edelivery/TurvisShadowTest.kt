@@ -26,6 +26,7 @@ class TurvisShadowTest {
     senderId = sender?.let(::PartyId)
     receiverId = receiver?.let(::PartyId)
     conversationId = conversation
+    messageId = "m-1@x"
     this.attachment = attachmentBytes
     payloadXml = payload
   }
@@ -36,8 +37,10 @@ class TurvisShadowTest {
     decryptedSoap: ByteArray = soap,
     decryptedAttachment: ByteArray = attachment,
     payload: String = "<hello/>",
+    messageId: String = "m-1@x",
+    conversationId: String = conversation,
   ) = VerifiedInbound(
-    TurvisEbmsRouting("m-1@x", conversation, null, identity, to, "svc", "act"),
+    TurvisEbmsRouting(messageId, conversationId, null, identity, to, "svc", "act"),
     TurvisSigner("CN=de", "ski", "01", identity), emptyList(), payload, "dec-1", "ver-1", decryptedSoap, decryptedAttachment,
   )
 
@@ -102,6 +105,37 @@ class TurvisShadowTest {
 
     assertEquals(before + 1, counter(discrepancies, "verifications_routing"))
     assertEquals(beforeSecurity + 1, counter(security))
+  }
+
+  @Test fun `a message id that differs is a routing security discrepancy`() {
+    every { inbound.process(any()) } returns verified(messageId = "other@x")
+    val before = counter(discrepancies, "verifications_routing")
+    val beforeSecurity = counter(security)
+
+    shadow().compare("a-1", body, accepted())
+
+    assertEquals(before + 1, counter(discrepancies, "verifications_routing"))
+    assertEquals(beforeSecurity + 1, counter(security))
+  }
+
+  @Test fun `a non-canonical conversation id that is the same UUID is not a discrepancy`() {
+    every { inbound.process(any()) } returns verified(conversationId = "1-2-3-4-5")
+    val before = Snapshot(this)
+
+    shadow().compare("a-1", body, LegacyDecision.Accepted(observation().apply { conversationId = "00000001-0002-0003-0004-000000000005" }))
+
+    assertNoDiscrepancy(before)
+  }
+
+  @Test fun `compareInbound counts every comparable message as attempted, a skipped legacy refusal not`() {
+    every { inbound.process(any()) } returns verified()
+    val before = counter("edeliveryTurvisShadowAttemptedTotal")
+
+    shadow().compareInbound("a-1", body, LegacyDecision.NotComparable)
+    assertEquals(before, counter("edeliveryTurvisShadowAttemptedTotal"))
+
+    shadow().compareInbound("a-2", body, accepted())
+    assertEquals(before + 1, counter("edeliveryTurvisShadowAttemptedTotal"))
   }
 
   @Test fun `decrypted attachment that differs byte for byte is counted but not a security kind`() {
@@ -291,7 +325,8 @@ class TurvisShadowTest {
       val deadline = System.currentTimeMillis() + 5000
       val expected = it + 1
       while (System.currentTimeMillis() < deadline && runCatching { verify(exactly = expected) { inbound.process(any()) } }.isFailure) Thread.sleep(10)
-      Thread.sleep(50)
+      while (System.currentTimeMillis() < deadline && sut.inflightNow > 0) Thread.sleep(5)
+      assertEquals(0, sut.inflightNow)
     }
 
     assertEquals(before, counter(dropped))

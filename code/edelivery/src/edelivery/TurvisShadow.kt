@@ -3,6 +3,7 @@ package edelivery
 import klite.error
 import klite.logger
 import klite.warn
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 
 /** What the legacy inbound path did with one message, collected as it goes so the shadow comparison can read it afterwards. */
@@ -13,6 +14,7 @@ class LegacyObservation {
   @Volatile var senderId: PartyId? = null
   @Volatile var receiverId: PartyId? = null
   @Volatile var conversationId: String? = null
+  @Volatile var messageId: String? = null
   @Volatile var attachment: ByteArray? = null
   @Volatile var payloadXml: String? = null
 }
@@ -49,6 +51,7 @@ class TurvisShadow(private val config: TurvisConfig, private val inbound: Turvis
   private val inflight = AtomicInteger()
 
   val enabled get() = config.mode == TurvisIntegrationMode.SHADOW
+  internal val inflightNow get() = inflight.get()
 
   /** Hands the message to a comparison thread. Never throws, never blocks. */
   fun compareInbound(auditRef: String, body: ByteArray, decision: LegacyDecision) {
@@ -56,6 +59,7 @@ class TurvisShadow(private val config: TurvisConfig, private val inbound: Turvis
     var acquired = false
     try {
       if (decision is LegacyDecision.NotComparable) return EDeliveryMetrics.shadowSkipped("not_comparable")
+      EDeliveryMetrics.shadowAttempted()
       if (inflight.incrementAndGet() > config.shadowMaxInflight) {
         inflight.decrementAndGet()
         return EDeliveryMetrics.shadowDropped()
@@ -116,7 +120,11 @@ class TurvisShadow(private val config: TurvisConfig, private val inbound: Turvis
       discrepancy(auditRef, "verifications", "signer_identity", security = true, verifyRef)
 
     val routing = turvis.routing
-    val routingMatches = legacy.receiverId?.equals(PartyId(routing.toPartyId)) == true && legacy.conversationId.equals(routing.conversationId, ignoreCase = true)
+    // The legacy side holds the canonical UUID text; Turvis hands the raw string, so compare the same equivalence mshViaTurvis uses.
+    val turvisConversation = routing.conversationId?.let { runCatching { UUID.fromString(it).toString() }.getOrNull() }
+    val routingMatches = legacy.receiverId?.equals(PartyId(routing.toPartyId)) == true &&
+      legacy.conversationId != null && legacy.conversationId == turvisConversation &&
+      legacy.messageId != null && legacy.messageId == routing.messageId
     if (!routingMatches) discrepancy(auditRef, "verifications", "routing", security = true, verifyRef)
 
     val attachment = legacy.attachment
