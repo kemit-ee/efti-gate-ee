@@ -7,7 +7,7 @@ Status: written for #307 (steps 1-4). Nothing here is **accepted** until #309 (m
 | Boundary | What it covers | Parser posture |
 |---|---|---|
 | **edelivery-authored XML** | the SOAP envelope and receipt edelivery templates itself (`EDeliveryMessageGenerator`), built from trusted values (own config, ids it generated; the received `MessageId` is XML-escaped) | trusted input; an unhardened parser would be acceptable, and edelivery has none on this path |
-| **peer-authored bytes** | the AS4 multipart a peer posts to `/services/msh`: envelope, WS-Security block, encrypted attachment | in `turvis` mode edelivery only MIME-splits and **never parses** them (`MimeSplitter`, SPEC 9.3); **Turvis is the sole parser** of the envelope. In `legacy`/`shadow` mode the in-process legacy path still parses them (see section 5) until #312 removes it |
+| **peer-authored bytes** | the AS4 multipart a peer posts to `/services/msh`: envelope, WS-Security block, encrypted attachment | in `turvis` mode edelivery runs **no XML parser** on them: it MIME-splits (`MimeSplitter`, SPEC 9.3) and **Turvis is the sole parser** of the envelope. edelivery does apply regular expressions in two places: the root tag of the verified, decrypted payload (`rootTagRegex`) and the fault text of a peer's unverified HTTP answer to an outbound send (`EDeliveryClient`); both are in the audit sheet (6.1). In `legacy`/`shadow` mode the in-process legacy path still parses them (see section 5) until #312 removes it |
 
 mTLS and NetworkPolicy authenticate *who* talks. They never sanitise *content*: a signature proves the signer, not that the business XML inside is safe. Nothing in this document claims otherwise.
 
@@ -39,7 +39,7 @@ Consequences:
 
 ### 4.1 What was found (audit, 2026-10-22)
 
-xml-mapper is the **only** place that parses eFTI business XML (`code/xml-mapper/src/efti/xml/fti/FTIMessages.kt`, klite `XmlParser`). klite-xml 2.1.0 builds its StAX factory through `secureXMLInputFactory` (`javax.xml.stream.supportDTD=false`, `isSupportingExternalEntities=false`). The XML a peer controls reaches it through the `*-to-json` endpoints (callers in the audit sheet, section 6.3). `XmlParserHardeningTest` pins the behaviour: an entity reference (external or internal) is **refused**, not expanded, so there is no XXE and no entity bomb to multiply. The legacy edelivery parser (`SignatureValidator`) is hardened as well (`disallow-doctype-decl`, no external DTD/schema); SPEC 9.3's wording "explicitly not hardened" describes the design assumption, not the legacy code.
+xml-mapper is the only **server-side** place that parses eFTI business XML (`code/xml-mapper/src/efti/xml/fti/FTIMessages.kt`, klite `XmlParser`). klite-xml 2.1.0 builds its StAX factory through `secureXMLInputFactory` (`javax.xml.stream.supportDTD=false`, `isSupportingExternalEntities=false`). DTDs are therefore **not processed** (a DOCTYPE with declarations but no reference parses and expands nothing), and an entity reference is then undeclared and refused with an `XMLStreamException`, so nothing is expanded: no XXE and no entity bomb. The XML a peer controls reaches the parser through the `*-to-json` endpoints (callers in 6.3). `XmlParserHardeningTest` pins this, including the refusal's exception type. Business XML is also read outside xml-mapper in the browser (admin UI `XmlViewer.svelte`, `shared/xmlParser.ts`: `DOMParser`, rendered with `textContent` only, so no HTML injection) and by Python dev tooling (generators and tests, not deployed); both are listed or named here so the claim "xml-mapper is the only server-side parser" stays checkable. The legacy edelivery parser (`SignatureValidator`) is hardened as well (`disallow-doctype-decl`, no external DTD/schema); SPEC 9.3's wording "explicitly not hardened" describes the design assumption, not the legacy code.
 
 Residual points an audit must not skip: there is no XSD validation in the mapping path (schema enforcement is F-PV-5, out of scope); element-depth/size limits are the HTTP body caps (klite `bodySizeLimit`, Ruuter 16 MiB) and the Turvis payload budget (SPEC 13.8), not parser settings.
 
@@ -61,7 +61,10 @@ Regenerate the raw lists with `python3 scripts/validate-xml-surface.py --print`.
 |---|---|---|---|
 | `EDeliveryRoutes.kt` `XmlParser()` | peer ebMS header | peer bytes, unverified until `SignatureValidator` | legacy/shadow only |
 | `SignatureValidator.kt` `DocumentBuilderFactory`, `XMLSignatureFactory` | peer envelope (XMLDSig verify) | peer bytes; hardened DOM | legacy/shadow only |
-| `xml-mapper FTIMessages.kt` `XmlParser` | eFTI FTI004/009/010/019/021/025/029/030 | after decrypt+verify (peer gates) or platform API key (uploads) | all modes |
+| `xml-mapper FTIMessages.kt` `XmlParser` | eFTI FTI004/009/010/019/021/025/029/030 | after decrypt+verify (peer gates, also FTI004 uploads that arrive over AS4) or platform API key (direct uploads) | all modes |
+| `EDeliveryClient.kt` two regexes (`faultReasonRegex`, `errorDetailRegex`) | fault text of a peer's **unverified** HTTP answer to an outbound send | peer bytes, no verification; the text (or, when the regexes find nothing, the whole answer) is logged and put into an `IOException` message, a log-injection and PII risk that **#322** (raw-body logging, fault bodies) has to cover | all modes |
+| `EDeliveryRoutes.kt` `rootTagRegex` | root tag of the decrypted payload | after verify (turvis) or legacy verify | all modes |
+| admin UI `XmlViewer.svelte`, `shared/xmlParser.ts` `DOMParser` | stored consignment XML for display | admin user's browser, `textContent` rendering | UI |
 
 ### 6.2 Endpoints that receive XML
 
@@ -71,6 +74,7 @@ Regenerate the raw lists with `python3 scripts/validate-xml-surface.py --print`.
 | edelivery internal send (`InternalRoutes`) | Ruuter/xml-mapper output (gate-authored) | no |
 | Ruuter `efti/POST/api/v1/{dataset,follow-up}-xml`, `consignments/search-xml` | edelivery dispatch of a verified peer message | no (forwards to xml-mapper) |
 | Ruuter `platforms/POST/v1/consignments` | platform (API key) | no (forwards to xml-mapper) |
+| Ruuter `platforms/POST/v1/consignments-xml` | edelivery dispatch of a verified peer FTI004 upload (`EftiMessageHandlers`, `RuuterClient.saveConsignment`) | no (templates `consignments`, which forwards to xml-mapper) |
 | xml-mapper `*/request-to-json`, `*/response-to-json` | Ruuter | **yes** (path 6) |
 
 ### 6.3 xml-mapper callers (Ruuter DSL)
@@ -90,7 +94,7 @@ Listed with their reason in `scripts/xml-surface-allowlist.txt` (kind `xml-mappe
 
 ## 7. CI governance
 
-`scripts/validate-xml-surface.py` (unit tests: `tests/xmlsurface/test_validate_xml_surface.py`) greps the whole tree on every CI run (GitHub `dsl-validate`, GitLab `validate:dsl`) and fails with `file:line` when it finds, without an entry in `scripts/xml-surface-allowlist.txt`: a JVM XML parser/factory/validator/signature API in `code/*/src`; a call to one of the four Turvis operations or a `/turvis/` URL in code or in a Ruuter DSL (the mock excepted); or a Ruuter DSL that calls xml-mapper. A changed hit count in an allowlisted file and a stale entry fail too. It is a grep, not a taint analysis; it is separate from the SPEC-vs-DSL drift check of #306.
+`scripts/validate-xml-surface.py` (unit tests: `tests/xmlsurface/test_validate_xml_surface.py`) is **a tripwire for the common forms; code review remains the control**. It greps `code/` (Kotlin, Java, `.kts`, UI TypeScript/Svelte; tests, `node_modules` and build output excluded) and the Ruuter DSL on every CI run (GitHub `dsl-validate`, step "XML surface governance (#307)"; GitLab `validate:dsl`, which runs on the default branch and `release/*` only, so the pull-request gate is the GitHub step) and fails with `file:line` when it finds, without an entry in `scripts/xml-surface-allowlist.txt`: an XML parser, factory, validator or signature API, an import alias of one, a regex over XML tags, a DI-injected parser; a `.decrypt(`/`.verify(`/`.encrypt(`/`.sign(` call or a `/turvis/v1` URL in code, or a `/turvis/v1` URL in a Ruuter DSL (the mock excepted); or a Ruuter DSL that calls xml-mapper (constant, host or port). Each entry records the hit count and a fingerprint of the hit lines' text, so a moved line passes but one added and one removed in the same file, a changed count or a stale entry fails. It does **not** see reflection, a parser inside a dependency, Python tooling or any other language; it is separate from the SPEC-vs-DSL drift check of #306.
 
 ## 8. What is still open
 

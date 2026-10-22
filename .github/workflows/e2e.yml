@@ -46,6 +46,9 @@ jobs:
         run: |
           python3 scripts/validate-turvis-contract.py
           python3 tests/turvis/test_validate_turvis_contract.py
+      # New XML parser / Turvis call / xml-mapper caller without an allowlist entry fails (perimeter trust model, #307).
+      - name: XML surface governance (#307)
+        run: |
           python3 scripts/validate-xml-surface.py
           python3 tests/xmlsurface/test_validate_xml_surface.py
       - name: rich mock dataset XSD and field-coverage checks

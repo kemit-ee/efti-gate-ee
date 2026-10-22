@@ -920,7 +920,7 @@ The policy table lives in edelivery config, not Turvis state.
 
 ### 9.3 edelivery's XML parsing surface after cutover
 
-**Zero.** In `turvis` mode (and permanently once #312 removes the legacy path), edelivery does not parse untrusted XML at all:
+**Zero parsers.** In `turvis` mode (and permanently once #312 removes the legacy path), edelivery runs no XML parser on untrusted XML (it still applies two regular expressions: the root tag of the verified, decrypted payload and the fault text of a peer's HTTP answer to an outbound send):
 
 - **Inbound**: edelivery MIME-splits the multipart (standard HTTP framework, non-XML), hands raw bytes to Turvis's decrypt + verify endpoints, reads routing/signer fields from Turvis's JSON responses, dispatches to handlers.
 - **Outbound**: edelivery authors a SOAP envelope using string templating or DOM builder on **trusted** (edelivery-authored) input, calls Turvis to encrypt + sign, assembles multipart.
