@@ -7,6 +7,7 @@ import ch.tutteli.atrium.api.fluent.en_GB.toThrow
 import ch.tutteli.atrium.api.verbs.expect
 import io.mockk.*
 import klite.HttpExchange
+import klite.StatusCode.Companion.BadRequest
 import klite.StatusCode.Companion.InternalServerError
 import klite.StatusCode.Companion.OK
 import klite.base64Decode
@@ -186,14 +187,52 @@ class EDeliveryRoutesTest {
 
     routes.msh(exchange)
 
-    verify { exchange.send(InternalServerError, "<fault/>", soap) }
+    verify { exchange.send(BadRequest, "<fault/>", soap) }
+  }
+
+  @Test fun `a multipart with a single part is a 400 with the XML_PARSE_FAIL fault`() {
+    val onlyPart = "--$boundary\r\nContent-Type: $soap\r\n\r\n<Envelope/>\r\n--$boundary--"
+    every { exchange.requestStream } returns onlyPart.toByteArray().inputStream()
+    val reason = slot<FaultReason>()
+    every { messageGenerator.soapFault(capture(reason)) } returns "<fault/>"
+
+    routes.msh(exchange)
+
+    expect(reason.captured).toEqual(FaultReason.XML_PARSE_FAIL)
+    verify { exchange.send(BadRequest, "<fault/>", soap) }
+  }
+
+  @Test fun `a part of the wrong type is a 400 and never a ClassCastException`() {
+    val twoTextParts = "--$boundary\r\nContent-Type: $soap\r\n\r\n<Envelope/>\r\n" +
+      "--$boundary\r\nContent-Type: $soap\r\n\r\n<Other/>\r\n--$boundary--"
+    every { exchange.requestStream } returns twoTextParts.toByteArray().inputStream()
+    every { messageGenerator.soapFault(any()) } returns "<fault/>"
+
+    routes.msh(exchange)
+
+    verify { exchange.send(BadRequest, "<fault/>", soap) }
+  }
+
+  @Test fun `a handler that throws after the 200 is counted and does not escape`() {
+    val before = EDeliveryMetrics.asyncHandlerFailureCounts()["unsupported_message"] ?: 0
+    val body = getBody("<hello>world</hello>")
+    every { exchange.requestStream } returns body.inputStream()
+    every { mockHandler.invoke(any()) } throws UnsupportedOperationException("secret payload fragment")
+    every { messageHandlers.rootTags } returns mapOf("hello" to mockHandler)
+
+    routes.msh(exchange)
+
+    verify(timeout = 5000) { mockHandler.invoke(any()) }
+    val deadline = System.currentTimeMillis() + 5000
+    while ((EDeliveryMetrics.asyncHandlerFailureCounts()["unsupported_message"] ?: 0) <= before && System.currentTimeMillis() < deadline) Thread.sleep(10)
+    expect(EDeliveryMetrics.asyncHandlerFailureCounts()["unsupported_message"] ?: 0).toEqual(before + 1)
   }
 
   private val secret = "<driver>Jaan Tamm</driver> C:\\internal\\path CN=Internal"
 
-  private fun sentFault(): String {
+  private fun sentFault(status: klite.StatusCode = InternalServerError): String {
     val sent = slot<String>()
-    verify { exchange.send(InternalServerError, capture(sent), soap) }
+    verify { exchange.send(status, capture(sent), soap) }
     return sent.captured
   }
 
@@ -232,7 +271,7 @@ class EDeliveryRoutesTest {
 
     EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, legacyShadow, mockk(relaxed = true)).msh(exchange)
 
-    val fault = sentFault()
+    val fault = sentFault(BadRequest)
     expect(fault).notToContain("Jaan Tamm")
     expect(fault).notToContain("internal")
     expect(fault).notToContain("Exception")

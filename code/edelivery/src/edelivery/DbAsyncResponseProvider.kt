@@ -25,7 +25,10 @@ class DbAsyncResponseProvider(
         queue.poll(interval.inWholeMilliseconds, MILLISECONDS)?.let { return it }
         claim(key)?.let { return it }
         val remaining = (deadline - System.nanoTime()).nanoseconds
-        if (remaining <= Duration.ZERO) throw TimeoutException("No data received after $timeout")
+        if (remaining <= Duration.ZERO) {
+          EDeliveryMetrics.asyncResponseTimeout()
+          throw TimeoutException("No data received after $timeout")
+        }
         interval = minOf(interval * 1.5, maxPollInterval, remaining.coerceAtLeast(1.milliseconds))
       }
     } finally {

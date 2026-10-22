@@ -1,6 +1,7 @@
 package edelivery
 
 import klite.*
+import klite.StatusCode.Companion.BadRequest
 import klite.StatusCode.Companion.InternalServerError
 import klite.StatusCode.Companion.OK
 import klite.StatusCode.Companion.ServiceUnavailable
@@ -53,8 +54,10 @@ class EDeliveryRoutes(
     try {
       val body = MultipartParser().parse(bodyBytes.inputStream())
       partCount = body.size
-      val xml = body.values.first() as String
-      val encryptedPayload = body.values.last() as ByteArray
+      val parts = body.values.toList()
+      if (parts.size < 2) throw MalformedMultipartException()
+      val xml = parts.first() as? String ?: throw MalformedMultipartException()
+      val encryptedPayload = parts.last() as? ByteArray ?: throw MalformedMultipartException()
 
       val header = xmlParser.parse<MessageHeader>(xml)
       currentThread().name = header.conversationId.toString()
@@ -71,7 +74,7 @@ class EDeliveryRoutes(
 
       val encryptedSymmetricKey = header.cipherValue?.trim()
         ?.takeIf { it.isNotBlank() }?.base64Decode()
-        ?: body.values.toList().getOrNull(1) as ByteArray
+        ?: parts[1] as? ByteArray ?: throw MalformedMultipartException()
       val decrypted = decryptPayload(header, keyManager.ownPrivateKey, encryptedPayload, encryptedSymmetricKey)
       observed.attachment = decrypted.attachmentBytes
       signatureValidator.verify(xml, header, keyManager.receiverCert(header.senderId), decrypted.attachmentBytes)
@@ -89,7 +92,7 @@ class EDeliveryRoutes(
       e.send(OK, responseXml, soap)
       turvisShadow.compareInbound(auditRef, bodyBytes, LegacyDecision.Accepted(observed))
 
-      AppScope.async {
+      auditAsync(auditRef, "handler") {
         val result = handler(MessageContext(responseKey, payloadXml))
         if (result != null)
           eDeliveryClient.send(party.eDeliveryUrl, UserMessageParams(responseKey), result)
@@ -98,7 +101,7 @@ class EDeliveryRoutes(
       val reason = FaultReason.of(ex)
       log.error("Error when processing message: audit_ref=$auditRef reason=$reason body_sha256=${bodyBytes.sha256Hex()} " +
         "body_size_bytes=${bodyBytes.size} content_type=${e.header("Content-Type")} multipart_part_count=$partCount", ex.withoutMessages())
-      e.send(InternalServerError, eDeliveryMessageGenerator.soapFault(reason), soap)
+      e.send(if (ex is MalformedMultipartException) BadRequest else InternalServerError, eDeliveryMessageGenerator.soapFault(reason), soap)
       turvisShadow.compareInbound(auditRef, bodyBytes, legacyDecision(observed, reason))
     }
   }
@@ -148,7 +151,7 @@ class EDeliveryRoutes(
       e.send(OK, receipt.signedSoap, soap)
       log.info(TurvisAudit.inbound(auditRef, inbound, receipt.signAuditRef))
 
-      AppScope.async {
+      auditAsync(auditRef, "handler") {
         val result = handler(MessageContext(responseKey, inbound.payloadXml))
         if (result != null)
           eDeliveryClient.send(party.eDeliveryUrl, UserMessageParams(responseKey), result)

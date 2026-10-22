@@ -79,3 +79,41 @@ tests:
     expect:
       status: 502
       body_matches: { code: GATEWAY_UNAVAILABLE }
+
+  - name: a registry with no peer gates still registers the search and is audited
+    setup:
+      mocks:
+        - url_matches: /efti/get_consignments
+          method: POST
+          status: 200
+          body: []
+        - url_matches: /api/v1/search/request-to-xml
+          method: POST
+          status: 200
+          body: "<xml/>"
+        - url_matches: /gates.json
+          method: GET
+          status: 200
+          body: [{ id: "EU-EE", status: "ONLINE" }, { id: "EU-OFF", status: "DISABLED" }]
+        - url_matches: /efti/insert_audit_log
+          method: POST
+          status: 200
+          body: []
+        - url_matches: /efti/insert_search_pending
+          method: POST
+          status: 200
+          body: []
+        - url_matches: /efti/insert_search_complete
+          method: POST
+          status: 200
+          body: []
+    request:
+      method: POST
+      path: /efti/api/v1/authority/search
+      headers:
+        content-type: application/json
+        x-internal-service-token: dev-internal-service-token-change-me
+        x-request-id: 00000000-0000-4000-8000-000000000004
+      body: { mainTransportId: { operator: EQ, id: TEST } }
+    expect:
+      status: 200
