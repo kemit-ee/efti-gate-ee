@@ -14,6 +14,9 @@ class OutboundMessage(
   val signAuditRef: String,
 )
 
+/** A receipt (NRR response) ready for the wire: the signed envelope exactly as Turvis returned it. */
+class SignedReceipt(val signedSoap: ByteArray, val signAuditRef: String)
+
 /**
  * The outbound AS4 request when Turvis is authoritative (`TURVIS_INTEGRATION_MODE=turvis`), SPEC 2.3 and 13.3a:
  * compress the payload, `encrypt` it for the receiver, splice the returned fragments into the unsigned envelope,
@@ -24,6 +27,8 @@ class OutboundMessage(
  * - the `cid:message` digest covers gzip(plaintext) (SPEC 9.1a): the same bytes are encrypted and passed to sign as
  *   `attachment_bytes_b64`, while the wire attachment is the encrypted payload;
  * - the plaintext and the encrypted profile run the same code (an empty fragment splices to nothing);
+ * - the receipt for an inbound message ([receipt]) is built from the references Turvis's verify reported and signed
+ *   by Turvis with the same policy, byte guard and failure handling; no digest is computed here (SPEC 13.7);
  * - a failure is never swallowed: it is counted (`edelivery_outbound_turvis_failures_total_<reason>`), logged with
  *   the `audit_ref` only, and rethrown so the caller sees the message was not sent (SPEC 13.3a). An encrypt is not
  *   retried here: the client retries only what SPEC 13.3 allows.
@@ -47,8 +52,24 @@ class TurvisOutbound(
   /** The production entry point: the profile is always `wss-encrypted`; there is no way to ask for plaintext from outside. */
   fun requestMessage(params: UserMessageParams, payload: String): OutboundMessage = requestMessage(params, payload, TurvisEncryptProfile.WSS_ENCRYPTED)
 
+  /**
+   * The signed receipt for a verified inbound message. [references] are the verify response's `signature_digests`
+   * (the references of the signature as the peer wrote it, `cid:message` included); [refToMessageId] is the verified
+   * routing's message id. A failure is counted and rethrown like an outbound message's: the caller answers the peer
+   * with HTTP 503 and dispatches nothing.
+   */
+  fun receipt(refToMessageId: String, references: List<TurvisSignatureReference>, conversation: Any? = null): SignedReceipt =
+    guarded("Receipt", conversation) {
+      if (references.isEmpty()) throw TurvisProtocolException("verify reported no signature references to build a receipt from")
+      val unsigned = generator.unsignedReceiptEnvelope(refToMessageId, references)
+      val signed = client.sign(unsigned.toByteArray().base64Encode(), SIGNED_XPATHS, emptyList(), emptySet(), emptyList(), randomTraceId()).orThrow()
+      val signedSoap = signed.signedXmlB64.base64Decode()
+      requireSignatureOnlyInserted(unsigned.toByteArray(), signedSoap)
+      SignedReceipt(signedSoap, signed.auditRef)
+    }
+
   internal fun requestMessage(params: UserMessageParams, payload: String, profile: TurvisEncryptProfile): OutboundMessage =
-    try {
+    guarded("Outbound message", params.requestKey.requestId) {
       val compressed = generator.gzip(payload.toByteArray())
       val compressedB64 = compressed.base64Encode()
 
@@ -62,10 +83,15 @@ class TurvisOutbound(
       val signedSoap = signed.signedXmlB64.base64Decode()
       requireSignatureOnlyInserted(unsigned.toByteArray(), signedSoap)
       OutboundMessage(signedSoap, encrypted.encryptedPayloadB64.base64Decode(), encrypted.auditRef, signed.auditRef)
+    }
+
+  private fun <T> guarded(what: String, conversation: Any?, block: () -> T): T =
+    try {
+      block()
     } catch (ex: Exception) {
       val reason = failureReason(ex)
       EDeliveryMetrics.outboundTurvisFailure(reason)
-      log.warn("Outbound message not sent, Turvis failed: conversation=${params.requestKey.requestId} reason=$reason audit_ref=${(ex as? TurvisRejectException)?.auditRef}", ex.withoutMessages())
+      log.warn("$what not sent, Turvis failed: conversation=$conversation reason=$reason audit_ref=${(ex as? TurvisRejectException)?.auditRef}", ex.withoutMessages())
       throw ex
     }
 

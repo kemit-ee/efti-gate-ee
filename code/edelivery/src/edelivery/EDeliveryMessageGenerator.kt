@@ -67,6 +67,42 @@ class EDeliveryMessageGenerator(
     emptySoapBody(),
   )
 
+  /**
+   * The unsigned receipt (NRR response) Turvis signs (SPEC 13.7): an `eb:SignalMessage` that refers to the received
+   * message and repeats the references of the signature that was verified, exactly as Turvis's verify response
+   * reported them (URI, digest, transforms). Nothing is computed here: the digests are Turvis's, and every value that
+   * comes from the peer or from Turvis is XML-escaped, because this is the one place peer-authored text is written
+   * into XML edelivery signs (the received message id).
+   */
+  fun unsignedReceiptEnvelope(refToMessageId: String, references: List<TurvisSignatureReference>): String = soapEnvelope(
+    receiptMessagingXml(refToMessageId, references) +
+      """<wsse:Security xmlns:wsse="$wsseNs" xmlns:wsu="$wsuNs" env:mustUnderstand="true"></wsse:Security>""",
+    emptySoapBody(),
+  )
+
+  private fun receiptMessagingXml(refToMessageId: String, references: List<TurvisSignatureReference>): String {
+    val parts = references.joinToString("") { ref ->
+      val transforms = if (ref.transforms.isEmpty()) "" else
+        "<ds:Transforms>" + ref.transforms.joinToString("") { """<ds:Transform Algorithm="${it.xmlEscaped()}"></ds:Transform>""" } + "</ds:Transforms>"
+      """<ebbp:MessagePartNRInformation><ds:Reference xmlns:ds="$dsNs" URI="${ref.referenceUri.xmlEscaped()}">$transforms""" +
+        """<ds:DigestMethod Algorithm="$xencSha256"></ds:DigestMethod><ds:DigestValue>${ref.digestB64.xmlEscaped()}</ds:DigestValue></ds:Reference></ebbp:MessagePartNRInformation>"""
+    }
+    return /*language=xml*/ """
+    <eb:Messaging xmlns:eb="$ebNs" xmlns:env="$soapNs" xmlns:wsu="$wsuNs" wsu:Id="$messagingWsuId" env:mustUnderstand="true">
+      <eb:SignalMessage>
+        <eb:MessageInfo>
+          <eb:Timestamp>${timestamp()}</eb:Timestamp>
+          <eb:MessageId>${randomUUID()}@${keyManager.partyId}</eb:MessageId>
+          <eb:RefToMessageId>${refToMessageId.xmlEscaped()}</eb:RefToMessageId>
+        </eb:MessageInfo>
+        <eb:Receipt>
+          <ebbp:NonRepudiationInformation xmlns:ebbp="http://docs.oasis-open.org/ebxml-bp/ebbp-signals-2.0">$parts</ebbp:NonRepudiationInformation>
+        </eb:Receipt>
+      </eb:SignalMessage>
+    </eb:Messaging>
+    """.canonicalXml()
+  }
+
   internal fun generateAESKey(): SecretKey = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
 
   fun responseMessage(header: MessageHeader): String {
@@ -323,3 +359,5 @@ class EDeliveryMessageGenerator(
   </env:Body>"""
   ).canonicalXml()
 }
+
+private fun String.xmlEscaped() = replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&apos;")

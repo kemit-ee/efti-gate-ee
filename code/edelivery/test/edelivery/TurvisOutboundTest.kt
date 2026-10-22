@@ -236,4 +236,74 @@ class TurvisOutboundTest {
 
     expect(String(message.signedSoap)).toContain("<wsse:Security")
   }
+
+  private val references = listOf(
+    TurvisSignatureReference("#MSG-ID", "//eb:Messaging", "bXNn", "SHA-256", listOf("http://www.w3.org/2001/10/xml-exc-c14n#")),
+    TurvisSignatureReference("#BODY-ID", "//env:Body", "Ym9keQ==", "SHA-256", listOf("http://www.w3.org/2001/10/xml-exc-c14n#")),
+    TurvisSignatureReference("cid:message", null, "YXR0", "SHA-256", listOf("http://docs.oasis-open.org/wss/oasis-wss-SwAProfile-1.1#Attachment-Content-Signature-Transform")),
+  )
+
+  private fun parse(xml: String) = javax.xml.parsers.DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
+    .newDocumentBuilder().parse(xml.byteInputStream())
+
+  @Test fun `the receipt repeats the references Turvis reported, attachment included, and is signed untouched`() {
+    stub()
+
+    val receipt = outbound().receipt("m-1@x", references)
+
+    assertContentEquals(lastSigned, receipt.signedSoap)
+    expect(receipt.signAuditRef).toEqual("sig-1")
+    val unsigned = String(signSoap.captured.base64Decode())
+    parse(unsigned)
+    expect(unsigned).toContain("<eb:RefToMessageId>m-1@x</eb:RefToMessageId>")
+    expect(unsigned).toContain("<eb:SignalMessage>")
+    references.forEach { ref ->
+      expect(unsigned).toContain("URI=\"${ref.referenceUri}\"")
+      expect(unsigned).toContain("<ds:DigestValue>${ref.digestB64}</ds:DigestValue>")
+      ref.transforms.forEach { expect(unsigned).toContain("Algorithm=\"$it\"") }
+    }
+    expect(unsigned).toContain("""<ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256">""")
+    expect(unsigned).toContain("env:mustUnderstand=\"true\"></wsse:Security>")
+    expect(signXpaths.captured).toEqual(listOf("//eb:Messaging", "//env:Body"))
+    expect(signCids.captured).toEqual(emptyList())
+    expect(signAttachments.captured).toEqual(emptyList())
+    expect(signFields.captured).toEqual(emptySet())
+  }
+
+  @Test fun `peer-authored text in the receipt is escaped, so it cannot add elements`() {
+    stub()
+    val hostile = "a</eb:RefToMessageId><evil/>&\"'"
+
+    outbound().receipt(hostile, listOf(TurvisSignatureReference("#a\"><x/>", null, "ZGln", "SHA-256", listOf("t\"&"))))
+
+    val unsigned = String(signSoap.captured.base64Decode())
+    val doc = parse(unsigned)
+    expect(doc.getElementsByTagName("evil").length).toEqual(0)
+    expect(doc.getElementsByTagName("x").length).toEqual(0)
+    expect(doc.getElementsByTagNameNS("http://docs.oasis-open.org/ebxml-msg/ebms/v3.0/ns/core/200704/", "RefToMessageId").item(0).textContent).toEqual(hostile)
+  }
+
+  @Test fun `a receipt without references is refused before Turvis is called`() {
+    stub()
+    val before = failures("turvis_protocol")
+
+    assertFailsWith<TurvisProtocolException> { outbound().receipt("m-1@x", emptyList()) }
+
+    verify(exactly = 0) { client.sign(any(), any(), any(), any(), any(), any()) }
+    expect(failures("turvis_protocol")).toEqual(before + 1)
+  }
+
+  @Test fun `a rejected receipt sign is counted and rethrown, an unsigned or moved signature is refused`() {
+    stub(sign = { TurvisResult.Reject(TurvisRejection("signatures", 503, "KEY_UNAVAILABLE", "aud-9", null)) })
+    val before = failures("key_unavailable")
+    assertFailsWith<KeyUnavailableException> { outbound().receipt("m-1@x", references) }
+    expect(failures("key_unavailable")).toEqual(before + 1)
+
+    stub(sign = { unsigned -> TurvisResult.Accept(TurvisSignResponse("sig-1", withSignature(unsigned, at = "</env:Header>").base64Encode(), null)) })
+    assertFailsWith<TurvisProtocolException> { outbound().receipt("m-1@x", references) }
+
+    stub(sign = { unsigned -> TurvisResult.Accept(TurvisSignResponse("sig-1", unsigned.base64Encode(), null)) })
+    assertFailsWith<TurvisProtocolException> { outbound().receipt("m-1@x", references) }
+    expect(outbound(allowUnsignedEcho = true).receipt("m-1@x", references).signedSoap.isNotEmpty()).toEqual(true)
+  }
 }
