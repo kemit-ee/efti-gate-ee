@@ -4,6 +4,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import klite.Metrics
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -12,8 +13,21 @@ import kotlin.test.assertTrue
 
 class TurvisShadowTest {
   private val inbound = mockk<TurvisInbound>()
+  /** Every shadow this test made: [noComparisonOutlivesItsTest] waits for their comparison threads. */
+  private val shadows = mutableListOf<TurvisShadow>()
   private fun shadow(mode: TurvisIntegrationMode = TurvisIntegrationMode.SHADOW, maxInflight: Int = 8) =
-    TurvisShadow(TurvisConfig(mode, keyHandle = "EU-EE", shadowMaxInflight = maxInflight), inbound)
+    TurvisShadow(TurvisConfig(mode, keyHandle = "EU-EE", shadowMaxInflight = maxInflight), inbound).also { shadows += it }
+
+  /**
+   * The shadow counters are process-wide (EDeliveryMetrics) and several tests assert exact deltas on them. A comparison
+   * started by compareInbound runs on its own virtual thread and may still be counting after its test returned, which
+   * would land in the next test's delta (#346). So no test ends while one of its comparisons is still running.
+   */
+  @AfterEach fun noComparisonOutlivesItsTest() {
+    val deadline = System.nanoTime() + 10_000_000_000
+    while (shadows.any { it.inflightNow > 0 } && System.nanoTime() < deadline) Thread.sleep(5)
+    assertEquals(0, shadows.sumOf { it.inflightNow }, "a shadow comparison is still running after the test")
+  }
 
   private val soap = "<env:Envelope>\r\n  <eb:Messaging/>\r\n</env:Envelope>".toByteArray()
   private val attachment = ByteArray(32) { it.toByte() }
