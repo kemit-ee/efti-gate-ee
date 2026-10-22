@@ -3,6 +3,7 @@ package edelivery
 import io.mockk.every
 import io.mockk.mockk
 import klite.Metrics
+import klite.base64Encode
 import klite.json.JsonMapper
 import klite.json.parse
 import org.junit.jupiter.api.Assumptions.assumeTrue
@@ -81,8 +82,11 @@ class TurvisClientTest {
   private val audit = "11111111-1111-4111-8111-111111111111"
   private val routingJson = """{"message_id":"m-1","conversation_id":"c-1","ref_to_message_id":"","from_party_id":"EU-DE","to_party_id":"EU-EE","service":"FTI010","action":"FTI010Response"}"""
   private val routing = TurvisEbmsRouting("m-1", "c-1", "", "EU-DE", "EU-EE", "FTI010", "FTI010Response")
-  private val referencesJson = """[{"reference_uri":"#MSG-ID","subtree_xpath":"//eb:Messaging","digest_b64":"ZA==","algorithm":"SHA-256","transforms":["http://www.w3.org/2001/10/xml-exc-c14n#"]},
-    {"reference_uri":"cid:message","digest_b64":"YQ==","algorithm":"SHA-256","transforms":["http://docs.oasis-open.org/wss/oasis-wss-SwAProfile-1.1#Attachment-Content-Signature-Transform"]}]"""
+  private val msgRefXml = """<ds:Reference xmlns:ds="http://www.w3.org/2000/09/xmldsig#" URI="#MSG-ID"><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"><ec:InclusiveNamespaces xmlns:ec="http://www.w3.org/2001/10/xml-exc-c14n#" PrefixList="env"/></ds:Transform></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/><ds:DigestValue>ZA==</ds:DigestValue></ds:Reference>"""
+  private val cidRefXml = """<ds:Reference xmlns:ds="http://www.w3.org/2000/09/xmldsig#" URI="cid:message"><ds:Transforms><ds:Transform Algorithm="http://docs.oasis-open.org/wss/oasis-wss-SwAProfile-1.1#Attachment-Content-Signature-Transform"/></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/><ds:DigestValue>YQ==</ds:DigestValue></ds:Reference>"""
+  private fun b64(s: String) = s.toByteArray().base64Encode()
+  private val referencesJson = """[{"reference_uri":"#MSG-ID","subtree_xpath":"//eb:Messaging","digest_b64":"ZA==","algorithm":"SHA-256","transforms":["http://www.w3.org/2001/10/xml-exc-c14n#"],"reference_xml_b64":"${b64(msgRefXml)}"},
+    {"reference_uri":"cid:message","digest_b64":"YQ==","algorithm":"SHA-256","transforms":["http://docs.oasis-open.org/wss/oasis-wss-SwAProfile-1.1#Attachment-Content-Signature-Transform"],"reference_xml_b64":"${b64(cidRefXml)}"}]"""
 
   private fun verifyCall(fields: Set<TurvisVerifyField> = setOf(TurvisVerifyField.SIGNER), claimed: String? = null) =
     client.verify("U09BUA==", listOf(TurvisAttachment("cid:message", "QUJD")), listOf("//eb:Messaging", "//env:Body"), listOf("cid:message"), fields, claimed)
@@ -174,8 +178,8 @@ class TurvisClientTest {
     assertEquals(routing, accept.ebmsRouting)
     assertEquals(
       listOf(
-        TurvisSignatureReference("#MSG-ID", "//eb:Messaging", "ZA==", "SHA-256", listOf("http://www.w3.org/2001/10/xml-exc-c14n#")),
-        TurvisSignatureReference("cid:message", null, "YQ==", "SHA-256", listOf("http://docs.oasis-open.org/wss/oasis-wss-SwAProfile-1.1#Attachment-Content-Signature-Transform")),
+        TurvisSignatureReference("#MSG-ID", "//eb:Messaging", "ZA==", "SHA-256", listOf("http://www.w3.org/2001/10/xml-exc-c14n#"), msgRefXml),
+        TurvisSignatureReference("cid:message", null, "YQ==", "SHA-256", listOf("http://docs.oasis-open.org/wss/oasis-wss-SwAProfile-1.1#Attachment-Content-Signature-Transform"), cidRefXml),
       ),
       accept.signatureDigests,
     )
@@ -216,7 +220,7 @@ class TurvisClientTest {
   }
 
   @Test fun `a sign accept returns the signed bytes untouched`() {
-    script += answer(body = """{"signed_xml_b64":"PHNpZ25lZCAgIC8+DQo=","audit_ref":"$audit","signatures":$referencesJson}""")
+    script += answer(body = """{"signed_xml_b64":"PHNpZ25lZCAgIC8+DQo=","audit_ref":"$audit","signatures":${referencesJson.replace(Regex(",\"reference_xml_b64\":\"[^\"]*\""), "")}}""")
 
     val accept = assertIs<TurvisResult.Accept<TurvisSignResponse>>(
       client.sign("U09BUA==", listOf("//eb:Messaging"), emptyList(), setOf(TurvisSignField.SIGNATURES)),
@@ -650,8 +654,61 @@ class TurvisClientTest {
     refusesAs("field 'digest_b64' is empty", fullVerify.replace(referencesJson, """[{"reference_uri":"#MSG-ID","digest_b64":"","algorithm":"SHA-256","transforms":[]}]"""))
     refusesAs("only allows SHA-256", fullVerify.replace(referencesJson, """[{"reference_uri":"#MSG-ID","digest_b64":"ZA==","algorithm":"MD5","transforms":[]}]"""))
     refusesAs("lacks the field 'transforms'", fullVerify.replace(referencesJson, """[{"reference_uri":"#MSG-ID","digest_b64":"ZA==","algorithm":"SHA-256"}]"""))
-    script += answer(body = fullVerify.replace(referencesJson, """[{"reference_uri":"#MSG-ID","digest_b64":"ZA==","algorithm":"SHA-256","transforms":[]}]"""))
+    refusesAs("lacks the field 'reference_xml_b64'", fullVerify.replace(referencesJson, """[{"reference_uri":"#MSG-ID","digest_b64":"ZA==","algorithm":"SHA-256","transforms":[]}]"""))
+    script += answer(body = fullVerify.replace(referencesJson, """[{"reference_uri":"#MSG-ID","digest_b64":"ZA==","algorithm":"SHA-256","transforms":[],"reference_xml_b64":"${b64(msgRefXml)}"}]"""))
     assertIs<TurvisResult.Accept<*>>(verifyCall(TurvisVerifyField.entries.toSet())) // no transforms is a valid, empty list
+  }
+
+  @Test fun `the verbatim reference is kept byte for byte, including whitespace and single quotes`() {
+    val odd = "<Reference xmlns='http://www.w3.org/2000/09/xmldsig#'\n\tURI='#MSG-ID' >\r\n  <DigestValue> ZA== </DigestValue>\n</Reference>"
+    script += answer(body = fullVerify.replace(b64(msgRefXml), b64(odd)))
+
+    val accept = verifyCall(TurvisVerifyField.entries.toSet()) as TurvisResult.Accept<TurvisVerifyResponse>
+
+    assertEquals(odd, accept.value.signatureDigests!!.first().referenceXml)
+  }
+
+  @Test fun `a verbatim reference that is not exactly one Reference element is refused`() {
+    fun refused(why: String, xml: String) {
+      script += answer(body = fullVerify.replace(b64(msgRefXml), b64(xml)))
+      val e = assertFailsWith<TurvisProtocolException>(why) { verifyCall(TurvisVerifyField.entries.toSet()) }
+      assertContains(e.message!!, "reference_xml_b64", message = why)
+    }
+    refused("two elements", msgRefXml + msgRefXml)
+    refused("text before", "x$msgRefXml")
+    refused("text after", "$msgRefXml ")
+    refused("another element", """<ds:Other xmlns:ds="http://www.w3.org/2000/09/xmldsig#"/>""")
+    refused("a comment", msgRefXml.replace("<ds:Transforms>", "<!-- c --><ds:Transforms>"))
+    refused("a processing instruction", msgRefXml.replace("<ds:Transforms>", "<?pi x?><ds:Transforms>"))
+    refused("a DOCTYPE", """<!DOCTYPE a>$msgRefXml""")
+    refused("CDATA", msgRefXml.replace("<ds:DigestValue>ZA==", "<ds:DigestValue><![CDATA[ZA=="))
+    refused("a control character", msgRefXml.replace("ZA==", "Z\u0001A=="))
+    refused("mismatched prefixes", msgRefXml.replace("</ds:Reference>", "</x:Reference>"))
+    refused("a nested Reference", msgRefXml.replace("<ds:Transforms>", "<ds:Reference><ds:Transforms>"))
+    refused("a self-closing Reference", """<ds:Reference xmlns:ds="http://www.w3.org/2000/09/xmldsig#" URI="#a"/>""")
+    refused("a prefix lookalike", msgRefXml.replace("ds:Reference", "ds:References"))
+    refused("a CDATA end", msgRefXml.replace("ZA==", "ZA==]]>"))
+    refused("no namespace declaration", msgRefXml.replace(""" xmlns:ds="http://www.w3.org/2000/09/xmldsig#"""", ""))
+    refused("a wrong namespace", msgRefXml.replace("http://www.w3.org/2000/09/xmldsig#", "urn:evil"))
+    refused("the namespace only on a child", msgRefXml.replace(""" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" URI""", " URI").replace("<ds:DigestValue>", """<ds:DigestValue xmlns:ds="http://www.w3.org/2000/09/xmldsig#">"""))
+    refused("a different reference than reported", msgRefXml.replace("""URI="#MSG-ID"""", """URI="#OTHER""""))
+    refused("no URI", msgRefXml.replace(""" URI="#MSG-ID"""", ""))
+  }
+
+  @Test fun `a default-namespace reference and an escaped URI match what is reported`() {
+    val dflt = """<Reference xmlns="http://www.w3.org/2000/09/xmldsig#" URI="cid:a&amp;b"><DigestValue>ZA==</DigestValue></Reference>"""
+    script += answer(body = fullVerify.replace(b64(msgRefXml), b64(dflt)).replaceFirst("\"reference_uri\":\"#MSG-ID\"", "\"reference_uri\":\"cid:a&b\""))
+
+    val accept = verifyCall(TurvisVerifyField.entries.toSet()) as TurvisResult.Accept<TurvisVerifyResponse>
+
+    assertEquals(dflt, accept.value.signatureDigests!!.first().referenceXml)
+  }
+
+  @Test fun `a verbatim reference that is not base64, not UTF-8, empty or too large is refused`() {
+    refusesAs("not base64", fullVerify.replace(b64(msgRefXml), "!!!!"))
+    refusesAs("not UTF-8", fullVerify.replace(b64(msgRefXml), byteArrayOf(0x3c, 0xC3.toByte()).base64Encode()))
+    refusesAs("empty", fullVerify.replace(b64(msgRefXml), ""))
+    refusesAs("over", fullVerify.replace(b64(msgRefXml), b64(msgRefXml.replace("ZA==", "A".repeat(ReferenceXml.MAX_BYTES)))))
   }
 
   @Test fun `empty signed bytes, an empty ciphertext and an empty decrypted envelope are refused`() {

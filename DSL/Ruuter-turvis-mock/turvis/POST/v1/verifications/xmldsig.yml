@@ -219,6 +219,15 @@ analyse:
     facts: |-
       ${(function (x, h) {
         function first(re) { var m = x.match(re); return m ? m[1].trim() : ''; }
+        // The element as written, plus the xmldsig namespace declaration when the element does not carry one itself.
+        function selfContained(el) {
+          var p = (el.match(/^<(?:(\w+):)?Reference\b/) || [])[1];
+          var decl = p ? 'xmlns:' + p + '=' : 'xmlns=';
+          var head = el.substring(0, el.indexOf('>'));
+          if (head.indexOf(decl) >= 0) { return el; }
+          var at = (p ? p.length + 1 : 0) + '<Reference'.length;
+          return el.substring(0, at) + ' ' + decl + '"http://www.w3.org/2000/09/xmldsig#"' + el.substring(at);
+        }
         var messaging = x.match(/<(?:\w+:)?Messaging\b/g) || [];
         var refs = [];
         var unsupported = false;
@@ -235,7 +244,7 @@ analyse:
           var digestMethod = m[2].match(/<(?:\w+:)?DigestMethod\b[^>]*\bAlgorithm\s*=\s*[\x22\x27]([^\x22\x27]*)[\x22\x27]/);
           if (digestMethod && digestMethod[1] != 'http://www.w3.org/2001/04/xmlenc#sha256') { unsupported = true; }
           var digestValue = m[2].match(/<(?:\w+:)?DigestValue>([^<]*)</);
-          var item = { reference_uri: uri, digest_b64: digestValue ? digestValue[1].trim() : '', algorithm: 'SHA-256', transforms: transforms };
+          var item = { reference_uri: uri, digest_b64: digestValue ? digestValue[1].trim() : '', algorithm: 'SHA-256', transforms: transforms, xml: selfContained(m[0]) };
           if (uri.charAt(0) == '#') {
             var idPart = uri.substring(1).replace(/[^A-Za-z0-9_.:-]/g, '');
             var idMatch = idPart == uri.substring(1) ? new RegExp('\\bId\\s*=\\s*[\\x22\\x27]' + idPart + '[\\x22\\x27]').exec(x) : null;
@@ -304,6 +313,21 @@ build_bundle:
           }
           return o;
         }
+        function utf8(s) {
+          var o = '';
+          for (var i = 0; i < s.length; i++) {
+            var c = s.charCodeAt(i);
+            if (c >= 0xD800 && c < 0xDC00 && i + 1 < s.length) { c = 0x10000 + ((c - 0xD800) << 10) + (s.charCodeAt(i + 1) - 0xDC00); i++; }
+            if (c < 0x80) { o += String.fromCharCode(c); }
+            else if (c < 0x800) { o += String.fromCharCode(0xC0 | (c >> 6), 0x80 | (c & 63)); }
+            else if (c < 0x10000) { o += String.fromCharCode(0xE0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63)); }
+            else { o += String.fromCharCode(0xF0 | (c >> 18), 0x80 | ((c >> 12) & 63), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63)); }
+          }
+          return o;
+        }
+        function refXml(uri, digest, transform) {
+          return '<ds:Reference xmlns:ds="http://www.w3.org/2000/09/xmldsig#" URI="' + uri + '"><ds:Transforms><ds:Transform Algorithm="' + transform + '"/></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/><ds:DigestValue>' + digest + '</ds:DigestValue></ds:Reference>';
+        }
         var digests = f.refs;
         if (digests.length == 0) {
           var extra = 0;
@@ -312,10 +336,12 @@ build_bundle:
             if (xp == '//eb:Messaging') { uri = '#MSG-ID'; kind = 'messaging'; }
             else if (xp == '//env:Body') { uri = '#BODY-ID'; kind = 'body'; }
             else { extra += 1; uri = '#REF-' + extra; kind = 'ref-' + extra; }
-            digests.push({ reference_uri: uri, subtree_xpath: xp, digest_b64: b64('mock-digest-' + kind + '-not-real-crypto'), algorithm: 'SHA-256', transforms: ['http://www.w3.org/2001/10/xml-exc-c14n#'] });
+            var d = b64('mock-digest-' + kind + '-not-real-crypto');
+            digests.push({ reference_uri: uri, subtree_xpath: xp, digest_b64: d, algorithm: 'SHA-256', transforms: ['http://www.w3.org/2001/10/xml-exc-c14n#'], xml: refXml(uri, d, 'http://www.w3.org/2001/10/xml-exc-c14n#') });
           });
           cids.forEach(function (cid) {
-            digests.push({ reference_uri: cid, digest_b64: b64('mock-digest-attachment-not-real-crypto'), algorithm: 'SHA-256', transforms: ['http://docs.oasis-open.org/wss/oasis-wss-SwAProfile-1.1#Attachment-Content-Signature-Transform'] });
+            var d = b64('mock-digest-attachment-not-real-crypto');
+            digests.push({ reference_uri: cid, digest_b64: d, algorithm: 'SHA-256', transforms: ['http://docs.oasis-open.org/wss/oasis-wss-SwAProfile-1.1#Attachment-Content-Signature-Transform'], xml: refXml(cid, d, 'http://docs.oasis-open.org/wss/oasis-wss-SwAProfile-1.1#Attachment-Content-Signature-Transform') });
           });
         }
         return {
@@ -324,7 +350,11 @@ build_bundle:
           signer: { cert_subject_dn: 'CN=mock-peer-' + verified_identity + ',O=mock,C=EU', cert_ski: '0000000000000000000000000000000000000000', cert_serial: '0', verified_identity: verified_identity },
           matched_signed_xpaths: xpaths,
           matched_signed_cid_refs: cids,
-          signature_digests: digests,
+          signature_digests: digests.map(function (r) {
+            var out = { reference_uri: r.reference_uri, digest_b64: r.digest_b64, algorithm: r.algorithm, transforms: r.transforms, reference_xml_b64: b64(utf8(r.xml)) };
+            if (r.subtree_xpath != null) { out.subtree_xpath = r.subtree_xpath; }
+            return out;
+          }),
           ebms_routing: { message_id: f.message_id, conversation_id: f.conversation_id, ref_to_message_id: f.ref_to_message_id, from_party_id: verified_identity, to_party_id: f.to_party_id, service: f.service, action: f.action }
         };
       })(facts, incoming.body.required_signed_xpaths, incoming.body.required_signed_cid_refs)}

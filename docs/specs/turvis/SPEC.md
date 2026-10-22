@@ -383,9 +383,10 @@ Always returned: `verdict`, `audit_ref`. Other fields appear only if named in re
       "description": "Projectable. One entry per <ds:Reference> of the verified signature, in document order. Used by edelivery to build signed non-repudiation receipts (NRR) without re-computing crypto: the receipt references the same URIs, digests and transforms as the received signature. An XPath alone cannot reconstruct a Reference, hence reference_uri and transforms. Empty array in plaintext mode (no signature present).",
       "items": {
         "type": "object",
-        "required": ["reference_uri", "digest_b64", "algorithm", "transforms"],
+        "required": ["reference_uri", "digest_b64", "algorithm", "transforms", "reference_xml_b64"],
         "properties": {
           "reference_uri": {"type": "string", "description": "The original <ds:Reference>/@URI, e.g. '#MSG-ID', '#BODY-ID' or 'cid:message'."},
+          "reference_xml_b64": {"type": "string", "format": "base64", "description": "Base64 of the UTF-8 bytes of the received <ds:Reference> element exactly as the peer wrote it (DigestMethod, every Transform with its parameters such as InclusiveNamespaces PrefixList, attribute order, quoting and whitespace unchanged), made self-contained: the only permitted difference from the received bytes is a namespace declaration added to the element's start tag where the element relied on one declared by an ancestor. Exactly one Reference element whose start tag declares the xmldsig namespace itself and whose `URI` equals `reference_uri`, no comment, processing instruction, DOCTYPE or CDATA, at most 64 KiB; a namespace prefix used inside the element but declared on an ancestor is declared on the element too. edelivery repeats these bytes verbatim in the NRR receipt it builds and never rebuilds a Reference from the other fields, so a peer that compares transform parameters or the digest method sees what it sent. The other fields stay for correlation and policy checks."},
           "subtree_xpath": {"type": "string", "description": "XPath of the referenced XML subtree. Absent for attachment (cid:) references."},
           "digest_b64": {"type": "string", "format": "base64"},
           "algorithm": {"type": "string", "enum": ["SHA-256"]},
@@ -440,6 +441,8 @@ Pure function of inputs. Same request → identical response (modulo `audit_ref`
 
 **Projectable fields** (opt in via `return_fields`): `signatures`.
 **Always returned**: `signed_xml_b64`, `audit_ref`.
+
+**Input parsing**: Turvis parses `soap_xml_b64` namespace-aware, with DTDs and external entities disabled. Input that is not namespace-well-formed XML 1.0 (unbalanced or mismatched tags, an unbound prefix, an undefined entity or character reference, a DOCTYPE) is rejected with `XML_PARSE_FAIL` and nothing is signed. edelivery relies on this when it splices a peer's `ds:Reference` (§4.1 `reference_xml_b64`) into a receipt: it only checks the fragment's shape, not its well-formedness.
 
 #### Request body schema
 
@@ -1272,7 +1275,7 @@ For audit, non-repudiation receipts, and incident lookup, edelivery stores a sma
 
 edelivery's implementation (#305d-2) is one structured log line per message (`turvis_audit direction=inbound|outbound`, ids only, values outside a narrow character set written as `?`), because edelivery has no message table; a durable table remains open.
 
-For AS4 non-repudiation receipts (NRR), edelivery takes `signature_digests` from Turvis's verify response (§4.1) and places those digest values as text content in the receipt XML it builds; it then calls `/turvis/v1/signatures/xmldsig` to sign the receipt. edelivery never computes or verifies any digest.
+For AS4 non-repudiation receipts (NRR), edelivery takes `signature_digests` from Turvis's verify response (§4.1) and places each reference in the receipt XML it builds as the verbatim `reference_xml_b64` element (§4.1), not rebuilt from the digest values; it then calls `/turvis/v1/signatures/xmldsig` to sign the receipt. edelivery never computes or verifies any digest.
 
 ### 13.8 Payload size budget
 
@@ -1346,9 +1349,9 @@ Content-Type: application/json
   "matched_signed_xpaths": ["//eb:Messaging", "//env:Body"],
   "matched_signed_cid_refs": ["cid:message"],
   "signature_digests": [
-    {"reference_uri": "#MSG-ID", "subtree_xpath": "//eb:Messaging", "digest_b64": "DIjgcEkiAb...=", "algorithm": "SHA-256", "transforms": ["http://www.w3.org/2001/10/xml-exc-c14n#"]},
-    {"reference_uri": "#BODY-ID", "subtree_xpath": "//env:Body", "digest_b64": "9m0VSvOx...=", "algorithm": "SHA-256", "transforms": ["http://www.w3.org/2001/10/xml-exc-c14n#"]},
-    {"reference_uri": "cid:message", "digest_b64": "...", "algorithm": "SHA-256", "transforms": ["http://docs.oasis-open.org/wss/oasis-wss-SwAProfile-1.1#Attachment-Content-Signature-Transform"]}
+    {"reference_uri": "#MSG-ID", "subtree_xpath": "//eb:Messaging", "digest_b64": "DIjgcEkiAb...=", "algorithm": "SHA-256", "transforms": ["http://www.w3.org/2001/10/xml-exc-c14n#"], "reference_xml_b64": "PGRzOlJlZmVyZW5jZSB4bWxu..."},
+    {"reference_uri": "#BODY-ID", "subtree_xpath": "//env:Body", "digest_b64": "9m0VSvOx...=", "algorithm": "SHA-256", "transforms": ["http://www.w3.org/2001/10/xml-exc-c14n#"], "reference_xml_b64": "PGRzOlJlZmVyZW5jZSB4bWxu..."},
+    {"reference_uri": "cid:message", "digest_b64": "...", "algorithm": "SHA-256", "transforms": ["http://docs.oasis-open.org/wss/oasis-wss-SwAProfile-1.1#Attachment-Content-Signature-Transform"], "reference_xml_b64": "PGRzOlJlZmVyZW5jZSB4bWxu..."}
   ],
   "ebms_routing": {
     "message_id": "fr-gate-20261016-00001@dgitm.fr",
@@ -1571,3 +1574,4 @@ Explicitly excluded from this build. If any of these later come into scope, that
 | 2026-10-20 | §11.2 environment guard: `AUTH_MODE=shared-token` refused in prod/staging; §7.2 and §13.0 marked agreed | turnerrainer approval of the six decisions on PR #311 |
 | 2026-10-20 | §4.0 mock caveat replaced: the mock (#306) validates and projects `return_fields`, rejects unknown values with a real `UNKNOWN_RETURN_FIELD`, extracts `ebms_routing` and the sender from the envelope, checks `key_handle`, and reports `<ds:Reference>` elements as written; §13.0 drift gate names the script and the unit test; DSL moved to `DSL/Ruuter-turvis-mock/` | #306 implementation (mock behaviour only, no change to the real contract) |
 | 2026-10-22 | §4.2 "Signature placement": Turvis inserts exactly one `<ds:Signature>` as the last child of the existing `wsse:Security` header and changes no other byte of the envelope | #305c-1 review: edelivery refuses a signed envelope that is not the unsigned one plus that insertion; the position was an implementation assumption until now |
+| 2026-10-22 | §4.1 `signature_digests` items gain the required `reference_xml_b64` (the received `ds:Reference` verbatim, self-contained); NRR receipts repeat it byte for byte instead of rebuilding a Reference from `reference_uri`/`digest_b64`/`transforms` (closes the missing `InclusiveNamespaces PrefixList` and digest-method gap of #305 AC 5). §13.7 text adjusted; §4.2 "Input parsing": sign refuses input that is not namespace-well-formed | edelivery cannot rebuild a Reference exactly from URIs; a peer comparing transform parameters would refuse the receipt |
