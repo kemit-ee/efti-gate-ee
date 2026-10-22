@@ -63,6 +63,7 @@ Regenerate the raw lists with `python3 scripts/validate-xml-surface.py --print`.
 | `SignatureValidator.kt` `DocumentBuilderFactory`, `XMLSignatureFactory` | peer envelope (XMLDSig verify) | peer bytes; hardened DOM | legacy/shadow only |
 | `xml-mapper FTIMessages.kt` `XmlParser` | eFTI FTI004/009/010/019/021/025/029/030 | after decrypt+verify (peer gates, also FTI004 uploads that arrive over AS4) or platform API key (direct uploads) | all modes |
 | `EDeliveryClient.kt` two regexes (`faultReasonRegex`, `errorDetailRegex`) | fault text of a peer's **unverified** HTTP answer to an outbound send | peer bytes, no verification; the text (or, when the regexes find nothing, the whole answer) is logged and put into an `IOException` message, a log-injection and PII risk that **#322** (raw-body logging, fault bodies) has to cover | all modes |
+| `ReferenceXml.kt` two regexes | shape check of the `ds:Reference` fragment Turvis returns for the receipt (not a parser; well-formedness rests on Turvis's `sign`, SPEC 4.2) | Turvis's answer, itself derived from the verified peer envelope | turvis |
 | `EDeliveryRoutes.kt` `rootTagRegex` | root tag of the decrypted payload | after verify (turvis) or legacy verify | all modes |
 | admin UI `XmlViewer.svelte`, `shared/xmlParser.ts` `DOMParser` | stored consignment XML for display | admin user's browser, `textContent` rendering | UI |
 
