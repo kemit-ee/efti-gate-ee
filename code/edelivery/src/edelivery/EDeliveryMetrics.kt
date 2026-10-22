@@ -18,6 +18,8 @@ object EDeliveryMetrics {
   private val shadowSkipped = ConcurrentHashMap<String, LongAdder>()
   private val shadowDropped = LongAdder()
   private val shadowAttempted = ConcurrentHashMap<String, LongAdder>()
+  private val asyncHandlerFailures = ConcurrentHashMap<String, LongAdder>()
+  private val asyncResponseTimeouts = LongAdder()
 
   init {
     Metrics.register("edeliveryMessagesInboundTotal") { inbound.mapValues { it.value.sum() } }
@@ -37,6 +39,9 @@ object EDeliveryMetrics {
     Metrics.register("edeliveryTurvisShadowErrorsTotal") { shadowErrors.mapValues { it.value.sum() } }
     Metrics.register("edeliveryTurvisShadowSkippedTotal") { shadowSkipped.mapValues { it.value.sum() } }
     Metrics.register("edeliveryTurvisShadowDroppedTotal") { shadowDropped.sum() }
+    // edelivery_async_handler_failures_total_<reason_class>: a handler dispatched after the 200 threw (reason_class = FaultReason).
+    Metrics.register("edeliveryAsyncHandlerFailuresTotal") { asyncHandlerFailures.mapValues { it.value.sum() } }
+    Metrics.register("edeliveryAsyncResponseTimeoutsTotal") { asyncResponseTimeouts.sum() }
   }
 
   /** `endpoint` is decryptions, verifications, encryptions or signatures; `verdict` is accept, reject or error (unreachable, bad shape, refused credential). */
@@ -59,6 +64,12 @@ object EDeliveryMetrics {
   fun shadowError(endpoint: String, kind: String) = shadowErrors.getOrPut("${key(endpoint)}_${key(kind)}") { LongAdder() }.increment()
   fun shadowSkipped(kind: String) = shadowSkipped.getOrPut(key(kind)) { LongAdder() }.increment()
   fun shadowDropped() = shadowDropped.increment()
+
+  internal fun asyncHandlerFailureCounts(): Map<String, Long> = asyncHandlerFailures.mapValues { it.value.sum() }
+  internal fun asyncResponseTimeoutCount() = asyncResponseTimeouts.sum()
+  fun asyncHandlerFailure(reasonClass: String) = asyncHandlerFailures.getOrPut(key(reasonClass)) { LongAdder() }.increment()
+  /** The waiter of a cross-node reply hit its deadline before any reply arrived. */
+  fun asyncResponseTimeout() = asyncResponseTimeouts.increment()
 
   fun inbound(rootTag: String?) = inbound.getOrPut((rootTag ?: "unknown").lowercase()) { LongAdder() }.increment()
   fun outboundSuccess() = outbound.getOrPut("success") { LongAdder() }.increment()

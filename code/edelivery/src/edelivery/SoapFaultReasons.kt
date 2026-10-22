@@ -63,6 +63,9 @@ enum class FaultReason(val ebmsCode: String, val category: String, val shortDesc
   }
 }
 
+/** The multipart body has too few parts or a part of the wrong type; answered with 400 and the [FaultReason.XML_PARSE_FAIL] fault. */
+class MalformedMultipartException : IllegalArgumentException("Malformed multipart message")
+
 /** A decompressed payload over the size limit; ordered before [IllegalArgumentException] in [FaultReason.of]. */
 class PayloadTooLargeException(message: String) : IllegalArgumentException(message)
 

@@ -191,6 +191,33 @@ check_gates:
 assign_peers:
   assign:
     peer_gates: "${gates_result.response.body.filter(g => g.status === 'ONLINE' && String(g.id).toLowerCase() !== '[#OWN_GATE_ID]'.toLowerCase())}"
+  next: check_peers
+
+# An empty peer list is a valid answer for a lone gate, but a misconfigured registry looks the same:
+# leave a WARN line and an audit row so an operator has something to grep for.
+check_peers:
+  switch:
+    - condition: ${peer_gates.length == 0}
+      next: warn_no_peers
+  next: register_pending
+
+warn_no_peers:
+  log: "WARN search rid=${requestId} registry has no peer gates, nothing to broadcast"
+  next: audit_no_peers
+
+audit_no_peers:
+  detach:
+    do:
+      - call: http.post
+        args:
+          url: "[#RESQL_URL]/efti/insert_audit_log"
+          headers:
+            Content-Type: "application/json"
+          body:
+            action: "search.no_peers"
+            resource: "search"
+            ipAddress: "${incoming.headers['x-forwarded-for'] ?? null}"
+            details: "${JSON.stringify({ search_id: requestId, reason: 'registry_has_no_peer_gates' })}"
   next: register_pending
 
 register_pending:

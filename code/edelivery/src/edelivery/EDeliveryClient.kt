@@ -40,15 +40,7 @@ class EDeliveryClient(
     old.shutdown()
   }
 
-  private fun buildHttpClient() = httpClient { sslContext(keyManager.buildGatesTrustStore()) }.apply {
-    try {
-      val impl = javaClass.getDeclaredField("impl").apply { isAccessible = true }.get(this)
-      fun <T> Any.get(field: String) = javaClass.getDeclaredField(field).apply { isAccessible = true }.get(impl) as T
-
-    } catch (e: Exception) {
-      logger<EDeliveryClient>().warn("Error while building http client: ${e.message}") // pii-ok: local TLS setup
-    }
-  }
+  private fun buildHttpClient() = httpClient { sslContext(keyManager.buildGatesTrustStore()) }
 
   private val faultReasonRegex = Regex("<\\w+:Text[^>]*>(.*?)</\\w+:Text>", DOT_MATCHES_ALL)
   private val errorDetailRegex = Regex("<\\w+:ErrorDetail[^>]*>(.*?)</\\w+:ErrorDetail>", DOT_MATCHES_ALL)

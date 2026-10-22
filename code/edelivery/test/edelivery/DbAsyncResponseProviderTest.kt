@@ -74,7 +74,9 @@ class DbAsyncResponseProviderTest {
   @Test fun `times out when no response ever arrives`() {
     val impatient = node(100.milliseconds)
     impatient.register(key)
+    val before = EDeliveryMetrics.asyncResponseTimeoutCount()
     assertThrows(TimeoutException::class.java) { impatient.waitForResponse(key) }
+    assertEquals(before + 1, EDeliveryMetrics.asyncResponseTimeoutCount())
   }
 
   @Test fun `database errors while polling do not abort the wait`() {
