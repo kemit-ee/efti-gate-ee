@@ -203,6 +203,28 @@ class TurvisShadowTest {
     assertEquals(beforeSecurity + 1, counter(security))
   }
 
+  @Test fun `legacy refuses an oversize payload that Turvis budget accepts is a size budget difference, not security`() {
+    every { inbound.process(any()) } returns verified(payload = "x".repeat(legacyPayloadLimit().toInt() + 1))
+    val before = counter(discrepancies, "inbound_size_budget")
+    val beforeSecurity = counter(security)
+
+    shadow().compare("a-1", body, LegacyDecision.Rejected(FaultReason.PAYLOAD_TOO_LARGE))
+
+    assertEquals(before + 1, counter(discrepancies, "inbound_size_budget"))
+    assertEquals(beforeSecurity, counter(security))
+  }
+
+  @Test fun `legacy says too large but the payload is small stays a security discrepancy`() {
+    every { inbound.process(any()) } returns verified()
+    val before = counter(discrepancies, "verifications_outcome_reject_vs_accept")
+    val beforeSecurity = counter(security)
+
+    shadow().compare("a-1", body, LegacyDecision.Rejected(FaultReason.PAYLOAD_TOO_LARGE))
+
+    assertEquals(before + 1, counter(discrepancies, "verifications_outcome_reject_vs_accept"))
+    assertEquals(beforeSecurity + 1, counter(security))
+  }
+
   @Test fun `both reject with the same ebMS code agree even if the reason names differ`() {
     every { inbound.process(any()) } throws reject("SIGNER_UNTRUSTED")
     val before = Snapshot(this)

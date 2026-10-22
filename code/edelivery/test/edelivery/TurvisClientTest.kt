@@ -795,4 +795,19 @@ class TurvisClientTest {
     val failure = assertFailsWith<java.util.concurrent.ExecutionException> { big.body.toCompletableFuture().get() }
     assertIs<ResponseTooLargeException>(failure.cause)
   }
+
+  @Test fun `an answer of exactly the limit passes the handler and one byte more is cut off`() {
+    val small = TurvisClient(config.copy(maxPayloadMib = 1), http, json, sleeper = {}, newTraceId = { "0123456789abcdef0123456789abcdef" })
+    script += answer(body = verifyAccept)
+    small.verify("U09BUA==", emptyList(), emptyList(), emptyList(), setOf(TurvisVerifyField.SIGNER))
+    val limit = config.copy(maxPayloadMib = 1).maxResponseBytes.toInt()
+    fun feed(n: Int) = handlers.last().apply(mockk(relaxed = true)).also { sub ->
+      sub.onSubscribe(object : Flow.Subscription { override fun request(n: Long) {}; override fun cancel() {} })
+      sub.onNext(listOf(java.nio.ByteBuffer.wrap(ByteArray(n) { 'a'.code.toByte() })))
+      sub.onComplete()
+    }
+
+    assertEquals(limit, feed(limit).body.toCompletableFuture().get().length)
+    assertIs<ResponseTooLargeException>(assertFailsWith<java.util.concurrent.ExecutionException> { feed(limit + 1).body.toCompletableFuture().get() }.cause)
+  }
 }
