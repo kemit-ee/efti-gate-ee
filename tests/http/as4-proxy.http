@@ -15,7 +15,7 @@ Content-Transfer-Encoding: binary
 
 > {%
   client.test("Ruuter proxies AS4 to edelivery", () => {
-    client.assert(response.status === 500)
+    client.assert(response.status === 400)
     client.assert(response.headers.valueOf("Content-Type").includes("soap+xml"))
   })
 %}
