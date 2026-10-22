@@ -32,10 +32,14 @@ class TurvisOutbound(
   private val config: TurvisConfig,
   private val client: TurvisClient,
   private val generator: EDeliveryMessageGenerator,
-  /** Only the dev/CI turvis-mock (no cryptography) echoes its input unsigned; the start-up guard keeps that host out of prod/staging. */
-  internal val allowUnsignedEcho: Boolean = TurvisConfig.isMockHost(config.url?.host),
 ) {
   private val log = logger()
+
+  /**
+   * Only the dev/CI turvis-mock (no cryptography) echoes its input unsigned; the start-up guard keeps that host out of
+   * prod/staging. A property, not a constructor parameter: klite's registry cannot inject a Boolean.
+   */
+  internal var allowUnsignedEcho: Boolean = TurvisConfig.isMockHost(config.url?.host)
 
   /** Whether Turvis is the authority for outbound messages. In legacy and shadow the in-process path is. */
   val authoritative get() = config.mode == TurvisIntegrationMode.TURVIS

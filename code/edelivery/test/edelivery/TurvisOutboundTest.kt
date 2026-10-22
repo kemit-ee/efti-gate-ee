@@ -7,6 +7,7 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
 import klite.Metrics
+import klite.register
 import klite.base64Decode
 import klite.base64Encode
 import org.junit.jupiter.api.Test
@@ -21,7 +22,7 @@ class TurvisOutboundTest {
   private val keyManager = mockk<KeyManager> { every { partyId } returns PartyId("EU-EE") }
   private val generator = EDeliveryMessageGenerator(keyManager)
   private fun outbound(mode: TurvisIntegrationMode = TurvisIntegrationMode.TURVIS, allowUnsignedEcho: Boolean = false) =
-    TurvisOutbound(TurvisConfig(mode = mode, keyHandle = "EU-EE"), client, generator, allowUnsignedEcho)
+    TurvisOutbound(TurvisConfig(mode = mode, keyHandle = "EU-EE"), client, generator).also { it.allowUnsignedEcho = allowUnsignedEcho }
 
   private val params = UserMessageParams(RequestKey(PartyId("EU-FR"), senderId = PartyId("EU-EE")))
   private val payload = "<hello>world</hello>"
@@ -56,6 +57,16 @@ class TurvisOutboundTest {
   }
 
   private fun failures(reason: String) = ((Metrics.data["edeliveryOutboundTurvisFailuresTotal"] as Map<*, *>?)?.get(reason) as Number?)?.toLong() ?: 0L
+
+  @Test fun `the registry can create it from the registered dependencies, as Launcher does`() {
+    val registry = klite.DependencyInjectingRegistry()
+    registry.register(TurvisConfig(mode = TurvisIntegrationMode.LEGACY, keyHandle = "EU-EE"))
+    registry.register(client)
+    registry.register(generator)
+    registry.register<TurvisOutbound>()
+
+    expect(registry.require(TurvisOutbound::class).authoritative).toEqual(false)
+  }
 
   @Test fun `authoritative only in turvis mode`() {
     expect(outbound(TurvisIntegrationMode.TURVIS).authoritative).toEqual(true)
