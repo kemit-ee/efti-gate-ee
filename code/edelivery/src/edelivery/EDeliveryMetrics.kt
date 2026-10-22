@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.LongAdder
 object EDeliveryMetrics {
   private val inbound = ConcurrentHashMap<String, LongAdder>()
   private val outbound = ConcurrentHashMap<String, LongAdder>()
+  private val outboundTurvisFailures = ConcurrentHashMap<String, LongAdder>()
   private val turvisCalls = ConcurrentHashMap<String, LongAdder>()
   private val turvisRejects = ConcurrentHashMap<String, LongAdder>()
   private val turvisRetries = ConcurrentHashMap<String, LongAdder>()
@@ -21,6 +22,8 @@ object EDeliveryMetrics {
   init {
     Metrics.register("edeliveryMessagesInboundTotal") { inbound.mapValues { it.value.sum() } }
     Metrics.register("edeliveryMessagesOutboundTotal") { outbound.mapValues { it.value.sum() } }
+    // SPEC 13.3a: edelivery_outbound_turvis_failures_total_<reason_code>
+    Metrics.register("edeliveryOutboundTurvisFailuresTotal") { outboundTurvisFailures.mapValues { it.value.sum() } }
     // klite's Metrics has no labels: each key becomes a metric name suffix, e.g.
     // edelivery_turvis_calls_total_verifications_accept, edelivery_turvis_rejects_total_verifications_sig_policy_fail.
     Metrics.register("edeliveryTurvisCallsTotal") { turvisCalls.mapValues { it.value.sum() } }
@@ -59,5 +62,7 @@ object EDeliveryMetrics {
 
   fun inbound(rootTag: String?) = inbound.getOrPut((rootTag ?: "unknown").lowercase()) { LongAdder() }.increment()
   fun outboundSuccess() = outbound.getOrPut("success") { LongAdder() }.increment()
+  /** [reason] is a contract reason code, or `turvis_unavailable` / `turvis_protocol` / `turvis_auth` / `internal`: a bounded set. */
+  fun outboundTurvisFailure(reason: String) = outboundTurvisFailures.getOrPut(key(reason)) { LongAdder() }.increment()
   fun outboundFailure() = outbound.getOrPut("failure") { LongAdder() }.increment()
 }

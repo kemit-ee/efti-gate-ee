@@ -55,6 +55,18 @@ class EDeliveryMessageGenerator(
     return Pair(xml, attachmentBytes)
   }
 
+  /**
+   * The unsigned request envelope Turvis signs (SPEC 2.3, 4.2): the `eb:Messaging` and an empty body exactly as the
+   * in-process path builds them, plus a `wsse:Security` header holding [securityContentXml] (the fragments Turvis's
+   * encrypt returned, verbatim; empty in the plaintext profile). Turvis adds the signature; this method never signs,
+   * and its output is the only XML edelivery authors on the Turvis path.
+   */
+  fun unsignedRequestEnvelope(params: UserMessageParams, securityContentXml: String): String = soapEnvelope(
+    userMessageXml(params) +
+      """<wsse:Security xmlns:wsse="$wsseNs" xmlns:wsu="$wsuNs" env:mustUnderstand="true">""" + securityContentXml + "</wsse:Security>",
+    emptySoapBody(),
+  )
+
   internal fun generateAESKey(): SecretKey = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
 
   fun responseMessage(header: MessageHeader): String {

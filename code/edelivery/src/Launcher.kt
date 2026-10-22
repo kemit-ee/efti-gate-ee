@@ -31,6 +31,7 @@ fun main() {
     register<TurvisClient>()
     register<TurvisInbound>()
     register<TurvisShadow>()
+    register<TurvisOutbound>()
     register<RuuterClient>(if (Config.isProd) RuuterClient::class else RuuterClientDev::class)
     register<PartyRegistry>(EDeliveryPartyRegistry::class)
     register<AsyncResponseProvider>(DbAsyncResponseProvider::class)
