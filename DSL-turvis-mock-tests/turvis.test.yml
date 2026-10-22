@@ -476,15 +476,18 @@ tests:
             digest_b64: "ZGlnZXN0LW1zZw=="
             algorithm: "SHA-256"
             transforms: ["http://www.w3.org/2001/10/xml-exc-c14n#"]
+            reference_xml_b64: "PGRzOlJlZmVyZW5jZSB4bWxuczpkcz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC8wOS94bWxkc2lnIyIgVVJJPSIjTVNHLUlEIj48ZHM6VHJhbnNmb3Jtcz48ZHM6VHJhbnNmb3JtIEFsZ29yaXRobT0iaHR0cDovL3d3dy53My5vcmcvMjAwMS8xMC94bWwtZXhjLWMxNG4jIi8+PC9kczpUcmFuc2Zvcm1zPjxkczpEaWdlc3RNZXRob2QgQWxnb3JpdGhtPSJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzA0L3htbGVuYyNzaGEyNTYiLz48ZHM6RGlnZXN0VmFsdWU+WkdsblpYTjBMVzF6Wnc9PTwvZHM6RGlnZXN0VmFsdWU+PC9kczpSZWZlcmVuY2U+"
           - reference_uri: "#BODY-ID"
             subtree_xpath: "//env:Body"
             digest_b64: "ZGlnZXN0LWJvZHk="
             algorithm: "SHA-256"
             transforms: ["http://www.w3.org/2001/10/xml-exc-c14n#"]
+            reference_xml_b64: "PGRzOlJlZmVyZW5jZSB4bWxuczpkcz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC8wOS94bWxkc2lnIyIgVVJJPSIjQk9EWS1JRCI+PGRzOlRyYW5zZm9ybXM+PGRzOlRyYW5zZm9ybSBBbGdvcml0aG09Imh0dHA6Ly93d3cudzMub3JnLzIwMDEvMTAveG1sLWV4Yy1jMTRuIyIvPjwvZHM6VHJhbnNmb3Jtcz48ZHM6RGlnZXN0TWV0aG9kIEFsZ29yaXRobT0iaHR0cDovL3d3dy53My5vcmcvMjAwMS8wNC94bWxlbmMjc2hhMjU2Ii8+PGRzOkRpZ2VzdFZhbHVlPlpHbG5aWE4wTFdKdlpIaz08L2RzOkRpZ2VzdFZhbHVlPjwvZHM6UmVmZXJlbmNlPg=="
           - reference_uri: "cid:message"
             digest_b64: "ZGlnZXN0LWF0dA=="
             algorithm: "SHA-256"
             transforms: ["http://docs.oasis-open.org/wss/oasis-wss-SwAProfile-1.1#Attachment-Content-Signature-Transform"]
+            reference_xml_b64: "PGRzOlJlZmVyZW5jZSB4bWxuczpkcz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC8wOS94bWxkc2lnIyIgVVJJPSJjaWQ6bWVzc2FnZSI+PGRzOlRyYW5zZm9ybXM+PGRzOlRyYW5zZm9ybSBBbGdvcml0aG09Imh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL3dzcy9vYXNpcy13c3MtU3dBUHJvZmlsZS0xLjEjQXR0YWNobWVudC1Db250ZW50LVNpZ25hdHVyZS1UcmFuc2Zvcm0iLz48L2RzOlRyYW5zZm9ybXM+PGRzOkRpZ2VzdE1ldGhvZCBBbGdvcml0aG09Imh0dHA6Ly93d3cudzMub3JnLzIwMDEvMDQveG1sZW5jI3NoYTI1NiIvPjxkczpEaWdlc3RWYWx1ZT5aR2xuWlhOMExXRjBkQT09PC9kczpEaWdlc3RWYWx1ZT48L2RzOlJlZmVyZW5jZT4="
 
   - name: verify - a required XPath not covered by any Reference is SIG_POLICY_FAIL
     request:
@@ -548,15 +551,18 @@ tests:
             digest_b64: "bW9jay1kaWdlc3QtbWVzc2FnaW5nLW5vdC1yZWFsLWNyeXB0bw=="
             algorithm: "SHA-256"
             transforms: ["http://www.w3.org/2001/10/xml-exc-c14n#"]
+            reference_xml_b64: "PGRzOlJlZmVyZW5jZSB4bWxuczpkcz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC8wOS94bWxkc2lnIyIgVVJJPSIjTVNHLUlEIj48ZHM6VHJhbnNmb3Jtcz48ZHM6VHJhbnNmb3JtIEFsZ29yaXRobT0iaHR0cDovL3d3dy53My5vcmcvMjAwMS8xMC94bWwtZXhjLWMxNG4jIi8+PC9kczpUcmFuc2Zvcm1zPjxkczpEaWdlc3RNZXRob2QgQWxnb3JpdGhtPSJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzA0L3htbGVuYyNzaGEyNTYiLz48ZHM6RGlnZXN0VmFsdWU+Ylc5amF5MWthV2RsYzNRdGJXVnpjMkZuYVc1bkxXNXZkQzF5WldGc0xXTnllWEIwYnc9PTwvZHM6RGlnZXN0VmFsdWU+PC9kczpSZWZlcmVuY2U+"
           - reference_uri: "#BODY-ID"
             subtree_xpath: "//env:Body"
             digest_b64: "bW9jay1kaWdlc3QtYm9keS1ub3QtcmVhbC1jcnlwdG8="
             algorithm: "SHA-256"
             transforms: ["http://www.w3.org/2001/10/xml-exc-c14n#"]
+            reference_xml_b64: "PGRzOlJlZmVyZW5jZSB4bWxuczpkcz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC8wOS94bWxkc2lnIyIgVVJJPSIjQk9EWS1JRCI+PGRzOlRyYW5zZm9ybXM+PGRzOlRyYW5zZm9ybSBBbGdvcml0aG09Imh0dHA6Ly93d3cudzMub3JnLzIwMDEvMTAveG1sLWV4Yy1jMTRuIyIvPjwvZHM6VHJhbnNmb3Jtcz48ZHM6RGlnZXN0TWV0aG9kIEFsZ29yaXRobT0iaHR0cDovL3d3dy53My5vcmcvMjAwMS8wNC94bWxlbmMjc2hhMjU2Ii8+PGRzOkRpZ2VzdFZhbHVlPmJXOWpheTFrYVdkbGMzUXRZbTlrZVMxdWIzUXRjbVZoYkMxamNubHdkRzg9PC9kczpEaWdlc3RWYWx1ZT48L2RzOlJlZmVyZW5jZT4="
           - reference_uri: "cid:message"
             digest_b64: "bW9jay1kaWdlc3QtYXR0YWNobWVudC1ub3QtcmVhbC1jcnlwdG8="
             algorithm: "SHA-256"
             transforms: ["http://docs.oasis-open.org/wss/oasis-wss-SwAProfile-1.1#Attachment-Content-Signature-Transform"]
+            reference_xml_b64: "PGRzOlJlZmVyZW5jZSB4bWxuczpkcz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC8wOS94bWxkc2lnIyIgVVJJPSJjaWQ6bWVzc2FnZSI+PGRzOlRyYW5zZm9ybXM+PGRzOlRyYW5zZm9ybSBBbGdvcml0aG09Imh0dHA6Ly9kb2NzLm9hc2lzLW9wZW4ub3JnL3dzcy9vYXNpcy13c3MtU3dBUHJvZmlsZS0xLjEjQXR0YWNobWVudC1Db250ZW50LVNpZ25hdHVyZS1UcmFuc2Zvcm0iLz48L2RzOlRyYW5zZm9ybXM+PGRzOkRpZ2VzdE1ldGhvZCBBbGdvcml0aG09Imh0dHA6Ly93d3cudzMub3JnLzIwMDEvMDQveG1sZW5jI3NoYTI1NiIvPjxkczpEaWdlc3RWYWx1ZT5iVzlqYXkxa2FXZGxjM1F0WVhSMFlXTm9iV1Z1ZEMxdWIzUXRjbVZoYkMxamNubHdkRzg9PC9kczpEaWdlc3RWYWx1ZT48L2RzOlJlZmVyZW5jZT4="
 
   - name: verify - empty return_fields is a 400 (SPEC minItems 1)
     request:
@@ -1083,6 +1089,7 @@ tests:
             digest_b64: "ZGlnZXN0LW1zZw=="
             algorithm: "SHA-256"
             transforms: ["http://www.w3.org/2001/10/xml-exc-c14n#"]
+            reference_xml_b64: "PGRzOlJlZmVyZW5jZSB4bWxuczpkcz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC8wOS94bWxkc2lnIyIKICAgIFVSST0iI01TRy1JRCI+PGRzOlRyYW5zZm9ybXM+PGRzOlRyYW5zZm9ybQogICAgQWxnb3JpdGhtPSJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzEwL3htbC1leGMtYzE0biMiLz48L2RzOlRyYW5zZm9ybXM+PGRzOkRpZ2VzdE1ldGhvZAogICAgQWxnb3JpdGhtPSJodHRwOi8vd3d3LnczLm9yZy8yMDAxLzA0L3htbGVuYyNzaGEyNTYiLz48ZHM6RGlnZXN0VmFsdWU+WkdsblpYTjBMVzF6Wnc9PTwvZHM6RGlnZXN0VmFsdWU+PC9kczpSZWZlcmVuY2U+"
         ebms_routing:
           message_id: "newline-test-0001@eu-de.example"
           conversation_id: "conv-newline-0001"
@@ -1110,6 +1117,7 @@ tests:
             digest_b64: "ZGlnZXN0LW1zZw=="
             algorithm: "SHA-256"
             transforms: ["http://www.w3.org/2001/10/xml-exc-c14n#"]
+            reference_xml_b64: "PGRzOlJlZmVyZW5jZSB4bWxuczpkcz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC8wOS94bWxkc2lnIyIgVVJJPScjTVNHLUlEJz48ZHM6VHJhbnNmb3Jtcz48ZHM6VHJhbnNmb3JtIEFsZ29yaXRobT0naHR0cDovL3d3dy53My5vcmcvMjAwMS8xMC94bWwtZXhjLWMxNG4jJy8+PC9kczpUcmFuc2Zvcm1zPjxkczpEaWdlc3RNZXRob2QgQWxnb3JpdGhtPSdodHRwOi8vd3d3LnczLm9yZy8yMDAxLzA0L3htbGVuYyNzaGEyNTYnLz48ZHM6RGlnZXN0VmFsdWU+WkdsblpYTjBMVzF6Wnc9PTwvZHM6RGlnZXN0VmFsdWU+PC9kczpSZWZlcmVuY2U+"
         ebms_routing:
           message_id: "newline-test-0001@eu-de.example"
           conversation_id: "conv-newline-0001"

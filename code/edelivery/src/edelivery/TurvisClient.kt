@@ -26,13 +26,18 @@ data class TurvisAttachment(val cid: String, val bytesB64: String)
 
 data class TurvisSigner(val certSubjectDn: String, val certSki: String, val certSerial: String, val verifiedIdentity: String)
 
-/** One signature reference: the original URI, digest, algorithm and transforms (SPEC 4.1/4.2), enough to build a receipt. */
+/**
+ * One signature reference: the original URI, digest, algorithm and transforms (SPEC 4.1/4.2). A verify reference also
+ * carries [referenceXml], the received `ds:Reference` element verbatim, which is what a receipt repeats; a sign
+ * reference is metadata only and has none.
+ */
 data class TurvisSignatureReference(
   val referenceUri: String,
   val subtreeXpath: String?,
   val digestB64: String,
   val algorithm: String,
   val transforms: List<String>,
+  val referenceXml: String? = null,
 )
 
 data class TurvisEbmsRouting(
@@ -398,16 +403,17 @@ class TurvisClient(
   }
 
   /**
-   * A verify reference feeds the receipt, so it is strict: URI, digest and transforms are required, and the
-   * algorithm must be SHA-256 (SPEC 4.1). A sign reference is metadata only (SPEC 4.2 requires nothing).
+   * A verify reference feeds the receipt, so it is strict: URI, digest, transforms and the verbatim element are
+   * required, and the algorithm must be SHA-256 (SPEC 4.1). A sign reference is metadata only (SPEC 4.2 requires nothing).
    */
   private fun verifyReference(m: Map<String, Any?>): TurvisSignatureReference {
-    m.only("signature_digests item", "reference_uri", "subtree_xpath", "digest_b64", "algorithm", "transforms")
+    m.only("signature_digests item", "reference_uri", "subtree_xpath", "digest_b64", "algorithm", "transforms", "reference_xml_b64")
     val algorithm = m.string("algorithm", true, nonEmpty = true)!!
     if (algorithm != "SHA-256") throw TurvisProtocolException("signature digest algorithm is '$algorithm', the contract only allows SHA-256")
     return TurvisSignatureReference(
       m.string("reference_uri", true, nonEmpty = true)!!, m.string("subtree_xpath"), m.string("digest_b64", true, nonEmpty = true, base64 = true)!!, algorithm,
       m.strings("transforms") ?: throw TurvisProtocolException("response lacks the field 'transforms'"),
+      ReferenceXml.decode(m.string("reference_xml_b64", true, nonEmpty = false, base64 = true)!!),
     )
   }
 

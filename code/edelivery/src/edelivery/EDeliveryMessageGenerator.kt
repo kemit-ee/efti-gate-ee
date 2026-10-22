@@ -69,10 +69,10 @@ class EDeliveryMessageGenerator(
 
   /**
    * The unsigned receipt (NRR response) Turvis signs (SPEC 13.7): an `eb:SignalMessage` that refers to the received
-   * message and repeats the references of the signature that was verified, exactly as Turvis's verify response
-   * reported them (URI, digest, transforms). Nothing is computed here: the digests are Turvis's, and every value that
-   * comes from the peer or from Turvis is XML-escaped, because this is the one place peer-authored text is written
-   * into XML edelivery signs (the received message id).
+   * message and repeats the references of the signature that was verified: each `ds:Reference` is the element the peer
+   * wrote, as Turvis's verify response returned it (SPEC 4.1 `reference_xml_b64`, shape-checked by [ReferenceXml]), spliced
+   * in untouched. Nothing is computed or rebuilt here. The received message id is the one peer-authored text written
+   * into the XML edelivery signs, and it is XML-escaped.
    */
   fun unsignedReceiptEnvelope(refToMessageId: String, references: List<TurvisSignatureReference>): String = soapEnvelope(
     receiptMessagingXml(refToMessageId, references) +
@@ -82,10 +82,7 @@ class EDeliveryMessageGenerator(
 
   private fun receiptMessagingXml(refToMessageId: String, references: List<TurvisSignatureReference>): String {
     val parts = references.joinToString("") { ref ->
-      val transforms = if (ref.transforms.isEmpty()) "" else
-        "<ds:Transforms>" + ref.transforms.joinToString("") { """<ds:Transform Algorithm="${it.xmlEscaped()}"></ds:Transform>""" } + "</ds:Transforms>"
-      """<ebbp:MessagePartNRInformation><ds:Reference xmlns:ds="$dsNs" URI="${ref.referenceUri.xmlEscaped()}">$transforms""" +
-        """<ds:DigestMethod Algorithm="$xencSha256"></ds:DigestMethod><ds:DigestValue>${ref.digestB64.xmlEscaped()}</ds:DigestValue></ds:Reference></ebbp:MessagePartNRInformation>"""
+      "<ebbp:MessagePartNRInformation>" + (ref.referenceXml ?: throw TurvisProtocolException("verify reported a reference without its verbatim element")) + "</ebbp:MessagePartNRInformation>"
     }
     // Only the template is normalised; the peer's and Turvis's values go in afterwards, so whitespace inside them survives.
     val template = /*language=xml*/ """
