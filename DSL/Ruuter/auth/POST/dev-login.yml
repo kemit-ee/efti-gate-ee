@@ -28,6 +28,19 @@ validate_input:
     - condition: ${incoming.body == null || incoming.body.personalCode == null}
       next: missing_params
 
+# Strict Estonian personal code: exactly 11 digits, century/sex digit 1-6, and the mod-11
+# check digit (weights 1..9,1 then 3..9,1,2 on the second pass, 10 -> 0). Any deviation
+# (length, non-digit, whitespace) is refused before a JWT is minted.
+validate_personal_code:
+  assign:
+    code_ok: "${/^[1-6][0-9]{10}$/.test(incoming.body.personalCode) && (() => { const d = incoming.body.personalCode.split('').map(Number); const w1 = [1,2,3,4,5,6,7,8,9,1]; const w2 = [3,4,5,6,7,8,9,1,2,3]; let c = w1.reduce((a, w, i) => a + w * d[i], 0) % 11; if (c === 10) { c = w2.reduce((a, w, i) => a + w * d[i], 0) % 11; if (c === 10) { c = 0; } } return c === d[10]; })()}"
+
+check_personal_code:
+  switch:
+    - condition: ${code_ok === true}
+      next: generate_jwt
+  next: audit_login_denied_code
+
 generate_jwt:
   call: http.post
   args:
@@ -90,6 +103,27 @@ audit_login_failure_jwt:
 jwt_error:
   status: 500
   return: {"error": "JWT generation failed"}
+  wrapper: false
+  next: end
+
+audit_login_denied_code:
+  detach:
+    do:
+      - call: http.post
+        args:
+          url: "[#RESQL_URL]/efti/insert_audit_log"
+          headers:
+            Content-Type: "application/json"
+          body:
+            action: "user.login"
+            resource: "user"
+            ipAddress: "${incoming.headers['x-forwarded-for'] ?? null}"
+            details: "${JSON.stringify({ outcome: 'failure', failure_reason: 'invalid_personal_code', dev_login: true })}"
+  next: invalid_personal_code
+
+invalid_personal_code:
+  status: 400
+  return: {"error": "personalCode is not a valid Estonian personal code"}
   wrapper: false
   next: end
 

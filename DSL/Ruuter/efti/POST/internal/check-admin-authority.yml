@@ -82,8 +82,16 @@ check_token_info:
 check_tara_sub:
   switch:
     - condition: ${typeof token_info.response.body?.userinfo?.claims?.personalCode === 'string' && token_info.response.body.userinfo.claims.personalCode != '' && typeof token_info.response.body.userinfo.issued_at === 'string' && token_info.response.body.userinfo.issued_at != ''}
-      next: lookup_user
+      next: check_login_expiry
   next: unauthorized
+
+# Defence in depth for a stale or split-brain TIM: when userinfo carries loginExpireDate and it
+# parses to a moment in the past, deny here too. An absent or unparseable value does not deny
+# (TIM stays the authority; this only adds a second expiry check).
+check_login_expiry:
+  switch:
+    - condition: ${typeof token_info.response.body.userinfo.loginExpireDate === 'string' && !isNaN(Date.parse(token_info.response.body.userinfo.loginExpireDate)) && Date.parse(token_info.response.body.userinfo.loginExpireDate) < Date.now()}
+      next: unauthorized
 
 lookup_user:
   call: http.post
