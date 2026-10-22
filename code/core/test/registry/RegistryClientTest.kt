@@ -13,6 +13,7 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.net.http.HttpResponse.BodyHandler
+import registryTimeout
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
@@ -118,4 +119,32 @@ class RegistryClientTest {
     assertEquals(emptyMap(), client.getParties())
     assertNull(client.getPlatforms()[PartyId("anything")])
   }
+
+  @Test fun `every registry request carries the registry timeout`() {
+    val requestSlot = slot<HttpRequest>()
+    every { http.send(capture(requestSlot), any<BodyHandler<String>>()) } returns stringResponse()
+
+    client.getGates()
+
+    assertEquals(java.time.Duration.ofSeconds(registryTimeout.inWholeSeconds), requestSlot.captured.timeout().get())
+  }
+
+  @Test fun `a transient network failure is retried and then succeeds`() {
+    var calls = 0
+    every { http.send(any(), any<BodyHandler<String>>()) } answers {
+      if (calls++ == 0) throw java.io.IOException("connection reset") else stringResponse()
+    }
+
+    assertEquals(emptyMap(), client.getGates())
+    assertEquals(2, calls)
+  }
+
+  @Test fun `an HTTP error status is not retried`() {
+    var calls = 0
+    every { http.send(any(), any<BodyHandler<String>>()) } answers { calls++; stringResponse(status = 500, body = "boom") }
+
+    kotlin.test.assertFailsWith<klite.http.HttpException> { client.getGates() }
+    assertEquals(1, calls)
+  }
 }
+

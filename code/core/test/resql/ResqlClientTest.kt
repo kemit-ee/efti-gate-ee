@@ -11,6 +11,7 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.net.http.HttpResponse.BodyHandler
+import resqlTimeout
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
@@ -51,5 +52,24 @@ class ResqlClientTest {
     every { http.send(any(), any<BodyHandler<String>>()) } returns stringResponse(body = "[]")
 
     assertNull(client.claimAsyncResponse("req-1"))
+  }
+
+  @Test fun `insert and claim requests carry the resql timeout and are never retried`() {
+    val requests = mutableListOf<HttpRequest>()
+    every { http.send(capture(requests), any<BodyHandler<String>>()) } returns stringResponse()
+
+    client.insertAsyncResponse("req-1", "<xml/>")
+    client.claimAsyncResponse("req-1")
+
+    assertEquals(2, requests.size)
+    requests.forEach { assertEquals(java.time.Duration.ofSeconds(resqlTimeout.inWholeSeconds), it.timeout().get()) }
+  }
+
+  @Test fun `a network failure on claim propagates without a retry`() {
+    var calls = 0
+    every { http.send(any(), any<BodyHandler<String>>()) } answers { calls++; throw java.io.IOException("reset") }
+
+    kotlin.test.assertFailsWith<java.io.IOException> { client.claimAsyncResponse("req-1") }
+    assertEquals(1, calls)
   }
 }

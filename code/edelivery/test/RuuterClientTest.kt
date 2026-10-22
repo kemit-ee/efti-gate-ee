@@ -1,5 +1,6 @@
 import edelivery.PartyId
 import io.mockk.every
+import io.mockk.slot
 import io.mockk.mockk
 import io.mockk.verify
 import klite.Config
@@ -94,5 +95,18 @@ class RuuterClientTest {
     assertThrows<HttpException> {
       client.getDataset("<FTI009GetCmdsRequest/>", requestId, PartyId("EU-EE"))
     }
+  }
+
+  @Test fun `requests carry the Ruuter timeout`() {
+    val requestSlot = slot<HttpRequest>()
+    val response = mockk<HttpResponse<String>>(relaxed = true) {
+      every { statusCode() } returns 200
+      every { body() } returns "<Response/>"
+    }
+    every { http.send(capture(requestSlot), any<BodyHandler<String>>()) } returns response
+
+    client.getDataset("<x/>", requestId, PartyId("EU-EE"))
+
+    assertEquals(java.time.Duration.ofSeconds(ruuterTimeout.inWholeSeconds), requestSlot.captured.timeout().get())
   }
 }
