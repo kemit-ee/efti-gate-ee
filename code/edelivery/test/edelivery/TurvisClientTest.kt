@@ -693,6 +693,23 @@ class TurvisClientTest {
     refused("the namespace only on a child", msgRefXml.replace(""" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" URI""", " URI").replace("<ds:DigestValue>", """<ds:DigestValue xmlns:ds="http://www.w3.org/2000/09/xmldsig#">"""))
     refused("a different reference than reported", msgRefXml.replace("""URI="#MSG-ID"""", """URI="#OTHER""""))
     refused("no URI", msgRefXml.replace(""" URI="#MSG-ID"""", ""))
+    refused("a namespace declaration inside another attribute value",
+      msgRefXml.replace("""xmlns:ds="http://www.w3.org/2000/09/xmldsig#" URI""", """xmlns:ds="urn:evil" Id='x xmlns:ds="http://www.w3.org/2000/09/xmldsig#"' URI"""))
+    refused("a URI inside another attribute value", msgRefXml.replace("""URI="#MSG-ID"""", """Id='q URI="#MSG-ID"' URI="#OTHER""""))
+    refused("a repeated attribute", msgRefXml.replace(""" URI="#MSG-ID"""", """ URI="#MSG-ID" URI="#MSG-ID""""))
+    refused("junk in the start tag", msgRefXml.replace(""" URI="#MSG-ID"""", """ URI="#MSG-ID" junk"""))
+  }
+
+  @Test fun `a greater-than sign inside an attribute value is not a false refusal, and the URI is unescaped exactly once`() {
+    val gt = msgRefXml.replace("""<ds:Reference xmlns:ds""", """<ds:Reference Id="a>b" xmlns:ds""")
+    script += answer(body = fullVerify.replace(b64(msgRefXml), b64(gt)))
+    assertEquals(gt, (verifyCall(TurvisVerifyField.entries.toSet()) as TurvisResult.Accept<TurvisVerifyResponse>).value.signatureDigests!!.first().referenceXml)
+
+    val twice = msgRefXml.replace("""URI="#MSG-ID"""", """URI="#a&amp;lt;b"""")
+    script += answer(body = fullVerify.replace(b64(msgRefXml), b64(twice)).replaceFirst("\"reference_uri\":\"#MSG-ID\"", "\"reference_uri\":\"#a&lt;b\""))
+    assertEquals(twice, (verifyCall(TurvisVerifyField.entries.toSet()) as TurvisResult.Accept<TurvisVerifyResponse>).value.signatureDigests!!.first().referenceXml)
+    script += answer(body = fullVerify.replace(b64(msgRefXml), b64(twice.replace("&amp;lt;", "&amp;amp;lt;"))).replaceFirst("\"reference_uri\":\"#MSG-ID\"", "\"reference_uri\":\"#a&lt;b\""))
+    assertFailsWith<TurvisProtocolException> { verifyCall(TurvisVerifyField.entries.toSet()) }
   }
 
   @Test fun `a default-namespace reference and an escaped URI match what is reported`() {

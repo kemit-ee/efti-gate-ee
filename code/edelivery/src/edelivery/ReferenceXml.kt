@@ -22,7 +22,26 @@ internal object ReferenceXml {
   private val END = Regex("</(?:([A-Za-z_][\\w.-]*):)?Reference>")
 
   private const val DSIG_NS = "http://www.w3.org/2000/09/xmldsig#"
-  private val URI_ATTR = Regex("""^<[^>]*?\sURI\s*=\s*(["'])(.*?)\1""")
+  private val ATTR = Regex("""\s+([A-Za-z_][\w.:-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')""")
+  private val TAG_END = Regex("""\s*>""")
+
+  /**
+   * The start tag's attributes, read one by one, so a value is never searched for another attribute (an `Id` value that
+   * contains ` xmlns:ds="..."` or ` URI="..."` must not count). Null if the tag is not attributes followed by `>`, or an
+   * attribute repeats.
+   */
+  private fun startTagAttributes(xml: String, nameEnd: Int): Map<String, String>? {
+    val out = LinkedHashMap<String, String>()
+    var i = nameEnd
+    while (true) {
+      val m = ATTR.matchAt(xml, i) ?: break
+      if (out.put(m.groupValues[1], m.groups[2]?.value ?: m.groups[3]!!.value) != null) return null
+      i = m.range.last + 1
+    }
+    return if (TAG_END.matchAt(xml, i) != null) out else null
+  }
+
+  private fun unescapeAttribute(v: String) = v.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&apos;", "'").replace("&amp;", "&")
 
   fun decode(b64: String, expectedUri: String): String {
     val bytes = try { Base64.getDecoder().decode(b64) } catch (e: IllegalArgumentException) { throw TurvisProtocolException("reference_xml_b64 is not base64") }
@@ -38,12 +57,10 @@ internal object ReferenceXml {
       starts[0].groupValues[1] == ends[0].groupValues[1]
     if (!ok) throw TurvisProtocolException("reference_xml_b64 is not exactly one ds:Reference element")
     val prefix = starts[0].groupValues[1]
-    val head = xml.substring(0, xml.indexOf('>') + 1) // a '>' inside an earlier attribute value cuts it short, which fails closed
-    val declaration = if (prefix.isEmpty()) "xmlns" else "xmlns:$prefix"
-    if (!Regex("""\s${Regex.escape(declaration)}\s*=\s*(["'])${Regex.escape(DSIG_NS)}\1""").containsMatchIn(head))
+    val attributes = startTagAttributes(xml, starts[0].range.last + 1) ?: throw TurvisProtocolException("reference_xml_b64 start tag is not plain attributes")
+    if (attributes[if (prefix.isEmpty()) "xmlns" else "xmlns:$prefix"] != DSIG_NS)
       throw TurvisProtocolException("reference_xml_b64 does not declare the xmldsig namespace on its element")
-    val uri = URI_ATTR.find(xml)?.groupValues?.get(2)?.replace("&lt;", "<")?.replace("&gt;", ">")?.replace("&quot;", "\"")?.replace("&apos;", "'")?.replace("&amp;", "&")
-    if (uri != expectedUri) throw TurvisProtocolException("reference_xml_b64 is not the reference it is reported for")
+    if (attributes["URI"]?.let(::unescapeAttribute) != expectedUri) throw TurvisProtocolException("reference_xml_b64 is not the reference it is reported for")
     return xml
   }
 }
