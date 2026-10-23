@@ -17,6 +17,8 @@ import java.net.http.HttpResponse.BodyHandler
 import java.net.http.HttpTimeoutException
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlin.test.assertNotSame
 
 class EDeliveryClientTest {
@@ -185,21 +187,45 @@ class EDeliveryClientTest {
     assertEquals("eDelivery request failed with status 500: unrecognised", e.message)
   }
 
-  @Test fun `a peer's answer with our reason codes keeps the codes`() {
-    val e = sendFailing("""<env:Fault><env:Reason><env:Text>SIG_CRYPTO_FAIL</env:Text></env:Reason><eb:ErrorDetail>EBMS:0004</eb:ErrorDetail></env:Fault>""")
+  private val ownFaults = EDeliveryMessageGenerator(mockk(relaxed = true))
 
-    assertEquals("eDelivery request failed with status 500: EBMS:0004 - SIG_CRYPTO_FAIL", e.message)
+  @Test fun `our own gate's fault keeps its reason name and its ebMS code, for every reason`() {
+    FaultReason.entries.forEach { reason ->
+      assertEquals("${reason.ebmsCode} - ${reason.name}", eDeliveryClient.safeFaultReason(ownFaults.soapFault(reason)), reason.name)
+    }
+    val e = sendFailing(ownFaults.soapFault(FaultReason.SIG_CRYPTO_FAIL))
+    assertEquals("eDelivery request failed with status 500: EBMS:0101 - SIG_CRYPTO_FAIL", e.message)
+  }
+
+  @Test fun `an uppercase token the gate does not know, such as an id number or a plate, is not logged`() {
+    listOf("EE60001019906", "ABC123", "SECRET_TOKEN", "SIG_CRYPTO_FAIL_X", "sig_crypto_fail").forEach {
+      assertEquals("unrecognised", eDeliveryClient.safeFaultReason("<a:Text>$it</a:Text><a:ErrorDetail>$it: detail</a:ErrorDetail>"), it)
+    }
   }
 
   @Test fun `an answer with no fault text or no body at all is unrecognised`() {
-    assertEquals("eDelivery request failed with status 500: unrecognised", sendFailing("plain text").message)
-    assertEquals("eDelivery request failed with status 500: unrecognised", sendFailing("").message)
+    assertEquals("unrecognised", eDeliveryClient.safeFaultReason("plain text"))
+    assertEquals("unrecognised", eDeliveryClient.safeFaultReason(""))
+    assertEquals("unrecognised", eDeliveryClient.safeFaultReason(null))
   }
 
-  @Test fun `only a closed code shape passes, a code with a prefix, a suffix or lower case does not`() {
-    listOf("SIG_CRYPTO_FAIL", "OTHER", "EBMS:0004").forEach { assertEquals(it, eDeliveryClient.safeFaultReason("<a:Text>$it</a:Text>")) }
-    listOf("sig_crypto_fail", "SIG_CRYPTO_FAIL secret", "x SIG_CRYPTO_FAIL", "EBMS:00041", "EBMS:abcd", "AB", "A".repeat(65), "SIG-CRYPTO").forEach {
-      assertEquals("unrecognised", eDeliveryClient.safeFaultReason("<a:Text>$it</a:Text>"), it)
+  @Test fun `a huge answer with unclosed tags is scanned briefly and a name beyond the scan limit is not seen`() {
+    org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(java.time.Duration.ofSeconds(2)) {
+      assertEquals("unrecognised", eDeliveryClient.safeFaultReason("<a:Text>".repeat(1_000_000)))
+      assertEquals("unrecognised", eDeliveryClient.safeFaultReason("<a:Text x=\"" + "y".repeat(2_000_000)))
     }
+    val late = " ".repeat(64 * 1024) + "<a:Text>SIG_CRYPTO_FAIL</a:Text>"
+    assertEquals("unrecognised", eDeliveryClient.safeFaultReason(late))
+  }
+
+  @Test fun `the warning for a failed send carries status, reason, sha256 and size and none of the answer's text`() {
+    val answer = "<a:Text>Driver John Smith</a:Text>" + ownFaults.soapFault(FaultReason.OTHER)
+
+    val line = eDeliveryClient.faultLine(URI("https://example.com/services/msh"), UserMessageParams(RequestKey(PartyId("EU-FR"))), 500, answer)
+
+    assertTrue("status=500" in line)
+    assertTrue("reason=EBMS:0004 - OTHER" in line)
+    assertTrue(Regex("body_sha256=[0-9a-f]{64}, body_size_bytes=${answer.toByteArray().size}\\z").containsMatchIn(line), line)
+    assertFalse("John" in line || "Failed to process" in line || "<" in line, line)
   }
 }
