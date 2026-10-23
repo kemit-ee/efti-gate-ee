@@ -1,6 +1,6 @@
 import edelivery.PartyId
 import klite.Config
-import klite.http.bodyOrThrow
+import bodyOrThrowStatusOnly
 import klite.http.post
 import klite.http.timeout
 import klite.plus
@@ -34,5 +34,5 @@ open class RuuterClient(
       header("X-Internal-Service-Token", internalServiceToken)
       platformId?.let { header("X-Platform-Id", it.toString()) }
       header("x-request-id", requestId.toString())
-    }.bodyOrThrow()
+    }.bodyOrThrowStatusOnly()
 }

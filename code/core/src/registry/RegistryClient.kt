@@ -3,7 +3,7 @@ package registry
 import edelivery.EDeliveryParty
 import edelivery.PartyId
 import klite.Config
-import klite.http.bodyOrThrow
+import bodyOrThrowStatusOnly
 import klite.http.get
 import klite.http.timeout
 import klite.info
@@ -30,7 +30,7 @@ class RegistryClient(
   private val log = logger()
 
   private inline fun <reified T> fetch(path: String): List<T> =
-    jsonMapper.parse(retryIdempotent("registry GET $path") { http.get(baseUrl + path) { timeout(registryTimeout) }.bodyOrThrow() })
+    jsonMapper.parse(retryIdempotent("registry GET $path") { http.get(baseUrl + path) { timeout(registryTimeout) }.bodyOrThrowStatusOnly() })
 
   fun getGates() = fetch<RegistryGate>("/gates.json").filter { it.status == ONLINE }.mapNotNull { g ->
     if (g.eDeliveryCert == null) log.warn("Gate ${g.id} has no eDeliveryCert, skipped")

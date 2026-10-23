@@ -109,4 +109,12 @@ class RuuterClientTest {
 
     assertEquals(java.time.Duration.ofSeconds(ruuterTimeout.inWholeSeconds), requestSlot.captured.timeout().get())
   }
+
+  @Test fun `a ruuter error never puts the answer into the exception message`() {
+    stub(status = 500, body = "SECRET-RUUTER-TEXT")
+
+    val e = assertThrows<HttpException> { client.getDataset("<FTI009GetCmdsRequest/>", requestId, PartyId("EU-EE")) }
+
+    org.junit.jupiter.api.Assertions.assertFalse("SECRET-RUUTER-TEXT" in e.message.orEmpty(), e.message)
+  }
 }
