@@ -78,4 +78,22 @@ class RuuterClientDevTest {
 
     verify { http.send(match<HttpRequest> { it.uri().path == "/efti/api/v1/follow-up-xml" }, any<BodyHandler<String>>()) }
   }
+
+  @Test fun `the mock platform paths throw status-only exceptions too, for an error and for a redirect`() {
+    listOf(500, 302).forEach { status ->
+      val response = mockk<HttpResponse<String>>(relaxed = true) {
+        every { statusCode() } returns status
+        every { body() } returns "SECRET-MOCK-TEXT"
+      }
+      every { http.send(any(), any<BodyHandler<String>>()) } returns response
+
+      listOf<() -> Any?>(
+        { client.getDataset("<FTI009GetCmdsRequest/>", requestId, PartyId("mock-edelivery")) },
+        { client.followUp("<FTI025LodgeFollowUpCommRequest/>", requestId, PartyId("mock-edelivery")) },
+      ).forEach { call ->
+        val e = org.junit.jupiter.api.assertThrows<klite.http.HttpException> { call() }
+        org.junit.jupiter.api.Assertions.assertFalse("SECRET-MOCK-TEXT" in e.message.orEmpty(), e.message)
+      }
+    }
+  }
 }

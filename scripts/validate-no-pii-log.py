@@ -41,14 +41,22 @@ def statements(text):
         yield first + 1, text[m.start():i]
 
 
+# klite's bodyOrThrow() writes the response body into the exception message (#357): use bodyOrThrowStatusOnly() (code/core/src/HttpResponses.kt).
+BODY_IN_EXCEPTION = re.compile(r"\.bodyOrThrow\(\)|import klite\.http\.bodyOrThrow\b")
+
+
 def main():
     bad = []
+    for path in sorted((ROOT / "code").glob("*/src/**/*.kt")):
+        for number, line in enumerate(path.read_text().split("\n"), 1):
+            if BODY_IN_EXCEPTION.search(line) and ALLOW not in line:
+                bad.append(f"{path.relative_to(ROOT)}:{number}: klite bodyOrThrow() puts the response body into the exception message, use bodyOrThrowStatusOnly()")
     for path in sorted((ROOT / "code").glob("*/src/**/*.kt")):
         for line, stmt in statements(path.read_text()):
             if FORBIDDEN.search(stmt):
                 bad.append(f"{path.relative_to(ROOT)}:{line}: {' '.join(stmt.split())[:120]}")
     if bad:
-        print("Log calls that may write a raw message body:", *bad, sep="\n  ", file=sys.stderr)
+        print("Log calls that may write a raw message body, or exceptions that carry a response body:", *bad, sep="\n  ", file=sys.stderr)
         return 1
     print("no raw-body log calls found")
     return 0

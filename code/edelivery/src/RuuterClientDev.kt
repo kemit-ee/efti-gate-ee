@@ -1,6 +1,6 @@
 import edelivery.PartyId
 import klite.Config
-import klite.http.bodyOrThrow
+import bodyOrThrowStatusOnly
 import klite.http.get
 import klite.http.post
 import klite.plus
@@ -20,7 +20,7 @@ class RuuterClientDev(
         header("Content-Type", "text/xml")
         header("x-api-key", "mock-secret-key")
         header("x-request-id", requestId.toString())
-      }.bodyOrThrow()
+      }.bodyOrThrowStatusOnly()
     }
 
     return super.getDataset(xml, requestId, receiverId)
@@ -32,7 +32,7 @@ class RuuterClientDev(
         header("Content-Type", "text/xml")
         header("x-api-key", "mock-secret-key")
         header("x-request-id", requestId.toString())
-      }.bodyOrThrow()
+      }.bodyOrThrowStatusOnly()
     }
     return super.followUp(xml, requestId, receiverId)
   }

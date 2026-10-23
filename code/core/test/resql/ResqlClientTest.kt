@@ -111,4 +111,16 @@ class ResqlClientTest {
     every { http.send(any(), any<BodyHandler<String>>()) } returns stringResponse(status = 500, body = "boom")
     assertFailsWith<HttpException> { client.insertInboundMessage("EU-DE", "m-1", "abc", "UkVD") }
   }
+
+  @Test fun `a resql error never puts the answer into the exception message`() {
+    every { http.send(any(), any<BodyHandler<String>>()) } returns stringResponse(status = 500, body = "SECRET-RESQL-TEXT")
+
+    listOf<() -> Any?>(
+      { client.insertAsyncResponse("k", "b") }, { client.claimAsyncResponse("k") }, { client.findInboundMessage("A", "m") },
+      { client.insertInboundMessage("A", "m", "h", "r") }, { client.insertAuditLog("a", "r", null, emptyMap()) },
+    ).forEach { call ->
+      val e = assertFailsWith<HttpException> { call() }
+      kotlin.test.assertFalse("SECRET-RESQL-TEXT" in e.message.orEmpty(), e.message)
+    }
+  }
 }

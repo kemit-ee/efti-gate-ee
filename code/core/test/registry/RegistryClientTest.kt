@@ -146,5 +146,12 @@ class RegistryClientTest {
     kotlin.test.assertFailsWith<klite.http.HttpException> { client.getGates() }
     assertEquals(1, calls)
   }
-}
 
+  @Test fun `a registry error never puts the answer into the exception message`() {
+    every { http.send(any(), any<BodyHandler<String>>()) } returns stringResponse(status = 500, body = "SECRET-REGISTRY-TEXT")
+
+    val e = kotlin.test.assertFailsWith<klite.http.HttpException> { client.getGates() }
+
+    kotlin.test.assertFalse("SECRET-REGISTRY-TEXT" in e.message.orEmpty(), e.message)
+  }
+}

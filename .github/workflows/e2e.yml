@@ -33,7 +33,9 @@ jobs:
       - name: efti input-contract check
         run: python3 scripts/validate-dsl.py
       - name: no raw message body in Kotlin logs
-        run: python3 scripts/validate-no-pii-log.py
+        run: |
+          python3 scripts/validate-no-pii-log.py
+          python3 tests/pii/test_validate_no_pii_log.py
       # registry/**/*.yml is converted to JSON at image build time by the same script, so this
       # validates the registry without building an image (ADR-011: the converter is the validator).
       # The same run builds and validates the Turvis trust view (turvis-trust.json, ADR-011 amendment).
