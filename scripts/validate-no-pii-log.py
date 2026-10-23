@@ -20,6 +20,8 @@ FORBIDDEN = re.compile(
     r"|\$\{?(?:xml|body|payload|response[bB]ody|resBody)\b(?!\.(?:size|length|toByteArray\(\)\.size)\b)"
     r"|\.(?:toString|joinToString)\(\)\s*\)?\s*$"
     r"|\$\{?\w+\.(?:message|localizedMessage)\b"
+    r"|\b(?:resBody|responseBody|answerBody|peerAnswer)\b(?!\.(?:size|length|toByteArray\(\)\.size)\b)"
+    r"|\bres\w*\.body\(\)(?!\.(?:length|toByteArray\(\)\.size)\b)"
 )
 ALLOW = "pii-ok"
 

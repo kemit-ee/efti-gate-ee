@@ -274,7 +274,7 @@ class EDeliveryRoutes(
   }
 }
 
-private fun ByteArray.sha256Hex() = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(this))
+internal fun ByteArray.sha256Hex() = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(this))
 
 /** The legacy path's decompression cap; the shadow compares the Turvis budget against it. */
 internal fun legacyPayloadLimit(): Long = Config.optional("BODY_LIMIT_MD", "10").toLong() * 1024 * 1024

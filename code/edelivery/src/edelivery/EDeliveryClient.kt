@@ -12,7 +12,6 @@ import java.net.http.HttpRequest.BodyPublishers.ofByteArrays
 import java.net.http.HttpResponse
 import java.net.http.HttpTimeoutException
 import java.util.UUID.randomUUID
-import kotlin.text.RegexOption.DOT_MATCHES_ALL
 import kotlin.time.Duration.Companion.seconds
 
 val eDeliveryTimeout = Config.optional("EDELIVERY_TIMEOUT_SECONDS", "60").toInt().seconds
@@ -42,8 +41,30 @@ class EDeliveryClient(
 
   private fun buildHttpClient() = httpClient { sslContext(keyManager.buildGatesTrustStore()) }
 
-  private val faultReasonRegex = Regex("<\\w+:Text[^>]*>(.*?)</\\w+:Text>", DOT_MATCHES_ALL)
-  private val errorDetailRegex = Regex("<\\w+:ErrorDetail[^>]*>(.*?)</\\w+:ErrorDetail>", DOT_MATCHES_ALL)
+  /**
+   * What is kept of a peer's answer to a failed send: only names the gate itself knows ([FaultReason], as our own `soapFault` writes them:
+   * `NAME: detail`) and an ebMS error code from the `errorCode` attribute (`EBMS:0101`). Free text, an unknown uppercase token (an id number, a
+   * plate) or anything else from a Domibus peer or a hostile one becomes `unrecognised`. Only the first 64 KiB is scanned, with regexes that do
+   * not backtrack, so a huge unclosed answer cannot hold the sending thread.
+   */
+  internal fun safeFaultReason(answer: String?): String {
+    val head = answer.orEmpty().take(MAX_FAULT_SCAN)
+    val names = listOfNotNull(errorDetailRegex.from(head), faultReasonRegex.from(head))
+      .mapNotNull { FAULT_NAME.find(it.trim())?.groupValues?.get(1) }
+      .filter { it in KNOWN_REASONS }.distinct()
+    val ebms = EBMS_CODE.find(head)?.groupValues?.get(1)
+    return (listOfNotNull(ebms) + names).joinToString(" - ").ifEmpty { "unrecognised" }
+  }
+
+  /** The warning for a failed send: status, the bounded reason, and the answer as a fingerprint and a size, never its text. */
+  internal fun faultLine(endpoint: URI, params: UserMessageParams, status: Int, answer: String?): String {
+    val bytes = answer.orEmpty().toByteArray()
+    return "eDelivery SOAP fault from $endpoint: status=$status, conversationId=${params.requestKey}, reason=${safeFaultReason(answer)}, " +
+      "body_sha256=${bytes.sha256Hex()}, body_size_bytes=${bytes.size}"
+  }
+
+  private val faultReasonRegex = Regex("<\\w+:Text[^>]*>([^<]*)</\\w+:Text>")
+  private val errorDetailRegex = Regex("<\\w+:ErrorDetail[^>]*>([^<]*)</\\w+:ErrorDetail>")
 
   private val mimeBoundary = "----=_Part_${randomUUID()}"
   private val mimePart1 = ("--$mimeBoundary\r\n" +
@@ -84,9 +105,10 @@ class EDeliveryClient(
       resBody
     } else {
       EDeliveryMetrics.outboundFailure()
-      val reason = listOfNotNull(errorDetailRegex.from(resBody)?.trim(), faultReasonRegex.from(resBody)?.trim()).joinToString(" - ")
-      log.warn("eDelivery SOAP fault from $endpoint: status=${res.statusCode()}, conversationId=${params.requestKey}, reason=${reason.takeIf { it.isNotBlank() } ?: resBody}")
-      throw IOException("eDelivery request failed with status ${res.statusCode()}: " + (reason.takeIf { it.isNotBlank() } ?: resBody))
+      // The answer is a peer's, unverified: it may carry anything (our own message echoed, markup, line breaks). Only names we know reach
+      // the log and the exception; the answer itself is represented by its size and fingerprint.
+      log.warn(faultLine(endpoint, params, res.statusCode(), resBody)) // pii-ok: faultLine writes status, a known reason name, sha256 and size only
+      throw IOException("eDelivery request failed with status ${res.statusCode()}: ${safeFaultReason(resBody)}")
     }
   }
 
@@ -125,3 +147,9 @@ class EDeliveryClient(
     throw IOException("All $maxAttempts attempts failed without hitting timeout")
   }
 }
+
+private const val MAX_FAULT_SCAN = 64 * 1024
+/** `NAME` or `NAME: detail` at the start of a fault text. */
+private val FAULT_NAME = Regex("^([A-Z][A-Z0-9_]{2,63})(?::|$)")
+private val EBMS_CODE = Regex("errorCode=\"(EBMS:\\d{4})\"")
+private val KNOWN_REASONS = FaultReason.entries.map { it.name }.toSet()
