@@ -161,4 +161,45 @@ class EDeliveryClientTest {
     assertNotSame(http, newHttp)
     io.mockk.verify { http.shutdown() }
   }
+
+  private fun failedAnswer(status: Int, body: String) = mockk<HttpResponse<String>> {
+    every { statusCode() } returns status
+    every { body() } returns body
+  }
+
+  private fun sendFailing(body: String): IOException {
+    every { turvisOutbound.authoritative } returns true
+    every { turvisOutbound.requestMessage(any(), any()) } returns OutboundMessage("<env/>".toByteArray(), ByteArray(4), "enc-1", "sig-1")
+    every { http.send(any(), any<BodyHandler<String>>()) } returns failedAnswer(500, body)
+    return assertFailsWith<IOException> {
+      eDeliveryClient.send(URI("https://example.com/services/msh"), UserMessageParams(RequestKey(PartyId("EU-FR"))), "<payload/>")
+    }
+  }
+
+  @Test fun `a peer's free-text fault answer never reaches the exception, only a bounded code does`() {
+    val echoed = """<env:Envelope><env:Body><env:Fault><env:Reason><env:Text xml:lang="en">Driver John Smith, plate 123 ABC
+      rejected</env:Text></env:Reason><detail><eb:ErrorDetail>/etc/passwd {secret}</eb:ErrorDetail></detail></env:Fault></env:Body></env:Envelope>"""
+
+    val e = sendFailing(echoed)
+
+    assertEquals("eDelivery request failed with status 500: unrecognised", e.message)
+  }
+
+  @Test fun `a peer's answer with our reason codes keeps the codes`() {
+    val e = sendFailing("""<env:Fault><env:Reason><env:Text>SIG_CRYPTO_FAIL</env:Text></env:Reason><eb:ErrorDetail>EBMS:0004</eb:ErrorDetail></env:Fault>""")
+
+    assertEquals("eDelivery request failed with status 500: EBMS:0004 - SIG_CRYPTO_FAIL", e.message)
+  }
+
+  @Test fun `an answer with no fault text or no body at all is unrecognised`() {
+    assertEquals("eDelivery request failed with status 500: unrecognised", sendFailing("plain text").message)
+    assertEquals("eDelivery request failed with status 500: unrecognised", sendFailing("").message)
+  }
+
+  @Test fun `only a closed code shape passes, a code with a prefix, a suffix or lower case does not`() {
+    listOf("SIG_CRYPTO_FAIL", "OTHER", "EBMS:0004").forEach { assertEquals(it, eDeliveryClient.safeFaultReason("<a:Text>$it</a:Text>")) }
+    listOf("sig_crypto_fail", "SIG_CRYPTO_FAIL secret", "x SIG_CRYPTO_FAIL", "EBMS:00041", "EBMS:abcd", "AB", "A".repeat(65), "SIG-CRYPTO").forEach {
+      assertEquals("unrecognised", eDeliveryClient.safeFaultReason("<a:Text>$it</a:Text>"), it)
+    }
+  }
 }

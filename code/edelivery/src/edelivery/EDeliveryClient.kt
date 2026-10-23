@@ -42,6 +42,15 @@ class EDeliveryClient(
 
   private fun buildHttpClient() = httpClient { sslContext(keyManager.buildGatesTrustStore()) }
 
+  /**
+   * The fault text of a peer's answer, kept only where it is a code of a closed shape: one of our reason codes (`SIG_CRYPTO_FAIL`, ...) or an
+   * ebMS error code (`EBMS:0004`). Free text, from a Domibus peer or a hostile one, becomes `unrecognised`.
+   */
+  internal fun safeFaultReason(answer: String?): String {
+    val found = listOfNotNull(errorDetailRegex.from(answer.orEmpty())?.trim(), faultReasonRegex.from(answer.orEmpty())?.trim()).filter { SAFE_REASON.matches(it) }
+    return found.joinToString(" - ").ifEmpty { "unrecognised" }
+  }
+
   private val faultReasonRegex = Regex("<\\w+:Text[^>]*>(.*?)</\\w+:Text>", DOT_MATCHES_ALL)
   private val errorDetailRegex = Regex("<\\w+:ErrorDetail[^>]*>(.*?)</\\w+:ErrorDetail>", DOT_MATCHES_ALL)
 
@@ -84,9 +93,13 @@ class EDeliveryClient(
       resBody
     } else {
       EDeliveryMetrics.outboundFailure()
-      val reason = listOfNotNull(errorDetailRegex.from(resBody)?.trim(), faultReasonRegex.from(resBody)?.trim()).joinToString(" - ")
-      log.warn("eDelivery SOAP fault from $endpoint: status=${res.statusCode()}, conversationId=${params.requestKey}, reason=${reason.takeIf { it.isNotBlank() } ?: resBody}")
-      throw IOException("eDelivery request failed with status ${res.statusCode()}: " + (reason.takeIf { it.isNotBlank() } ?: resBody))
+      // The answer is a peer's, unverified: it may carry anything (our own message echoed, markup, line breaks). Only a bounded code reaches
+      // the log and the exception; the answer itself is represented by its size and fingerprint.
+      val reason = safeFaultReason(resBody)
+      val answerBytes = resBody.orEmpty().toByteArray()
+      log.warn("eDelivery SOAP fault from $endpoint: status=${res.statusCode()}, conversationId=${params.requestKey}, reason=$reason, " +
+        "body_sha256=${answerBytes.sha256Hex()}, body_size_bytes=${answerBytes.size}")
+      throw IOException("eDelivery request failed with status ${res.statusCode()}: $reason")
     }
   }
 
@@ -125,3 +138,6 @@ class EDeliveryClient(
     throw IOException("All $maxAttempts attempts failed without hitting timeout")
   }
 }
+
+/** A reason code of ours (`SIG_CRYPTO_FAIL`) or an ebMS error code (`EBMS:0004`): the only peer-supplied fault text that is logged. */
+private val SAFE_REASON = Regex("(?:[A-Z][A-Z0-9_]{2,63}|EBMS:\\d{4})")
