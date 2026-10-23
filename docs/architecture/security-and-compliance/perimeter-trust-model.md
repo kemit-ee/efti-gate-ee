@@ -20,7 +20,7 @@ mTLS and NetworkPolicy authenticate *who* talks. They never sanitise *content*: 
 | 3 | Turvis response consumed as-is | `signer`, `ebms_routing`, `signature_digests` (+ verbatim `ds:Reference`), decrypted bytes | origin authenticated by the mesh and egress policy (#309); **edelivery re-verifies nothing**. Until #309 is verified this trust is not justified |
 | 4 | edelivery -> peer gates (AS4 send) | Turvis-signed bytes, sent as-is | egress must allow the registered peer URLs from `registry/`, not only Turvis |
 | 5 | edelivery -> `registry` / `resql` / `ruuter` / `xml-mapper` / DB | internal | existing internal network |
-| 6 | edelivery/Ruuter -> xml-mapper | **decrypted, signature-verified business XML** (FTIxxx) | the signature proves the signer, not that the XML is safe: xml-mapper's parser is an explicit audit item (section 4, decision proposed in 4.2) |
+| 6 | edelivery/Ruuter -> xml-mapper | **decrypted, signature-verified business XML** (FTIxxx) | the signature proves the signer, not that the XML is safe: xml-mapper's parser is an explicit audit item (section 4, decision in 4.2) |
 | 7 | Turvis -> KMS; Turvis <- trust-view artifact (SPEC 7.2) | key use; public identity data | Turvis has **no** access to the `registry` service (it holds plaintext platform `apiKey`s, ADR-011 section 5) |
 
 Consequences:
@@ -43,9 +43,9 @@ xml-mapper is the only **server-side** place that parses eFTI business XML (`cod
 
 Residual points an audit must not skip: there is no XSD validation in the mapping path (schema enforcement is F-PV-5, out of scope); element-depth/size limits are the HTTP body caps (klite `bodySizeLimit`, Ruuter 16 MiB) and the Turvis payload budget (SPEC 13.8), not parser settings.
 
-### 4.2 Decision (proposed, needs sign-off)
+### 4.2 Decision (approved 2026-10-23)
 
-Keep the klite parser as the path-6 parser, because it already refuses DTDs, with these guards: `XmlParserHardeningTest` in CI; the allowlist check (section 7) so a second parser or a new caller cannot appear unseen; the body-size caps above. Revisit only if SPEC grows a hardened-parse endpoint in Turvis (then peer-authored business XML would be parsed there and xml-mapper would see Turvis's output). **Not recorded as decided until the owners approve it**; #307's path-6 acceptance criterion stays open until then.
+Keep the klite parser as the path-6 parser, because it does not process DTDs (an entity reference is refused), with these guards: `XmlParserHardeningTest` in CI; the allowlist check (section 7) so a second parser or a new caller cannot appear unseen; the body-size caps above. Revisit only if SPEC grows a hardened-parse endpoint in Turvis (then peer-authored business XML would be parsed there and xml-mapper would see Turvis's output). **Decided by the owner on 2026-10-23** (#307's path-6 acceptance criterion). It does not close the findings F-PV-3, F-XM-1 and F-XM-2: those also need #309's enforcement and probes.
 
 ## 5. Residual legacy paths (until #312)
 
@@ -100,4 +100,4 @@ Listed with their reason in `scripts/xml-surface-allowlist.txt` (kind `xml-mappe
 ## 8. What is still open
 
 - Step 5 of #307 (A3 verification) and every finding closure (F-PV-3, F-XM-1, F-XM-2) need #309's actual delivery and probes in both directions; the mock closes none of them.
-- The path-6 decision (4.2) needs the owners' approval.
+- None of #307's steps 1-4 is open any more (the path-6 decision, 4.2, is recorded).
