@@ -57,7 +57,7 @@ object EDeliveryMetrics {
 
   /** Every comparable message handed to the shadow, before it is run, dropped or errors out: the denominator that errors and drops are measured against. */
   fun shadowAttempted(endpoint: String) = shadowAttempted.getOrPut(key(endpoint)) { LongAdder() }.increment()
-  /** A repeat of an already accepted inbound message (#336): answered with the stored receipt, not dispatched. Keys: `same_payload`, `content_mismatch`. */
+  /** A repeat of an already accepted inbound message (#336): answered with the stored receipt (same payload) or a SOAP fault (content mismatch), not dispatched. Keys: `same_payload`, `content_mismatch`. */
   fun inboundDuplicate(samePayload: Boolean) = inboundDuplicates.getOrPut(if (samePayload) "same_payload" else "content_mismatch") { LongAdder() }.increment()
   /** The shared duplicate store could not be used: the peer got HTTP 503 and nothing was dispatched. */
   fun inboundDedupUnavailable() = inboundDedupUnavailable.increment()

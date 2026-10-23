@@ -328,14 +328,17 @@ class EDeliveryRoutesTurvisModeTest {
     expect(EDeliveryMetrics.inboundDuplicateCounts()["same_payload"] ?: 0).toEqual(before + 1)
   }
 
-  @Test fun `a repeat with the same id but another payload is answered the same way, not dispatched, and counted as a content mismatch`() {
+  @Test fun `a repeat with the same id but another payload gets a SOAP fault, not the stored receipt, is not dispatched and is counted as a content mismatch`() {
     every { turvis.process(any()) } returns verified(payload = "<hello>different</hello>")
     every { dedup.find(PartyId("DE"), "m-1@x") } returns AcceptedInbound(storedReceipt, payloadSha)
+    every { generator.soapFault(FaultReason.OTHER) } returns "<fault/>"
     val before = EDeliveryMetrics.inboundDuplicateCounts()["content_mismatch"] ?: 0
 
     routes.msh(exchange)
 
-    verify { exchange.send(OK, storedReceipt, soap) }
+    verify { exchange.send(InternalServerError, "<fault/>", soap) }
+    verify(exactly = 0) { exchange.send(OK, any<ByteArray>(), any()) }
+    verify(exactly = 0) { outbound.receipt(any(), any(), any()) }
     verify(exactly = 0) { handler.invoke(any()) }
     expect(EDeliveryMetrics.inboundDuplicateCounts()["content_mismatch"] ?: 0).toEqual(before + 1)
   }

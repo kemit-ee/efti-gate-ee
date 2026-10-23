@@ -212,15 +212,20 @@ class EDeliveryRoutes(
     }
   }
 
-  /** The stored receipt goes back byte for byte (not a newly signed one: that would be a second receipt, with another MessageId, for one message). */
+  /**
+   * The stored receipt goes back byte for byte (not a newly signed one: that would be a second receipt, with another MessageId, for one message)
+   * when the repeat carries the same payload; a repeat with another payload gets a SOAP fault (`FaultReason.OTHER`, ebMS EBMS:0004) and is not dispatched.
+   */
   private fun answerDuplicate(e: HttpExchange, auditRef: String, inbound: VerifiedInbound, stored: AcceptedInbound, payloadSha256: String) {
     val samePayload = stored.payloadSha256 == payloadSha256
     EDeliveryMetrics.inboundDuplicate(samePayload)
     log.warn(TurvisAudit.duplicate(auditRef, inbound, samePayload))
     try {
-      e.send(OK, stored.receipt, soap)
+      // Same id, other content: a receipt would claim we accepted what we did not (its references are the original's), so the peer gets a fault.
+      if (samePayload) e.send(OK, stored.receipt, soap)
+      else e.send(InternalServerError, eDeliveryMessageGenerator.soapFault(FaultReason.OTHER), soap)
     } catch (ex: Exception) {
-      log.warn("Stored receipt not written to the peer: audit_ref=$auditRef", ex.withoutMessages())
+      log.warn("Answer to a repeated message not written to the peer: audit_ref=$auditRef", ex.withoutMessages())
     }
   }
 
