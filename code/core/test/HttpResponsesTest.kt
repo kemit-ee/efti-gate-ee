@@ -16,11 +16,17 @@ class HttpResponsesTest {
   @Test fun `a success status returns the body`() {
     assertEquals("<ok/>", response(200, "<ok/>").bodyOrThrowStatusOnly())
     assertEquals("", response(204, "").bodyOrThrowStatusOnly())
-    assertEquals("moved", response(399, "moved").bodyOrThrowStatusOnly())
+    assertEquals("fine", response(299, "fine").bodyOrThrowStatusOnly())
+  }
+
+  @Test fun `a redirect is a failure, as with klite, because the client does not follow it`() {
+    listOf(300, 301, 302, 304, 307, 399).forEach { status ->
+      assertEquals(status, assertFailsWith<HttpException> { response(status, "moved here").bodyOrThrowStatusOnly() }.statusCode.value)
+    }
   }
 
   @Test fun `an error status throws an HttpException with the status and none of the answer's text`() {
-    listOf(400, 404, 500, 503).forEach { status ->
+    listOf(300, 400, 404, 500, 503).forEach { status ->
       val e = assertFailsWith<HttpException> { response(status, "SECRET-ERROR-TEXT driver John Smith").bodyOrThrowStatusOnly() }
       assertEquals(status, e.statusCode.value)
       assertFalse("SECRET-ERROR-TEXT" in e.message.orEmpty() || "John" in e.message.orEmpty(), e.message)
