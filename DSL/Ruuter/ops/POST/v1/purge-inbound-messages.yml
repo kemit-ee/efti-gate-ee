@@ -25,7 +25,7 @@ purge:
 
 check_purge:
   switch:
-    - condition: ${purge_result.response.status >= 400}
+    - condition: ${purge_result.response.status == 0 || purge_result.response.status >= 400}
       next: purge_failed
   next: log_completed
 

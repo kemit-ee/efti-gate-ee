@@ -41,6 +41,10 @@ class EDeliveryRoutes(
 ) {
   private val rootTagRegex = "<\\s*(?:\\w+:)?(\\w+)".toRegex()
 
+  /** How a handler is run after the peer has been answered; tests replace it with a synchronous one to assert dispatch or its absence deterministically. */
+  internal var dispatch: (auditRef: String, context: Map<String, String>, block: () -> Unit) -> Unit =
+    { auditRef, context, block -> auditAsync(asyncFailureAudit, auditRef, "handler", context, block) }
+
   private val xmlParser = XmlParser()
   private val log = logger()
 
@@ -94,7 +98,7 @@ class EDeliveryRoutes(
       e.send(OK, responseXml, soap)
       turvisShadow.compareInbound(auditRef, bodyBytes, LegacyDecision.Accepted(observed))
 
-      auditAsync(asyncFailureAudit, auditRef, "handler", mapOf("response_key" to responseKey.toString())) {
+      dispatch(auditRef, mapOf("response_key" to responseKey.toString())) {
         val result = handler(MessageContext(responseKey, payloadXml))
         if (result != null)
           eDeliveryClient.send(party.eDeliveryUrl, UserMessageParams(responseKey), result)
@@ -124,6 +128,7 @@ class EDeliveryRoutes(
    * Still not to be switched on before real-service interoperability (#308): the mock proves shapes, not crypto.
    */
   private fun mshViaTurvis(e: HttpExchange, bodyBytes: ByteArray, auditRef: String) {
+    var recordedAndAnswered = false
     try {
       val inbound = turvisInbound.process(bodyBytes)
       val routing = inbound.routing
@@ -156,7 +161,15 @@ class EDeliveryRoutes(
       }
       // Recorded before the answer and the dispatch: a store failure is a 503 (nothing recorded, nothing dispatched, the peer retries);
       // losing the race to another node means that node dispatches, so this one answers like for any repeat.
-      if (!inboundDedup.record(senderId, routing.messageId, payloadSha256, receipt.signedSoap)) {
+      val recorded = try {
+        inboundDedup.record(senderId, routing.messageId, payloadSha256, receipt.signedSoap)
+      } catch (ex: InboundDedupUnavailableException) {
+        // The INSERT may have committed and only its answer been lost. The stored receipt decides: our own (its MessageId is random per
+        // attempt) means this call won and goes on; another one means a repeat; no answer from the store at all stays a 503.
+        val stored = try { inboundDedup.find(senderId, routing.messageId) } catch (_: InboundDedupUnavailableException) { null } ?: throw ex
+        if (stored.receipt.contentEquals(receipt.signedSoap)) true else return answerDuplicate(e, auditRef, inbound, stored, payloadSha256)
+      }
+      if (!recorded) {
         val winner = inboundDedup.find(senderId, routing.messageId) ?: throw InboundDedupUnavailableException()
         return answerDuplicate(e, auditRef, inbound, winner, payloadSha256)
       }
@@ -167,14 +180,21 @@ class EDeliveryRoutes(
       } catch (ex: Exception) {
         log.warn("Receipt not written to the peer, the message is dispatched and a repeat is answered from the store: audit_ref=$auditRef", ex.withoutMessages())
       }
+      recordedAndAnswered = true
       log.info(TurvisAudit.inbound(auditRef, inbound, receipt.signAuditRef))
 
-      auditAsync(asyncFailureAudit, auditRef, "handler", mapOf("response_key" to responseKey.toString())) {
+      dispatch(auditRef, mapOf("response_key" to responseKey.toString())) {
         val result = handler(MessageContext(responseKey, inbound.payloadXml))
         if (result != null)
           eDeliveryClient.send(party.eDeliveryUrl, UserMessageParams(responseKey), result)
       }
     } catch (ex: Exception) {
+      if (recordedAndAnswered) {
+        // The message is recorded and the peer has its receipt: a second answer would only fail, and a repeat is answered from the store.
+        EDeliveryMetrics.asyncHandlerFailure(FaultReason.of(ex).name)
+        log.error("Dispatch could not be started after the receipt: audit_ref=$auditRef", ex.withoutMessages())
+        return
+      }
       // Internal, transient or unreachable Turvis is not the peer's fault: HTTP 503 and no ebMS fault (SPEC 13.2).
       val noFault = when (ex) {
         is TurvisUnavailableException, is TurvisProtocolException, is TurvisAuthException, is InboundDedupUnavailableException -> true
@@ -197,7 +217,11 @@ class EDeliveryRoutes(
     val samePayload = stored.payloadSha256 == payloadSha256
     EDeliveryMetrics.inboundDuplicate(samePayload)
     log.warn(TurvisAudit.duplicate(auditRef, inbound, samePayload))
-    e.send(OK, stored.receipt, soap)
+    try {
+      e.send(OK, stored.receipt, soap)
+    } catch (ex: Exception) {
+      log.warn("Stored receipt not written to the peer: audit_ref=$auditRef", ex.withoutMessages())
+    }
   }
 
   private data class DecryptedPayload(val attachmentBytes: ByteArray, val xml: String)

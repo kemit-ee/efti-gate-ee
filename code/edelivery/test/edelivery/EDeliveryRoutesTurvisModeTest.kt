@@ -38,7 +38,7 @@ class EDeliveryRoutesTurvisModeTest {
     every { receipt(any(), any(), any()) } returns SignedReceipt(receiptBytes, "sig-1")
   }
 
-  private val routes = EDeliveryRoutes(keyManager, messageHandlers, generator, eDeliveryClient, partyRegistry, SignatureValidator(), turvis, TurvisShadow(TurvisConfig(keyHandle = "EU-EE"), turvis), outbound, audit, dedup)
+  private val routes = EDeliveryRoutes(keyManager, messageHandlers, generator, eDeliveryClient, partyRegistry, SignatureValidator(), turvis, TurvisShadow(TurvisConfig(keyHandle = "EU-EE"), turvis), outbound, audit, dedup).also { it.dispatch = { _, _, block -> block() } }
 
   private val conversation = "11111111-1111-1111-1111-111111111111"
 
@@ -314,16 +314,12 @@ class EDeliveryRoutesTurvisModeTest {
   private val storedReceipt = "<stored-receipt>\r\n first </stored-receipt>".toByteArray() + byteArrayOf(0x0b)
   private val payloadSha = java.security.MessageDigest.getInstance("SHA-256").digest("<hello>world</hello>".toByteArray()).joinToString("") { "%02x".format(it) }
 
-  /** An already dispatched handler call would show up after the response; give a stray async dispatch the time to happen. */
-  private fun settle() = Thread.sleep(150)
-
   @Test fun `a repeat of an accepted message gets the stored receipt byte for byte and is neither signed nor dispatched`() {
     every { turvis.process(any()) } returns verified()
     every { dedup.find(PartyId("DE"), "m-1@x") } returns AcceptedInbound(storedReceipt, payloadSha)
     val before = EDeliveryMetrics.inboundDuplicateCounts()["same_payload"] ?: 0
 
     routes.msh(exchange)
-    settle()
 
     verify { exchange.send(OK, storedReceipt, soap) }
     verify(exactly = 0) { outbound.receipt(any(), any(), any()) }
@@ -338,7 +334,6 @@ class EDeliveryRoutesTurvisModeTest {
     val before = EDeliveryMetrics.inboundDuplicateCounts()["content_mismatch"] ?: 0
 
     routes.msh(exchange)
-    settle()
 
     verify { exchange.send(OK, storedReceipt, soap) }
     verify(exactly = 0) { handler.invoke(any()) }
@@ -381,7 +376,6 @@ class EDeliveryRoutesTurvisModeTest {
     every { dedup.record(any(), any(), any(), any()) } returns false
 
     routes.msh(exchange)
-    settle()
 
     verify { exchange.send(OK, storedReceipt, soap) }
     verify(exactly = 0) { exchange.send(OK, receiptBytes, soap) }
@@ -394,7 +388,6 @@ class EDeliveryRoutesTurvisModeTest {
     every { dedup.find(any(), any()) } throws InboundDedupUnavailableException()
 
     routes.msh(exchange)
-    settle()
 
     verify { exchange.send(ServiceUnavailable, "", soap) }
     verify(exactly = 0) { generator.soapFault(any()) }
@@ -408,7 +401,6 @@ class EDeliveryRoutesTurvisModeTest {
     every { dedup.record(any(), any(), any(), any()) } throws InboundDedupUnavailableException()
 
     routes.msh(exchange)
-    settle()
 
     verify { exchange.send(ServiceUnavailable, "", soap) }
     verify(exactly = 0) { exchange.send(OK, any<ByteArray>(), any()) }
@@ -446,10 +438,77 @@ class EDeliveryRoutesTurvisModeTest {
     )
 
     routesWithRealDedup.msh(exchange)
-    settle()
 
     verify(exactly = 0) { exchange.send(ServiceUnavailable, any<String>(), any()) }
     verify(exactly = 0) { outbound.receipt(any(), any(), any()) }
     verify(exactly = 0) { handler.invoke(any()) }
+  }
+
+  @Test fun `a record whose answer was lost but that committed is dispatched once, the stored receipt being ours`() {
+    every { turvis.process(any()) } returns verified()
+    every { handler.invoke(any()) } returns null
+    every { dedup.record(any(), any(), any(), any()) } throws InboundDedupUnavailableException()
+    every { dedup.find(PartyId("DE"), "m-1@x") } returnsMany listOf(null, AcceptedInbound(receiptBytes, payloadSha))
+
+    routes.msh(exchange)
+
+    verify(exactly = 1) { handler.invoke(any()) }
+    verify { exchange.send(OK, receiptBytes, soap) }
+    verify(exactly = 0) { exchange.send(ServiceUnavailable, any<String>(), any()) }
+  }
+
+  @Test fun `a record whose answer was lost and that finds another receipt is a repeat, not dispatched`() {
+    every { turvis.process(any()) } returns verified()
+    every { dedup.record(any(), any(), any(), any()) } throws InboundDedupUnavailableException()
+    every { dedup.find(PartyId("DE"), "m-1@x") } returnsMany listOf(null, AcceptedInbound(storedReceipt, payloadSha))
+
+    routes.msh(exchange)
+
+    verify { exchange.send(OK, storedReceipt, soap) }
+    verify(exactly = 0) { handler.invoke(any()) }
+  }
+
+  @Test fun `a lost record answer followed by an unreadable store stays HTTP 503 and nothing is dispatched`() {
+    every { turvis.process(any()) } returns verified()
+    every { dedup.record(any(), any(), any(), any()) } throws InboundDedupUnavailableException()
+    every { dedup.find(any(), any()) } returnsMany listOf(null) andThenThrows InboundDedupUnavailableException()
+
+    routes.msh(exchange)
+
+    verify { exchange.send(ServiceUnavailable, "", soap) }
+    verify(exactly = 0) { handler.invoke(any()) }
+  }
+
+  @Test fun `a repeat whose stored receipt cannot be written to the peer is still not dispatched and gets no second answer`() {
+    every { turvis.process(any()) } returns verified()
+    every { dedup.find(PartyId("DE"), "m-1@x") } returns AcceptedInbound(storedReceipt, payloadSha)
+    every { exchange.send(OK, storedReceipt, soap) } throws java.io.IOException("peer went away")
+
+    routes.msh(exchange)
+
+    verify(exactly = 0) { exchange.send(ServiceUnavailable, any<String>(), any()) }
+    verify(exactly = 0) { handler.invoke(any()) }
+  }
+
+  @Test fun `a dispatch that cannot even be started after the receipt is logged, the peer is not answered a second time`() {
+    every { turvis.process(any()) } returns verified()
+    routes.dispatch = { _, _, _ -> throw IllegalStateException("executor gone") }
+
+    routes.msh(exchange)
+
+    verify(exactly = 1) { exchange.send(OK, receiptBytes, soap) }
+    verify(exactly = 0) { exchange.send(ServiceUnavailable, any<String>(), any()) }
+    verify(exactly = 0) { exchange.send(InternalServerError, any<String>(), any()) }
+  }
+
+  @Test fun `a duplicate is never dispatched later either, the dispatcher is never asked`() {
+    every { turvis.process(any()) } returns verified()
+    every { dedup.find(PartyId("DE"), "m-1@x") } returns AcceptedInbound(storedReceipt, payloadSha)
+    var asked = 0
+    routes.dispatch = { _, _, _ -> asked++ }
+
+    routes.msh(exchange)
+
+    expect(asked).toEqual(0)
   }
 }
