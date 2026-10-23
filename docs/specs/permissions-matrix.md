@@ -5,6 +5,17 @@ gate-internal only
 **Date**: 2026-09-04
 **Status**: Development-ready specification
 
+**Clarified in 1.7** (docs only, no behaviour change; #321): there are no roles, so an active `users`
+row (the TARA `personalCode` is its `tara_sub`) is full access to the Admin API. A TARA login alone
+is not enough: every `/admin/**` request needs that active row, and nobody is created automatically.
+The barrier is therefore who gets a row: adding, changing, deleting and token revocation are audited
+(`user.create`, `user.update`, `user.delete`, `user.revoke_token`, with the actor), and the first
+production administrator is inserted by hand (`docs/specs/deploy/first-admin.md`). A role flag
+(`is_admin`) was added on 2026-09-03 and dropped the next day (`20260904-users-drop-admin-flag.sql`);
+it would only mean something once a non-admin user type with defined rights exists. The break-glass
+local admin of §2 is **not implemented**: there is no password login. `FORBIDDEN_WRITE_ACCESS` is
+issued by no route today (the registry write routes are gone, ADR-011, and `users` has no scope).
+
 **Changed in 1.6** (§3.2, §6): `efti/api/v1/*` — the Authority API's actual Ruuter routes
 (`efti/{GET,POST}/api/v1/*`, `efti/{GET,POST}/api/v1/authority/*`) — no longer accept a TARA
 JWT at all, not even as a fallback alongside the service token. There is no gate-operator
@@ -295,7 +306,7 @@ All errors share the schema `{type, code, title, status, detail, instance}` per 
 | 403 | `FORBIDDEN` | `forbidden` | `Authorization: Bearer …` value does not match `ARCHIVE_OPS_TOKEN` on a CronManager admin endpoint. |
 | 403 | `FORBIDDEN_NO_PLATFORM` | `forbidden-no-platform` | mTLS cert presented but `platforms.e_delivery_cert` lookup yields no active platform, or matched a `is_active=FALSE` row. |
 | 403 | `FORBIDDEN_MULTI_PLATFORM` | `forbidden-multi-platform` | mTLS cert subject resolves to more than one active `platforms` row (configuration error). Always 403 — never 401, 400. |
-| 403 | `FORBIDDEN_WRITE_ACCESS` | `forbidden-write-access` | `checkWriteAccess(entityId)` — the target entity id is not in the **resolved `users` row's** scope. |
+| 403 | `FORBIDDEN_WRITE_ACCESS` | `forbidden-write-access` | **Issued by no route today** (see 1.7). `checkWriteAccess(entityId)` — the target entity id is not in the **resolved `users` row's** scope. |
 | 403 | `FORBIDDEN_SUBSET` | `forbidden-subset` | Authority requested a subset not in its permitted subsets. **Enforced on the X-Road path** by `POST /xroad/v1/dataset` (the subsets named in the request) and `POST /xroad/v1/transport-means` (EU02, the class of data it returns) against the authority's `subsets`, resolved from the `X-Road-Client` member code (see §2 and [ADR-006](../architecture/decisions/006-xroad-identity-and-subsets.md)); a partially permitted request is denied whole, not narrowed. On the JWT path this is **still not enforceable** — `users` has no `subsets` column and no link to an authority. |
 | 400 | `BAD_REQUEST_GENERAL` | `bad-request` | Admin tried to delete themselves (`userId == currentUser.id`). |
 

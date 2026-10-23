@@ -337,6 +337,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   `X-Api-Key: mock-secret-key`, `apiKey: mock-secret-key`), and 10 `registry/authorities/auth-*.yml`
   fixtures used by `tests/authority/*` and `tests/admin/consignment-summary.http`. An image built from
   this repo therefore carries these dev credentials.
+- **Production has no seed user**: the first administrator is inserted by hand, once, following `docs/specs/deploy/first-admin.md` (also a Confluence child page of the deployment guide, linked from its section 5); `users` rows are all admins and there is no local break-glass admin.
 - TARA identities: `docker/tara-mock/identities.json`
 
 ## Operations

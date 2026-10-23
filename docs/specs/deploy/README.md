@@ -2,6 +2,8 @@
 
 This directory holds the runtime deployment shape and, now that the implementation is under way, a real inventory of what a deployment needs. Helm charts / K8s manifests still live in the separate `services/efti/devops` repo (see [`resource-and-secrets-requirements.md`](resource-and-secrets-requirements.md) §7).
 
+**[`first-admin.md`](first-admin.md)** — how the first administrator of a production environment is put into the database (no dev seed, no local fallback admin): SQL, verification, correction; Confluence child page of the deployment guide.
+
 **[`resource-and-secrets-requirements.md`](resource-and-secrets-requirements.md)** — compiled from the actual running system (`compose.yml`, `constants.ini`, `docker/*`): per-component CPU/memory, every secret (name, consumer, purpose, dev value, deploy gotcha), the two separate PostgreSQL databases, the Liquibase `dev`-context seed data that must not ship to prod, the TIM JWT-key persistence requirement, the Ruuter `constants.ini` Secret file, the AS4 keystore (§3.5) and how every secret is stored, delivered and rotated (§3.0). Written for whoever does the first production deployment.
 
 ## Helm chart versions

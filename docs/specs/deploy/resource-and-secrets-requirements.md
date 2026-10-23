@@ -342,6 +342,12 @@ Ainus `context:dev` changeset on `20260813-auth-seed.sql` (dev-kasutajad, sh Sup
 prod-paigaldusse muutmata, jõuavad dev-kasutajad tootmisandmebaasi. Sea prod-is
 `LIQUIBASE_COMMAND_CONTEXTS` (või `--contexts=`) väärtusele, mis `dev`-i EI sisalda (nt tühi string).
 
+**Esimene administraator.** Ilma dev-seemeta ei ole tootmisandmebaasis ühtegi kasutajat ja haldusliidesse
+ei pääse keegi sisse (iga `/admin/**` päring nõuab aktiivset `users` rida TARA isikukoodiga; kohalikku
+tagavara-administraatorit ei ole). Esimene kasutaja lisatakse **käsitsi, üks kord** juhendi
+[Esimese administraatori sisseviimine](first-admin.md) järgi (SQL, kontroll, vea parandamine); kõik
+järgnevad kasutajad lisatakse haldusliidese vaates **Kasutajad**.
+
 ---
 
 ## 6. Võrgu isolatsioon (mitte secret, aga sama kriitiline)

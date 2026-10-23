@@ -4,6 +4,9 @@ Vaates **Kasutajad** hallatakse inimesi, kellel on õigus TARA kaudu eFTI värav
 
 ![Kasutajate nimekiri](images/09-users.png)
 
+> Kasutajat saab lisada ainult juba sisselogitud kasutaja. Tootmiskeskkonna **esimene** administraator
+> viiakse andmebaasi käsitsi, vt paigaldusjuhendi alamleht „Esimese administraatori sisseviimine".
+
 ## Kasutaja lisamine
 
 1. Vajuta **Lisa**.
