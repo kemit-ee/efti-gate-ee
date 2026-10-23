@@ -37,6 +37,7 @@ class EDeliveryRoutes(
   private val turvisShadow: TurvisShadow,
   private val turvisOutbound: TurvisOutbound,
   private val asyncFailureAudit: AsyncFailureAudit,
+  private val inboundDedup: InboundDedup,
 ) {
   private val rootTagRegex = "<\\s*(?:\\w+:)?(\\w+)".toRegex()
 
@@ -141,6 +142,10 @@ class EDeliveryRoutes(
       EDeliveryMetrics.inbound(rootTag)
       log.info("Handling '$rootTag' from $responseKey (turvis decrypt=${inbound.decryptAuditRef} verify=${inbound.verifyAuditRef})")
 
+      val payloadSha256 = inbound.payloadXml.toByteArray().sha256Hex()
+      // A repeat of a message already accepted from this verified sender gets the stored receipt and is not dispatched again (#336).
+      inboundDedup.find(senderId, routing.messageId)?.let { return answerDuplicate(e, auditRef, inbound, it, payloadSha256) }
+
       val receipt = try {
         turvisOutbound.receipt(routing.messageId, inbound.signatureDigests, conversationId)
       } catch (ex: Exception) {
@@ -149,7 +154,19 @@ class EDeliveryRoutes(
         // The exact reason is already counted and logged inside receipt().
         throw TurvisUnavailableException("receipt not signed", ex)
       }
-      e.send(OK, receipt.signedSoap, soap)
+      // Recorded before the answer and the dispatch: a store failure is a 503 (nothing recorded, nothing dispatched, the peer retries);
+      // losing the race to another node means that node dispatches, so this one answers like for any repeat.
+      if (!inboundDedup.record(senderId, routing.messageId, payloadSha256, receipt.signedSoap)) {
+        val winner = inboundDedup.find(senderId, routing.messageId) ?: throw InboundDedupUnavailableException()
+        return answerDuplicate(e, auditRef, inbound, winner, payloadSha256)
+      }
+      // From here on the message counts as accepted: a peer that did not get the receipt repeats it and is answered from the store,
+      // so the dispatch must happen even if this answer cannot be written.
+      try {
+        e.send(OK, receipt.signedSoap, soap)
+      } catch (ex: Exception) {
+        log.warn("Receipt not written to the peer, the message is dispatched and a repeat is answered from the store: audit_ref=$auditRef", ex.withoutMessages())
+      }
       log.info(TurvisAudit.inbound(auditRef, inbound, receipt.signAuditRef))
 
       auditAsync(asyncFailureAudit, auditRef, "handler", mapOf("response_key" to responseKey.toString())) {
@@ -160,17 +177,27 @@ class EDeliveryRoutes(
     } catch (ex: Exception) {
       // Internal, transient or unreachable Turvis is not the peer's fault: HTTP 503 and no ebMS fault (SPEC 13.2).
       val noFault = when (ex) {
-        is TurvisUnavailableException, is TurvisProtocolException, is TurvisAuthException -> true
+        is TurvisUnavailableException, is TurvisProtocolException, is TurvisAuthException, is InboundDedupUnavailableException -> true
         is TurvisRejectException -> FaultReason.ofTurvis(ex.rejection.effectiveReason) == null
         else -> false
       }
-      val reason = if (noFault) "TURVIS_UNAVAILABLE" else FaultReason.of(ex).name
+      val dedupDown = ex is InboundDedupUnavailableException
+      if (dedupDown) EDeliveryMetrics.inboundDedupUnavailable()
+      val reason = if (dedupDown) "DEDUP_UNAVAILABLE" else if (noFault) "TURVIS_UNAVAILABLE" else FaultReason.of(ex).name
       val turvisAuditRef = (ex as? TurvisRejectException)?.auditRef
       log.error("Error when processing message via turvis: audit_ref=$auditRef reason=$reason turvis_audit_ref=$turvisAuditRef " +
         "body_sha256=${bodyBytes.sha256Hex()} body_size_bytes=${bodyBytes.size} content_type=${e.header("Content-Type")}", ex.withoutMessages())
       if (noFault) e.send(ServiceUnavailable, "", soap)
       else e.send(InternalServerError, eDeliveryMessageGenerator.soapFault(FaultReason.of(ex)), soap)
     }
+  }
+
+  /** The stored receipt goes back byte for byte (not a newly signed one: that would be a second receipt, with another MessageId, for one message). */
+  private fun answerDuplicate(e: HttpExchange, auditRef: String, inbound: VerifiedInbound, stored: AcceptedInbound, payloadSha256: String) {
+    val samePayload = stored.payloadSha256 == payloadSha256
+    EDeliveryMetrics.inboundDuplicate(samePayload)
+    log.warn(TurvisAudit.duplicate(auditRef, inbound, samePayload))
+    e.send(OK, stored.receipt, soap)
   }
 
   private data class DecryptedPayload(val attachmentBytes: ByteArray, val xml: String)

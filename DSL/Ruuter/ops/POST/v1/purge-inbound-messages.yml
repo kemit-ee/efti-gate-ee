@@ -1,0 +1,76 @@
+declaration:
+  description: "Inbound AS4 duplicate-elimination retention (#336) - CronManager calls this hourly (Bearer
+    ARCHIVE_OPS_TOKEN). Permanently deletes inbound_messages rows older than keepHours; a peer's retries
+    stop long before that. Body (optional): {keepHours: number}."
+  allowlist:
+    body:
+      - field: keepHours
+        type: number
+        required: false
+        description: "Retention window in hours; rows older than this are permanently deleted. Defaults to 48 when omitted."
+  internal: false
+  returns:
+    - field: purged
+      type: integer
+
+purge:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/delete_expired_inbound_messages"
+    headers:
+      Content-Type: "application/json"
+    body:
+      keepHours: ${incoming.body.keepHours}
+  result: purge_result
+
+check_purge:
+  switch:
+    - condition: ${purge_result.response.status >= 400}
+      next: purge_failed
+  next: log_completed
+
+log_completed:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_job_execution_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      jobName: "purge-inbound-messages"
+      status: "COMPLETED"
+      details:
+        purged: ${purge_result.response.body[0].purgedCount}
+  result: log_result
+
+respond_completed:
+  return:
+    purged: ${purge_result.response.body[0].purgedCount}
+  headers:
+    content-type: "application/json"
+  wrapper: false
+  next: end
+
+purge_failed:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_job_execution_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      jobName: "purge-inbound-messages"
+      status: "FAILED"
+      details:
+        reason: "the purge ReSql step returned an error"
+  result: purge_failed_log
+  next: purge_failed_respond
+
+purge_failed_respond:
+  return:
+    type: "https://api.efti.ee/errors/bad-gateway"
+    code: "INBOUND_MESSAGES_PURGE_FAILED"
+    title: "Inbound message purge failed"
+    status: 502
+    detail: "The inbound_messages purge step returned an error. See jobs_execution_log."
+  status: 502
+  wrapper: false
+  next: end

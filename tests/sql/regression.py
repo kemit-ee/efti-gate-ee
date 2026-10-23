@@ -25,7 +25,7 @@ DATASET_ID = "20000000-0000-0000-0000-000000000001"
 
 
 def truncate_registries():
-    sql("TRUNCATE users, consignments, follow_up_log, audit_log, async_responses, search_results, rm_consignment_counts, rm_consignment_summary, read_model_pointer;")
+    sql("TRUNCATE users, consignments, follow_up_log, audit_log, async_responses, inbound_messages, search_results, rm_consignment_counts, rm_consignment_summary, read_model_pointer;")
 
 
 def docker(*args, **kwargs):
@@ -366,6 +366,32 @@ class Queries(unittest.TestCase):
         self.assertEqual("1", out)
         self.assertEqual("fresh", sql("SELECT request_key FROM async_responses;").strip())
 
+    def test_inbound_message_is_recorded_once_per_verified_sender_and_message_id(self):
+        first = call("insert_inbound_message", senderId="EU-DE", messageId="m-1@eu-de", payloadSha256="a" * 64, receiptB64="UkVDMQ==")
+        self.assertEqual(1, len(first))
+        self.assertEqual([], call("insert_inbound_message", senderId="EU-DE", messageId="m-1@eu-de", payloadSha256="b" * 64, receiptB64="UkVDMg=="))
+        # the test harness reads raw column names; ReSql camel-cases them (receiptB64, payloadSha256)
+        self.assertEqual([{"receipt_b64": "UkVDMQ==", "payload_sha256": "a" * 64}], call("find_inbound_message", senderId="EU-DE", messageId="m-1@eu-de"))
+
+    def test_the_same_message_id_from_another_sender_is_a_new_message(self):
+        call("insert_inbound_message", senderId="EU-DE", messageId="m-2", payloadSha256="a" * 64, receiptB64="UkVDMQ==")
+        self.assertEqual(1, len(call("insert_inbound_message", senderId="EU-FR", messageId="m-2", payloadSha256="a" * 64, receiptB64="UkVDMw==")))
+        self.assertEqual([], call("find_inbound_message", senderId="EU-NL", messageId="m-2"))
+
+    def test_concurrent_inserts_of_one_inbound_message_have_one_winner(self):
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            results = list(pool.map(lambda _: call("insert_inbound_message", senderId="EU-DE", messageId="m-race", payloadSha256="a" * 64, receiptB64="UkVDMQ=="), range(8)))
+        self.assertEqual(1, sum(1 for rows in results if rows))
+
+    def test_expired_inbound_messages_are_purged_by_archiver_role_and_app_cannot_delete(self):
+        sql("INSERT INTO inbound_messages (sender_id, message_id, payload_sha256, receipt_b64, created_at) VALUES ('EU-DE', 'old', 'x', 'y', now() - interval '3 days'), ('EU-DE', 'fresh', 'x', 'y', now());")
+        query, signature, arguments = endpoint("delete_expired_inbound_messages", {"keepHours": 48})
+        out = sql("SET ROLE db_archiver; PREPARE q" + signature + " AS " + query + "; EXECUTE q" + arguments + ";").strip()
+        self.assertEqual("1", out)
+        self.assertEqual("fresh", sql("SELECT message_id FROM inbound_messages;").strip())
+        with self.assertRaises(Exception):
+            sql("SET ROLE app; DELETE FROM inbound_messages;")
+
     def test_search_result_latest_row_wins(self):
         call("insert_search_pending", searchId="s1")
         self.assertEqual([{"status": "pending", "body": None}], call("get_search_result", searchId="s1"))
@@ -510,6 +536,7 @@ def main():
             sql((ROOT / "DSL/Liquibase/changelog/20261008-registry-sync.sql").read_text())
             sql((ROOT / "DSL/Liquibase/changelog/20261009-drop-registry-tables.sql").read_text())
             sql((ROOT / "DSL/Liquibase/changelog/20261015-consignments-road-expiry-index.sql").read_text())
+            sql((ROOT / "DSL/Liquibase/changelog/20261023-inbound-messages.sql").read_text())
         suite = unittest.defaultTestLoader.loadTestsFromTestCase(Queries)
         if prototype or migration.exists():
             suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(MigrationPrototype))

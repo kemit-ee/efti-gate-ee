@@ -83,6 +83,20 @@ efti_gate_async_responses_purge:
   retryCount: 3
   retryDelay: 10000
 
+# Inbound AS4 duplicate-elimination rows (inbound_messages, #336) older than keepHours (default 48); a
+# peer's retries stop long before that.
+efti_gate_inbound_messages_purge:
+  trigger: "0 15 * * * ?"
+  type: http
+  method: POST
+  url: http://ruuter:8086/ops/v1/purge-inbound-messages
+  headers:
+    Content-Type: application/json
+  headerEnvs:
+    Authorization: OPS_AUTHORIZATION
+  retryCount: 3
+  retryDelay: 10000
+
 # Cross-gate search state (search_results, ADR-013) older than keepMinutes; useless once the
 # caller's polling window has passed.
 efti_gate_search_results_purge:

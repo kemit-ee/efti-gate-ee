@@ -82,5 +82,33 @@ class ResqlClientTest {
     assertEquals(URI("http://resql:8090/efti/insert_audit_log"), requestSlot.captured.uri())
     assertEquals("POST", requestSlot.captured.method())
   }
-}
 
+  @Test fun `findInboundMessage posts to resql and maps the first row`() {
+    val requestSlot = slot<HttpRequest>()
+    every { http.send(capture(requestSlot), any<BodyHandler<String>>()) } returns stringResponse(body = """[{"receiptB64":"UkVD","payloadSha256":"abc"}]""")
+
+    assertEquals(InboundMessageRow("UkVD", "abc"), client.findInboundMessage("EU-DE", "m-1"))
+    assertEquals(URI("http://resql:8090/efti/find_inbound_message"), requestSlot.captured.uri())
+  }
+
+  @Test fun `findInboundMessage is null for a new message and throws on a resql error`() {
+    every { http.send(any(), any<BodyHandler<String>>()) } returns stringResponse(body = "[]")
+    assertNull(client.findInboundMessage("EU-DE", "m-1"))
+
+    every { http.send(any(), any<BodyHandler<String>>()) } returns stringResponse(status = 500, body = "boom")
+    assertFailsWith<HttpException> { client.findInboundMessage("EU-DE", "m-1") }
+  }
+
+  @Test fun `insertInboundMessage is true only when resql returned the inserted row`() {
+    val requestSlot = slot<HttpRequest>()
+    every { http.send(capture(requestSlot), any<BodyHandler<String>>()) } returns stringResponse(body = """[{"rowId":"1"}]""")
+    assertEquals(true, client.insertInboundMessage("EU-DE", "m-1", "abc", "UkVD"))
+    assertEquals(URI("http://resql:8090/efti/insert_inbound_message"), requestSlot.captured.uri())
+
+    every { http.send(any(), any<BodyHandler<String>>()) } returns stringResponse(body = "[]")
+    assertEquals(false, client.insertInboundMessage("EU-DE", "m-1", "abc", "UkVD"))
+
+    every { http.send(any(), any<BodyHandler<String>>()) } returns stringResponse(status = 500, body = "boom")
+    assertFailsWith<HttpException> { client.insertInboundMessage("EU-DE", "m-1", "abc", "UkVD") }
+  }
+}

@@ -40,7 +40,7 @@ class EDeliveryRoutesTest {
     every { keyManager.receiverCert(any()) } returns keyManager.ownCert
   }
 
-  val routes = EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, legacyShadow, mockk(relaxed = true), audit)
+  val routes = EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, legacyShadow, mockk(relaxed = true), audit, mockk(relaxed = true))
 
   private val boundary = "----boundary"
   private val cipherValueRegex = Regex("(<xenc:CipherValue>)(.*?)(</xenc:CipherValue>)", setOf(RegexOption.DOT_MATCHES_ALL))
@@ -255,7 +255,7 @@ class EDeliveryRoutesTest {
     every { exchange.requestStream } returns body.inputStream()
     every { messageHandlers.rootTags } throws IllegalStateException(secret)
 
-    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, legacyShadow, mockk(relaxed = true), audit).msh(exchange)
+    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, legacyShadow, mockk(relaxed = true), audit, mockk(relaxed = true)).msh(exchange)
 
     assertBucketOnly(sentFault(), FaultReason.OTHER)
   }
@@ -265,7 +265,7 @@ class EDeliveryRoutesTest {
     every { exchange.requestStream } returns body.inputStream()
     every { messageHandlers.rootTags } throws SecurityException(secret)
 
-    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, legacyShadow, mockk(relaxed = true), audit).msh(exchange)
+    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, legacyShadow, mockk(relaxed = true), audit, mockk(relaxed = true)).msh(exchange)
 
     assertBucketOnly(sentFault(), FaultReason.SIG_CRYPTO_FAIL)
   }
@@ -273,7 +273,7 @@ class EDeliveryRoutesTest {
   @Test fun `real SOAP fault for an unparsable body does not echo the body`() {
     every { exchange.requestStream } returns "invalid $secret".toByteArray().inputStream()
 
-    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, legacyShadow, mockk(relaxed = true), audit).msh(exchange)
+    EDeliveryRoutes(keyManager, messageHandlers, realMessageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, legacyShadow, mockk(relaxed = true), audit, mockk(relaxed = true)).msh(exchange)
 
     val fault = sentFault(BadRequest)
     expect(fault).notToContain("Jaan Tamm")
@@ -303,7 +303,7 @@ class EDeliveryRoutesTest {
     every { mockHandler.invoke(any()) } returns null
     every { messageHandlers.rootTags } returns mapOf("data" to mockHandler)
 
-    EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, shadow, mockk(relaxed = true), audit).msh(exchange)
+    EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, shadow, mockk(relaxed = true), audit, mockk(relaxed = true)).msh(exchange)
 
     verifyOrder {
       exchange.send(OK, "<response/>", soap)
@@ -322,7 +322,7 @@ class EDeliveryRoutesTest {
     every { shadow.compareInbound(any(), any(), capture(decision)) } just Runs
     every { exchange.requestStream } returns getBody("<data/>", tamper = true).inputStream()
 
-    EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, shadow, mockk(relaxed = true), audit).msh(exchange)
+    EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, shadow, mockk(relaxed = true), audit, mockk(relaxed = true)).msh(exchange)
 
     expect(decision.captured).toEqual(LegacyDecision.Rejected(FaultReason.SIG_CRYPTO_FAIL, party.id))
     verify(exactly = 0) { messageHandlers.rootTags }
@@ -335,7 +335,7 @@ class EDeliveryRoutesTest {
     every { exchange.requestStream } returns getBody("<data/>").inputStream()
     every { partyRegistry[party.id] } throws NoSuchElementException("unknown")
 
-    EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, shadow, mockk(relaxed = true), audit).msh(exchange)
+    EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, shadow, mockk(relaxed = true), audit, mockk(relaxed = true)).msh(exchange)
 
     expect(decision.captured).toEqual(LegacyDecision.NotComparable)
   }
@@ -347,7 +347,7 @@ class EDeliveryRoutesTest {
     every { exchange.requestStream } returns getBody("<unknown/>").inputStream()
     every { messageHandlers.rootTags } returns emptyMap()
 
-    EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, shadow, mockk(relaxed = true), audit).msh(exchange)
+    EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, shadow, mockk(relaxed = true), audit, mockk(relaxed = true)).msh(exchange)
 
     expect(decision.captured is LegacyDecision.Accepted).toEqual(true)
   }
