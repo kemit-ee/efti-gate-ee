@@ -12,6 +12,8 @@ object EDeliveryMetrics {
   private val turvisRejects = ConcurrentHashMap<String, LongAdder>()
   private val turvisRetries = ConcurrentHashMap<String, LongAdder>()
   private val shadowCompared = ConcurrentHashMap<String, LongAdder>()
+  private val inboundDuplicates = ConcurrentHashMap<String, LongAdder>()
+  private val inboundDedupUnavailable = LongAdder()
   private val shadowDiscrepancies = ConcurrentHashMap<String, LongAdder>()
   private val shadowSecurityDiscrepancies = LongAdder()
   private val shadowErrors = ConcurrentHashMap<String, LongAdder>()
@@ -33,6 +35,8 @@ object EDeliveryMetrics {
     Metrics.register("edeliveryTurvisRetriesTotal") { turvisRetries.mapValues { it.value.sum() } }
     // Shadow mode (#305b-2): the promotion gate of SPEC 13.0 is queried from these. Security discrepancies must stay at zero.
     Metrics.register("edeliveryTurvisShadowAttemptedTotal") { shadowAttempted.mapValues { it.value.sum() } }
+    Metrics.register("edeliveryInboundDuplicatesTotal") { inboundDuplicates.mapValues { it.value.sum() } }
+    Metrics.register("edeliveryInboundDedupUnavailableTotal") { inboundDedupUnavailable.sum() }
     Metrics.register("edeliveryTurvisShadowComparedTotal") { shadowCompared.mapValues { it.value.sum() } }
     Metrics.register("edeliveryTurvisShadowDiscrepanciesTotal") { shadowDiscrepancies.mapValues { it.value.sum() } }
     Metrics.register("edeliveryTurvisShadowSecurityDiscrepanciesTotal") { shadowSecurityDiscrepancies.sum() }
@@ -53,6 +57,13 @@ object EDeliveryMetrics {
 
   /** Every comparable message handed to the shadow, before it is run, dropped or errors out: the denominator that errors and drops are measured against. */
   fun shadowAttempted(endpoint: String) = shadowAttempted.getOrPut(key(endpoint)) { LongAdder() }.increment()
+  /** A repeat of an already accepted inbound message (#336): answered with the stored receipt (same payload) or a SOAP fault (content mismatch), not dispatched. Keys: `same_payload`, `content_mismatch`. */
+  fun inboundDuplicate(samePayload: Boolean) = inboundDuplicates.getOrPut(if (samePayload) "same_payload" else "content_mismatch") { LongAdder() }.increment()
+  /** The shared duplicate store could not be used: the peer got HTTP 503 and nothing was dispatched. */
+  fun inboundDedupUnavailable() = inboundDedupUnavailable.increment()
+  internal fun inboundDuplicateCounts(): Map<String, Long> = inboundDuplicates.mapValues { it.value.sum() }
+  internal fun inboundDedupUnavailableCount() = inboundDedupUnavailable.sum()
+
   /** One message compared (Turvis gave a verdict). */
   fun shadowCompared(endpoint: String) = shadowCompared.getOrPut(key(endpoint)) { LongAdder() }.increment()
   /** Keys become `edelivery_turvis_shadow_discrepancies_total_<endpoint>_<kind>`. [security] also counts in the single security counter. */

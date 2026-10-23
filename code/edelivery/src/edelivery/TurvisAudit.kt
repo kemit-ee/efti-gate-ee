@@ -34,6 +34,16 @@ object TurvisAudit {
     "action" to inbound.routing.action,
   )
 
+  /** A repeat of an inbound message that was already accepted (#336): answered with the stored receipt, not dispatched. */
+  fun duplicate(auditRef: String, inbound: VerifiedInbound, samePayload: Boolean): String = line(
+    "turvis_audit direction=inbound_duplicate",
+    "audit_ref" to auditRef,
+    "turvis_audit_ref_verify" to inbound.verifyAuditRef,
+    "signer_identity" to inbound.signer.verifiedIdentity,
+    "message_id" to inbound.routing.messageId,
+    "payload_match" to samePayload.toString(),
+  )
+
   fun outbound(params: UserMessageParams, message: OutboundMessage): String = line(
     "turvis_audit direction=outbound",
     "request_id" to params.requestKey.requestId.toString(),

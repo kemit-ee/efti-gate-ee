@@ -20,6 +20,7 @@
    - `POST /ops/v1/purge-archive` — purges archived rows past `keepDays` (default 2555).
    - `POST /ops/v1/purge-search-results` — purges `search_results` rows past `keepMinutes` (default 10).
    - `POST /ops/v1/purge-async-responses` — purges drained `async_responses` rows.
+   - `POST /ops/v1/purge-inbound-messages` — purges `inbound_messages` (inbound AS4 duplicate-elimination) rows older than `keepHours` (default 48).
    - `POST /ops/v1/refresh-read-models` → `purge_read_model_generations` — keeps only the latest
      `keepGenerations` (default 2) read-model snapshots.
    If CronManager has been down/misconfigured, these all stop running and every one of those tables
