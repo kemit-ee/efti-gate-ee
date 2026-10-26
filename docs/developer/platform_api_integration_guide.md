@@ -187,9 +187,13 @@ ADR-003): tagasta ainult need andmeelemendid, mis küsitud alamhulkadesse kuuluv
 **Värav ei kontrolli vastuse sisu** subsettide suhtes ega filtreeri seda üle: ta edastab vastuse
 sõna-sõnalt, seega vastutus on täielikult platvormil. Värav kontrollib ainult *päringut*: X-tee
 pädeva asutuse taotletud alamhulgad peavad kuuluma asutuse registrikirje `subsets`-i, ja väravale
-tulev päring peab sisaldama vähemalt ühe alamhulga (`subsets` on alati mittetühi). Platvormile ei
-saadeta seega kunagi tühja ega EU01–EU07-väliste koodidega `subsets`-i. Piirangu rikkumine on
-platvormi vastavusprobleem, mitte midagi, mida värav tagantjärele parandaks.
+tulev autoriteedi päring (X-tee ja haldusliidese autoriteedi marsruudid) peab sisaldama vähemalt
+ühe alamhulga, ainult koodidega EU01–EU07 (väiketähtedeta, ilma tühikuteta). **Teise riigi väravast
+tulev päring (AS4 `<uilQuery>`) on erand:** seda väravas ei kontrollita (värav usaldab partnerit
+EL väravatevahelise usaldusmudeli järgi) ja see võib platvormini jõuda ka tühja või muude koodidega
+`subsets`-iga; platvorm peab selliseks päringuks valmis olema (tundmatu kood lükata tagasi või
+ignoreerida, tühja loendit mitte tõlgendada kui „kõik"). Piirangu rikkumine on platvormi
+vastavusprobleem, mitte midagi, mida värav tagantjärele parandaks.
 
 Kui su teenuse vastus ei ole `200`, jääb tulemata (ühendus katkes, ajalõpp) või on vigane XML,
 saab pädev asutus **502 Bad Gateway** — sinu teenuse saadavus mõjutab otseselt asutuse töövoogu.

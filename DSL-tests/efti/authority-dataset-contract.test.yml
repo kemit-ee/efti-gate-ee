@@ -92,3 +92,44 @@ tests:
         x-request-id: "327b4aea-a081-11f1-a87b-3c9c0f2eb459"
     expect:
       status: 400
+
+  - name: GET with a repeated subsets parameter that includes a bad code -> 400, not a 500
+    request:
+      method: GET
+      path: /efti/api/v1/authority/dataset/EU-EE/mock/550e8400-e29b-41d4-a716-446655440000?subsets=EU01&subsets=EE01
+      headers:
+        x-internal-service-token: "dev-internal-service-token-change-me"
+        x-request-id: "327b4aea-a081-11f1-a87b-3c9c0f2eb459"
+    expect:
+      status: 400
+
+  - name: GET with a trailing comma -> 400
+    request:
+      method: GET
+      path: /efti/api/v1/authority/dataset/EU-EE/mock/550e8400-e29b-41d4-a716-446655440000?subsets=EU01,
+      headers:
+        x-internal-service-token: "dev-internal-service-token-change-me"
+        x-request-id: "327b4aea-a081-11f1-a87b-3c9c0f2eb459"
+    expect:
+      status: 400
+
+  - name: GET with a lower-case code -> 400
+    request:
+      method: GET
+      path: /efti/api/v1/authority/dataset/EU-EE/mock/550e8400-e29b-41d4-a716-446655440000?subsets=eu01
+      headers:
+        x-internal-service-token: "dev-internal-service-token-change-me"
+        x-request-id: "327b4aea-a081-11f1-a87b-3c9c0f2eb459"
+    expect:
+      status: 400
+
+  - name: POST with a code outside EU01..EU07 (EU08) -> 400
+    request:
+      method: POST
+      path: /efti/api/v1/authority/dataset
+      headers:
+        content-type: "application/json"
+        x-internal-service-token: "dev-internal-service-token-change-me"
+      body: { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "d" }, subsets: ["EU08"] }
+    expect:
+      status: 400

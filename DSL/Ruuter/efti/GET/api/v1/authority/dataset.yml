@@ -26,7 +26,7 @@ uil:
         gateId: ${gateId}
         platformId: ${platformId}
         datasetId: ${datasetId}
-      subsets: ${subsets?.split(',') ?? []}
+      subsets: "${(Array.isArray(subsets) ? subsets.join(',') : subsets)?.split(',') ?? []}"
 
 # Same contract as the POST form and the X-Road route: at least one subset, and only the canonical EU01..EU07 codes. An empty list
 # would otherwise reach the platform with no restriction at all, and the platform contract does not say what that means.
