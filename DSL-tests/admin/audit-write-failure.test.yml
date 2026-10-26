@@ -29,3 +29,28 @@ tests:
       headers: { authorization: "Bearer test" }
     expect:
       status: 204
+
+  - name: token revocation still succeeds when its audit-log write fails
+    setup:
+      mocks:
+        - url_matches: /efti/internal/check-admin-authority
+          method: POST
+          body: { id: "EE60001019906" }
+        - url_matches: /efti/get_user_by_id
+          method: POST
+          status: 200
+          body: [{ id: "22222222-2222-2222-2222-222222222222", tokenRevokedAt: "2026-10-23T10:00:00Z" }]
+        - url_matches: /efti/revoke_user_token
+          method: POST
+          status: 200
+          body: [{ id: "22222222-2222-2222-2222-222222222222" }]
+        - url_matches: /efti/insert_audit_log
+          method: POST
+          status: 500
+          body: []
+    request:
+      method: POST
+      path: /admin/v1/users/revoke-token/22222222-2222-2222-2222-222222222222
+      headers: { authorization: "Bearer test" }
+    expect:
+      status: 204

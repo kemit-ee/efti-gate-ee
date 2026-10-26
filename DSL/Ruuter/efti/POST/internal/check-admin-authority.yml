@@ -2,8 +2,10 @@ declaration:
   call: declare
   version: "0.1"
   description: "Validates the caller's TARA JWT and returns 200 + user row on success,
-    401 if not authenticated. Identical to check-user-authority - the system has a single
-    admin user, so every authenticated user has full access."
+    401 if not authenticated. Identical to check-user-authority - there are no roles
+    (permissions-matrix v1.5): an active row in `users` for the caller's TARA personalCode IS full admin
+    access, so the barrier is who gets a row (adding one is audited as user.create; the first one is
+    inserted by hand, docs/specs/deploy/first-admin.md)."
   method: post
   namespace: internal
   allowlist:
