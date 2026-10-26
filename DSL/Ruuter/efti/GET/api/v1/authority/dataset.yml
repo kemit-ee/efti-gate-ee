@@ -28,6 +28,13 @@ uil:
         datasetId: ${datasetId}
       subsets: ${subsets?.split(',') ?? []}
 
+# Same contract as the POST form and the X-Road route: at least one subset, and only the canonical EU01..EU07 codes. An empty list
+# would otherwise reach the platform with no restriction at all, and the platform contract does not say what that means.
+validate_subsets:
+  switch:
+    - condition: ${request_json.subsets.length == 0 || !request_json.subsets.every(s => ['EU01', 'EU02', 'EU03', 'EU04', 'EU05', 'EU06', 'EU07'].includes(s))}
+      next: bad_subsets
+
 check_gate:
   switch:
     - condition: ${gateId != '[#OWN_GATE_ID]'}
@@ -147,4 +154,15 @@ remote_gate_unavailable:
     transportError: ${edelivery_response.response.error}
   wrapper: false
   status: 502
+  next: end
+
+bad_subsets:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "The query parameter 'subsets' must list at least one subset, each one of EU01..EU07."
+  wrapper: false
+  status: 400
   next: end

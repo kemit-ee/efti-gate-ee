@@ -379,9 +379,9 @@ paths:
       security:
         - platformMtls: []
       description: |
-        Allows a platform to retrieve its own full dataset XML. Used primarily to test
-        whether the gate's XSLT subsetter is correctly filtering subsets for platforms
-        that do not need further gate-side filtering.
+        Allows a platform to retrieve its own full dataset XML. The gate does no subsetting
+        of its own (there is no XSLT subsetter): the platform restricts its dataset responses
+        to the requested subsets itself (ADR-003, addendum 2026-10-26).
       parameters:
         - $ref: '#/components/parameters/DatasetIdPath'
         - name: subsetId
@@ -1586,12 +1586,11 @@ paths:
                       the authority is registered but entitled to nothing — a valid 200, not an
                       error.
 
-                      Deliberately **not** typed as the `Subset` enum. `authorities.subsets` carries
-                      no database CHECK constraint, and the admin UI also offers Estonian national
-                      codes (`EE01`, `EE02`, `EE04`, `EE05a`, `EE05c`, `EE05d`) alongside
-                      `EU01..EU07`, so binding the enum here would make a strict client reject a
-                      legitimate response. The EU set below is a recommendation, not a constraint;
-                      the value set is an open question — see ADR-006.
+                      Only the canonical `EU01..EU07` codes: the registry converter
+                      (`scripts/registry-to-json.py`) rejects anything else at image build time, and
+                      the dataset routes accept no other code (decided 2026-10-26, #326). Not typed as
+                      the `Subset` enum here so that a strict client does not reject a response
+                      if the set is ever extended — see ADR-006.
                     items:
                       type: string
                     x-recommended-values: ["EU01", "EU02", "EU03", "EU04", "EU05", "EU06", "EU07"]

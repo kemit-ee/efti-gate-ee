@@ -181,9 +181,15 @@ Kui pädev asutus küsib selle saadetise **täisandmestikku**, kutsub värav SIN
 mähiseta — värav lisab ümbritseva struktuuri ise. Täpne kuju, mida väravale tagastada, koos kõigi
 väljadega: [`examples/platforms/dataset-response.xml`](examples/platforms/dataset-response.xml).
 
-`subsets` parameeter loetleb, milliseid eFTI andmealamhulki (EU01–EU07 vms) pädev asutus küsis —
-sinu teenus võib selle järgi vastuse sisu piirata, aga see pole kohustuslik (värav ei filtreeri
-üle; vastutus jääb platvormile subsette austada).
+`subsets` parameeter loetleb, milliseid eFTI andmealamhulki (ainult kanoonilised **EU01–EU07**) pädev
+asutus küsis. Sinu teenus **PEAB** vastuse sisu nende alamhulkadega piirama (regulatsiooni kohustus,
+ADR-003): tagasta ainult need andmeelemendid, mis küsitud alamhulkadesse kuuluvad, ja mitte rohkem.
+**Värav ei kontrolli vastuse sisu** subsettide suhtes ega filtreeri seda üle: ta edastab vastuse
+sõna-sõnalt, seega vastutus on täielikult platvormil. Värav kontrollib ainult *päringut*: X-tee
+pädeva asutuse taotletud alamhulgad peavad kuuluma asutuse registrikirje `subsets`-i, ja väravale
+tulev päring peab sisaldama vähemalt ühe alamhulga (`subsets` on alati mittetühi). Platvormile ei
+saadeta seega kunagi tühja ega EU01–EU07-väliste koodidega `subsets`-i. Piirangu rikkumine on
+platvormi vastavusprobleem, mitte midagi, mida värav tagantjärele parandaks.
 
 Kui su teenuse vastus ei ole `200`, jääb tulemata (ühendus katkes, ajalõpp) või on vigane XML,
 saab pädev asutus **502 Bad Gateway** — sinu teenuse saadavus mõjutab otseselt asutuse töövoogu.
