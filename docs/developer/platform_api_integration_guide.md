@@ -181,9 +181,19 @@ Kui pädev asutus küsib selle saadetise **täisandmestikku**, kutsub värav SIN
 mähiseta — värav lisab ümbritseva struktuuri ise. Täpne kuju, mida väravale tagastada, koos kõigi
 väljadega: [`examples/platforms/dataset-response.xml`](examples/platforms/dataset-response.xml).
 
-`subsets` parameeter loetleb, milliseid eFTI andmealamhulki (EU01–EU07 vms) pädev asutus küsis —
-sinu teenus võib selle järgi vastuse sisu piirata, aga see pole kohustuslik (värav ei filtreeri
-üle; vastutus jääb platvormile subsette austada).
+`subsets` parameeter loetleb, milliseid eFTI andmealamhulki (ainult kanoonilised **EU01–EU07**) pädev
+asutus küsis. Sinu teenus **PEAB** vastuse sisu nende alamhulkadega piirama (regulatsiooni kohustus,
+ADR-003): tagasta ainult need andmeelemendid, mis küsitud alamhulkadesse kuuluvad, ja mitte rohkem.
+**Värav ei kontrolli vastuse sisu** subsettide suhtes ega filtreeri seda üle: ta edastab vastuse
+sõna-sõnalt, seega vastutus on täielikult platvormil. Värav kontrollib ainult *päringut*: X-tee
+pädeva asutuse taotletud alamhulgad peavad kuuluma asutuse registrikirje `subsets`-i, ja väravale
+tulev autoriteedi päring (X-tee ja haldusliidese autoriteedi marsruudid) peab sisaldama vähemalt
+ühe alamhulga, ainult koodidega EU01–EU07 (väiketähtedeta, ilma tühikuteta). **Teise riigi väravast
+tulev päring (AS4 `<uilQuery>`) on erand:** seda väravas ei kontrollita (värav usaldab partnerit
+EL väravatevahelise usaldusmudeli järgi) ja see võib platvormini jõuda ka tühja või muude koodidega
+`subsets`-iga; platvorm peab selliseks päringuks valmis olema (tundmatu kood lükata tagasi või
+ignoreerida, tühja loendit mitte tõlgendada kui „kõik"). Piirangu rikkumine on platvormi
+vastavusprobleem, mitte midagi, mida värav tagantjärele parandaks.
 
 Kui su teenuse vastus ei ole `200`, jääb tulemata (ühendus katkes, ajalõpp) või on vigane XML,
 saab pädev asutus **502 Bad Gateway** — sinu teenuse saadavus mõjutab otseselt asutuse töövoogu.

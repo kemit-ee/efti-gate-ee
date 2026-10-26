@@ -38,14 +38,8 @@
   <span>{t.authorities.subsets}</span>
   {#each subsets as subset, i}
     <div class="flex gap-2 subset">
-      <FormField maxlength={5} list="estonia-subsets" bind:value={subset} {disabled}/>
-      <datalist id="estonia-subsets">
-        <option value="EE01"></option>
-        <option value="EE02"></option>
-        <option value="EE04"></option>
-        <option value="EE05a"></option>
-        <option value="EE05c"></option>
-        <option value="EE05d"></option>
+      <FormField maxlength={5} list="eu-subsets" bind:value={subset} {disabled}/>
+      <datalist id="eu-subsets">
         <option value="EU01"></option>
         <option value="EU02"></option>
         <option value="EU03"></option>

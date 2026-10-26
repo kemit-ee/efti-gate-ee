@@ -21,6 +21,10 @@ validate_input:
   switch:
     - condition: ${incoming.body == null || incoming.body.uil == null || incoming.body.subsets == null || incoming.body.subsets.length == 0}
       next: bad_request
+    # Only the canonical EU01..EU07 codes are subsets at the gate's API (the authorities' subsets in the registry are validated the
+    # same way); a national code, free text or a non-array is the caller's mistake, not something to pass on to the platform.
+    - condition: ${!Array.isArray(incoming.body.subsets) || !incoming.body.subsets.every(s => ['EU01', 'EU02', 'EU03', 'EU04', 'EU05', 'EU06', 'EU07'].includes(s))}
+      next: bad_request
   next: setup
 
 bad_request:
@@ -29,7 +33,7 @@ bad_request:
     code: "BAD_REQUEST_GENERAL"
     title: "Bad Request"
     status: 400
-    detail: "The request body must be a JSON object with 'uil' (object) and a non-empty 'subsets' array."
+    detail: "The request body must be a JSON object with 'uil' (object) and a non-empty 'subsets' array of EU01..EU07 codes."
   wrapper: false
   status: 400
   next: end

@@ -11,7 +11,7 @@ X-Internal-Service-Token: {{INTERNAL_SERVICE_TOKEN}}
     "platformId": "mock",
     "datasetId": "550e8400-e29b-41d4-a716-446655440000"
   },
-  "subsets": ["EE01", "EU01"]
+  "subsets": ["EU02", "EU01"]
 }
 
 > {%
@@ -37,7 +37,7 @@ X-Internal-Service-Token: {{INTERNAL_SERVICE_TOKEN}}
 
 ### Dataset query from local authority to local platform over eDelivery
 # @timeout 75
-GET {{RUUTER_URL}}/efti/api/v1/authority/dataset/EU-EE/mock-edelivery/550e8400-e29b-41d4-a716-446655440001?subsets=EE01
+GET {{RUUTER_URL}}/efti/api/v1/authority/dataset/EU-EE/mock-edelivery/550e8400-e29b-41d4-a716-446655440001?subsets=EU01
 X-Request-ID: 073b32bc-a081-11f1-8d67-3c9c0f2eb460
 X-Internal-Service-Token: {{INTERNAL_SERVICE_TOKEN}}
 

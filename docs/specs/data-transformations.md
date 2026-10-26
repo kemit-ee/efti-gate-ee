@@ -336,14 +336,18 @@ The Gate **does not** parse, validate, or transform dataset XML — it is byte-f
 
 | Route | Outbound | Notes |
 |---|---|---|
-| Local platform | `GET {platform.baseUrl}/v1/datasets/{datasetId}?subsetId=EU01[&subsetId=EU07…]` with `X-Request-ID` and `{platform.headers}` (e.g. `X-Api-Key`) | Gate echoes platform's exact HTTP status + body; `Content-Type: application/xml`; `X-Request-ID` echoed on response. |
+| Local platform | `GET {platform.baseUrl}/v1/dataset/{datasetId}?subsets=EU01,EU07` (comma-separated, always non-empty, only `EU01`..`EU07`) with `X-Request-ID` and `{platform.headers}` (e.g. `X-Api-Key`) | Gate echoes platform's exact HTTP status + body; `Content-Type: application/xml`; `X-Request-ID` echoed on response. |
 | Remote gate | AS4 `<uilQuery>` per §3.3.2 | Response is unwrapped from `<uilResponse>` — extract `@status` attribute and inner content; pair `(StatusCode, body)` returned to the route handler. |
 
 Subset values on the wire are always the canonical `EU01`..`EU07` codes from the authority's `subsets`.
 
-### 3.5 Subset XSLT mapping (gate-side permission enforcement)
+### 3.5 Subsets: who enforces what (ADR-003, #326)
 
-The gate enforces subset access-control permissions regardless of what the platform returns. Per ADR-003 (17.08.2026), all platforms are required by regulation to perform subsetting themselves — the gate forwards the `subsetId[]` parameter to the platform's `/v1/datasets/{datasetId}` endpoint. The gate does **not** apply gate-side XSLT subsetting. However, the `EU01..EU07` → XSD element group mapping below remains the canonical reference for validating what each subset must contain:
+**The platform enforces the subset restriction of a dataset response; the gate does not.** Per ADR-003 (17.08.2026), all platforms are required by regulation to perform subsetting themselves: the gate forwards the requested subsets (`subsets=EU01,EU02`, always at least one, only the canonical `EU01..EU07` codes) to the platform's `GET /v1/dataset/{datasetId}` endpoint and passes the platform's response through **verbatim**. The gate has no XSLT stylesheet (there is no `subsetter.xsl`) and does not inspect a response for the subsets it contains, because it cannot: the REST platform response is a bare `SpecifiedSupplyChainConsignment` without a subset marker, and the gate knows no authoritative element-to-subset mapping (the `EU01..EU07` table below describes the intent, in prose, and the repo's XSD annotates only `EU01`, `EU02`, `EU03` and `EU06`).
+
+What the gate **does** check, on the request: an X-Road authority's requested subsets must belong to the `subsets` of its registry entry (`FORBIDDEN_SUBSET`, `xroad/POST/v1/dataset.yml`), and the internal authority routes (`efti/GET|POST/api/v1/authority/dataset`) refuse an empty list or any code outside `EU01..EU07`. A peer gate's inbound request (`<uilQuery>`) carries the peer's own claim about its authority's subsets; the gate has no register to check it against and trusts the peer under the EU gate-to-gate trust model. Whether a platform keeps to the restriction is a contractual matter (platform integration guide); a technical check of the response would need an authoritative element-to-subset definition and is a separate project, not part of this contract. The authority read surface is not yet audited per request (#360).
+
+For reference, the intent of each subset code:
 
 | Subset | Element groups retained | Practical content |
 |---|---|---|
@@ -354,8 +358,6 @@ The gate enforces subset access-control permissions regardless of what the platf
 | `EU05` | Dangerous goods detail | UN number, technical name, packing group, ADR/RID/IMDG class, quantities — beyond the EU02 indicator-only level. |
 | `EU06` | Operator / carrier company identifiers | Company VAT IDs, tax IDs, legal name and address of the carrier and any subcarrier. |
 | `EU07` | Customs and cross-border clearance | Customs procedure codes, border-crossing timestamps, cabotage indicators, transit declarations. |
-
-The gate ships a canonical XSLT stylesheet (`subsetter.xsl`) as a validation reference tool only. In production, the platform performs filtering; the gate validates that the authority's permitted subsets are not exceeded. When the platform's response already contains only the requested subsets, the gate passes the XML through directly.
 
 **Per-MS subset codes inside the consignment-identifier XML.** The eFTI XSD permits member-state-specific subset codes (`AT01..AT16`, `BE01..BE10`, `EE01..EE08`, etc.) in the `<dataSubset>` elements of the identifier registration. The gate stores these byte-for-byte in `consignments.xml` and **does not interpret them**. Authority subset filtering uses only the canonical `EU01..EU07` vocabulary at the gate's API surface; per-MS codes are visible to platforms but never used for the gate's authorisation or routing decisions.
 

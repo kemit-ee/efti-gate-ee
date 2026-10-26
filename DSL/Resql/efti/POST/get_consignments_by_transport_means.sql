@@ -17,7 +17,7 @@ params:
 --      to be cheap and high-volume.
 --
 -- NOT because it would leak dataset content: it would not. Dataset content never enters Postgres -
--- authority/dataset.yml fetches it from the platform with `?subsetId=...`, and that is where subset
+-- authority/dataset.yml fetches it from the platform with `?subsets=...`, and that is where subset
 -- entitlement is enforced. An earlier version of this comment claimed reusing get_consignments would
 -- "bypass authorities.subsets"; that was wrong, and the same wrong premise was used to accuse
 -- authority/search.yml of the same thing. Corrected here and in ADR-006.

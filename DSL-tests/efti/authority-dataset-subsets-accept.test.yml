@@ -1,0 +1,41 @@
+# efti/GET|POST/api/v1/authority/dataset: every canonical code EU01..EU07 passes the subsets check and the request goes on to the
+# platform lookup (registry mocked as an unknown platform: a 404, never the 400 of the check).
+mode: mock-http
+constants:
+  REGISTRY_URL: "{MOCK}"
+  RESQL_URL: "{MOCK}"
+
+tests:
+  - name: GET with all seven canonical codes reaches the platform lookup
+    setup:
+      mocks:
+        - url_matches: /platforms/nope.json
+          method: GET
+          status: 404
+          body: {}
+    request:
+      method: GET
+      path: /efti/api/v1/authority/dataset/EU-EE/nope/550e8400-e29b-41d4-a716-446655440000?subsets=EU01,EU02,EU03,EU04,EU05,EU06,EU07
+      headers:
+        x-internal-service-token: "dev-internal-service-token-change-me"
+        x-request-id: "327b4aea-a081-11f1-a87b-3c9c0f2eb459"
+    expect:
+      status: 404
+
+  - name: POST with all seven canonical codes reaches the platform lookup
+    setup:
+      mocks:
+        - url_matches: /platforms/nope.json
+          method: GET
+          status: 404
+          body: {}
+    request:
+      method: POST
+      path: /efti/api/v1/authority/dataset
+      headers:
+        content-type: "application/json"
+        x-internal-service-token: "dev-internal-service-token-change-me"
+        x-request-id: "327b4aea-a081-11f1-a87b-3c9c0f2eb459"
+      body: { uil: { gateId: "EU-EE", platformId: "nope", datasetId: "d" }, subsets: ["EU01", "EU02", "EU03", "EU04", "EU05", "EU06", "EU07"] }
+    expect:
+      status: 404
