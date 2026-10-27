@@ -1,5 +1,6 @@
 package edelivery
 
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -37,6 +38,7 @@ class TurvisConfigTest {
   }
 
   @Test fun `the msh HTTP cap follows the payload budget only when Turvis is authoritative and never drops below the klite cap`() {
+    assumeTrue(System.getenv("BODY_LIMIT_MB") == null, "BODY_LIMIT_MB is set")
     val mib = 1024L * 1024
     val legacyCap = 10 * mib
     assertEquals(legacyCap, legacyPayloadLimit())

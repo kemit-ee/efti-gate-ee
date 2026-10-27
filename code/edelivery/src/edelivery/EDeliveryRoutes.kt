@@ -286,6 +286,9 @@ internal fun legacyPayloadLimit(): Long = Config.optional("BODY_LIMIT_MB", "10")
 internal fun mshBodyLimit(config: TurvisConfig): Long =
   if (config.mode == TurvisIntegrationMode.TURVIS) maxOf(legacyPayloadLimit(), config.maxMshBodyBytes) else legacyPayloadLimit()
 
+/** Installs [mshBodyLimit] on the router it is called on; `Launcher` uses it for `/services`, so a test can drive the same wiring. */
+internal fun klite.RouterConfig.servicesBodyLimit(config: TurvisConfig) = bodySizeLimit(mshBodyLimit(config))
+
 internal fun gunzip(compressed: ByteArray, maxBytes: Long = legacyPayloadLimit()): ByteArray {
   GZIPInputStream(ByteArrayInputStream(compressed)).use { gzip ->
     val out = ByteArrayOutputStream()

@@ -59,7 +59,7 @@ subprojects {
     workingDir(projectDir)
     useJUnitPlatform()
     jvmArgs("-DENV=test", "-DOWN_GATE_ID=TEST", "-XX:-OmitStackTraceInFastThrow")
-    System.getenv("TEST_MAX_HEAP")?.let { maxHeapSize = it } // heap experiments, e.g. the container-sized run of TurvisLargePayloadMockTest
+    System.getenv("TEST_MAX_HEAP")?.let { maxHeapSize = it } // manual heap experiments only (TurvisLargePayloadMockTest), never set in CI
     finalizedBy(tasks.jacocoTestReport)
   }
 
