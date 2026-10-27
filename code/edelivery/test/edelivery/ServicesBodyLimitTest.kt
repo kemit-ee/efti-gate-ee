@@ -41,10 +41,6 @@ class ServicesBodyLimitTest {
 
   private fun assertRefused(status: Int, message: String? = null) = assertTrue(status == 413 || status == REFUSED_BY_RESET, "$message: expected 413 or a reset connection, got $status")
 
-  /** An over-limit body is refused with 413, but the server may close the socket before the client has sent all of it. */
-  private fun refused(config: TurvisConfig, bodyBytes: Int): Boolean =
-    try { status(config, bodyBytes) == 413 } catch (_: java.io.IOException) { true }
-
   private fun turvis(mode: String) = TurvisConfig.load(
     mapOf("OWN_GATE_ID" to "EU-EE", "TURVIS_INTEGRATION_MODE" to mode, "TURVIS_URL" to "http://turvis:8080", "TURVIS_INTERNAL_TOKEN" to "t")::get,
   )
@@ -54,7 +50,7 @@ class ServicesBodyLimitTest {
     val config = turvis("turvis")
     assertEquals(200, status(config, 11 * mib))
     server?.stop(0)
-    assertTrue(refused(config, (config.maxMshBodyBytes + 1).toInt()))
+    assertRefused(status(config, (config.maxMshBodyBytes + 1).toInt()))
   }
 
   @Test fun `in legacy and shadow mode the cap stays the klite default`() {
@@ -62,7 +58,7 @@ class ServicesBodyLimitTest {
     for (mode in listOf("legacy", "shadow")) {
       assertEquals(200, status(turvis(mode), 9 * mib), mode)
       server?.stop(0)
-      assertTrue(refused(turvis(mode), 11 * mib), mode)
+      assertRefused(status(turvis(mode), 11 * mib), mode)
       server?.stop(0)
     }
   }
