@@ -1,0 +1,9 @@
+docs/
+tests/
+.claude/
+.idea/
+CHANGELOG.md
+CLA.md
+AUTHORS
+LICENSE
+*.svg
