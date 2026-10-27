@@ -187,7 +187,7 @@ Two traps, both commented in the code:
 
 - **An empty list is always contained**, so an empty subset list would pass the containment test. The
   route rejects an empty or absent list *before* the check — 400 `MISSING_SUBSET`, matching
-  `openapi.yaml`'s `minItems: 1` on `subsetId`.
+  `openapi.yaml`'s `minItems: 1` on `subsets`.
 - **A partially permitted request is denied whole.** `["EU01","EU06"]` where only EU01 is permitted
   returns 403, not a silent narrowing to EU01 — narrowing would answer a question the caller did not
   ask and would hide the entitlement error.
@@ -226,7 +226,7 @@ transport-means id only (FTI019 has no OR criterion); the polling key has no own
 binds transport failures as `status: 0` instead of aborting).
 
 **No dataset content**, and none to leak: dataset content never enters Postgres. It is fetched from
-the platform by `authority/dataset.yml` with `?subsetId=...`, which is where subset entitlement is
+the platform by `authority/dataset.yml` with `?subsets=...`, which is where subset entitlement is
 enforced. `consignments.xml` is the *identifier* XML as received from the platform
 (`006-consignments.sql:54`), not a dataset.
 

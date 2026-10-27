@@ -126,7 +126,7 @@
       "examples": [
         {
           "scenario": "Authority requests dataset for unknown datasetId",
-          "request": "GET /dataset/eu-xx01/demo/aaaabbbb-cccc-dddd-eeee-ffffffffffff?subsetId=full",
+          "request": "GET /dataset/eu-xx01/demo/aaaabbbb-cccc-dddd-eeee-ffffffffffff?subsets=EU01",
           "response": {
             "type": "https://api.efti.ee/errors/consignment-not-found",
             "title": "Consignment Not Found",
@@ -326,7 +326,7 @@
       "examples": [
         {
           "scenario": "Authority permitted only ['EU07'] subset requests 'EU01'",
-          "request": "GET /dataset/eu-xx01/demo/550e8400-e29b-41d4-a716-446655440000?subsetId=EU01",
+          "request": "GET /dataset/eu-xx01/demo/550e8400-e29b-41d4-a716-446655440000?subsets=EU01",
           "response": {
             "type": "https://api.efti.ee/errors/forbidden-subset",
             "title": "Subset Access Denied",
@@ -371,7 +371,7 @@
       "examples": [
         {
           "scenario": "Remote gate eu-zz01 returns HTTP 500 to a dataset request",
-          "request": "GET /dataset/eu-zz01/plt-xxx-003/550e8400-e29b-41d4-a716-446655440000?subsetId=full",
+          "request": "GET /dataset/eu-zz01/plt-xxx-003/550e8400-e29b-41d4-a716-446655440000?subsets=EU01",
           "response": {
             "type": "https://api.efti.ee/errors/bad-gateway",
             "title": "Bad Gateway",
@@ -393,7 +393,7 @@
       "examples": [
         {
           "scenario": "Authority requests dataset via unknown gateId",
-          "request": "GET /dataset/eu-xx99/demo/550e8400-e29b-41d4-a716-446655440000?subsetId=full",
+          "request": "GET /dataset/eu-xx99/demo/550e8400-e29b-41d4-a716-446655440000?subsets=EU01",
           "response": {
             "type": "https://api.efti.ee/errors/gate-not-found",
             "title": "Gate Not Found",
@@ -499,17 +499,18 @@
       "code": "INVALID_SUBSET",
       "httpStatus": 400,
       "title": "Invalid Subset",
-      "description": "One or more requested subset IDs do not match any known eFTI regulation subset (full, identifier, dangerous-goods, etc.).",
+      "description": "One or more requested subset codes are not one of EU01..EU07. The gate does not emit this code: the authority dataset routes answer BAD_REQUEST_GENERAL (see the example).",
       "type": "https://api.efti.ee/errors/invalid-subset",
       "examples": [
         {
           "scenario": "Unknown subset ID in dataset query",
-          "request": "GET /dataset/eu-xx01/demo/550e8400-e29b-41d4-a716-446655440000?subsetId=EU99",
+          "request": "GET /dataset/eu-xx01/demo/550e8400-e29b-41d4-a716-446655440000?subsets=EU99",
           "response": {
-            "type": "https://api.efti.ee/errors/invalid-subset",
-            "title": "Invalid Subset",
+            "type": "https://api.efti.ee/errors/bad-request",
+            "code": "BAD_REQUEST_GENERAL",
+            "title": "Bad Request",
             "status": 400,
-            "detail": "Unknown subset ID 'EU99'. Valid values: EU01, EU02, EU03, EU04, EU05, EU06, EU07",
+            "detail": "The query parameter 'subsets' must list at least one subset, each one of EU01..EU07.",
             "instance": "/dataset/eu-xx01/demo/550e8400-e29b-41d4-a716-446655440000"
           }
         }
@@ -576,17 +577,17 @@
       "code": "MISSING_SUBSET",
       "httpStatus": 400,
       "title": "Missing Subset Parameter",
-      "description": "At least one subsetId query parameter is required for dataset retrieval but none was provided.",
+      "description": "At least one subset is required for dataset retrieval but none was requested. Returned by the X-Road dataset route (`subsets` body field); the internal authority dataset route answers BAD_REQUEST_GENERAL instead.",
       "type": "https://api.efti.ee/errors/missing-subset",
       "examples": [
         {
-          "scenario": "Dataset request without subsetId",
-          "request": "GET /dataset/eu-xx01/demo/550e8400-e29b-41d4-a716-446655440000 (no ?subsetId=)",
+          "scenario": "X-Road dataset request with an empty subsets list",
+          "request": "POST /xroad/v1/dataset {\"uil\": {...}, \"subsets\": []}",
           "response": {
             "type": "https://api.efti.ee/errors/missing-subset",
             "title": "Missing Subset Parameter",
             "status": 400,
-            "detail": "Query parameter 'subsetId' is required. At least one subset must be specified.",
+            "detail": "At least one subset must be requested.",
             "instance": "/dataset/eu-xx01/demo/550e8400-e29b-41d4-a716-446655440000"
           }
         }
@@ -647,7 +648,7 @@
       "examples": [
         {
           "scenario": "Dataset request with unknown platformId",
-          "request": "GET /dataset/eu-xx01/unknown-platform/550e8400-e29b-41d4-a716-446655440000?subsetId=full",
+          "request": "GET /dataset/eu-xx01/unknown-platform/550e8400-e29b-41d4-a716-446655440000?subsets=EU01",
           "response": {
             "type": "https://api.efti.ee/errors/platform-not-found",
             "title": "Platform Not Found",
@@ -669,7 +670,7 @@
       "examples": [
         {
           "scenario": "Platform 'demo' takes more than 30 seconds to return dataset",
-          "request": "GET /dataset/eu-xx01/demo/550e8400-e29b-41d4-a716-446655440000?subsetId=full",
+          "request": "GET /dataset/eu-xx01/demo/550e8400-e29b-41d4-a716-446655440000?subsets=EU01",
           "response": {
             "type": "https://api.efti.ee/errors/platform-timeout",
             "title": "Platform Timeout",
@@ -691,7 +692,7 @@
       "examples": [
         {
           "scenario": "Platform 'demo' returns connection refused during dataset fetch",
-          "request": "GET /dataset/eu-xx01/demo/550e8400-e29b-41d4-a716-446655440000?subsetId=full",
+          "request": "GET /dataset/eu-xx01/demo/550e8400-e29b-41d4-a716-446655440000?subsets=EU01",
           "response": {
             "type": "https://api.efti.ee/errors/platform-unavailable",
             "title": "Platform Unavailable",

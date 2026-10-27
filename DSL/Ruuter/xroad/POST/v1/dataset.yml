@@ -29,7 +29,7 @@ declaration:
         type: array
 
 # Body contract. A missing/non-object body or a missing `uil` is a generic 400; missing/empty
-# `subsets` keeps its specific MISSING_SUBSET code (openapi.yaml requires minItems 1 on subsetId, and
+# `subsets` keeps its specific MISSING_SUBSET code (openapi.yaml requires minItems 1 on subsets, and
 # an empty list would otherwise pass the containment test below). `subsets` that is not an array of
 # strings is the caller's error, so also a 400 rather than a 403 blaming their entitlement.
 check_input:

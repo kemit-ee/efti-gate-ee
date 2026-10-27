@@ -41,7 +41,7 @@
 - [ ] All writes (create / update / delete) are INSERTs of a new `platforms` row sharing the same logical `id`. Latest row wins.
 - [ ] Delete is **always** soft (`status='DELETED'` on the latest row). There is no force-delete and no purge. Identifiers previously registered by the platform remain queryable.
 - [ ] A platform with `eDeliveryCert` set is callable via both REST and eDelivery AS4. Without it, REST only.
-- [ ] Platform is always responsible for subsetting — the gate forwards `subsetId` to the platform's `/v1/datasets/{datasetId}` endpoint (ADR-003).
+- [ ] Platform is always responsible for subsetting — the gate forwards `subsets` to the platform's `/v1/datasets/{datasetId}` endpoint (ADR-003).
 - [ ] ~~Manual ping (`POST /api/v1/platforms/{platformId}/ping`) checks HTTP reachability to `baseUrl`; response carries `responseTimeMs`.~~ — removed (ADR-011 §6): `status` is registry-owned, there is no probe.
 
 **Denial scenarios:**

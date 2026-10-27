@@ -722,7 +722,7 @@ Platform is responsible for GDPR compliance of full datasets.
 - `gateId` - Target gate identifier
 - `platformId` - Platform identifier
 - `datasetId` - Dataset UUID
-- `subsetId` - Required list of permitted subsets (e.g., weight_and_dimensions, dangerous_goods)
+- `subsets` - Required list of permitted subsets (e.g., weight_and_dimensions, dangerous_goods)
 
 **Authentication:** Bearer token
 

@@ -14,7 +14,7 @@ sequenceDiagram
     participant Gate as eFTI Gate
     participant Remote as Remote Gate
     participant Platform
-    Officer->>Gate: GET /v1/dataset/{gateId}/{platformId}/{datasetId}?subsetId=...
+    Officer->>Gate: GET /v1/dataset/{gateId}/{platformId}/{datasetId}?subsets=...
     Gate->>Gate: Check JWT + subset permission
     alt gateId == own gate
         Gate->>Platform: GET /datasets/{datasetId}
@@ -23,7 +23,7 @@ sequenceDiagram
         Gate->>Remote: AS4 uilQuery / fast /services/fast
         Remote-->>Gate: uilResponse XML
     end
-    Gate->>Gate: Forward subsetId to platform (platform performs subsetting)
+    Gate->>Gate: Forward subsets to platform (platform performs subsetting)
     Gate-->>Officer: 200 OK XML
     Officer->>Gate: POST /v1/follow-up/.../{datasetRequestId}<br/>(optional)
     Gate-->>Officer: 200 OK

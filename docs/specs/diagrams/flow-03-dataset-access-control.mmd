@@ -1,7 +1,7 @@
 flowchart TD
-    Start([Authority: GET /v1/dataset/gateId/platformId/datasetId?subsetId=EU07]) --> AuthCheck[Authenticate & authorize\nauthenticated user required]
+    Start([Authority: GET /v1/dataset/gateId/platformId/datasetId?subsets=EU07]) --> AuthCheck[Authenticate & authorize\nauthenticated user required]
 
-    AuthCheck --> ParseUIL[Parse UIL\ngateId, platformId, datasetId, subsetId]
+    AuthCheck --> ParseUIL[Parse UIL\ngateId, platformId, datasetId, subsets]
 
     ParseUIL --> GateCheck{uil.gateId ==\nthis gate id?}
 
@@ -10,7 +10,7 @@ flowchart TD
 
     LookupLocalPlatform --> LocalPlatformFound{Platform found?}
     LocalPlatformFound -->|No| Return404P[Return 404\nPlatform not registered]
-    LocalPlatformFound -->|Yes| CallLocalPlatform[HTTP GET platform.baseUrl\n/v1/datasets/datasetId?subsetId=EU07]
+    LocalPlatformFound -->|Yes| CallLocalPlatform[HTTP GET platform.baseUrl\n/v1/dataset/datasetId?subsets=EU07]
 
     LookupRemoteGate --> GateOnline{gate.status == ONLINE?}
     GateOnline -->|No, OFFLINE or DISABLED| Return502["Return 502 Bad Gateway<br/>Cannot reach Gate eu-yy01 — OFFLINE"]
