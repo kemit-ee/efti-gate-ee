@@ -39,6 +39,8 @@ enum class TurvisIntegrationMode {
  * - `TURVIS_SHADOW_MAX_INFLIGHT` = concurrent shadow comparisons, 1 to 64 (default 8); only used in shadow mode.
  * - `TURVIS_MAX_PAYLOAD_MIB` = largest business payload of the Turvis path, 1 to 256 (default 40, SPEC 13.8); bounds
  *   the decompressed inbound payload, the outbound payload and, derived from it, the largest Turvis answer read.
+ *   The HTTP cap of `POST /services/msh` follows it in `turvis` mode ([maxMshBodyBytes], never below `BODY_LIMIT_MB`);
+ *   in legacy and shadow mode it stays `BODY_LIMIT_MB` (default 10), because the legacy path decides there.
  * - The key handle sent to Turvis is the own gate id (`OWN_GATE_ID`, SPEC section 7.1).
  *
  * Start-up guard (SPEC section 13.0): the service refuses to start when `TURVIS_URL` points at the `turvis-mock`
@@ -61,6 +63,12 @@ data class TurvisConfig(
   /** The largest Turvis answer read: base64 of a payload-sized attachment (4/3) with margin for gzip overhead and the envelope. */
   val maxResponseBytes: Long get() = maxPayloadBytes * 3 / 2 + 4 * MIB
 
+  /**
+   * The largest HTTP body `POST /services/msh` accepts when Turvis is authoritative: the gzip attachment as base64
+   * (4/3 of a payload-sized, incompressible attachment) plus the SOAP envelope and the multipart framing.
+   */
+  val maxMshBodyBytes: Long get() = maxPayloadBytes * 4 / 3 + MSH_ENVELOPE_ALLOWANCE
+
   /** Never prints the token or any credential in the URL: a logged or thrown config must not leak them. */
   override fun toString() =
     "TurvisConfig(mode=$mode, url=${url?.let { "${it.scheme}://${it.host}${if (it.port > 0) ":${it.port}" else ""}" }}, token=${if (token == null) "unset" else "***"}, keyHandle=$keyHandle)"
@@ -73,6 +81,7 @@ data class TurvisConfig(
     const val MOCK_HOST = "turvis-mock"
     const val DEFAULT_SHADOW_MAX_INFLIGHT = 8
     const val DEFAULT_MAX_PAYLOAD_MIB = 40
+    private const val MSH_ENVELOPE_ALLOWANCE = 2L * 1024 * 1024
     private const val MIB = 1024L * 1024
     private val RESTRICTED_ENVIRONMENTS = setOf("prod", "production", "staging")
     private val ENVIRONMENT_VARIABLES = listOf("ENVIRONMENT", "APP_ENV", "DEPLOY_ENV")

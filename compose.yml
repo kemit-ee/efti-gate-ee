@@ -254,7 +254,9 @@ services:
         condition: service_healthy
       registry:
         condition: service_healthy
-    mem_limit: 512M
+    # A maximum Turvis payload (TURVIS_MAX_PAYLOAD_MIB=40) is held in several copies at once (about 12x the payload
+    # on the outbound request side alone, measured on a 10 MiB payload), so 512M (410 MiB of heap) cannot carry one.
+    mem_limit: 2G
 
   xml-mapper:
     environment:
