@@ -392,37 +392,76 @@ class Queries(unittest.TestCase):
         with self.assertRaises(Exception):
             sql("SET ROLE app; DELETE FROM inbound_messages;")
 
-    def follow_up(self, query_id, status="DELIVERED", platform="mock", dataset="40000000-0000-0000-0000-000000000001", **extra):
+    def follow_up(self, query_id, status="PENDING", platform="mock", dataset="40000000-0000-0000-0000-000000000001", content='["hello",["r1"],[]]', **extra):
+        if "contentHash" not in extra:
+            extra["contentJson"] = content
         return call("insert_follow_up_log", queryId=query_id, status=status, destinationPlatformId=platform, datasetRequestId=dataset,
                     requestingGateId="EU-EE", destinationGateId="EU-EE", payload="hello", **extra)
 
-    def test_repeated_follow_up_query_id_is_logged_once(self):
+    def follow_up_state(self, query_id, platform="mock", dataset="40000000-0000-0000-0000-000000000001", content='["hello",["r1"],[]]'):
+        return [row["status"] for row in call("get_follow_up_state", queryId=query_id, destinationPlatformId=platform, datasetRequestId=dataset, contentJson=content)]
+
+    def follow_up_statuses(self):
+        return sql("SELECT string_agg(status::text, ',' ORDER BY revision) FROM follow_up_log;").strip()
+
+    def test_follow_up_in_flight_is_not_started_twice(self):
         query_id = "40000000-0000-0000-0000-0000000000a1"
+        first = self.follow_up(query_id)
+        self.assertEqual(1, len(first))
+        self.assertEqual([], self.follow_up(query_id))
+        self.assertEqual(["PENDING"], self.follow_up_state(query_id))
+        self.assertEqual("PENDING", self.follow_up_statuses())
+
+    def test_content_hash_is_the_sha256_of_the_content_json(self):
+        row = self.follow_up("40000000-0000-0000-0000-0000000000b1", content="abc")[0]
+        self.assertEqual("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", row["content_hash"])
+
+    def test_delivered_follow_up_is_never_started_again(self):
+        query_id = "40000000-0000-0000-0000-0000000000a2"
+        content_hash = self.follow_up(query_id)[0]["content_hash"]
+        self.assertEqual(1, len(self.follow_up(query_id, status="DELIVERED", contentHash=content_hash)))
+        sql("UPDATE follow_up_log SET created_at = now() - interval '1 day';")
+        self.assertEqual([], self.follow_up(query_id))
+        self.assertEqual(["DELIVERED"], self.follow_up_state(query_id))
+        self.assertEqual("PENDING,DELIVERED", self.follow_up_statuses())
+
+    def test_failed_follow_up_can_be_retried_and_the_retry_is_guarded_again(self):
+        query_id = "40000000-0000-0000-0000-0000000000a3"
+        content_hash = self.follow_up(query_id)[0]["content_hash"]
+        self.assertEqual(1, len(self.follow_up(query_id, status="FAILED", contentHash=content_hash, failureReason="forward_status_503")))
+        self.assertEqual(["FAILED"], self.follow_up_state(query_id))
         self.assertEqual(1, len(self.follow_up(query_id)))
         self.assertEqual([], self.follow_up(query_id))
-        self.assertEqual("1", sql("SELECT count(*) FROM follow_up_log;").strip())
+        self.assertEqual("PENDING,FAILED,PENDING", self.follow_up_statuses())
 
-    def test_follow_up_query_id_is_per_platform_and_dataset_request(self):
-        query_id = "40000000-0000-0000-0000-0000000000a2"
+    def test_pending_follow_up_of_a_dead_node_is_retried_after_two_minutes(self):
+        query_id = "40000000-0000-0000-0000-0000000000a4"
+        self.follow_up(query_id)
+        sql("UPDATE follow_up_log SET created_at = now() - interval '119 seconds';")
+        self.assertEqual([], self.follow_up(query_id))
+        sql("UPDATE follow_up_log SET created_at = now() - interval '121 seconds';")
+        self.assertEqual(1, len(self.follow_up(query_id)))
+        self.assertEqual("PENDING,PENDING", self.follow_up_statuses())
+
+    def test_follow_up_identity_is_query_id_platform_dataset_request_and_content(self):
+        query_id = "40000000-0000-0000-0000-0000000000a5"
         self.assertEqual(1, len(self.follow_up(query_id)))
         self.assertEqual(1, len(self.follow_up(query_id, platform="other")))
         self.assertEqual(1, len(self.follow_up(query_id, dataset="40000000-0000-0000-0000-000000000002")))
-        self.assertEqual(1, len(self.follow_up("40000000-0000-0000-0000-0000000000a3")))
+        self.assertEqual(1, len(self.follow_up(query_id, content='["hello",["r2"],[]]')))
+        self.assertEqual(1, len(self.follow_up(query_id, content='["hello",["r1"],[{"fileName":"a"}]]')))
+        self.assertEqual(1, len(self.follow_up("40000000-0000-0000-0000-0000000000a6")))
+        self.assertEqual([], self.follow_up(query_id))
+        self.assertEqual([], self.follow_up_state(query_id, platform="nobody"))
+        self.assertEqual([], self.follow_up_state(query_id, content="[]"))
 
     def test_follow_up_without_query_id_is_never_deduplicated(self):
         self.assertEqual(1, len(self.follow_up(None)))
         self.assertEqual(1, len(self.follow_up(None)))
+        self.assertEqual(1, len(self.follow_up(None, status="DELIVERED")))
 
-    def test_follow_up_retry_is_accepted_after_a_failed_attempt_and_then_deduplicated(self):
-        query_id = "40000000-0000-0000-0000-0000000000a4"
-        self.assertEqual(1, len(self.follow_up(query_id)))
-        self.assertEqual(1, len(self.follow_up(query_id, status="FAILED", failureReason="forward_status_503")))
-        self.assertEqual(1, len(self.follow_up(query_id)))
-        self.assertEqual([], self.follow_up(query_id))
-        self.assertEqual("DELIVERED,FAILED,DELIVERED", sql("SELECT string_agg(status::text, ',' ORDER BY revision) FROM follow_up_log;").strip())
-
-    def test_failed_follow_up_row_carries_the_reason_and_is_not_deduplicated(self):
-        query_id = "40000000-0000-0000-0000-0000000000a5"
+    def test_failed_follow_up_row_carries_the_reason_and_is_never_skipped(self):
+        query_id = "40000000-0000-0000-0000-0000000000a7"
         self.assertEqual(1, len(self.follow_up(query_id, status="FAILED", failureReason="platform_not_found")))
         self.assertEqual(1, len(self.follow_up(query_id, status="FAILED", failureReason="platform_not_found")))
         self.assertEqual("platform_not_found", sql("SELECT DISTINCT failure_reason FROM follow_up_log;").strip())
@@ -436,7 +475,7 @@ class Queries(unittest.TestCase):
         self.assertEqual("10", sql("SELECT count(*) FROM follow_up_log;").strip())
 
     def test_follow_up_log_stays_append_only_for_the_app_role(self):
-        self.follow_up("40000000-0000-0000-0000-0000000000a7")
+        self.follow_up("40000000-0000-0000-0000-0000000000a8")
         with self.assertRaises(Exception):
             sql("SET ROLE app; UPDATE follow_up_log SET status = 'FAILED';")
         with self.assertRaises(Exception):

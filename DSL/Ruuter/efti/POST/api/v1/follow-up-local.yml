@@ -13,6 +13,9 @@ declaration:
         type: string
       - field: referenceIds
         type: array
+      - field: files
+        type: array
+        required: false
 
 # Shared step: reached directly (Authority API) and via template: (the -xml G2G wrapper, whose
 # body is xml-mapper's FTI025 → JSON). Only `uil` is checked - it is dereferenced unconditionally
@@ -37,10 +40,13 @@ bad_request:
 
 # queryId: the FTI025 query id the follow-up arrived with (xml-mapper sends it back as x-request-id, an
 # authority/X-Road call carries its own request id). Only a UUID counts; without one nothing is deduplicated.
+# contentJson: what the follow-up says (message, referenceIds, files); ReSql hashes it, so the same query id
+# with other content is another follow-up. Ruuter has no hash function.
 setup:
   assign:
     requestId: ${incoming.headers['x-request-id']}
-    queryId: ${(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(incoming.headers['x-request-id'] ?? '') && incoming.headers['x-request-id'].toLowerCase()) || null}
+    queryId: ${(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(incoming.headers['x-request-id'] ?? '') && incoming.headers['x-request-id']) || null}
+    contentJson: ${JSON.stringify([incoming.body.message, incoming.body.referenceIds, incoming.body.files ?? []])}
   next: insert_log
 
 insert_log:
@@ -55,13 +61,15 @@ insert_log:
       destinationGateId: "${incoming.body.uil.gateId}"
       destinationPlatformId: "${incoming.body.uil.platformId}"
       payload: "${incoming.body.message}"
-      status: "DELIVERED"
+      status: "PENDING"
       queryId: ${queryId}
+      contentJson: ${contentJson}
   result: log_result
 
-# With a queryId the insert returns no row when the latest row of the same (queryId, platform,
-# dataset request) is already DELIVERED (#354): a repeat is logged and forwarded once. A first
-# attempt that failed after logging leaves a FAILED row (record_failure), so a retry goes through.
+# The row is PENDING until the forward has an outcome (record_delivered / record_failure append
+# DELIVERED or FAILED). With a queryId the insert returns no row when the latest row of the same
+# follow-up is DELIVERED, or PENDING for less than 120 seconds (#354); check_repeat_state tells the
+# two apart. A FAILED row, or a PENDING one older than that (the node died), lets a retry through.
 check_insert:
   switch:
     # Transport failure reaching ReSql (issue #89, status 0) - the follow-up log write did not land.
@@ -70,9 +78,13 @@ check_insert:
     - condition: ${!Array.isArray(log_result.response.body)}
       next: insert_failed
     - condition: ${log_result.response.body.length === 0 && queryId != null}
-      next: repeated_follow_up
+      next: check_repeat_state
     - condition: ${log_result.response.body.length === 0}
       next: insert_failed
+
+remember_content_hash:
+  assign:
+    contentHash: ${log_result.response.body[0].contentHash}
 
 get_platform:
   call: http.get
@@ -134,17 +146,72 @@ check_forward:
       next: mark_forward_transport
     - condition: ${platform_response.response.status >= 300}
       next: mark_forward_status
+  next: record_delivered
 
+# The delivery succeeded: DELIVERED closes the PENDING row. The result is not checked, the message
+# is on its way either way; if the write is lost the row stays PENDING and a retry is answered 409
+# for 120 seconds, never with a success it cannot back.
+record_delivered:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_follow_up_log"
+    headers:
+      Content-Type: "application/json"
+    body:
+      requestingGateId: "${incoming.body.uil.gateId}"
+      datasetRequestId: "${incoming.body.uil.datasetId}"
+      destinationGateId: "${incoming.body.uil.gateId}"
+      destinationPlatformId: "${incoming.body.uil.platformId}"
+      payload: "${incoming.body.message}"
+      status: "DELIVERED"
+      queryId: ${queryId}
+      contentHash: ${contentHash}
+  result: delivered_log
+
+# A platform's own >= 300 status is passed through with the uil as body (as before #354); the
+# FAILED row was written by check_forward's mark_forward_status.
 respond:
   return: ${incoming.body.uil}
   wrapper: false
   status: ${platform_response.response.status}
   next: end
 
+check_repeat_state:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/get_follow_up_state"
+    headers:
+      Content-Type: "application/json"
+    body:
+      queryId: ${queryId}
+      destinationPlatformId: "${incoming.body.uil.platformId}"
+      datasetRequestId: "${incoming.body.uil.datasetId}"
+      contentJson: ${contentJson}
+  result: state_result
+
+check_state:
+  switch:
+    - condition: ${state_result.response.status != 200 || !Array.isArray(state_result.response.body)}
+      next: insert_failed
+    - condition: ${state_result.response.body.length > 0 && state_result.response.body[0].status === 'DELIVERED'}
+      next: repeated_follow_up
+  next: follow_up_in_progress
+
 repeated_follow_up:
   return: ${incoming.body.uil}
   wrapper: false
   status: 200
+  next: end
+
+follow_up_in_progress:
+  return:
+    type: "https://api.efti.ee/errors/follow-up-in-progress"
+    code: "FOLLOW_UP_IN_PROGRESS"
+    title: "Follow-up In Progress"
+    status: 409
+    detail: "The same follow-up is being delivered or was not delivered yet. Retry later with the same request id."
+  wrapper: false
+  status: 409
   next: end
 
 # A follow-up that was logged but not delivered gets a FAILED row, so a retry with the same query id
@@ -188,6 +255,7 @@ record_failure:
       status: "FAILED"
       failureReason: ${failure_reason}
       queryId: ${queryId}
+      contentHash: ${contentHash}
   result: failed_log
 
 failure_dispatch:

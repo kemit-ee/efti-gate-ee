@@ -56,6 +56,12 @@ call_local_platform:
   body: ${incoming.body}
   result: followup_response
 
+# A template call returns only the body: the same follow-up still in flight must not become a 201.
+check_local_follow_up:
+  switch:
+    - condition: ${followup_response.code == 'FOLLOW_UP_IN_PROGRESS'}
+      next: follow_up_in_progress
+
 respond_local:
   return: ${followup_response}
   wrapper: false
@@ -151,4 +157,15 @@ remote_gate_unavailable:
     transportError: ${edelivery_response.response.error}
   wrapper: false
   status: 502
+  next: end
+
+follow_up_in_progress:
+  return:
+    type: "https://api.efti.ee/errors/follow-up-in-progress"
+    code: "FOLLOW_UP_IN_PROGRESS"
+    title: "Follow-up In Progress"
+    status: 409
+    detail: "The same follow-up is being delivered or was not delivered yet. Retry later with the same request id."
+  wrapper: false
+  status: 409
   next: end

@@ -17,11 +17,13 @@ X-Internal-Service-Token: {{INTERNAL_SERVICE_TOKEN}}
   })
 %}
 
-### The same follow-up query id sent twice is logged and forwarded once (#354)
+### The same follow-up query id sent twice is delivered and logged once (#354)
 < {%
-  const hex = n => Array.from({length: n}, () => Math.floor(Math.random() * 16).toString(16)).join("");
-  client.global.set("followUpQuery", hex(8) + "-" + hex(4) + "-4" + hex(3) + "-8" + hex(3) + "-" + hex(12));
-  client.global.set("followUpOtherQuery", hex(8) + "-" + hex(4) + "-4" + hex(3) + "-8" + hex(3) + "-" + hex(12));
+  const hex = n => Array.from({length: n}, () => Math.floor(Math.random() * 16).toString(16)).join("")
+  const uuid = () => hex(8) + "-" + hex(4) + "-4" + hex(3) + "-8" + hex(3) + "-" + hex(12)
+  client.global.set("followUpQuery", uuid())
+  client.global.set("followUpBadQuery", uuid())
+  client.global.set("followUpBadText", "np-" + uuid())
 %}
 POST {{RUUTER_URL}}/efti/api/v1/follow-up-local
 Content-Type: application/json
@@ -32,12 +34,12 @@ X-Request-Id: {{followUpQuery}}
 
 > {%
   client.test("The first follow-up with a query id is forwarded", () => {
-    client.assert(response.status >= 200 && response.status < 300)
+    client.assert(response.status === 201)
     client.assert(response.body.datasetId === "550e8400-e29b-41d4-a716-446655440000")
   })
 %}
 
-### The repeat answers 200 with the uil and is not forwarded again
+### The repeat of a delivered follow-up answers 200 and is not forwarded again
 POST {{RUUTER_URL}}/efti/api/v1/follow-up-local
 Content-Type: application/json
 X-Internal-Service-Token: {{INTERNAL_SERVICE_TOKEN}}
@@ -52,29 +54,71 @@ X-Request-Id: {{followUpQuery}}
   })
 %}
 
-### A different query id with the same text is a new follow-up
+### The same query id with other references is another follow-up and is delivered
 POST {{RUUTER_URL}}/efti/api/v1/follow-up-local
 Content-Type: application/json
 X-Internal-Service-Token: {{INTERNAL_SERVICE_TOKEN}}
-X-Request-Id: {{followUpOtherQuery}}
+X-Request-Id: {{followUpQuery}}
 
-{"uil":{"gateId":"EU-EE","platformId":"mock","datasetId":"550e8400-e29b-41d4-a716-446655440000"},"message":"{{followUpQuery}}","referenceIds":["158a5343-9fb4-11f1-ba2a-3c9c0f2eb459"]}
+{"uil":{"gateId":"EU-EE","platformId":"mock","datasetId":"550e8400-e29b-41d4-a716-446655440000"},"message":"{{followUpQuery}}","referenceIds":["158a5343-9fb4-11f1-ba2a-3c9c0f2eb460"]}
 
 > {%
-  client.test("Another query id is not taken for a repeat", () => {
-    client.assert(response.status >= 200 && response.status < 300)
+  client.test("Other content under the same query id is not taken for a repeat", () => {
+    client.assert(response.status === 201)
   })
 %}
 
-### Two log rows exist for the text: the first send and the new query id, not the repeat
+### PENDING then DELIVERED for each delivery and no row for the repeat
 POST {{RESQL_URL}}/efti/get_follow_up_messages
 Content-Type: application/json
 
 {"datasetId":"550e8400-e29b-41d4-a716-446655440000","limit":1000}
 
 > {%
-  client.test("The repeat added no log row", () => {
-    const rows = response.body.filter(r => r.payload === client.global.get("followUpQuery"))
-    client.assert(rows.length === 2)
+  client.test("PENDING then DELIVERED for each delivery and no row for the repeat", () => {
+    const rows = response.body.filter(r => r.payload === client.global.get("followUpQuery")).reverse()
+    client.assert(rows.map(r => r.status).join(",") === "PENDING,DELIVERED,PENDING,DELIVERED")
+  })
+%}
+
+### A follow-up to a platform the registry does not serve fails and is logged FAILED
+POST {{RUUTER_URL}}/efti/api/v1/follow-up-local
+Content-Type: application/json
+X-Internal-Service-Token: {{INTERNAL_SERVICE_TOKEN}}
+X-Request-Id: {{followUpBadQuery}}
+
+{"uil":{"gateId":"EU-EE","platformId":"nope","datasetId":"550e8400-e29b-41d4-a716-446655440000"},"message":"{{followUpBadText}}","referenceIds":["158a5343-9fb4-11f1-ba2a-3c9c0f2eb459"]}
+
+> {%
+  client.test("The failure is reported, not swallowed", () => {
+    client.assert(response.status === 502)
+  })
+%}
+
+### The retry of the failed follow-up is not taken for a repeat
+POST {{RUUTER_URL}}/efti/api/v1/follow-up-local
+Content-Type: application/json
+X-Internal-Service-Token: {{INTERNAL_SERVICE_TOKEN}}
+X-Request-Id: {{followUpBadQuery}}
+
+{"uil":{"gateId":"EU-EE","platformId":"nope","datasetId":"550e8400-e29b-41d4-a716-446655440000"},"message":"{{followUpBadText}}","referenceIds":["158a5343-9fb4-11f1-ba2a-3c9c0f2eb459"]}
+
+> {%
+  client.test("A failed follow-up can be retried with the same query id", () => {
+    client.assert(response.status === 502)
+  })
+%}
+
+### Each attempt is PENDING then FAILED with a fixed reason
+POST {{RESQL_URL}}/efti/get_follow_up_messages
+Content-Type: application/json
+
+{"datasetId":"550e8400-e29b-41d4-a716-446655440000","limit":1000}
+
+> {%
+  client.test("Each attempt is PENDING then FAILED with a fixed reason", () => {
+    const rows = response.body.filter(r => r.payload === client.global.get("followUpBadText")).reverse()
+    client.assert(rows.map(r => r.status).join(",") === "PENDING,FAILED,PENDING,FAILED")
+    client.assert(rows.filter(r => r.status === "FAILED").every(r => r.failureReason === "platform_lookup_failed"))
   })
 %}

@@ -95,6 +95,7 @@ CREATE TYPE job_status AS ENUM (
 COMMENT ON TYPE job_status IS 'Final outcome of a scheduled job execution. jobs_execution_log is INSERT-only at job completion — there is no "running" record.';
 
 CREATE TYPE follow_up_status AS ENUM (
+  'pending',    -- Logged, the forward has no outcome yet (#354)
   'delivered',  -- Forwarded to destination platform/gate successfully
   'failed'      -- Destination unreachable or rejected the message
 );
@@ -370,6 +371,7 @@ CREATE TABLE follow_up_log (
   received_at             TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
   created_at              TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
   query_id                UUID,                                      -- x-request-id the follow-up arrived with (#354)
+  content_hash            TEXT,                                      -- SHA-256 of message, referenceIds and files (#354)
   revision                BIGINT           GENERATED ALWAYS AS IDENTITY
 );
 
@@ -385,7 +387,8 @@ COMMENT ON COLUMN follow_up_log.status                  IS 'delivered or failed'
 COMMENT ON COLUMN follow_up_log.failure_reason          IS 'Error description when status=failed';
 COMMENT ON COLUMN follow_up_log.received_at             IS 'Mandatory per Art 6(2)(c): when the follow-up was received by the AAP';
 COMMENT ON COLUMN follow_up_log.created_at              IS 'When this row was inserted';
-COMMENT ON COLUMN follow_up_log.query_id                IS 'FTI025 query id (the x-request-id the follow-up arrived with), NULL when none or not a UUID. A DELIVERED row for the same (query_id, destination platform, dataset request) makes a repeat a no-op (trigger follow_up_log_once, #354).';
+COMMENT ON COLUMN follow_up_log.query_id                IS 'FTI025 query id (the x-request-id the follow-up arrived with), NULL when none or not a UUID. With the destination platform, the dataset request and content_hash it identifies one follow-up; trigger follow_up_log_once skips a PENDING row while the latest row is DELIVERED or a PENDING under 120 s old (#354).';
+COMMENT ON COLUMN follow_up_log.content_hash            IS 'SHA-256 (hex) over the JSON of message, referenceIds and files, computed by insert_follow_up_log';
 COMMENT ON COLUMN follow_up_log.revision                IS 'Insertion order of rows that share a query_id';
 
 CREATE INDEX idx_follow_up_log_received   ON follow_up_log (received_at DESC);

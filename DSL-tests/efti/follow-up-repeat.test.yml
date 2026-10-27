@@ -3,15 +3,20 @@ constants:
   REGISTRY_URL: "{MOCK}"
   RESQL_URL: "{MOCK}"
 
-# #354: the platform lookup and the forward are not mocked in the repeat cases, so a repeat that
-# went on to forward would end in a 404/502 instead of the 200 below.
+# #354. verify_mocks counts the calls made, so a repeat that went on to the platform, or an outcome
+# row that was never written, fails here. dsl-test cannot match a request body and cannot mock a
+# platform's own URL, so the statuses and contents of the rows written, and a delivered forward,
+# are asserted against the real stack in tests/http/follow-up.http.
 tests:
-  - name: follow-up-local answers a repeated query id without forwarding
+  - name: a repeat of a DELIVERED follow-up answers 200 and does not touch the platform
     setup:
       mocks:
         - url_matches: /efti/insert_follow_up_log
           method: POST
           body: []
+        - url_matches: /efti/get_follow_up_state
+          method: POST
+          body: [{ status: "DELIVERED" }]
     request:
       method: POST
       path: /efti/api/v1/follow-up-local
@@ -23,8 +28,103 @@ tests:
     expect:
       status: 200
       body_matches: { gateId: "EU-EE", platformId: "p1", datasetId: "550e8400-e29b-41d4-a716-446655440000" }
+    verify_mocks:
+      - url_matches: /efti/get_follow_up_state
+        count: 1
+      - url_matches: /platforms/
+        count: 0
 
-  - name: follow-up-local treats an empty insert answer without a query id as a failure
+  - name: a query id in capital letters is deduplicated too
+    setup:
+      mocks:
+        - url_matches: /efti/insert_follow_up_log
+          method: POST
+          body: []
+        - url_matches: /efti/get_follow_up_state
+          method: POST
+          body: [{ status: "DELIVERED" }]
+    request:
+      method: POST
+      path: /efti/api/v1/follow-up-local
+      headers:
+        content-type: application/json
+        x-internal-service-token: dev-internal-service-token-change-me
+        x-request-id: 0A11CE5E-0000-4D1D-8F00-0EC000000354
+      body: { uil: { gateId: "EU-EE", platformId: "p1", datasetId: "550e8400-e29b-41d4-a716-446655440000" }, message: "hi", referenceIds: ["r1"] }
+    expect:
+      status: 200
+    verify_mocks:
+      - url_matches: /efti/get_follow_up_state
+        count: 1
+
+  - name: a repeat of a follow-up still in flight is a 409, not a success
+    setup:
+      mocks:
+        - url_matches: /efti/insert_follow_up_log
+          method: POST
+          body: []
+        - url_matches: /efti/get_follow_up_state
+          method: POST
+          body: [{ status: "PENDING" }]
+    request:
+      method: POST
+      path: /efti/api/v1/follow-up-local
+      headers:
+        content-type: application/json
+        x-internal-service-token: dev-internal-service-token-change-me
+        x-request-id: 0a11ce5e-0000-4d1d-8f00-0ec000000357
+      body: { uil: { gateId: "EU-EE", platformId: "p1", datasetId: "550e8400-e29b-41d4-a716-446655440000" }, message: "hi", referenceIds: ["r1"] }
+    expect:
+      status: 409
+      body_matches: { code: "FOLLOW_UP_IN_PROGRESS" }
+    verify_mocks:
+      - url_matches: /platforms/
+        count: 0
+
+  - name: a repeat whose latest row is no longer DELIVERED or PENDING is a 409 too
+    setup:
+      mocks:
+        - url_matches: /efti/insert_follow_up_log
+          method: POST
+          body: []
+        - url_matches: /efti/get_follow_up_state
+          method: POST
+          body: []
+    request:
+      method: POST
+      path: /efti/api/v1/follow-up-local
+      headers:
+        content-type: application/json
+        x-internal-service-token: dev-internal-service-token-change-me
+        x-request-id: 0a11ce5e-0000-4d1d-8f00-0ec000000358
+      body: { uil: { gateId: "EU-EE", platformId: "p1", datasetId: "550e8400-e29b-41d4-a716-446655440000" }, message: "hi", referenceIds: ["r1"] }
+    expect:
+      status: 409
+      body_matches: { code: "FOLLOW_UP_IN_PROGRESS" }
+
+  - name: an unreadable follow-up state is a failure, not a repeat
+    setup:
+      mocks:
+        - url_matches: /efti/insert_follow_up_log
+          method: POST
+          body: []
+        - url_matches: /efti/get_follow_up_state
+          method: POST
+          status: 500
+          body: []
+    request:
+      method: POST
+      path: /efti/api/v1/follow-up-local
+      headers:
+        content-type: application/json
+        x-internal-service-token: dev-internal-service-token-change-me
+        x-request-id: 0a11ce5e-0000-4d1d-8f00-0ec000000359
+      body: { uil: { gateId: "EU-EE", platformId: "p1", datasetId: "550e8400-e29b-41d4-a716-446655440000" }, message: "hi", referenceIds: ["r1"] }
+    expect:
+      status: 500
+      body_matches: { error: "Failed to log follow-up message" }
+
+  - name: an empty insert answer without a query id is a failure
     setup:
       mocks:
         - url_matches: /efti/insert_follow_up_log
@@ -41,8 +141,11 @@ tests:
     expect:
       status: 500
       body_matches: { error: "Failed to log follow-up message" }
+    verify_mocks:
+      - url_matches: /efti/get_follow_up_state
+        count: 0
 
-  - name: follow-up-local treats a non-array insert answer as a failure
+  - name: a non-array insert answer is a failure
     setup:
       mocks:
         - url_matches: /efti/insert_follow_up_log
@@ -60,12 +163,60 @@ tests:
       status: 500
       body_matches: { error: "Failed to log follow-up message" }
 
-  - name: follow-up-local answers 502 for a registry error after recording a FAILED row
+  - name: an unreachable platform is a 502 with a FAILED row
     setup:
       mocks:
         - url_matches: /efti/insert_follow_up_log
           method: POST
-          body: [{ row_id: "x" }]
+          body: [{ contentHash: "abc123" }]
+        - url_matches: /platforms/p1.json
+          method: GET
+          body: { id: "p1", baseUrl: "http://p1.example", status: "ONLINE" }
+    request:
+      method: POST
+      path: /efti/api/v1/follow-up-local
+      headers:
+        content-type: application/json
+        x-internal-service-token: dev-internal-service-token-change-me
+        x-request-id: 0a11ce5e-0000-4d1d-8f00-0ec000000362
+      body: { uil: { gateId: "EU-EE", platformId: "p1", datasetId: "550e8400-e29b-41d4-a716-446655440000" }, message: "hi", referenceIds: ["r1"] }
+    expect:
+      status: 502
+      body_matches: { error: "The destination platform is unreachable" }
+    verify_mocks:
+      - url_matches: /efti/insert_follow_up_log
+        count: 2
+
+  - name: a DISABLED platform is a 404 with a FAILED row
+    setup:
+      mocks:
+        - url_matches: /efti/insert_follow_up_log
+          method: POST
+          body: [{ contentHash: "abc123" }]
+        - url_matches: /platforms/off.json
+          method: GET
+          body: { id: "off", baseUrl: "http://off.example", status: "DISABLED" }
+    request:
+      method: POST
+      path: /efti/api/v1/follow-up-local
+      headers:
+        content-type: application/json
+        x-internal-service-token: dev-internal-service-token-change-me
+        x-request-id: 0a11ce5e-0000-4d1d-8f00-0ec000000363
+      body: { uil: { gateId: "EU-EE", platformId: "off", datasetId: "550e8400-e29b-41d4-a716-446655440000" }, message: "hi", referenceIds: ["r1"] }
+    expect:
+      status: 404
+      body_matches: { error: "Platform Not Found" }
+    verify_mocks:
+      - url_matches: /efti/insert_follow_up_log
+        count: 2
+
+  - name: a registry error is a 502 with a FAILED row
+    setup:
+      mocks:
+        - url_matches: /efti/insert_follow_up_log
+          method: POST
+          body: [{ contentHash: "abc123" }]
         - url_matches: /platforms/gone.json
           method: GET
           status: 404
@@ -76,8 +227,32 @@ tests:
       headers:
         content-type: application/json
         x-internal-service-token: dev-internal-service-token-change-me
-        x-request-id: 0a11ce5e-0000-4d1d-8f00-0ec000000356
+        x-request-id: 0a11ce5e-0000-4d1d-8f00-0ec000000364
       body: { uil: { gateId: "EU-EE", platformId: "gone", datasetId: "550e8400-e29b-41d4-a716-446655440000" }, message: "hi", referenceIds: ["r1"] }
     expect:
       status: 502
       body_matches: { error: "Platform lookup failed (data layer unavailable)" }
+    verify_mocks:
+      - url_matches: /efti/insert_follow_up_log
+        count: 2
+
+  - name: the authority route does not turn an in-flight follow-up into a 201
+    setup:
+      mocks:
+        - url_matches: /efti/insert_follow_up_log
+          method: POST
+          body: []
+        - url_matches: /efti/get_follow_up_state
+          method: POST
+          body: [{ status: "PENDING" }]
+    request:
+      method: POST
+      path: /efti/api/v1/authority/follow-up
+      headers:
+        content-type: application/json
+        x-internal-service-token: dev-internal-service-token-change-me
+        x-request-id: 0a11ce5e-0000-4d1d-8f00-0ec000000365
+      body: { uil: { gateId: "EU-EE", platformId: "p1", datasetId: "550e8400-e29b-41d4-a716-446655440000" }, message: "hi", referenceIds: ["r1"] }
+    expect:
+      status: 409
+      body_matches: { code: "FOLLOW_UP_IN_PROGRESS" }
