@@ -392,6 +392,56 @@ class Queries(unittest.TestCase):
         with self.assertRaises(Exception):
             sql("SET ROLE app; DELETE FROM inbound_messages;")
 
+    def follow_up(self, query_id, status="DELIVERED", platform="mock", dataset="40000000-0000-0000-0000-000000000001", **extra):
+        return call("insert_follow_up_log", queryId=query_id, status=status, destinationPlatformId=platform, datasetRequestId=dataset,
+                    requestingGateId="EU-EE", destinationGateId="EU-EE", payload="hello", **extra)
+
+    def test_repeated_follow_up_query_id_is_logged_once(self):
+        query_id = "40000000-0000-0000-0000-0000000000a1"
+        self.assertEqual(1, len(self.follow_up(query_id)))
+        self.assertEqual([], self.follow_up(query_id))
+        self.assertEqual("1", sql("SELECT count(*) FROM follow_up_log;").strip())
+
+    def test_follow_up_query_id_is_per_platform_and_dataset_request(self):
+        query_id = "40000000-0000-0000-0000-0000000000a2"
+        self.assertEqual(1, len(self.follow_up(query_id)))
+        self.assertEqual(1, len(self.follow_up(query_id, platform="other")))
+        self.assertEqual(1, len(self.follow_up(query_id, dataset="40000000-0000-0000-0000-000000000002")))
+        self.assertEqual(1, len(self.follow_up("40000000-0000-0000-0000-0000000000a3")))
+
+    def test_follow_up_without_query_id_is_never_deduplicated(self):
+        self.assertEqual(1, len(self.follow_up(None)))
+        self.assertEqual(1, len(self.follow_up(None)))
+
+    def test_follow_up_retry_is_accepted_after_a_failed_attempt_and_then_deduplicated(self):
+        query_id = "40000000-0000-0000-0000-0000000000a4"
+        self.assertEqual(1, len(self.follow_up(query_id)))
+        self.assertEqual(1, len(self.follow_up(query_id, status="FAILED", failureReason="forward_status_503")))
+        self.assertEqual(1, len(self.follow_up(query_id)))
+        self.assertEqual([], self.follow_up(query_id))
+        self.assertEqual("DELIVERED,FAILED,DELIVERED", sql("SELECT string_agg(status::text, ',' ORDER BY revision) FROM follow_up_log;").strip())
+
+    def test_failed_follow_up_row_carries_the_reason_and_is_not_deduplicated(self):
+        query_id = "40000000-0000-0000-0000-0000000000a5"
+        self.assertEqual(1, len(self.follow_up(query_id, status="FAILED", failureReason="platform_not_found")))
+        self.assertEqual(1, len(self.follow_up(query_id, status="FAILED", failureReason="platform_not_found")))
+        self.assertEqual("platform_not_found", sql("SELECT DISTINCT failure_reason FROM follow_up_log;").strip())
+
+    def test_concurrent_follow_ups_with_one_query_id_have_one_winner(self):
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            for round_number in range(10):
+                query_id = "40000000-0000-0000-0000-0000000001%02d" % round_number
+                results = list(pool.map(lambda _: self.follow_up(query_id), range(8)))
+                self.assertEqual(1, sum(1 for rows in results if rows), query_id)
+        self.assertEqual("10", sql("SELECT count(*) FROM follow_up_log;").strip())
+
+    def test_follow_up_log_stays_append_only_for_the_app_role(self):
+        self.follow_up("40000000-0000-0000-0000-0000000000a7")
+        with self.assertRaises(Exception):
+            sql("SET ROLE app; UPDATE follow_up_log SET status = 'FAILED';")
+        with self.assertRaises(Exception):
+            sql("SET ROLE app; DELETE FROM follow_up_log;")
+
     def test_search_result_latest_row_wins(self):
         call("insert_search_pending", searchId="s1")
         self.assertEqual([{"status": "pending", "body": None}], call("get_search_result", searchId="s1"))
@@ -537,6 +587,7 @@ def main():
             sql((ROOT / "DSL/Liquibase/changelog/20261009-drop-registry-tables.sql").read_text())
             sql((ROOT / "DSL/Liquibase/changelog/20261015-consignments-road-expiry-index.sql").read_text())
             sql((ROOT / "DSL/Liquibase/changelog/20261023-inbound-messages.sql").read_text())
+            sql((ROOT / "DSL/Liquibase/changelog/20261026-follow-up-log-query-id.sql").read_text())
         suite = unittest.defaultTestLoader.loadTestsFromTestCase(Queries)
         if prototype or migration.exists():
             suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(MigrationPrototype))

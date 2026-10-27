@@ -69,6 +69,7 @@
 - [ ] Same routing logic as dataset request: `gateId == own gate` → platform client; otherwise → gate-to-gate client.
 - [ ] If the resolved platform has `eDeliveryCert` configured, the follow-up is also sent via eDelivery AS4 (parallel to the REST forward).
 - [ ] A `datasetRequestId` that does not reference a prior request is **still forwarded** — the gate is content-agnostic about correlation between requests and follow-ups. Logged at DEBUG.
+- [ ] A follow-up repeated with the same query id (the `x-request-id` it arrived with, a UUID) to the same platform and dataset request is logged and forwarded once; the repeat is answered `200` with the uil and neither logged nor forwarded (#354). A delivery that failed after the log row was written appends a `FAILED` row, so a retry with the same id is forwarded. A caller without a UUID request id is not deduplicated. Which message wins when a repeat carries a different body is not decided: the first one is kept.
 - [ ] Each follow-up is logged with the Art 6(2)(c) Reg 2024/1942 mandatory fields: follow-up id, AAP/requesting gate id, receipt timestamp, destination, requesting user id.
 
 **Denial scenarios:**
