@@ -4,6 +4,7 @@ import klite.Server
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
+import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.URI
@@ -14,11 +15,13 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.test.assertTrue
 
 /** The HTTP cap of `/services` as `Launcher` installs it (`servicesBodyLimit`), driven through a real klite server. */
 class ServicesBodyLimitTest {
   private val mib = 1024 * 1024
   private var server: Server? = null
+  private val REFUSED_BY_RESET = -1
 
   @AfterEach fun stop() { server?.stop(0) }
 
@@ -32,8 +35,11 @@ class ServicesBodyLimitTest {
       start()
     }
     val request = HttpRequest.newBuilder(URI("http://127.0.0.1:$port/services/msh")).POST(HttpRequest.BodyPublishers.ofByteArray(ByteArray(bodyBytes))).build()
-    return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.discarding()).statusCode()
+    // On Linux the server may close the socket after its 413 before the client has written the whole body.
+    return try { HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.discarding()).statusCode() } catch (e: IOException) { REFUSED_BY_RESET }
   }
+
+  private fun assertRefused(status: Int, message: String? = null) = assertTrue(status == 413 || status == REFUSED_BY_RESET, "$message: expected 413 or a reset connection, got $status")
 
   /** An over-limit body is refused with 413, but the server may close the socket before the client has sent all of it. */
   private fun refused(config: TurvisConfig, bodyBytes: Int): Boolean =
