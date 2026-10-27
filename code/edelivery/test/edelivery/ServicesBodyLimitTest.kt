@@ -13,6 +13,7 @@ import java.net.http.HttpResponse
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /** The HTTP cap of `/services` as `Launcher` installs it (`servicesBodyLimit`), driven through a real klite server. */
 class ServicesBodyLimitTest {
@@ -34,6 +35,10 @@ class ServicesBodyLimitTest {
     return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.discarding()).statusCode()
   }
 
+  /** An over-limit body is refused with 413, but the server may close the socket before the client has sent all of it. */
+  private fun refused(config: TurvisConfig, bodyBytes: Int): Boolean =
+    try { status(config, bodyBytes) == 413 } catch (_: java.io.IOException) { true }
+
   private fun turvis(mode: String) = TurvisConfig.load(
     mapOf("OWN_GATE_ID" to "EU-EE", "TURVIS_INTEGRATION_MODE" to mode, "TURVIS_URL" to "http://turvis:8080", "TURVIS_INTERNAL_TOKEN" to "t")::get,
   )
@@ -43,7 +48,7 @@ class ServicesBodyLimitTest {
     val config = turvis("turvis")
     assertEquals(200, status(config, 11 * mib))
     server?.stop(0)
-    assertEquals(413, status(config, (config.maxMshBodyBytes + 1).toInt()))
+    assertTrue(refused(config, (config.maxMshBodyBytes + 1).toInt()))
   }
 
   @Test fun `in legacy and shadow mode the cap stays the klite default`() {
@@ -51,7 +56,7 @@ class ServicesBodyLimitTest {
     for (mode in listOf("legacy", "shadow")) {
       assertEquals(200, status(turvis(mode), 9 * mib), mode)
       server?.stop(0)
-      assertEquals(413, status(turvis(mode), 11 * mib), mode)
+      assertTrue(refused(turvis(mode), 11 * mib), mode)
       server?.stop(0)
     }
   }
