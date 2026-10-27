@@ -183,6 +183,27 @@
       "logLevel": "WARN",
       "retryable": false
     },
+    "FOLLOW_UP_IN_PROGRESS": {
+      "code": "FOLLOW_UP_IN_PROGRESS",
+      "httpStatus": 409,
+      "title": "Follow-up In Progress",
+      "description": "The same follow-up (same request id, platform, dataset request and content) is being delivered, or its delivery is not confirmed yet. Retry with the same request id; after a failed delivery or after 120 seconds the follow-up is delivered again.",
+      "type": "https://api.efti.ee/errors/follow-up-in-progress",
+      "examples": [
+        {
+          "scenario": "The authority sends the same follow-up again while the first attempt is still being forwarded",
+          "request": "POST /efti/api/v1/authority/follow-up with the same X-Request-Id and body",
+          "response": {
+            "type": "https://api.efti.ee/errors/follow-up-in-progress",
+            "title": "Follow-up In Progress",
+            "status": 409,
+            "detail": "The same follow-up is being delivered or was not delivered yet. Retry later with the same request id."
+          }
+        }
+      ],
+      "logLevel": "WARN",
+      "retryable": true
+    },
     "EDELIVERY_ERROR": {
       "code": "EDELIVERY_ERROR",
       "httpStatus": 502,

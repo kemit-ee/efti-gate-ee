@@ -95,6 +95,7 @@ CREATE TYPE job_status AS ENUM (
 COMMENT ON TYPE job_status IS 'Final outcome of a scheduled job execution. jobs_execution_log is INSERT-only at job completion — there is no "running" record.';
 
 CREATE TYPE follow_up_status AS ENUM (
+  'pending',    -- Logged, the forward has no outcome yet (#354)
   'delivered',  -- Forwarded to destination platform/gate successfully
   'failed'      -- Destination unreachable or rejected the message
 );
@@ -368,7 +369,10 @@ CREATE TABLE follow_up_log (
   status                  follow_up_status NOT NULL,
   failure_reason          TEXT,
   received_at             TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
-  created_at              TIMESTAMPTZ      NOT NULL DEFAULT NOW()
+  created_at              TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+  query_id                UUID,                                      -- x-request-id the follow-up arrived with (#354)
+  content_hash            TEXT,                                      -- SHA-256 of message, referenceIds and files (#354)
+  revision                BIGINT           GENERATED ALWAYS AS IDENTITY
 );
 
 COMMENT ON TABLE  follow_up_log IS 'Log of follow-up messages received by the AAP and forwarded to the destination platform/gate. Mandatory fields per Art 6(2)(c) Reg 2024/1942: follow_up_id, requesting_gate_id, received_at. INSERT-only.';
@@ -383,10 +387,14 @@ COMMENT ON COLUMN follow_up_log.status                  IS 'delivered or failed'
 COMMENT ON COLUMN follow_up_log.failure_reason          IS 'Error description when status=failed';
 COMMENT ON COLUMN follow_up_log.received_at             IS 'Mandatory per Art 6(2)(c): when the follow-up was received by the AAP';
 COMMENT ON COLUMN follow_up_log.created_at              IS 'When this row was inserted';
+COMMENT ON COLUMN follow_up_log.query_id                IS 'FTI025 query id (the x-request-id the follow-up arrived with), NULL when none or not a UUID. With the destination platform, the dataset request and content_hash it identifies one follow-up; trigger follow_up_log_once skips a PENDING row while the latest row is DELIVERED or a PENDING under 120 s old (#354).';
+COMMENT ON COLUMN follow_up_log.content_hash            IS 'SHA-256 (hex) over the JSON of message, referenceIds and files, computed by insert_follow_up_log';
+COMMENT ON COLUMN follow_up_log.revision                IS 'Insertion order of rows that share a query_id';
 
 CREATE INDEX idx_follow_up_log_received   ON follow_up_log (received_at DESC);
 CREATE INDEX idx_follow_up_log_dataset    ON follow_up_log (dataset_request_id);
 CREATE INDEX idx_follow_up_log_requesting ON follow_up_log (requesting_gate_id, received_at DESC);
+CREATE INDEX idx_follow_up_log_query      ON follow_up_log (query_id, destination_platform_id, dataset_request_id, revision DESC) WHERE query_id IS NOT NULL;
 
 -- ----------------------------------------------------------------------------
 -- 4.5 audit_log — high-level user-action audit trail

@@ -39,6 +39,13 @@ call_follow_up:
   body: ${followup_json.response.body}
   result: followup_response
 
+# follow-up-local answers the same follow-up still in flight with this problem body; a template call
+# returns only the body, so it is checked here instead of being mapped to FTI030.
+check_follow_up:
+  switch:
+    - condition: ${followup_response.code == 'FOLLOW_UP_IN_PROGRESS'}
+      next: follow_up_in_progress
+
 to_xml:
   call: http.post
   args:
@@ -56,3 +63,14 @@ respond:
     Content-Type: "text/xml"
   wrapper: false
   status: 201
+
+follow_up_in_progress:
+  return:
+    type: "https://api.efti.ee/errors/follow-up-in-progress"
+    code: "FOLLOW_UP_IN_PROGRESS"
+    title: "Follow-up In Progress"
+    status: 409
+    detail: "The same follow-up is being delivered or was not delivered yet. Retry later with the same request id."
+  wrapper: false
+  status: 409
+  next: end
