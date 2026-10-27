@@ -281,7 +281,7 @@ Kaks lõksu, mis on koodis kommenteeritud:
 
 - **Tühi loend on alati sisaldunud.** Tühi alamhulkade loend läbiks sisalduvuse testi. Seega lükkab
   marsruut tühja või puuduva loendi tagasi **enne** kontrolli — **400** `MISSING_SUBSET`
-  (`openapi.yaml` nõuab `subsetId`-l `minItems: 1`).
+  (`openapi.yaml` nõuab `subsets`-il `minItems: 1`).
 - **Osaliselt lubatud päring keelatakse tervikuna.** `["EU01","EU06"]`, kus ainult EU01 on lubatud,
   annab 403 — mitte vaikset EU01-ni kärpimist. Kärpimine annaks helistajale vastuse, mida ta ei
   küsinud, ja peidaks õiguste vea.
@@ -358,7 +358,7 @@ Selleks on eraldi ReSql fail `get_consignments_by_transport_means.sql`, mitte ol
 > **Parandus.** Selle otsuse varasem sõnastus väitis, et `get_consignments.sql` taaskasutamine
 > annaks "terve andmestiku" ja läheks `authorities.subsets`-ist mööda. **See oli vale.** Andmestiku
 > sisu ei jõua kunagi Postgresesse — `authority/dataset.yml` tõmbab selle platvormilt
-> `?subsetId=...`-iga, ja **just seal** alamhulkade õigus rakendub. `consignments.xml` on
+> `?subsets=...`-iga, ja **just seal** alamhulkade õigus rakendub. `consignments.xml` on
 > identifikaatori XML, mitte andmestik. Sama vale eeldust kasutati ka `authority/search.yml`
 > süüdistamiseks; ka see on tagasi võetud. Kuratud projektsioon on endiselt õige valik, aga
 > ülaltoodud põhjustel, mitte turvapõhjusel.

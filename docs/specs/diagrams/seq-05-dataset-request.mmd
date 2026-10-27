@@ -6,7 +6,7 @@ sequenceDiagram
 
     Note over Authority: Consignment found in<br/>search (seq-03).<br/>UIL: gateId / platformId<br/>/ datasetId.
 
-    Authority->>+GateEE: GET /v1/dataset/eu-yy01/plt-xxx-001/a1b2c3d4-e5f6-7890-abcd-ef1234567890?subsetId=EU07
+    Authority->>+GateEE: GET /v1/dataset/eu-yy01/plt-xxx-001/a1b2c3d4-e5f6-7890-abcd-ef1234567890?subsets=EU07
     Note over Authority,GateEE: Authorization: Bearer JWT<br/>X-Request-ID echoed.
 
     GateEE->>GateEE: Validate JWT (signature, exp, iss, aud, not in denylist),<br/>resolve users row — subsetCheck
@@ -19,7 +19,7 @@ sequenceDiagram
 
     GateFI->>GateFI: Parse UIL query
     GateFI->>GateFI: platformRegistry["plt-xxx-001"] → Platform{baseUrl="https://..."}
-    GateFI->>+Platform: GET /v1/datasets/a1b2c3d4-e5f6-7890-abcd-ef1234567890?subsetId=EU07
+    GateFI->>+Platform: GET /v1/dataset/a1b2c3d4-e5f6-7890-abcd-ef1234567890?subsets=EU07
     Note over GateFI,Platform: HTTP request with<br/>platform credentials.
 
     Platform->>Platform: Retrieve dataset XML for subset EU07

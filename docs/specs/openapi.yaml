@@ -8,7 +8,7 @@ info:
     ## Scope of this document
 
     This OpenAPI document specifies the gate's **REST surfaces** only:
-    - **Platform API** (`/v1/identifiers/...`, `/v1/datasets/...`, `/v1/follow-up/...`, `/v1/ping`, `/v1/status/...`) — called by certified eFTI platforms
+    - **Platform API** (`/v1/identifiers/...`, `/v1/dataset/...`, `/v1/follow-up/...`, `/v1/ping`, `/v1/status/...`) — called by certified eFTI platforms
     - **Authority API** (`/v1/identifiers/{identifier}`, `/v1/dataset/...`, `/v1/follow-up/...`) — called by competent-authority officers
     - **Admin API** (`/api/v1/...`) — called by gate operators
     - **Health API** (`/health/...`) — Kubernetes liveness/readiness probes
@@ -371,7 +371,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  /v1/datasets/{datasetId}:
+  /v1/dataset/{datasetId}:
     get:
       tags: [Platform]
       summary: Retrieve platform's own dataset (for subset filtering test)
@@ -384,7 +384,7 @@ paths:
         to the requested subsets itself (ADR-003, addendum 2026-10-26).
       parameters:
         - $ref: '#/components/parameters/DatasetIdPath'
-        - name: subsetId
+        - name: subsets
           in: query
           required: false
           description: eFTI data subsets to filter (EU01-EU07)
@@ -606,7 +606,7 @@ paths:
             type: string
             format: uuid
             example: "550e8400-e29b-41d4-a716-446655440001"
-        - name: subsetId
+        - name: subsets
           in: query
           required: true
           description: eFTI data subsets to request (at least 1, max 7)
@@ -2417,7 +2417,7 @@ components:
             code: BAD_REQUEST_GENERAL
             title: "Bad Request"
             status: 400
-            detail: "Query parameter 'subsetId' is required and must have at least 1 value"
+            detail: "Query parameter 'subsets' is required and must have at least 1 value"
             instance: "/v1/dataset/eu-xx01/plt-xxx-001/550e8400-e29b-41d4-a716-446655440001"
             requestId: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
 

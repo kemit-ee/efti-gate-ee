@@ -44,7 +44,7 @@
 ### Dataset request
 
 **Business rules:**
-- [ ] The request **must** carry at least one `subsetId` query parameter — without it the request is rejected.
+- [ ] The request **must** carry at least one `subsets` query parameter — without it the request is rejected.
 - [ ] Local routing: if the UIL's `gateId` matches this gate, forward to the platform client (REST).
 - [ ] Remote routing: if the UIL's `gateId` is a peer, forward via eDelivery AS4 `uilQuery` (or `/services/fast` for the mTLS fast variant).
 - [ ] The gate is **content-agnostic**: dataset XML is forwarded unchanged regardless of payload content. The gate never caches, parses business semantics from, or modifies the dataset body (subset filtering is the only exception — see below).
@@ -52,7 +52,7 @@
 - [ ] Local dataset retrieval SLO: p95 < 5 s.
 
 **Denial scenarios:**
-- [ ] No `subsetId` parameter.
+- [ ] No `subsets` parameter.
 - [ ] Routed gate is `OFFLINE` (checked **before** the outbound request) — short-circuit `502`-class failure.
 - [ ] Platform-client returns non-2xx — `502`-class; the gate does not retry beyond the SLO budget.
 

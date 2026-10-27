@@ -4,7 +4,7 @@ sequenceDiagram
     participant GateFI as Remote Gate (eu-yy01)
     participant Platform as Platform (plt-xxx-001)
 
-    Authority->>+GateEE: GET /v1/dataset/eu-yy01/plt-xxx-001/a1b2c3d4-e5f6-7890-abcd-ef1234567890?subsetId=EU07
+    Authority->>+GateEE: GET /v1/dataset/eu-yy01/plt-xxx-001/a1b2c3d4-e5f6-7890-abcd-ef1234567890?subsets=EU07
     Note over Authority,GateEE: Authorization: Bearer JWT<br/>X-Request-ID echoed.
 
     GateEE->>GateEE: Validate JWT + authenticate
@@ -12,7 +12,7 @@ sequenceDiagram
 
     GateEE->>+GateFI: eDelivery AS4: UILQueryRequest<br/>(subsetId=EU07, requestId=req-e5f6a7b8)
 
-    GateFI->>+Platform: GET /v1/datasets/a1b2c3d4-...?subsetId=EU07
+    GateFI->>+Platform: GET /v1/dataset/a1b2c3d4-...?subsets=EU07
 
     alt Platform denies access (403)
         Platform-->>GateFI: 403 Forbidden (RFC 7807)

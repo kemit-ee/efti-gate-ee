@@ -43,7 +43,7 @@
 - [ ] Search view supports identifier entry by typed plate, scanned QR, or NFC read; filters include `modeCode`, `registrationCountryCode`, `dangerousGoodsIndicator`, optional `dateFrom`/`dateTo`.
 - [ ] Results stream over SSE — partial results appear as peer gates respond.
 - [ ] Multiple UILs displayed when present; the officer selects the relevant one.
-- [ ] Dataset retrieval requires `subsetId` selection.
+- [ ] Dataset retrieval requires `subsets` selection.
 - [ ] Dataset rendering: XML is presented as a structured table (human-readable). On malformed XML from the platform: show the raw XML + warning, do **not** crash the UI.
 - [ ] Follow-up messages can be composed and sent against a returned UIL.
 - [ ] Search results are paginated per the OpenAPI pagination contract.
