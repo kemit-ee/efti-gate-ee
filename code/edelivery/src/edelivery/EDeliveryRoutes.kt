@@ -276,8 +276,15 @@ class EDeliveryRoutes(
 
 internal fun ByteArray.sha256Hex() = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(this))
 
-/** The legacy path's decompression cap; the shadow compares the Turvis budget against it. */
-internal fun legacyPayloadLimit(): Long = Config.optional("BODY_LIMIT_MD", "10").toLong() * 1024 * 1024
+/**
+ * klite's own body cap setting (`BODY_LIMIT_MB`, default 10 MiB): the HTTP cap of the legacy and shadow paths and,
+ * as before, the legacy path's decompression cap. (The name used to be read as `BODY_LIMIT_MD`, which klite ignores.)
+ */
+internal fun legacyPayloadLimit(): Long = Config.optional("BODY_LIMIT_MB", "10").toLong() * 1024 * 1024
+
+/** The HTTP body cap of `/services`: the Turvis budget when Turvis is authoritative, otherwise [legacyPayloadLimit]. */
+internal fun mshBodyLimit(config: TurvisConfig): Long =
+  if (config.mode == TurvisIntegrationMode.TURVIS) maxOf(legacyPayloadLimit(), config.maxMshBodyBytes) else legacyPayloadLimit()
 
 internal fun gunzip(compressed: ByteArray, maxBytes: Long = legacyPayloadLimit()): ByteArray {
   GZIPInputStream(ByteArrayInputStream(compressed)).use { gzip ->

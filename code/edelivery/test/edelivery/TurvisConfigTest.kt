@@ -36,6 +36,24 @@ class TurvisConfigTest {
     assertEquals(true, load().maxResponseBytes > 40L * 1024 * 1024 * 4 / 3)
   }
 
+  @Test fun `the msh HTTP cap follows the payload budget only when Turvis is authoritative and never drops below the klite cap`() {
+    val mib = 1024L * 1024
+    val legacyCap = 10 * mib
+    assertEquals(legacyCap, legacyPayloadLimit())
+    val turvis = load("TURVIS_INTEGRATION_MODE" to "turvis", "TURVIS_URL" to "http://turvis:8080", "TURVIS_INTERNAL_TOKEN" to "t")
+    // 40 MiB of incompressible gzip is ~53.4 MiB of base64, plus the envelope and multipart framing.
+    assertEquals(40 * mib * 4 / 3 + 2 * mib, turvis.maxMshBodyBytes)
+    assertEquals(turvis.maxMshBodyBytes, mshBodyLimit(turvis))
+    assertTrue(mshBodyLimit(turvis) >= 40 * mib * 4 / 3)
+    // Turvis's answer to encrypt/sign carries that attachment: it must still fit the bound the client reads.
+    assertTrue(turvis.maxResponseBytes >= turvis.maxMshBodyBytes)
+    val small = load("TURVIS_INTEGRATION_MODE" to "turvis", "TURVIS_URL" to "http://turvis:8080", "TURVIS_INTERNAL_TOKEN" to "t", "TURVIS_MAX_PAYLOAD_MIB" to "1")
+    assertEquals(legacyCap, mshBodyLimit(small))
+    val shadow = load("TURVIS_INTEGRATION_MODE" to "shadow", "TURVIS_URL" to "http://turvis:8080", "TURVIS_INTERNAL_TOKEN" to "t")
+    assertEquals(legacyCap, mshBodyLimit(shadow))
+    assertEquals(legacyCap, mshBodyLimit(load()))
+  }
+
   @Test fun `mode parsing accepts the three wire values case-insensitively and rejects anything else`() {
     assertEquals(TurvisIntegrationMode.LEGACY, TurvisIntegrationMode.parse(null))
     assertEquals(TurvisIntegrationMode.LEGACY, TurvisIntegrationMode.parse(" "))

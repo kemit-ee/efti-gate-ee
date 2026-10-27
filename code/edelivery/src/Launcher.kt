@@ -63,7 +63,7 @@ fun main() {
 
     // Internet-facing
     context("/services") {
-      bodySizeLimit()
+      bodySizeLimit(mshBodyLimit(turvisConfig))
       annotated<EDeliveryRoutes>()
     }
 
