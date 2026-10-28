@@ -2436,18 +2436,21 @@ components:
             instance: "/v1/identifiers/123ABC"
 
     Forbidden:
-      description: Forbidden — caller authenticated but not permitted on this surface (mismatched role / out-of-scope entity / out-of-scope subset / opsToken mismatch)
+      description: >-
+        Forbidden — caller authenticated but not permitted on this surface (mismatched role / out-of-scope entity /
+        opsToken mismatch). A subset denial (`FORBIDDEN_SUBSET`) is emitted only by the X-Road routes and is documented on
+        `/xroad/v1/dataset` and `/xroad/v1/transport-means`.
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
           example:
-            type: "https://api.efti.ee/errors/forbidden-subset"
-            code: FORBIDDEN_SUBSET
+            type: "https://api.efti.ee/errors/forbidden"
+            code: FORBIDDEN
             title: "Forbidden"
             status: 403
-            detail: "Authority 'auth-mta' is not permitted to access subset 'EU06'"
-            instance: "/v1/dataset/eu-xx01/plt-xxx-001/550e8400-e29b-41d4-a716-446655440001"
+            detail: "/api/v1/admin/archive accepts only the static opsToken; TARA JWTs are rejected"
+            instance: "/api/v1/admin/archive"
 
     NotFound:
       description: Not Found — resource does not exist
