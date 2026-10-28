@@ -321,18 +321,21 @@
       "code": "FORBIDDEN_SUBSET",
       "httpStatus": 403,
       "title": "Subset Access Denied",
-      "description": "The authority user requested a dataset subset not in the authority's permitted subsets.",
+      "description": "The X-Road authority requested a dataset or transport-means subset that its registry entry does not permit. Emitted only by the X-Road routes; the answer lists the denied and the permitted subsets as arrays.",
       "type": "https://api.efti.ee/errors/forbidden-subset",
       "examples": [
         {
-          "scenario": "Authority permitted only ['EU07'] subset requests 'EU01'",
-          "request": "GET /dataset/eu-xx01/demo/550e8400-e29b-41d4-a716-446655440000?subsets=EU01",
+          "scenario": "Authority permitted only ['EU01'] requests 'EU06' through the X-Road adapter",
+          "request": "POST /xroad/v1/dataset",
           "response": {
             "type": "https://api.efti.ee/errors/forbidden-subset",
+            "code": "FORBIDDEN_SUBSET",
             "title": "Subset Access Denied",
             "status": 403,
-            "detail": "Authority 'aut-001' is not permitted to access subset 'EU01'. Permitted subsets: EU07",
-            "instance": "/dataset/eu-xx01/demo/550e8400-e29b-41d4-a716-446655440000"
+            "detail": "The requesting authority is not permitted to access one or more of the requested eFTI subsets.",
+            "authorityId": "aut-001",
+            "deniedSubsets": ["EU06"],
+            "permittedSubsets": ["EU01"]
           }
         }
       ],

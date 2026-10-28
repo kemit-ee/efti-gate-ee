@@ -311,6 +311,28 @@ class EDeliveryRoutesTurvisModeTest {
     expect(sent.captured).toContain(FaultReason.OTHER.ebmsCode)
   }
 
+  @Test fun `a peer fault from a Turvis reject carries only the bucket, with and without a Turvis audit_ref or detail`() {
+    val real = EDeliveryRoutes(keyManager, messageHandlers, EDeliveryMessageGenerator(mockk(relaxed = true)), eDeliveryClient, partyRegistry, SignatureValidator(), turvis, TurvisShadow(TurvisConfig(keyHandle = "EU-EE"), turvis), outbound, audit, dedup)
+    val withRef = TurvisReason.of("SIGNER_UNTRUSTED")!!.let { TurvisRejection("verifications", it.httpStatus, "SIGNER_UNTRUSTED", "00000000-0000-4000-8000-00000000abcd", "Jaan Tamm C:\\internal") }
+    val withoutRef = TurvisRejection("verifications", 422, "SIGNER_UNTRUSTED", null, null)
+    for (rejection in listOf(withRef, withoutRef)) {
+      clearMocks(exchange, answers = false, recordedCalls = true)
+      every { exchange.requestStream } returns "raw body".toByteArray().inputStream()
+      every { turvis.process(any()) } throws SignerUntrustedException(rejection)
+      val sent = slot<String>()
+      every { exchange.send(InternalServerError, capture(sent), soap) } just Runs
+
+      real.msh(exchange)
+
+      expect(sent.captured).toContain(FaultReason.SIGNER_UNTRUSTED.ebmsCode)
+      expect(sent.captured).notToContain("abcd")
+      expect(sent.captured).notToContain("audit_ref")
+      expect(sent.captured).notToContain("Jaan Tamm")
+      expect(sent.captured).notToContain("internal")
+      expect(sent.captured).notToContain("Exception")
+    }
+  }
+
   private val storedReceipt = "<stored-receipt>\r\n first </stored-receipt>".toByteArray() + byteArrayOf(0x0b)
   private val payloadSha = java.security.MessageDigest.getInstance("SHA-256").digest("<hello>world</hello>".toByteArray()).joinToString("") { "%02x".format(it) }
 
