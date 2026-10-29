@@ -2,7 +2,15 @@
 
 **Otsus (otsustajad täpsustamata, 01.09.2026):**
 
-> **Muudatus (02.09.2026):** X-Roadi pind ei ole enam eraldi konteiner. `DSL/Ruuter-xroad/xroad/`
+> **Muudatus (29.10.2026, asendab allpool oleva 02.09 muudatuse):** X-Roadi pind on taas eraldi
+> Ruuter: `DSL/Ruuter-xroad/xroad/` (konteiner `ruuter-xroad`, port 8087, `ruuter-xroad.yaml`,
+> `constants-xroad.ini`). Põhjused: `/xroad/**` usaldab `X-Road-Client` päist tingimusteta, seega ei
+> tohi see jagada porti avaliku API-ga; eraldi `constants-xroad.ini` hoiab `TIM_ADMIN_TOKEN`-i ja
+> `ARCHIVE_OPS_TOKEN`-i xroad-konteinerist eemal; `internal_requests.allowed_urls` piirab väljaminevad
+> kutsed nelja päritolule (registry, resql, põhi-Ruuter, xml-mapper). Edastavad marsruudid kutsuvad
+> põhi-Ruuteri `efti/api/v1/authority/*` HTTP kaudu `INTERNAL_SERVICE_TOKEN`-iga. Ingressi ei tohi olla.
+>
+> **Muudatus (02.09.2026, aegunud):** X-Roadi pind ei ole enam eraldi konteiner. `DSL/Ruuter/xroad/`
 > liikus põhi-Ruuteri projektiks `DSL/Ruuter/xroad/` ja seda teenindatakse `/xroad/` all pordil
 > 8086. Eraldi `ruuter-xroad` konteiner, port 8087, `constants-xroad.ini` ja `ruuter-xroad.yaml`
 > on kustutatud. Võrguisolatsiooni nõue **ei muutu sisuliselt**, aga on nüüd selgesõnaline
@@ -40,7 +48,7 @@ TRAM / LOIS2 / ANTS (NES kaudu)
       ↓  X-Roadi võrk — turvaserverite vaheline mTLS + allkirjastamine
   MEIE turvaserver
       ↓  lihttekst HTTP meie enda võrgus, lisab X-Road-* päised
-  ruuter :8086  /xroad/**   ← see on see, mis on ehitatud (xroad projekt)
+  ruuter-xroad :8087  /xroad/**   ← see on see, mis on ehitatud (xroad projekt)
 ```
 
 `xroad` projekt on **teenusepakkuja adapter**, mida kutsub *meie oma* turvaserver. Tarbija (kliendi)
@@ -53,15 +61,16 @@ poolt ei ole ehitatud — värav ei kutsu ise ühtegi X-Roadi teenust.
 > isolatsioonile**: kes iganes suudab `/xroad/**` teeni otse pääseda, saab saata
 > `X-Road-Client: EE/GOV/<suvaline-registrikood>/x` ja esineda **mis tahes registreeritud asutusena**
 > — see tähendab kohe kogu tema alamhulkade õiguste avalikustamist ja hiljem, kui `core`-i edastus on
-> ühendatud, ka täielikku andmeligipääsu. Kuna `/xroad/**` jagab nüüd porti 8086 avaliku API-ga, on
-> see **ingressi** probleem, mitte pordi avaldamise oma.
+> ühendatud, ka täielikku andmeligipääsu. `/xroad/**` on eraldi Ruuteris (`ruuter-xroad`, port 8087),
+> mitte avaliku API (8086) pordil, aga ka siis on see **ingressi ja võrgureegli** probleem: pordi
+> avaldamata jätmisest ei piisa.
 >
 > Juurutamisel on seega **kohustuslik**:
 > - avalik ingress / pöördproksi **ei tohi** `/xroad/**` teed marsruutida — sellele teele vasta 404;
 > - võrgureegel (NetworkPolicy / security group) peab lubama `/xroad/**` liiklust **ainult** oma
 >   turvaserveri aadressilt (nt eraldi sisemine kuulaja või proksi, milleni ainult turvaserver ulatub).
 >
-> `compose.override.yml` avaldab 8086 `localhost`-i, aga see fail on **ainult lokaalseks
+> `compose.override.yml` avaldab 8087 `localhost`-i, aga see fail on **ainult lokaalseks
 > arenduseks**.
 >
 > Alternatiiv, mis sellest sõltuvusest vabaneks, oleks mTLS ka turvaserveri ja adapteri vahel, aga
@@ -224,7 +233,7 @@ Uusi veerge ega migratsioone ei ole. Kasutame olemasolevat:
 | `X-Road-UserId` | ei | Lõppkasutaja isikukood. **Ainult audit — õigusi ei anna.** |
 | `X-Road-Represented-Party`, `X-Road-Issue` | ei | Informatiivsed |
 
-## Kontroll (`DSL/Ruuter/xroad/.guard.yml`)
+## Kontroll (`DSL/Ruuter-xroad/xroad/.guard.yml`)
 
 Guard **autendib ainult** — alamhulkade kontrolli ta ei tee (vt allpool):
 
@@ -274,8 +283,8 @@ täpselt üks vaste) ja arvutab keelatud alamhulgad DSL-is
 > (`:requested_subsets <@ a.subsets` failis `check_authority_subsets.sql`), sest mootori
 > JS-massiivi tugi (`.every` / `.includes` / noolefunktsioonid) oli tõestamata. See luges sama
 > `authorities` rea, mille guard oli juba lahendanud — üks lisapäring iga X-Road päringu kohta.
-> `turnerrainer/ruuter:0.10.1-rc` toetab neid konstruktsioone (`DSL-tests/xroad/subset-permission.test.yml`),
-> seega SQL-fail eemaldati.
+> `turnerrainer/ruuter:0.10.1-rc` (ja kõik hilisemad, praegu `0.12.1-rc`) toetab neid konstruktsioone
+> (`DSL-xroad-tests/subset-permission.test.yml` kinnitab seda praeguse versiooniga), seega SQL-fail eemaldati.
 
 Kaks lõksu, mis on koodis kommenteeritud:
 
@@ -327,7 +336,7 @@ Need dokumendid väitsid vastupidist ja on selle otsusega korrigeeritud:
   ID-tõendit, mida valideeritakse nagu otselogimist. See on teemaülene reegel, mis blokeeris
   valitud lahenduse.
 - `docs/architecture/integrations/x_road_integration.md` — kirjeldas SOAP-i ja Java mooduleid
-  `ee-adapter`/`core`, mida ei ole olemas; tegelik teostus on Ruuteri projekt `DSL/Ruuter/xroad/`.
+  `ee-adapter`/`core`, mida ei ole olemas; tegelik teostus on Ruuteri projekt `DSL/Ruuter-xroad/xroad/`.
 - `docs/specs/permissions-matrix.md` §3.2 ja §7 — `FORBIDDEN_SUBSET` allikas.
 - `docs/specs/openapi.yaml` — `User.subsets` kirjeldab veergu, mida ei ole.
 
@@ -424,8 +433,8 @@ funktsionaalset indeksit.
   Vaja on: (a) entrypoint, mis genereerib konstandifaili keskkonnamuutujast või monteeritud
   saladusest, ja (b) käivitusaegne või health-probe kontroll, et väärtus ei ole kaasa pandud
   vaikeväärtus. Kuni selleni kehtib teele `/efti/api/v1/authority/**` sama isolatsiooninõue nagu
-  teele `/xroad/**` — mõlemad on nüüd samal pordil 8086, seega on isolatsioon **tee-, mitte
-  pordipõhine**.
+  teele `/xroad/**`. Erinevalt `/xroad/**`-ist (oma Ruuter, port 8087) jagab see tee põhi-Ruuteri
+  porti 8086 avaliku API-ga, seega on selle isolatsioon **tee-, mitte pordipõhine**.
 
 - **Teoreetiline: asendamata kohatäide autendiks.** Kui konstant `constants.ini`-st puuduks **ja**
   Ruuter jätaks `[#INTERNAL_SERVICE_TOKEN]` literaalseks (asendamata) selle asemel, et asendada see
@@ -459,9 +468,9 @@ funktsionaalset indeksit.
 
 > **Uuendus (03.09.2026):** ADR-005 vaadati Antoniga üle. Eraldi Ruuteri *instantsi*
 > (`ruuter-m2m`, port 8087, `constants-m2m.ini`) asemel jääb masinliides **eraldi projektiks
-> põhi-Ruuteris**, samamoodi nagu `DSL/Ruuter/xroad/` praegu. Teisele Ruuterile saab vajadusel
-> hiljem tõsta. Varasem vastendustabel (`DSL/Ruuter/xroad/` → `DSL/Ruuter-m2m/m2m/...`,
+> põhi-Ruuteris**, samamoodi nagu `DSL/Ruuter-xroad/xroad/` praegu. Teisele Ruuterile saab vajadusel
+> hiljem tõsta. Varasem vastendustabel (`DSL/Ruuter-xroad/xroad/` → `DSL/Ruuter-m2m/m2m/...`,
 > `constants-m2m.ini` / `ruuter-m2m.yaml`) kirjeldas vana `refactor/split-m2m-ruuter` haru
-> paigutust ja **ei ole enam asjakohane** — X-Roadi pind jääb `DSL/Ruuter/xroad/`-i, oma
+> paigutust ja **ei ole enam asjakohane** — X-Roadi pind jääb `DSL/Ruuter-xroad/xroad/`-i, oma
 > projektitasemelise guardiga. Kui `m2m` projekt hiljem lisandub, käib ümbernimetamine
-> `DSL/Ruuter/xroad/` → `DSL/Ruuter/m2m/.../xroad/` põhi-Ruuteri *sees*, mitte eraldi instantsi.
+> `DSL/Ruuter-xroad/xroad/` → `DSL/Ruuter/m2m/.../xroad/` põhi-Ruuteri *sees*, mitte eraldi instantsi.

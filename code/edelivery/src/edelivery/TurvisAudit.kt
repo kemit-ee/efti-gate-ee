@@ -9,13 +9,7 @@ package edelivery
  * anything else is written as `?`, which keeps a crafted value from forging a second line or a second field.
  */
 object TurvisAudit {
-  private val SAFE = Regex("[A-Za-z0-9._:@/+=-]{1,200}")
-
-  private fun safe(value: String?) = when {
-    value == null -> "-"
-    SAFE.matches(value) -> value
-    else -> "?"
-  }
+  private fun safe(value: String?) = value.logSafe()
 
   fun inbound(auditRef: String, inbound: VerifiedInbound, receiptSignAuditRef: String?): String = line(
     "turvis_audit direction=inbound",
@@ -57,4 +51,13 @@ object TurvisAudit {
 
   private fun line(head: String, vararg fields: Pair<String, String?>) =
     head + fields.joinToString("") { " ${it.first}=${safe(it.second)}" }
+}
+
+private val LOG_SAFE = Regex("[A-Za-z0-9._:@/+=-]{1,200}")
+
+/** A peer-supplied value as it may appear in a log line: itself when it fits the narrow audit character set, `-` for null, otherwise `?`. */
+fun String?.logSafe(): String = when {
+  this == null -> "-"
+  LOG_SAFE.matches(this) -> this
+  else -> "?"
 }

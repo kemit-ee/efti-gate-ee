@@ -1,0 +1,13 @@
+# The service description must stay public. The project-level xroad/.guard.yml would otherwise
+# demand an X-Road-Client header on GET /xroad/provide/*, which the Security Server cannot supply
+# when it reads the OpenAPI document. override_ancestors replaces the project guard for this subtree only.
+declaration:
+  description: "Overrides the project-level xroad/.guard.yml to keep GET /xroad/provide/* public,
+    since the Security Server reads the service description without an X-Road-Client header."
+  override_ancestors: true
+
+allow:
+  return: "success"
+  status: 200
+  wrapper: false
+  next: end

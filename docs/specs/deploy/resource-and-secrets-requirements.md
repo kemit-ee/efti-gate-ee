@@ -23,7 +23,8 @@ tootmises soovita alustada "Soovituslik prod" veerust ja mõõta reaalse koormus
 | `archive-database` (PostgreSQL 18, `efti_archive` DB — saadetiste külmladu, vt issue #143/#56) | JAH | 0.5 | 512 MiB | 0.5 vCPU / 512 MiB + eraldi ketas, kasv sõltub `keepDays` retention-seadest (`purge_archived_consignments.sql`, vaikimisi 2555 päeva) | Stateful, **eraldi instants** kui `database` — vajab oma PV/PVC-d ja backupit; ligipääsetav ainult ReSql `archive` andmeallika kaudu, mitte otse |
 | `resql` (ReSql 0.4.3-alpha) | JAH | — (määramata!) | — (määramata!) | 0.5 vCPU / 512 MiB | max_connections 75 (resql.yaml) — jäta PG max_connections=100 juurde varu teistele klientidele. Kaks andmeallikat: `efti` ja `archive` |
 | `xtr` (turnerrainer/xtr 0.5.1-rc, väljaminev X-Tee REST, ADR-017) | JAH, kui väljaminevat X-Tee suunda kasutatakse | 0.25 | 128 MiB | 0.25 vCPU / 128 MiB | Stateless; ei avalda porti (ainult Ruuter kutsub); keystore + CA Secretist, vt §3.6 |
-| `ruuter` (Ruuter 0.12.1-rc, `/efti` + `/xroad` + `/ops`) | JAH | 2.0 | 512 MiB | 1 vCPU / 512 MiB (koormustestitud, vt performance-dok) | — |
+| `ruuter` (Ruuter 0.12.1-rc, `/efti` + `/ops` jt) | JAH | 2.0 | 512 MiB | 1 vCPU / 512 MiB (koormustestitud, vt performance-dok) | — |
+| `ruuter-xroad` (Ruuter 0.12.1-rc, `/xroad`, port 8087) | JAH (X-Roadi liidese korral) | 1.0 | 256 MiB | 0.5 vCPU / 256 MiB (mõõtmata) | Oma `constants-xroad.ini` (Secret-fail, sisaldab `INTERNAL_SERVICE_TOKEN`; sama väärtus mis `constants.ini`-s), ingressi pole. Chart `services/efti/devops` repos puudub veel. |
 | `ruuter-xroad-mock` (avalik X-Roadi arendaja-mokk, `/developer/**`) | VALIKULINE | 0.25 | 128 MiB | 0.25 vCPU / 128 MiB | Standalone, andmebaasita — vt `docs/developer/x_road_developer_mock.md`. Jäta välja, kui väliseid platvormiarendajaid ei teenindata. |
 | `tim-init` (ühekordne ettevalmistus) | JAH, ühekordne | — | — | 0.1 vCPU / 64 MiB | Init-container enne `tim`-i: CA-bundle ja (dev-is) JWT võtme genereerimine — vt §3.3 |
 | `registry` (nginx, staatiline register) | JAH | — | — | 0.1 vCPU / 64 MiB | Image sisaldab registrit (ADR-011), avaldatud pordita — vt §3.4 |
@@ -370,9 +371,10 @@ järgnevad kasutajad lisatakse haldusliidese vaates **Kasutajad**.
 
 ## 6. Võrgu isolatsioon (mitte secret, aga sama kriitiline)
 
-`INTERNAL_SERVICE_TOKEN` (§3.2) on ainus kaitse `/xroad/**` ja `/efti/api/v1/authority/**` peal —
-need marsruudid jagavad Ruuteri porti 8086 avaliku gate-API-ga. Ingress/reverse-proxy **EI TOHI**
-neid avalikult eksponeerida; ainult X-Road Turvaserver tohib `/xroad/**`-ni jõuda. Vt ADR-006.
+`INTERNAL_SERVICE_TOKEN` (§3.2) on ainus kaitse `/efti/api/v1/authority/**` peal — see jagab Ruuteri
+porti 8086 avaliku gate-API-ga. `/xroad/**` elab eraldi Ruuteris (`ruuter-xroad`, port 8087); selle
+teenusel ei tohi olla ingressi ega avalikku marsruuti, ainult X-Road Turvaserver tohib sinna jõuda.
+Ingress/reverse-proxy **EI TOHI** `/efti/api/v1/authority/**`-i avalikult eksponeerida. Vt ADR-006.
 
 `DSL/Ruuter/ops/**` (saadetiste arhiveerimine, §3.2 `ARCHIVE_OPS_TOKEN`) jagab samuti Ruuteri porti
 8086, aga pole `docker/ui/nginx.conf` kaudu proksitud (vt "Nginx proxy" `AGENTS.md`-is) — see pole

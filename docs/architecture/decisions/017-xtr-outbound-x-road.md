@@ -2,7 +2,7 @@
 
 **Otsus (29.10.2026):** Värav lisab valmiskomponendi **XTR** (`turnerrainer/xtr`, pinnitud `0.5.1-rc`),
 mille kaudu liiguvad kõik **väljaminevad** X-Tee REST päringud: Ruuter → XTR (tavaline HTTP sisevõrgus) →
-turvaserver (mTLS) → teenusepakkuja. Sissetulev suund (turvaserver → Ruuter `/xroad/**`, [ADR-006](006-xroad-identity-and-subsets.md))
+turvaserver (mTLS) → teenusepakkuja. Sissetulev suund (turvaserver → `ruuter-xroad` `/xroad/**`, [ADR-006](006-xroad-identity-and-subsets.md))
 jääb muutmata ega käi XTR-i kaudu.
 
 ## Kontekst

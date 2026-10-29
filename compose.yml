@@ -151,6 +151,37 @@ services:
       retries: 20
       start_period: 10s
 
+  # X-Road provider adapter (/xroad/**, ADR-006) on its own Ruuter. Reached only by the Security Server:
+  # no published port here (compose.override.yml adds a loopback one for development) and it must never
+  # be proxied or ingressed publicly. Its constants-xroad.ini (mounted, holds INTERNAL_SERVICE_TOKEN) and
+  # internal_requests.allowed_urls (ruuter-xroad.yaml) limit what it can read and call. The forwarding
+  # routes call the main `ruuter` for efti/api/v1/authority/*.
+  ruuter-xroad:
+    container_name: efti_ruuter_xroad
+    build:
+      context: .
+      dockerfile: docker/ruuter-xroad/Dockerfile
+    platform: linux/amd64
+    cpus: '1.0'
+    depends_on:
+      resql:
+        condition: service_healthy
+      registry:
+        condition: service_healthy
+      ruuter:
+        condition: service_healthy
+      xml-mapper:
+        condition: service_started
+    mem_limit: 256M
+    volumes:
+      - ./constants-xroad.ini:/app/constants.ini:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8087/xroad/health/ready || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
   # Public developer mock of the X-Road authority surface (/developer/**). Standalone by
   # design: no database, no core, no link to the real gate — so exposing it publicly cannot
   # leak real data or reach a privileged route. See docs/developer/x_road_developer_mock.md.
@@ -213,7 +244,7 @@ services:
   # Outbound X-Road REST client (ADR-017): Ruuter -> xtr (plain HTTP) -> Security Server (mTLS). Ready-made
   # component (turnerrainer/xtr), configured by xtr/xtr.yaml + xtr/DSL. It holds the only mTLS identity for
   # the Security Server and always sets X-Road-Client itself. No published port: only Ruuter calls it,
-  # with XTR_INTER_SERVICE_TOKEN. The inbound direction (Security Server -> Ruuter /xroad/**) does not pass
+  # with XTR_INTER_SERVICE_TOKEN. The inbound direction (Security Server -> ruuter-xroad /xroad/**) does not pass
   # through it. The keystore and CA are mounted from xtr/ssl, never baked in.
   xtr:
     container_name: efti_xtr

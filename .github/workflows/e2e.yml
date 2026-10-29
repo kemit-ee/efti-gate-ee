@@ -20,9 +20,11 @@ jobs:
           IMAGE=turnerrainer/ruuter:0.12.1-rc
           run() { docker run --rm -v "$PWD:/workdir" -w /workdir "$IMAGE" "$@"; }
           run dsl-lint --audit --dsl DSL/Ruuter            --constants constants.ini
+          run dsl-lint --audit --dsl DSL/Ruuter-xroad       --constants constants-xroad.ini
           run dsl-lint --audit --dsl DSL/Ruuter-xroad-mock --constants constants-xroad-mock.ini
           run dsl-lint --audit --dsl DSL/Ruuter-turvis-mock --constants constants-turvis-mock.ini
           run dsl-test --dsl DSL/Ruuter --tests DSL-tests --constants constants.ini
+          run dsl-test --dsl DSL/Ruuter-xroad --tests DSL-xroad-tests --constants constants-xroad.ini
           run dsl-test --dsl DSL/Ruuter-xroad-mock --tests DSL-mock-tests --constants constants-xroad-mock.ini
           run dsl-test --dsl DSL/Ruuter-turvis-mock --tests DSL-turvis-mock-tests --constants constants-turvis-mock.ini
 
@@ -46,6 +48,8 @@ jobs:
       - run: pip install --quiet pyyaml cryptography
       - name: efti input-contract check
         run: python3 scripts/validate-dsl.py
+      - name: ruuter-xroad OpenAPI route is current
+        run: python3 scripts/sync-xroad-openapi.py --check
       - name: no raw message body in Kotlin logs
         run: |
           python3 scripts/validate-no-pii-log.py

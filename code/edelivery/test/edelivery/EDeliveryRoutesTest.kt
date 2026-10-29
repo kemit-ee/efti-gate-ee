@@ -191,6 +191,35 @@ class EDeliveryRoutesTest {
     verify { exchange.send(BadRequest, "<fault/>", soap) }
   }
 
+  @Test fun `the error log line of a failed message carries audit_ref, reason and a body fingerprint, never the body or the exception text`() {
+    every { exchange.requestStream } returns "invalid ${secret}".toByteArray().inputStream()
+    every { messageGenerator.soapFault(any()) } returns "<fault/>"
+
+    val lines = LogCapture.lines { routes.msh(exchange) }
+
+    val line = lines.single { "Error when processing message" in it }
+    expect(line).toContain("audit_ref=")
+    expect(line).toContain("reason=")
+    expect(line).toContain("body_sha256=")
+    expect(line).toContain("body_size_bytes=")
+    expect(line).notToContain(secret)
+    expect(line).notToContain("invalid")
+  }
+
+  @Test fun `an unknown receiver in the envelope is logged only in the audit character set`() {
+    val body = getBody("<hello>world</hello>", headerTransform = {
+      it.replace(Regex("(<eb:To>\\s*<eb:PartyId[^>]*>)[^<]*"), "$1EVIL\r\nforged-line")
+    })
+    every { exchange.requestStream } returns body.inputStream()
+    every { messageHandlers.rootTags } throws IllegalStateException(secret)
+
+    val lines = LogCapture.lines { routes.msh(exchange) }
+
+    expect(lines.single { "Unknown receiver" in it }).toContain("Unknown receiver: ?")
+    expect(lines.joinToString("\n")).notToContain("forged")
+    expect(lines.joinToString("\n")).notToContain("EVIL")
+  }
+
   @Test fun `a multipart with a single part is a 400 with the XML_PARSE_FAIL fault`() {
     val onlyPart = "--$boundary\r\nContent-Type: $soap\r\n\r\n<Envelope/>\r\n--$boundary--"
     every { exchange.requestStream } returns onlyPart.toByteArray().inputStream()

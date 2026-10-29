@@ -5,6 +5,16 @@
 Jõudlusanalüüsi (`docs/performance/askend_perf_verification/analysis.md`) käigus tehtud kolm otsust,
 mis muudavad `authority/search` voogu, guard-ahelat ja CI-d.
 
+> **Täiendus (29.10.2026): tekst allpool on 10.09.2026 seis.** Kehtivad muutused:
+> - Multiplexer on pensionil, cross-gate otsingu fänn on Ruuteri oma (`parallel_http` + `detach`,
+>   tulemused tabelis `search_results`): vt [ADR-013](013-retire-multiplexer-ruuter-fanout.md).
+>   Käitumisreeglid (esmavastus ei blokeeru, `x-poll-more`, kuni 30 s long-poll) kehtivad edasi,
+>   `/multiplexer/...` kutsed ja `MULTIPLEXER_REST_POLL_SECONDS` mitte.
+> - `dsl-lint` / `dsl-test` tulevad endiselt runtime-pildist, kuid versioon on nüüd
+>   `turnerrainer/ruuter:0.12.1-rc` (`0.9.14-rc` on allpool ainult sel ajal pinnitud versioon).
+> - `xroad` projekt asub nüüd kataloogis `DSL/Ruuter-xroad/` ja seda teenindab eraldi `ruuter-xroad`
+>   (vt [ADR-006](006-xroad-identity-and-subsets.md)).
+
 ## Otsus
 
 ### 1. `authority/search` on "local-first, then broadcast" ega blokeeru üheski harus
@@ -100,7 +110,7 @@ multiplexer:
 ## Rakendatav changeset
 
 - `DSL/Ruuter/efti/POST/api/v1/authority/search.yml` — ümber kirjutatud (ülal skeem)
-- `DSL/Ruuter/xroad/POST/v1/search.yml` — timeout + `x-poll` päis
+- `DSL/Ruuter-xroad/xroad/POST/v1/search.yml` — timeout + `x-poll` päis
 - `DSL/Ruuter/efti/POST/api/v1/authority/.guard.yml`,
   `DSL/Ruuter/efti/GET/api/v1/authority/.guard.yml` — `override_ancestors: true`
 - `code/multiplexer/src/MultiplexerRoutes.kt` — `/first` → `/search` + long-poll `/rest`

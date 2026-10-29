@@ -35,6 +35,15 @@ class ValidateNoPiiLog(unittest.TestCase):
             with self.subTest(src):
                 self.assertEqual(1, self.run_on(src))
 
+    def test_a_peer_envelope_value_in_a_log_call_needs_logSafe(self):
+        for src in ['log.warn("x ${header.receiverId}")\n', 'log.warn("x ${routing.toPartyId}")\n', 'log.warn("x ${inbound.routing.toPartyId}")\n']:
+            with self.subTest(src):
+                self.assertEqual(1, self.run_on(src))
+        for src in ['log.warn("x ${header.receiverId.toString().logSafe()}")\n', 'log.warn("x ${routing.toPartyId.logSafe()}")\n',
+                    'log.warn("x ${header.receiverId}") // pii-ok: checked above\n']:
+            with self.subTest(src):
+                self.assertEqual(0, self.run_on(src))
+
     def test_a_reviewed_bodyOrThrow_is_allowed_with_a_reason(self):
         self.assertEqual(0, self.run_on("val x = res.bodyOrThrow() // pii-ok: a test double\n"))
 
