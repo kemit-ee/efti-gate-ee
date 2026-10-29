@@ -1,5 +1,5 @@
 declaration:
-  description: "Developer mock - imitates POST /xroad/provide/v1/transport-means. Canned identifier-level
+  description: "Developer mock - imitates POST /xroad/v1/transport-means. Canned identifier-level
     projection for MOCK-PLATE-1 (also by equipment CONT-MOCK-01) and MOCK-PLATE-3 (three shipments,
     also by trailer MOCK-TRAILER-3 and container MOCK-CONTAINER-3); countryCode filters on the
     vehicle registration country EE, as the live SQL does; found: 0 otherwise."

@@ -1,5 +1,5 @@
 declaration:
-  description: "Developer mock - imitates POST /xroad/provide/v1/search. Filters the four developer-mock
+  description: "Developer mock - imitates POST /xroad/v1/search. Filters the four developer-mock
     consignments (MOCK-PLATE-3 ...0011-...0013, MOCK-PLATE-1 ...0001) with the same criteria
     semantics as the live gate's get_consignments.sql and returns them in its order (created_at
     DESC, revision DESC) as the curated transport-means projection. A miss answers [] with
