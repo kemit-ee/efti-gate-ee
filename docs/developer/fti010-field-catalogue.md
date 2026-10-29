@@ -3,7 +3,7 @@
 
 Iga rida on üks väli, mille arendaja-mock ja dev-gate'i mock-platvorm tagastavad UIL-i
 `EU-EE/mock/550e8400-e29b-41d4-a716-446655440002` päringule (`POST /developer/v1/dataset`,
-`POST /xroad/provide/v1/dataset`). Kataloog genereeritakse samast generaatorist kui vastus ise ja
+`POST /xroad/v1/dataset`). Kataloog genereeritakse samast generaatorist kui vastus ise ja
 `tests/mock/dataset.py` kontrollib, et see on ajakohane.
 
 - **XPath** — asukoht vastuse `xml` väljas. Juurelement on prefiksita, ülejäänud elemendid on
