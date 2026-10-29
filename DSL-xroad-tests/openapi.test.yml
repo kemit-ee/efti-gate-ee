@@ -1,0 +1,22 @@
+# xroad/GET/provide/openapi.yml - the generated provider-side OpenAPI description. Public (the project
+# guard is overridden), so it answers without any X-Road header and makes no upstream call.
+mode: inprocess
+
+tests:
+  - name: OpenAPI description is public and lists the provider-side paths
+    request:
+      method: GET
+      path: /xroad/provide/openapi
+    expect:
+      status: 200
+      body_matches:
+        openapi: "3.0.3"
+
+  - name: a data route still demands X-Road-Client
+    request:
+      method: POST
+      path: /xroad/v1/echo
+      headers: { content-type: "application/json" }
+    expect:
+      status: 401
+      body_matches: { code: "UNAUTHORIZED" }

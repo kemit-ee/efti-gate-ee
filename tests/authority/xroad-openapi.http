@@ -1,0 +1,23 @@
+### OpenAPI description is public (no X-Road headers) and lists the provider-side paths
+GET {{XROAD_URL}}/xroad/provide/openapi
+
+> {%
+  client.test("openapi document served without credentials", () => {
+    client.assert(response.status === 200)
+    client.assert(response.body.openapi === "3.0.3")
+    client.assert(response.body.paths["/xroad/v1/transport-means"] !== undefined)
+    client.assert(response.body.paths["/xroad/provide/openapi"] !== undefined)
+  })
+%}
+
+### A data route on the same Ruuter still demands X-Road-Client
+POST {{XROAD_URL}}/xroad/v1/echo
+Content-Type: application/json
+
+{}
+
+> {%
+  client.test("echo without X-Road-Client is 401", () => {
+    client.assert(response.status === 401)
+  })
+%}
