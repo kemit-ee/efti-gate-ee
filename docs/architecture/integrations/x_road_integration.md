@@ -5,8 +5,7 @@
 - **v1.3** — The X-Road surface is a separate Ruuter again: container `ruuter-xroad`, port 8087,
   `DSL/Ruuter-xroad/xroad/`, `ruuter-xroad.yaml`, `constants-xroad.ini`, with
   `internal_requests.allowed_urls` limiting outbound calls. It calls the main Ruuter's
-  `efti/api/v1/authority/*` over HTTP. The text below that says `/xroad/` is served on port 8086
-  describes v1.2. See [ADR-006](../decisions/006-xroad-identity-and-subsets.md).
+  `efti/api/v1/authority/*` over HTTP. Only the v1.2 entry below still describes port 8086. See [ADR-006](../decisions/006-xroad-identity-and-subsets.md).
 - **v1.2** — The X-Road surface is now a project of the **main gate Ruuter** (`DSL/Ruuter/xroad/`,
   served under `/xroad/` on port 8086); the separate `ruuter-xroad` container / port 8087 /
   `constants-xroad.ini` / `ruuter-xroad.yaml` are gone. The network-isolation requirement is
@@ -28,7 +27,7 @@
 sequenceDiagram
     participant Client as EE client<br/>(TRAM / LOIS2 / ANTS via NES)
     participant SS as X-Road Security Server<br/>(RIA-operated)
-    participant Adapter as xroad project<br/>(DSL/Ruuter-xroad/xroad, /xroad/ on :8086)
+    participant Adapter as xroad project<br/>(DSL/Ruuter-xroad/xroad, /xroad/ on :8087)
     participant Resql as ReSQL / PostgreSQL
     participant Core as core REST API<br/>(ruuter efti project, :8086)
     Client->>SS: REST request /r1/EE/GOV/70003158/efti-gate/...
@@ -103,7 +102,7 @@ TRAM / LOIS2 / ANTS (via NES)
  OUR Security Server (turvaserver, RIA-operated network)
       │  plain HTTP inside our own network, injecting the X-Road-* headers
       ▼
- ruuter :8086  /xroad/**  ← what this gate implements (xroad project)
+ ruuter-xroad :8087  /xroad/**  ← what this gate implements (xroad project)
 ```
 
 The `xroad` project is a **provider-side adapter, called by our own Security Server**. The
@@ -118,15 +117,16 @@ configuration, not gate code.
 > rests on network isolation.** Anyone who can reach `/xroad/**` directly can send
 > `X-Road-Client: EE/GOV/<any-registry-code>/x` and impersonate **any registered authority** —
 > immediately disclosing that authority's subset entitlement, and once core forwarding is wired,
-> its data. Now that `/xroad/**` shares port 8086 with the public gate API, this is an **ingress
-> concern**, not a matter of not publishing a port.
+> its data. `/xroad/**` runs on its own Ruuter (`ruuter-xroad`, port 8087), not on the public gate
+> API's port 8086, but this is still an **ingress and network-policy concern**: not publishing a port
+> is not enough.
 >
 > Mandatory at deploy time:
 > - the public ingress / reverse proxy must **not** route `/xroad/**` — return 404 for it;
 > - a NetworkPolicy / security group must permit `/xroad/**` traffic **only** from the Security
 >   Server (e.g. a separate internal listener, or a proxy that only the Security Server can reach).
 >
-> `compose.override.yml` publishes 8086 on localhost, but that is **local development only**. No
+> `compose.override.yml` publishes 8087 on localhost, but that is **local development only**. No
 > Security Server container exists in compose, so the E2E suite simulates it by setting the headers
 > by hand — the upstream mTLS step is not exercised locally.
 >

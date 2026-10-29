@@ -48,7 +48,7 @@ TRAM / LOIS2 / ANTS (NES kaudu)
       ↓  X-Roadi võrk — turvaserverite vaheline mTLS + allkirjastamine
   MEIE turvaserver
       ↓  lihttekst HTTP meie enda võrgus, lisab X-Road-* päised
-  ruuter :8086  /xroad/**   ← see on see, mis on ehitatud (xroad projekt)
+  ruuter-xroad :8087  /xroad/**   ← see on see, mis on ehitatud (xroad projekt)
 ```
 
 `xroad` projekt on **teenusepakkuja adapter**, mida kutsub *meie oma* turvaserver. Tarbija (kliendi)
@@ -61,15 +61,16 @@ poolt ei ole ehitatud — värav ei kutsu ise ühtegi X-Roadi teenust.
 > isolatsioonile**: kes iganes suudab `/xroad/**` teeni otse pääseda, saab saata
 > `X-Road-Client: EE/GOV/<suvaline-registrikood>/x` ja esineda **mis tahes registreeritud asutusena**
 > — see tähendab kohe kogu tema alamhulkade õiguste avalikustamist ja hiljem, kui `core`-i edastus on
-> ühendatud, ka täielikku andmeligipääsu. Kuna `/xroad/**` jagab nüüd porti 8086 avaliku API-ga, on
-> see **ingressi** probleem, mitte pordi avaldamise oma.
+> ühendatud, ka täielikku andmeligipääsu. `/xroad/**` on eraldi Ruuteris (`ruuter-xroad`, port 8087),
+> mitte avaliku API (8086) pordil, aga ka siis on see **ingressi ja võrgureegli** probleem: pordi
+> avaldamata jätmisest ei piisa.
 >
 > Juurutamisel on seega **kohustuslik**:
 > - avalik ingress / pöördproksi **ei tohi** `/xroad/**` teed marsruutida — sellele teele vasta 404;
 > - võrgureegel (NetworkPolicy / security group) peab lubama `/xroad/**` liiklust **ainult** oma
 >   turvaserveri aadressilt (nt eraldi sisemine kuulaja või proksi, milleni ainult turvaserver ulatub).
 >
-> `compose.override.yml` avaldab 8086 `localhost`-i, aga see fail on **ainult lokaalseks
+> `compose.override.yml` avaldab 8087 `localhost`-i, aga see fail on **ainult lokaalseks
 > arenduseks**.
 >
 > Alternatiiv, mis sellest sõltuvusest vabaneks, oleks mTLS ka turvaserveri ja adapteri vahel, aga
@@ -432,8 +433,8 @@ funktsionaalset indeksit.
   Vaja on: (a) entrypoint, mis genereerib konstandifaili keskkonnamuutujast või monteeritud
   saladusest, ja (b) käivitusaegne või health-probe kontroll, et väärtus ei ole kaasa pandud
   vaikeväärtus. Kuni selleni kehtib teele `/efti/api/v1/authority/**` sama isolatsiooninõue nagu
-  teele `/xroad/**` — mõlemad on nüüd samal pordil 8086, seega on isolatsioon **tee-, mitte
-  pordipõhine**.
+  teele `/xroad/**`. Erinevalt `/xroad/**`-ist (oma Ruuter, port 8087) jagab see tee põhi-Ruuteri
+  porti 8086 avaliku API-ga, seega on selle isolatsioon **tee-, mitte pordipõhine**.
 
 - **Teoreetiline: asendamata kohatäide autendiks.** Kui konstant `constants.ini`-st puuduks **ja**
   Ruuter jätaks `[#INTERNAL_SERVICE_TOKEN]` literaalseks (asendamata) selle asemel, et asendada see
