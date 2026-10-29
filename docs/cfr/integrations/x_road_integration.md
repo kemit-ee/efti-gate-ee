@@ -8,6 +8,9 @@
   bare `{"registered": …}`. Two AC corrections that must be made **in the GitHub issue**, not here:
   the read path is `consignments.main_transport_id` (the column `vehicle_plate` has never existed in
   the schema), and the p95 < 1 s SLO is unverified — there is no performance harness in the repo.
+- **v1.3** — The X-Road surface is a separate Ruuter again (`ruuter-xroad`, port 8087,
+  `DSL/Ruuter-xroad/xroad/`, `internal_requests.allowed_urls`); the v1.2 text below describes the
+  intermediate layout. See [ADR-006](../../architecture/decisions/006-xroad-identity-and-subsets.md).
 - **v1.2** — The X-Road surface moved into the main gate Ruuter as the `xroad/` project
   (`DSL/Ruuter/xroad/`, served under `/xroad/` on port 8086); the separate `ruuter-xroad` container
   and port 8087 are gone. Network isolation is now an ingress constraint (`/xroad/**` not publicly
@@ -33,7 +36,7 @@
 |---|---|
 | **X-Road service** | `EE/GOV/70003158/efti-gate/{operation}/v1` (one service per gate REST operation exposed via X-Road) |
 | **Protocol** | **X-Road v7 REST message protocol — not SOAP.** No WSDL. No `protocolVersion` header (the version is the consumer-side `/r1/` prefix, never forwarded to the provider). |
-| **Module boundary** | `DSL/Ruuter/xroad/` (Ruuter project `xroad`, served under `/xroad/` on port 8086) → `core` (the `efti` project on the same Ruuter) via published REST API only. `core` carries no X-Road references, and `template:` does not cross project boundaries. There is no `ee-adapter` Gradle module. |
+| **Module boundary** | `DSL/Ruuter-xroad/xroad/` (Ruuter project `xroad`, served under `/xroad/` on port 8086) → `core` (the `efti` project on the same Ruuter) via published REST API only. `core` carries no X-Road references, and `template:` does not cross project boundaries. There is no `ee-adapter` Gradle module. |
 | **Adapter surface** | One project-level guard `xroad/.guard.yml` (+ `xroad/GET/health/.guard.yml` `override_ancestors` for the public probe). Routes: `POST /xroad/v1/transport-means` (local vehicle lookup, EU02-gated, no dataset content), `POST /xroad/v1/{dataset,search,follow-up}` (forward to core over its published REST API), `POST /xroad/v1/echo` (diagnostic, outside the versioned contract), `GET /xroad/v1/subsets`, `GET /xroad/health/ready`. **`/xroad/**` must not be exposed on the public ingress.** |
 | **Identity** | `X-Road-Client` (`instance/memberClass/memberCode[/subsystemCode]`) → `authorities.registry_code`. Organisation-level; `X-Road-UserId` is audit-only and never grants access. |
 | **Subset permissions** | `authorities.subsets TEXT[]` — **not** `users.subsets`, which does not exist |

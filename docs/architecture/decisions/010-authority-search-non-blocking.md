@@ -100,7 +100,7 @@ multiplexer:
 ## Rakendatav changeset
 
 - `DSL/Ruuter/efti/POST/api/v1/authority/search.yml` — ümber kirjutatud (ülal skeem)
-- `DSL/Ruuter/xroad/POST/v1/search.yml` — timeout + `x-poll` päis
+- `DSL/Ruuter-xroad/xroad/POST/v1/search.yml` — timeout + `x-poll` päis
 - `DSL/Ruuter/efti/POST/api/v1/authority/.guard.yml`,
   `DSL/Ruuter/efti/GET/api/v1/authority/.guard.yml` — `override_ancestors: true`
 - `code/multiplexer/src/MultiplexerRoutes.kt` — `/first` → `/search` + long-poll `/rest`

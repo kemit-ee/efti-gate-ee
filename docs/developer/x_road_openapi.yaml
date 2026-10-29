@@ -51,8 +51,11 @@ info:
       `follow-up`.
     - `/v1` — this contract's version, part of the gate-side route.
 
-    Gate-side these map to `/xroad/v1/{serviceCode}` on port 8086. That path is **not**
-    publicly routable — only the gate's Security Server may reach it (ADR-006).
+    Gate-side these map to `/xroad/v1/{serviceCode}` on the gate's own X-Road Ruuter
+    (`ruuter-xroad`, port 8087). That Ruuter is **not** publicly routable — only the gate's
+    Security Server may reach it (ADR-006). The provider-side form of this document (paths
+    rewritten to `/xroad/v1/{serviceCode}`) is served by `ruuter-xroad` itself at
+    `GET /xroad/provide/openapi`, generated from this file by `scripts/sync-xroad-openapi.py`.
 
     ## Prerequisites
 

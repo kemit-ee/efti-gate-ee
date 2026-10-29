@@ -55,12 +55,12 @@ import sys
 
 import yaml
 
-RUUTER_GLOB = "DSL/Ruuter/**/*.yml"
+RUUTER_GLOBS = ("DSL/Ruuter/**/*.yml", "DSL/Ruuter-xroad/**/*.yml")
 SQL_DIRS = ("DSL/Resql", "DSL/Liquibase")
 
 # Projects whose routes must satisfy the input-contract check.
 CONVERTED_PREFIXES: tuple[str, ...] = (
-    "DSL/Ruuter/xroad/",
+    "DSL/Ruuter-xroad/xroad/",
     "DSL/Ruuter/efti/",
     "DSL/Ruuter/admin/",
     "DSL/Ruuter/auth/",
@@ -82,7 +82,7 @@ def is_guard(path: str) -> bool:
 
 
 def ruuter_files() -> list[str]:
-    return sorted(p for p in glob.glob(RUUTER_GLOB, recursive=True) if not is_mock(p))
+    return sorted(p for g in RUUTER_GLOBS for p in glob.glob(g, recursive=True) if not is_mock(p))
 
 
 def _declared_body_fields(decl: dict) -> set[str]:

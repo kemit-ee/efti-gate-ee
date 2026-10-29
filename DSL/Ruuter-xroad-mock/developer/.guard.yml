@@ -1,12 +1,12 @@
 # Project-level guard for the PUBLIC developer mock (/developer/**).
 #
 # This whole Ruuter project is a standalone sandbox that imitates the gate's X-Road
-# provider surface (DSL/Ruuter/xroad/**) with CANNED responses. It runs as its own
+# provider surface (DSL/Ruuter-xroad/xroad/**) with CANNED responses. It runs as its own
 # container (ruuter-xroad-mock, port 8088) with NO database, NO core, and NO link to the
 # real gate - so exposing it publicly at https://dev.efti.ee/developer/ cannot leak real
 # consignment data or reach a privileged route. See docs/developer/x_road_developer_mock.md.
 #
-# The guard mirrors DSL/Ruuter/xroad/.guard.yml's request-shape checks (same status codes
+# The guard mirrors DSL/Ruuter-xroad/xroad/.guard.yml's request-shape checks (same status codes
 # and RFC 7807 bodies) so integrators can exercise the 401 / 400 paths, but it resolves
 # the caller from the X-Road-Client member code against a HARD-CODED rule instead of the
 # authorities table:
@@ -18,7 +18,7 @@
 
 declaration:
   description: "Project-level guard for the public developer mock (/developer/**). Mirrors
-    DSL/Ruuter/xroad/.guard.yml's X-Road-Client / X-Road-Id shape checks (same status codes and
+    DSL/Ruuter-xroad/xroad/.guard.yml's X-Road-Client / X-Road-Id shape checks (same status codes and
     RFC 7807 bodies), but resolves the caller against a hard-coded rule instead of the authorities
     table: memberCode 00000000 -> 403 FORBIDDEN, 70000000 -> resolves with no subsets, any other
     well-formed value -> resolves as the mock authority 'auth-mock'. Exposes ${memberCode}."

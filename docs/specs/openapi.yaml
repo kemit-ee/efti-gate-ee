@@ -13,7 +13,7 @@ info:
     - **Admin API** (`/api/v1/...`) — called by gate operators
     - **Health API** (`/health/...`) — Kubernetes liveness/readiness probes
 
-    The gate's **X-Road provider surface** (`/xroad/v1/*`, called by competent authorities over the X-Road network) is specified separately in [`x_road_openapi.yaml`](../developer/x_road_openapi.yaml) — see also [`x_road_authority_integration_guide.md`](../developer/x_road_authority_integration_guide.md).
+    The gate's **X-Road provider surface** (`/xroad/v1/*`, called by competent authorities over the X-Road network) is specified separately in [`x_road_openapi.yaml`](../developer/x_road_openapi.yaml); the provider-side form is served by `ruuter-xroad` at `GET /xroad/provide/openapi` — see also [`x_road_authority_integration_guide.md`](../developer/x_road_authority_integration_guide.md).
 
     The gate's **AS4 surfaces** (`/services/msh` for inbound AS4 SOAP, `/services/fast` for the optional fast-protocol mTLS HTTPS alternative) are **out of scope** for this OpenAPI document. They are wire-protocol-defined by the EU eDelivery AS4 1.15 conformance profile (per `non-functional.md` §3) — not by REST OpenAPI. See `seq-14-gate-to-gate-search.mmd` and `seq-16-mtls-fast-protocol.mmd` for the message-flow contract; see Epic 10 (`docs/cfr/integrations/edelivery_as4.md`) and Epic 25 (`docs/cfr/integrations/as4_message_flow.md`) for the AS4 message catalogue.
 
@@ -71,7 +71,7 @@ tags:
   - name: X-Road
     description: |
       Estonian national extension (EE only; other Member States' gates need not implement it).
-      Served by the main gate Ruuter under `/xroad/`, reached through the RIA-operated X-Road
+      Served by the separate `ruuter-xroad` Ruuter (port 8087) under `/xroad/`, reached through the RIA-operated X-Road
       Security Server. The `/xroad/**` path must not be exposed on any public ingress — only the
       Security Server may reach it. Authentication is the Security Server's mTLS, forwarded as the
       `X-Road-Client` header — identity is the calling **organisation**, resolved against the
@@ -1537,7 +1537,7 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
 
   /xroad/v1/subsets:
-    # Served by the main gate Ruuter, but reached by consumers through their own X-Road Security
+    # Served by the separate ruuter-xroad (port 8087), reached by consumers through their own X-Road Security
     # Server at /r1/EE/GOV/70003158/efti-gate/... — the path below is what the provider-side gate
     # sees. The /xroad/** path must not be exposed on a public ingress (see ADR-006).
     get:
@@ -1556,7 +1556,7 @@ paths:
         answers its own question locally), a dataset request may name up to seven subsets so a
         yes/no interface would cost seven round-trips, and the list is cacheable.
 
-        Served by the main gate Ruuter under `/xroad/`; not exposed on the public ingress.
+        Served by the separate `ruuter-xroad` under `/xroad/`; not exposed on the public ingress.
       security:
         - xroadClient: []
       parameters:

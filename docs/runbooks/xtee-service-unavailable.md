@@ -10,8 +10,10 @@
 
 ## Diagnosis
 1. `curl` (from inside the network, not externally — **`/xroad/**` must never be exposed by the ingress;
-   only the Security Server should be able to reach port 8086**) `GET /xroad/health/ready` and
-   `GET /efti/health/ready` — if both are down, this is a general Ruuter outage, see
+   only the Security Server should be able to reach `ruuter-xroad` on port 8087**) `GET /xroad/health/ready`
+   (on `ruuter-xroad`) and `GET /efti/health/ready` (on `ruuter`) — if `/xroad/health/ready` fails but the
+   efti probe is up, check the `ruuter-xroad` container and its `allowed_urls`/`constants-xroad.ini`;
+   if both are down, this is a general Ruuter outage, see
    [pod-crash-loop.md](pod-crash-loop.md)/[database-connectivity-loss.md](database-connectivity-loss.md)
    rather than an X-Road-specific issue.
 2. If only `/xroad/**` is affected while `/efti/**` is fine: check `docker compose logs ruuter` for the

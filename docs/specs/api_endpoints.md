@@ -631,8 +631,9 @@ Autentimine: staatiline `ARCHIVE_OPS_TOKEN` bearer token.
 
 ### 9.7 X-Road API (Turvaserver) ✅
 
-Eesti riiklik laiendus (ADR-006). Teenindab **põhi-Ruuter** `xroad/` projektis, teed
-`/xroad/**` pordil 8086 — eraldi `ruuter-xroad` konteinerit / porti 8087 enam ei ole.
+Eesti riiklik laiendus (ADR-006). Teenindab **eraldi Ruuter** (`ruuter-xroad`, port 8087; `DSL/Ruuter-xroad/xroad/`), teed
+`/xroad/**`. Edastavad marsruudid kutsuvad põhi-Ruuteri `efti/api/v1/authority/*`; väljaminevaid kutseid piirab
+`internal_requests.allowed_urls` (`ruuter-xroad.yaml`).
 
 Auth: X-Roadi turvaserver tuvastab helistaja **organisatsiooni** mTLS-iga ja edastab selle
 `X-Road-Client` päises (`instance/memberClass/memberCode[/subsystemCode]`); `memberCode` seotakse
@@ -640,18 +641,18 @@ registri (`registry/authorities/*.yml`) `registryCode`-ga. `X-Road-Id` on kohust
 kunagi õigusi. Üks projektitasemeline `xroad/.guard.yml` katab kõik meetodid;
 `xroad/GET/health/.guard.yml` (`override_ancestors`) hoiab health-probe avalikuna.
 
-> ⚠️ **Juurutus:** `/xroad/**` jagab porti 8086 avaliku API-ga — avalik ingress **ei tohi** seda
-> teed marsruutida; ainult turvaserver tohib selleni pääseda (ADR-006).
+> ⚠️ **Juurutus:** `ruuter-xroad` (port 8087) ei tohi olla avalikult ligipääsetav ega ingressi
+> taga; ainult turvaserver tohib selleni pääseda (ADR-006).
 
 | Meetod | Ruuter DSL | Ruuter tee | Kirjeldus |
 |---|---|---|---|
-| `POST` | `DSL/Ruuter/xroad/POST/v1/echo.yml` | `POST /xroad/v1/echo` | Ühenduvustest — kajastab X-Road päised, lahendatud asutuse rea ja keha |
-| `GET` | `DSL/Ruuter/xroad/GET/v1/subsets.yml` | `GET /xroad/v1/subsets` | Helistaja enda lubatud alamhulgad (asutuse `subsets` registrist) `X-Road-Client` põhjal |
-| `GET` | `DSL/Ruuter/xroad/GET/health/ready.yml` | `GET /xroad/health/ready` | Valmisoleku proov (avalik, ilma X-Road päisteta) |
-| `POST` | `DSL/Ruuter/xroad/POST/v1/transport-means.yml` | `POST /xroad/v1/transport-means` | Veovahenditunnus sisse (numbrimärk / IMO / õhusõiduki reg / konteinernumber), väravale teadaolev identifikaatori-tasemel data välja. Sobitab `main_transport_id`, `used_equipment_ids` ja `carried_equipment_ids`. `scope`: `existence` (bool, alla sekundi) \| `local` (vaikimisi) \| `allgates` (local-first fan-out naaberväravatele, `x-poll-more` + polling `{poll: true}` sama `X-Road-Id`-ga). Nõuab `EU02`-t; andmestiku sisu ei tagasta |
-| `POST` | `DSL/Ruuter/xroad/POST/v1/dataset.yml` | `POST /xroad/v1/dataset` | Edastab `efti/POST/api/v1/authority/dataset`-ile; jõustab enne asutuse `subsets`-i (403 `FORBIDDEN_SUBSET`) |
-| `POST` | `DSL/Ruuter/xroad/POST/v1/search.yml` | `POST /xroad/v1/search` | Edastab `efti/POST/api/v1/authority/search`-ile; alamhulkade kontrolli ei ole (identifikaatoripäring) |
-| `POST` | `DSL/Ruuter/xroad/POST/v1/follow-up.yml` | `POST /xroad/v1/follow-up` | Edastab `efti/POST/api/v1/authority/follow-up`-ile |
+| `POST` | `DSL/Ruuter-xroad/xroad/POST/v1/echo.yml` | `POST /xroad/v1/echo` | Ühenduvustest — kajastab X-Road päised, lahendatud asutuse rea ja keha |
+| `GET` | `DSL/Ruuter-xroad/xroad/GET/v1/subsets.yml` | `GET /xroad/v1/subsets` | Helistaja enda lubatud alamhulgad (asutuse `subsets` registrist) `X-Road-Client` põhjal |
+| `GET` | `DSL/Ruuter-xroad/xroad/GET/health/ready.yml` | `GET /xroad/health/ready` | Valmisoleku proov (avalik, ilma X-Road päisteta) |
+| `POST` | `DSL/Ruuter-xroad/xroad/POST/v1/transport-means.yml` | `POST /xroad/v1/transport-means` | Veovahenditunnus sisse (numbrimärk / IMO / õhusõiduki reg / konteinernumber), väravale teadaolev identifikaatori-tasemel data välja. Sobitab `main_transport_id`, `used_equipment_ids` ja `carried_equipment_ids`. `scope`: `existence` (bool, alla sekundi) \| `local` (vaikimisi) \| `allgates` (local-first fan-out naaberväravatele, `x-poll-more` + polling `{poll: true}` sama `X-Road-Id`-ga). Nõuab `EU02`-t; andmestiku sisu ei tagasta |
+| `POST` | `DSL/Ruuter-xroad/xroad/POST/v1/dataset.yml` | `POST /xroad/v1/dataset` | Edastab `efti/POST/api/v1/authority/dataset`-ile; jõustab enne asutuse `subsets`-i (403 `FORBIDDEN_SUBSET`) |
+| `POST` | `DSL/Ruuter-xroad/xroad/POST/v1/search.yml` | `POST /xroad/v1/search` | Edastab `efti/POST/api/v1/authority/search`-ile; alamhulkade kontrolli ei ole (identifikaatoripäring) |
+| `POST` | `DSL/Ruuter-xroad/xroad/POST/v1/follow-up.yml` | `POST /xroad/v1/follow-up` | Edastab `efti/POST/api/v1/authority/follow-up`-ile |
 
 Keeldumised: **401** `UNAUTHORIZED` (`X-Road-Client` puudub/vigane), **400** `MISSING_REQUIRED_HEADER`
 (`X-Road-Id` puudub), **403** `FORBIDDEN` (`memberCode` ei vasta ühelegi `ACTIVE` asutusele või

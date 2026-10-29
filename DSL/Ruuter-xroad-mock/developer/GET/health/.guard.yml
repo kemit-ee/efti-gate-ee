@@ -1,9 +1,9 @@
 # Health probe must stay public - the project-level developer/.guard.yml would otherwise
 # demand X-Road headers on GET /developer/health/*. override_ancestors replaces the project
-# guard for this subtree only (mirrors DSL/Ruuter/xroad/GET/health/.guard.yml).
+# guard for this subtree only (mirrors DSL/Ruuter-xroad/xroad/GET/health/.guard.yml).
 declaration:
   description: "Overrides the project-level developer/.guard.yml to keep GET /developer/health/*
-    public, mirroring DSL/Ruuter/xroad/GET/health/.guard.yml."
+    public, mirroring DSL/Ruuter-xroad/xroad/GET/health/.guard.yml."
   override_ancestors: true
 
 allow:
