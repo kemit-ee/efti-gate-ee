@@ -1,6 +1,7 @@
 --liquibase formatted sql
 
 --changeset efti:platform-api-key
+--validCheckSum 9:a2d7c0393f1c2637c17bc34e032657db
 -- ADR-004 (2026-08-25 — Rainer Türner, Sten Viljus, Anton Keks): platforms
 -- authenticate to the gate with an API key in the X-Api-Key header. The key is
 -- never stored in clear — only its SHA-256 hash (api_key_hash). api_key_hint is
