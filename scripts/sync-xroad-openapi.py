@@ -2,8 +2,9 @@
 """Generate the ruuter-xroad OpenAPI route from docs/developer/x_road_openapi.yaml.
 
 The consumer-facing contract (docs/developer/x_road_openapi.yaml, the one hand-edited source) is rewritten to
-the provider-side paths ruuter-xroad really serves (/echo/v1 -> /xroad/v1/echo), given the unauthenticated
-health and description routes, and embedded as a canned response in
+the provider-side paths ruuter-xroad really serves under its base /xroad/provide (/echo/v1 -> /v1/echo, the
+same suffix as the developer mock's /developer/v1/echo), given the unauthenticated description route, and
+embedded as a canned response in
 DSL/Ruuter-xroad/xroad/GET/provide/openapi.yml (GET /xroad/provide/openapi). Ruuter has no static file
 serving, so the document is baked into the DSL the way the developer mock's datasets are.
 
@@ -42,22 +43,9 @@ FOOTER = """  status: 200
   next: end
 """
 
-HEALTH = {
-    "get": {
-        "tags": ["Health"],
-        "operationId": "xroadReadiness",
-        "summary": "Readiness probe",
-        "description": "Returns 200 only if the database is reachable, 503 otherwise. Public, no X-Road headers.",
-        "security": [],
-        "responses": {
-            "200": {"description": "Ready", "content": {"text/plain": {"schema": {"type": "string"}, "example": "OK"}}},
-            "503": {"description": "Database unavailable", "content": {"text/plain": {"schema": {"type": "string"}}}},
-        },
-    }
-}
 DESCRIPTION_ROUTE = {
     "get": {
-        "tags": ["Health"],
+        "tags": ["Description"],
         "operationId": "xroadOpenapi",
         "summary": "This OpenAPI description",
         "description": "Public, no X-Road headers: the Security Server reads the service description from here.",
@@ -73,20 +61,20 @@ def build():
     doc = yaml.safe_load(SOURCE.read_text(encoding="utf-8"))
     out = copy.deepcopy(doc)
     out["servers"] = [{
-        "url": "/",
-        "description": "Provider side: the gate's Security Server forwards each X-Road service call to this ruuter-xroad "
-                       "(never publicly routable, ADR-006).",
+        "url": "/xroad/provide",
+        "description": "Provider side base: the gate's Security Server forwards each X-Road service call to "
+                       "<host>/xroad/provide (only the Security Server may reach it, ADR-006). The developer mock "
+                       "serves the same paths under /developer.",
     }]
     paths = {}
     for key, value in doc["paths"].items():
         m = re.fullmatch(r"/([a-z-]+)/v1", key)
         if not m:
             raise SystemExit(f"unexpected path {key!r} in {SOURCE.name}")
-        paths[f"/xroad/v1/{m.group(1)}"] = value
-    paths["/xroad/health/ready"] = HEALTH
-    paths["/xroad/provide/openapi"] = DESCRIPTION_ROUTE
+        paths[f"/v1/{m.group(1)}"] = value
+    paths["/openapi"] = DESCRIPTION_ROUTE
     out["paths"] = paths
-    out["tags"] = list(doc.get("tags", [])) + [{"name": "Health", "description": "Probes and the service description; no authentication"}]
+    out["tags"] = list(doc.get("tags", [])) + [{"name": "Description", "description": "The service description; no authentication"}]
     return out
 
 

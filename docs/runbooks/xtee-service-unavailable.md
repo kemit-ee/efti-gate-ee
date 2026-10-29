@@ -2,7 +2,7 @@
 
 ## Symptoms
 - An X-Road authority member can't reach the gate through their Security Server — `transport-means`,
-  `dataset`, `search`, or `follow-up` calls under `/xroad/v1/*` fail or time out.
+  `dataset`, `search`, or `follow-up` calls under `/xroad/provide/v1/*` fail or time out.
 - `GET /xroad/health/ready` (public, unguarded per `xroad/GET/health/.guard.yml`'s `override_ancestors`)
   returns non-200.
 - Every authority is affected (points at the gate), vs. one authority specifically (points at their

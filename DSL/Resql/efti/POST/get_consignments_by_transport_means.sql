@@ -47,7 +47,7 @@ SELECT
   -- Built here rather than in the DSL: reshaping a result array would need .map(), which no Ruuter
   -- DSL file in this repo uses, so engine support is unproven. A JSONB column comes back as a real
   -- nested object (authority/dataset.yml relies on that for platforms.headers), so the handler can
-  -- return the rows verbatim. Gives the caller exactly what POST /xroad/v1/dataset expects as `uil`.
+  -- return the rows verbatim. Gives the caller exactly what POST /xroad/provide/v1/dataset expects as `uil`.
   jsonb_build_object(
     'gateId',     m.gate_id,
     'platformId', m.platform_id,

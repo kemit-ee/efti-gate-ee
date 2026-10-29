@@ -5,13 +5,23 @@ GET {{XROAD_URL}}/xroad/provide/openapi
   client.test("openapi document served without credentials", () => {
     client.assert(response.status === 200)
     client.assert(response.body.openapi === "3.0.3")
-    client.assert(response.body.paths["/xroad/v1/transport-means"] !== undefined)
-    client.assert(response.body.paths["/xroad/provide/openapi"] !== undefined)
+    client.assert(response.body.servers[0].url === "/xroad/provide")
+    client.assert(response.body.paths["/v1/transport-means"] !== undefined)
+    client.assert(response.body.paths["/openapi"] !== undefined)
+  })
+%}
+
+### The authenticated GET route beside the public description still demands X-Road-Client
+GET {{XROAD_URL}}/xroad/provide/v1/subsets
+
+> {%
+  client.test("subsets without X-Road-Client is 401", () => {
+    client.assert(response.status === 401)
   })
 %}
 
 ### A data route on the same Ruuter still demands X-Road-Client
-POST {{XROAD_URL}}/xroad/v1/echo
+POST {{XROAD_URL}}/xroad/provide/v1/echo
 Content-Type: application/json
 
 {}

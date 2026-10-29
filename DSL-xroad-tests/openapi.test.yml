@@ -12,11 +12,19 @@ tests:
       body_matches:
         openapi: "3.0.3"
 
-  - name: a data route still demands X-Road-Client
+  - name: a POST data route still demands X-Road-Client
     request:
       method: POST
-      path: /xroad/v1/echo
+      path: /xroad/provide/v1/echo
       headers: { content-type: "application/json" }
+    expect:
+      status: 401
+      body_matches: { code: "UNAUTHORIZED" }
+
+  - name: a GET data route next to the public description still demands X-Road-Client
+    request:
+      method: GET
+      path: /xroad/provide/v1/subsets
     expect:
       status: 401
       body_matches: { code: "UNAUTHORIZED" }

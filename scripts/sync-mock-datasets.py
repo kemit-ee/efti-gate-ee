@@ -43,7 +43,7 @@ def mapping(data, indent):
 def mock_route():
     datasets = [(dataset_id, make()) for dataset_id, make in fixture.DATASETS.items()]
     out = [HEADER, """declaration:
-  description: "Developer mock - imitates POST /xroad/v1/dataset. Returns the same canned FTI010
+  description: "Developer mock - imitates POST /xroad/provide/v1/dataset. Returns the same canned FTI010
     dataset the live gate's mock platform serves, plus the `consignment` object xml-mapper derives
     from it. EU-EE/mock datasets ...0002 (full-field fixture) and ...0011-...0013 (MOCK-PLATE-3
     shipments) have their own XML; every other UIL gets the minimal MOCK-PLATE-1 fixture.

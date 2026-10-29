@@ -12,7 +12,7 @@ tests:
           body: { length: 1, "0": { id: "authority" } }
     request:
       method: POST
-      path: /xroad/v1/echo
+      path: /xroad/provide/v1/echo
       headers:
         x-road-client: "EE/GOV/70000094/tram"
         x-road-id: "0a11ce5e-0001-4d1d-8f1a-0f0d00010000"
@@ -27,7 +27,7 @@ tests:
           body: [{ id: "authority", name: "Test authority", registryCode: "70000094", subsets: ["EU01"] }]
     request:
       method: POST
-      path: /xroad/v1/echo
+      path: /xroad/provide/v1/echo
       headers:
         x-road-client: "EE/GOV/70000094/tram"
         x-road-id: "0A11CE5E-0001-4D1D-8F1A-0F0D00010000"

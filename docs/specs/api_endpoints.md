@@ -618,7 +618,7 @@ Autentimine: staatiline `ARCHIVE_OPS_TOKEN` bearer token.
 
 > ❌ **Puudub:** `GET .../identifiers` (otsing `mainTransportId`/`usedEquipmentIds` järgi) —
 > spetsifikatsioonis on, aga vastavat DSL-faili (`identifiers.yml`) ei eksisteeri. Lähim
-> vaste on `xroad/POST/v1/transport-means.yml` (vt [9.7](#97-x-road-api-turvaserver-)).
+> vaste on `xroad/POST/provide/v1/transport-means.yml` (vt [9.7](#97-x-road-api-turvaserver-)).
 
 > Väravatevahelised (G2G) sisendteed `efti/POST/api/v1/{dataset,follow-up}-xml`,
 > `…-local` ja `consignments/search-xml` jäävad avalikuks (neid kutsub ainult
@@ -646,13 +646,13 @@ kunagi õigusi. Üks projektitasemeline `xroad/.guard.yml` katab kõik meetodid;
 
 | Meetod | Ruuter DSL | Ruuter tee | Kirjeldus |
 |---|---|---|---|
-| `POST` | `DSL/Ruuter-xroad/xroad/POST/v1/echo.yml` | `POST /xroad/v1/echo` | Ühenduvustest — kajastab X-Road päised, lahendatud asutuse rea ja keha |
-| `GET` | `DSL/Ruuter-xroad/xroad/GET/v1/subsets.yml` | `GET /xroad/v1/subsets` | Helistaja enda lubatud alamhulgad (asutuse `subsets` registrist) `X-Road-Client` põhjal |
+| `POST` | `DSL/Ruuter-xroad/xroad/POST/provide/v1/echo.yml` | `POST /xroad/provide/v1/echo` | Ühenduvustest — kajastab X-Road päised, lahendatud asutuse rea ja keha |
+| `GET` | `DSL/Ruuter-xroad/xroad/GET/provide/v1/subsets.yml` | `GET /xroad/provide/v1/subsets` | Helistaja enda lubatud alamhulgad (asutuse `subsets` registrist) `X-Road-Client` põhjal |
 | `GET` | `DSL/Ruuter-xroad/xroad/GET/health/ready.yml` | `GET /xroad/health/ready` | Valmisoleku proov (avalik, ilma X-Road päisteta) |
-| `POST` | `DSL/Ruuter-xroad/xroad/POST/v1/transport-means.yml` | `POST /xroad/v1/transport-means` | Veovahenditunnus sisse (numbrimärk / IMO / õhusõiduki reg / konteinernumber), väravale teadaolev identifikaatori-tasemel data välja. Sobitab `main_transport_id`, `used_equipment_ids` ja `carried_equipment_ids`. `scope`: `existence` (bool, alla sekundi) \| `local` (vaikimisi) \| `allgates` (local-first fan-out naaberväravatele, `x-poll-more` + polling `{poll: true}` sama `X-Road-Id`-ga). Nõuab `EU02`-t; andmestiku sisu ei tagasta |
-| `POST` | `DSL/Ruuter-xroad/xroad/POST/v1/dataset.yml` | `POST /xroad/v1/dataset` | Edastab `efti/POST/api/v1/authority/dataset`-ile; jõustab enne asutuse `subsets`-i (403 `FORBIDDEN_SUBSET`) |
-| `POST` | `DSL/Ruuter-xroad/xroad/POST/v1/search.yml` | `POST /xroad/v1/search` | Edastab `efti/POST/api/v1/authority/search`-ile; alamhulkade kontrolli ei ole (identifikaatoripäring) |
-| `POST` | `DSL/Ruuter-xroad/xroad/POST/v1/follow-up.yml` | `POST /xroad/v1/follow-up` | Edastab `efti/POST/api/v1/authority/follow-up`-ile |
+| `POST` | `DSL/Ruuter-xroad/xroad/POST/provide/v1/transport-means.yml` | `POST /xroad/provide/v1/transport-means` | Veovahenditunnus sisse (numbrimärk / IMO / õhusõiduki reg / konteinernumber), väravale teadaolev identifikaatori-tasemel data välja. Sobitab `main_transport_id`, `used_equipment_ids` ja `carried_equipment_ids`. `scope`: `existence` (bool, alla sekundi) \| `local` (vaikimisi) \| `allgates` (local-first fan-out naaberväravatele, `x-poll-more` + polling `{poll: true}` sama `X-Road-Id`-ga). Nõuab `EU02`-t; andmestiku sisu ei tagasta |
+| `POST` | `DSL/Ruuter-xroad/xroad/POST/provide/v1/dataset.yml` | `POST /xroad/provide/v1/dataset` | Edastab `efti/POST/api/v1/authority/dataset`-ile; jõustab enne asutuse `subsets`-i (403 `FORBIDDEN_SUBSET`) |
+| `POST` | `DSL/Ruuter-xroad/xroad/POST/provide/v1/search.yml` | `POST /xroad/provide/v1/search` | Edastab `efti/POST/api/v1/authority/search`-ile; alamhulkade kontrolli ei ole (identifikaatoripäring) |
+| `POST` | `DSL/Ruuter-xroad/xroad/POST/provide/v1/follow-up.yml` | `POST /xroad/provide/v1/follow-up` | Edastab `efti/POST/api/v1/authority/follow-up`-ile |
 
 Keeldumised: **401** `UNAUTHORIZED` (`X-Road-Client` puudub/vigane), **400** `MISSING_REQUIRED_HEADER`
 (`X-Road-Id` puudub), **403** `FORBIDDEN` (`memberCode` ei vasta ühelegi `ACTIVE` asutusele või

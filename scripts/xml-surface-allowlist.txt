@@ -31,5 +31,5 @@ xml-mapper-call | DSL/Ruuter/efti/POST/api/v1/follow-up-local.yml | 1 | 17a225e3
 xml-mapper-call | DSL/Ruuter/efti/POST/api/v1/follow-up-xml.yml | 2 | 7747fff415 | G2G inbound: parses a peer's FTI025 request (after edelivery verified it), builds the FTI030 answer.
 xml-mapper-call | DSL/Ruuter/platforms/POST/v1/consignments-xml.yml | 1 | a3a1084741 | builds the FTI029 answer (response-to-xml); is also where edelivery dispatches a verified peer FTI004 upload, which it forwards to consignments.yml (parsed there).
 xml-mapper-call | DSL/Ruuter/platforms/POST/v1/consignments.yml | 1 | 866f10d8f2 | parses an FTI004 upload (request-to-json): from a platform with an API key (platform-authored, no signature) and, through platforms/POST/v1/consignments-xml, from an AS4 message a peer signed and edelivery dispatched.
-xml-mapper-call | DSL/Ruuter-xroad/xroad/POST/v1/search.yml | 1 | bcb9892c22 | transport-means/normalize: JSON rows in, JSON out; no XML parsed.
-xml-mapper-call | DSL/Ruuter-xroad/xroad/POST/v1/transport-means.yml | 1 | bcb9892c22 | transport-means/normalize: JSON rows in, JSON out; no XML parsed.
+xml-mapper-call | DSL/Ruuter-xroad/xroad/POST/provide/v1/search.yml | 1 | bcb9892c22 | transport-means/normalize: JSON rows in, JSON out; no XML parsed.
+xml-mapper-call | DSL/Ruuter-xroad/xroad/POST/provide/v1/transport-means.yml | 1 | bcb9892c22 | transport-means/normalize: JSON rows in, JSON out; no XML parsed.

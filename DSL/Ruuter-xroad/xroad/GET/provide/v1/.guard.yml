@@ -1,0 +1,289 @@
+# Copy of xroad/.guard.yml for GET /xroad/provide/v1/** (ADR-006). The sibling GET/provide/.guard.yml
+# keeps GET /xroad/provide/openapi public with override_ancestors, which would also drop the project
+# guard for the authenticated GET routes below it. This file restores it for that subtree, so
+# override_ancestors is set here too. Everything from the declaration block on must stay identical to
+# xroad/.guard.yml; scripts/validate-dsl.py fails CI when the two drift.
+#
+# The xroad/ project is served by its own Ruuter (container ruuter-xroad, port 8087;
+# ruuter-xroad.yaml, constants-xroad.ini), not by the main Ruuter (port 8086). Its outbound calls are
+# limited by internal_requests.allowed_urls in ruuter-xroad.yaml.
+#
+# Identity model: this project is the PROVIDER-side X-Road adapter, called by our own Security
+# Server (turvaserver). The Security Server establishes the caller ORGANISATION by mTLS and
+# forwards it as X-Road-Client = instance/memberClass/memberCode[/subsystemCode]. The memberCode
+# is the Estonian Business Registry code, which resolves to `registryCode` on an authority in
+# registry/authorities/*.yml (served as build-time JSON by the ADR-011 registry image), and the
+# `subsets` is the authorisation source. X-Road-UserId is caller-asserted and NOT authenticated by
+# X-Road, so it never grants access.
+#
+# !! X-Road-Client is an ORDINARY HEADER that this guard trusts unconditionally, because the
+# !! Security Server already authenticated the caller. The whole model therefore depends on
+# !! network isolation: anyone able to reach /xroad/** directly can claim any registry code and
+# !! impersonate any registered authority. Isolation is an EXPLICIT DEPLOYMENT CONSTRAINT: this
+# !! Ruuter (port 8087) must have no ingress and no public route - only the Security Server may
+# !! reach it. See ADR-006. (compose.override.yml publishes 8087 on localhost for development only.)
+#
+# There is no protocolVersion to validate: in the X-Road REST protocol the version is the /r1/
+# prefix on the CONSUMER's URL, consumed by the consumer's Security Server and never forwarded to
+# the provider. Our own contract version is the /v1 in the route path.
+#
+# This guard authenticates only; it does NOT check requested subsets. Two routes now do their own:
+# `dataset.yml` (the subsets named in the request) and `vehicle.yml` (EU02, because that is the class
+# of data it returns). `search` and `follow-up` take no subset parameter. Any new route that does
+# must apply the check itself - this guard will not do it for them. See ADR-006.
+#
+# The resolved authority row is exposed to handlers as ${authority} (guard-side assign flows into
+# the main DSL via the shared execution context). echo.yml reads it directly. subsets.yml
+# deliberately re-resolves instead - see the rationale in that file.
+
+declaration:
+  description: "X-Road access guard for /xroad/**. Inputs, all headers set by the Security Server:
+    X-Road-Client (required, instance/memberClass/memberCode[/subsystemCode]) - the credential;
+    X-Road-Id (required, UUID) - mapped to the gate's x-request-id and consumed downstream as a
+    typed UUID; X-Road-UserId (optional, caller-asserted, never grants access);
+    X-Request-Id (optional, correlation). No allowlist block: on a guard it would trigger the
+    engine's pre-DSL `declare` enforcement against the guard context. The switch steps below are
+    the contract."
+  override_ancestors: true
+
+log_context:
+  log: "xroad guard client=${incoming.headers['x-road-client'] ?? '-'} xroad-id=${incoming.headers['x-road-id'] ?? '-'} rid=${incoming.headers['x-request-id'] ?? '-'}"
+
+check_client_header:
+  switch:
+    - condition: ${incoming.headers == null || incoming.headers['x-road-client'] == null || incoming.headers['x-road-client'] == ''}
+      next: guard_unauthorized
+
+parse_client:
+  assign:
+    xroad_parts: ${incoming.headers['x-road-client'].split('/')}
+
+# 3 parts = member-level client (EE/GOV/70000099); 4 = subsystem-level (EE/GOV/70000099/tram).
+# Both are valid X-Road client ids; only the memberCode at index 2 drives access control. The
+# final-part check rejects a trailing slash ('EE/GOV/70000099/' splits to 4 parts with an empty
+# last one), which is a malformed client id even though index 2 would still read correctly.
+validate_client_format:
+  switch:
+    - condition: ${(xroad_parts.length === 3 || xroad_parts.length === 4) && xroad_parts[0] != '' && xroad_parts[1] != '' && xroad_parts[2] != null && xroad_parts[2] != '' && xroad_parts[xroad_parts.length - 1] != ''}
+      next: check_id_header
+  next: guard_unauthorized
+
+# Deliberately after the client check: validate the credential before complaining about other
+# headers, so a caller with a garbage client id gets 401 rather than a 400 about X-Road-Id.
+check_id_header:
+  switch:
+    - condition: ${incoming.headers['x-road-id'] == null || incoming.headers['x-road-id'] == ''}
+      next: guard_missing_header
+
+# X-Road-Id must be UUID-shaped, because the forwarding routes map it to x-request-id and core feeds
+# that value to a TYPED UUID parameter: edelivery's `e.requestId.uuid` (InternalRoutes.kt:20), which
+# throws on anything else. The X-Road REST protocol does NOT guarantee a UUID here - the Security
+# Server generates one only when the consumer omits it; a consumer information system may set an
+# arbitrary unique string, which the SS forwards verbatim. Unchecked, a perfectly legal message id
+# silently breaks every cross-gate path.
+#
+# Applied in this project-level guard rather than per-route: one contract ("X-Road-Id is a UUID") is
+# simpler for a consumer to satisfy and document than a per-route matrix, and it means a caller
+# cannot discover their subsets with an id that would fail on their very next request.
+validate_id_format:
+  switch:
+    - condition: ${/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(incoming.headers['x-road-id'])}
+      next: resolve_authority
+  next: guard_invalid_id
+
+resolve_authority:
+  call: http.get
+  args:
+    url: "[#REGISTRY_URL]/authorities.json"
+    headers:
+      Content-Type: "application/json"
+      x-request-id: ${incoming.headers['x-request-id'] ?? null}
+  result: authority_res
+  next: match_authority
+
+# The memberCode is matched against the registry's registryCode. There is no status to filter on any
+# more (ADR-011 dropped authorities.status): an authority is active because its file exists under
+# registry/authorities/, and revoking one means deleting that file.
+match_authority:
+  assign:
+    authority_matches: ${(Array.isArray(authority_res.response.body) && authority_res.response.body.filter(a => (a.registryCode ?? '') === xroad_parts[2])) || []}
+  next: check_authority
+
+# DENY IS THE FALL-THROUGH BRANCH, and every accept path is an explicit positive condition.
+# This ordering is load-bearing. If the registry returns a non-array body (an error object, a
+# truncated response), then `length` is undefined and every comparison against it is false - so the
+# request must land on guard_forbidden, not on guard_success. Writing this as a single negative
+# condition with guard_success as the fall-through fails OPEN on exactly that input. Non-2xx
+# responses do not raise; they populate response.status/body, which is why the status check comes
+# first. `authority_matches` is [] for a non-array body (see match_authority), so the length checks
+# below are safe either way.
+check_authority:
+  switch:
+    # A registry transport failure surfaces as status 0, already covered by `!= 200` - the guard
+    # fails closed (403). Called out explicitly so the availability-failure path is auditable.
+    - condition: ${authority_res.response.status == 0 || authority_res.response.status != 200}
+      next: guard_forbidden
+    - condition: ${authority_matches.length === 0}
+      next: guard_forbidden
+    - condition: ${authority_matches.length > 1}
+      next: guard_ambiguous
+    - condition: ${typeof authority_matches[0]?.id === 'string' && authority_matches[0].id != ''}
+      next: bind_authority
+  next: guard_forbidden
+
+bind_authority:
+  assign:
+    authority: ${authority_matches[0]}
+
+guard_success:
+  return: "success"
+  status: 200
+  wrapper: false
+  next: end
+
+# X-Road-Client is the credential, so its absence or malformation is 401, not 403 - same posture
+# as the platform X-Api-Key guard (DSL/Ruuter/platforms/.guard.yml).
+guard_unauthorized:
+  detach:
+    do:
+      - call: http.post
+        args:
+          url: "[#RESQL_URL]/efti/insert_audit_log"
+          headers:
+            Content-Type: "application/json"
+          body:
+            action: "xroad.auth_denied"
+            resource: "xroad"
+            ipAddress: "${incoming.headers['x-forwarded-for'] ?? null}"
+            details: "${JSON.stringify({ reason: 'missing or malformed X-Road-Client' })}"
+  next: guard_unauthorized_respond
+
+guard_unauthorized_respond:
+  return:
+    type: "https://api.efti.ee/errors/unauthorized"
+    code: "UNAUTHORIZED"
+    title: "Authentication Required"
+    status: 401
+    detail: "X-Road-Client header is missing or malformed. Expected instance/memberClass/memberCode[/subsystemCode]."
+  status: 401
+  headers:
+    Content-Type: "application/problem+json"
+  wrapper: false
+  next: end
+
+guard_missing_header:
+  detach:
+    do:
+      - call: http.post
+        args:
+          url: "[#RESQL_URL]/efti/insert_audit_log"
+          headers:
+            Content-Type: "application/json"
+          body:
+            action: "xroad.auth_denied"
+            resource: "xroad"
+            ipAddress: "${incoming.headers['x-forwarded-for'] ?? null}"
+            details: "${JSON.stringify({ reason: 'missing X-Road-Id header' })}"
+  next: guard_missing_header_respond
+
+guard_missing_header_respond:
+  return:
+    type: "https://api.efti.ee/errors/missing-required-header"
+    code: "MISSING_REQUIRED_HEADER"
+    title: "Missing Required Header"
+    status: 400
+    detail: "X-Road-Id header is required on every X-Road request."
+  status: 400
+  headers:
+    Content-Type: "application/problem+json"
+  wrapper: false
+  next: end
+
+guard_invalid_id:
+  detach:
+    do:
+      - call: http.post
+        args:
+          url: "[#RESQL_URL]/efti/insert_audit_log"
+          headers:
+            Content-Type: "application/json"
+          body:
+            action: "xroad.auth_denied"
+            resource: "xroad"
+            ipAddress: "${incoming.headers['x-forwarded-for'] ?? null}"
+            details: "${JSON.stringify({ reason: 'X-Road-Id is not a UUID' })}"
+  next: guard_invalid_id_respond
+
+guard_invalid_id_respond:
+  return:
+    type: "https://api.efti.ee/errors/invalid-request-id"
+    code: "INVALID_REQUEST_ID"
+    title: "Invalid Request ID"
+    status: 400
+    detail: "X-Road-Id must be a UUID. The gate maps it to its internal request id, which is consumed as a typed UUID on the cross-gate path."
+  status: 400
+  headers:
+    Content-Type: "application/problem+json"
+  wrapper: false
+  next: end
+
+guard_forbidden:
+  detach:
+    do:
+      - call: http.post
+        args:
+          url: "[#RESQL_URL]/efti/insert_audit_log"
+          headers:
+            Content-Type: "application/json"
+          body:
+            action: "xroad.auth_denied"
+            resource: "xroad"
+            ipAddress: "${incoming.headers['x-forwarded-for'] ?? null}"
+            details: "${JSON.stringify({ reason: 'X-Road client does not resolve to an active competent authority', xRoadClient: incoming.headers['x-road-client'] ?? null })}"
+  next: guard_forbidden_respond
+
+guard_forbidden_respond:
+  return:
+    type: "https://api.efti.ee/errors/forbidden"
+    code: "FORBIDDEN"
+    title: "Forbidden"
+    status: 403
+    detail: "The X-Road client does not resolve to an active competent authority."
+  status: 403
+  headers:
+    Content-Type: "application/problem+json"
+  wrapper: false
+  next: end
+
+# Registry misconfiguration: `registryCode` is not unique across registry/authorities/*.yml, so
+# two authority files can declare the same code. Denying is the only safe answer - picking either
+# one would hand one organisation the other's subset entitlement. Mirrors guard_multi /
+# FORBIDDEN_MULTI_PLATFORM in the platform guard; a dedicated FORBIDDEN_MULTI_AUTHORITY catalog code
+# is proposed in ADR-006's open questions. With the registry in git this is visible in review
+# rather than appearing as a race between two API calls.
+guard_ambiguous:
+  detach:
+    do:
+      - call: http.post
+        args:
+          url: "[#RESQL_URL]/efti/insert_audit_log"
+          headers:
+            Content-Type: "application/json"
+          body:
+            action: "xroad.auth_denied"
+            resource: "xroad"
+            ipAddress: "${incoming.headers['x-forwarded-for'] ?? null}"
+            details: "${JSON.stringify({ reason: 'registry code resolves to more than one active competent authority (registry misconfiguration)', xRoadClient: incoming.headers['x-road-client'] ?? null })}"
+  next: guard_ambiguous_respond
+
+guard_ambiguous_respond:
+  return:
+    type: "https://api.efti.ee/errors/forbidden"
+    code: "FORBIDDEN"
+    title: "Forbidden"
+    status: 403
+    detail: "The X-Road client registry code resolves to more than one active competent authority. This is a registry misconfiguration; contact the gate operator."
+  status: 403
+  headers:
+    Content-Type: "application/problem+json"
+  wrapper: false

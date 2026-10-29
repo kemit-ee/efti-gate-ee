@@ -159,6 +159,25 @@ def check_sql_non_empty() -> tuple[list[str], int]:
     return errors, total
 
 
+XROAD_GUARD = "DSL/Ruuter-xroad/xroad/.guard.yml"
+XROAD_GUARD_COPY = "DSL/Ruuter-xroad/xroad/GET/provide/v1/.guard.yml"
+
+
+def check_xroad_guard_copy() -> list[str]:
+    # GET/provide/.guard.yml is public (override_ancestors) for the OpenAPI route, which also drops the
+    # project guard for GET/provide/v1/**; the copy restores it, so the two must not drift.
+    def body(path: str) -> str:
+        text = open(path, encoding="utf-8").read()
+        return text[text.index("\ndeclaration:"):].replace("  override_ancestors: true\n", "")
+
+    for path in (XROAD_GUARD, XROAD_GUARD_COPY):
+        if not os.path.isfile(path):
+            return [f"{path}: missing"]
+    if body(XROAD_GUARD) != body(XROAD_GUARD_COPY):
+        return [f"{XROAD_GUARD_COPY}: differs from {XROAD_GUARD} beyond override_ancestors; the authenticated GET routes would run a different guard"]
+    return []
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="efti Ruuter DSL input-contract check")
     parser.add_argument("--root", default=".", help="Repository root (default: current directory)")
@@ -170,7 +189,7 @@ def main() -> int:
         print("FAIL  no Ruuter DSL files found — is --root the repository root?")
         return 1
 
-    contract_errors = check_input_contract(paths)
+    contract_errors = check_input_contract(paths) + check_xroad_guard_copy()
     sql_errors, sql_total = check_sql_non_empty()
 
     failed = False

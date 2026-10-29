@@ -97,7 +97,7 @@ multiplexer:
   ning tagastab osalise tulemuse, mitte vea.
 - Tundmatu `searchId` (või TTL-i ületanud) `/rest`-il → `[]` + `x-poll-more: false`.
 - Lokaalse tabamuse korral `x-poll-more: false`; klient ei pea pollima.
-- `xroad/POST/v1/search.yml`: `forward_to_core` timeout `70000 → 15000` (core ei
+- `xroad/POST/provide/v1/search.yml`: `forward_to_core` timeout `70000 → 15000` (core ei
   blokeeru enam); `x-poll` päis kantakse kehast (`{"poll": true}`) core'i
   `check_poll`-ini, null-väärtus kukub http-sammus välja (Ruuter #57).
 - `override_ancestors: true` mõjutab **ainult** `authority/` alampuud; `efti/api/v1/`
@@ -110,7 +110,7 @@ multiplexer:
 ## Rakendatav changeset
 
 - `DSL/Ruuter/efti/POST/api/v1/authority/search.yml` — ümber kirjutatud (ülal skeem)
-- `DSL/Ruuter-xroad/xroad/POST/v1/search.yml` — timeout + `x-poll` päis
+- `DSL/Ruuter-xroad/xroad/POST/provide/v1/search.yml` — timeout + `x-poll` päis
 - `DSL/Ruuter/efti/POST/api/v1/authority/.guard.yml`,
   `DSL/Ruuter/efti/GET/api/v1/authority/.guard.yml` — `override_ancestors: true`
 - `code/multiplexer/src/MultiplexerRoutes.kt` — `/first` → `/search` + long-poll `/rest`

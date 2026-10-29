@@ -32,7 +32,7 @@ Seotud: [issue #125](https://github.com/kemit-ee/efti-gate-ee/issues/125), [ADR-
 
 ## Kontekst
 
-`POST /xroad/v1/transport-means` saab astmelise `scope` parameetri (PR #121 kommentaar, punkt 3):
+`POST /xroad/provide/v1/transport-means` saab astmelise `scope` parameetri (PR #121 kommentaar, punkt 3):
 
 | `scope` | Ulatus | Vastus | Latents |
 |---|---|---|---|
@@ -85,7 +85,7 @@ XML-ist. `transport-means.yml` `allgates` haru:
 Vastuse kuju `local` ja `allgates` vahel **erineb**; dokumenteeri `openapi.yaml`-is eraldi
 skeemina (`TransportMeansAllgatesResponse` vs `TransportMeansLocalResponse`).
 
-`transport-means.yml` `allgates` haru = sisuliselt olemasolev `DSL/Ruuter-xroad/xroad/POST/v1/search.yml`
+`transport-means.yml` `allgates` haru = sisuliselt olemasolev `DSL/Ruuter-xroad/xroad/POST/provide/v1/search.yml`
 (forward `core`-ile, `x-poll-more` edasi, `core_error` → 502), lisaks EU02 kontroll ja
 fikseeritud `transportMeansOrEquipmentId` kriteerium.
 
@@ -170,7 +170,7 @@ Kolmas mõeldav lähenemine — jätta kaug-tulemused `core` search'i kujusse ja
 - `openapi.yaml`: üks `transport-means` 200 skeem, `x-poll-more` päis lisatud
 
 **Variant B:**
-- `transport-means.yml` `allgates` haru peegeldab `xroad/POST/v1/search.yml`-i
+- `transport-means.yml` `allgates` haru peegeldab `xroad/POST/provide/v1/search.yml`-i
 - `openapi.yaml`: kaks 200 skeemi `scope` järgi; `developer/x_road_authority_integration_guide.md`
   `scope` tabelis eraldi märkus, et `allgates` kuju erineb
 - klient peab `allgates` puhul teadma `core` search'i väljaleppe
@@ -191,7 +191,7 @@ Teostatud issue [#125](https://github.com/kemit-ee/efti-gate-ee/issues/125) raam
   kriteerium + degradeerimine `MainCarriageTransportMeansIDParameterScope`-iks levipäringu XML-is
 - `DSL/Resql/efti/POST/get_consignments.sql` — `transportMeansOrEquipmentId` (`EQ`/`NE`), OR üle
   kolme identifikaatoripere
-- `DSL/Ruuter-xroad/xroad/POST/v1/transport-means.yml` — `allgates` haru (forward → normalize → respond,
+- `DSL/Ruuter-xroad/xroad/POST/provide/v1/transport-means.yml` — `allgates` haru (forward → normalize → respond,
   `x-poll-more` edasi) + polling (`{poll: true}` sama `X-Road-Id`-ga, `x-poll` päis `core`-i poole)
 - `docs/specs/openapi.yaml`, `docs/developer/x_road_openapi.yaml`,
   `docs/developer/x_road_authority_integration_guide.md`, ADR-006 — leping ja piirangud

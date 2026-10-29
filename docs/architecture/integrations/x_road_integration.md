@@ -149,7 +149,7 @@ subject to the network-isolation requirement above.
 
 There is **no `protocolVersion`**: in the X-Road REST message protocol the version is the `/r1/`
 prefix on the consumer's URL, consumed by the consumer's own Security Server and never forwarded to
-the provider. The gate's own contract version is the `/v1` in `/xroad/v1/...`.
+the provider. The gate's own contract version is the `/v1` in `/xroad/provide/v1/...`.
 
 Authentication lives in **one project-level guard**, `DSL/Ruuter-xroad/xroad/.guard.yml` (Ruuter
 ≥ 0.9.7-rc), covering every method under `/xroad/**`. `xroad/GET/health/.guard.yml` sets
@@ -164,7 +164,7 @@ probe public. The guard **authenticates only**. Denials:
 | `memberCode` resolves to no `ACTIVE` authority | 403 | `FORBIDDEN` |
 | `memberCode` resolves to **more than one** `ACTIVE` authority (registry misconfiguration) | 403 | `FORBIDDEN` |
 
-Per-route denials on `POST /xroad/v1/dataset`, which is the only operation taking a subset parameter:
+Per-route denials on `POST /xroad/provide/v1/dataset`, which is the only operation taking a subset parameter:
 
 | Condition | Status | `code` |
 |---|---|---|
@@ -179,7 +179,7 @@ must land on the denial. Expressing the check as a single negative condition wit
 fall-through fails **open** on exactly that input.
 
 **`FORBIDDEN_SUBSET` is enforced by the route, not the guard.** The guard authenticates the
-organisation; only `POST /xroad/v1/dataset` accepts a subset parameter, so that route applies the
+organisation; only `POST /xroad/provide/v1/dataset` accepts a subset parameter, so that route applies the
 check itself against the authority row the guard already bound as `${authority}` — no second
 `authorities` query. Any future route taking subsets must do the same — the guard will not do it for
 them.
@@ -208,7 +208,7 @@ soft-deleted authority with an older `ACTIVE` row keep authenticating.
 
 ## Transport-means lookup
 
-`POST /xroad/v1/transport-means` — a transport-means or transport-equipment identifier in (plate,
+`POST /xroad/provide/v1/transport-means` — a transport-means or transport-equipment identifier in (plate,
 IMO, aircraft registration, container id), the identifier-level data the gate knows out:
 
 ```json
@@ -239,7 +239,7 @@ The dedicated `get_consignments_by_transport_means.sql` exists for two other rea
 field contract for an external consumer, rather than exposing a blob whose schema belongs to the
 platform; and it drops that blob, which is redundant here because it carries the same fields already
 denormalised into the columns returned. Content is still fetched afterwards via
-`POST /xroad/v1/dataset` with the returned `uil`.
+`POST /xroad/provide/v1/dataset` with the returned `uil`.
 
 > An earlier draft justified this file by claiming reuse would "bypass `authorities.subsets`". That
 > was wrong and has been retracted here and in ADR-006 — there is no bypass to defeat.
@@ -256,7 +256,7 @@ existed. Matching is case-sensitive and untrimmed — see ADR-006.
 
 ## Subset-permission lookup
 
-`GET /xroad/v1/subsets` returns the calling organisation's own permitted subsets:
+`GET /xroad/provide/v1/subsets` returns the calling organisation's own permitted subsets:
 
 ```json
 { "registryCode": "70000097", "authorityId": "auth-mta", "subsets": ["EU01", "EU05"] }
