@@ -4,6 +4,9 @@
 AS4 bodies carry eFTI payload with personal data; logs are stored at a lower trust tier than the
 database. Log a fingerprint (sha256, size, content type) instead. This is a regression guard for the
 obvious patterns, not a taint analysis.
+
+A value read from a peer's envelope (`${header.x}`, `${routing.x}`) must go through `logSafe()` (#369); the
+bare interpolation is flagged.
 """
 import pathlib
 import re
@@ -20,6 +23,7 @@ FORBIDDEN = re.compile(
     r"|\$\{?(?:xml|body|payload|response[bB]ody|resBody)\b(?!\.(?:size|length|toByteArray\(\)\.size)\b)"
     r"|\.(?:toString|joinToString)\(\)\s*\)?\s*$"
     r"|\$\{?\w+\.(?:message|localizedMessage)\b"
+    r"|\$\{(?:header|routing|[\w.]*\.routing)\.[\w.]+\}"
     r"|\b(?:resBody|responseBody|answerBody|peerAnswer)\b(?!\.(?:size|length|toByteArray\(\)\.size)\b)"
     r"|\bres\w*\.body\(\)(?!\.(?:length|toByteArray\(\)\.size)\b)"
 )
