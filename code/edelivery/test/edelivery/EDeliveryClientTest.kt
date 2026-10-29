@@ -22,7 +22,7 @@ import kotlin.test.assertTrue
 import kotlin.test.assertNotSame
 
 class EDeliveryClientTest {
-  val keyManager = mockk<KeyManager>(relaxed = true)
+  val trustStore = mockk<GateTrustStore>(relaxed = true)
   val onChangeListener = slot<(Party) -> Unit>()
   val partyRegistry = mockk<PartyRegistry>(relaxUnitFun = true) {
     every { onChange(capture(onChangeListener)) } returns Unit
@@ -30,7 +30,7 @@ class EDeliveryClientTest {
   val turvisOutbound = mockk<TurvisOutbound>(relaxed = true)
   val messageGenerator = mockk<EDeliveryMessageGenerator>(relaxed = true)
   val eDeliveryClient =
-    EDeliveryClient(mockk(relaxed = true), keyManager, messageGenerator, partyRegistry, turvisOutbound, msInSec = 10L)
+    EDeliveryClient(mockk(relaxed = true), trustStore, messageGenerator, partyRegistry, turvisOutbound, msInSec = 10L)
 
   val http = mockk<HttpClient>(relaxed = true).also {
     eDeliveryClient.javaClass.getDeclaredField("http").apply { isAccessible = true }.set(eDeliveryClient, it)
@@ -86,7 +86,7 @@ class EDeliveryClientTest {
 
   @Test fun `a failed send drops the waiter instead of leaking it`() {
     val provider = mockk<AsyncResponseProvider>(relaxed = true)
-    val client = EDeliveryClient(provider, keyManager, messageGenerator, partyRegistry, turvisOutbound, msInSec = 10L)
+    val client = EDeliveryClient(provider, trustStore, messageGenerator, partyRegistry, turvisOutbound, msInSec = 10L)
     every { turvisOutbound.authoritative } returns true
     every { turvisOutbound.requestMessage(any(), any()) } throws TurvisUnavailableException("down")
     val params = UserMessageParams(RequestKey(PartyId("EU-FR")))
