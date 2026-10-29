@@ -50,7 +50,7 @@ samas järjekorras (uuemad ees).
 | Tervisekontroll | `GET /developer/health/ready` → `200 "OK"` (päiseid ei vaja) |
 
 
-Vaste päris väravale: mock `/developer/v1/echo` ↔ värav `/xroad/v1/echo` ↔ tarbija
+Vaste päris väravale: mock `/developer/v1/echo` ↔ värav `/xroad/provide/v1/echo` ↔ tarbija
 `/r1/EE/GOV/70001231/efti-gate/echo/v1`.
 
 ## Päised

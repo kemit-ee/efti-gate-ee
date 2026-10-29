@@ -19,8 +19,8 @@ respond:
       title: eFTI Gate (EE) - X-Road Authority API
       version: 1.0.0
       description: "Provider-side X-Road REST adapter of the Estonian eFTI Gate (KeMIT), for competent\nauthorities that reach the gate over the X-Road network.\n\n## How a call is made\n\nA competent authority's information system calls its **own** Security Server, which\nforwards the request across X-Road to the gate's Security Server, which forwards it\nto the gate over plain HTTP on the internal network, adding the `X-Road-*` headers.\n\nConsumer-side URL:\n\n```\nPOST https://<your-security-server>/r1/EE/GOV/70001231/efti-gate/{serviceCode}/v1\n```\n\n- `EE/GOV/70001231/efti-gate` - the gate's X-Road member + subsystem (service provider id).\n- `/r1/` - X-Road REST message-protocol version; consumed by your Security Server, never\n  forwarded to the gate. There is **no** `protocolVersion` field to send.\n- `{serviceCode}` - one of `echo`, `subsets`, `transport-means`, `search`, `dataset`,\n  `follow-up`.\n- `/v1` - this contract's version, part of the gate-side route.\n\nGate-side these\
-        \ map to `/xroad/v1/{serviceCode}` on the gate's own X-Road Ruuter\n(`ruuter-xroad`, port 8087). That Ruuter is **not** publicly routable - only the gate's\nSecurity Server may reach it (ADR-006). The provider-side form of this document (paths\nrewritten to `/xroad/v1/{serviceCode}`) is served by `ruuter-xroad` itself at\n`GET /xroad/provide/openapi`, generated from this file by `scripts/sync-xroad-openapi.py`.\n\n## Prerequisites\n\n| Requirement | Who |\n|---|---|\n| Your organisation is registered at the gate as exactly one competent authority whose `registryCode` is your Business Registry code | gate operator |\n| The authority's `subsets` is populated (e.g. `[\"EU01\",\"EU05\"]`) - required for `dataset` and `transport-means` | gate operator |\n| Your client subsystem has X-Road access rights to the gate's services | RIA / Security Server administration |\n\n## Errors\n\nEvery error is an [RFC 7807](https://datatracker.ietf.org/doc/html/rfc7807) Problem\nDetails object (`type`,\
-        \ `code`, `title`, `status`, `detail`, plus operation-specific\nextension members) with media type `application/json`. Switch on `code`, never on\n`title`/`detail` text. `code` values mirror `../specs/errors.json`.\n\nFor `502 GATEWAY_UNAVAILABLE`, branch on the `coreStatus` / `resqlStatus` extension\nmember, not on the HTTP status - the gate normalises every downstream failure to 502\nand carries the real status and body in `coreStatus` / `coreResponse` (or\n`resqlStatus`). A hard downstream outage (connection refused, DNS failure, 70 s\ntimeout) surfaces as `500`, not `502`.\n"
+        \ map to `/xroad/provide/v1/{serviceCode}` on the gate's own X-Road Ruuter\n(`ruuter-xroad`, port 8087). That Ruuter is **not** publicly routable - only the gate's\nSecurity Server may reach it (ADR-006). The provider-side form of this document (paths\nrewritten to `/xroad/provide/v1/{serviceCode}`) is served by `ruuter-xroad` itself at\n`GET /xroad/provide/openapi`, generated from this file by `scripts/sync-xroad-openapi.py`.\n\n## Prerequisites\n\n| Requirement | Who |\n|---|---|\n| Your organisation is registered at the gate as exactly one competent authority whose `registryCode` is your Business Registry code | gate operator |\n| The authority's `subsets` is populated (e.g. `[\"EU01\",\"EU05\"]`) - required for `dataset` and `transport-means` | gate operator |\n| Your client subsystem has X-Road access rights to the gate's services | RIA / Security Server administration |\n\n## Errors\n\nEvery error is an [RFC 7807](https://datatracker.ietf.org/doc/html/rfc7807) Problem\nDetails\
+        \ object (`type`, `code`, `title`, `status`, `detail`, plus operation-specific\nextension members) with media type `application/json`. Switch on `code`, never on\n`title`/`detail` text. `code` values mirror `../specs/errors.json`.\n\nFor `502 GATEWAY_UNAVAILABLE`, branch on the `coreStatus` / `resqlStatus` extension\nmember, not on the HTTP status - the gate normalises every downstream failure to 502\nand carries the real status and body in `coreStatus` / `coreResponse` (or\n`resqlStatus`). A hard downstream outage (connection refused, DNS failure, 70 s\ntimeout) surfaces as `500`, not `502`.\n"
       contact:
         name: KeMIT - Keskkonnaministeeriumi Infotehnoloogiakeskus
         email: help@kemit.ee
@@ -29,8 +29,8 @@ respond:
         name: Business Source License 1.1
         url: https://mariadb.com/bsl11/
     servers:
-    - url: /
-      description: 'Provider side: the gate''s Security Server forwards each X-Road service call to this ruuter-xroad (never publicly routable, ADR-006).'
+    - url: /xroad/provide
+      description: 'Provider side base: the gate''s Security Server forwards each X-Road service call to <host>/xroad/provide (only the Security Server may reach it, ADR-006). The developer mock serves the same paths under /developer.'
     tags:
     - name: Connectivity
       description: Connectivity and entitlement discovery
@@ -38,12 +38,12 @@ respond:
       description: Identifier-level lookups
     - name: Dataset
       description: Dataset retrieval and follow-up
-    - name: Health
-      description: Probes and the service description; no authentication
+    - name: Description
+      description: The service description; no authentication
     security:
     - xRoadClient: []
     paths:
-      /xroad/v1/echo:
+      /v1/echo:
         post:
           tags:
           - Connectivity
@@ -56,7 +56,7 @@ respond:
             resolves to the expected authority.
 
 
-            Gate-side route: `POST /xroad/v1/echo`.
+            Gate-side route: `POST /xroad/provide/v1/echo`.
 
             '
           parameters:
@@ -108,7 +108,7 @@ respond:
               $ref: '#/components/responses/Unauthorized'
             '403':
               $ref: '#/components/responses/Forbidden'
-      /xroad/v1/subsets:
+      /v1/subsets:
         get:
           tags:
           - Connectivity
@@ -126,7 +126,7 @@ respond:
             `subsets: []` is a valid `200` - the authority is registered but entitled to nothing.
 
 
-            Gate-side route: `GET /xroad/v1/subsets`.
+            Gate-side route: `GET /xroad/provide/v1/subsets`.
 
             '
           parameters:
@@ -164,7 +164,7 @@ respond:
               $ref: '#/components/responses/Unauthorized'
             '403':
               $ref: '#/components/responses/Forbidden'
-      /xroad/v1/transport-means:
+      /v1/transport-means:
         post:
           tags:
           - Search
@@ -186,7 +186,7 @@ respond:
             response. Requires **EU02** in the authority''s `subsets`, else `403 FORBIDDEN_SUBSET`.
 
 
-            Gate-side route: `POST /xroad/v1/transport-means`.
+            Gate-side route: `POST /xroad/provide/v1/transport-means`.
 
 
             `scope: allgates` is **local-first**: a local hit answers immediately with
@@ -270,7 +270,7 @@ respond:
                     $ref: '#/components/schemas/SubsetProblemDetails'
             '502':
               $ref: '#/components/responses/GatewayUnavailable'
-      /xroad/v1/search:
+      /v1/search:
         post:
           tags:
           - Search
@@ -288,7 +288,7 @@ respond:
             Date fields take an **array** of `{ "operator": "<op>", "date": "<ISO-8601>" }`.
 
 
-            Gate-side route: `POST /xroad/v1/search`.
+            Gate-side route: `POST /xroad/provide/v1/search`.
 
 
             Each match is the same curated projection `transport-means` returns under
@@ -358,7 +358,7 @@ respond:
               $ref: '#/components/responses/Forbidden'
             '502':
               $ref: '#/components/responses/GatewayUnavailable'
-      /xroad/v1/dataset:
+      /v1/dataset:
         post:
           tags:
           - Dataset
@@ -371,7 +371,7 @@ respond:
             refused **whole** - no silent narrowing. Check your entitlement first with `subsets`.
 
 
-            Gate-side route: `POST /xroad/v1/dataset`.
+            Gate-side route: `POST /xroad/provide/v1/dataset`.
 
 
             **Status:** contract only - the route is not implemented on `dev`.
@@ -482,7 +482,7 @@ respond:
                     - EU02
             '502':
               $ref: '#/components/responses/GatewayUnavailable'
-      /xroad/v1/follow-up:
+      /v1/follow-up:
         post:
           tags:
           - Dataset
@@ -495,7 +495,7 @@ respond:
             dataset. No subset check.
 
 
-            Gate-side route: `POST /xroad/v1/follow-up`.
+            Gate-side route: `POST /xroad/provide/v1/follow-up`.
 
 
             **Status:** contract only - the route is not implemented on `dev`.
@@ -534,32 +534,10 @@ respond:
               $ref: '#/components/responses/Forbidden'
             '502':
               $ref: '#/components/responses/GatewayUnavailable'
-      /xroad/health/ready:
+      /openapi:
         get:
           tags:
-          - Health
-          operationId: xroadReadiness
-          summary: Readiness probe
-          description: Returns 200 only if the database is reachable, 503 otherwise. Public, no X-Road headers.
-          security: []
-          responses:
-            '200':
-              description: Ready
-              content:
-                text/plain:
-                  schema:
-                    type: string
-                  example: OK
-            '503':
-              description: Database unavailable
-              content:
-                text/plain:
-                  schema:
-                    type: string
-      /xroad/provide/openapi:
-        get:
-          tags:
-          - Health
+          - Description
           operationId: xroadOpenapi
           summary: This OpenAPI description
           description: 'Public, no X-Road headers: the Security Server reads the service description from here.'

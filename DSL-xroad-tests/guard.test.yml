@@ -6,7 +6,7 @@ tests:
   - name: UUID-shaped non-hex id is rejected before authority lookup
     request:
       method: POST
-      path: /xroad/v1/echo
+      path: /xroad/provide/v1/echo
       headers:
         x-road-client: "EE/GOV/70000094/tram"
         x-road-id: "gggggggg-gggg-gggg-gggg-gggggggggggg"
@@ -17,7 +17,7 @@ tests:
   - name: no X-Road-Client -> 401
     request:
       method: POST
-      path: /xroad/v1/dataset
+      path: /xroad/provide/v1/dataset
       headers: { content-type: "application/json" }
       body: { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "d" }, subsets: ["EU01"] }
     expect:
@@ -27,7 +27,7 @@ tests:
   - name: malformed X-Road-Client (single segment) -> 401
     request:
       method: POST
-      path: /xroad/v1/dataset
+      path: /xroad/provide/v1/dataset
       headers:
         content-type: "application/json"
         x-road-client: "bogus"
@@ -40,7 +40,7 @@ tests:
   - name: valid client, non-UUID X-Road-Id -> 400 INVALID_REQUEST_ID
     request:
       method: POST
-      path: /xroad/v1/dataset
+      path: /xroad/provide/v1/dataset
       headers:
         content-type: "application/json"
         x-road-client: "EE/GOV/70000094/tram"
@@ -53,7 +53,7 @@ tests:
   - name: valid client, missing X-Road-Id -> 400 MISSING_REQUIRED_HEADER
     request:
       method: POST
-      path: /xroad/v1/dataset
+      path: /xroad/provide/v1/dataset
       headers:
         content-type: "application/json"
         x-road-client: "EE/GOV/70000094/tram"

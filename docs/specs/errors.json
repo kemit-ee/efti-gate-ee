@@ -326,7 +326,7 @@
       "examples": [
         {
           "scenario": "Authority permitted only ['EU01'] requests 'EU06' through the X-Road adapter",
-          "request": "POST /xroad/v1/dataset",
+          "request": "POST /xroad/provide/v1/dataset",
           "response": {
             "type": "https://api.efti.ee/errors/forbidden-subset",
             "code": "FORBIDDEN_SUBSET",
@@ -585,7 +585,7 @@
       "examples": [
         {
           "scenario": "X-Road dataset request with an empty subsets list",
-          "request": "POST /xroad/v1/dataset {\"uil\": {...}, \"subsets\": []}",
+          "request": "POST /xroad/provide/v1/dataset {\"uil\": {...}, \"subsets\": []}",
           "response": {
             "type": "https://api.efti.ee/errors/missing-subset",
             "title": "Missing Subset Parameter",

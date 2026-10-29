@@ -1,7 +1,7 @@
 import ../admin/auth.http
 run #auth
 
-# GET /xroad/v1/subsets — X-Road subset-permission discovery (ADR-006).
+# GET /xroad/provide/v1/subsets — X-Road subset-permission discovery (ADR-006).
 #
 # Every authority this file depends on is committed under registry/authorities/ and served as
 # build-time JSON by the `registry` image (ADR-011 §3); the admin write API for authorities no longer
@@ -37,7 +37,7 @@ Authorization: Bearer {{adminToken}}
 %}
 
 ### Happy path: subsystem-level client gets its own permitted subsets
-GET {{XROAD_URL}}/xroad/v1/subsets
+GET {{XROAD_URL}}/xroad/provide/v1/subsets
 X-Road-Client: EE/GOV/70000097/tram
 X-Road-Id: 0a11ce5e-0001-4d1d-8f1a-0ec200000001
 X-Road-UserId: EE30101010007
@@ -54,7 +54,7 @@ X-Road-UserId: EE30101010007
 %}
 
 ### Member-level client (3 parts, no subsystem) is a valid X-Road client id
-GET {{XROAD_URL}}/xroad/v1/subsets
+GET {{XROAD_URL}}/xroad/provide/v1/subsets
 X-Road-Client: EE/GOV/70000097
 X-Road-Id: 0a11ce5e-0002-4d1d-8f2a-0ec200000002
 
@@ -66,7 +66,7 @@ X-Road-Id: 0a11ce5e-0002-4d1d-8f2a-0ec200000002
 %}
 
 ### An authority entitled to nothing gets an empty list, not an error
-GET {{XROAD_URL}}/xroad/v1/subsets
+GET {{XROAD_URL}}/xroad/provide/v1/subsets
 X-Road-Client: EE/GOV/70000096/tram
 X-Road-Id: 0a11ce5e-0003-4d1d-8f3a-0ec200000003
 
@@ -81,7 +81,7 @@ X-Road-Id: 0a11ce5e-0003-4d1d-8f3a-0ec200000003
 ### The GET surface is guarded: no X-Road-Client → 401
 # Regression guard for the GET/v1/.guard.yml file. Without it this route would return 200 to
 # anyone, because Ruuter only enforces a guard it finds walking up from the route's directory.
-GET {{XROAD_URL}}/xroad/v1/subsets
+GET {{XROAD_URL}}/xroad/provide/v1/subsets
 X-Road-Id: 0a11ce5e-0004-4d1d-8f4a-0ec200000004
 
 > {%
@@ -93,7 +93,7 @@ X-Road-Id: 0a11ce5e-0004-4d1d-8f4a-0ec200000004
 %}
 
 ### Malformed X-Road-Client (2 parts) → 401
-GET {{XROAD_URL}}/xroad/v1/subsets
+GET {{XROAD_URL}}/xroad/provide/v1/subsets
 X-Road-Client: EE/GOV
 X-Road-Id: 0a11ce5e-0005-4d1d-8f5a-0ec200000005
 
@@ -105,7 +105,7 @@ X-Road-Id: 0a11ce5e-0005-4d1d-8f5a-0ec200000005
 %}
 
 ### Missing X-Road-Id → 400
-GET {{XROAD_URL}}/xroad/v1/subsets
+GET {{XROAD_URL}}/xroad/provide/v1/subsets
 X-Road-Client: EE/GOV/70000097/tram
 
 > {%
@@ -117,7 +117,7 @@ X-Road-Client: EE/GOV/70000097/tram
 %}
 
 ### Unknown registry code → 403
-GET {{XROAD_URL}}/xroad/v1/subsets
+GET {{XROAD_URL}}/xroad/provide/v1/subsets
 X-Road-Client: EE/GOV/99999999/tram
 X-Road-Id: 0a11ce5e-0006-4d1d-8f6a-0ec200000006
 
@@ -160,7 +160,7 @@ Authorization: Bearer {{adminToken}}
 %}
 
 ###
-GET {{XROAD_URL}}/xroad/v1/subsets
+GET {{XROAD_URL}}/xroad/provide/v1/subsets
 X-Road-Client: EE/GOV/70000091/tram
 X-Road-Id: 0a11ce5e-000b-4d1d-8fba-0ec20000000b
 
@@ -173,7 +173,7 @@ X-Road-Id: 0a11ce5e-000b-4d1d-8fba-0ec20000000b
 %}
 
 ### The ambiguity is confined to 70000091 — 70000097 stays unambiguous
-GET {{XROAD_URL}}/xroad/v1/subsets
+GET {{XROAD_URL}}/xroad/provide/v1/subsets
 X-Road-Client: EE/GOV/70000097/tram
 X-Road-Id: 0a11ce5e-000c-4d1d-8fca-0ec20000000c
 

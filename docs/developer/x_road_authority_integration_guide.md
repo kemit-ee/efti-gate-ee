@@ -14,7 +14,7 @@ teenuse identifikaatorid, päringu- ja vastuseväljad ning vead.
 flowchart LR
   IS["Sinu infosüsteem"] -->|REST| SS1["Sinu turvaserver"]
   SS1 <-->|"X-tee võrk — mTLS + sõnumi allkiri"| SS2["eFTI värava turvaserver"]
-  SS2 -->|"HTTP + X-Road-* päised (sisevõrk)"| GW["eFTI värav — /xroad/v1/**"]
+  SS2 -->|"HTTP + X-Road-* päised (sisevõrk)"| GW["eFTI värav — /xroad/provide/v1/**"]
   GW --> DB[("Kohalik saadetiste register")]
   GW -->|"forward"| CORE["eFTI värava core Authority API"]
   CORE <-->|"eDelivery / multiplekser"| PEERS["Teised eFTI väravad"]
@@ -22,7 +22,7 @@ flowchart LR
 
 Sinu turvaserver autendib sinu organisatsiooni mTLS-iga ja edastab selle päisena
 `X-Road-Client`. eFTI värav usaldab seda päist — autentimine on juba toimunud. Värava pool
-`/xroad/v1/**` ei ole avalikult marsruuditav; ligi pääseb ainult eFTI värava turvaserver.
+`/xroad/provide/v1/**` ei ole avalikult marsruuditav; ligi pääseb ainult eFTI värava turvaserver.
 
 ## Näide: otsing auto numbri järgi
 
@@ -62,7 +62,7 @@ eFTI värava X-tee liige ja alamsüsteem: **`EE/GOV/70001231/efti-gate`**.
 
 Tarbija URL: `POST /r1/EE/GOV/70001231/efti-gate/{serviceCode}/v1[/...]`. `serviceCode` vastab
 operatsioonile (`echo`, `subsets`, `transport-means`, `search`, `dataset`, `follow-up`). Värava
-poolel vastab sellele tee `/xroad/v1/{serviceCode}`.
+poolel vastab sellele tee `/xroad/provide/v1/{serviceCode}`.
 
 Sinu `X-Road-Client` on sinu organisatsiooni X-tee id. Kehtib nii 3-osaline
 (`EE/GOV/70000097`) kui 4-osaline (`EE/GOV/70000097/tram`) kuju. Ligipääsuõiguse annab

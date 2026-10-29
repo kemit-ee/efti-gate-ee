@@ -1,5 +1,5 @@
 declaration:
-  description: "Developer mock - imitates POST /xroad/v1/echo. Echoes the X-Road headers and the
+  description: "Developer mock - imitates POST /xroad/provide/v1/echo. Echoes the X-Road headers and the
     request body, plus a canned authority row derived from the X-Road-Client member code."
   internal: false
   returns:
