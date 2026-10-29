@@ -36,6 +36,10 @@ flowchart LR
 Restart-loop, DB-down and disk-usage alerts are not in this diagram on purpose — they need exporters
 (cAdvisor, postgres_exporter, node_exporter) this stack doesn't run yet; see the Changes entry above.
 
+`xtr` (outbound X-Road, ADR-017) exposes no `/metrics` (only `/health` and a per-request access log with
+`traceparent`), so Prometheus does not scrape it and no alert covers it yet; Ruuter's
+`GET /efti/api/v1/xtr/ready` is the only reachability signal.
+
 ## Rationale
 
 The gate is regulator-facing; an outage during an inspection window has legal as well as operational consequences. Alerts are deliberately coarse (error rate, restart loop, DB failure, peer-gate stall, disk) — the long tail of issue-specific alerts emerges from operating the system, not from spec-writing. SLOs and the HPA contract live in one place (`non-functional.md`); this epic just wires them up to dashboards + alertmanager.

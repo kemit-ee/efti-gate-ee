@@ -87,6 +87,10 @@ services:
   cronmanager:
     ports:
       - "127.0.0.1:${EFTI_CRONMANAGER_PORT:-8089}:8080"
+  # Loopback-only, for debugging; Ruuter reaches it as http://xtr:8080.
+  xtr:
+    ports:
+      - "127.0.0.1:${EFTI_XTR_PORT:-8092}:8080"
   ui:
     ports:
       - 8000:80
@@ -126,6 +130,7 @@ services:
       - ruuter-xroad-mock
       - xml-mapper
       - edelivery
+      - xtr
     volumes:
       - ./:/workdir
     entrypoint: [ "/bin/sh", "-c" ]

@@ -241,6 +241,31 @@ services:
     cpus: '0.25'
     mem_limit: 64M
 
+  # Outbound X-Road REST client (ADR-017): Ruuter -> xtr (plain HTTP) -> Security Server (mTLS). Ready-made
+  # component (turnerrainer/xtr), configured by xtr/xtr.yaml + xtr/DSL. It holds the only mTLS identity for
+  # the Security Server and always sets X-Road-Client itself. No published port: only Ruuter calls it,
+  # with XTR_INTER_SERVICE_TOKEN. The inbound direction (Security Server -> ruuter-xroad /xroad/**) does not pass
+  # through it. The keystore and CA are mounted from xtr/ssl, never baked in.
+  xtr:
+    container_name: efti_xtr
+    build:
+      context: .
+      dockerfile: docker/xtr/Dockerfile
+    environment:
+      - XTR_KEYSTORE_PASSWORD
+      - XTR_INTER_SERVICE_TOKEN
+      - RUST_LOG=${XTR_RUST_LOG:-info}
+    volumes:
+      - ./xtr/ssl:/app/ssl:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    cpus: '0.25'
+    mem_limit: 128M
+
   ui:
     build:
       context: .

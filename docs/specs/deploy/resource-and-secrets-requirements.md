@@ -22,6 +22,7 @@ tootmises soovita alustada "Soovituslik prod" veerust ja mõõta reaalse koormus
 | `database` (PostgreSQL 18, `efti` DB) | JAH | 2.0 | 1 GiB | 2 vCPU / 2 GiB + eraldi ketas, **eraldi mõõdetud** ADR-009 jõudlustööga | Stateful — vajab PV/PVC-d ja backupit |
 | `archive-database` (PostgreSQL 18, `efti_archive` DB — saadetiste külmladu, vt issue #143/#56) | JAH | 0.5 | 512 MiB | 0.5 vCPU / 512 MiB + eraldi ketas, kasv sõltub `keepDays` retention-seadest (`purge_archived_consignments.sql`, vaikimisi 2555 päeva) | Stateful, **eraldi instants** kui `database` — vajab oma PV/PVC-d ja backupit; ligipääsetav ainult ReSql `archive` andmeallika kaudu, mitte otse |
 | `resql` (ReSql 0.4.3-alpha) | JAH | — (määramata!) | — (määramata!) | 0.5 vCPU / 512 MiB | max_connections 75 (resql.yaml) — jäta PG max_connections=100 juurde varu teistele klientidele. Kaks andmeallikat: `efti` ja `archive` |
+| `xtr` (turnerrainer/xtr 0.5.1-rc, väljaminev X-Tee REST, ADR-017) | JAH, kui väljaminevat X-Tee suunda kasutatakse | 0.25 | 128 MiB | 0.25 vCPU / 128 MiB | Stateless; ei avalda porti (ainult Ruuter kutsub); keystore + CA Secretist, vt §3.6 |
 | `ruuter` (Ruuter 0.12.1-rc, `/efti` + `/ops` jt) | JAH | 2.0 | 512 MiB | 1 vCPU / 512 MiB (koormustestitud, vt performance-dok) | — |
 | `ruuter-xroad` (Ruuter 0.12.1-rc, `/xroad`, port 8087) | JAH (X-Roadi liidese korral) | 1.0 | 256 MiB | 0.5 vCPU / 256 MiB (mõõtmata) | Oma `constants-xroad.ini` (Secret-fail, sisaldab `INTERNAL_SERVICE_TOKEN`; sama väärtus mis `constants.ini`-s), ingressi pole. Chart `services/efti/devops` repos puudub veel. |
 | `ruuter-xroad-mock` (avalik X-Roadi arendaja-mokk, `/developer/**`) | VALIKULINE | 0.25 | 128 MiB | 0.25 vCPU / 128 MiB | Standalone, andmebaasita — vt `docs/developer/x_road_developer_mock.md`. Jäta välja, kui väliseid platvormiarendajaid ei teenindata. |
@@ -318,6 +319,23 @@ Vahepealsel ajal ebaõnnestuvad sõnumid nende partneritega, kelle registris on 
 lekke korral on see aken paratamatu (vt ADR-011 lahtine küsimus 4 — kiire release'i protsess).
 
 ---
+
+### 3.6 `xtr` mTLS identiteet turvaserveri suunas — **Secret, mitte image'i sisu**
+
+XTR ([ADR-017](../../architecture/decisions/017-xtr-outbound-x-road.md)) hoiab ainsana X-Tee kliendisertifikaati. Image'is on ainult
+`xtr/xtr.yaml` ja `xtr/DSL`; järgmised tulevad Secretist (devopsi chart peab need mountima, muidu XTR-i
+väljaminev päring annab 500 `keystore_load_failed`):
+
+| Mis | Kuhu | Märkus |
+|---|---|---|
+| Informatsioonisüsteemi kliendivõti PKCS12 (`sign` + `auth`, turvaserveri admin-UI-st) | `/app/ssl/xtr-client.p12` | **3DES/SHA1 PKCS12** (`openssl pkcs12 -export -legacy`); OpenSSL 3 vaikimisi AES-fail ei lae |
+| Turvaserveri TLS-sert või selle CA | `/app/ssl/xroad-ca.pem` | **täpselt üks** sertifikaat (XTR loeb ainult esimese) |
+| `XTR_KEYSTORE_PASSWORD` | env | Secretist |
+| `XTR_INTER_SERVICE_TOKEN` | env (XTR) + `constants.ini` (Ruuter) | sama väärtus mõlemal poolel; `openssl rand -hex 32` |
+
+Sama muster nagu §3.5 (SSM → ExternalSecret → mount, base64 + `decodingStrategy: Base64`). Pole avaldatud porti
+ega ingressi. Keskkonna `xtr/xtr.yaml` (`xroad_instance`, `client_data`, `security_server.url`) on image'is: oma
+väärtustega deployment ehitab oma image'i, nagu `registry/`.
 
 ## 4. Kaks eraldi andmebaasi — ära aja segi
 

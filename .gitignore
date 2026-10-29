@@ -35,3 +35,7 @@ code/ui/test-results/
 code/ui/playwright-report/
 code/ui/blob-report/
 code/ui/playwright/.cache/
+
+# XTR mTLS keystore + Security Server CA (xtr/ssl/README.md says what goes here)
+xtr/ssl/*
+!xtr/ssl/README.md

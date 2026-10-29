@@ -2,6 +2,9 @@
 
 ## Changes
 
+- **v1.4** — Added the **outbound** direction: the gate can now call other X-Road services through
+  **XTR** (`turnerrainer/xtr`, Ruuter → XTR → Security Server, mTLS held only by XTR). The inbound
+  direction is unchanged and does not pass through XTR. See [ADR-017](../decisions/017-xtr-outbound-x-road.md).
 - **v1.3** — The X-Road surface is a separate Ruuter again: container `ruuter-xroad`, port 8087,
   `DSL/Ruuter-xroad/xroad/`, `ruuter-xroad.yaml`, `constants-xroad.ini`, with
   `internal_requests.allowed_urls` limiting outbound calls. It calls the main Ruuter's
@@ -105,8 +108,18 @@ TRAM / LOIS2 / ANTS (via NES)
  ruuter-xroad :8087  /xroad/**  ← what this gate implements (xroad project)
 ```
 
-The `xroad` project is a **provider-side adapter, called by our own Security Server**. The
-consumer (client) side is not implemented — the gate never calls out to other X-Road services.
+The `xroad` project is a **provider-side adapter, called by our own Security Server**. The outbound
+(consumer) side is a separate path: Ruuter calls the `xtr` service over plain HTTP inside the compose
+network and XTR speaks mTLS to the Security Server (`X-Road-Client` is always set from `xtr/xtr.yaml`,
+`X-Road-Id` is generated unless supplied):
+
+```
+Ruuter ──HTTP, Bearer XTR_INTER_SERVICE_TOKEN──► xtr :8080 ──mTLS──► Security Server :5500 ──► provider
+```
+
+XTR 0.5.x has no inbound REST lane (inbound is SOAP only), so the Security Server still calls `ruuter-xroad`'s
+`/xroad/**` (port 8087) directly. Ruuter's `GET /efti/api/v1/xtr/ready` (gate-internal token) probes XTR's `/health`;
+it does not call the Security Server. Details and limits: [ADR-017](../decisions/017-xtr-outbound-x-road.md).
 Registering the service, and granting each client subsystem access rights to it, is Security Server
 configuration, not gate code.
 

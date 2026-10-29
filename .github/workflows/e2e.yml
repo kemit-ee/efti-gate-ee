@@ -28,6 +28,20 @@ jobs:
           run dsl-test --dsl DSL/Ruuter-xroad-mock --tests DSL-mock-tests --constants constants-xroad-mock.ini
           run dsl-test --dsl DSL/Ruuter-turvis-mock --tests DSL-turvis-mock-tests --constants constants-turvis-mock.ini
 
+      - name: XTR config (doctor --strict)
+        # Throwaway keystore + CA only so doctor can run; the real ones are mounted at runtime (ADR-017).
+        # 3DES/SHA1 PKCS12: the format XTR can load.
+        run: |
+          mkdir -p "$RUNNER_TEMP/xtr-ssl"
+          cd "$RUNNER_TEMP/xtr-ssl"
+          openssl req -x509 -newkey rsa:2048 -nodes -keyout k.pem -out xroad-ca.pem -days 2 -subj "/CN=ci"
+          openssl pkcs12 -export -certpbe PBE-SHA1-3DES -keypbe PBE-SHA1-3DES -macalg sha1 -inkey k.pem -in xroad-ca.pem -out xtr-client.p12 -passout pass:ci
+          chmod a+r *
+          cd "$GITHUB_WORKSPACE"
+          docker run --rm -e XTR_KEYSTORE_PASSWORD=ci \
+            -v "$PWD/xtr/xtr.yaml:/app/xtr.yaml:ro" -v "$PWD/xtr/DSL:/app/DSL:ro" -v "$RUNNER_TEMP/xtr-ssl:/app/ssl:ro" \
+            turnerrainer/xtr:0.5.1-rc doctor --strict
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
