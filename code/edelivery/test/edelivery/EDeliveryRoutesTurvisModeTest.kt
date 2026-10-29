@@ -48,8 +48,9 @@ class EDeliveryRoutesTurvisModeTest {
     conversationId: String? = conversation,
     payload: String = "<hello>world</hello>",
     digests: List<TurvisSignatureReference> = emptyList(),
+    to: String = "EU-EE",
   ) = VerifiedInbound(
-    TurvisEbmsRouting("m-1@x", conversationId, null, from, "EU-EE", "svc", "act"),
+    TurvisEbmsRouting("m-1@x", conversationId, null, from, to, "svc", "act"),
     TurvisSigner("CN=de", "ski", "01", verifiedIdentity),
     digests, payload, "dec-1", "ver-1",
   )
@@ -331,6 +332,40 @@ class EDeliveryRoutesTurvisModeTest {
       expect(sent.captured).notToContain("internal")
       expect(sent.captured).notToContain("Exception")
     }
+  }
+
+  @Test fun `the error log line of a Turvis reject carries the audit_ref and the bucket, with and without a Turvis audit_ref, and no detail`() {
+    val withRef = TurvisRejection("verifications", 422, "SIGNER_UNTRUSTED", "00000000-0000-4000-8000-00000000abcd", "Jaan Tamm C:\\internal")
+    val withoutRef = TurvisRejection("verifications", 422, "SIGNER_UNTRUSTED", null, null)
+    every { generator.soapFault(any()) } returns "<fault/>"
+    for ((rejection, turvisRef) in listOf(withRef to "00000000-0000-4000-8000-00000000abcd", withoutRef to "null")) {
+      clearMocks(exchange, answers = false, recordedCalls = true)
+      every { exchange.requestStream } returns "raw body".toByteArray().inputStream()
+      every { turvis.process(any()) } throws SignerUntrustedException(rejection)
+
+      val lines = LogCapture.lines { routes.msh(exchange) }
+
+      val line = lines.single { "Error when processing message via turvis" in it }
+      expect(line).toContain("audit_ref=")
+      expect(line).toContain("reason=SIGNER_UNTRUSTED")
+      expect(line).toContain("turvis_audit_ref=$turvisRef")
+      expect(line).toContain("body_sha256=")
+      expect(line).notToContain("Jaan Tamm")
+      expect(line).notToContain("internal")
+      expect(line).notToContain("raw body")
+      expect(line).notToContain("detail")
+    }
+  }
+
+  @Test fun `an unknown receiver from the verified routing is logged only in the audit character set`() {
+    every { turvis.process(any()) } returns verified(to = "EVIL\r\n{\"forged\":1} receiver")
+    every { handler.invoke(any()) } returns null
+
+    val lines = LogCapture.lines { routes.msh(exchange) }
+
+    expect(lines.single { "Unknown receiver" in it }).toContain("Unknown receiver: ?")
+    expect(lines.joinToString("\n")).notToContain("forged")
+    expect(lines.joinToString("\n")).notToContain("EVIL")
   }
 
   private val storedReceipt = "<stored-receipt>\r\n first </stored-receipt>".toByteArray() + byteArrayOf(0x0b)

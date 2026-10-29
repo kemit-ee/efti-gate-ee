@@ -68,7 +68,7 @@ class EDeliveryRoutes(
       val header = xmlParser.parse<MessageHeader>(xml)
       currentThread().name = header.conversationId.toString()
 
-      if (header.receiverId != keyManager.partyId) log.warn("Unknown receiver: ${header.receiverId}")
+      if (header.receiverId != keyManager.partyId) log.warn("Unknown receiver: ${header.receiverId.toString().logSafe()}")
       observed.stage = LegacyObservation.Stage.PARTY_LOOKUP
       val party = partyRegistry[header.senderId]
       e.attr("client", party.id)
@@ -92,7 +92,7 @@ class EDeliveryRoutes(
       val responseKey = RequestKey(header.senderId, header.conversationId, header.receiverId)
       val handler = messageHandlers.rootTags[rootTag] ?: throw UnsupportedOperationException("Unsupported message '$rootTag' from $responseKey")
       EDeliveryMetrics.inbound(rootTag)
-      log.info("Handling '$rootTag' from $responseKey")
+      log.info("Handling '${rootTag.logSafe()}' from ${responseKey.toString().logSafe()}")
 
       val responseXml = eDeliveryMessageGenerator.responseMessage(header)
       e.send(OK, responseXml, soap)
@@ -136,7 +136,7 @@ class EDeliveryRoutes(
       currentThread().name = conversationId.toString()
 
       val receiverId = PartyId(routing.toPartyId)
-      if (receiverId != keyManager.partyId) log.warn("Unknown receiver: $receiverId")
+      if (receiverId != keyManager.partyId) log.warn("Unknown receiver: ${receiverId.toString().logSafe()}")
       val senderId = PartyId(inbound.signer.verifiedIdentity) // the signature's identity, never routing.fromPartyId
       val party = partyRegistry[senderId]
       e.attr("client", party.id)
@@ -145,7 +145,7 @@ class EDeliveryRoutes(
       val responseKey = RequestKey(senderId, conversationId, receiverId)
       val handler = messageHandlers.rootTags[rootTag] ?: throw UnsupportedOperationException("Unsupported message '$rootTag' from $responseKey")
       EDeliveryMetrics.inbound(rootTag)
-      log.info("Handling '$rootTag' from $responseKey (turvis decrypt=${inbound.decryptAuditRef} verify=${inbound.verifyAuditRef})")
+      log.info("Handling '${rootTag.logSafe()}' from ${responseKey.toString().logSafe()} (turvis decrypt=${inbound.decryptAuditRef} verify=${inbound.verifyAuditRef})")
 
       val payloadSha256 = inbound.payloadXml.toByteArray().sha256Hex()
       // A repeat of a message already accepted from this verified sender gets the stored receipt and is not dispatched again (#336).
@@ -248,9 +248,9 @@ class EDeliveryRoutes(
     }
 
     if (header.keyEncryptionAlgorithm != "http://www.w3.org/2009/xmlenc11#rsa-oaep")
-      log.warn("Unknown key encryption method: ${header.keyEncryptionAlgorithm}")
+      log.warn("Unknown key encryption method: ${header.keyEncryptionAlgorithm.logSafe()}")
     if (header.dataEncryptionAlgorithm != "http://www.w3.org/2009/xmlenc11#aes128-gcm")
-      log.warn("Unknown data encryption method: ${header.dataEncryptionAlgorithm}")
+      log.warn("Unknown data encryption method: ${header.dataEncryptionAlgorithm.logSafe()}")
 
     val oaepSpec = OAEPParameterSpec("SHA-256", "MGF1", MGF1ParameterSpec.SHA256, PSource.PSpecified.DEFAULT)
     val cipherRSA = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding")
