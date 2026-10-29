@@ -2439,7 +2439,7 @@ components:
       description: >-
         Forbidden — caller authenticated but not permitted on this surface (mismatched role / out-of-scope entity /
         opsToken mismatch). A subset denial (`FORBIDDEN_SUBSET`) is emitted only by the X-Road routes and is documented on
-        `/xroad/v1/dataset` and `/xroad/v1/transport-means`.
+        `/xroad/provide/v1/dataset` and `/xroad/provide/v1/transport-means`.
       content:
         application/problem+json:
           schema:
