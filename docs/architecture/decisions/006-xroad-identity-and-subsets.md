@@ -282,8 +282,8 @@ täpselt üks vaste) ja arvutab keelatud alamhulgad DSL-is
 > (`:requested_subsets <@ a.subsets` failis `check_authority_subsets.sql`), sest mootori
 > JS-massiivi tugi (`.every` / `.includes` / noolefunktsioonid) oli tõestamata. See luges sama
 > `authorities` rea, mille guard oli juba lahendanud — üks lisapäring iga X-Road päringu kohta.
-> `turnerrainer/ruuter:0.10.1-rc` toetab neid konstruktsioone (`DSL-xroad-tests/subset-permission.test.yml`),
-> seega SQL-fail eemaldati.
+> `turnerrainer/ruuter:0.10.1-rc` (ja kõik hilisemad, praegu `0.12.1-rc`) toetab neid konstruktsioone
+> (`DSL-xroad-tests/subset-permission.test.yml` kinnitab seda praeguse versiooniga), seega SQL-fail eemaldati.
 
 Kaks lõksu, mis on koodis kommenteeritud:
 
