@@ -87,6 +87,12 @@ include:
         - name: cronmanager
           image_repository: cronmanager/images
           dockerfile: docker/cronmanager/Dockerfile
+        # Built and scanned, not yet deployed: the `xtr` component needs its wrapper chart in
+        # services/efti/devops first (keystore Secret at /app/ssl/xtr-client.p12 + CA, XTR_KEYSTORE_PASSWORD
+        # and XTR_INTER_SERVICE_TOKEN from a Secret, no exposed port). See ADR-017.
+        - name: xtr
+          image_repository: xtr/images
+          dockerfile: docker/xtr/Dockerfile
       components:
         - name: efti-config
         - name: resql

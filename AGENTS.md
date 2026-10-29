@@ -6,7 +6,7 @@ Estonian national eFTI Gate (EU Regulation 2020/1056). Mediates dataset retrieva
 
 ## Architecture at a glance
 
-21 Docker Compose services (20 long-running/one-shot jobs + the `http-tests` runner; `turvis-trust` serves the generated Turvis trust view and `turvis-mock` is the dev/test Turvis stand-in, neither has a consumer yet). Three runtime layers:
+22 Docker Compose services (21 long-running/one-shot jobs + the `http-tests` runner; `xtr` is the outbound X-Road REST client (ADR-017); `turvis-trust` serves the generated Turvis trust view and `turvis-mock` is the dev/test Turvis stand-in, neither has a consumer yet). Three runtime layers:
 
 | Layer | Tech | Port | Role |
 |-------|------|------|------|
@@ -14,7 +14,7 @@ Estonian national eFTI Gate (EU Regulation 2020/1056). Mediates dataset retrieva
 | **ReSql** | Rust SQL executor | 8090 | Serves SQL files as HTTP endpoints |
 | **Kotlin services** | JVM (klite framework) | 8081–8082 | edelivery (AS4), xml-mapper (XML↔JSON). Each exposes a klite-native `/metrics` (OpenMetrics/Prometheus) endpoint — `code/core/src/metrics/RequestMetrics.kt` |
 
-Supporting: PostgreSQL 18 (54321), TIM (8085, identity), TARA-mock (8888, OIDC), UI (8000, Vite/Svelte),
+Supporting: XTR (`xtr`, `turnerrainer/xtr:0.5.1-rc`, 8080 internal, loopback 8092 in dev only) — outbound X-Road REST (Ruuter → XTR → Security Server over mTLS), see "XTR" below; PostgreSQL 18 (54321), TIM (8085, identity), TARA-mock (8888, OIDC), UI (8000, Vite/Svelte),
 Prometheus (9090), Grafana (3000), Alertmanager (9093) — observability stack, see
 `docs/architecture/observability/monitoring_and_alerting.md`. CronManager (`cronmanager`,
 `turnerrainer/cronmanager:0.2.3-alpha`, loopback 8089 in dev only) — scheduler for `/ops/v1/*`, see
@@ -83,6 +83,9 @@ registry/               # SOURCE OF TRUTH for gates/platforms/authorities (ADR-0
   platforms/<id>.yml    #   (literal blocks). Converted + validated at image build time into JSON and
   authorities/<id>.yml  #   served statically by nginx; NOT in the database. A SECRET STORE: platform
                         #   entries carry a plaintext apiKey. See registry/README.md.
+xtr/                    # Outbound X-Road REST client config (ADR-017): xtr.yaml + DSL/<group>/<service>.yml (one file = one
+                        #   URL); ssl/ is the gitignored mount for xtr-client.p12 + xroad-ca.pem. docker/xtr/Dockerfile bakes the
+                        #   config and DSLs into turnerrainer/xtr:0.5.1-rc, NOT the keystore.
 code/
   edelivery/            # AS4 messaging service
   xml-mapper/           # XML↔JSON conversion (FTI004/009/010/019/021/025/029/030)
@@ -185,6 +188,25 @@ database representation — `gates`, `platforms`, `authorities`, their read mode
 - Detected at build time, not at startup, not by tests: a bad field name/typo in a registry file fails
   the converter (which names the file and the field, because the loader rejects unknown keys) and with
   it the image build — nothing is validated at runtime, because there is no runtime code.
+
+## XTR (outbound X-Road, ADR-017)
+
+- `turnerrainer/xtr:0.5.1-rc` (`docker/xtr/Dockerfile`; config `xtr/xtr.yaml`, services `xtr/DSL/**`). Ruuter → `http://xtr:8080/<group>/<service>`
+  (`Authorization: Bearer XTR_INTER_SERVICE_TOKEN`, same value in `.env` and `constants.ini`) → Security Server over mTLS. XTR always sets
+  `X-Road-Client` from `client_data` (a caller's value is stripped) and generates `X-Road-Id` unless supplied. `/health` and `/api` skip the bearer.
+- **Outbound only.** The Security Server still calls Ruuter's `/xroad/**` directly: XTR 0.5.x has no inbound REST lane (inbound is SOAP-only), so
+  nothing about ADR-006 changed. Dev and test both use the `ee-test` X-Road instance; `client_data` and `security_server.url` in `xtr/xtr.yaml`
+  are still placeholders (TODO before first real call).
+- Config and DSLs are read at boot: change → `docker compose up --build xtr`. The base image's demo DSLs/WSDLs are removed in the Dockerfile.
+  One DSL file = exactly one URL (no wildcard); `allowed_query_params` omitted forwards every query key.
+- Keystore (`xtr/ssl/xtr-client.p12`, password in `XTR_KEYSTORE_PASSWORD`) must be PKCS12 **3DES/SHA1** (`openssl pkcs12 -export -legacy`); an OpenSSL 3 default
+  file stops boot with `keystore load failed: ... builder error`. `trust_ca_path` holds exactly one certificate. Neither file is committed or in an image layer.
+- Errors: XTR's own are `{"error","message"}` (404 `template_not_found`, 405, 413, 502 `upstream_body_too_large`, 504 `upstream_timeout`, and **500**
+  `internal_error` for a network failure towards the Security Server); provider and Security Server 4xx/5xx pass through unchanged with `X-Road-Error`.
+  An outbound Ruuter DSL maps them to `errors.json` itself, and every status it returns must be in `ruuter.yaml` `http_codes_allow_list`.
+- No `/metrics`, so Prometheus does not scrape it. `GET /efti/api/v1/xtr/ready` (internal service token) probes XTR's `/health` only, not the Security Server.
+  Tests: `tests/http/xtr.http`, `DSL-tests/efti/xtr-ready.test.yml`; CI validates the config with `xtr doctor --strict` (GitHub `dsl-validate`, throwaway keystore).
+  The GitLab `xtr` image is build-only until its devops chart exists.
 
 ## Nginx proxy (UI)
 
@@ -450,9 +472,9 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
     while per-module coverage baselines are still being raised (see
     `docker/ui/Dockerfile`, which only runs `npm run build`, never tests).
 - `.gitlab-ci.yml` — kemitaws platform pipeline (mirror): `secret_detection` + `validate:dsl`
-  (same `dsl-lint --audit` / `dsl-test` / `validate-dsl.py` as above) + sonar → eleven
+  (same `dsl-lint --audit` / `dsl-test` / `validate-dsl.py` as above) + sonar → twelve
   `image-build`s (ruuter, ruuter-xroad-mock, resql, liquibase, tim, ui, edelivery, xml-mapper,
-  registry, turvis-trust, cronmanager — turvis-trust (no consumer yet) and cronmanager are build-only until
+  registry, turvis-trust, cronmanager, xtr — turvis-trust (no consumer yet), cronmanager and xtr are build-only until
   their devops charts exist, so they are not in
   `components:`) → SBOM/trivy → `package:charts` trigger into the `efti` devops repo →
   `release-pin` into `environments/dev/release.yaml`. Runs on the default branch and `release/*`.
