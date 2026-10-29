@@ -51,10 +51,10 @@ info:
       `follow-up`.
     - `/v1` — this contract's version, part of the gate-side route.
 
-    Gate-side these map to `/xroad/v1/{serviceCode}` on the gate's own X-Road Ruuter
+    Gate-side these map to `/xroad/provide/v1/{serviceCode}` on the gate's own X-Road Ruuter
     (`ruuter-xroad`, port 8087). That Ruuter is **not** publicly routable — only the gate's
     Security Server may reach it (ADR-006). The provider-side form of this document (paths
-    rewritten to `/xroad/v1/{serviceCode}`) is served by `ruuter-xroad` itself at
+    rewritten to `/xroad/provide/v1/{serviceCode}`) is served by `ruuter-xroad` itself at
     `GET /xroad/provide/openapi`, generated from this file by `scripts/sync-xroad-openapi.py`.
 
     ## Prerequisites
@@ -124,7 +124,7 @@ paths:
         Use it to confirm your Security Server access rights and that your registry code
         resolves to the expected authority.
 
-        Gate-side route: `POST /xroad/v1/echo`.
+        Gate-side route: `POST /xroad/provide/v1/echo`.
       parameters:
         - $ref: '#/components/parameters/XRoadClient'
         - $ref: '#/components/parameters/XRoadId'
@@ -183,7 +183,7 @@ paths:
 
         `subsets: []` is a valid `200` — the authority is registered but entitled to nothing.
 
-        Gate-side route: `GET /xroad/v1/subsets`.
+        Gate-side route: `GET /xroad/provide/v1/subsets`.
       parameters:
         - $ref: '#/components/parameters/XRoadClient'
         - $ref: '#/components/parameters/XRoadId'
@@ -229,7 +229,7 @@ paths:
         Dataset content is **not** returned; fetch it with `dataset` using a `uil` from the
         response. Requires **EU02** in the authority's `subsets`, else `403 FORBIDDEN_SUBSET`.
 
-        Gate-side route: `POST /xroad/v1/transport-means`.
+        Gate-side route: `POST /xroad/provide/v1/transport-means`.
 
         `scope: allgates` is **local-first**: a local hit answers immediately with
         `x-poll-more: false`; the neighbour-gate broadcast runs only on a local miss. While
@@ -314,7 +314,7 @@ paths:
         Each criterion is `{ "<field>": { "operator": "<op>", "<valueKey>": "<value>" } }`.
         Date fields take an **array** of `{ "operator": "<op>", "date": "<ISO-8601>" }`.
 
-        Gate-side route: `POST /xroad/v1/search`.
+        Gate-side route: `POST /xroad/provide/v1/search`.
 
         Each match is the same curated projection `transport-means` returns under
         `consignments` (`uil` nested, no identifier XML), newest first (`createdAt` DESC). The
@@ -378,7 +378,7 @@ paths:
         requested subset must be in the authority's `subsets`; a partially-permitted request is
         refused **whole** — no silent narrowing. Check your entitlement first with `subsets`.
 
-        Gate-side route: `POST /xroad/v1/dataset`.
+        Gate-side route: `POST /xroad/provide/v1/dataset`.
 
         **Status:** contract only — the route is not implemented on `dev`.
       parameters:
@@ -468,7 +468,7 @@ paths:
         Authority API, which routes it to the platform or neighbouring gate that holds the
         dataset. No subset check.
 
-        Gate-side route: `POST /xroad/v1/follow-up`.
+        Gate-side route: `POST /xroad/provide/v1/follow-up`.
 
         **Status:** contract only — the route is not implemented on `dev`.
       parameters:

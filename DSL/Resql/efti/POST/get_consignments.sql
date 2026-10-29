@@ -77,7 +77,7 @@ WHERE c.status != 'DELETED'
   )
   -- transportMeansOrEquipmentId: OR across the three identifier families (main transport, used
   -- equipment, carried equipment). The other criteria are ANDed, so this is the only way to express
-  -- "this identifier, wherever it appears" - used by /xroad/v1/transport-means scope: allgates
+  -- "this identifier, wherever it appears" - used by /xroad/provide/v1/transport-means scope: allgates
   -- (issue #125). Semantically the same match as get_consignments_by_transport_means.sql and
   -- check_transport_means_registered.sql, but written with `@>` instead of `= any(...)`: the
   -- array-on-the-right ANY form has no index path, while `@>` uses the GIN indexes
@@ -96,7 +96,7 @@ WHERE c.status != 'DELETED'
             OR coalesce(used_equipment_ids, '{}') @> ARRAY[:criteria->'transportMeansOrEquipmentId'->>'id']
             OR coalesce(carried_equipment_ids, '{}') @> ARRAY[:criteria->'transportMeansOrEquipmentId'->>'id'])
   )
-  -- status: lets a caller narrow to one lifecycle status. Added for /xroad/v1/transport-means
+  -- status: lets a caller narrow to one lifecycle status. Added for /xroad/provide/v1/transport-means
   -- scope: allgates, whose local slice must apply the same status = 'ACTIVE' allowlist as the
   -- curated projection (get_consignments_by_transport_means.sql) - without it, allgates would
   -- disclose INACTIVE consignments that scope: local and scope: existence deliberately hide.

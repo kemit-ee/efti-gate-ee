@@ -42,7 +42,7 @@ data class TransportMeansRow(
 )
 
 /**
- * The curated identifier-level projection `POST /xroad/v1/transport-means` returns — the same field
+ * The curated identifier-level projection `POST /xroad/provide/v1/transport-means` returns — the same field
  * contract as `get_consignments_by_transport_means.sql` (`scope: local`), so `scope: allgates`
  * keeps the shape promise of ADR-007 variant A. No dataset content, no identifier XML blob.
  */

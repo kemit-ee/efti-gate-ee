@@ -157,7 +157,7 @@ küsitlusvõtmena.
 > `X-Road-Id`, seega küsitlemiseks peab tarbija infosüsteem id-d teadlikult samaks jätma.
 >
 > **Muudatus (11.09.2026, issue #125):** sama piirang kehtib nüüd ka
-> `POST /xroad/v1/transport-means` `scope: allgates` pollimisele (`{poll: true}` + sama
+> `POST /xroad/provide/v1/transport-means` `scope: allgates` pollimisele (`{poll: true}` + sama
 > `X-Road-Id`). Marsruut leevendab veidi: poll läbib alati EU02 õigusekontrolli, seega pollida
 > saab ainult asutus, kellel endal on EU02 — aga omaniku kontrolli ei ole ka siin, teadlikult
 > (sulgub sama audit-looga).
@@ -174,7 +174,7 @@ küsitlusvõtmena.
 > `connect`, `request`, `body`, `decode`, `unknown`) ja jätkab järgmise sammuga. `check_core_status`
 > switch'is on nüüd juhtiv haru `status == 0 → core_unavailable`, mis annab ausa **502
 > `GATEWAY_UNAVAILABLE`** koos `transportError` väljaga. Sama muster on rakendatud kõigil
-> gateway-marsruutidel (`xroad/POST/v1/{dataset,search,follow-up}`, `efti` authority dataset/follow-up,
+> gateway-marsruutidel (`xroad/POST/provide/v1/{dataset,search,follow-up}`, `efti` authority dataset/follow-up,
 > `dataset-local` / `follow-up-local`, admin-marsruudid). Poliitika-tasemel eeltõrjed (SSRF,
 > host-allowlist, vigane URL, vastuse suuruse lagi) tõusevad endiselt erindina — need on
 > ops-otsused, mitte kättesaadavuse sündmused.
@@ -209,7 +209,7 @@ omaette (keerukama haru- ja broadcast-loogikaga) tööd. `ruuter.yaml` seab
 
 ### 5. Õiguste päring tagastab loendi, mitte jah/ei vastuse
 
-`GET /xroad/v1/subsets` tagastab helistaja enda lubatud alamhulgad. Registrikood võetakse **ainult**
+`GET /xroad/provide/v1/subsets` tagastab helistaja enda lubatud alamhulgad. Registrikood võetakse **ainult**
 turvaserveri seatud päisest, mitte päringu kehast — nii ei saa helistaja küsida teise organisatsiooni
 õiguste kohta.
 
@@ -244,7 +244,7 @@ Guard **autendib ainult** — alamhulkade kontrolli ta ei tee (vt allpool):
    (registri seadistusviga; suvalise rea valimine annaks ühele organisatsioonile teise õigused)
 5. Muidu lubatud
 
-Marsruudi tasemel lisanduvad (`POST /xroad/v1/dataset`; `POST /xroad/v1/transport-means` nõuab EU02-t):
+Marsruudi tasemel lisanduvad (`POST /xroad/provide/v1/dataset`; `POST /xroad/provide/v1/transport-means` nõuab EU02-t):
 
 6. Alamhulkade loend on tühi või puudub → **400** `MISSING_SUBSET`
 7. Küsitud alamhulk ei ole `authorities.subsets` sees → **403** `FORBIDDEN_SUBSET`
@@ -272,7 +272,7 @@ Tervisekontroll on ainus erand: `xroad/GET/health/.guard.yml` seab
 ### Alamhulkade kontroll (`FORBIDDEN_SUBSET`)
 
 Kontrolli teeb **marsruut, mitte guard**: guard autendib organisatsiooni, aga alamhulga parameetrit
-võtab vastu ainult `POST /xroad/v1/dataset`, seega teeb kontrolli see marsruut ise. Iga uus alamhulga
+võtab vastu ainult `POST /xroad/provide/v1/dataset`, seega teeb kontrolli see marsruut ise. Iga uus alamhulga
 parameetrit võttev marsruut peab sama tegema — guard ei tee seda tema eest.
 
 Kontroll loeb guardi juba lahendatud autoriteedi rida (`${authority}`, viimane rida, `ACTIVE`,
@@ -302,7 +302,7 @@ muster) ja masinliiklus saab massiividel otse hargneda, ilma lauset parsimata.
 ## Päring
 
 ```
-GET /xroad/v1/subsets
+GET /xroad/provide/v1/subsets
 X-Road-Client: EE/GOV/70000097/tram
 X-Road-Id: abc-123
 
@@ -343,14 +343,14 @@ Need dokumendid väitsid vastupidist ja on selle otsusega korrigeeritud:
 `docs/specs/data-transformations.md` §428 ütles juba varem `requested subsets ⊆
 authorities.subsets` — see oli õige ja jääb muutmata.
 
-## Sõidukipäring (`POST /xroad/v1/transport-means`)
+## Sõidukipäring (`POST /xroad/provide/v1/transport-means`)
 
 Esimene päris äriteenus sellel pinnal: **sisse tuleb auto number, vastu liigub see, mida värav tema
 kohta teab.**
 
 **Vastuses ei ole andmestiku sisu.** Tagastatakse identifikaatori-tasemel metaandmed —
 `uil` (gateId/platformId/datasetId), veovahendi väljad, kuupäevad, riigid, veoseadmed. Sisu saab
-helistaja seejärel `POST /xroad/v1/dataset`-iga, kasutades tagastatud `uil`-i, ja **see tee läbib
+helistaja seejärel `POST /xroad/provide/v1/dataset`-iga, kasutades tagastatud `uil`-i, ja **see tee läbib
 alamhulkade kontrolli**.
 
 Selleks on eraldi ReSql fail `get_consignments_by_transport_means.sql`, mitte olemasolev

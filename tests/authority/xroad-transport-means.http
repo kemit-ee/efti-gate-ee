@@ -1,7 +1,7 @@
 import ../admin/auth.http
 run #auth
 
-# POST /xroad/v1/transport-means — a transport-means identifier in, the identifier-level data the
+# POST /xroad/provide/v1/transport-means — a transport-means identifier in, the identifier-level data the
 # gate holds out (ADR-006). Mode-neutral: road plate, vessel IMO, aircraft registration, or a
 # transport-equipment (container) id.
 #
@@ -42,7 +42,7 @@ Authorization: Bearer {{adminToken}}
 %}
 
 ### scope local (default): main transport means identifier
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
 X-Road-Id: 0a11ce5e-0001-4d1d-8f1a-0ec000000001
 X-Road-UserId: EE30101010007
@@ -69,7 +69,7 @@ Content-Type: application/json
 ### CONTAINER SEARCH: a used-equipment id must match, not just the towing unit
 # The point of the rename. A border check on a container number must not answer "not registered"
 # merely because the number sits on the equipment rather than the main transport means.
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
 X-Road-Id: 0a11ce5e-0002-4d1d-8f2a-0ec000000002
 Content-Type: application/json
@@ -88,7 +88,7 @@ Content-Type: application/json
 %}
 
 ### CONTAINER SEARCH: a carried-equipment id must match too
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
 X-Road-Id: 0a11ce5e-0003-4d1d-8f3a-0ec000000003
 Content-Type: application/json
@@ -105,7 +105,7 @@ Content-Type: application/json
 %}
 
 ### scope existence: the sub-second ANTS border path, boolean only
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
 X-Road-Id: 0a11ce5e-0004-4d1d-8f4a-0ec000000004
 Content-Type: application/json
@@ -125,7 +125,7 @@ Content-Type: application/json
 %}
 
 ### scope existence: a container id is registered too
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
 X-Road-Id: 0a11ce5e-0005-4d1d-8f5a-0ec000000005
 Content-Type: application/json
@@ -140,7 +140,7 @@ Content-Type: application/json
 %}
 
 ### scope existence: unknown identifier is registered false, not 404
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
 X-Road-Id: 0a11ce5e-0006-4d1d-8f6a-0ec000000006
 Content-Type: application/json
@@ -155,7 +155,7 @@ Content-Type: application/json
 %}
 
 ### REGRESSION: the local response must carry no dataset content
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
 X-Road-Id: 0a11ce5e-0007-4d1d-8f7a-0ec000000007
 Content-Type: application/json
@@ -171,7 +171,7 @@ Content-Type: application/json
 %}
 
 ### Unknown identifier under scope local is 200 with found 0, not 404
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
 X-Road-Id: 0a11ce5e-0008-4d1d-8f8a-0ec000000008
 Content-Type: application/json
@@ -188,7 +188,7 @@ Content-Type: application/json
 %}
 
 ### countryCode that matches the registration country still finds it
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
 X-Road-Id: 0a11ce5e-0009-4d1d-8f9a-0ec000000009
 Content-Type: application/json
@@ -204,7 +204,7 @@ Content-Type: application/json
 %}
 
 ### countryCode that does not match filters the row out
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
 X-Road-Id: 0a11ce5e-000a-4d1d-8faa-0ec00000000a
 Content-Type: application/json
@@ -219,7 +219,7 @@ Content-Type: application/json
 %}
 
 ### Empty countryCode means "any country" — normalised in SQL, not the DSL
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
 X-Road-Id: 0a11ce5e-000b-4d1d-8fba-0ec00000000b
 Content-Type: application/json
@@ -238,7 +238,7 @@ Content-Type: application/json
 # is fast and x-poll-more is false. The raw local rows are normalised by the xml-mapper — same
 # field contract as scope local (ADR-007 variant A).
 # @timeout 75
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
 X-Road-Id: 0a11ce5e-000c-4d1d-8fca-0ec00000000c
 Content-Type: application/json
@@ -267,7 +267,7 @@ Content-Type: application/json
 # Exercises the new transportMeansOrEquipmentId criterion in get_consignments.sql end to end:
 # TE-001 sits in used_equipment_ids, not in main_transport_id.
 # @timeout 75
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
 X-Road-Id: 0a11ce5e-0015-4d1d-8f5a-0ec000000015
 Content-Type: application/json
@@ -287,7 +287,7 @@ Content-Type: application/json
 # Core registers the broadcast as a pending search_results row and returns immediately — the peers' results
 # arrive via polling, so x-poll-more is deterministically true here.
 # @timeout 75
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
 X-Road-Id: 0a11ce5e-0016-4d1d-8f6a-0ec000000016
 Content-Type: application/json
@@ -310,7 +310,7 @@ Content-Type: application/json
 # optional; sending them keeps the echo fields meaningful. Core long-polls the stored search for up to 30s
 # for the first peer response when none has arrived yet, hence the timeout.
 # @timeout 75
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
 X-Road-Id: 0a11ce5e-0016-4d1d-8f6a-0ec000000016
 Content-Type: application/json
@@ -330,7 +330,7 @@ Content-Type: application/json
 %}
 
 ### A bare poll skips the identifier requirement (unknown request id drains empty)
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
 X-Road-Id: 0a11ce5e-0017-4d1d-8f7a-0ec000000017
 Content-Type: application/json
@@ -349,7 +349,7 @@ Content-Type: application/json
 %}
 
 ### A poll is still EU02-gated — the pending queue has no ownership check (ADR-006)
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000092/tram
 X-Road-Id: 0a11ce5e-0018-4d1d-8f8a-0ec000000018
 Content-Type: application/json
@@ -364,7 +364,7 @@ Content-Type: application/json
 %}
 
 ### A poll with an unknown scope is still 400 — the echo field stays in the published enum
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
 X-Road-Id: 0a11ce5e-0019-4d1d-8f9a-0ec000000019
 Content-Type: application/json
@@ -380,7 +380,7 @@ Content-Type: application/json
 %}
 
 ### Unknown scope → 400, not a silent default
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
 X-Road-Id: 0a11ce5e-000d-4d1d-8fda-0ec00000000d
 Content-Type: application/json
@@ -396,7 +396,7 @@ Content-Type: application/json
 %}
 
 ### Entitlement: an authority without EU02 is denied, on every scope
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000092/tram
 X-Road-Id: 0a11ce5e-000e-4d1d-8fea-0ec00000000e
 Content-Type: application/json
@@ -415,7 +415,7 @@ Content-Type: application/json
 %}
 
 ### Entitlement is checked before the existence shortcut too
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000092/tram
 X-Road-Id: 0a11ce5e-000f-4d1d-8ffa-0ec00000000f
 Content-Type: application/json
@@ -431,7 +431,7 @@ Content-Type: application/json
 %}
 
 ### identifier absent → 400
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
 X-Road-Id: 0a11ce5e-0010-4d1d-8f0a-0ec000000010
 Content-Type: application/json
@@ -446,7 +446,7 @@ Content-Type: application/json
 %}
 
 ### identifier empty → 400
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
 X-Road-Id: 0a11ce5e-0011-4d1d-8f1a-0ec000000011
 Content-Type: application/json
@@ -461,7 +461,7 @@ Content-Type: application/json
 %}
 
 ### identifier numeric → 400, not a 502 from the data layer
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
 X-Road-Id: 0a11ce5e-0012-4d1d-8f2a-0ec000000012
 Content-Type: application/json
@@ -476,7 +476,7 @@ Content-Type: application/json
 %}
 
 ### The guard still fronts this route: no X-Road-Client → 401
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Id: 0a11ce5e-0013-4d1d-8f3a-0ec000000013
 Content-Type: application/json
 
@@ -490,7 +490,7 @@ Content-Type: application/json
 %}
 
 ### Non-UUID X-Road-Id → 400 INVALID_REQUEST_ID
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
 X-Road-Id: ANTS-2026-000123
 Content-Type: application/json
@@ -505,7 +505,7 @@ Content-Type: application/json
 %}
 
 ### Unknown registry code → 403, before any lookup
-POST {{XROAD_URL}}/xroad/v1/transport-means
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/99999999/ants
 X-Road-Id: 0a11ce5e-0014-4d1d-8f4a-0ec000000014
 Content-Type: application/json

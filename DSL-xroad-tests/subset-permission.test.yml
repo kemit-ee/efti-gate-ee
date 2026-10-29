@@ -1,4 +1,4 @@
-# Subset entitlement on /xroad/v1/dataset and /xroad/v1/transport-means is decided from the authority
+# Subset entitlement on /xroad/provide/v1/dataset and /xroad/provide/v1/transport-means is decided from the authority
 # entry xroad/.guard.yml resolves out of the ADR-011 registry service (registry/authorities/*.json),
 # with no second authorities lookup. Only the guard's registry read and the downstream call are mocked
 # - the forward goes to core through RUUTER_URL, so that too must point at the mock.
@@ -20,7 +20,7 @@ tests:
           body: { xml: "<SpecifiedSupplyChainConsignment/>", consignment: { grossWeightMeasure: "1" } }
     request:
       method: POST
-      path: /xroad/v1/dataset
+      path: /xroad/provide/v1/dataset
       headers:
         content-type: "application/json"
         x-road-client: "EE/GOV/70000094/tram"
@@ -42,7 +42,7 @@ tests:
           body: [{ id: "authority", name: "Test authority", registryCode: "70000094", subsets: ["EU01"] }]
     request:
       method: POST
-      path: /xroad/v1/dataset
+      path: /xroad/provide/v1/dataset
       headers:
         content-type: "application/json"
         x-road-client: "EE/GOV/70000094/tram"
@@ -64,7 +64,7 @@ tests:
           body: [{ id: "authority", name: "Test authority", registryCode: "70000094", subsets: null }]
     request:
       method: POST
-      path: /xroad/v1/dataset
+      path: /xroad/provide/v1/dataset
       headers:
         content-type: "application/json"
         x-road-client: "EE/GOV/70000094/tram"
@@ -82,7 +82,7 @@ tests:
           body: [{ id: "authority", name: "Test authority", registryCode: "70000094", subsets: ["EU01"] }]
     request:
       method: POST
-      path: /xroad/v1/dataset
+      path: /xroad/provide/v1/dataset
       headers:
         content-type: "application/json"
         x-road-client: "EE/GOV/70000094/tram"
@@ -100,7 +100,7 @@ tests:
           body: [{ id: "authority", name: "Test authority", registryCode: "70000094", subsets: ["EU01"] }]
     request:
       method: POST
-      path: /xroad/v1/dataset
+      path: /xroad/provide/v1/dataset
       headers:
         content-type: "application/json"
         x-road-client: "EE/GOV/70000094/tram"
@@ -118,7 +118,7 @@ tests:
           body: [{ id: "authority", name: "Test authority", registryCode: "70000094", subsets: ["EU01"] }]
     request:
       method: POST
-      path: /xroad/v1/transport-means
+      path: /xroad/provide/v1/transport-means
       headers:
         content-type: "application/json"
         x-road-client: "EE/GOV/70000094/tram"
@@ -136,7 +136,7 @@ tests:
           body: [{ id: "authority", name: "Test authority", registryCode: "70000094" }]
     request:
       method: POST
-      path: /xroad/v1/transport-means
+      path: /xroad/provide/v1/transport-means
       headers:
         content-type: "application/json"
         x-road-client: "EE/GOV/70000094/tram"
@@ -157,7 +157,7 @@ tests:
           body: [{ registered: true }]
     request:
       method: POST
-      path: /xroad/v1/transport-means
+      path: /xroad/provide/v1/transport-means
       headers:
         content-type: "application/json"
         x-road-client: "EE/GOV/70000094/tram"

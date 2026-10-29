@@ -13,7 +13,7 @@ info:
     - **Admin API** (`/api/v1/...`) — called by gate operators
     - **Health API** (`/health/...`) — Kubernetes liveness/readiness probes
 
-    The gate's **X-Road provider surface** (`/xroad/v1/*`, called by competent authorities over the X-Road network) is specified separately in [`x_road_openapi.yaml`](../developer/x_road_openapi.yaml); the provider-side form is served by `ruuter-xroad` at `GET /xroad/provide/openapi` — see also [`x_road_authority_integration_guide.md`](../developer/x_road_authority_integration_guide.md).
+    The gate's **X-Road provider surface** (`/xroad/provide/v1/*`, called by competent authorities over the X-Road network) is specified separately in [`x_road_openapi.yaml`](../developer/x_road_openapi.yaml); the provider-side form is served by `ruuter-xroad` at `GET /xroad/provide/openapi` — see also [`x_road_authority_integration_guide.md`](../developer/x_road_authority_integration_guide.md).
 
     The gate's **AS4 surfaces** (`/services/msh` for inbound AS4 SOAP, `/services/fast` for the optional fast-protocol mTLS HTTPS alternative) are **out of scope** for this OpenAPI document. They are wire-protocol-defined by the EU eDelivery AS4 1.15 conformance profile (per `non-functional.md` §3) — not by REST OpenAPI. See `seq-14-gate-to-gate-search.mmd` and `seq-16-mtls-fast-protocol.mmd` for the message-flow contract; see Epic 10 (`docs/cfr/integrations/edelivery_as4.md`) and Epic 25 (`docs/cfr/integrations/as4_message_flow.md`) for the AS4 message catalogue.
 
@@ -432,7 +432,7 @@ paths:
         enforced when the authority subsequently calls `GET /v1/dataset/...`. There is no
         `users.subsets` column; see ADR-006. On the X-Road channel the authority is resolved
         from the `X-Road-Client` member code, and callers can discover their own entitlement
-        via `GET /xroad/v1/subsets`.
+        via `GET /xroad/provide/v1/subsets`.
       parameters:
         - name: identifier
           in: path
@@ -1536,7 +1536,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
 
-  /xroad/v1/subsets:
+  /xroad/provide/v1/subsets:
     # Served by the separate ruuter-xroad (port 8087), reached by consumers through their own X-Road Security
     # Server at /r1/EE/GOV/70003158/efti-gate/... — the path below is what the provider-side gate
     # sees. The /xroad/** path must not be exposed on a public ingress (see ADR-006).
@@ -1666,7 +1666,7 @@ paths:
                     status: 403
                     detail: The X-Road client registry code resolves to more than one active competent authority. This is a registry misconfiguration; contact the gate operator.
 
-  /xroad/v1/transport-means:
+  /xroad/provide/v1/transport-means:
     post:
       tags: [X-Road]
       summary: Look up what the gate knows about a transport-means or transport-equipment identifier
@@ -1678,7 +1678,7 @@ paths:
 
         **No dataset content is returned.** The response carries the `uil` of each matching
         consignment plus transport-means and date/country metadata. To obtain content, call
-        `POST /xroad/v1/dataset` with a returned `uil` — that path applies the subset check per
+        `POST /xroad/provide/v1/dataset` with a returned `uil` — that path applies the subset check per
         requested subset.
 
         This route is backed by a dedicated projection rather than the general consignment search so
@@ -1801,7 +1801,7 @@ paths:
                           # Inlined rather than $ref'ing UIL: that schema pins
                           # gateId to ^eu-[a-z]{2}[0-9]{2}$, which the real gate id EU-EE
                           # (constants.ini OWN_GATE_ID) does not match — a validator would
-                          # reject every genuine response. /xroad/v1/dataset's requestBody
+                          # reject every genuine response. /xroad/provide/v1/dataset's requestBody
                           # already inlines it for the same reason.
                           type: object
                           required: [gateId, platformId, datasetId]
@@ -1851,7 +1851,7 @@ paths:
         '502':
           $ref: '#/components/responses/XRoadBadGateway'
 
-  /xroad/v1/dataset:
+  /xroad/provide/v1/dataset:
     post:
       tags: [X-Road]
       summary: Retrieve a consignment dataset filtered to the requested eFTI subsets
@@ -1865,7 +1865,7 @@ paths:
         full — there is no silent narrowing to the permitted subset, because that would answer a
         question the caller did not ask and hide the entitlement error.
 
-        Callers can discover their own entitlement up front via `GET /xroad/v1/subsets`.
+        Callers can discover their own entitlement up front via `GET /xroad/provide/v1/subsets`.
       security:
         - xroadClient: []
       parameters:
@@ -1890,7 +1890,7 @@ paths:
                   type: array
                   minItems: 1
                   description: |
-                    At least one subset is required. See `GET /xroad/v1/subsets` for the note on why
+                    At least one subset is required. See `GET /xroad/provide/v1/subsets` for the note on why
                     this is not bound to the `Subset` enum.
                   items: { type: string }
                   example: ["EU01", "EU05"]
@@ -1933,7 +1933,7 @@ paths:
         '502':
           $ref: '#/components/responses/XRoadBadGateway'
 
-  /xroad/v1/search:
+  /xroad/provide/v1/search:
     post:
       tags: [X-Road]
       summary: Search consignments by identifier criteria
@@ -1986,7 +1986,7 @@ paths:
         '502':
           $ref: '#/components/responses/XRoadBadGateway'
 
-  /xroad/v1/follow-up:
+  /xroad/provide/v1/follow-up:
     post:
       tags: [X-Road]
       summary: Send a follow-up message to a platform via the gate
@@ -2216,7 +2216,7 @@ components:
         omits the header), so a consumer information system that sets its own id must use UUIDs.
 
         Also the correlation key for polling an in-flight cross-gate search: re-issue
-        `POST /xroad/v1/search` with `{"poll": true}` and the same value. Note a request re-sent
+        `POST /xroad/provide/v1/search` with `{"poll": true}` and the same value. Note a request re-sent
         through the Security Server normally receives a **fresh** id, so polling requires the
         consumer to reuse it deliberately.
       schema:
@@ -2385,7 +2385,7 @@ components:
 
         The same code and status are also used when a **gate-side data-layer call** fails rather than
         core — a transport-means lookup. Those variants carry `resqlStatus` instead of
-        `coreStatus`/`coreResponse`, and on `/xroad/v1/transport-means` also a `failedStep`
+        `coreStatus`/`coreResponse`, and on `/xroad/provide/v1/transport-means` also a `failedStep`
         (`check_transport_means_registered` or `get_consignments_by_transport_means`) so an operator can
         tell which of the route's queries failed.
 
@@ -2439,7 +2439,7 @@ components:
       description: >-
         Forbidden — caller authenticated but not permitted on this surface (mismatched role / out-of-scope entity /
         opsToken mismatch). A subset denial (`FORBIDDEN_SUBSET`) is emitted only by the X-Road routes and is documented on
-        `/xroad/v1/dataset` and `/xroad/v1/transport-means`.
+        `/xroad/provide/v1/dataset` and `/xroad/provide/v1/transport-means`.
       content:
         application/problem+json:
           schema:

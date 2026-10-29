@@ -4,7 +4,7 @@ declaration:
     (container) id - and the identifier-level data this gate holds against it comes back.
     Mode-neutral by design: one service covers all of them.
 
-    Returns NO dataset content. The caller uses a returned uil with POST /xroad/v1/dataset to fetch
+    Returns NO dataset content. The caller uses a returned uil with POST /xroad/provide/v1/dataset to fetch
     content, which goes through the subset check. Requires EU02 (means of transport) in
     authorities.subsets, because that is what this data is.
 
@@ -227,7 +227,7 @@ route_allgates:
 
 # X-Road-Id becomes x-request-id - load-bearing, not tidy: core keys the search_results poll on it.
 # Core's first call returns the local slice immediately and never blocks on peer gates (the
-# broadcast is registered in the background), so 15s is generous - same as xroad/POST/v1/search.yml.
+# broadcast is registered in the background), so 15s is generous - same as xroad/POST/provide/v1/search.yml.
 forward_to_core_search:
   call: http.post
   timeout: 15000
@@ -302,7 +302,7 @@ poll_core:
 # Since Ruuter 0.9.15-rc (issue turnerrainer/Ruuter#89) a connection refusal, DNS failure, TLS
 # handshake error or the timeout expiring binds a stub {status: 0, error: <kind>} instead of
 # aborting the run, so the availability-failure class reaches core_search_unavailable's semantic
-# 502 - same pattern as xroad/POST/v1/search.yml's check_core_status.
+# 502 - same pattern as xroad/POST/provide/v1/search.yml's check_core_status.
 check_core_search_status:
   switch:
     - condition: ${core_res.response.status == 0}

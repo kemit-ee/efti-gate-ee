@@ -355,8 +355,13 @@ järgnevad kasutajad lisatakse haldusliidese vaates **Kasutajad**.
 
 `INTERNAL_SERVICE_TOKEN` (§3.2) on ainus kaitse `/efti/api/v1/authority/**` peal — see jagab Ruuteri
 porti 8086 avaliku gate-API-ga. `/xroad/**` elab eraldi Ruuteris (`ruuter-xroad`, port 8087); selle
-teenusel ei tohi olla ingressi ega avalikku marsruuti, ainult X-Road Turvaserver tohib sinna jõuda.
-Ingress/reverse-proxy **EI TOHI** `/efti/api/v1/authority/**`-i avalikult eksponeerida. Vt ADR-006.
+teenusel ei tohi olla avalikku marsruuti, ainult X-Road Turvaserver tohib sinna jõuda. Turvaserveri
+teenuse baas on `https://<host>/xroad/provide` (dev: `eftidev.xtpnl.kemitaws.ee`): marsruut peab selle
+prefiksi edastama teenusele `ruuter-xroad:8087` **ilma tee ümberkirjutuseta** (arendaja-mokk
+`/developer/v1/echo` ↔ päris `/xroad/provide/v1/echo`, nii et arendaja vahetab ainult baas-URL-i). Ainult
+`/xroad/provide/openapi` on päiseta loetav; kõik muu selle prefiksi all usaldab `X-Road-Client` päist,
+mistõttu peab marsruut olema kättesaadav ainult Turvaserveri aadressilt (allikapiirang/NetworkPolicy).
+`/xroad/health/**` ei marsruudita. Ingress/reverse-proxy **EI TOHI** `/efti/api/v1/authority/**`-i avalikult eksponeerida. Vt ADR-006.
 
 `DSL/Ruuter/ops/**` (saadetiste arhiveerimine, §3.2 `ARCHIVE_OPS_TOKEN`) jagab samuti Ruuteri porti
 8086, aga pole `docker/ui/nginx.conf` kaudu proksitud (vt "Nginx proxy" `AGENTS.md`-is) — see pole

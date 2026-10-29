@@ -20,7 +20,7 @@ tests:
           body: [{ uil: { gateId: "EU-EE", platformId: "mock", datasetId: "550e8400-e29b-41d4-a716-446655440001" }, mainTransportId: "MOCK-PLATE-1" }]
     request:
       method: POST
-      path: /xroad/v1/search
+      path: /xroad/provide/v1/search
       headers:
         content-type: application/json
         x-road-client: "EE/GOV/70000094/tram"
@@ -46,7 +46,7 @@ tests:
           body: []
     request:
       method: POST
-      path: /xroad/v1/search
+      path: /xroad/provide/v1/search
       headers:
         content-type: application/json
         x-road-client: "EE/GOV/70000094/tram"
@@ -73,7 +73,7 @@ tests:
           body: { error: "boom" }
     request:
       method: POST
-      path: /xroad/v1/search
+      path: /xroad/provide/v1/search
       headers:
         content-type: application/json
         x-road-client: "EE/GOV/70000094/tram"
@@ -98,7 +98,7 @@ tests:
           body: { length: 1, "0": { xml: "<Identifiers/>" } }
     request:
       method: POST
-      path: /xroad/v1/search
+      path: /xroad/provide/v1/search
       headers:
         content-type: application/json
         x-road-client: "EE/GOV/70000094/tram"

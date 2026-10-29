@@ -1,7 +1,7 @@
 declaration:
   description: "Authority requests a dataset from a Platform via the gate (gate-internal body form).
     Same {uil, subsets} contract as the sibling authority/search and authority/follow-up handlers.
-    Called by the X-Road adapter (xroad/POST/v1/dataset.yml) after it has resolved the calling
+    Called by the X-Road adapter (xroad/POST/provide/v1/dataset.yml) after it has resolved the calling
     organisation and enforced authorities.subsets. The GET/path form for authority officers lives at
     efti/GET/api/v1/authority/dataset.yml; both delegate to the api/v1/dataset-local template."
   # Body: uil (object, required - {gateId, platformId, datasetId}) and subsets (array, required,

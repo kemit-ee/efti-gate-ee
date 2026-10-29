@@ -87,7 +87,7 @@ Consumers:
 | `efti/…/dataset-local`, `…/follow-up-local` | `/platforms/<id>.json` | `baseUrl`, `headers`, `eDeliveryCert` |
 | `efti/…/authority/search` | `/gates.json` | `ONLINE` peers for the cross-gate fan-out |
 | `platforms/.guard.yml` | `/platforms.json` | `X-Api-Key` comparison |
-| `xroad/.guard.yml`, `xroad/GET/v1/subsets` | `/authorities.json` | `registryCode` → `subsets` entitlement |
+| `xroad/.guard.yml`, `xroad/GET/provide/v1/subsets` | `/authorities.json` | `registryCode` → `subsets` entitlement |
 | `edelivery` (Kotlin `RegistryClient`) | `/gates.json`, `/platforms.json` | AS4 party map |
 
 ## Applying a change

@@ -30,7 +30,7 @@ record that an authority was ever registered is git history.
 2. The `registry` image is rebuilt (`docker compose up --build registry`, or the CI build of the
    deployment): the YAML is validated and converted to JSON at build time, and only then served
    statically. A restart alone changes nothing.
-3. The X-Road guard and `xroad/GET/v1/subsets` read `GET /authorities.json` and match `registryCode`
+3. The X-Road guard and `xroad/GET/provide/v1/subsets` read `GET /authorities.json` and match `registryCode`
    in the DSL; `admin/GET/v1/consignment-summary` reads `GET /authorities/<id>.json` for the
    `subsets` that dimension the authority's summary.
 
