@@ -2,6 +2,8 @@ databaseChangeLog:
   - changeSet:
       id: 000-extensions
       author: efti
+      validCheckSum:
+        - 9:8057bea198249adf8ac3432be556d8d1
       changes:
         - sqlFile:
             path: initial/000-extensions.sql
