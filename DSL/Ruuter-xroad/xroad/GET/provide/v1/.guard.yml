@@ -150,6 +150,7 @@ guard_unauthorized:
         args:
           url: "[#RESQL_URL]/efti/insert_audit_log"
           headers:
+            Authorization: "Bearer [#RESQL_TOKEN]"
             Content-Type: "application/json"
           body:
             action: "xroad.auth_denied"
@@ -178,6 +179,7 @@ guard_missing_header:
         args:
           url: "[#RESQL_URL]/efti/insert_audit_log"
           headers:
+            Authorization: "Bearer [#RESQL_TOKEN]"
             Content-Type: "application/json"
           body:
             action: "xroad.auth_denied"
@@ -206,6 +208,7 @@ guard_invalid_id:
         args:
           url: "[#RESQL_URL]/efti/insert_audit_log"
           headers:
+            Authorization: "Bearer [#RESQL_TOKEN]"
             Content-Type: "application/json"
           body:
             action: "xroad.auth_denied"
@@ -234,6 +237,7 @@ guard_forbidden:
         args:
           url: "[#RESQL_URL]/efti/insert_audit_log"
           headers:
+            Authorization: "Bearer [#RESQL_TOKEN]"
             Content-Type: "application/json"
           body:
             action: "xroad.auth_denied"
@@ -268,6 +272,7 @@ guard_ambiguous:
         args:
           url: "[#RESQL_URL]/efti/insert_audit_log"
           headers:
+            Authorization: "Bearer [#RESQL_TOKEN]"
             Content-Type: "application/json"
           body:
             action: "xroad.auth_denied"

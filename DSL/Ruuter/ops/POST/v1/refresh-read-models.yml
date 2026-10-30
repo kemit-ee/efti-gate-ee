@@ -26,6 +26,7 @@ refresh:
   args:
     url: "[#RESQL_URL]/efti/refresh_consignment_counts"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body: {}
   result: refresh_result
@@ -41,6 +42,7 @@ refresh_summary:
   args:
     url: "[#RESQL_URL]/efti/refresh_consignment_summary"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body: {}
   result: summary_result
@@ -56,6 +58,7 @@ purge:
   args:
     url: "[#RESQL_URL]/efti/purge_read_model_generations"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       keepGenerations: ${incoming.body.keepGenerations}
@@ -72,6 +75,7 @@ log_completed:
   args:
     url: "[#RESQL_URL]/efti/insert_job_execution_log"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       jobName: "refresh-read-models"
@@ -97,6 +101,7 @@ refresh_failed:
   args:
     url: "[#RESQL_URL]/efti/insert_job_execution_log"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       jobName: "refresh-read-models"
@@ -111,6 +116,7 @@ purge_failed:
   args:
     url: "[#RESQL_URL]/efti/insert_job_execution_log"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       jobName: "refresh-read-models"

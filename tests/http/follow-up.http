@@ -70,6 +70,7 @@ X-Request-Id: {{followUpQuery}}
 
 ### PENDING then DELIVERED for each delivery and no row for the repeat
 POST {{RESQL_URL}}/efti/get_follow_up_messages
+Authorization: Bearer {{RESQL_INTERNAL_TOKEN}}
 Content-Type: application/json
 
 {"datasetId":"550e8400-e29b-41d4-a716-446655440000","limit":1000}
@@ -111,6 +112,7 @@ X-Request-Id: {{followUpBadQuery}}
 
 ### Each attempt is PENDING then FAILED with a fixed reason
 POST {{RESQL_URL}}/efti/get_follow_up_messages
+Authorization: Bearer {{RESQL_INTERNAL_TOKEN}}
 Content-Type: application/json
 
 {"datasetId":"550e8400-e29b-41d4-a716-446655440000","limit":1000}
