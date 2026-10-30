@@ -47,6 +47,7 @@ check_duplicate:
   args:
     url: "[#RESQL_URL]/efti/check_tara_sub_exists"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       taraSub: "${incoming.body.taraSub}"
@@ -66,6 +67,7 @@ create_user:
   args:
     url: "[#RESQL_URL]/efti/insert_user"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       taraSub: "${incoming.body.taraSub}"
@@ -90,6 +92,7 @@ write_audit_log:
   args:
     url: "[#RESQL_URL]/efti/insert_audit_log"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       userId: "${caller.id}"

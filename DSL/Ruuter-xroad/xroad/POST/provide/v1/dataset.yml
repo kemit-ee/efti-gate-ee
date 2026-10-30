@@ -77,6 +77,7 @@ forward_to_core:
   args:
     url: "[#RESQL_URL]/efti/check_and_record_request_id"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       requestId: "${incoming.headers['x-road-id']}"

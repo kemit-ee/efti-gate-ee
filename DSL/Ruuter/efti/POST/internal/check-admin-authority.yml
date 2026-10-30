@@ -100,6 +100,7 @@ lookup_user:
   args:
     url: "[#RESQL_URL]/efti/check_user_auth"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: application/json
     body:
       tara_sub: ${token_info.response.body.userinfo.claims.personalCode}

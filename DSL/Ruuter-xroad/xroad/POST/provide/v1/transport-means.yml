@@ -127,6 +127,7 @@ lookup_existence:
   args:
     url: "[#RESQL_URL]/efti/check_transport_means_registered"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: application/json
       x-request-id: "${incoming.headers['x-road-id']}"
     body:
@@ -162,6 +163,7 @@ lookup_local:
   args:
     url: "[#RESQL_URL]/efti/get_consignments_by_transport_means"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: application/json
       x-request-id: "${incoming.headers['x-road-id']}"
     body:

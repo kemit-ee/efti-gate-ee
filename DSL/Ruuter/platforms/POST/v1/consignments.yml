@@ -50,6 +50,7 @@ insert_consignment:
   args:
     url: "[#RESQL_URL]/efti/insert_consignment"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body: ${consignment_json.response.body}
   result: insert_result
@@ -64,6 +65,7 @@ verify_consignment:
   args:
     url: "[#RESQL_URL]/efti/get_consignment_by_id"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       datasetId: "${insert_result.response.body[0]?.datasetId}"

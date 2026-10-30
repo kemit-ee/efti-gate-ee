@@ -29,6 +29,7 @@ X-Internal-Service-Token: {{INTERNAL_SERVICE_TOKEN}}
 ### Setup: upload a consignment to search for in EU-MOCK gate
 # The remote loopback fixture is seeded internally; platform upload always owns OWN_GATE_ID.
 POST {{RESQL_URL}}/efti/insert_consignment
+Authorization: Bearer {{RESQL_INTERNAL_TOKEN}}
 Content-Type: application/json
 
 {

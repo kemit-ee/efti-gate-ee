@@ -12,8 +12,10 @@ project_datasource_map:
 
 allow_datasource_header: false
 
+# Every caller (Ruuter, ruuter-xroad, edelivery) sends `Authorization: Bearer <RESQL_INTERNAL_TOKEN>`;
+# /health stays open for the container probe.
 security:
-  trust_network: true
+  inter_service_token_env: RESQL_INTERNAL_TOKEN
 
 datasources:
   - name: efti

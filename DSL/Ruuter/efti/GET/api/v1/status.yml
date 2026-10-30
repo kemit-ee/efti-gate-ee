@@ -16,6 +16,7 @@ get_consignment:
   args:
     url: "[#RESQL_URL]/efti/get_consignment_by_id"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       datasetId: "${incoming.params.pathParams[0]}"

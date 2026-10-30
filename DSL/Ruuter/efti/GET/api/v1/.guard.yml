@@ -25,6 +25,7 @@ guard_fail:
         args:
           url: "[#RESQL_URL]/efti/insert_audit_log"
           headers:
+            Authorization: "Bearer [#RESQL_TOKEN]"
             Content-Type: "application/json"
           body:
             action: "efti-internal.auth_denied"
