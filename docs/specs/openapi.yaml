@@ -5,6 +5,11 @@ info:
   description: |
     European Freight Transport Information Gate — Estonian node (KeMIT). Complete REST API Specification.
 
+    > **This is the hand-written reference contract, not the list of routes the gate serves.** Its paths
+    > (`/api/v1/...`, `/v1/dataset/...`) are the EU reference API shape and do not match the routes of the gate's Ruuter
+    > (`/admin/v1/...`, `/efti/api/v1/...`, `/auth/...`, ...). What runs is generated from the DSL tree into
+    > [`openapi.generated.yaml`](openapi.generated.yaml) by `scripts/generate-openapi.py`; CI fails when it is stale.
+
     ## Scope of this document
 
     This OpenAPI document specifies the gate's **REST surfaces** only:

@@ -36,6 +36,12 @@ jobs:
         run: python3 scripts/validate-dsl.py
       - name: ruuter-xroad OpenAPI route is current
         run: python3 scripts/sync-xroad-openapi.py --check
+      # docs/specs/openapi.generated.yaml is what the gate's Ruuter serves (its own /_/openapi.json, started here
+      # with the admin gate on, loopback only); drift fails the job (#362).
+      - name: OpenAPI generated from Ruuter is current
+        run: |
+          python3 scripts/generate-openapi.py --check
+          python3 tests/openapi/test_generate_openapi.py
       - name: no raw message body in Kotlin logs
         run: |
           python3 scripts/validate-no-pii-log.py
