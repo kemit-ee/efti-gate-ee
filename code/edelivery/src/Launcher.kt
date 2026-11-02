@@ -33,6 +33,7 @@ fun main() {
     register<TurvisShadow>()
     register<RuuterClient>(if (Config.isProd) RuuterClient::class else RuuterClientDev::class)
     register<PartyRegistry>(EDeliveryPartyRegistry::class)
+    register<GateTrustStore>()
     register<AsyncFailureAudit>()
     register<InboundDedup>()
     register<TurvisOutbound>() // after PartyRegistry: it creates EDeliveryMessageGenerator, which needs KeyManager and PartyRegistry

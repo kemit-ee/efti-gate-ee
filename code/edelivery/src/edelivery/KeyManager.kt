@@ -7,9 +7,6 @@ import java.security.cert.CertificateException
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
 import java.util.concurrent.ConcurrentHashMap
-import javax.net.ssl.SSLContext
-import javax.net.ssl.TrustManagerFactory
-import javax.net.ssl.X509TrustManager
 
 class KeyManager (private val partyRegistry: PartyRegistry) {
   private val log = logger()
@@ -62,43 +59,8 @@ class KeyManager (private val partyRegistry: PartyRegistry) {
       log.info("${cert.subjectX500Principal.name} - KeyIdentifier/SKI: $it (extension: ${ext != null})")
     }
   }
-
-  fun buildGatesTrustStore(): SSLContext {
-    val defaultTmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()).apply {
-      init(null as KeyStore?)
-    }
-
-    var numDefault = 0
-    val ks = KeyStore.getInstance(KeyStore.getDefaultType()).apply { load(null, null) }
-    for (tm in defaultTmf.trustManagers) {
-      for (cert in (tm as? X509TrustManager)?.acceptedIssuers ?: emptyArray()) {
-        ks.setCertificateEntry(cert.getSubjectX500Principal().name, cert)
-        numDefault++
-      }
-    }
-
-    var numCustom = 0
-    var numFailed = 0
-    partyRegistry.list().filter { it.tlsCert != null }.forEach { gate ->
-      try {
-        ks.setCertificateEntry(gate.id.toString(), gate.tlsCert!!.toX509())
-        numCustom++
-      } catch (e: Exception) {
-        log.error("Failed to initialize TLS cert for gate ${gate.id}: ${gate.tlsCert}: ${e.message}") // pii-ok: public certificate
-        numFailed++
-      }
-    }
-
-    log.info("Built TrustStore with $numDefault default and $numCustom custom certificates for gates, $numFailed failed")
-
-    val tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()).apply { init(ks) }
-    return SSLContext.getInstance("TLS").apply { init(null, tmf.trustManagers, SecureRandom()) }
-  }
 }
 
 private fun sha1(data: ByteArray) = MessageDigest.getInstance("SHA-1").digest(data)
 
 private fun PublicKey.bitString() = encoded.let { it.sliceArray(24 until it.size) } // drop RSA algId
-
-fun String.toX509() =
-  CertificateFactory.getInstance("X.509").generateCertificate(toByteArray().inputStream()) as X509Certificate

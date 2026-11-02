@@ -18,7 +18,7 @@ val eDeliveryTimeout = Config.optional("EDELIVERY_TIMEOUT_SECONDS", "60").toInt(
 
 class EDeliveryClient(
   private val asyncResponseProvider: AsyncResponseProvider,
-  private val keyManager: KeyManager,
+  private val trustStore: GateTrustStore,
   private val eDeliveryMessageGenerator: EDeliveryMessageGenerator,
   partyRegistry: PartyRegistry,
   private val turvisOutbound: TurvisOutbound,
@@ -29,7 +29,7 @@ class EDeliveryClient(
 
   init {
     // gate/platform TLS certs are baked into the trust store at build time, so a cert rotation
-    // or newly-registered gate needs a rebuilt HttpClient, not just a KeyManager cache clear.
+    // or newly-registered gate needs a rebuilt HttpClient.
     partyRegistry.onChange { rebuildHttpClient() }
   }
 
@@ -39,7 +39,7 @@ class EDeliveryClient(
     old.shutdown()
   }
 
-  private fun buildHttpClient() = httpClient { sslContext(keyManager.buildGatesTrustStore()) }
+  private fun buildHttpClient() = httpClient { sslContext(trustStore.sslContext()) }
 
   /**
    * What is kept of a peer's answer to a failed send: only names the gate itself knows ([FaultReason], as our own `soapFault` writes them:
