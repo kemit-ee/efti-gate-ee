@@ -31,6 +31,7 @@ select_batch:
   args:
     url: "[#RESQL_URL]/efti/select_archivable_consignments"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       olderThanDays: ${incoming.body.olderThanDays}
@@ -51,6 +52,7 @@ insert_into_archive:
   args:
     url: "[#RESQL_URL]/archive/insert_archived_consignments"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       rows: ${select_result.response.body[0].rows}
@@ -68,6 +70,7 @@ verify_archive:
   args:
     url: "[#RESQL_URL]/archive/verify_archived_consignments"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       rowIds: ${select_result.response.body[0].candidateRowIds}
@@ -87,6 +90,7 @@ delete_from_live:
   args:
     url: "[#RESQL_URL]/efti/delete_consignments"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       rowIds: ${verify_result.response.body[0].confirmedRowIds}
@@ -103,6 +107,7 @@ log_completed:
   args:
     url: "[#RESQL_URL]/efti/insert_job_execution_log"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       jobName: "archive-consignments"
@@ -140,6 +145,7 @@ verify_failed:
   args:
     url: "[#RESQL_URL]/efti/insert_job_execution_log"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       jobName: "archive-consignments"
@@ -167,6 +173,7 @@ sweep_failed:
   args:
     url: "[#RESQL_URL]/efti/insert_job_execution_log"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       jobName: "archive-consignments"

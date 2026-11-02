@@ -54,6 +54,7 @@ insert_log:
   args:
     url: "[#RESQL_URL]/efti/insert_follow_up_log"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       requestingGateId: "${incoming.body.uil.gateId}"
@@ -156,6 +157,7 @@ record_delivered:
   args:
     url: "[#RESQL_URL]/efti/insert_follow_up_log"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       requestingGateId: "${incoming.body.uil.gateId}"
@@ -181,6 +183,7 @@ check_repeat_state:
   args:
     url: "[#RESQL_URL]/efti/get_follow_up_state"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       queryId: ${queryId}
@@ -245,6 +248,7 @@ record_failure:
   args:
     url: "[#RESQL_URL]/efti/insert_follow_up_log"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       requestingGateId: "${incoming.body.uil.gateId}"

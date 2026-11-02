@@ -72,6 +72,7 @@ audit_login_success:
   args:
     url: "[#RESQL_URL]/efti/insert_audit_log"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       action: "user.login"
@@ -91,6 +92,7 @@ audit_login_failure_jwt:
   args:
     url: "[#RESQL_URL]/efti/insert_audit_log"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       action: "user.login"
@@ -113,6 +115,7 @@ audit_login_denied_code:
         args:
           url: "[#RESQL_URL]/efti/insert_audit_log"
           headers:
+            Authorization: "Bearer [#RESQL_TOKEN]"
             Content-Type: "application/json"
           body:
             action: "user.login"

@@ -20,6 +20,7 @@ delete_consignment:
   args:
     url: "[#RESQL_URL]/efti/soft_delete_consignment"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       datasetId: "${incoming.params.pathParams[0]}"
@@ -45,6 +46,7 @@ write_audit_log:
   args:
     url: "[#RESQL_URL]/efti/insert_audit_log"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       userId: "${caller.id}"

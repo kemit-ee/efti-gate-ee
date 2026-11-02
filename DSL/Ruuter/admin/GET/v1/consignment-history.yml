@@ -39,6 +39,7 @@ live_history:
   args:
     url: "[#RESQL_URL]/efti/get_consignment_history"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       datasetId: ${incoming.params.datasetId}
@@ -51,6 +52,7 @@ archived_history:
   args:
     url: "[#RESQL_URL]/archive/get_archived_consignments"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       datasetId: ${incoming.params.datasetId}

@@ -19,7 +19,7 @@ import kotlin.test.assertNull
 class ResqlClientTest {
   private val http = mockk<HttpClient>()
   private val json = JsonMapper()
-  private val client = ResqlClient(URI("http://resql:8090/efti"), http, json)
+  private val client = ResqlClient(URI("http://resql:8090/efti"), http, json, token = "t0k3n")
 
   private fun stringResponse(status: Int = 200, body: String = "[]"): HttpResponse<String> = mockk {
     every { statusCode() } returns status
@@ -34,6 +34,24 @@ class ResqlClientTest {
 
     assertEquals(URI("http://resql:8090/efti/insert_async_response"), requestSlot.captured.uri())
     assertEquals("POST", requestSlot.captured.method())
+  }
+
+  @Test fun `every call carries the resql bearer token`() {
+    val requestSlot = slot<HttpRequest>()
+    every { http.send(capture(requestSlot), any<BodyHandler<String>>()) } returns stringResponse()
+
+    client.insertAsyncResponse("req-1", "<xml/>")
+
+    assertEquals("Bearer t0k3n", requestSlot.captured.headers().firstValue("Authorization").orElse(null))
+  }
+
+  @Test fun `no Authorization header is sent when no token is configured`() {
+    val requestSlot = slot<HttpRequest>()
+    every { http.send(capture(requestSlot), any<BodyHandler<String>>()) } returns stringResponse()
+
+    ResqlClient(URI("http://resql:8090/efti"), http, json, token = "").insertAsyncResponse("req-1", "<xml/>")
+
+    assertNull(requestSlot.captured.headers().firstValue("Authorization").orElse(null))
   }
 
   @Test fun `insertAsyncResponse throws on a non-2xx resql response`() {

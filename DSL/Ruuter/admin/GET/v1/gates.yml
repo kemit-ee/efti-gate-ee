@@ -56,6 +56,7 @@ write_audit_log_single:
   args:
     url: "[#RESQL_URL]/efti/insert_audit_log"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       userId: "${caller.id}"
@@ -104,6 +105,7 @@ write_audit_log_list:
   args:
     url: "[#RESQL_URL]/efti/insert_audit_log"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       userId: "${caller.id}"

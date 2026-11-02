@@ -9,7 +9,7 @@ Seis kirjeldab repo `dev`-i runtime-uuendust PR #153 ja PR #155 muudatusi, ning 
 | Tehnoloogia / komponent | Otstarve | Versioon | Versiooni allikas | Kasutusel alates | Märkused |
 |---|---|---|---|---|---|
 | Ruuter | HTTP gateway ja YAML DSL | 0.12.1-rc | `docker/ruuter/Dockerfile`, `turnerrainer/ruuter:0.12.1-rc` | 2026-10-08 | Ka standalone X-Tee mock kasutab sama runtime'i. Lisab `declaration.internal` (sisemine DSL → välisel HTTP-l 404, mitte 403), kolmeastmelise vaike-poliitika (`declarations.default_internal`), `dsl-lint --require-internal-explicit` ning admin-endpoint'i `GET /_/audit/dsl` + `dsl-lint --audit`; kõik lisanduv, olemasolevad route'id ei muutu |
-| ReSQL | SQL endpointide HTTP executor | 0.4.3-alpha | `docker/resql/Dockerfile`, `turnerrainer/resql:0.4.3-alpha` | 2026-09-21 | Distroless UID 65532, sisemine trust-network; CLI health-probe. Puhtalt lisanduv bump (Traceparent header, graceful pool-close) |
+| ReSQL | SQL endpointide HTTP executor | 0.5.1-alpha | `docker/resql/Dockerfile`, `turnerrainer/resql:0.5.1-alpha` | 2026-10-30 | Distroless UID 65532; kõik päringud nõuavad bearer-tokenit (`security.inter_service_token_env`), `/health` on avatud; CLI health-probe |
 | TIM | Token & Identity Manager | 0.4.1-alpha | `docker/tim/Dockerfile`, `turnerrainer/tim:0.4.1-alpha` | 2026-09-21 | Ruuteri introspection-klient autentitakse eraldi saladusega. **Image on nüüd distroless** (UID 65532) — CA-usaldus ja JWT-võtme genereerimine kolisid eraldi `tim-init` konteinerisse (`docker/tim-init/`), mis kirjutab TARA-Mock'i self-signed CA `SSL_CERT_FILE` kaudu ja genereerib RSA-võtme jagatud volume'itesse enne `tim` teenuse käivitumist |
 | PostgreSQL | Gate'i andmebaas | 18 (patch määramata) | `compose.yml`, `postgres:18`, `748f99e` | 2026-08-03 | Muutuv major-tag; runtime app-rollil SELECT/INSERT |
 | PostgreSQL | TIM-i eraldi andmebaas | 18 (patch määramata) | `compose.yml`, `postgres:18`, `ed49344` | 2026-08-25 | Eraldi andmebaas ja volume |
@@ -33,7 +33,8 @@ Seis kirjeldab repo `dev`-i runtime-uuendust PR #153 ja PR #155 muudatusi, ning 
 | Ruuter | 0.12.1-rc | 2026-10-08 | | Minor-bump (`declaration.internal` + audit-endpoint), mõlemad Ruuteri Dockerfile'id + `.github/workflows/e2e.yml` + `.gitlab-ci.yml` |
 | ReSQL | 0.2.0-alpha | 2026-09-07 | 2026-09-14 | `ff56a3c`; PR #153 eelne `docker/resql/Dockerfile` |
 | ReSQL | 0.4.2-alpha | 2026-09-14 | 2026-09-21 | `c678bc5` |
-| ReSQL | 0.4.3-alpha | 2026-09-21 | | Patch-bump |
+| ReSQL | 0.4.3-alpha | 2026-09-21 | 2026-10-30 | Patch-bump |
+| ReSQL | 0.5.1-alpha | 2026-10-30 | | Bearer-värav (`inter_service_token_env`) asendab `trust_network`-i |
 | TIM | 0.3.0-alpha | 2026-09-07 | 2026-09-14 | `c119fa9` |
 | TIM | 0.4.0-alpha | 2026-09-14 | 2026-09-21 | `c678bc5` |
 | TIM | 0.4.1-alpha | 2026-09-21 | | Distroless base — `docker/tim/Dockerfile` rewritten, uus `docker/tim-init/` sidecar, `compose.yml` healthcheck ja `depends_on` muudetud |

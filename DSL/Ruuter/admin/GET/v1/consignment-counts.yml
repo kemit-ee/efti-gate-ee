@@ -35,6 +35,7 @@ fetch_counts:
   args:
     url: "[#RESQL_URL]/efti/get_consignment_counts"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       gateId: "${incoming.params.gateId}"
@@ -54,6 +55,7 @@ write_audit_log:
   args:
     url: "[#RESQL_URL]/efti/insert_audit_log"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       userId: "${caller.id}"

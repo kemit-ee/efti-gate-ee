@@ -1,5 +1,6 @@
 ### ReSQL rejects invalid parameters with its headers envelope
 POST {{RESQL_URL}}/efti/get_user_by_id
+Authorization: Bearer {{RESQL_INTERNAL_TOKEN}}
 Content-Type: application/json
 
 {"userId":"60001019906","unexpectedRuntimeUpgradeField":true}

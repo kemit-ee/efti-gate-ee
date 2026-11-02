@@ -19,6 +19,7 @@ fetch_audit_log:
   args:
     url: "[#RESQL_URL]/efti/get_audit_log"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       resource: "${incoming.params.resource}"
@@ -43,6 +44,7 @@ write_audit_log:
   args:
     url: "[#RESQL_URL]/efti/insert_audit_log"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       userId: "${caller.id}"

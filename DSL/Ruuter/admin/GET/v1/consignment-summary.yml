@@ -76,6 +76,7 @@ fetch_summary:
   args:
     url: "[#RESQL_URL]/efti/get_consignment_summary"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       subsets: ${authority_result.response.body.subsets}
@@ -96,6 +97,7 @@ write_audit_log:
   args:
     url: "[#RESQL_URL]/efti/insert_audit_log"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       userId: "${caller.id}"

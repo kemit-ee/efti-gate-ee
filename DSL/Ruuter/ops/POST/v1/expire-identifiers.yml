@@ -26,6 +26,7 @@ expire:
   args:
     url: "[#RESQL_URL]/efti/expire_road_consignments"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       dryRun: ${String(incoming.body.dryRun === true)}
@@ -44,6 +45,7 @@ log_completed:
   args:
     url: "[#RESQL_URL]/efti/insert_job_execution_log"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       jobName: "expire-identifiers"
@@ -70,6 +72,7 @@ expire_failed:
   args:
     url: "[#RESQL_URL]/efti/insert_job_execution_log"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       jobName: "expire-identifiers"

@@ -33,6 +33,7 @@ local_search:
   args:
     url: "[#RESQL_URL]/efti/get_consignments"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       gateId: ${incoming.params.gateId ?? '[#OWN_GATE_ID]'}

@@ -19,6 +19,7 @@ purge:
   args:
     url: "[#RESQL_URL]/efti/delete_expired_async_responses"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       keepMinutes: ${incoming.body.keepMinutes}
@@ -35,6 +36,7 @@ log_completed:
   args:
     url: "[#RESQL_URL]/efti/insert_job_execution_log"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       jobName: "purge-async-responses"
@@ -56,6 +58,7 @@ purge_failed:
   args:
     url: "[#RESQL_URL]/efti/insert_job_execution_log"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       jobName: "purge-async-responses"

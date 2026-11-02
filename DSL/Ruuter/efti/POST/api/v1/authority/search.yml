@@ -55,6 +55,7 @@ poll_read:
   args:
     url: "[#RESQL_URL]/efti/get_search_result"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       searchId: "${requestId}"
@@ -121,6 +122,7 @@ local_search:
   args:
     url: "[#RESQL_URL]/efti/get_consignments"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       gateId: '[#OWN_GATE_ID]'
@@ -212,6 +214,7 @@ audit_no_peers:
         args:
           url: "[#RESQL_URL]/efti/insert_audit_log"
           headers:
+            Authorization: "Bearer [#RESQL_TOKEN]"
             Content-Type: "application/json"
           body:
             action: "search.no_peers"
@@ -225,6 +228,7 @@ register_pending:
   args:
     url: "[#RESQL_URL]/efti/insert_search_pending"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       searchId: "${requestId}"
@@ -286,6 +290,7 @@ start_broadcast:
         args:
           url: "[#RESQL_URL]/efti/insert_search_complete"
           headers:
+            Authorization: "Bearer [#RESQL_TOKEN]"
             Content-Type: "application/json"
           body:
             searchId: "${requestId}"

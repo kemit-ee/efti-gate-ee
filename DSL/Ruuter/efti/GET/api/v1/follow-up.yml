@@ -17,6 +17,7 @@ get_follow_up:
   args:
     url: "[#RESQL_URL]/efti/get_follow_up_messages"
     headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
       Content-Type: "application/json"
     body:
       datasetId: "${incoming.params.pathParams[0]}"

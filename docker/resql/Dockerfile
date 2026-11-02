@@ -1,4 +1,4 @@
-FROM turnerrainer/resql:0.4.3-alpha
+FROM turnerrainer/resql:0.5.1-alpha
 
 COPY --chown=65532:65532 resql.yaml /app/resql.yaml
 COPY --chown=65532:65532 DSL/Resql /app/sql
