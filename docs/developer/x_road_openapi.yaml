@@ -36,7 +36,12 @@ info:
 
     A competent authority's information system calls its **own** Security Server, which
     forwards the request across X-Road to the gate's Security Server, which forwards it
-    to the gate over plain HTTP on the internal network, adding the `X-Road-*` headers.
+    to the gate, adding the `X-Road-*` headers. TLS ends at the gate's ingress; from there to the
+    gate's X-Road Ruuter the traffic is plain HTTP on the internal network, and access is
+    restricted to the gate's Security Server by source restriction / NetworkPolicy (ADR-006).
+    The gate itself does not check a client certificate on this hop; whether the ingress
+    requires mutual TLS from the Security Server is configured in the deployment environment,
+    not in this repository.
 
     Consumer-side URL ([PR-REST](https://github.com/nordic-institute/X-Road/blob/develop/doc/Protocols/pr-rest_x-road_message_protocol_for_rest.md)
     §4.1):
