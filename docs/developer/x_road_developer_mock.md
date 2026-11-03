@@ -51,7 +51,7 @@ samas järjekorras (uuemad ees).
 
 
 Vaste päris väravale: mock `/developer/v1/echo` ↔ värav `/xroad/provide/v1/echo` ↔ tarbija
-`/r1/EE/GOV/70001231/efti-gate/echo/v1`.
+`/r1/EE/GOV/70001231/efti-gate/efti/v1/echo`.
 
 ## Päised
 

@@ -43,7 +43,7 @@ Topoloogia:
 
 ```
 TRAM / LOIS2 / ANTS (NES kaudu)
-      ↓  tarbija päring /r1/EE/GOV/70003158/efti-gate/{teenus}/v1
+      ↓  tarbija päring /r1/EE/GOV/70003158/efti-gate/efti/v1/{teenus}
   tarbija turvaserver
       ↓  X-Roadi võrk — turvaserverite vaheline mTLS + allkirjastamine
   MEIE turvaserver
@@ -69,6 +69,11 @@ poolt ei ole ehitatud — värav ei kutsu ise ühtegi X-Roadi teenust.
 > - avalik ingress / pöördproksi **ei tohi** `/xroad/**` teed marsruutida — sellele teele vasta 404;
 > - võrgureegel (NetworkPolicy / security group) peab lubama `/xroad/**` liiklust **ainult** oma
 >   turvaserveri aadressilt (nt eraldi sisemine kuulaja või proksi, milleni ainult turvaserver ulatub).
+>
+> **TLS Turvaserveri ja värava vahel.** TLS lõpeb ingressis; ingressist `ruuter-xroad`-ini on
+> liiklus tavaline HTTP ja `ruuter-xroad` ise ei kontrolli klientsertifikaati. Kas ingress nõuab
+> Turvaserverilt vastastikust TLS-i (PR-REST §4.7), määrab keskkonna seadistus (devops-repo), mitte
+> see repo; ligipääsu piirab ülalolev allikapiirang / NetworkPolicy.
 >
 > `compose.override.yml` avaldab 8087 `localhost`-i, aga see fail on **ainult lokaalseks
 > arenduseks**.

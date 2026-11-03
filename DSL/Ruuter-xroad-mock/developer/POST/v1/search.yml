@@ -85,6 +85,7 @@ respond_miss:
   headers:
     content-type: "application/json"
     x-poll-more: "true"
+    x-search-id: "${incoming.headers['x-road-id']}"
   wrapper: false
   status: 200
   next: end
