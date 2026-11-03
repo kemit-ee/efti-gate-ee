@@ -10,8 +10,8 @@
 ## Diagnosis
 1. **AS4 keystore (`own.p12`):**
    - Check the serial number: `openssl x509 -in own.crt -noout -serial` (hex) should match the decimal
-     `SerialNumber` `edelivery` logs on startup (`docs/specs/deploy/resource-and-secrets-requirements.md`
-     §3.5 "Kontroll pärast paigaldust"). Also check expiry directly: `openssl x509 -in own.crt -noout
+     `SerialNumber` `edelivery` logs on startup (`docs/specs/deploy/certificates.md`
+     section C). Also check expiry directly: `openssl x509 -in own.crt -noout
      -enddate`.
    - If `edelivery` is in a restart loop with no `partyId: ...` log line at all, the cause is usually one
      of: the keystore file is missing at `$KEYSTORE_DIR/own.p12`, `KEYSTORE_PASSWORD` is wrong, or the
@@ -27,7 +27,7 @@
 
 ## Resolution
 1. **AS4 cert rotation** (planned, before expiry, or after a key leak) — coordinated with every peer
-   gate operator, per `docs/specs/deploy/resource-and-secrets-requirements.md` §3.5 "Rotatsioon":
+   gate operator, per `docs/specs/deploy/certificates.md` A4:
    1. Generate a new keypair and `own.p12` (alias = `OWN_GATE_ID`, key password = store password).
    2. Send the new `own.crt` to every peer gate operator and agree a cutover time.
    3. At the agreed time, simultaneously: update the keystore Secret (SSM → ExternalSecret in prod, or
