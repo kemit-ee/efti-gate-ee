@@ -128,7 +128,9 @@ Security-sensitive operations and the key material / policy state they need belo
 peer AS4 → Ruuter envelope checks (A8 perimeter)
        → edelivery /services/msh
        → edelivery splits multipart into SOAP bytes + attachment bytes
-         (standard HTTP framework; non-crypto, non-XML-parse)
+         (standard HTTP framework; non-crypto, non-XML-parse; exactly two
+         parts, the attachment is `cid:message`: a third part, e.g. the legacy
+         detached key part, is refused, not dropped)
        → edelivery POSTs /turvis/v1/decryptions/xmlenc           ← Turvis
          request: {soap_xml_b64, encrypted_attachment_b64, key_handle,
                    return_fields: [decrypted_soap_xml_b64,
@@ -323,7 +325,7 @@ Every endpoint's request body includes a **required** `return_fields` array. The
     "claimed_signer_id": {
       "type": "string",
       "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_\\-]{0,63}$",
-      "description": "OPTIONAL. If provided, Turvis checks that the signer cert's identity matches this value and rejects with SIGNER_IDENTITY_MISMATCH on mismatch. If omitted, Turvis extracts <eb:From>/<eb:PartyId> from the envelope and uses it. Formal cross-border gate IDs follow `^[A-Z]{2}-[A-Z0-9]{2,8}$` (EU-FR, EU-EE); the broader pattern here accommodates dev/test party IDs (mock, mock-edelivery, pikker). Production deploys may enforce the stricter pattern via a separate CI gate (see §13.10)."
+      "description": "OPTIONAL. If provided, Turvis checks that the signer cert's identity matches this value and rejects with SIGNER_IDENTITY_MISMATCH on mismatch. If omitted, Turvis still derives `signer.verified_identity` from the signer certificate (§9.4), never from `<eb:From>`; the caller then binds the envelope sender to it (§13.9). Formal cross-border gate IDs follow `^[A-Z]{2}-[A-Z0-9]{2,8}$` (EU-FR, EU-EE); the broader pattern here accommodates dev/test party IDs (mock, mock-edelivery, pikker). Production deploys may enforce the stricter pattern via a separate CI gate (see §13.10)."
     },
     "trust_store_version": {
       "type": "string",
@@ -915,6 +917,7 @@ Policy table edelivery passes per call:
 |---|---|---|
 | AS4 inbound `/services/msh` | `["//eb:Messaging", "//env:Body"]` | `["cid:message"]` |
 | AS4 outbound sign (same subtrees) | same | same |
+| AS4 receipt sign (`eb:SignalMessage`, no attachment) | `["//eb:Messaging", "//env:Body"]` | `[]` (no attachments) |
 
 The policy table lives in edelivery config, not Turvis state.
 
@@ -1289,7 +1292,7 @@ Note: this cap is driven by HTTP-body-handling costs on both sides, not by crypt
 
 The authoritative sender for business authorisation is `signer.verified_identity` from Turvis's verify response. **NOT** `ebms_routing.from_party_id` (which is from the envelope — content, not cryptographic attestation).
 
-Business paths (party permission lookup, authz checks) use `signer.verified_identity`. If the two disagree, Turvis has already rejected with `SIGNER_IDENTITY_MISMATCH` when `claimed_signer_id` was passed; without `claimed_signer_id` they're identical by construction (Turvis extracts both from the envelope but the signature attestation wins).
+Business paths (party permission lookup, authz checks) use `signer.verified_identity`. If the two disagree, Turvis has already rejected with `SIGNER_IDENTITY_MISMATCH` when `claimed_signer_id` was passed; without `claimed_signer_id` nothing makes them equal, so **edelivery binds them itself, always**: after every verify it requires `ebms_routing.from_party_id` (the signed `<eb:From>`) to equal `signer.verified_identity` (case-insensitive party-id equality) and otherwise treats the message as `SIGNER_IDENTITY_MISMATCH` (peer fault `EBMS:0101`, nothing dispatched). The production inbound path never sends `claimed_signer_id`, because the sender is not known before the envelope is read. `verified_identity` MUST come from the certificate; a Turvis that copied `<eb:From>` into it would make this check vacuous. (`turvis-mock` does exactly that, so the binding is proven by unit tests with a mock verify answer and against a real Turvis only in #308.)
 
 ### 13.10 `claimed_signer_id` + party_id format
 
@@ -1589,3 +1592,4 @@ Explicitly excluded from this build. If any of these later come into scope, that
 | 2026-10-22 | §4.1 `signature_digests` items gain the required `reference_xml_b64` (the received `ds:Reference` verbatim, self-contained); NRR receipts repeat it byte for byte instead of rebuilding a Reference from `reference_uri`/`digest_b64`/`transforms` (closes the missing `InclusiveNamespaces PrefixList` and digest-method gap of #305 AC 5). §13.7 text adjusted; §4.2 "Input parsing": sign refuses input that is not namespace-well-formed | edelivery cannot rebuild a Reference exactly from URIs; a peer comparing transform parameters would refuse the receipt |
 | 2026-10-23 | New §13.12 "Inbound duplicate elimination": turvis mode answers a repeat of an accepted (verified sender, MessageId) with the stored receipt and does not dispatch it again (#336) | AS4 duplicate detection; peers retry the same MessageId after a lost receipt |
 | 2026-10-23 | §13.12: a repeat with the same MessageId but another payload gets a SOAP fault (EBMS:0004), not the stored receipt | a receipt for the first message would claim the second was accepted (decided by the owner) |
+| 2026-11-02 | §4.1 `claimed_signer_id` and §13.9: `verified_identity` always comes from the certificate; edelivery always binds `<eb:From>` to it (the "identical by construction" wording is removed). §9.2: receipt-sign policy row. §2.2: inbound is exactly two MIME parts | 304-AC-3 audit of #313: SPEC, #304/#305 and the code disagreed on who enforces the sender binding; the receipt policy and the two-part rule were only in the code | 
