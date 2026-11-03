@@ -479,7 +479,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   registry at all, so every guard denies and the stack is effectively dead — this is a required
   cross-repo change, not an optional one. Likewise the **`edelivery` component must mount the AS4
   keystore Secret** at `/app/certs/own.p12`: the image no longer carries `code/certs` (procedure:
-  `docs/specs/deploy/resource-and-secrets-requirements.md` §3.5).
+  `docs/specs/deploy/certificates.md`).
 
 ## Post-change
 
@@ -493,7 +493,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - `X-Road-Id` must be hexadecimal 8-4-4-4-12 UUID text: both real and mock guards use a tested RegExp and return 400 `INVALID_REQUEST_ID` for non-hex values. The adapter maps it to typed downstream UUID parameters.
 - Ruuter `http_codes_allow_list` must include any status you return (401, 403, 204 are not default)
 - `internal_requests.block_private_networks: false` in `ruuter.yaml` — auth DSLs call TIM/ReSQL by compose service name
-- edelivery test mode uses a hardcoded PKCS#12 keystore (see `KeyManager.kt`); otherwise the AS4 keystore is read from `$KEYSTORE_DIR/own.p12` (default `certs`, password `$KEYSTORE_PASSWORD`). It is **not** baked into any image: `code/certs` is in both `code/.dockerignore` (compose, `docker/code/Dockerfile`) and the repo-root `.dockerignore` (GitLab's `docker/edelivery|xml-mapper/Dockerfile`), and neither Dockerfile copies it. Compose mounts `./code/certs:/app/certs:ro` into `edelivery`; **the devops chart must mount the per-environment keystore Secret at `/app/certs/own.p12`** (plus `KEYSTORE_PASSWORD`) or `edelivery` fails to start. xml-mapper needs no keystore. How to generate it (alias = `OWN_GATE_ID`, key password = store password), where it goes (SSM → ExternalSecret → mount; public cert into `registry/gates/<OWN_GATE_ID>.yml` and to every peer operator) and how to rotate it: `docs/specs/deploy/resource-and-secrets-requirements.md` §3.5
+- edelivery test mode uses a hardcoded PKCS#12 keystore (see `KeyManager.kt`); otherwise the AS4 keystore is read from `$KEYSTORE_DIR/own.p12` (default `certs`, password `$KEYSTORE_PASSWORD`). It is **not** baked into any image: `code/certs` is in both `code/.dockerignore` (compose, `docker/code/Dockerfile`) and the repo-root `.dockerignore` (GitLab's `docker/edelivery|xml-mapper/Dockerfile`), and neither Dockerfile copies it. Compose mounts `./code/certs:/app/certs:ro` into `edelivery`; **the devops chart must mount the per-environment keystore Secret at `/app/certs/own.p12`** (plus `KEYSTORE_PASSWORD`) or `edelivery` fails to start. xml-mapper needs no keystore. How to generate it (alias = `OWN_GATE_ID`, key password = store password), where it goes (SSM → ExternalSecret → mount; public cert into `registry/gates/<OWN_GATE_ID>.yml` and to every peer operator) and how to rotate it, plus adding peer gates' certificates: `docs/specs/deploy/certificates.md`
 - `PartyId` equality is case-insensitive (`.equals(ignoreCase = true)`)
 - Caller-controlled values are never interpolated raw into an outbound `url:`. Percent-encode path segments / query values with `encodeURIComponent(...)` (`uil.datasetId`/`subsets`/`gateId`, `requestId`, admin get-by-id path params), so `..`, `/`, `?` or `&` cannot alter the target. The engine's Boa/QuickJS contexts are full ECMAScript, so the global is available even though it is not in the documented expression subset.
 - user does not have role related fields. if user exist then they are admin. that's it.

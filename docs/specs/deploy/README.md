@@ -4,7 +4,7 @@ This directory holds the runtime deployment shape and, now that the implementati
 
 **[`first-admin.md`](first-admin.md)** — how the first administrator of a production environment is put into the database (no dev seed, no local fallback admin): SQL, verification, correction; Confluence child page of the deployment guide.
 
-**[`resource-and-secrets-requirements.md`](resource-and-secrets-requirements.md)** — compiled from the actual running system (`compose.yml`, `constants.ini`, `docker/*`): per-component CPU/memory, every secret (name, consumer, purpose, dev value, deploy gotcha), the two separate PostgreSQL databases, the Liquibase `dev`-context seed data that must not ship to prod, the TIM JWT-key persistence requirement, the Ruuter `constants.ini` Secret file, the AS4 keystore (§3.5) and how every secret is stored, delivered and rotated (§3.0). Written for whoever does the first production deployment.
+**[`resource-and-secrets-requirements.md`](resource-and-secrets-requirements.md)** — compiled from the actual running system (`compose.yml`, `constants.ini`, `docker/*`): per-component CPU/memory, every secret (name, consumer, purpose, dev value, deploy gotcha), the two separate PostgreSQL databases, the Liquibase `dev`-context seed data that must not ship to prod, the TIM JWT-key persistence requirement, the Ruuter `constants.ini` Secret file, the AS4 keystore (§3.5, details in [`certificates.md`](certificates.md)) and how every secret is stored, delivered and rotated (§3.0). Written for whoever does the first production deployment.
 
 ## Helm chart versions
 
@@ -42,7 +42,7 @@ The charts live in `services/efti/devops` (GitLab, `https://gitlab.kemitaws.ee/s
 | `helm/templates/*.yaml` | Implementation phase | Deployment, Service, Ingress, ConfigMap, SealedSecret manifests. |
 | `compose.dev.yml` | Implementation phase | Single-node docker-compose for developer machines (gate + Postgres + Caddy). |
 | `Dockerfile` | Implementation phase | Multi-stage build; non-root runtime user; health-probe-friendly. |
-| TLS cert rotation runbook | Operator | Manual procedure for ingress TLS certificates. (AS4 keystore generation, provisioning and rotation: [`resource-and-secrets-requirements.md`](resource-and-secrets-requirements.md) §3.5; general secret rotation: §3.0.) |
+| TLS cert rotation runbook | Operator | Manual procedure for ingress TLS certificates. (Own/peer AS4 certificates — generation, provisioning, registry, rotation: [`certificates.md`](certificates.md); general secret rotation: §3.0.) |
 | GitOps wiring | Implementation phase | Pick one of ArgoCD / Flux; not this spec's call. |
 
 ## Why this is deliberately empty
