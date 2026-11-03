@@ -94,7 +94,7 @@ gates' results.
 
 ```
 TRAM / LOIS2 / ANTS (via NES)
-      │  consumer request /r1/EE/GOV/70003158/efti-gate/{service}/v1
+      │  consumer request /r1/EE/GOV/70003158/efti-gate/efti/v1/{service}
       ▼
  consumer's Security Server
       │  X-Road network — Security-Server-to-Security-Server mTLS + message signing

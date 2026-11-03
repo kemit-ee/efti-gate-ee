@@ -35,7 +35,7 @@ sequenceDiagram
   participant DB as Kohalik register
   participant PEERS as Teised eFTI väravad
 
-  IS->>SS1: POST .../search/v1 { mainTransportId: EQ "123ABC" }
+  IS->>SS1: POST .../efti/v1/search { mainTransportId: EQ "123ABC" }
   SS1->>SS2: X-tee (mTLS), lisab X-Road-Client + X-Road-Id
   SS2->>GW: HTTP + X-Road-* päised
   GW->>GW: Autendib: X-Road-Client → registreeritud asutus
@@ -45,9 +45,9 @@ sequenceDiagram
     DB-->>GW: saadetised
     GW-->>IS: 200 + tulemused
   else Vaja küsida teistelt väravatelt
-    GW->>PEERS: fan-out — sama päring (X-Road-Id = korrelatsioonivõti)
+    GW->>PEERS: fan-out — sama päring (esimese kutse X-Road-Id = searchId)
     GW-->>IS: 200 + esimesed tulemused, päis x-poll-more: true
-    IS->>GW: POST .../search/v1 { poll: true } (sama X-Road-Id)
+    IS->>GW: POST .../efti/v1/search { poll: true, searchId } (uus X-Road-Id)
     PEERS-->>GW: tulemused
     GW-->>IS: 200 + ülejäänud tulemused
   end
@@ -60,11 +60,11 @@ Kohalik-esmalt-siis-fan-out kehtib alati `search`-i puhul ja `transport-means`-i
 
 eFTI värava X-tee liige ja alamsüsteem: **`EE/GOV/70001231/efti-gate`**.
 
-Tarbija URL: `POST /r1/EE/GOV/70001231/efti-gate/{serviceCode}/v1[/...]`. `serviceCode` vastab
+Tarbija URL: `POST /r1/EE/GOV/70001231/efti-gate/efti/v1/{operation}`. `efti` on teenusekood (kogu API on üks X-tee OpenAPI teenus, teenuse URL `<värav>/xroad/provide`); `{operation}` vastab
 operatsioonile (`echo`, `subsets`, `transport-means`, `search`, `dataset`, `follow-up`). Värava
-poolel vastab sellele tee `/xroad/provide/v1/{serviceCode}`.
+poolel vastab sellele tee `/xroad/provide/v1/{operation}`.
 
-Sinu `X-Road-Client` on sinu organisatsiooni X-tee id. Kehtib nii 3-osaline
+Sinu `X-Road-Client` on sinu organisatsiooni X-tee id; selle seab sinu infosüsteem (turvaserver kontrollib seda autenditud kliendi vastu), iga osa UTF-8 protsendikodeeritud. Kehtib nii 3-osaline
 (`EE/GOV/70000097`) kui 4-osaline (`EE/GOV/70000097/tram`) kuju. Ligipääsuõiguse annab
 `memberCode` (index 2), mis peab olema sinu **äriregistri kood**.
 
@@ -83,11 +83,11 @@ Päised paneb turvaserver, mitte sina.
 | Päis | Kohustuslik | Roll |
 |---|---|---|
 | `X-Road-Client` | jah | Kredentsiaal. `instance/memberClass/memberCode[/subsystemCode]`. `memberCode` → asutuse `registryCode`. |
-| `X-Road-Id` | jah | Sõnumi id. Peab olema UUID. Logitakse korrelatsiooniks; ühtlasi `search`-i polling-võti. |
+| `X-Road-Id` | jah | Sõnumi id. Peab olema UUID. Logitakse korrelatsiooniks; igal sõnumil (ka pollil) oma id. |
 | `X-Road-UserId` | ei | Lõppkasutaja isikukood. Ei anna õigusi (X-tee ei autendi seda). Mõeldud auditiks. |
 | `X-Road-Service`, `X-Road-Represented-Party`, `X-Road-Issue` | ei | Informatiivsed. |
 
-`X-Road-Id` peab olema **UUID**. Värav vastendab selle sisemiseks `x-request-id`-ks, mida
+`X-Road-Id` peab olema **UUID** (X-tee ise seda ei nõua, see on selle värava range piirang). Värav vastendab selle sisemiseks `x-request-id`-ks, mida
 tarbitakse tüübitud UUID-parameetrina. Mitte-UUID → `400 INVALID_REQUEST_ID`. Kui sinu süsteem
 seab id ise (X-tee lubab siin suvalist unikaalset stringi), kasuta UUID-e. Kontroll on kujuline
 (5 osa pikkustega 8-4-4-4-12).
@@ -115,7 +115,7 @@ Saadab tagasi tuvastatud asutuse ja päised.
 
 **Päring**
 ```
-POST /r1/EE/GOV/70001231/efti-gate/echo/v1
+POST /r1/EE/GOV/70001231/efti-gate/efti/v1/echo
 Content-Type: application/json
 
 { "hello": "world" }
@@ -142,7 +142,7 @@ jah/ei küsimustele lokaalselt.
 
 **Päring**
 ```
-GET /r1/EE/GOV/70001231/efti-gate/subsets/v1
+GET /r1/EE/GOV/70001231/efti-gate/efti/v1/subsets
 ```
 
 **Vastus 200**
@@ -172,7 +172,7 @@ tagastab kuni 50 rida; `allgates` kohalik osa on piiratud otsingu lehesuurusega 
 
 **Päring**
 ```
-POST /r1/EE/GOV/70001231/efti-gate/transport-means/v1
+POST /r1/EE/GOV/70001231/efti-gate/efti/v1/transport-means
 Content-Type: application/json
 
 { "identifier": "123ABC", "countryCode": "EE", "scope": "local" }
@@ -190,7 +190,7 @@ Content-Type: application/json
 |---|---|---|---|
 | `existence` | ainult kohalik | `{ identifier, countryCode, registered: true\|false }` | p95 < 1 s |
 | `local` *(vaikimisi)* | ainult kohalik | `{ identifier, countryCode, found, consignments: [...] }` | sünkroonne |
-| `allgates` | kohalik + kõik naaberväravad | sama kuju mis `local`, tulemused kogunevad | asünkroonne: vastuse päis `x-poll-more: true` kuni naaberväravad vastavad; küsi uuesti sama `X-Road-Id` + kehaga `{ "poll": true }` |
+| `allgates` | kohalik + kõik naaberväravad | sama kuju mis `local`, tulemused kogunevad | asünkroonne: vastuse päis `x-poll-more: true` + `x-search-id` kuni naaberväravad vastavad; küsi uuesti uue `X-Road-Id` + kehaga `{ "poll": true, "searchId": … }` |
 
 `existence` on alla-sekundi rada ega lahku riigist — ANTS-i olemasolukontrolli jaoks. `local` ja
 `allgates` vastuse kuju on identne, nii et võrgu kaasamine on ühe välja muutus.
@@ -198,12 +198,14 @@ Content-Type: application/json
 **`allgates` käitumine ja pollimine.** Otsing on **local-first ja mitteblokeeruv**: kohalik
 tabamus vastab kohe (`x-poll-more: false`) ja naaberväravaid ei küsitleta; kohaliku möödalasu
 korral registreeritakse levipäring taustal ja vastus `found: 0` + `x-poll-more: true` tuleb kohe.
-Naaberväravate tulemused kogunevad taustal — küsi need kätte, korrates kutset **sama
-`X-Road-Id`-ga** ja kehaga `{ "poll": true }` (teised kehaväljad on valikulised: `identifier` ja
+Naaberväravate tulemused kogunevad taustal. Esimese vastuse päis `x-search-id` on otsingu
+tunnus; küsi tulemused kätte uue kutsega, millel on **uus `X-Road-Id`** ja keha
+`{ "poll": true, "searchId": "<x-search-id>" }` (teised kehaväljad on valikulised: `identifier` ja
 `countryCode` kajastatakse vastuses, kui need ära jätad, on kaja `""`; `scope` on polli vastuses
 alati `"allgates"`, sest tegu on ristvärava tulemusega).
-NB: turvaserveri kaudu uuesti saadetud päring saab tavaliselt *uue* `X-Road-Id` — pollimiseks
-peab sinu infosüsteem id teadlikult samaks jätma. Kui ühtegi vastust pole veel saabunud, ootab
+Otsingu saab kätte ainult see asutus, kes selle algatas; tundmatu, aegunud või võõra
+`searchId` puhul on vastus tühi (`x-poll-more: false`). Puuduv või mitte-UUID `searchId` on
+`400 BAD_REQUEST_GENERAL`. Kui ühtegi vastust pole veel saabunud, ootab
 poll esimest kuni ~30 s enne tühja vastust; kogumispuhver on ~90 s, pärast seda tagastab poll
 tühja tulemuse `x-poll-more: false`-iga.
 
@@ -211,8 +213,7 @@ Teadaolevad piirangud:
 - naaberväravad sobitavad ainult **põhiveo veovahendi tunnust** (eFTI otsingu-XML-il puudub
   VÕI-kriteerium) — veoseühiku tunnus sobitub kohalikus registris, aga mitte kaugväravates;
 - kaug-tulemustel puudub `createdAt`;
-- pollimisvõtmel puudub omanikukontroll (vt "Teadaolevad piirangud" / ADR-006) — poll läbib siiski
-  alati EU02 õigusekontrolli.
+- poll läbib alati EU02 õigusekontrolli ja on seotud otsingu algatanud asutusega.
 
 **Vastus 200** (`scope: local`, vaikimisi)
 ```json
@@ -257,12 +258,12 @@ x-poll-more: true
 
 { "identifier": "123ABC", "countryCode": "", "scope": "allgates", "found": 0, "consignments": [] }
 ```
-Seejärel, sama `X-Road-Id`-ga:
+Seejärel uue `X-Road-Id`-ga ja esimese vastuse `x-search-id` väärtusega:
 ```
-POST /r1/EE/GOV/70001231/efti-gate/transport-means/v1
+POST /r1/EE/GOV/70001231/efti-gate/efti/v1/transport-means
 Content-Type: application/json
 
-{ "poll": true, "identifier": "123ABC", "scope": "allgates" }
+{ "poll": true, "searchId": "4894e35d-bf0f-44a6-867a-8e51f1daa7e0", "identifier": "123ABC", "scope": "allgates" }
 ```
 kuni `x-poll-more: false`; iga poll tagastab vahepeal saabunud naaberväravate tulemused samas
 kureeritud kujus.
@@ -297,7 +298,7 @@ Väljad: `transportMode` (võti `mode`), `mainTransportId` (`id`), `mainTranspor
 
 **Päring**
 ```
-POST /r1/EE/GOV/70001231/efti-gate/search/v1
+POST /r1/EE/GOV/70001231/efti-gate/efti/v1/search
 Content-Type: application/json
 
 { "mainTransportId": { "operator": "EQ", "id": "123ABC" } }
@@ -306,17 +307,17 @@ Content-Type: application/json
 **Vastus 200** — sobivate saadetiste massiiv, uuemad ees. Iga element on sama kureeritud
 projektsioon, mida `transport-means` tagastab `consignments` all (`uil`, `mainTransportId`, …,
 ilma XML-ita); naaberväravate ridadel on `createdAt: null`. Kui vastuse päis `x-poll-more: true`,
-vastavad naaberväravad veel. Küsi uuesti sama `X-Road-Id`-ga ja kehaga `{ "poll": true }`:
+vastavad naaberväravad veel. Esimese vastuse päis `x-search-id` on otsingu tunnus; küsi uuesti uue `X-Road-Id`-ga ja kehaga
+`{ "poll": true, "searchId": "<x-search-id>" }`:
 
 ```
-POST /r1/EE/GOV/70001231/efti-gate/search/v1
-X-Road-Id: 4894e35d-bf0f-44a6-867a-8e51f1daa7e0   ← sama id
+POST /r1/EE/GOV/70001231/efti-gate/efti/v1/search
+X-Road-Id: 7c0b1d52-3a4e-4c55-9d0e-5a1f2b3c4d5e   ← uus id
 
-{ "poll": true }
+{ "poll": true, "searchId": "4894e35d-bf0f-44a6-867a-8e51f1daa7e0" }
 ```
 
-Turvaserver annab uuele päringule tavaliselt uue `X-Road-Id` — pollimiseks pead selle teadlikult
-üle kirjutama sama väärtusega.
+`searchId` on esimese kutse `X-Road-Id`; iga poll kasutab oma uut `X-Road-Id`-d.
 
 **Vead:** `401 UNAUTHORIZED`, `403 FORBIDDEN`, `502 GATEWAY_UNAVAILABLE`
 (`core` vastas ≥ 400 — `coreStatus` / `coreResponse` kannavad päris vastust; või tulemuse
@@ -332,7 +333,7 @@ kitsendamist ei tehta. Oma õigusi vaata enne `subsets`-iga.
 
 **Päring**
 ```
-POST /r1/EE/GOV/70001231/efti-gate/dataset/v1
+POST /r1/EE/GOV/70001231/efti-gate/efti/v1/dataset
 Content-Type: application/json
 
 {
@@ -385,7 +386,7 @@ Edastab core Authority API-le. Alamhulgakontrolli ei ole.
 
 **Päring**
 ```
-POST /r1/EE/GOV/70001231/efti-gate/follow-up/v1
+POST /r1/EE/GOV/70001231/efti-gate/efti/v1/follow-up
 Content-Type: application/json
 
 {
@@ -436,7 +437,7 @@ Kõva core-katkestus (ühendus keeldub, DNS, 70 s timeout) tuleb 500-na, mitte 5
 2. `echo` — kontrolli, et `authority.registryCode` ja `subsets` on õiged.
 3. `subsets` — vaata oma alamhulga-õigusi; hoia neid cache'is.
 4. Genereeri iga päringu jaoks UUID `X-Road-Id` (või lase turvaserveril seada).
-5. Otsi → `search`; kui `x-poll-more: true`, pollida sama id-ga ja `{ "poll": true }`.
+5. Otsi → `search`; kui `x-poll-more: true`, pollida uue `X-Road-Id`-ga ja `{ "poll": true, "searchId": <x-search-id> }`.
 6. Sisu → `dataset` tagastatud `uil` ja lubatud `subsets`-iga.
 
 ## Arendaja-mock

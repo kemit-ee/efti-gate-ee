@@ -302,20 +302,21 @@ Content-Type: application/json
     client.assert(response.body.found === 0, "no gate knows this identifier; found=" + response.body.found)
     client.assert(Array.isArray(response.body.consignments) && response.body.consignments.length === 0)
     client.assert(response.headers.valueOf("x-poll-more") === "true", "the broadcast was just registered — more results may come")
+    client.assert(response.headers.valueOf("x-search-id") === "0a11ce5e-0016-4d1d-8f6a-0ec000000016", "the searchId to poll with is the X-Road-Id of this first call")
   })
 %}
 
-### scope allgates: polling with the same X-Road-Id drains the remaining results
-# Reuses the X-Road-Id of the broadcast above. Repeating identifier/scope in the poll body is
+### scope allgates: polling with the searchId drains the remaining results
+# The poll carries its own fresh X-Road-Id and the x-search-id of the broadcast above in the body. Repeating identifier/scope in the poll body is
 # optional; sending them keeps the echo fields meaningful. Core long-polls the stored search for up to 30s
 # for the first peer response when none has arrived yet, hence the timeout.
 # @timeout 75
 POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
-X-Road-Id: 0a11ce5e-0016-4d1d-8f6a-0ec000000016
+X-Road-Id: 0a11ce5e-0016-4d1d-8f6a-0ec000000116
 Content-Type: application/json
 
-{ "poll": true, "identifier": "NO-SUCH-IDENTIFIER-XYZ", "scope": "allgates" }
+{ "poll": true, "searchId": "0a11ce5e-0016-4d1d-8f6a-0ec000000016", "identifier": "NO-SUCH-IDENTIFIER-XYZ", "scope": "allgates" }
 
 > {%
   client.test("poll returns the curated shape and the x-poll-more header", () => {
@@ -329,22 +330,37 @@ Content-Type: application/json
   })
 %}
 
-### A bare poll skips the identifier requirement (unknown request id drains empty)
+### A poll skips the identifier requirement but needs a searchId (unknown search drains empty)
 POST {{XROAD_URL}}/xroad/provide/v1/transport-means
 X-Road-Client: EE/GOV/70000093/ants
 X-Road-Id: 0a11ce5e-0017-4d1d-8f7a-0ec000000017
 Content-Type: application/json
 
-{ "poll": true }
+{ "poll": true, "searchId": "0a11ce5e-0017-4d1d-8f7a-0ec0000000ff" }
 
 > {%
-  client.test("bare poll is accepted without an identifier", () => {
+  client.test("poll is accepted without an identifier", () => {
     client.assert(response.status === 200, "expected 200, got " + response.status +
       " body=" + JSON.stringify(response.body))
     client.assert(response.body.identifier === "", "nothing to echo — the poll body had no identifier")
     client.assert(response.body.scope === "allgates", "a poll result is always labelled allgates, never the body's default")
     client.assert(response.body.found === 0, "an unknown/expired request id drains empty")
-    client.assert(response.headers.valueOf("x-poll-more") === "false", "an unknown request id has nothing more to poll")
+    client.assert(response.headers.valueOf("x-poll-more") === "false", "an unknown search id has nothing more to poll")
+  })
+%}
+
+### A poll without a searchId is 400
+POST {{XROAD_URL}}/xroad/provide/v1/transport-means
+X-Road-Client: EE/GOV/70000093/ants
+X-Road-Id: 0a11ce5e-0017-4d1d-8f7a-0ec000000117
+Content-Type: application/json
+
+{ "poll": true }
+
+> {%
+  client.test("poll without searchId returns 400", () => {
+    client.assert(response.status === 400, "expected 400, got " + response.status)
+    client.assert(response.body.code === "BAD_REQUEST_GENERAL")
   })
 %}
 

@@ -3,6 +3,7 @@ constants:
   REGISTRY_URL: "{MOCK}"
   RUUTER_URL: "{MOCK}"
   XML_MAPPER_URL: "{MOCK}"
+  RESQL_URL: "{MOCK}"
 
 tests:
   - name: search answers the normalized projection, not core's raw rows
@@ -41,6 +42,9 @@ tests:
           method: POST
           headers: { x-poll-more: "true" }
           body: []
+        - url_matches: /efti/insert_search_complete
+          method: POST
+          body: [{ rowId: "1" }]
         - url_matches: /api/v1/transport-means/normalize
           method: POST
           body: []
@@ -54,7 +58,7 @@ tests:
       body: { mainTransportId: { operator: EQ, id: NO-SUCH-PLATE } }
     expect:
       status: 200
-      headers: { x-poll-more: "true" }
+      headers: { x-poll-more: "true", x-search-id: "0a11ce5e-0001-4d1d-8f1a-0f0d00010000" }
       body_matches: []
 
   - name: a normalizer failure is a 502, never core's raw rows
@@ -107,3 +111,93 @@ tests:
     expect:
       status: 502
       body_matches: { code: GATEWAY_UNAVAILABLE }
+
+  - name: a poll without a UUID searchId is a 400
+    setup:
+      mocks:
+        - url_matches: /authorities.json
+          method: GET
+          body: [{ id: "authority", name: "Test authority", registryCode: "70000094", subsets: ["EU01"] }]
+    request:
+      method: POST
+      path: /xroad/provide/v1/search
+      headers:
+        content-type: application/json
+        x-road-client: "EE/GOV/70000094/tram"
+        x-road-id: "0a11ce5e-0002-4d1d-8f1a-0f0d00020000"
+      body: { poll: true }
+    expect:
+      status: 400
+
+  - name: a poll for another authority's search answers empty, never core's rows
+    setup:
+      mocks:
+        - url_matches: /authorities.json
+          method: GET
+          body: [{ id: "authority", name: "Test authority", registryCode: "70000094", subsets: ["EU01"] }]
+        - url_matches: /efti/get_search_result
+          method: POST
+          body: [{ status: "complete", body: { owner: "70000099" } }]
+    request:
+      method: POST
+      path: /xroad/provide/v1/search
+      headers:
+        content-type: application/json
+        x-road-client: "EE/GOV/70000094/tram"
+        x-road-id: "0a11ce5e-0002-4d1d-8f1a-0f0d00020000"
+      body: { poll: true, searchId: "0a11ce5e-0001-4d1d-8f1a-0f0d00010000" }
+    expect:
+      status: 200
+      headers: { x-poll-more: "false" }
+      body_matches: []
+
+  - name: a poll for an unknown or expired search answers empty
+    setup:
+      mocks:
+        - url_matches: /authorities.json
+          method: GET
+          body: [{ id: "authority", name: "Test authority", registryCode: "70000094", subsets: ["EU01"] }]
+        - url_matches: /efti/get_search_result
+          method: POST
+          body: []
+    request:
+      method: POST
+      path: /xroad/provide/v1/search
+      headers:
+        content-type: application/json
+        x-road-client: "EE/GOV/70000094/tram"
+        x-road-id: "0a11ce5e-0002-4d1d-8f1a-0f0d00020000"
+      body: { poll: true, searchId: "0a11ce5e-0001-4d1d-8f1a-0f0d00010000" }
+    expect:
+      status: 200
+      headers: { x-poll-more: "false" }
+      body_matches: []
+
+  - name: the owner of a search collects it with a fresh X-Road-Id
+    setup:
+      mocks:
+        - url_matches: /authorities.json
+          method: GET
+          body: [{ id: "authority", name: "Test authority", registryCode: "70000094", subsets: ["EU01"] }]
+        - url_matches: /efti/get_search_result
+          method: POST
+          body: [{ status: "complete", body: { owner: "70000094" } }]
+        - url_matches: /efti/api/v1/authority/search
+          method: POST
+          headers: { x-poll-more: "false" }
+          body: []
+        - url_matches: /api/v1/transport-means/normalize
+          method: POST
+          body: []
+    request:
+      method: POST
+      path: /xroad/provide/v1/search
+      headers:
+        content-type: application/json
+        x-road-client: "EE/GOV/70000094/tram"
+        x-road-id: "0a11ce5e-0002-4d1d-8f1a-0f0d00020000"
+      body: { poll: true, searchId: "0a11ce5e-0001-4d1d-8f1a-0f0d00010000" }
+    expect:
+      status: 200
+      headers: { x-poll-more: "false" }
+      body_matches: []

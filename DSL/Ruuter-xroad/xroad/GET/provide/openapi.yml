@@ -18,9 +18,10 @@ respond:
     info:
       title: eFTI Gate (EE) - X-Road Authority API
       version: 1.0.0
-      description: "Provider-side X-Road REST adapter of the Estonian eFTI Gate (KeMIT), for competent\nauthorities that reach the gate over the X-Road network.\n\n## How a call is made\n\nA competent authority's information system calls its **own** Security Server, which\nforwards the request across X-Road to the gate's Security Server, which forwards it\nto the gate over plain HTTP on the internal network, adding the `X-Road-*` headers.\n\nConsumer-side URL:\n\n```\nPOST https://<your-security-server>/r1/EE/GOV/70001231/efti-gate/{serviceCode}/v1\n```\n\n- `EE/GOV/70001231/efti-gate` - the gate's X-Road member + subsystem (service provider id).\n- `/r1/` - X-Road REST message-protocol version; consumed by your Security Server, never\n  forwarded to the gate. There is **no** `protocolVersion` field to send.\n- `{serviceCode}` - one of `echo`, `subsets`, `transport-means`, `search`, `dataset`,\n  `follow-up`.\n- `/v1` - this contract's version, part of the gate-side route.\n\nGate-side these\
-        \ map to `/xroad/provide/v1/{serviceCode}` on the gate's own X-Road Ruuter\n(`ruuter-xroad`, port 8087). That Ruuter is **not** publicly routable - only the gate's\nSecurity Server may reach it (ADR-006). The provider-side form of this document (paths\nrewritten to `/xroad/provide/v1/{serviceCode}`) is served by `ruuter-xroad` itself at\n`GET /xroad/provide/openapi`, generated from this file by `scripts/sync-xroad-openapi.py`.\n\n## Prerequisites\n\n| Requirement | Who |\n|---|---|\n| Your organisation is registered at the gate as exactly one competent authority whose `registryCode` is your Business Registry code | gate operator |\n| The authority's `subsets` is populated (e.g. `[\"EU01\",\"EU05\"]`) - required for `dataset` and `transport-means` | gate operator |\n| Your client subsystem has X-Road access rights to the gate's services | RIA / Security Server administration |\n\n## Errors\n\nEvery error is an [RFC 7807](https://datatracker.ietf.org/doc/html/rfc7807) Problem\nDetails\
-        \ object (`type`, `code`, `title`, `status`, `detail`, plus operation-specific\nextension members) with media type `application/json`. Switch on `code`, never on\n`title`/`detail` text. `code` values mirror `../specs/errors.json`.\n\nFor `502 GATEWAY_UNAVAILABLE`, branch on the `coreStatus` / `resqlStatus` extension\nmember, not on the HTTP status - the gate normalises every downstream failure to 502\nand carries the real status and body in `coreStatus` / `coreResponse` (or\n`resqlStatus`). A hard downstream outage (connection refused, DNS failure, 70 s\ntimeout) surfaces as `500`, not `502`.\n"
+      description: "Provider-side X-Road REST adapter of the Estonian eFTI Gate (KeMIT), for competent\nauthorities that reach the gate over the X-Road network.\n\n## How a call is made\n\nA competent authority's information system calls its **own** Security Server, which\nforwards the request across X-Road to the gate's Security Server, which forwards it\nto the gate over plain HTTP on the internal network, adding the `X-Road-*` headers.\n\nConsumer-side URL ([PR-REST](https://github.com/nordic-institute/X-Road/blob/develop/doc/Protocols/pr-rest_x-road_message_protocol_for_rest.md)\n§4.1):\n\n```\nPOST https://<your-security-server>/r1/EE/GOV/70001231/efti-gate/efti/v1/{operation}\n```\n\n- `EE/GOV/70001231/efti-gate` - the gate's X-Road member + subsystem (service provider id).\n- `/r1/` - X-Road REST message-protocol version; consumed by your Security Server, never\n  forwarded to the gate. There is **no** `protocolVersion` field to send.\n- `efti` - the **service code**: the whole API is\
+        \ one X-Road OpenAPI service registered with\n  service URL `<gate>/xroad/provide`. Access rights are granted per endpoint.\n- `/v1/{operation}` - the path the Security Server appends to the service URL. `{operation}` is\n  one of `echo`, `subsets`, `transport-means`, `search`, `dataset`, `follow-up`.\n\nGate-side these map to `/xroad/provide/v1/{operation}` on the gate's own X-Road Ruuter\n(`ruuter-xroad`, port 8087). That Ruuter is **not** publicly routable - only the gate's\nSecurity Server may reach it (ADR-006). The provider-side form of this document (paths\nprefixed with the service URL `/xroad/provide`) is served by `ruuter-xroad` itself at\n`GET /xroad/provide/openapi`, generated from this file by `scripts/sync-xroad-openapi.py`.\n\n## Prerequisites\n\n| Requirement | Who |\n|---|---|\n| Your organisation is registered at the gate as exactly one competent authority whose `registryCode` is your Business Registry code | gate operator |\n| The authority's `subsets` is populated\
+        \ (e.g. `[\"EU01\",\"EU05\"]`) - required for `dataset` and `transport-means` | gate operator |\n| Your client subsystem has X-Road access rights to the gate's services | RIA / Security Server administration |\n\n## Errors\n\nEvery error is an [RFC 7807](https://datatracker.ietf.org/doc/html/rfc7807) Problem\nDetails object (`type`, `code`, `title`, `status`, `detail`, plus operation-specific\nextension members) with media type `application/json`. Switch on `code`, never on\n`title`/`detail` text. `code` values mirror `../specs/errors.json`.\n\n**Errors from X-Road itself.** If the response carries an `X-Road-Error` header, it was\nproduced by a Security Server, not by the gate. The body is then the X-Road error format\n`{ \"type\", \"message\", \"detail\" }` (`type` e.g. `Server.ServerProxy.ServiceFailed`, not a URI)\nand has no `code`. Check for `X-Road-Error` first; a response without it comes from the\ngate. A missing `X-Road-Client` is rejected by your own Security Server as\n`400\
+        \ Client.BadRequest`, so the gate's `401` is only reachable if the Security Server is\nbypassed.\n\n## Response headers added by X-Road\n\nThe provider Security Server adds `X-Road-Id`, `X-Road-Client`, `X-Road-Service`,\n`X-Road-Request-Id` and `X-Road-Request-Hash` to responses. Log them for correlation;\n`X-Road-Request-Hash` ties a response (e.g. a `dataset`) to the query that produced it.\n\nFor `502 GATEWAY_UNAVAILABLE`, branch on the `coreStatus` / `resqlStatus` extension\nmember, not on the HTTP status - the gate normalises every downstream failure to 502\nand carries the real status and body in `coreStatus` / `coreResponse` (or\n`resqlStatus`). A hard downstream outage (connection refused, DNS failure, 70 s\ntimeout) surfaces as `500`, not `502`. The gate's downstream timeout is 70 s; make sure\nyour Security Server's proxy timeout is longer, or you get an X-Road\n`Server.ServerProxy…` error instead of the gate's.\n"
       contact:
         name: KeMIT - Keskkonnaministeeriumi Infotehnoloogiakeskus
         email: help@kemit.ee
@@ -40,8 +41,6 @@ respond:
       description: Dataset retrieval and follow-up
     - name: Description
       description: The service description; no authentication
-    security:
-    - xRoadClient: []
     paths:
       /v1/echo:
         post:
@@ -193,7 +192,11 @@ respond:
 
             `x-poll-more: false`; the neighbour-gate broadcast runs only on a local miss. While
 
-            `x-poll-more: true`, poll with the same `X-Road-Id` and body `{ "poll": true }`.
+            `x-poll-more: true`, poll with a **fresh** `X-Road-Id` and body
+
+            `{ "poll": true, "searchId": "<x-search-id of the first response>" }`. Only the
+
+            authority that started the search can collect it; any other `searchId` answers an empty result.
 
             Known limitation: neighbouring gates match the identifier against the **main
 
@@ -229,15 +232,18 @@ respond:
                       identifier: 123ABC
                       scope: existence
                   poll:
-                    summary: Poll for outstanding allgates results (reuse the same X-Road-Id)
+                    summary: Poll for outstanding allgates results (fresh X-Road-Id, searchId from the first response)
                     value:
                       poll: true
+                      searchId: 4894e35d-bf0f-44a6-867a-8e51f1daa7e0
           responses:
             '200':
-              description: "Lookup result. The shape depends on `scope`:\n- `existence` → `TransportMeansExistenceResponse`\n- `local` / `allgates` → `TransportMeansResponse` (`found` always equals\n  `consignments.length`). When the response header `x-poll-more: true` is\n  present, neighbouring gates are still responding - poll again with the same\n  `X-Road-Id` and body `{ \"poll\": true }`.\n"
+              description: "Lookup result. The shape depends on `scope`:\n- `existence` → `TransportMeansExistenceResponse`\n- `local` / `allgates` → `TransportMeansResponse` (`found` always equals\n  `consignments.length`). When the response header `x-poll-more: true` is\n  present, neighbouring gates are still responding - poll again with a fresh\n  `X-Road-Id` and body `{ \"poll\": true, \"searchId\": <x-search-id> }`.\n"
               headers:
                 x-poll-more:
                   $ref: '#/components/headers/XPollMore'
+                x-search-id:
+                  $ref: '#/components/headers/XSearchId'
               content:
                 application/json:
                   schema:
@@ -307,7 +313,7 @@ respond:
             content:
               application/json:
                 schema:
-                  oneOf:
+                  anyOf:
                   - $ref: '#/components/schemas/SearchCriteria'
                   - $ref: '#/components/schemas/PollRequest'
                 examples:
@@ -326,20 +332,23 @@ respond:
                   poll:
                     value:
                       poll: true
+                      searchId: 4894e35d-bf0f-44a6-867a-8e51f1daa7e0
           responses:
             '200':
               description: 'Matching consignments. A local match answers at once with `x-poll-more: false`.
 
                 With no local match the response is `[]` with `x-poll-more: true`: neighbouring
 
-                gates are still responding - poll again with the same `X-Road-Id` and body
+                gates are still responding - poll again with a fresh `X-Road-Id` and body
 
-                `{ "poll": true }`. Remote rows have `createdAt: null`.
+                `{ "poll": true, "searchId": <x-search-id> }`. Remote rows have `createdAt: null`.
 
                 '
               headers:
                 x-poll-more:
                   $ref: '#/components/headers/XPollMore'
+                x-search-id:
+                  $ref: '#/components/headers/XSearchId'
               content:
                 application/json:
                   schema:
@@ -540,7 +549,7 @@ respond:
           - Description
           operationId: xroadOpenapi
           summary: This OpenAPI description
-          description: 'Public, no X-Road headers: the Security Server reads the service description from here.'
+          description: Public. The Security Server reads the service description from here without X-Road headers.
           security: []
           responses:
             '200':
@@ -550,28 +559,18 @@ respond:
                   schema:
                     type: object
     components:
-      securitySchemes:
-        xRoadClient:
-          type: apiKey
-          in: header
-          name: X-Road-Client
-          description: 'Set by the calling organisation''s X-Road Security Server, not by the client
-
-            application. `instance/memberClass/memberCode[/subsystemCode]`; `memberCode`
-
-            must resolve to one authority''s `registryCode` (ADR-011 registry). See ADR-006.
-
-            '
       parameters:
         XRoadClient:
           name: X-Road-Client
           in: header
           required: true
-          description: '**Credential.** Set by the calling Security Server, not by you.
+          description: '**Credential.** Set by your information system (the one mandatory X-Road header); your
 
-            `instance/memberClass/memberCode[/subsystemCode]` - both the 3-part
+            Security Server verifies it against the authenticated client before forwarding.
 
-            (`EE/GOV/70000097`) and 4-part (`EE/GOV/70000097/tram`) forms are valid.
+            `instance/memberClass/memberCode[/subsystemCode]`, each part UTF-8 percent-encoded -
+
+            both the 3-part (`EE/GOV/70000097`) and 4-part (`EE/GOV/70000097/tram`) forms are valid.
 
             `memberCode` (index 2) must be your Business Registry code and must resolve to
 
@@ -585,15 +584,17 @@ respond:
           name: X-Road-Id
           in: header
           required: true
-          description: 'Message id, **must be a UUID** (5 groups, 8-4-4-4-12). The gate maps it to its
+          description: 'Message id. X-Road itself only recommends a UUID and generates one when you omit it;
 
-            internal `x-request-id`, consumed as a typed UUID parameter; a non-UUID value is
+            **this gate is stricter**: the value must be a hexadecimal UUID (8-4-4-4-12), because it
 
-            `400 INVALID_REQUEST_ID`. Also the polling key for `search` / `transport-means` -
+            is mapped to the internal `x-request-id`, consumed as a typed UUID parameter. A non-UUID
 
-            to poll, deliberately reuse the same value your Security Server issued on the first
+            value is `400 INVALID_REQUEST_ID` - a gate-specific restriction, not an X-Road rule.
 
-            call.
+            Unique per message, as PR-REST requires; a poll uses its own fresh id and names the
+
+            search with `searchId` in the body.
 
             '
           schema:
@@ -606,9 +607,11 @@ respond:
           required: false
           description: 'End-user personal code. **Not authenticated by X-Road and grants no access** -
 
-            intended for audit only. Other informational headers (`X-Road-Service`,
+            intended for audit only. `X-Road-Issue` (case reference) and `X-Road-Represented-Party`
 
-            `X-Road-Represented-Party`, `X-Road-Issue`) are also set by the Security Server.
+            (`[memberClass/]memberCode`) are likewise set by your information system and are
+
+            informational only.
 
             '
           schema:
@@ -618,15 +621,31 @@ respond:
         XPollMore:
           description: 'Present and `true` while neighbouring gates are still responding. Poll again with
 
-            the same `X-Road-Id` and body `{ "poll": true }` until it is absent/`false`.
+            a fresh `X-Road-Id` and body `{ "poll": true, "searchId": <x-search-id> }` until it
+
+            is absent/`false`.
 
             '
           schema:
             type: boolean
             example: true
+        XSearchId:
+          description: 'Sent with `x-poll-more: true` on the first response of a search: the correlation
+
+            token to poll with (the `X-Road-Id` of that first call). Bound to the calling
+
+            authority; a search can only be collected by the authority that started it.
+
+            Returned as a header because the `search` response body is an array.
+
+            '
+          schema:
+            type: string
+            format: uuid
+            example: 4894e35d-bf0f-44a6-867a-8e51f1daa7e0
       responses:
         Unauthorized:
-          description: '`401 UNAUTHORIZED` - `X-Road-Client` missing or malformed.'
+          description: '`401 UNAUTHORIZED` - `X-Road-Client` missing or malformed. Only reachable if the Security Server is bypassed; X-Road answers `400 Client.BadRequest` first.'
           content:
             application/json:
               schema:
@@ -638,7 +657,7 @@ respond:
                 status: 401
                 detail: X-Road-Client header is missing or malformed. Expected instance/memberClass/memberCode[/subsystemCode].
         MissingHeader:
-          description: '`400 MISSING_REQUIRED_HEADER` - `X-Road-Id` is absent.'
+          description: '`400 MISSING_REQUIRED_HEADER` - `X-Road-Id` is absent. Not reachable through X-Road: the Security Server always supplies one.'
           content:
             application/json:
               schema:
@@ -830,14 +849,25 @@ respond:
               example: 550e8400-e29b-41d4-a716-446655440001
         PollRequest:
           type: object
-          description: Poll body for an async `search` / `transport-means` call. Send with the same `X-Road-Id`.
+          description: 'Poll body for an async `search` / `transport-means` call. Send with a fresh `X-Road-Id`.
+
+            A missing or non-UUID `searchId` is `400 BAD_REQUEST_GENERAL`; an unknown, expired or
+
+            foreign `searchId` answers an empty result with `x-poll-more: false`.
+
+            '
           required:
           - poll
+          - searchId
           properties:
             poll:
               type: boolean
               enum:
               - true
+            searchId:
+              type: string
+              format: uuid
+              description: The `x-search-id` response header of the first call.
         TransportMeansRequest:
           type: object
           required:
@@ -856,7 +886,7 @@ respond:
             scope:
               type: string
               default: local
-              description: "Search scope, in ascending cost:\n- `existence` - local only, `{ identifier, countryCode, registered }`, p95 < 1 s.\n- `local` *(default)* - local only, full projection, synchronous.\n- `allgates` - local first, neighbouring gates on a local miss; same shape as\n  `local`, results accumulate asynchronously (`x-poll-more` + polling with\n  `{ \"poll\": true }` and the same `X-Road-Id`).\n"
+              description: "Search scope, in ascending cost:\n- `existence` - local only, `{ identifier, countryCode, registered }`, p95 < 1 s.\n- `local` *(default)* - local only, full projection, synchronous.\n- `allgates` - local first, neighbouring gates on a local miss; same shape as\n  `local`, results accumulate asynchronously (`x-poll-more` + polling with\n  `{ \"poll\": true, \"searchId\": … }` and a fresh `X-Road-Id`).\n"
               enum:
               - existence
               - local

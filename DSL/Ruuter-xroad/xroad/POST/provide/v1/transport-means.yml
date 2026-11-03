@@ -31,6 +31,8 @@ declaration:
     body:
       - field: countryCode
         type: string
+      - field: searchId
+        type: string
 
 # The project-level xroad/.guard.yml has already validated the X-Road-Client shape, confirmed a
 # UUID-shaped X-Road-Id, resolved exactly one ACTIVE authority, and bound the row as ${authority}.
@@ -84,10 +86,9 @@ check_input:
       next: bad_request_scope
     - condition: ${incoming.body?.countryCode != null && incoming.body.countryCode.length == null}
       next: bad_request_country
-    # A poll ({poll: true} with the same X-Road-Id as the original allgates call) carries no
-    # identifier, so it skips the identifier check - but NOT the EU02 entitlement below: the
-    # pending search_results row has no ownership check (ADR-006), so at minimum the poller must
-    # itself be entitled to EU02-class data.
+    # A poll ({poll: true, searchId}, with its own fresh X-Road-Id) carries no identifier, so it
+    # skips the identifier check - but NOT the EU02 entitlement below, and it must name the search
+    # (check_search_id) and be the authority that started it (check_owner).
     - condition: ${poll === true}
       next: check_subset_permission
     - condition: ${identifier == null || identifier.length == null || identifier.length == 0}
@@ -113,7 +114,7 @@ check_subset_permission:
 route_by_scope:
   switch:
     - condition: ${poll === true}
-      next: poll_core
+      next: check_search_id
     - condition: ${scope == 'existence'}
       next: lookup_existence
     - condition: ${scope == 'allgates'}
@@ -210,9 +211,9 @@ respond_local:
 # row) and answers [] with x-poll-more: true at once - the neighbour gates' results are collected via
 # polling. Either way the result is normalised by xml-mapper to the same curated projection
 # scope: local returns, so the response shape is identical across scopes (ADR-007). Polling:
-# repeat the call with the same X-Road-Id and body {poll: true} while x-poll-more is true;
-# repeating identifier/countryCode/scope in the poll body is optional and only affects the echo
-# fields of the response.
+# repeat the call with body {poll: true, searchId} (a fresh X-Road-Id; searchId is the x-search-id
+# response header of the first call) while x-poll-more is true; repeating identifier/countryCode/scope
+# in the poll body is optional and only affects the echo fields of the response.
 #
 # The criterion is transportMeansOrEquipmentId - the same three-way OR (main transport OR used OR
 # carried equipment) the local SQL applies. Known limitation: FTI019 has no OR criterion, so for the
@@ -227,7 +228,8 @@ route_allgates:
       next: forward_to_core_search_with_country
   next: forward_to_core_search
 
-# X-Road-Id becomes x-request-id - load-bearing, not tidy: core keys the search_results poll on it.
+# X-Road-Id becomes x-request-id - load-bearing, not tidy: core keys the search_results row on it, so
+# the X-Road-Id of this first call is the searchId the caller polls with.
 # Core's first call returns the local slice immediately and never blocks on peer gates (the
 # broadcast is registered in the background), so 15s is generous - same as xroad/POST/provide/v1/search.yml.
 forward_to_core_search:
@@ -275,12 +277,82 @@ forward_to_core_search_with_country:
   result: core_res
   next: check_core_search_status
 
-# The x-poll header is what makes core poll the stored search instead of searching. The criteria body
-# is sent anyway: core's poll branch ignores it, and if the header were ever lost the failure mode
-# is a fresh criteria-bound search (on a bare poll the identifier is '', which matches nothing) -
-# not a criteria-less search that would match everything. The timeout ladder: core's poll_remaining
-# retries the search_results read for ~30s, core's own upstream timeout allows 35s, and this step
-# sits above both - a shorter timeout would turn a healthy long-poll into a spurious 502.
+# A poll names the search by the searchId the first response returned in x-search-id, not by its own
+# X-Road-Id. Fail-closed: anything but a UUID-shaped string is a 400 before core is asked.
+check_search_id:
+  switch:
+    - condition: ${/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(incoming.body?.searchId)}
+      next: read_owner
+  next: bad_request_search_id
+
+bad_request_search_id:
+  return:
+    type: "https://api.efti.ee/errors/bad-request"
+    code: "BAD_REQUEST_GENERAL"
+    title: "Bad Request"
+    status: 400
+    detail: "A poll needs {\"poll\": true, \"searchId\": <the x-search-id of the first response>}."
+  wrapper: false
+  status: 400
+  next: end
+
+# The owner marker is a search_results row under owner:<searchId>, written by register_owner when
+# the first call left a search pending; its body is {owner: <registryCode>}. Only the authority that
+# started the search may collect it; a missing, expired or foreign search all answer the same empty
+# result, so a poller cannot tell them apart.
+read_owner:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/get_search_result"
+    headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
+      Content-Type: application/json
+    body:
+      searchId: "owner:${incoming.body.searchId}"
+  result: owner_res
+  next: check_owner
+
+check_owner:
+  switch:
+    - condition: ${owner_res.response.status != 200}
+      next: owner_unavailable
+    - condition: ${owner_res.response.body != null && owner_res.response.body.length == 1 && owner_res.response.body[0] != null && owner_res.response.body[0].body != null && owner_res.response.body[0].body.owner == authority.registryCode}
+      next: poll_core
+  next: respond_unknown_search
+
+respond_unknown_search:
+  return:
+    identifier: ${identifier}
+    countryCode: ${country_code}
+    scope: "allgates"
+    found: 0
+    consignments: []
+  headers:
+    x-poll-more: "false"
+  wrapper: false
+  status: 200
+  next: end
+
+owner_unavailable:
+  return:
+    type: "https://api.efti.ee/errors/bad-gateway"
+    code: "GATEWAY_UNAVAILABLE"
+    title: "Bad Gateway"
+    status: 502
+    detail: "The gate's search ownership record could not be read or written."
+    failedStep: "search-owner"
+    resqlStatus: ${owner_res.response.status}
+  wrapper: false
+  status: 502
+  next: end
+
+# The x-poll header is what makes core poll the stored search (under the first call's id) instead of
+# searching. The criteria body is sent anyway: core's poll branch ignores it, and if the header were
+# ever lost the failure mode is a fresh criteria-bound search (on a bare poll the identifier is '',
+# which matches nothing) - not a criteria-less search that would match everything. The timeout
+# ladder: core's poll_remaining retries the search_results read for ~30s, core's own upstream timeout
+# allows 35s, and this step sits above both - a shorter timeout would turn a healthy long-poll into a
+# spurious 502.
 poll_core:
   call: http.post
   timeout: 40000
@@ -289,7 +361,7 @@ poll_core:
     headers:
       Content-Type: application/json
       x-internal-service-token: "[#INTERNAL_SERVICE_TOKEN]"
-      x-request-id: "${incoming.headers['x-road-id']}"
+      x-request-id: "${incoming.body.searchId}"
       x-poll: "true"
     body:
       transportMeansOrEquipmentId:
@@ -336,10 +408,53 @@ check_normalize:
     - condition: ${norm_res.response.status != 200}
       next: normalize_failed
     - condition: ${norm_res.response.body != null && norm_res.response.body.length == 0}
-      next: respond_allgates
+      next: route_allgates_response
     - condition: ${norm_res.response.body != null && norm_res.response.body.length > 0 && norm_res.response.body[0] != null && norm_res.response.body[0].uil != null}
-      next: respond_allgates
+      next: route_allgates_response
   next: normalize_failed
+
+# A first call that left a search pending hands the caller its searchId (x-search-id) and records
+# which authority owns it; a poll never does.
+route_allgates_response:
+  switch:
+    - condition: ${poll === true}
+      next: respond_allgates
+    - condition: ${('' + (core_res.response.headers['x-poll-more'] ?? 'false')) == 'true'}
+      next: register_owner
+  next: respond_allgates
+
+register_owner:
+  call: http.post
+  args:
+    url: "[#RESQL_URL]/efti/insert_search_complete"
+    headers:
+      Authorization: "Bearer [#RESQL_TOKEN]"
+      Content-Type: application/json
+    body:
+      searchId: "owner:${incoming.headers['x-road-id']}"
+      body: "${JSON.stringify({ owner: authority.registryCode })}"
+  result: owner_res
+  next: check_owner_registered
+
+check_owner_registered:
+  switch:
+    - condition: ${owner_res.response.status == 200}
+      next: respond_allgates_pending
+  next: owner_unavailable
+
+respond_allgates_pending:
+  return:
+    identifier: ${identifier}
+    countryCode: ${country_code}
+    scope: "allgates"
+    found: ${norm_res.response.body.length}
+    consignments: ${norm_res.response.body}
+  headers:
+    x-poll-more: "true"
+    x-search-id: "${incoming.headers['x-road-id']}"
+  wrapper: false
+  status: 200
+  next: end
 
 # Same contract fields as respond_local, plus x-poll-more so the caller knows whether gates are
 # still answering. scope is a LITERAL, not the echo: every response through this step is a

@@ -43,7 +43,7 @@ Topoloogia:
 
 ```
 TRAM / LOIS2 / ANTS (NES kaudu)
-      ↓  tarbija päring /r1/EE/GOV/70003158/efti-gate/{teenus}/v1
+      ↓  tarbija päring /r1/EE/GOV/70003158/efti-gate/efti/v1/{teenus}
   tarbija turvaserver
       ↓  X-Roadi võrk — turvaserverite vaheline mTLS + allkirjastamine
   MEIE turvaserver
