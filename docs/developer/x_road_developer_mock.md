@@ -59,7 +59,7 @@ Samad mis päris liideses. Mockis paned need **sina ise** (päris elus paneb tur
 
 | Päis | Kohustuslik | Mock-kontroll |
 |---|---|---|
-| `X-Road-Client` | jah | `instance/memberClass/memberCode[/subsystemCode]` — 3- või 4-osaline. Puudub/vigane → `401 UNAUTHORIZED`. |
+| `X-Road-Client` | jah | `instance/memberClass/memberCode[/subsystemCode]` — alamsüsteem kohustuslik (4-osaline). Puudub/vigane → `401 UNAUTHORIZED`. |
 | `X-Road-Id` | jah | Peab olema UUID-kujuline (8-4-4-4-12). Puudub → `400 MISSING_REQUIRED_HEADER`; vale kuju → `400 INVALID_REQUEST_ID`. |
 | `X-Road-UserId` | ei | Kajastatakse `echo`-s tagasi; õigusi ei anna. |
 

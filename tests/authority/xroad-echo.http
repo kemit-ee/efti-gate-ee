@@ -94,7 +94,7 @@ Content-Type: application/json
   })
 %}
 
-### Echo: member-level X-Road-Client (3 parts, no subsystem) is valid
+### Echo: member-level X-Road-Client (3 parts, no subsystem) is rejected
 POST {{XROAD_URL}}/xroad/provide/v1/echo
 X-Road-Client: EE/GOV/70000099
 X-Road-Id: 0a11ce5e-0005-4d1d-8f5a-0ec100000005
@@ -103,8 +103,8 @@ Content-Type: application/json
 {"hello": "world"}
 
 > {%
-  client.test("Member-level 3-part client is accepted", () => {
-    client.assert(response.status === 200)
-    client.assert(response.body.authority.registryCode === "70000099")
+  client.test("Member-level 3-part client is 401", () => {
+    client.assert(response.status === 401)
+    client.assert(response.body.code === "UNAUTHORIZED")
   })
 %}

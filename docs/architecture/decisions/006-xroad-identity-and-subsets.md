@@ -232,7 +232,7 @@ Uusi veerge ega migratsioone ei ole. Kasutame olemasolevat:
 
 | Päis | Kohustuslik | Roll |
 |---|---|---|
-| `X-Road-Client` | jah | **Kredentsiaal.** `instance/memberClass/memberCode[/subsystemCode]`. Nii 3- kui 4-osaline kuju on kehtiv X-Roadi kliendi id. |
+| `X-Road-Client` | jah | **Kredentsiaal.** `instance/memberClass/memberCode[/subsystemCode]`. Alamsüsteem on kohustuslik: ainult 4-osaline kuju on lubatud, 3-osaline → 401. |
 | `X-Road-Id` | jah | Sõnumi id. **Peab olema UUID** — vt §2b; guard tagastab muidu 400 `INVALID_REQUEST_ID`. Vastendub `x-request-id`-ks. |
 | `X-Road-Service` | ei | Turvaserveri seatud; informatiivne |
 | `X-Road-UserId` | ei | Lõppkasutaja isikukood. **Ainult audit — õigusi ei anna.** |

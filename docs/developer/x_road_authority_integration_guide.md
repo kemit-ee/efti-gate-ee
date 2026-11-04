@@ -64,8 +64,8 @@ Tarbija URL: `POST /r1/EE/GOV/70001231/efti-gate/efti/v1/{operation}`. `efti` on
 operatsioonile (`echo`, `subsets`, `transport-means`, `search`, `dataset`, `follow-up`). Värava
 poolel vastab sellele tee `/xroad/provide/v1/{operation}`.
 
-Sinu `X-Road-Client` on sinu organisatsiooni X-tee id; selle seab sinu infosüsteem (turvaserver kontrollib seda autenditud kliendi vastu), iga osa UTF-8 protsendikodeeritud. Kehtib nii 3-osaline
-(`EE/GOV/70000097`) kui 4-osaline (`EE/GOV/70000097/tram`) kuju. Ligipääsuõiguse annab
+Sinu `X-Road-Client` on sinu organisatsiooni X-tee id; selle seab sinu infosüsteem (turvaserver kontrollib seda autenditud kliendi vastu), iga osa UTF-8 protsendikodeeritud. Alamsüsteem on kohustuslik: kehtib ainult 4-osaline kuju
+(`EE/GOV/70000097/tram`), 3-osaline (`EE/GOV/70000097`) on `401`. Ligipääsuõiguse annab
 `memberCode` (index 2), mis peab olema sinu **äriregistri kood**.
 
 ## Eeltingimused
