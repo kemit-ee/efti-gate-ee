@@ -73,5 +73,4 @@ In `legacy` mode the gate does not de-duplicate, so the same file can be posted 
 
 The public certificate that matches the deployed keystore, the URL `https://eftiprelive.kemitaws.ee/services/msh`,
 and the gate id `EU-EE`. The certificate must be the one in `registry/gates/EU-EE.yml` of the
-environment's registry image. In that file `eDeliveryUrl` is the internal
-`http://edelivery:8081/services/msh`; the public URL is only given to the partner.
+environment's registry image.
