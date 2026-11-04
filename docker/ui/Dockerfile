@@ -12,10 +12,14 @@ FROM nginx:stable-alpine
 
 ARG VITE_USE_PROD_TARA_URL=true
 COPY --from=build /app/build /usr/share/nginx/html
-COPY docker/ui/nginx.conf /etc/nginx/conf.d/default.conf
+COPY docker/ui/nginx.conf.template /etc/nginx/templates/default.conf.template
 RUN if [ "$VITE_USE_PROD_TARA_URL" = "true" ]; then \
-      sed -i '/location \/tara\//,/^[[:space:]]*}/d' /etc/nginx/conf.d/default.conf; \
+      sed -i '/location \/tara\//,/^[[:space:]]*}/d' /etc/nginx/templates/default.conf.template; \
     fi
+
+# Exact redirect URI registered for this environment at TARA (RIA); must also be in TIM's
+# allowed_redirect_uris. Empty = the UI falls back to <origin>/auth/callback.
+ENV TARA_REDIRECT_URI=""
 
 EXPOSE 80
 

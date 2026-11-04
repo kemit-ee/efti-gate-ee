@@ -206,6 +206,8 @@ The UI container (`docker/ui/nginx.conf`) proxies browser requests to backend se
 | `/tara/` | `https://tara-mock:8080/` | TARA OIDC mock |
 | `/` | static files | SPA fallback to `index.html` |
 
+TARA redirect URI: the UI sends TIM the value of the `TARA_REDIRECT_URI` env var of the `ui` container (nginx renders it into `/runtime-config.json` from `docker/ui/nginx.conf.template` at start; read by `code/ui/src/api/runtimeConfig.ts`), so the exact URL registered at RIA comes from the deployment (chart), not the image. Unset → `<origin>/auth/callback`. The SPA route is `/auth/callback` (with or without a trailing slash; nginx serves `index.html` for it ahead of the `/auth/` Ruuter proxy), and the same URL must be in TIM's `allowed_redirect_uris` (`docker/tim/tim.yaml`).
+
 The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default prefix. Paths starting with `/` (like `/auth/callback`) are used as-is, routing to the `auth` project.
 
 ## DSL conventions (Ruuter)

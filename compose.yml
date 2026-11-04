@@ -248,6 +248,8 @@ services:
       dockerfile: docker/ui/Dockerfile
       args:
         - VITE_USE_PROD_TARA_URL=true
+    environment:
+      - TARA_REDIRECT_URI=${TARA_REDIRECT_URI:-}
     depends_on:
       ruuter:
         condition: service_healthy
