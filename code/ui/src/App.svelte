@@ -12,6 +12,7 @@
   import api, {getToken} from "src/api/api"
   import type {TaraLoginResponse, User} from "src/api/ruuterTypes"
   import {currentUser} from "src/stores/session"
+  import {getTaraRedirectUri, isCallbackPath} from "src/api/runtimeConfig"
 
   const routes = [
     {name: t.gates.title, path: '/gates', component: GatesPage},
@@ -23,7 +24,7 @@
 
   let user: User | undefined
   let authError: string | null = null
-  $: if (!user && !authError && $activePath !== '/callback') getUser()
+  $: if (!user && !authError && !isCallbackPath($activePath)) getUser()
 
   async function getUser() {
     if (!getToken()) {
@@ -46,7 +47,8 @@
   // same request indefinitely.
   async function redirectToTara() {
     try {
-      const res = await fetch(`/tim/auth/login/tara?redirect_uri=${location.origin}/callback`)
+      const redirectUri = await getTaraRedirectUri()
+      const res = await fetch(`/tim/auth/login/tara?redirect_uri=${encodeURIComponent(redirectUri)}`)
       const data: TaraLoginResponse = await res.json()
       if (!res.ok || !data?.authorization_url) throw new Error('TIM did not return an authorization_url')
       location.href = import.meta.env.VITE_USE_PROD_TARA_URL === 'true'
@@ -75,7 +77,7 @@
     {#each routes as r}
       <Route {...r}/>
     {/each}
-    <Route path="/callback" component={AuthCallbackPage}/>
+    <Route path="/auth/callback/?" component={AuthCallbackPage}/>
   </main>
 </Router>
 {/if}

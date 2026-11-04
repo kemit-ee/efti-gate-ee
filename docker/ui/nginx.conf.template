@@ -72,6 +72,20 @@ server {
         proxy_ssl_verify off;
     }
 
+    # Browser-facing runtime settings, rendered at container start from the environment
+    # (nginx envsubst on /etc/nginx/templates), so deployment values stay out of the image.
+    location = /runtime-config.json {
+        default_type application/json;
+        add_header Cache-Control "no-store";
+        return 200 '{"taraRedirectUri":"${TARA_REDIRECT_URI}"}';
+    }
+
+    # TARA sends the browser back here. It is an SPA route, so it must win over /auth/ (Ruuter).
+    location ~ ^/auth/callback/?$ {
+        root /usr/share/nginx/html;
+        try_files /index.html =404;
+    }
+
     location / {
         try_files $uri $uri/ /index.html;
     }

@@ -67,8 +67,8 @@ describe('App', () => {
     await waitFor(() => expect(window.location.href).to.equal('/tara/oidc/authorize?x=1'))
   })
 
-  it('does not redirect while on the /callback route', () => {
-    activePath.set('/callback')
+  it('does not redirect while on the /auth/callback route', () => {
+    activePath.set('/auth/callback')
     vi.mocked(getToken).mockReturnValue(null)
 
     render(App)
@@ -84,7 +84,7 @@ describe('App', () => {
     const {findByText} = render(App)
 
     await findByText(t.auth.taraUnavailable)
-    expect(window.fetch).toHaveBeenCalledTimes(1)
+    expect(window.fetch).toHaveBeenCalledTimes(2)
     expect(window.location.href).to.equal('')
   })
 
@@ -95,7 +95,7 @@ describe('App', () => {
     const {findByText} = render(App)
 
     await findByText(t.auth.taraUnavailable)
-    expect(window.fetch).toHaveBeenCalledTimes(1)
+    expect(window.fetch).toHaveBeenCalledTimes(2)
     expect(window.location.href).to.equal('')
   })
 })
