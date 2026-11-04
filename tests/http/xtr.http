@@ -1,0 +1,36 @@
+### Gate-internal XTR probe requires the internal service token
+GET {{RUUTER_URL}}/efti/api/v1/xtr/ready
+
+> {%
+  client.test("xtr/ready without token is 401", () => {
+    client.assert(response.status === 401);
+  });
+%}
+
+### Gate-internal XTR probe reaches XTR
+GET {{RUUTER_URL}}/efti/api/v1/xtr/ready
+X-Internal-Service-Token: {{INTERNAL_SERVICE_TOKEN}}
+
+> {%
+  client.test("xtr/ready with token is 200", () => {
+    client.assert(response.status === 200);
+  });
+%}
+
+### XTR itself: a service route requires the inter-service bearer
+GET {{XTR_URL}}/example/echo
+
+> {%
+  client.test("XTR rejects a call without the bearer", () => {
+    client.assert(response.status === 401);
+  });
+%}
+
+### XTR itself: /health is exempt from the bearer
+GET {{XTR_URL}}/health
+
+> {%
+  client.test("XTR health is open", () => {
+    client.assert(response.status === 200);
+  });
+%}

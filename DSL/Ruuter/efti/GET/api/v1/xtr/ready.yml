@@ -1,0 +1,38 @@
+# Gate-internal probe of the outbound X-Road client (ADR-017): is XTR reachable from Ruuter?
+# It checks XTR's own /health (exempt from the bearer token), not the Security Server, so it works
+# without a keystore and a registered subsystem. Guarded by efti/GET/api/v1/.guard.yml (X-Internal-Service-Token).
+declaration:
+  description: "Outbound X-Road (XTR) reachability probe - 200 if XTR answers its /health, 503 otherwise.
+    Input: X-Internal-Service-Token header (enforced by the guard). Does not call the Security Server."
+  internal: false
+  returns: []
+
+check_xtr:
+  call: http.get
+  args:
+    url: "[#XTR_URL]/health"
+  result: xtr_result
+
+check_status:
+  switch:
+    - condition: ${xtr_result.response.status == 0 || xtr_result.response.status >= 300}
+      next: unavailable
+
+respond:
+  return: "OK"
+  status: 200
+  wrapper: false
+  next: end
+
+unavailable:
+  return:
+    type: "https://api.efti.ee/errors/bad-gateway"
+    code: "GATEWAY_UNAVAILABLE"
+    title: "Bad Gateway"
+    status: 502
+    detail: "The outbound X-Road client (XTR) is not reachable."
+  status: 502
+  headers:
+    Content-Type: "application/problem+json"
+  wrapper: false
+  next: end
