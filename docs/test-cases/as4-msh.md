@@ -69,6 +69,47 @@ In `legacy` mode the gate does not de-duplicate, so the same file can be posted 
   sender's `eDeliveryUrl`. The HTTP 200 only proves the message was accepted.
 - Source: observed (prelive, 2026-11-04).
 
+## 3. What a partner can ask for
+
+Over AS4 the gate answers three request types from a peer (`EftiMessageHandlers`); each answer is a
+separate message to the sender's `eDeliveryUrl`, not the HTTP response:
+
+| Request | Answer | Asks for |
+|---|---|---|
+| `FTI019SearchIdentifierRequest` | `FTI021SearchIdentifierResponse` | identifiers (UILs) of consignments that match criteria |
+| `FTI009GetCmdsRequest` | `FTI010GetCmdsResponse` | the dataset of one consignment, by UIL and subset |
+| `FTI025LodgeFollowUpCommRequest` | `FTI030LodgeFollowUpCommResponse` | delivers a follow-up message to the platform that owns the dataset |
+
+`FTI004UploadIdentifierRequest` is what a platform uploads, not something a peer gate asks for.
+Samples of each message are in `code/xml-mapper/xsd/FTI0NN/sample.xml`.
+
+### Data that can be found
+
+The six consignments of [data/README.md](data/README.md) (gate `EU-EE`, platform `mock`, all
+`ACTIVE`; the road ones expire 14 days after acceptance, see the note there):
+
+| Search criterion (`FTI019`) | Finds |
+|---|---|
+| `MainCarriageTransportMeansIDParameterScope` `TST-001` | `…0005` and `…0001` |
+| same, `TST-002` / `IMO9321483` / `OH-LKA` / `WAGON-77` | `…0002` / `…0003` / `…0004` / `…0006` |
+| `MainCarriageModeCodeParameterScope` `3` / `1` / `4` / `2` | road (3 rows) / sea / air / rail |
+| `UsedTransportEquipmentIDParameterScope` `CONT-100` | `…0002` |
+| `CarriedTransportEquipmentIDParameterScope` `CONT-200` or `CONT-201` | `…0003` |
+| `DangerousGoodsIndicationCodeParameterScope` `1` | `…0001` |
+| `DeliveryCountryParameterScope` `EE` | `…0002` to `…0006` |
+| `CarrierAcceptanceCountryParameterScope` `NE` `EE` and mode `3` | `…0002` |
+
+Other criteria the search takes: acceptance, delivery, loading and unloading date and country,
+main transport means type and registration country, equipment category, registration country and
+sequence number. Each criterion is a `…ParameterScope` with a `SubtypeCode` (`EQ`, `NE`, `GT`, …), as in
+`code/xml-mapper/xsd/FTI019/sample.xml`. Several criteria are ANDed. The table is **derived** from the
+same columns that [xroad-provide.md](xroad-provide.md) 6.2–6.6 observed through the X-Road search.
+
+A dataset request (`FTI009`) names the UIL `EU-EE` / `mock` / `<datasetId>` and a subset (for
+example `EU01`); the content is the `mock` platform's canned dataset, whatever the id (see
+[xroad-provide.md](xroad-provide.md) 5.2). The platform id in the UIL must be `mock`: a dataset of
+another platform answers 404.
+
 ## What to give a partner
 
 The public certificate that matches the deployed keystore, the URL `https://eftiprelive.kemitaws.ee/services/msh`,
