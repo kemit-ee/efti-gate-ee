@@ -15,6 +15,30 @@ them with the migration tool already used for the schema; nothing else to run.
 
 All rows: gate `EU-EE`, platform `mock`, status `ACTIVE`.
 
+## Finding each dataset
+
+`UIL` of every row is `{"gateId":"EU-EE","platformId":"mock","datasetId":"<id above>"}`. Calls are the
+X-Road ones from [../xroad-provide.md](../xroad-provide.md) (`$BASE`, `X-Road-Client` of a holder of
+`EU02` such as `EE/GOV/70000093/ants`, a fresh `X-Road-Id`).
+
+| datasetId | `POST /provide/v1/transport-means` body | `POST /provide/v1/search` body | Expected |
+|---|---|---|---|
+| `…0001` | `{"identifier":"TST-001","scope":"local"}` | `{"dangerousGoodsCode":{"operator":"EQ","code":"1"}}` | `TST-001` found 2 (`…0005`, `…0001`) / search 1 row |
+| `…0002` | `{"identifier":"CONT-100","scope":"local"}` (used equipment) | `{"acceptanceCountry":{"operator":"NE","country":"EE"},"transportMode":{"operator":"EQ","mode":"3"}}` | found 1 / 1 row `TST-002` |
+| `…0003` | `{"identifier":"IMO9321483","scope":"existence"}` or `CONT-200` / `CONT-201` (carried) | `{"transportMode":{"operator":"EQ","mode":"1"}}` | registered `true` / sea row |
+| `…0004` | `{"identifier":"OH-LKA","scope":"local"}` | `{"transportMode":{"operator":"EQ","mode":"4"}}` | found 1 / 1 row |
+| `…0005` | `{"identifier":"TST-001","scope":"local"}` (second trip) | `{"mainTransportId":{"operator":"EQ","id":"TST-001"}}` | newest first: `…0005`, `…0001` |
+| `…0006` | `{"identifier":"WAGON-77","scope":"local"}` | `{"transportMode":{"operator":"EQ","mode":"2"}}` | found 1 / rail row |
+
+Fetch a dataset itself with `POST /provide/v1/dataset`, body
+`{"uil":{"gateId":"EU-EE","platformId":"mock","datasetId":"11111111-0000-4000-8000-000000000001"},"subsets":["EU01"]}`;
+the content comes from the `mock` platform (the same for any id), not from the stored row.
+A peer gate asks the same through `POST /services/msh` ([../as4-msh.md](../as4-msh.md)).
+
+Rows for sea, air and rail were checked through the admin API / SQL only; the cases in
+`xroad-provide.md` (4.5–4.9, 6.2–6.6) are the observed ones, the others are derived from the same
+columns (**derived**).
+
 ## Loading
 
 The changeset is [`DSL/Liquibase/test/test-consignments.sql`](../../../DSL/Liquibase/test/test-consignments.sql),

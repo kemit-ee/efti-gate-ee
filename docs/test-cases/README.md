@@ -9,6 +9,7 @@ answer looks like.
 |---|---|
 | [xroad-provide.md](xroad-provide.md) | The X-Road provider adapter, `/xroad/provide/**` (`ruuter-xroad`) |
 | [admin-api.md](admin-api.md) | The admin API, `/admin/v1/**` (needs an admin token) |
+| [as4-msh.md](as4-msh.md) | AS4 inbound from a peer gate, `POST /services/msh` |
 | [data/README.md](data/README.md) | Six test consignments as an opt-in Liquibase changeset, and how to load them |
 | [xroad-smoke.sh](xroad-smoke.sh) | The status-code checks of `xroad-provide.md` as one script |
 
@@ -40,3 +41,8 @@ When behaviour changes, update the expected answer in the same change as the cod
 The X-Road hosts (`*.xtpnl.kemitaws.ee`) sit behind an ALB whose security group allows only the
 Security Server and explicitly added addresses; elsewhere the connection times out (curl `000`).
 The public UI/mock hosts (`*.kemitaws.ee`) do not have that restriction.
+
+Prelive note: the prelive registry image (built from the devops repo) holds gates and one platform but
+**no authorities**, so the X-Road and authority cases that name `EE/GOV/70000093/ants` or
+`EE/GOV/70000099/testSubsystem` answer 403 there until those authorities are added to
+`environments/prelive/registry/authorities/`. The AS4 cases do not depend on them.
