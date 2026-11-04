@@ -15,8 +15,10 @@ reach it (outbound), before or after a peer is onboarded. A local variant with a
   mounted at `/app/certs/own.p12` (`docs/specs/deploy/resource-and-secrets-requirements.md` §3.5). It is
   not the dev keystore, and its certificate is not expired.
 - `TURVIS_INTEGRATION_MODE=legacy`. `shadow` and `turvis` have not been proven against a real peer.
-- `registry/gates/<OWN_GATE_ID>.yml` carries the real `eDeliveryUrl` (`https://<domain>/services/msh`)
-  and the public certificate.
+- `registry/gates/<OWN_GATE_ID>.yml` carries `eDeliveryUrl: http://edelivery:8081/services/msh` (the
+  address of `edelivery` inside the cluster, not the public domain) and the public certificate. The
+  public URL `https://<domain>/services/msh` is what the peer is given and what the peer puts in its own
+  registry.
 - `registry/gates/<peer>.yml` exists: file name equals `id`, values are strings, `status: ONLINE`,
   `eDeliveryUrl`, `eDeliveryCert` (PEM literal block), `countryCode`. A peer without `eDeliveryCert` is
   not an AS4 party.
@@ -166,6 +168,6 @@ our messages or that we accept theirs.
 6. Clean up: stop the `ssh` process, `docker rm -f efti_edge_filter`, `git checkout registry/gates/EU-MOCK.yml`
    and rebuild the registry image.
 
-For a real peer, give the peer the tunnel URL as your `eDeliveryUrl` (and set it in
-`registry/gates/<OWN_GATE_ID>.yml`). Our `edelivery` keeps a peer's replies working only while the tunnel
+For a real peer, give the peer the tunnel URL as your `eDeliveryUrl` (this gate's own
+file keeps the internal address). Our `edelivery` keeps a peer's replies working only while the tunnel
 is up, and the dev keystore and the shared dev certificate are not accepted by a real peer.
