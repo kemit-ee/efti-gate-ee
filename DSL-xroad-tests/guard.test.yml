@@ -61,3 +61,29 @@ tests:
     expect:
       status: 400
       body_matches: { code: "MISSING_REQUIRED_HEADER" }
+
+  - name: percent-encoded client parts are decoded; malformed escape -> 401
+    request:
+      method: POST
+      path: /xroad/provide/v1/dataset
+      headers:
+        content-type: "application/json"
+        x-road-client: "EE/GOV/70000094/%E2%82"
+        x-road-id: "0a11ce5e-0001-4d1d-8f1a-0f0d00010000"
+      body: { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "d" }, subsets: ["EU01"] }
+    expect:
+      status: 401
+      body_matches: { code: "UNAUTHORIZED" }
+
+  - name: 3-part member-level client (no subsystem) -> 401
+    request:
+      method: POST
+      path: /xroad/provide/v1/dataset
+      headers:
+        content-type: "application/json"
+        x-road-client: "EE/GOV/70000094"
+        x-road-id: "0a11ce5e-0001-4d1d-8f1a-0f0d00010000"
+      body: { uil: { gateId: "EU-EE", platformId: "mock", datasetId: "d" }, subsets: ["EU01"] }
+    expect:
+      status: 401
+      body_matches: { code: "UNAUTHORIZED" }

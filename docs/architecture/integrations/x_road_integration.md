@@ -141,7 +141,7 @@ subject to the network-isolation requirement above.
 
 | Header | Required | Role |
 |---|---|---|
-| `X-Road-Client` | yes | **The credential.** `instance/memberClass/memberCode[/subsystemCode]`. Both the 3-part (member-level) and 4-part (subsystem-level) forms are valid X-Road client ids; `memberCode` at index 2 drives access control and maps to `authorities.registry_code`. |
+| `X-Road-Client` | yes | **The credential.** `instance/memberClass/memberCode[/subsystemCode]`. The subsystem is mandatory: only the 4-part form is accepted, a 3-part member-level id is 401; `memberCode` at index 2 drives access control and maps to `authorities.registry_code`. |
 | `X-Road-Id` | yes | Message id; logged for correlation. |
 | `X-Road-Service` | no | Set by the Security Server; informational. |
 | `X-Road-UserId` | no | End user's personal identification code. **Never grants access**, because X-Road does not authenticate it. Intended for GDPR Art. 30 audit, but nothing writes `audit_log` yet — see ADR-006's open questions. |

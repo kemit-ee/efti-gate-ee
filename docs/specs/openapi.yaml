@@ -2102,9 +2102,8 @@ components:
         on the forwarded request. The gate trusts it because authentication has already happened
         upstream; a caller cannot reach the adapter without passing through a Security Server.
 
-        Format `instance/memberClass/memberCode[/subsystemCode]`. Both the 3-part (member-level,
-        `EE/GOV/70000097`) and 4-part (subsystem-level, `EE/GOV/70000097/tram`) forms are valid
-        X-Road client ids. `memberCode` is the Estonian Business Registry code and is resolved
+        Format `instance/memberClass/memberCode[/subsystemCode]`. The subsystem is mandatory: only the 4-part
+        form (`EE/GOV/70000097/tram`) is accepted, a 3-part member-level id is `401`. `memberCode` is the Estonian Business Registry code and is resolved
         against the `registryCode` in `registry/authorities/*.yml`; the resolved entry's `subsets` is the authorisation
         source. Identity is the **organisation**, never a person — `X-Road-UserId` is not
         authenticated by X-Road and never grants access.

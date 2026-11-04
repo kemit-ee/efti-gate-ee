@@ -544,7 +544,8 @@ components:
         **Credential.** Set by your information system (the one mandatory X-Road header); your
         Security Server verifies it against the authenticated client before forwarding.
         `instance/memberClass/memberCode[/subsystemCode]`, each part UTF-8 percent-encoded —
-        both the 3-part (`EE/GOV/70000097`) and 4-part (`EE/GOV/70000097/tram`) forms are valid.
+        the subsystem is mandatory: only the 4-part form (`EE/GOV/70000097/tram`) is accepted,
+        a 3-part member-level id is `401 UNAUTHORIZED`.
         `memberCode` (index 2) must be your Business Registry code and must resolve to
         exactly one authority's `registryCode` in the gate's registry.
       schema:

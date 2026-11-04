@@ -53,15 +53,14 @@ X-Road-UserId: EE30101010007
   })
 %}
 
-### Member-level client (3 parts, no subsystem) is a valid X-Road client id
+### Member-level client (3 parts, no subsystem) is rejected
 GET {{XROAD_URL}}/xroad/provide/v1/subsets
 X-Road-Client: EE/GOV/70000097
 X-Road-Id: 0a11ce5e-0002-4d1d-8f2a-0ec200000002
 
 > {%
-  client.test("3-part member-level client is accepted", () => {
-    client.assert(response.status === 200)
-    client.assert(response.body.authorityId === "auth-xroad-subsets")
+  client.test("3-part member-level client is 401", () => {
+    client.assert(response.status === 401)
   })
 %}
 

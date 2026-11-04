@@ -35,13 +35,14 @@ check_client_header:
 
 parse_client:
   assign:
-    xroad_parts: ${incoming.headers['x-road-client'].split('/')}
+    xroad_parts: ${incoming.headers['x-road-client'].split('/').map(p => { try { return decodeURIComponent(p) } catch (e) { return null } })}
   next: validate_client_format
 
-# 3 parts (EE/GOV/70000099) or 4 (EE/GOV/70000099/tram). Reject a trailing slash.
+# Exactly 4 parts (EE/GOV/70000099/tram): the subsystem is mandatory. A 3-part member-level id and a
+# trailing slash are rejected.
 validate_client_format:
   switch:
-    - condition: ${(xroad_parts.length === 3 || xroad_parts.length === 4) && xroad_parts[0] != '' && xroad_parts[1] != '' && xroad_parts[2] != null && xroad_parts[2] != '' && xroad_parts[xroad_parts.length - 1] != ''}
+    - condition: ${xroad_parts.length === 4 && !xroad_parts.includes(null) && xroad_parts[0] != '' && xroad_parts[1] != '' && xroad_parts[2] != null && xroad_parts[2] != '' && xroad_parts[xroad_parts.length - 1] != ''}
       next: check_id_header
   next: guard_unauthorized
 

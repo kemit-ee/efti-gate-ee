@@ -56,15 +56,17 @@ check_client_header:
 
 parse_client:
   assign:
-    xroad_parts: ${incoming.headers['x-road-client'].split('/')}
+    xroad_parts: ${incoming.headers['x-road-client'].split('/').map(p => { try { return decodeURIComponent(p) } catch (e) { return null } })}
 
-# 3 parts = member-level client (EE/GOV/70000099); 4 = subsystem-level (EE/GOV/70000099/tram).
-# Both are valid X-Road client ids; only the memberCode at index 2 drives access control. The
+# Exactly 4 parts (EE/GOV/70000099/tram): the subsystem is mandatory, a 3-part member-level id is
+# rejected (401).
+# Each part is UTF-8 percent-decoded after the split (a malformed escape is a malformed client id,
+# hence the null check). Only the memberCode at index 2 drives access control. The
 # final-part check rejects a trailing slash ('EE/GOV/70000099/' splits to 4 parts with an empty
 # last one), which is a malformed client id even though index 2 would still read correctly.
 validate_client_format:
   switch:
-    - condition: ${(xroad_parts.length === 3 || xroad_parts.length === 4) && xroad_parts[0] != '' && xroad_parts[1] != '' && xroad_parts[2] != null && xroad_parts[2] != '' && xroad_parts[xroad_parts.length - 1] != ''}
+    - condition: ${xroad_parts.length === 4 && !xroad_parts.includes(null) && xroad_parts[0] != '' && xroad_parts[1] != '' && xroad_parts[2] != null && xroad_parts[2] != '' && xroad_parts[xroad_parts.length - 1] != ''}
       next: check_id_header
   next: guard_unauthorized
 
