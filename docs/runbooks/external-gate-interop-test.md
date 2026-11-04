@@ -42,6 +42,17 @@ curl -i -X POST https://<domain>/admin/v1/gates    # expect 404 or 403
 
 A timeout, a TLS error or a 404 on `/services/msh` means the ingress is wrong; nothing below will work.
 
+These codes also show which hop answers. The Ruuter edge proxy (`DSL/Ruuter/services/POST/msh.yml`)
+answers a missing Content-Type with **415** `application/problem+json` and a GET with **405**. If a
+missing Content-Type gives a **500** `application/soap+xml` fault, or a GET gives **200**
+`eDelivery MSH endpoint is up`, the request went straight to `edelivery` and bypassed Ruuter's
+Content-Type check, 10 MiB cap and in-flight cap. Messages still arrive, so inbound tests pass, but the
+edge is not what the architecture says. In the devops repo the cause is the UI nginx in
+`charts/ui/values.yaml` (`location /services/msh { proxy_pass http://edelivery:8081; }`, present since
+the first bootstrap, before `msh.yml` existed). Point it at `http://ruuter:8086` and add
+`client_max_body_size 10m;` and `proxy_request_buffering off;` there (nginx defaults to 1 MiB and would
+answer larger AS4 messages with 413).
+
 ### 3. Inbound: peer to this gate
 Ask the peer to send a message (for example an identifier search), then:
 
@@ -77,6 +88,7 @@ message, so it needs the inbound path (step 2) too.
 | Symptom | Likely cause |
 |---|---|
 | Peer times out | ingress, firewall, DNS or TLS on this side |
+| 500 SOAP fault for a request without Content-Type, or 200 on GET | ingress bypasses Ruuter (see step 2) |
 | 415 / 400 before `edelivery` logs anything | the peer does not send `multipart/related` with `application/soap+xml` and a boundary |
 | `Unknown receiver: X` | the receiver id in the message is not `OWN_GATE_ID` |
 | failure at party lookup | the peer is missing from the registry image, is `DISABLED`, or has no `eDeliveryCert` |
