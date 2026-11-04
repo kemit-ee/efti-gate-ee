@@ -10,9 +10,9 @@ describe('runtimeConfig', () => {
 
   it('falls back to the origin callback route when unset or unreachable', async () => {
     vi.spyOn(window, 'fetch').mockResolvedValue({ok: true, json: () => Promise.resolve({taraRedirectUri: ''})} as any)
-    expect(await getTaraRedirectUri()).toBe(`${location.origin}/auth/callback`)
+    expect(await getTaraRedirectUri()).toBe(`${location.origin}/auth/callback/`)
     vi.spyOn(window, 'fetch').mockRejectedValue(new TypeError('x'))
-    expect(await getTaraRedirectUri()).toBe(`${location.origin}/auth/callback`)
+    expect(await getTaraRedirectUri()).toBe(`${location.origin}/auth/callback/`)
   })
 
   it('treats a trailing slash as the callback path', () => {
