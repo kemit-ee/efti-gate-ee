@@ -35,6 +35,34 @@ groups:
           summary: "edelivery sees zero ONLINE gates/platforms in the registry (own gate excluded check is not possible from this metric alone -- confirm against the registry service directly)"
           runbook: docs/runbooks/edelivery-communication-failure.md
 
+      - alert: TrustGenerationMismatch
+        # SPEC 7.4. klite's Metrics has no labels, so a generation is exported as a number (TrustGeneration.gauge) and equal
+        # numbers mean equal generations. edelivery_turvis_trust_generation is the one Turvis last reported to this edelivery,
+        # 0 until the first call. A rolling deploy overlaps for a short time, hence the 5 minutes.
+        expr: >
+          edelivery_registry_generation > 0
+            and edelivery_turvis_trust_generation > 0
+            and edelivery_registry_generation != edelivery_turvis_trust_generation
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "edelivery and Turvis loaded different registry/trust generations for 5m; deploy the matching artifacts, never trust the more permissive side"
+          runbook: docs/runbooks/edelivery-communication-failure.md
+
+      - alert: RegistryGenerationDivergence
+        # More than one distinct value among edelivery replicas (count_values emits one series per distinct value),
+        # and the same for the generation each replica last saw from Turvis.
+        expr: >
+          count(count_values("generation", edelivery_registry_generation > 0)) > 1
+            or count(count_values("generation", edelivery_turvis_trust_generation > 0)) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "edelivery replicas run on more than one registry or Turvis trust generation for 5m"
+          runbook: docs/runbooks/edelivery-communication-failure.md
+
 # Not implemented yet -- these need exporters this stack doesn't run:
 #   - restart-loop detection needs cAdvisor or the Docker/Kubernetes events API
 #   - "DB down" needs postgres_exporter against `database` (and separately `archive-database`)
