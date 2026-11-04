@@ -96,7 +96,7 @@ The six consignments of [data/README.md](data/README.md) (gate `EU-EE`, platform
 | `UsedTransportEquipmentIDParameterScope` `CONT-100` | `…0002` |
 | `CarriedTransportEquipmentIDParameterScope` `CONT-200` or `CONT-201` | `…0003` |
 | `DangerousGoodsIndicationCodeParameterScope` `1` | `…0001` |
-| `DeliveryCountryParameterScope` `EE` | `…0002` to `…0006` |
+| `DeliveryCountryParameterScope` `EE` | `…0002`, `…0003`, `…0004`, `…0006` |
 | `CarrierAcceptanceCountryParameterScope` `NE` `EE` and mode `3` | `…0002` |
 
 Other criteria the search takes: acceptance, delivery, loading and unloading date and country,
@@ -108,7 +108,7 @@ same columns that [xroad-provide.md](xroad-provide.md) 6.2–6.6 observed throug
 A dataset request (`FTI009`) names the UIL `EU-EE` / `mock` / `<datasetId>` and a subset (for
 example `EU01`); the content is the `mock` platform's canned dataset, whatever the id (see
 [xroad-provide.md](xroad-provide.md) 5.2). The platform id in the UIL must be `mock`: a dataset of
-another platform answers 404.
+an unknown platform id answers 404.
 
 ## What to give a partner
 
