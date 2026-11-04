@@ -347,7 +347,8 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 - `docs/runbooks/` — one file per common failure scenario (symptoms/diagnosis/resolution/escalation
   template in `docs/runbooks/README.md`): database connectivity loss, container/pod crash loop, high
   error rate, disk full, certificate expiry, eDelivery communication failure, TARA authentication
-  outage, X-Road service unavailable.
+  outage, X-Road service unavailable, and `external-gate-interop-test.md` (checklist for testing AS4 with
+  a peer gate, plus a local tunnel variant that exposes only `POST /services/msh` through an nginx filter).
 - Observability stack (`prometheus`, `grafana`, `alertmanager` compose services): Grafana dashboard at
   `http://localhost:3000` (admin / `$GRAFANA_ADMIN_PASSWORD`, default `admin`), Prometheus at
   `http://localhost:9090`, Alertmanager at `http://localhost:9093` (loopback-only, like resql/registry —
