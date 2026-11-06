@@ -1,0 +1,11 @@
+id: auth-kliimaministeerium
+name: Kliimaministeerium
+registryCode: '70001231'
+subsets:
+- EU01
+- EU02
+- EU03
+- EU04
+- EU05
+- EU06
+- EU07

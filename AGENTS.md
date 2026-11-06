@@ -348,7 +348,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
   serves as generated JSON: `registry/gates/{EU-EE,EU-MOCK}.yml`,
   `registry/platforms/{mock,mock-edelivery}.yml` (`mock` → `http://ruuter:8086/mock-platform`, headers
   `X-Api-Key: mock-secret-key`, `apiKey: mock-secret-key`), and 10 `registry/authorities/auth-*.yml`
-  fixtures used by `tests/authority/*` and `tests/admin/consignment-summary.http`. An image built from
+  fixtures used by `tests/authority/*` and `tests/admin/consignment-summary.http`, plus the real authorities `auth-ppa` (Politsei- ja Piirivalveamet, 70008747) and `auth-kliimaministeerium` (Kliimaministeerium, 70001231), both with subsets EU01..EU07. An image built from
   this repo therefore carries these dev credentials.
 - **Production has no seed user**: the first administrator is inserted by hand, once, following `docs/specs/deploy/first-admin.md` (also a Confluence child page of the deployment guide, linked from its section 5); `users` rows are all admins and there is no local break-glass admin.
 - TARA identities: `docker/tara-mock/identities.json`
