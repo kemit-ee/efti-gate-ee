@@ -28,7 +28,7 @@ subprojects {
   }
 
   dependencies {
-    fun klite(module: String) = "com.github.keksworks.klite:klite-$module:2.1.0"
+    fun klite(module: String) = "com.github.keksworks.klite:klite-$module:2.1.1"
     implementation(klite("server"))
     implementation(klite("json"))
     implementation(klite("xml"))
@@ -39,7 +39,7 @@ subprojects {
     testImplementation("org.junit.jupiter:junit-jupiter:6.0.3")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:6.0.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:6.0.3")
-    testImplementation("ch.tutteli.atrium:atrium-fluent:1.3.0-alpha-2")
+    testImplementation("ch.tutteli.atrium:atrium-fluent:1.3.0")
     testImplementation("io.mockk:mockk:1.14.11")
   }
 
