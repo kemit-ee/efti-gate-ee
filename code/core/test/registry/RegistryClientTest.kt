@@ -154,4 +154,23 @@ class RegistryClientTest {
 
     kotlin.test.assertFalse("SECRET-REGISTRY-TEXT" in e.message.orEmpty(), e.message)
   }
+
+  private val generation = "sha256:" + "0f".repeat(32)
+
+  @Test fun `getGeneration reads trustViewGeneration from health json`() {
+    val url = slot<HttpRequest>()
+    every { http.send(capture(url), any<BodyHandler<String>>()) } returns stringResponse(body = """{"status":"ok","gates":2,"trustViewGeneration":"$generation"}""")
+
+    assertEquals(generation, client.getGeneration())
+    assertEquals("http://registry:8080/health.json", url.captured.uri().toString())
+  }
+
+  @Test fun `getGeneration is null when it is missing, malformed or the registry is down`() {
+    for (body in listOf("""{"status":"ok"}""", """{"trustViewGeneration":"sha256:XYZ"}""", """{"trustViewGeneration":12}""", "not json")) {
+      every { http.send(any(), any<BodyHandler<String>>()) } returns stringResponse(body = body)
+      assertNull(client.getGeneration(), body)
+    }
+    every { http.send(any(), any<BodyHandler<String>>()) } returns stringResponse(status = 503, body = "")
+    assertNull(client.getGeneration())
+  }
 }

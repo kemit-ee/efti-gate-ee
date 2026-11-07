@@ -1,0 +1,41 @@
+rule_files: [alert-rules.yml]
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'edelivery_registry_generation{instance="a"}'
+        values: '100x12'
+      - series: 'edelivery_turvis_trust_generation{instance="a"}'
+        values: '100x3 200x9'
+      - series: 'edelivery_registry_generation{instance="b"}'
+        values: '100x12'
+      - series: 'edelivery_turvis_trust_generation{instance="b"}'
+        values: '0x12'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: TrustGenerationMismatch
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: TrustGenerationMismatch
+        exp_alerts:
+          - exp_labels: {instance: a, severity: warning}
+            exp_annotations:
+              summary: "edelivery and Turvis loaded different registry/trust generations for 5m; deploy the matching artifacts, never trust the more permissive side"
+              runbook: docs/runbooks/edelivery-communication-failure.md
+      - eval_time: 10m
+        alertname: RegistryGenerationDivergence
+        exp_alerts: []
+  - interval: 1m
+    input_series:
+      - series: 'edelivery_registry_generation{instance="a"}'
+        values: '100x12'
+      - series: 'edelivery_registry_generation{instance="b"}'
+        values: '300x12'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: RegistryGenerationDivergence
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "edelivery replicas run on more than one registry or Turvis trust generation for 5m"
+              runbook: docs/runbooks/edelivery-communication-failure.md

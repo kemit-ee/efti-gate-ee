@@ -6,6 +6,7 @@ import klite.json.parse
 import klite.logger
 import klite.warn
 import klite.error
+import registry.TrustGeneration
 import java.io.IOException
 import java.net.URI
 import java.net.http.HttpClient
@@ -314,6 +315,10 @@ class TurvisClient(
     }
   }
 
+  /** `X-Turvis-Trust-Generation` (SPEC 7.4): exported as a gauge and logged with the audit_ref; a missing or malformed value is `-`. */
+  private fun trustGeneration(response: HttpResponse<String>): String =
+    TrustGeneration.parse(response.headers().firstValue(TRUST_GENERATION_HEADER).orElse(null))?.also(EDeliveryMetrics::turvisTrustGeneration) ?: "-"
+
   private fun <T> finish(endpoint: Endpoint, response: HttpResponse<String>, requested: List<String>, parse: (Map<String, Any?>) -> T): TurvisResult<T> {
     val status = response.statusCode()
     if (status == 401 || status == 403) {
@@ -321,6 +326,7 @@ class TurvisClient(
       log.error("Turvis ${endpoint.metricName}: credential refused (HTTP $status), check TURVIS_INTERNAL_TOKEN") // pii-ok: no payload
       throw TurvisAuthException(status, endpoint.metricName)
     }
+    val trust = trustGeneration(response)
     // The mapper keeps the last of two equal keys, so a body that repeats one could read as another verdict: refuse it.
     if (response.body()?.let(JsonKeys::hasDuplicate) == true) protocolError(endpoint, "answered with a JSON body that repeats a key")
     val rejection = rejection(endpoint, response)
@@ -329,7 +335,7 @@ class TurvisClient(
       return try {
         val value = validated(endpoint, map, requested, parse)
         EDeliveryMetrics.turvisCall(endpoint.metricName, "accept")
-        log.info("Turvis ${endpoint.metricName}: accept audit_ref=${map["audit_ref"]}")
+        log.info("Turvis ${endpoint.metricName}: accept audit_ref=${map["audit_ref"]} trust_generation=$trust")
         TurvisResult.Accept(value)
       } catch (e: TurvisProtocolException) {
         EDeliveryMetrics.turvisCall(endpoint.metricName, "error")
@@ -343,7 +349,7 @@ class TurvisClient(
     // Bounded cardinality: only the codes of the contract get their own counter, anything else is one bucket.
     val known = rejection.reason?.code ?: "unrecognised"
     EDeliveryMetrics.turvisReject(endpoint.metricName, known)
-    val line = "Turvis ${endpoint.metricName}: reject reason_code=$known http=$status audit_ref=${rejection.auditRef}"
+    val line = "Turvis ${endpoint.metricName}: reject reason_code=$known http=$status audit_ref=${rejection.auditRef} trust_generation=$trust"
     if (rejection.reason?.alert != false) log.error("$line (ALERT)") else log.warn(line) // pii-ok: reason code and audit_ref only
     return TurvisResult.Reject(rejection)
   }
@@ -469,6 +475,7 @@ class TurvisClient(
   private fun URI.resolveTurvis(path: String): URI = URI(toString().trimEnd('/') + path)
 
   companion object {
+    const val TRUST_GENERATION_HEADER = "X-Turvis-Trust-Generation"
     /** SPEC 13.3: at most 2 retries, 100 ms then 300 ms. */
     val RETRY_BACKOFF_MS = listOf(100L, 300L)
     private val REASON_CODE = Regex("[A-Z][A-Z0-9_]{0,63}")
