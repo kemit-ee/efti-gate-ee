@@ -61,16 +61,17 @@ columns (**derived**).
 
 ## Loading
 
-Automatic. The SQL is [`DSL/Liquibase/changelog/20261109-test-consignments.sql`](../../../DSL/Liquibase/changelog/20261109-test-consignments.sql);
-`db.changelog-master.yaml` has `includeAll: changelog/`, so every normal migration (`docker compose up`,
+Automatic. The SQL is [`DSL/Liquibase/test/test-consignments.sql`](../../../DSL/Liquibase/test/test-consignments.sql);
+`db.changelog-master.yaml` includes it explicitly at the end, so every normal migration (`docker compose up`,
 the `liquibase` image in a deployed environment) loads both changesets once. There is nothing to run.
 This also means **every environment whose migration runs gets these rows**, including prelive and any
 production-like database.
 
-Liquibase records `changelog/20261109-test-consignments.sql::test-consignments-1` and `-2` in
-`databasechangelog`. A database that loaded the same rows by hand from the former opt-in changelog
-(`test/test-consignments.sql::…`) will load them a second time, because the changeset path differs
-(a `logicalFilePath` header was tried and made `includeAll` demand a Liquibase Pro key in CI).
+It is not under `changelog/` on purpose: Liquibase 4.29.2's `includeAll` rejected this formatted-SQL
+file in CI ("requires a valid Liquibase Pro key"), while an explicit `include` works. Liquibase records
+`test/test-consignments.sql::test-consignments-1` and `-2` in `databasechangelog`, the same identity the
+changesets had when they were loaded by hand from the former opt-in changelog, so those databases do not
+load them twice.
 
 Check:
 
