@@ -3,6 +3,8 @@ package edelivery
 import io.mockk.every
 import io.mockk.mockk
 import klite.xml.XmlParser
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.File
 import java.io.StringReader
@@ -36,6 +38,11 @@ class EDeliveryMessageGeneratorTest {
     val header = xmlParser.parse<MessageHeader>(req.first)
     val res = generator.responseMessage(header)
     validateXsd(res)
+  }
+
+  @Test fun `payload key is 128 bits as the declared aes128-gcm requires`() {
+    assertEquals(16, generator.generateAESKey().encoded.size)
+    assertTrue("xmlenc11#aes128-gcm" in generator.requestMessage(UserMessageParams(RequestKey(partyId)), "<payload/>").first)
   }
 
   private fun validateXsd(xml: String) {
