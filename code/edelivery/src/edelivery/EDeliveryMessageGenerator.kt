@@ -104,7 +104,7 @@ class EDeliveryMessageGenerator(
       template.substringAfter(REF_SLOT).let { it.substringBefore(PARTS_SLOT) + parts + it.substringAfter(PARTS_SLOT) }
   }
 
-  internal fun generateAESKey(): SecretKey = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
+  internal fun generateAESKey(): SecretKey = KeyGenerator.getInstance("AES").apply { init(128) }.generateKey()
 
   fun responseMessage(header: MessageHeader): String {
     val messagingXml = signalMessageXml(header)
