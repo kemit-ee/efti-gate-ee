@@ -131,7 +131,3 @@ databaseChangeLog:
   - includeAll:
       path: changelog/
       relativeToChangelogFile: true
-
-  - include:
-      file: test/test-consignments.sql
-      relativeToChangelogFile: true
