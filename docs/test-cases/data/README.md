@@ -70,7 +70,7 @@ production-like database.
 Liquibase records `changelog/20261109-test-consignments.sql::test-consignments-1` and `-2` in
 `databasechangelog`. A database that loaded the same rows by hand from the former opt-in changelog
 (`test/test-consignments.sql::…`) will load them a second time, because the changeset path differs
-(`includeAll` with formatted SQL does not accept a `logicalFilePath` header without a Liquibase Pro key).
+(a `logicalFilePath` header was tried and made `includeAll` demand a Liquibase Pro key in CI).
 
 Check:
 
