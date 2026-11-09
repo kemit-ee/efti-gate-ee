@@ -43,6 +43,15 @@ class RegistryClient(
 
   fun getParties(): Map<PartyId, EDeliveryParty> = getGates() + getPlatforms()
 
+  /** The generation of the registry artifact (`trustViewGeneration` in health.json), or null when it cannot be read or is malformed. */
+  fun getGeneration(): String? = try {
+    val health = jsonMapper.parse<Map<String, Any?>>(retryIdempotent("registry GET /health.json") { http.get(baseUrl + "/health.json") { timeout(registryTimeout) }.bodyOrThrowStatusOnly() })
+    TrustGeneration.parse(health["trustViewGeneration"])
+  } catch (e: Exception) {
+    log.warn("Registry generation unreadable: ${e.javaClass.simpleName}") // pii-ok: exception class only
+    null
+  }
+
   companion object {
     const val ONLINE = "ONLINE"
   }
