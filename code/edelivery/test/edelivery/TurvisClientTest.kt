@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test
 import java.io.IOException
 import java.net.URI
 import java.net.http.HttpClient
+import java.net.http.HttpHeaders
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.net.http.HttpResponse.BodyHandler
@@ -71,13 +72,14 @@ class TurvisClientTest {
     return out.toString()
   }
 
-  private fun answer(status: Int = 200, body: String): HttpResponse<String> = mockk {
+  private fun answer(status: Int = 200, body: String, trustGeneration: String? = null): HttpResponse<String> = mockk {
     every { statusCode() } returns status
     every { body() } returns body
+    every { headers() } returns HttpHeaders.of(listOfNotNull(trustGeneration?.let { "X-Turvis-Trust-Generation" to it }).groupBy({ it.first }, { it.second })) { _, _ -> true }
   }
 
-  private fun reject(status: Int, code: String, auditRef: String = "00000000-0000-4000-8000-000000000001", detail: String = "mock detail") =
-    answer(status, """{"type":"https://efti.example/problem/x","title":"t","status":$status,"verdict":"reject","reason_code":"$code","detail":"$detail","audit_ref":"$auditRef"}""")
+  private fun reject(status: Int, code: String, auditRef: String = "00000000-0000-4000-8000-000000000001", detail: String = "mock detail", trustGeneration: String? = null) =
+    answer(status, trustGeneration = trustGeneration, body = """{"type":"https://efti.example/problem/x","title":"t","status":$status,"verdict":"reject","reason_code":"$code","detail":"$detail","audit_ref":"$auditRef"}""")
 
   private val audit = "11111111-1111-4111-8111-111111111111"
   private val routingJson = """{"message_id":"m-1","conversation_id":"c-1","ref_to_message_id":"","from_party_id":"EU-DE","to_party_id":"EU-EE","service":"FTI010","action":"FTI010Response"}"""
@@ -446,6 +448,40 @@ class TurvisClientTest {
     assertEquals(3, requests.size)
     assertEquals(listOf(100L, 300L), sleeps)
     assertContains(e.message!!, "verifications")
+  }
+
+  // ---------------------------------------------------------------- trust generation (SPEC 7.4)
+
+  private val generationA = "sha256:" + "ab".repeat(32)
+  private val generationB = "sha256:" + "cd".repeat(32)
+
+  @Test fun `the trust generation of an answer is exported as a gauge and logged with the audit_ref`() {
+    script += answer(body = verifyAccept, trustGeneration = generationA)
+    val lines = LogCapture.lines { verifyCall() }
+
+    assertEquals(registry.TrustGeneration.gauge(generationA), Metrics.data["edeliveryTurvisTrustGeneration"])
+    assertTrue(lines.any { "accept audit_ref=$audit trust_generation=$generationA" in it }, lines.toString())
+  }
+
+  @Test fun `a rejection carries the trust generation too, and the gauge follows the latest one`() {
+    script += reject(422, "SIGNER_UNTRUSTED", trustGeneration = generationB)
+    val lines = LogCapture.lines { verifyCall() }
+
+    assertEquals(registry.TrustGeneration.gauge(generationB), Metrics.data["edeliveryTurvisTrustGeneration"])
+    assertTrue(lines.any { "reject reason_code=SIGNER_UNTRUSTED" in it && "trust_generation=$generationB" in it }, lines.toString())
+  }
+
+  @Test fun `a missing or malformed trust generation is logged as a dash and leaves the gauge alone`() {
+    script += answer(body = verifyAccept, trustGeneration = generationA)
+    verifyCall()
+    val before = Metrics.data["edeliveryTurvisTrustGeneration"]
+    script += answer(body = verifyAccept)
+    script += answer(body = verifyAccept, trustGeneration = "sha256:ZZ-jndi-injected")
+    val lines = LogCapture.lines { verifyCall(); verifyCall() }
+
+    assertEquals(before, Metrics.data["edeliveryTurvisTrustGeneration"])
+    assertEquals(2, lines.count { "accept audit_ref=$audit trust_generation=-" in it }, lines.toString())
+    assertTrue(lines.none { "jndi" in it })
   }
 
   // ---------------------------------------------------------------- metrics

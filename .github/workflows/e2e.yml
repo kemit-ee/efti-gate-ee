@@ -63,6 +63,11 @@ jobs:
         run: |
           python3 scripts/validate-xml-surface.py
           python3 tests/xmlsurface/test_validate_xml_surface.py
+      # The trust-generation alerts of SPEC 7.4; the image is the one compose.yml runs.
+      - name: Prometheus alert rules
+        run: |
+          docker run --rm --entrypoint promtool -v "$PWD/docker/prometheus:/r:ro" -w /r prom/prometheus:v2.54.1 check rules alert-rules.yml
+          docker run --rm --entrypoint promtool -v "$PWD/docker/prometheus:/r:ro" -w /r prom/prometheus:v2.54.1 test rules alert-rules.test.yml
       - name: rich mock dataset XSD and field-coverage checks
         run: |
           sudo apt-get update -qq

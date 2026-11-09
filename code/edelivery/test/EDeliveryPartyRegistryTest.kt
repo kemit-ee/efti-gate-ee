@@ -5,7 +5,9 @@ import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
+import klite.Metrics
 import registry.RegistryClient
+import registry.TrustGeneration
 import java.net.URI
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
@@ -14,8 +16,12 @@ class EDeliveryPartyRegistryTest {
   private val partyA = EDeliveryParty(PartyId("EU-EE"), URI("http://a/msh"), "cert-a")
   private val partyB = EDeliveryParty(PartyId("EU-MOCK"), URI("http://b/msh"), "cert-b")
 
+  private val generationA = "sha256:" + "ab".repeat(32)
+  private val generationB = "sha256:" + "cd".repeat(32)
+
   private val registryClient = mockk<RegistryClient> {
     every { getParties() } returns mapOf(partyA.id to partyA)
+    every { getGeneration() } returns generationA
   }
   private val never = 1.hours
 
@@ -57,5 +63,27 @@ class EDeliveryPartyRegistryTest {
     val registry = EDeliveryPartyRegistry(registryClient, never)
     registry.parties = mapOf(partyB.id to partyB)
     assertEquals(mapOf(partyB.id to partyB), registry.parties)
+  }
+
+  @Test fun `the registry generation is exported and follows a reload`() {
+    every { registryClient.getGeneration() } returnsMany listOf(generationA, generationB)
+    val registry = EDeliveryPartyRegistry(registryClient, never)
+    assertEquals(generationA, registry.generation)
+    assertEquals(TrustGeneration.gauge(generationA), Metrics.data["edeliveryRegistryGeneration"])
+
+    registry.reload()
+
+    assertEquals(generationB, registry.generation)
+    assertEquals(TrustGeneration.gauge(generationB), Metrics.data["edeliveryRegistryGeneration"])
+  }
+
+  @Test fun `an unreadable generation keeps the last known one instead of resetting the gauge`() {
+    every { registryClient.getGeneration() } returnsMany listOf(generationA, null)
+    val registry = EDeliveryPartyRegistry(registryClient, never)
+
+    registry.reload()
+
+    assertEquals(generationA, registry.generation)
+    assertEquals(TrustGeneration.gauge(generationA), Metrics.data["edeliveryRegistryGeneration"])
   }
 }

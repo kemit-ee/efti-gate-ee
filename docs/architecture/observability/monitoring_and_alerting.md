@@ -29,7 +29,7 @@
 flowchart LR
     Gate[Gate node<br/>/metrics endpoint<br/>HTTP req/duration/errors,<br/>eDelivery msg count,<br/>gate ONLINE/OFFLINE] --> Prom[Prometheus<br/>15 s scrape]
     Prom --> Graf[Grafana dashboard<br/>avg duration,<br/>error rate, gate status]
-    Prom --> Rules[Alert rules<br/>error rate > 5%/5 min,<br/>service unreachable,<br/>no online eDelivery peers]
+    Prom --> Rules[Alert rules<br/>error rate > 5%/5 min,<br/>service unreachable,<br/>no online eDelivery peers,<br/>registry/Turvis trust generation mismatch]
     Rules --> Alert[Alertmanager UI<br/>no paging receiver yet]
 ```
 

@@ -2,6 +2,8 @@ package edelivery
 
 import klite.Metrics
 import java.util.concurrent.ConcurrentHashMap
+import registry.TrustGeneration
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.LongAdder
 
 object EDeliveryMetrics {
@@ -22,6 +24,8 @@ object EDeliveryMetrics {
   private val shadowAttempted = ConcurrentHashMap<String, LongAdder>()
   private val asyncHandlerFailures = ConcurrentHashMap<String, LongAdder>()
   private val asyncResponseTimeouts = LongAdder()
+  private val registryGeneration = AtomicLong()
+  private val turvisTrustGeneration = AtomicLong()
 
   init {
     Metrics.register("edeliveryMessagesInboundTotal") { inbound.mapValues { it.value.sum() } }
@@ -46,6 +50,9 @@ object EDeliveryMetrics {
     // edelivery_async_handler_failures_total_<reason_class>: a handler dispatched after the 200 threw (reason_class = FaultReason).
     Metrics.register("edeliveryAsyncHandlerFailuresTotal") { asyncHandlerFailures.mapValues { it.value.sum() } }
     Metrics.register("edeliveryAsyncResponseTimeoutsTotal") { asyncResponseTimeouts.sum() }
+    // SPEC 7.4 generations, 0 until first known: see TrustGeneration.gauge for why it is a number and not a label.
+    Metrics.register("edeliveryRegistryGeneration") { registryGeneration.get() }
+    Metrics.register("edeliveryTurvisTrustGeneration") { turvisTrustGeneration.get() }
   }
 
   /** `endpoint` is decryptions, verifications, encryptions or signatures; `verdict` is accept, reject or error (unreachable, bad shape, refused credential). */
@@ -81,6 +88,11 @@ object EDeliveryMetrics {
   fun asyncHandlerFailure(reasonClass: String) = asyncHandlerFailures.getOrPut(key(reasonClass)) { LongAdder() }.increment()
   /** The waiter of a cross-node reply hit its deadline before any reply arrived. */
   fun asyncResponseTimeout() = asyncResponseTimeouts.increment()
+
+  /** The generation of the registry artifact this node has loaded. */
+  fun registryGeneration(generation: String) = registryGeneration.set(TrustGeneration.gauge(generation))
+  /** The trust generation Turvis last reported in `X-Turvis-Trust-Generation`. */
+  fun turvisTrustGeneration(generation: String) = turvisTrustGeneration.set(TrustGeneration.gauge(generation))
 
   fun inbound(rootTag: String?) = inbound.getOrPut((rootTag ?: "unknown").lowercase()) { LongAdder() }.increment()
   fun outboundSuccess() = outbound.getOrPut("success") { LongAdder() }.increment()

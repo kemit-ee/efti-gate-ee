@@ -1,0 +1,11 @@
+id: auth-ppa
+name: Politsei- ja Piirivalveamet
+registryCode: '70008747'
+subsets:
+- EU01
+- EU02
+- EU03
+- EU04
+- EU05
+- EU06
+- EU07
