@@ -67,10 +67,10 @@ the `liquibase` image in a deployed environment) loads both changesets once. The
 This also means **every environment whose migration runs gets these rows**, including prelive and any
 production-like database.
 
-The file's `logicalFilePath` is `test/test-consignments.sql`, the path the changesets had when they
-were loaded by hand from the former opt-in changelog; a database that already ran them from there does
-not run them again. Liquibase records `test/test-consignments.sql::test-consignments-1` and `-2` in
-`databasechangelog`.
+Liquibase records `changelog/20261109-test-consignments.sql::test-consignments-1` and `-2` in
+`databasechangelog`. A database that loaded the same rows by hand from the former opt-in changelog
+(`test/test-consignments.sql::…`) will load them a second time, because the changeset path differs
+(`includeAll` with formatted SQL does not accept a `logicalFilePath` header without a Liquibase Pro key).
 
 Check:
 
