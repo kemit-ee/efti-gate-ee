@@ -66,6 +66,15 @@ class EDeliveryMessageGeneratorTest {
     }
   }
 
+  @Test fun `parsing a real outbound header reads the Messaging reference's PrefixList and the other references' transforms`() {
+    val header = xmlParser.parse<MessageHeader>(generator.requestMessage(UserMessageParams(RequestKey(partyId)), "<payload/>").first)
+    assertEquals(3, header.references.size)
+    assertEquals(listOf(MessageHeader.Transform(exc, "env")), header.references[0].transforms)
+    assertEquals(listOf(MessageHeader.Transform(exc, null)), header.references[1].transforms)
+    assertEquals(listOf(MessageHeader.Transform(swa, null)), header.references[2].transforms)
+    assertTrue(header.references.all { it.digestMethod == "http://www.w3.org/2001/04/xmlenc#sha256" })
+  }
+
   @Test fun `a signature without references is refused instead of acknowledging nothing`() {
     assertFailsWith<IllegalArgumentException> { receiptFor(emptyList()) }
   }

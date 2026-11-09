@@ -45,7 +45,11 @@ class MessageHeaderTest {
     assertFailsWith<IllegalArgumentException> { header("  ").requestId }
     assertFailsWith<IllegalArgumentException> { header("").requestId }
     assertFailsWith<IllegalArgumentException> { header("x".repeat(256)).requestId }
-    header("x".repeat(255)).requestId
+  }
+
+  @Test fun `a conversation id of exactly 255 characters is allowed`() {
+    val id = "x".repeat(255)
+    assertEquals(UUID.nameUUIDFromBytes(id.toByteArray()), header(id).requestId)
   }
 
   @Test fun `signature reference transforms and digest method are read from the SignedInfo`() {
