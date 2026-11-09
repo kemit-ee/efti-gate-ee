@@ -1,0 +1,6 @@
+# Opt-in test data. Not included by db.changelog-master.yaml, so a normal `update` never loads it.
+# Run it with --changeLogFile=test/db.changelog-test.yaml (docs/test-cases/data/README.md).
+databaseChangeLog:
+  - include:
+      file: test-consignments.sql
+      relativeToChangelogFile: true
