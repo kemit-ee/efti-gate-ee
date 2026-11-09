@@ -122,6 +122,14 @@ class TurvisShadow(private val config: TurvisConfig, private val inbound: Turvis
     }
   }
 
+  /** UUIDs compare canonically (the equivalence mshViaTurvis uses); any other ConversationId must match exactly. */
+  private fun sameConversation(legacy: String?, turvis: String?): Boolean {
+    if (legacy == null || turvis == null) return false
+    val legacyUuid = runCatching { UUID.fromString(legacy.trim()) }.getOrNull()
+    val turvisUuid = runCatching { UUID.fromString(turvis.trim()) }.getOrNull()
+    return if (legacyUuid != null && turvisUuid != null) legacyUuid == turvisUuid else legacy == turvis
+  }
+
   private fun compareAccepted(auditRef: String, body: ByteArray, legacy: LegacyObservation, turvis: VerifiedInbound) {
     val verifyRef = turvis.verifyAuditRef
     val legacySender = legacy.senderId
@@ -129,10 +137,8 @@ class TurvisShadow(private val config: TurvisConfig, private val inbound: Turvis
       discrepancy(auditRef, "verifications", "signer_identity", security = true, verifyRef)
 
     val routing = turvis.routing
-    // The legacy side holds the canonical UUID text; Turvis hands the raw string, so compare the same equivalence mshViaTurvis uses.
-    val turvisConversation = routing.conversationId?.let { runCatching { UUID.fromString(it).toString() }.getOrNull() }
     val routingMatches = legacy.receiverId?.equals(PartyId(routing.toPartyId)) == true &&
-      legacy.conversationId != null && legacy.conversationId == turvisConversation &&
+      sameConversation(legacy.conversationId, routing.conversationId) &&
       legacy.messageId != null && legacy.messageId == routing.messageId
     if (!routingMatches) discrepancy(auditRef, "verifications", "routing", security = true, verifyRef)
 

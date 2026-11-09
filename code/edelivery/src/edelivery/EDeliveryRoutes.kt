@@ -66,7 +66,7 @@ class EDeliveryRoutes(
       val encryptedPayload = parts.last() as? ByteArray ?: throw MalformedMultipartException()
 
       val header = xmlParser.parse<MessageHeader>(xml)
-      currentThread().name = header.conversationId.toString()
+      currentThread().name = header.requestId.toString()
 
       if (header.receiverId != keyManager.partyId) log.warn("Unknown receiver: ${header.receiverId.toString().logSafe()}")
       observed.stage = LegacyObservation.Stage.PARTY_LOOKUP
@@ -75,7 +75,7 @@ class EDeliveryRoutes(
       observed.stage = LegacyObservation.Stage.CRYPTO
       observed.senderId = header.senderId
       observed.receiverId = header.receiverId
-      observed.conversationId = header.conversationId.toString()
+      observed.conversationId = header.conversationId
       observed.messageId = header.messageId
 
       val encryptedSymmetricKey = header.cipherValue?.trim()
@@ -89,7 +89,7 @@ class EDeliveryRoutes(
       observed.payloadXml = payloadXml
 
       val rootTag = rootTagRegex.from(payloadXml)
-      val responseKey = RequestKey(header.senderId, header.conversationId, header.receiverId)
+      val responseKey = RequestKey(header.senderId, header.requestId, header.receiverId)
       val handler = messageHandlers.rootTags[rootTag] ?: throw UnsupportedOperationException("Unsupported message '$rootTag' from $responseKey")
       EDeliveryMetrics.inbound(rootTag)
       log.info("Handling '${rootTag.logSafe()}' from ${responseKey.toString().logSafe()}")
@@ -101,7 +101,7 @@ class EDeliveryRoutes(
       dispatch(auditRef, mapOf("response_key" to responseKey.toString())) {
         val result = handler(MessageContext(responseKey, payloadXml))
         if (result != null)
-          eDeliveryClient.send(party.eDeliveryUrl, UserMessageParams(responseKey), result)
+          eDeliveryClient.send(party.eDeliveryUrl, UserMessageParams(responseKey, conversationId = header.conversationId), result)
       }
     } catch (ex: Exception) {
       val reason = FaultReason.of(ex)

@@ -45,9 +45,9 @@ class EDeliveryRoutesTest {
   private val boundary = "----boundary"
   private val cipherValueRegex = Regex("(<xenc:CipherValue>)(.*?)(</xenc:CipherValue>)", setOf(RegexOption.DOT_MATCHES_ALL))
 
-  fun getBody(payload: String, keyInAnotherPart: Boolean = false, tamper: Boolean = false, headerTransform: (String) -> String = { it }): ByteArray {
+  fun getBody(payload: String, keyInAnotherPart: Boolean = false, tamper: Boolean = false, conversationId: String? = null, headerTransform: (String) -> String = { it }): ByteArray {
     val (xml, encryptedPayload) = realMessageGenerator.requestMessage(
-      UserMessageParams(RequestKey(party.id, senderId = party.id)), payload)
+      UserMessageParams(RequestKey(party.id, senderId = party.id), conversationId = conversationId), payload)
 
     val encryptedKey = cipherValueRegex.find(xml)?.groupValues?.get(2)?.base64Decode()
     val envelope = when {
@@ -416,5 +416,34 @@ class EDeliveryRoutesTest {
         it.key.receiverId == party.id && it.xml.contains(payload)
       })
     }
+  }
+
+  @Test fun `a non-UUID ConversationId is handled and echoed back to the peer unchanged`() {
+    val conversation = "conv-2026/abc"
+    every { exchange.requestStream } returns getBody("<data/>", conversationId = conversation).inputStream()
+    every { messageGenerator.responseMessage(any()) } returns "<response/>"
+    every { mockHandler.invoke(any()) } returns "<answer/>"
+    every { messageHandlers.rootTags } returns mapOf("data" to mockHandler)
+    val sent = slot<UserMessageParams>()
+    every { eDeliveryClient.send(any(), capture(sent), any()) } returns ""
+
+    routes.msh(exchange)
+
+    verify { exchange.send(OK, "<response/>", soap) }
+    verify(timeout = 5000) { eDeliveryClient.send(any(), any(), "<answer/>") }
+    expect(sent.captured.conversationId).toEqual(conversation)
+    expect(sent.captured.requestKey.requestId).toEqual(java.util.UUID.nameUUIDFromBytes(conversation.toByteArray()))
+  }
+
+  @Test fun `a blank or oversize ConversationId is answered with an InvalidHeader fault`() {
+    val shadow = mockk<TurvisShadow>(relaxed = true)
+    every { messageGenerator.soapFault(any()) } returns "<fault/>"
+    for (bad in listOf(" ", "x".repeat(256))) {
+      every { exchange.requestStream } returns getBody("<data/>", conversationId = bad).inputStream()
+
+      EDeliveryRoutes(keyManager, messageHandlers, messageGenerator, eDeliveryClient, partyRegistry, signatureValidator, legacyInbound, shadow, mockk(relaxed = true), audit, mockk(relaxed = true)).msh(exchange)
+    }
+    verify(exactly = 2) { messageGenerator.soapFault(FaultReason.XML_PARSE_FAIL) }
+    verify(exactly = 0) { messageHandlers.rootTags }
   }
 }

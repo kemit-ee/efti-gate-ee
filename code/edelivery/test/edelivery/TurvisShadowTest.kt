@@ -141,6 +141,33 @@ class TurvisShadowTest {
     assertNoDiscrepancy(before)
   }
 
+  @Test fun `an identical non-UUID conversation id is not a discrepancy`() {
+    every { inbound.process(any()) } returns verified(conversationId = "conv-42/abc")
+    val before = Snapshot(this)
+
+    shadow().compare("a-1", body, LegacyDecision.Accepted(observation().apply { conversationId = "conv-42/abc" }))
+
+    assertNoDiscrepancy(before)
+  }
+
+  @Test fun `a differing non-UUID conversation id is a security routing discrepancy`() {
+    every { inbound.process(any()) } returns verified(conversationId = "conv-42/abc")
+    val before = counter(discrepancies, "verifications_routing")
+
+    shadow().compare("a-1", body, LegacyDecision.Accepted(observation().apply { conversationId = "conv-43/abc" }))
+
+    assertEquals(before + 1, counter(discrepancies, "verifications_routing"))
+  }
+
+  @Test fun `a UUID that differs only in letter case is not a discrepancy`() {
+    every { inbound.process(any()) } returns verified(conversationId = conversation.uppercase())
+    val before = Snapshot(this)
+
+    shadow().compare("a-1", body, LegacyDecision.Accepted(observation().apply { conversationId = conversation }))
+
+    assertNoDiscrepancy(before)
+  }
+
   @Test fun `compareInbound counts every comparable message as attempted, a skipped legacy refusal not`() {
     every { inbound.process(any()) } returns verified()
     val before = counter("edeliveryTurvisShadowAttemptedTotal", "inbound")
