@@ -353,16 +353,98 @@ Body `{"transportMode":{"operator":"EQ","mode":"4"}}`: **200**, 1 item, `mainTra
 
 ### 6.4 search: by dangerous goods code → 200, one row
 
-Body `{"dangerousGoodsCode":{"operator":"EQ","code":"1"}}`: **200**, 1 item, `TST-001` (`…0001`).
-Source: observed (local, 2026-11-03).
+Body `{"dangerousGoodsCode":{"operator":"EQ","code":"1"}}`: **200**, 2 items with the test data,
+`888UUU` (`…0007`), then `TST-001` (`…0001`). Before the plate data (`…0007`–`…0014`) it was 1 item.
+Source: observed (local, 2026-11-03, one item); the second item is derived.
 
 ### 6.5 search: several criteria, one negated → 200, one row
 
 Body `{"acceptanceCountry":{"operator":"NE","country":"EE"},"transportMode":{"operator":"EQ","mode":"3"}}`
-(road, accepted outside EE): **200**, 1 item, `TST-002` (`…0002`). Source: observed (local, 2026-11-03).
+(road, accepted outside EE): **200**, 3 items with the test data, newest first: `031AVH` (`…0013`,
+accepted in LV), `963APY` (`…0009`, accepted in DE), `TST-002` (`…0002`). Source: observed (local,
+2026-11-03, one item `TST-002`); the other two are derived.
 
 ### 6.6 search: by delivery country → 200, several rows
 
-Body `{"deliveryCountry":{"operator":"EQ","country":"EE"}}`: **200**; locally 5 items, newest first:
-`WAGON-77`, `OH-LKA`, `IMO9321483`, `TST-002`, `VESSEL-001` (the last comes from the E2E suite).
-Source: observed (local, 2026-11-03).
+Body `{"deliveryCountry":{"operator":"EQ","country":"EE"}}`: **200**; locally 8 items with the test data, newest first:
+`031AVH` (`…0013`), `587AXF` (`…0012`), `963APY` (`…0009`), `WAGON-77`, `OH-LKA`, `IMO9321483`,
+`TST-002`, `VESSEL-001` (the last comes from the E2E suite). Source: observed (local, 2026-11-03,
+the last five); the first three are derived.
+
+---
+
+## 7. Plates of the test data (`…0007`–`…0014`)
+
+Needs the [test data](data/README.md), which the normal migration loads. Every case uses the client
+`EE/GOV/70000093/ants` (`EU02`) and a fresh `X-Road-Id`; `$ID` below stands for such a UUID. A truck is
+the main transport means, a trailer is *used equipment*, a container is *carried equipment*, so a
+lookup by any of them finds the consignment. All sources are **derived** (from the stored rows and the
+DSL; not yet seen on a deployment). `createdAt` is the load time and differs per environment.
+
+```bash
+lookup() { curl -s -X POST $BASE/provide/v1/transport-means -H "Content-Type: application/json" \
+  -H "X-Road-Client: EE/GOV/70000093/ants" -H "X-Road-Id: $(uuidgen | tr A-Z a-z)" -d "$1"; }
+```
+
+### 7.1 truck with dangerous goods and a trailer: `888UUU` → found 1
+
+`lookup '{"identifier":"888UUU"}'` → **200**, `found: 1`, `registered: true`, `scope: "local"`,
+`countryCode: ""`. The item:
+
+```json
+{"acceptanceCountry": "EE", "acceptanceDate": "2026-11-05T00:00:00Z", "carriedEquipmentCategories": null, "carriedEquipmentIds": null, "createdAt": "…", "dangerousGoods": "1", "deliveryCountry": "LV", "deliveryDate": "2026-11-06T00:00:00Z", "loadingCountry": "EE", "loadingDate": "2026-11-05T00:00:00Z", "mainTransportId": "888UUU", "mainTransportType": "31", "status": "ACTIVE", "transportMode": "3", "transportRegCountry": "EE", "uil": {"datasetId": "11111111-0000-4000-8000-000000000007", "gateId": "EU-EE", "platformId": "mock"}, "unloadingCountry": "LV", "unloadingDate": "2026-11-06T00:00:00Z", "usedEquipmentCategories": ["T10"], "usedEquipmentCountries": ["EE"], "usedEquipmentIds": ["735DF"]}
+```
+
+### 7.2 the trailer finds the same consignment: `735DF` → found 1
+
+`lookup '{"identifier":"735DF"}'` → **200**, `found: 1`, the item of 7.1 (`mainTransportId: "888UUU"`).
+The same holds for every trailer plate: `300DK` → `031AVH` (`…0008`), `060TP` → `963APY` (`…0009`),
+`337YLN` → `244AEH` (`…0010`), `055YHY` → `587AXF` (`…0011`), `611YHZ` → `587AXF` (`…0012`),
+`793YKT` → `031AVH` (`…0013`), `442DC` → `557SCG` (`…0014`).
+
+### 7.3 same truck, two trips: `031AVH` → found 2, newest first
+
+`lookup '{"identifier":"031AVH"}'` → **200**, `found: 2`, `consignments`:
+
+| # | datasetId | Route | `dangerousGoods` | `usedEquipmentIds` | `carriedEquipmentIds` |
+|---|---|---|---|---|---|
+| 1 | `…0013` | LV → EE (accepted/loaded 2026-11-08 in LV, delivered 2026-11-09 in EE) | `"8"` | `["793YKT"]` | `null` |
+| 2 | `…0008` | EE → FI (2026-11-05 → 2026-11-07) | `"0"` | `["300DK"]` | `["MSKU1234565","TGHU7654320"]` (categories `["BPR","BPR"]`) |
+
+### 7.4 truck with a container load and a later domestic trip: `587AXF` → found 2
+
+`lookup '{"identifier":"587AXF"}'` → **200**, `found: 2`: first `…0012` (EE → EE on 2026-11-08, trailer
+`611YHZ`, `dangerousGoods: "0"`, no carried equipment), then `…0011` (EE → PL, 2026-11-07 → 2026-11-09,
+trailer `055YHY`, `carriedEquipmentIds: ["MAEU4567896","CMAU2345670","HLCU9876543"]`,
+`carriedEquipmentCategories: ["BPR","BPR","BPR"]`).
+
+### 7.5 container id: `MSKU1234565` → found 1
+
+`lookup '{"identifier":"MSKU1234565"}'` → **200**, `found: 1`, `mainTransportId: "031AVH"`, `uil.datasetId`
+`…0008`. Each container of 7.3 and 7.4 finds its truck the same way (`HLCU9876543` → `587AXF`, `…0011`).
+
+### 7.6 existence only: bus and light trailer
+
+`lookup '{"identifier":"557SCG","scope":"existence"}'` and the same for `442DC` → **200**, exactly
+`{"countryCode":"","identifier":"557SCG","registered":true,"scope":"existence"}` (resp. `442DC`).
+With `"scope":"local"`, `557SCG` gives `found: 1`, `…0014`, EE → LV on 2026-11-09, `dangerousGoods: "0"`,
+`usedEquipmentIds: ["442DC"]`.
+
+### 7.7 truck without anything special: `244AEH` → found 1
+
+`lookup '{"identifier":"244AEH"}'` → **200**, `found: 1`, `…0010`, EE → LT on 2026-11-06,
+`dangerousGoods: "0"`, `usedEquipmentIds: ["337YLN"]`, `carriedEquipmentIds: null`.
+
+### 7.8 country filter: `963APY`
+
+`lookup '{"identifier":"963APY","countryCode":"EE","scope":"existence"}'` → **200**, `registered: true`,
+`countryCode: "EE"` (registration country of the truck). With `"countryCode":"DE"` → `registered: false`
+(the truck is registered in EE; DE is only where `…0009` was loaded). The local item `…0009` runs
+DE → EE (2026-11-06 → 2026-11-08), `dangerousGoods: "3"`, `usedEquipmentIds: ["060TP"]`.
+
+### 7.9 search by dangerous goods
+
+`POST $BASE/provide/v1/search`, body `{"dangerousGoodsCode":{"operator":"EQ","code":"3"}}` → **200**, one
+item, `963APY` (`…0009`). Code `"8"` → one item, `031AVH` (`…0013`). Code `"1"` → see 6.4
+(`888UUU`, `TST-001`). `{"mainTransportId":{"operator":"EQ","id":"244AEH"}}` → one item (`…0010`).
+`x-poll-more: false` in each.
