@@ -10,6 +10,8 @@ reach it (outbound), before or after a peer is onboarded. A local variant with a
 
 ## Diagnosis
 
+Before a first exchange with a new peer, send them [peer-as4-m0-questionnaire.md](peer-as4-m0-questionnaire.md) (registration data, sample envelope, Service/Action, certificate resolution).
+
 ### 1. Prerequisites (this gate)
 - `OWN_GATE_ID` is the AS4 PartyId the peer will use. The keystore `own.p12` has the same alias and is
   mounted at `/app/certs/own.p12` (`docs/specs/deploy/resource-and-secrets-requirements.md` §3.5). It is

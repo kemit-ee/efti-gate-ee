@@ -5,7 +5,7 @@ the conditional legacy-mode fixes in issue #392 are needed (S2 Service/Action, S
 BinarySecurityToken). The connection test itself is in [external-gate-interop-test.md](external-gate-interop-test.md).
 
 Our side: gate id `EU-EE`, AS4 endpoint `https://<our-domain>/services/msh`, SOAP 1.2, WS-Security 1.1
-(XML Signature RSA-SHA256 with exclusive c14n, SHA-256 digests; XML Encryption AES-128-GCM, RSA-OAEP key transport).
+(XML Signature RSA-SHA256 with exclusive c14n, SHA-256 digests; XML Encryption AES-128-GCM; key transport RSA-OAEP, xmlenc11, with SHA-256 digest and MGF1-SHA256).
 
 ## M0a - Registering the peer (what we need from you)
 
@@ -45,5 +45,4 @@ Please confirm:
 We reference our signing certificate in `wsse:SecurityTokenReference` by SKI (`wsse:KeyIdentifier`, ValueType
 X509SubjectKeyIdentifier), and do not send a `wsse:BinarySecurityToken`.
 Please confirm whether your resolver binds our certificate by SKI against the certificate you registered, or whether you
-require a `wsse:BinarySecurityToken` (X509v3) in the message. The same question for the messages you send us: we resolve your
-certificate by SKI (or serial number) from the registered certificate.
+require a `wsse:BinarySecurityToken` (X509v3) in the message. For the messages you send us: we take your signing certificate from our registry by your `eb:From` PartyId (a certificate in the message is not used), and your `xenc:EncryptedKey` must reference our certificate either by SKI (`wsse:KeyIdentifier`) or by X509 serial number, matching our certificate in `registry/gates/EU-EE.yml`.

@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.ValueSource
+import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
@@ -63,11 +63,6 @@ class ReceiptVerificationTest {
     }
   }
 
-  private val rootTags = listOf(
-    "FTI004UploadIdentifierRequest", "FTI009GetCmdsRequest", "FTI010GetCmdsResponse", "FTI019SearchIdentifierRequest",
-    "FTI021SearchIdentifierResponse", "FTI025LodgeFollowUpCommRequest", "FTI029UploadIdentifierResponse", "FTI030LodgeFollowUpCommResponse",
-  )
-
   private class Run(val input: String, val receipt: String)
 
   private fun exchange(rootTag: String): Run {
@@ -105,10 +100,7 @@ class ReceiptVerificationTest {
     return Regex("<ds:DigestValue>([^<]*)</ds:DigestValue>").findAll(scope).map { it.groupValues[1] }.toList()
   }
 
-  @ParameterizedTest @ValueSource(strings = [
-    "FTI004UploadIdentifierRequest", "FTI009GetCmdsRequest", "FTI010GetCmdsResponse", "FTI019SearchIdentifierRequest",
-    "FTI021SearchIdentifierResponse", "FTI025LodgeFollowUpCommRequest", "FTI029UploadIdentifierResponse", "FTI030LodgeFollowUpCommResponse",
-  ])
+  @ParameterizedTest @MethodSource("rootTags")
   fun `receipt is signed by the gate key and acknowledges the peer's signed references`(rootTag: String) {
     val run = exchange(rootTag)
     val inputHeader = xmlParser.parse<MessageHeader>(run.input)
@@ -124,7 +116,7 @@ class ReceiptVerificationTest {
 
   @Test fun `the parameterized root tags are exactly the production handler tags`() {
     val production = Class.forName("EftiMessageHandlers").constructors.single().newInstance(mockk<AsyncResponseProvider>(), mockkClass(Class.forName("RuuterClient").kotlin)) as MessageHandlers
-    assertEquals(production.rootTags.keys - "hello", rootTags.toSet())
+    assertEquals(production.rootTags.keys - "hello", rootTags().toSet())
   }
 
   @Test fun `receipt with a changed NRR DigestValue does not verify`() {
@@ -143,5 +135,12 @@ class ReceiptVerificationTest {
     val match = Regex("<ds:SignatureValue>([^<]+)</ds:SignatureValue>").find(run.receipt)!!
     val damaged = match.groupValues[1].base64Decode().also { it[0] = (it[0] + 1).toByte() }.base64Encode()
     assertThrows<SecurityException> { validator.verify(run.receipt.replace(match.groupValues[1], damaged), header, gateKeys.ownCert, ByteArray(0)) }
+  }
+
+  companion object {
+    @JvmStatic fun rootTags() = listOf(
+      "FTI004UploadIdentifierRequest", "FTI009GetCmdsRequest", "FTI010GetCmdsResponse", "FTI019SearchIdentifierRequest",
+      "FTI021SearchIdentifierResponse", "FTI025LodgeFollowUpCommRequest", "FTI029UploadIdentifierResponse", "FTI030LodgeFollowUpCommResponse",
+    )
   }
 }
