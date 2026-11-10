@@ -272,7 +272,7 @@ class EDeliveryMessageGenerator(
     <eb:CollaborationInfo>
       <eb:Service${params.serviceType?.let { " type=\"$it\"" } ?: ""}>${params.service}</eb:Service>
       <eb:Action>${params.action}</eb:Action>
-      <eb:ConversationId>${params.requestKey.requestId}</eb:ConversationId>
+      <eb:ConversationId>${(params.conversationId ?: params.requestKey.requestId.toString()).xmlEscaped()}</eb:ConversationId>
     </eb:CollaborationInfo>
     <eb:MessageProperties>
       <eb:Property name="originalSender" type="urn:oasis:names:tc:ebcore:partyid-type:iso6523:actorid-upis">iso6523-actorid-upis::9915:${keyManager.partyId}</eb:Property>
@@ -293,6 +293,7 @@ class EDeliveryMessageGenerator(
   private fun signalMessageXml(header: MessageHeader): String {
     val originalMessageId = header.messageId
     val references = header.references
+    require(references.isNotEmpty()) { "Signature has no references to acknowledge" }
     return /*language=xml*/ """
     <eb:Messaging xmlns:eb="$ebNs" xmlns:env="$soapNs" xmlns:wsu="$wsuNs" wsu:Id="$messagingWsuId" env:mustUnderstand="true">
       <eb:SignalMessage>
@@ -303,40 +304,23 @@ class EDeliveryMessageGenerator(
         </eb:MessageInfo>
         <eb:Receipt>
           <ebbp:NonRepudiationInformation xmlns:ebbp="http://docs.oasis-open.org/ebxml-bp/ebbp-signals-2.0">
-            <ebbp:MessagePartNRInformation>
-              <ds:Reference xmlns:ds="$dsNs" URI="${references[0].uri}">
-                <ds:Transforms>
-                  <ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#">
-                    <ec:InclusiveNamespaces xmlns:ec="http://www.w3.org/2001/10/xml-exc-c14n#" PrefixList="env"></ec:InclusiveNamespaces>
-                  </ds:Transform>
-                </ds:Transforms>
-                <ds:DigestMethod Algorithm="$xencSha256"></ds:DigestMethod>
-                <ds:DigestValue>${references[0].digestValue}</ds:DigestValue>
-              </ds:Reference>
-            </ebbp:MessagePartNRInformation>
-            <ebbp:MessagePartNRInformation>
-              <ds:Reference xmlns:ds="$dsNs" URI="${references[1].uri}">
-                <ds:Transforms>
-                  <ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"></ds:Transform>
-                </ds:Transforms>
-                <ds:DigestMethod Algorithm="$xencSha256"></ds:DigestMethod>
-                <ds:DigestValue>${references[1].digestValue}</ds:DigestValue>
-              </ds:Reference>
-            </ebbp:MessagePartNRInformation>
-            <ebbp:MessagePartNRInformation>
-              <ds:Reference xmlns:ds="$dsNs" URI="${references[2].uri}">
-                <ds:Transforms>
-                  <ds:Transform Algorithm="http://docs.oasis-open.org/wss/oasis-wss-SwAProfile-1.1#Attachment-Content-Signature-Transform"></ds:Transform>
-                </ds:Transforms>
-                <ds:DigestMethod Algorithm="$xencSha256"></ds:DigestMethod>
-                <ds:DigestValue>${references[2].digestValue}</ds:DigestValue>
-              </ds:Reference>
-            </ebbp:MessagePartNRInformation>
+            ${references.joinToString("\n") { nrPartXml(it) }}
           </ebbp:NonRepudiationInformation>
         </eb:Receipt>
       </eb:SignalMessage>
     </eb:Messaging>
     """.canonicalXml()
+  }
+
+  /** One NRR part per signed reference, repeating the transforms and digest method the peer signed with. */
+  private fun nrPartXml(ref: MessageHeader.SignatureReference): String {
+    val transforms = ref.transforms.takeIf { it.isNotEmpty() }?.joinToString("", "<ds:Transforms>", "</ds:Transforms>") { t ->
+      val prefixes = t.prefixList?.let { """<ec:InclusiveNamespaces xmlns:ec="http://www.w3.org/2001/10/xml-exc-c14n#" PrefixList="${it.xmlEscaped()}"></ec:InclusiveNamespaces>""" } ?: ""
+      """<ds:Transform Algorithm="${t.algorithm.xmlEscaped()}">$prefixes</ds:Transform>"""
+    } ?: ""
+    return """<ebbp:MessagePartNRInformation><ds:Reference xmlns:ds="$dsNs" URI="${ref.uri.xmlEscaped()}">$transforms""" +
+      """<ds:DigestMethod Algorithm="${(ref.digestMethod ?: xencSha256).xmlEscaped()}"></ds:DigestMethod>""" +
+      """<ds:DigestValue>${ref.digestValue.xmlEscaped()}</ds:DigestValue></ds:Reference></ebbp:MessagePartNRInformation>"""
   }
 
   fun soapFault(reason: FaultReason) = soapEnvelope(
