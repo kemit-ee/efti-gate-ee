@@ -373,6 +373,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 
 ## Testing
 
+- `ReceiptVerificationTest` (legacy mode, #392): per eFTI root tag the receipt from `EDeliveryRoutes.msh` verifies with the gate's key, not the sender's (two different keys), and its NRR digests equal the digests the sender signed. It does not prove an external peer resolves our certificate by SKI (M0d).
 - `TurvisShadowTest`: create shadows only through its `shadow()` helper, so the `@AfterEach` waits for their comparison threads. The shadow counters are process-wide (`EDeliveryMetrics`) and a comparison thread that outlives its test lands in the next test's exact-delta assertion (#346).
 - `tests/*/*.http` — IntelliJ HTTP Client format; run all with `docker compose run --rm http-tests`
   - `TEST_FILES=tests/admin/gates.http` can be prefixed to run only specific tests
