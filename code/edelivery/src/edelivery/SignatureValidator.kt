@@ -29,6 +29,7 @@ private const val swaAttachmentTransformUri = "http://docs.oasis-open.org/wss/oa
 private const val verifierDsNs = "http://www.w3.org/2000/09/xmldsig#"
 private const val verifierSoapNs = "http://www.w3.org/2003/05/soap-envelope"
 private const val verifierWsseNs = "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"
+private const val verifierEbNs = "http://docs.oasis-open.org/ebxml-msg/ebms/v3.0/ns/core/200704/"
 private const val verifierWsuNs = "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"
 
 class SignatureValidator {
@@ -45,17 +46,20 @@ class SignatureValidator {
   init { Security.addProvider(SwaTransformProvider()) }
 
   fun verify(xml: String, header: MessageHeader, signerCert: X509Certificate, attachmentBytes: ByteArray) {
-    verifySignature(xml, attachmentBytes, signerCert)
+    verifySignature(xml, attachmentBytes, signerCert, "UserMessage")
     // TODO use fast verify that also checks digests in signedinfo
   }
 
-  private fun verifySignature(xml: String, attachmentBytes: ByteArray, signerCert: X509Certificate) {
+  /** The same structural and signature checks for a signed receipt: `eb:SignalMessage` instead of `eb:UserMessage`, no attachment. */
+  internal fun verifyReceipt(xml: String, signerCert: X509Certificate) = verifySignature(xml, ByteArray(0), signerCert, "SignalMessage")
+
+  private fun verifySignature(xml: String, attachmentBytes: ByteArray, signerCert: X509Certificate, messageElement: String) {
     val document = documentBuilderFactory.newDocumentBuilder().parse(ByteArrayInputStream(xml.toByteArray()))
     registerIdAttributes(document.documentElement, mutableSetOf())
 
     val signatureElement = document.getElementsByTagNameNS(verifierDsNs, "Signature").item(0) as? Element
       ?: throw SecurityException("No AS4 signature found in message")
-    val messaging = requireSignedStructure(document)
+    val messaging = requireSignedStructure(document, messageElement)
 
     val defaultDereferencer = xmlSignatureFactory.uriDereferencer
     val validateContext = DOMValidateContext(KeySelector.singletonKeySelector(signerCert.publicKey), signatureElement).apply {
@@ -78,7 +82,7 @@ class SignatureValidator {
     val signedUris = signedInfo.references.map { it.uri }.toSet()
     val messagingId = messaging.getAttributeNS(verifierWsuNs, "Id")
     if (messagingId.isEmpty() || "#$messagingId" !in signedUris) throw SecurityException("The eb:Messaging element is not covered by the signature")
-    if ("cid:message" !in signedUris) throw SecurityException("The attachment is not covered by the signature")
+    if (messageElement == "UserMessage" && "cid:message" !in signedUris) throw SecurityException("The attachment is not covered by the signature")
 
     if (!signature.validate(validateContext)) throw SecurityException("Invalid message signature")
   }
@@ -88,14 +92,16 @@ class SignatureValidator {
    * on the DOM, so both must be the same, single element: one eb:Messaging directly under env:Header, one ds:Signature directly
    * under wsse:Security under env:Header (any namespace for the counted local names, the path reader ignores namespaces).
    */
-  private fun requireSignedStructure(document: Document): Element {
+  private fun requireSignedStructure(document: Document, messageElement: String): Element {
     fun single(name: String) = document.getElementsByTagNameNS("*", name).let {
       if (it.length != 1) throw SecurityException("Expected exactly one $name element, found ${it.length}")
       it.item(0) as Element
     }
     val messaging = single("Messaging")
-    single("UserMessage")
+    val message = single(messageElement)
     val signature = single("Signature")
+    if (messaging.namespaceURI != verifierEbNs) throw SecurityException("The eb:Messaging element is not in the ebMS namespace")
+    if (message.parentNode != messaging) throw SecurityException("The eb:$messageElement element is not a child of eb:Messaging")
     val header = messaging.parentNode as? Element
     val envelope = document.documentElement
     if (header == null || header.namespaceURI != verifierSoapNs || header.localName != "Header" || header.parentNode != envelope ||

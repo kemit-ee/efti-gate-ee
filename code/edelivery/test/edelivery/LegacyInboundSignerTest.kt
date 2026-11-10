@@ -4,6 +4,7 @@ import io.mockk.*
 import klite.HttpExchange
 import klite.StatusCode.Companion.InternalServerError
 import klite.StatusCode.Companion.OK
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
@@ -51,7 +52,9 @@ class LegacyInboundSignerTest {
 
     routes.msh(exchange)
 
-    verify(exactly = 1) { exchange.send(InternalServerError, any<String>(), soap) }
+    val fault = slot<String>()
+    verify(exactly = 1) { exchange.send(InternalServerError, capture(fault), soap) }
+    assertTrue(fault.captured.contains("EBMS:0101"), fault.captured)
     verify(exactly = 0) { exchange.send(OK, any<String>(), any()) }
     Thread.sleep(300)
     verify(exactly = 0) { handler.invoke(any()) }

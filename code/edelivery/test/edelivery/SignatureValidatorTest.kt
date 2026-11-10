@@ -120,4 +120,16 @@ class SignatureValidatorTest {
     val (messageXml, header, attachment) = signedMessage()
     refused(messageXml.replace("<ds:Reference URI=\"cid:message\"", "<ds:Reference URI=\"#${bodyId(messageXml)}\""), header, attachment, "attachment is not covered")
   }
+
+  @Test fun `verify refuses a Messaging that is not in the ebMS namespace`() {
+    val (messageXml, header, attachment) = signedMessage()
+    refused(messageXml.replaceFirst(Regex("(<eb:Messaging[^>]*xmlns:eb=\")[^\"]*"), "$1urn:other"), header, attachment, "ebMS namespace")
+  }
+
+  @Test fun `verify refuses a UserMessage that is not a child of the Messaging element`() {
+    val (messageXml, header, attachment) = signedMessage()
+    val userMessage = Regex("<eb:UserMessage.*?</eb:UserMessage>", RegexOption.DOT_MATCHES_ALL).find(messageXml)!!.value
+    val moved = messageXml.replace(userMessage, "").replace("</eb:Messaging>", "</eb:Messaging>" + userMessage.replaceFirst("<eb:UserMessage", "<eb:UserMessage xmlns:eb=\"http://docs.oasis-open.org/ebxml-msg/ebms/v3.0/ns/core/200704/\""))
+    refused(moved, header, attachment, "child of eb:Messaging")
+  }
 }
