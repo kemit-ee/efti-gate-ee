@@ -14,10 +14,9 @@ Our side: gate id `EU-EE`, AS4 endpoint `https://<our-domain>/services/msh`, SOA
 3. Your **public AS4 signing/encryption certificate** (PEM). We use it to verify your signatures and to encrypt
    what we send you.
 
-We register these in `registry/gates/<your-gate-id>.yml`. Until the peer is registered every inbound message from
-it is answered with `OTHER` / EBMS:0004, whatever else is correct. A registry change takes effect only after an image
-rebuild (`docker compose up --build registry turvis-trust`).
-You get our public certificate from `registry/gates/EU-EE.yml` (field `eDeliveryCert`) and our endpoint from the same file.
+We register these in our gate registry. Until the peer is registered every inbound message from
+it is answered with `OTHER` / EBMS:0004, whatever else is correct.
+We send you our public certificate and AS4 endpoint separately.
 
 ## M0b - A sample signed envelope
 
@@ -45,4 +44,4 @@ Please confirm:
 We reference our signing certificate in `wsse:SecurityTokenReference` by SKI (`wsse:KeyIdentifier`, ValueType
 X509SubjectKeyIdentifier), and do not send a `wsse:BinarySecurityToken`.
 Please confirm whether your resolver binds our certificate by SKI against the certificate you registered, or whether you
-require a `wsse:BinarySecurityToken` (X509v3) in the message. For the messages you send us: we take your signing certificate from our registry by your `eb:From` PartyId (a certificate in the message is not used), and your `xenc:EncryptedKey` must reference our certificate either by SKI (`wsse:KeyIdentifier`) or by X509 serial number, matching our certificate in `registry/gates/EU-EE.yml`.
+require a `wsse:BinarySecurityToken` (X509v3) in the message. For the messages you send us: we take your signing certificate from our registry by your `eb:From` PartyId (a certificate in the message is not used), and your `xenc:EncryptedKey` must reference our certificate either by SKI (`wsse:KeyIdentifier`) or by X509 serial number, matching the certificate we sent you.
