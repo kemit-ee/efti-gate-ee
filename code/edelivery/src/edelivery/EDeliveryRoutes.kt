@@ -132,7 +132,7 @@ class EDeliveryRoutes(
     try {
       val inbound = turvisInbound.process(bodyBytes)
       val routing = inbound.routing
-      val conversationId = routing.conversationId?.let(UUID::fromString) ?: throw IllegalArgumentException("Message has no conversation id")
+      val conversationId = ConversationIds.requestId(routing.conversationId)
       currentThread().name = conversationId.toString()
 
       val receiverId = PartyId(routing.toPartyId)
@@ -186,7 +186,7 @@ class EDeliveryRoutes(
       dispatch(auditRef, mapOf("response_key" to responseKey.toString())) {
         val result = handler(MessageContext(responseKey, inbound.payloadXml))
         if (result != null)
-          eDeliveryClient.send(party.eDeliveryUrl, UserMessageParams(responseKey), result)
+          eDeliveryClient.send(party.eDeliveryUrl, UserMessageParams(responseKey, conversationId = routing.conversationId), result)
       }
     } catch (ex: Exception) {
       if (recordedAndAnswered) {

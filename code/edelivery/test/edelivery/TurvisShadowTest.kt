@@ -132,13 +132,13 @@ class TurvisShadowTest {
     assertEquals(beforeSecurity + 1, counter(security))
   }
 
-  @Test fun `a non-canonical conversation id that is the same UUID is not a discrepancy`() {
+  @Test fun `a lenient UUID spelling is a different conversation than the canonical form, as on both paths`() {
     every { inbound.process(any()) } returns verified(conversationId = "1-2-3-4-5")
-    val before = Snapshot(this)
+    val before = counter(discrepancies, "verifications_routing")
 
     shadow().compare("a-1", body, LegacyDecision.Accepted(observation().apply { conversationId = "00000001-0002-0003-0004-000000000005" }))
 
-    assertNoDiscrepancy(before)
+    assertEquals(before + 1, counter(discrepancies, "verifications_routing"))
   }
 
   @Test fun `an identical non-UUID conversation id is not a discrepancy`() {

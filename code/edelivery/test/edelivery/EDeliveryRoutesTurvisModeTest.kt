@@ -46,11 +46,12 @@ class EDeliveryRoutesTurvisModeTest {
     verifiedIdentity: String = "DE",
     from: String = "DE",
     conversationId: String? = conversation,
+    messageId: String = "m-1@x",
     payload: String = "<hello>world</hello>",
     digests: List<TurvisSignatureReference> = emptyList(),
     to: String = "EU-EE",
   ) = VerifiedInbound(
-    TurvisEbmsRouting("m-1@x", conversationId, null, from, to, "svc", "act"),
+    TurvisEbmsRouting(messageId, conversationId, null, from, to, "svc", "act"),
     TurvisSigner("CN=de", "ski", "01", verifiedIdentity),
     digests, payload, "dec-1", "ver-1",
   )
@@ -248,14 +249,60 @@ class EDeliveryRoutesTurvisModeTest {
     verify(exactly = 0) { handler.invoke(any()) }
   }
 
-  @Test fun `a conversation id that is not a UUID is refused before dispatch`() {
-    every { turvis.process(any()) } returns verified(conversationId = "not-a-uuid")
-    every { generator.soapFault(any()) } returns "<fault/>"
+  @Test fun `a conversation id that is not a UUID is dispatched under a stable name-based key and echoed to the peer`() {
+    val peerId = "fti-conv-00001"
+    every { turvis.process(any()) } returns verified(conversationId = peerId, payload = "<hello>world</hello>")
+    every { handler.invoke(any()) } returns "<answer/>"
+    val params = slot<UserMessageParams>()
+    every { eDeliveryClient.send(any(), capture(params), "<answer/>") } returns ""
 
     routes.msh(exchange)
 
-    verify { exchange.send(InternalServerError, "<fault/>", soap) }
+    verify { exchange.send(OK, receiptBytes, soap) }
+    verify(timeout = 5000) { handler.invoke(match { it.key.requestId == java.util.UUID.nameUUIDFromBytes(peerId.toByteArray()) }) }
+    verify(timeout = 5000) { eDeliveryClient.send(sender.eDeliveryUrl, any(), "<answer/>") }
+    expect(params.captured.conversationId).toEqual(peerId)
+  }
+
+  @Test fun `a conversation id with a lenient UUID spelling is not read as that UUID`() {
+    every { turvis.process(any()) } returns verified(conversationId = "1-1-1-1-1")
+    every { handler.invoke(any()) } returns null
+
+    routes.msh(exchange)
+
+    verify(timeout = 5000) { handler.invoke(match { it.key.requestId == java.util.UUID.nameUUIDFromBytes("1-1-1-1-1".toByteArray()) }) }
+  }
+
+  @Test fun `a conversation id of 255 characters is accepted and one of 256 or a blank one is refused before dispatch`() {
+    every { generator.soapFault(any()) } returns "<fault/>"
+    every { handler.invoke(any()) } returns null
+    every { turvis.process(any()) } returns verified(conversationId = "c".repeat(255))
+    routes.msh(exchange)
+    verify(timeout = 5000) { handler.invoke(any()) }
+    verify { exchange.send(OK, receiptBytes, soap) }
+
+    clearMocks(handler, exchange, answers = false, recordedCalls = true)
+    every { exchange.requestStream } returns "raw body".toByteArray().inputStream()
+    for (bad in listOf("c".repeat(256), "  ", "")) {
+      every { turvis.process(any()) } returns verified(conversationId = bad)
+      routes.msh(exchange)
+    }
+    verify(exactly = 3) { generator.soapFault(FaultReason.XML_PARSE_FAIL) }
+    verify(exactly = 3) { exchange.send(InternalServerError, "<fault/>", soap) }
     verify(exactly = 0) { handler.invoke(any()) }
+  }
+
+  @Test fun `the same conversation id with another message id is not a repeat`() {
+    every { handler.invoke(any()) } returns null
+    for (id in listOf("m-1@x", "m-2@x")) {
+      every { turvis.process(any()) } returns verified(conversationId = "fti-conv-00001", messageId = id)
+      routes.msh(exchange)
+    }
+    verify(exactly = 1) { dedup.find(PartyId("DE"), "m-1@x") }
+    verify(exactly = 1) { dedup.find(PartyId("DE"), "m-2@x") }
+    verify(exactly = 1) { dedup.record(PartyId("DE"), "m-1@x", any(), any()) }
+    verify(exactly = 1) { dedup.record(PartyId("DE"), "m-2@x", any(), any()) }
+    verify(timeout = 5000, exactly = 2) { handler.invoke(any()) }
   }
 
   @Test fun `a verified signer that is not a registered party is refused before dispatch`() {
