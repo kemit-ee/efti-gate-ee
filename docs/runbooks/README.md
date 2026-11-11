@@ -52,6 +52,7 @@ alerts only in its UI. In the runbooks, **not yet available** refers to these ga
 | Certificate expiry (AS4 / TIM / TARA) | [certificate-expiry.md](certificate-expiry.md) |
 | eDelivery (AS4) communication failure | [edelivery-communication-failure.md](edelivery-communication-failure.md) |
 | Interoperability test with an external gate (incl. local tunnel) | [external-gate-interop-test.md](external-gate-interop-test.md) |
+| Questionnaire to send a peer gate before the first AS4 exchange (M0a-M0d) | [peer-as4-m0-questionnaire.md](peer-as4-m0-questionnaire.md) |
 | TARA authentication outage | [tara-authentication-outage.md](tara-authentication-outage.md) |
 | X-Road (xroad) service unavailable | [xtee-service-unavailable.md](xtee-service-unavailable.md) |
 | Manual rollback | [manual-rollback.md](manual-rollback.md) |
