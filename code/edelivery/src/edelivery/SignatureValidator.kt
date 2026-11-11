@@ -1,5 +1,6 @@
 package edelivery
 
+import org.w3c.dom.Document
 import org.w3c.dom.Element
 import org.w3c.dom.Node
 import java.io.ByteArrayInputStream
@@ -26,6 +27,9 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 private const val swaAttachmentTransformUri = "http://docs.oasis-open.org/wss/oasis-wss-SwAProfile-1.1#Attachment-Content-Signature-Transform"
 private const val verifierDsNs = "http://www.w3.org/2000/09/xmldsig#"
+private const val verifierSoapNs = "http://www.w3.org/2003/05/soap-envelope"
+private const val verifierWsseNs = "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"
+private const val verifierEbNs = "http://docs.oasis-open.org/ebxml-msg/ebms/v3.0/ns/core/200704/"
 private const val verifierWsuNs = "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"
 
 class SignatureValidator {
@@ -42,16 +46,20 @@ class SignatureValidator {
   init { Security.addProvider(SwaTransformProvider()) }
 
   fun verify(xml: String, header: MessageHeader, signerCert: X509Certificate, attachmentBytes: ByteArray) {
-    verifySignature(xml, attachmentBytes, signerCert)
+    verifySignature(xml, attachmentBytes, signerCert, "UserMessage")
     // TODO use fast verify that also checks digests in signedinfo
   }
 
-  private fun verifySignature(xml: String, attachmentBytes: ByteArray, signerCert: X509Certificate) {
+  /** The same structural and signature checks for a signed receipt: `eb:SignalMessage` instead of `eb:UserMessage`, no attachment. */
+  internal fun verifyReceipt(xml: String, signerCert: X509Certificate) = verifySignature(xml, ByteArray(0), signerCert, "SignalMessage")
+
+  private fun verifySignature(xml: String, attachmentBytes: ByteArray, signerCert: X509Certificate, messageElement: String) {
     val document = documentBuilderFactory.newDocumentBuilder().parse(ByteArrayInputStream(xml.toByteArray()))
-    registerIdAttributes(document.documentElement)
+    registerIdAttributes(document.documentElement, mutableSetOf())
 
     val signatureElement = document.getElementsByTagNameNS(verifierDsNs, "Signature").item(0) as? Element
       ?: throw SecurityException("No AS4 signature found in message")
+    val messaging = requireSignedStructure(document, messageElement)
 
     val defaultDereferencer = xmlSignatureFactory.uriDereferencer
     val validateContext = DOMValidateContext(KeySelector.singletonKeySelector(signerCert.publicKey), signatureElement).apply {
@@ -71,13 +79,47 @@ class SignatureValidator {
       if (it.digestMethod.algorithm != SHA256) throw SecurityException("Unsupported digest method ${it.digestMethod.algorithm}")
     }
 
+    val signedUris = signedInfo.references.map { it.uri }.toSet()
+    val messagingId = messaging.getAttributeNS(verifierWsuNs, "Id")
+    if (messagingId.isEmpty() || "#$messagingId" !in signedUris) throw SecurityException("The eb:Messaging element is not covered by the signature")
+    if (messageElement == "UserMessage" && "cid:message" !in signedUris) throw SecurityException("The attachment is not covered by the signature")
+
     if (!signature.validate(validateContext)) throw SecurityException("Invalid message signature")
   }
 
-  private fun registerIdAttributes(node: Node) {
-    if (node is Element && node.hasAttributeNS(verifierWsuNs, "Id")) node.setIdAttributeNS(verifierWsuNs, "Id", true)
+  /**
+   * The header fields are read by path (`Header/Messaging/...`, `Header/Security/Signature/...`) and the signature is validated
+   * on the DOM, so both must be the same, single element: one eb:Messaging directly under env:Header, one ds:Signature directly
+   * under wsse:Security under env:Header (any namespace for the counted local names, the path reader ignores namespaces).
+   */
+  private fun requireSignedStructure(document: Document, messageElement: String): Element {
+    fun single(name: String) = document.getElementsByTagNameNS("*", name).let {
+      if (it.length != 1) throw SecurityException("Expected exactly one $name element, found ${it.length}")
+      it.item(0) as Element
+    }
+    val messaging = single("Messaging")
+    val message = single(messageElement)
+    val signature = single("Signature")
+    if (messaging.namespaceURI != verifierEbNs) throw SecurityException("The eb:Messaging element is not in the ebMS namespace")
+    if (message.parentNode != messaging) throw SecurityException("The eb:$messageElement element is not a child of eb:Messaging")
+    val header = messaging.parentNode as? Element
+    val envelope = document.documentElement
+    if (header == null || header.namespaceURI != verifierSoapNs || header.localName != "Header" || header.parentNode != envelope ||
+      envelope.namespaceURI != verifierSoapNs || envelope.localName != "Envelope")
+      throw SecurityException("The eb:Messaging element is not a child of env:Header")
+    val security = signature.parentNode as? Element
+    if (signature.namespaceURI != verifierDsNs || security == null || security.namespaceURI != verifierWsseNs || security.localName != "Security" || security.parentNode != header)
+      throw SecurityException("The signature is not a child of wsse:Security in env:Header")
+    return messaging
+  }
+
+  private fun registerIdAttributes(node: Node, seen: MutableSet<String>) {
+    if (node is Element && node.hasAttributeNS(verifierWsuNs, "Id")) {
+      if (!seen.add(node.getAttributeNS(verifierWsuNs, "Id"))) throw SecurityException("Duplicate wsu:Id")
+      node.setIdAttributeNS(verifierWsuNs, "Id", true)
+    }
     val children = node.childNodes
-    for (i in 0 until children.length) registerIdAttributes(children.item(i))
+    for (i in 0 until children.length) registerIdAttributes(children.item(i), seen)
   }
 }
 

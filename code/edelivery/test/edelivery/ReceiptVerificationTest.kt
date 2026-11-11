@@ -105,8 +105,8 @@ class ReceiptVerificationTest {
     val run = exchange(rootTag)
     val inputHeader = xmlParser.parse<MessageHeader>(run.input)
 
-    assertDoesNotThrow { validator.verify(run.receipt, inputHeader, gateKeys.ownCert, ByteArray(0)) }
-    assertThrows<SecurityException>("must not verify with the sender's key") { validator.verify(run.receipt, inputHeader, peerCert, ByteArray(0)) }
+    assertDoesNotThrow { validator.verifyReceipt(run.receipt, gateKeys.ownCert) }
+    assertThrows<SecurityException>("must not verify with the sender's key") { validator.verifyReceipt(run.receipt, peerCert) }
 
     assertTrue(run.receipt.contains("<eb:RefToMessageId>${inputHeader.messageId}</eb:RefToMessageId>"), run.receipt)
     val acknowledged = digests(run.receipt, "ebbp:NonRepudiationInformation")
@@ -121,20 +121,18 @@ class ReceiptVerificationTest {
 
   @Test fun `receipt with a changed NRR DigestValue does not verify`() {
     val run = exchange("FTI009GetCmdsRequest")
-    val header = xmlParser.parse<MessageHeader>(run.input)
     val original = digests(run.receipt, "ebbp:NonRepudiationInformation").first()
     val flipped = original.base64Decode().also { it[0] = (it[0] + 1).toByte() }.base64Encode()
     assertNotEquals(original, flipped)
     val tampered = run.receipt.replaceFirst("<ds:DigestValue>$original</ds:DigestValue>", "<ds:DigestValue>$flipped</ds:DigestValue>")
-    assertThrows<SecurityException> { validator.verify(tampered, header, gateKeys.ownCert, ByteArray(0)) }
+    assertThrows<SecurityException> { validator.verifyReceipt(tampered, gateKeys.ownCert) }
   }
 
   @Test fun `receipt with a damaged SignatureValue does not verify`() {
     val run = exchange("FTI009GetCmdsRequest")
-    val header = xmlParser.parse<MessageHeader>(run.input)
     val match = Regex("<ds:SignatureValue>([^<]+)</ds:SignatureValue>").find(run.receipt)!!
     val damaged = match.groupValues[1].base64Decode().also { it[0] = (it[0] + 1).toByte() }.base64Encode()
-    assertThrows<SecurityException> { validator.verify(run.receipt.replace(match.groupValues[1], damaged), header, gateKeys.ownCert, ByteArray(0)) }
+    assertThrows<SecurityException> { validator.verifyReceipt(run.receipt.replace(match.groupValues[1], damaged), gateKeys.ownCert) }
   }
 
   companion object {
