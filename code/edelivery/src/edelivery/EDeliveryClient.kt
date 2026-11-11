@@ -101,7 +101,8 @@ class EDeliveryClient(
     val resBody = res.body()
     return if (res.statusCode() in 200..299) {
       EDeliveryMetrics.outboundSuccess()
-      log.info("eDelivery accepted message to $endpoint: status=${res.statusCode()}, conversationId=${params.requestKey}")
+      val answerSize = resBody.orEmpty().toByteArray().size
+      log.info("eDelivery accepted message to $endpoint: status=${res.statusCode()}, conversationId=${params.requestKey}, response_size_bytes=$answerSize")
       resBody
     } else {
       EDeliveryMetrics.outboundFailure()
