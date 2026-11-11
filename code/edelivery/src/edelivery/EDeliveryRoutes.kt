@@ -243,13 +243,13 @@ class EDeliveryRoutes(
 
     if (header.keyIdentifier != null) {
       if (keyManager.ownCertSki != header.keyIdentifier)
-        log.warn("Message encrypted for another certificate: sender=${header.senderId.toString().logSafe()} expected_ski=${keyManager.ownCertSki.logSafe()} received_ski=${header.keyIdentifier.logSafe()}")
+        log.warn("Message encrypted for another certificate: claimed_sender=${header.senderId.toString().logSafe()} expected_ski=${keyManager.ownCertSki.logSafe()} received_ski=${header.keyIdentifier.logSafe()}")
       require(keyManager.ownCertSki == header.keyIdentifier) {
         "Invalid KeyIdentifier \"${header.keyIdentifier}\", expected \"${keyManager.ownCertSki}\""
       }
     } else {
       if (keyManager.ownCertSerialNumber != header.serialNumber)
-        log.warn("Message encrypted for another certificate: sender=${header.senderId.toString().logSafe()} expected_serial=${keyManager.ownCertSerialNumber.toString().logSafe()} received_serial=${header.serialNumber.toString().logSafe()}")
+        log.warn("Message encrypted for another certificate: claimed_sender=${header.senderId.toString().logSafe()} expected_serial=${keyManager.ownCertSerialNumber.toString().logSafe()} received_serial=${header.serialNumber.toString().logSafe()}")
       require(keyManager.ownCertSerialNumber == header.serialNumber) {
         "Invalid X509SerialNumber \"${header.serialNumber}\", expected \"${keyManager.ownCertSerialNumber}\""
       }
