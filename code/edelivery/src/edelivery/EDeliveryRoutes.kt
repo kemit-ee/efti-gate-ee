@@ -92,7 +92,7 @@ class EDeliveryRoutes(
       val responseKey = RequestKey(header.senderId, header.requestId, header.receiverId)
       val handler = messageHandlers.rootTags[rootTag] ?: throw UnsupportedOperationException("Unsupported message '$rootTag' from $responseKey")
       EDeliveryMetrics.inbound(rootTag)
-      log.info("Handling '${rootTag.logSafe()}' from ${responseKey.toString().logSafe()}")
+      log.info("Handling '${rootTag.logSafe()}' from ${responseKey.toString().logSafe()}: audit_ref=$auditRef")
 
       val responseXml = eDeliveryMessageGenerator.responseMessage(header)
       e.send(OK, responseXml, soap)
@@ -100,8 +100,12 @@ class EDeliveryRoutes(
 
       dispatch(auditRef, mapOf("response_key" to responseKey.toString())) {
         val result = handler(MessageContext(responseKey, payloadXml))
-        if (result != null)
+        if (result != null) {
+          log.info("Handled '${rootTag.logSafe()}' from ${responseKey.toString().logSafe()}: audit_ref=$auditRef response_size_bytes=${result.toByteArray().size}")
           eDeliveryClient.send(party.eDeliveryUrl, UserMessageParams(responseKey, conversationId = header.conversationId), result)
+        } else {
+          log.info("Handled '${rootTag.logSafe()}' from ${responseKey.toString().logSafe()}: audit_ref=$auditRef no response")
+        }
       }
     } catch (ex: Exception) {
       val reason = FaultReason.of(ex)
@@ -238,10 +242,14 @@ class EDeliveryRoutes(
     }
 
     if (header.keyIdentifier != null) {
+      if (keyManager.ownCertSki != header.keyIdentifier)
+        log.warn("Message encrypted for another certificate: sender=${header.senderId.toString().logSafe()} expected_ski=${keyManager.ownCertSki.logSafe()} received_ski=${header.keyIdentifier.logSafe()}")
       require(keyManager.ownCertSki == header.keyIdentifier) {
         "Invalid KeyIdentifier \"${header.keyIdentifier}\", expected \"${keyManager.ownCertSki}\""
       }
     } else {
+      if (keyManager.ownCertSerialNumber != header.serialNumber)
+        log.warn("Message encrypted for another certificate: sender=${header.senderId.toString().logSafe()} expected_serial=${keyManager.ownCertSerialNumber.toString().logSafe()} received_serial=${header.serialNumber.toString().logSafe()}")
       require(keyManager.ownCertSerialNumber == header.serialNumber) {
         "Invalid X509SerialNumber \"${header.serialNumber}\", expected \"${keyManager.ownCertSerialNumber}\""
       }

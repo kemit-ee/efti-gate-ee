@@ -56,7 +56,7 @@ class KeyManager (private val partyRegistry: PartyRegistry) {
     val ext = cert.getExtensionValue("2.5.29.14")
     val skiBytes = ext?.copyOfRange(4, ext.size) ?: sha1(cert.publicKey.bitString())
     skiBytes.base64Encode().also {
-      log.info("${cert.subjectX500Principal.name} - KeyIdentifier/SKI: $it (extension: ${ext != null})")
+      log.debug("${cert.subjectX500Principal.name} - KeyIdentifier/SKI: $it (extension: ${ext != null})")
     }
   }
 }
