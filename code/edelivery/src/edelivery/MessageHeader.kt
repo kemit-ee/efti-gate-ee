@@ -21,11 +21,7 @@ data class MessageHeader(
    * maps to a stable name-based UUID. Only for internal correlation and log names; the peer's own string is echoed back.
    * A missing, blank or oversize id is refused (IllegalArgumentException, answered as XML_PARSE_FAIL).
    */
-  val requestId: UUID get() {
-    val id = conversationId
-    require(!id.isNullOrBlank() && id.length <= MAX_CONVERSATION_ID_LENGTH) { "Invalid ConversationId" }
-    return runCatching { UUID.fromString(id.trim()) }.getOrElse { UUID.nameUUIDFromBytes(id.toByteArray()) }
-  }
+  val requestId: UUID get() = ConversationIds.requestId(conversationId)
 
   data class SignatureReference(
     @XmlPath("@URI") val uri: String,
@@ -40,6 +36,6 @@ data class MessageHeader(
   )
 
   companion object {
-    const val MAX_CONVERSATION_ID_LENGTH = 255
+    const val MAX_CONVERSATION_ID_LENGTH = ConversationIds.MAX_LENGTH
   }
 }

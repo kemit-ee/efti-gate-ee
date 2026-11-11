@@ -125,8 +125,8 @@ class TurvisShadow(private val config: TurvisConfig, private val inbound: Turvis
   /** UUIDs compare canonically (the equivalence mshViaTurvis uses); any other ConversationId must match exactly. */
   private fun sameConversation(legacy: String?, turvis: String?): Boolean {
     if (legacy == null || turvis == null) return false
-    val legacyUuid = runCatching { UUID.fromString(legacy.trim()) }.getOrNull()
-    val turvisUuid = runCatching { UUID.fromString(turvis.trim()) }.getOrNull()
+    val legacyUuid = ConversationIds.canonicalUuid(legacy)
+    val turvisUuid = ConversationIds.canonicalUuid(turvis)
     return if (legacyUuid != null && turvisUuid != null) legacyUuid == turvisUuid else legacy == turvis
   }
 

@@ -68,6 +68,24 @@ class TurvisClientMockContractTest {
     assertNotNull(verified.signatureDigests.single { it.referenceUri == "cid:message" }.transforms.firstOrNull())
   }
 
+  @Test fun `a conversation id that is not a UUID comes back verbatim`() {
+    needMock()
+    val peerId = "fti-conv-00001"
+    val custom = b64(String(Base64.getDecoder().decode(envelope)).replace("11111111-1111-1111-1111-111111111111", peerId))
+    val decrypted = assertIs<TurvisResult.Accept<TurvisDecryptResponse>>(
+      client().decrypt(custom, "QUJD", TurvisDecryptField.entries.toSet()),
+    ).value
+    assertEquals(peerId, decrypted.ebmsRouting!!.conversationId)
+
+    val verified = assertIs<TurvisResult.Accept<TurvisVerifyResponse>>(
+      client().verify(
+        decrypted.decryptedSoapXmlB64!!, listOf(TurvisAttachment("cid:message", "QUJD")), listOf("//eb:Messaging", "//env:Body"), listOf("cid:message"),
+        TurvisVerifyField.entries.toSet(),
+      ),
+    ).value
+    assertEquals(peerId, verified.ebmsRouting!!.conversationId, "production routes by the verify answer")
+  }
+
   @Test fun `the inbound pass splits, decrypts and verifies a multipart message against the mock`() {
     needMock()
     val payload = "<hello>world</hello>"

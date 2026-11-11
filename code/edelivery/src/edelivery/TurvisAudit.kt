@@ -21,6 +21,7 @@ object TurvisAudit {
     "signer_cert_ski" to inbound.signer.certSki,
     "message_id" to inbound.routing.messageId,
     "conversation_id" to inbound.routing.conversationId,
+    "request_id" to runCatching { ConversationIds.requestId(inbound.routing.conversationId).toString() }.getOrNull(),
     "ref_to_message_id" to inbound.routing.refToMessageId,
     "from_party_id" to inbound.routing.fromPartyId,
     "to_party_id" to inbound.routing.toPartyId,
