@@ -115,4 +115,18 @@ class SearchRoutesTest : BaseMocks() {
     val result = routes.responseToJson("")
     expect(result).toBeEmpty()
   }
+
+  @Test fun responseToXmlWithoutConsignmentsHasOneIncludedNote() {
+    val xml = routes.responseToXml(emptyList(), exchange)
+
+    expect(Regex("<IncludedNote>").findAll(xml).count()).toEqual(1)
+    expect(xml).toContain("<IncludedNote><ContentCode>404</ContentCode><Content languageID=\"en\">No consignments found</Content></IncludedNote>")
+    expect(xml).notToContain("<IncludedNote><IncludedNote>")
+  }
+
+  @Test fun includedNoteWithoutContentCodeHasNoNullText() {
+    val xml = efti.xml.fti.IncludedNote("hello").render()
+
+    expect(xml).toEqual("<IncludedNote><Content languageID=\"en\">hello</Content></IncludedNote>")
+  }
 }

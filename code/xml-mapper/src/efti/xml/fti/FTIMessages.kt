@@ -98,7 +98,7 @@ data class IncludedNote(
   @XmlPath("ContentCode") val contentCode: StatusCode? = null,
 ) {
   @Language("xml") fun render() =
-    """<IncludedNote>${contentCode?.let { "<ContentCode>$contentCode</ContentCode>" }}<Content languageID="en">${+content}</Content></IncludedNote>"""
+    """<IncludedNote>${contentCode?.let { "<ContentCode>$contentCode</ContentCode>" } ?: ""}<Content languageID="en">${+content}</Content></IncludedNote>"""
 }
 
 data class ExchangedDocument(
@@ -117,7 +117,7 @@ data class ExchangedDocument(
     typeCode?.let { append("<TypeCode>$it</TypeCode>") }
     responseCode?.let { append("<StatusCode>$it</StatusCode>") }
     append("<IssueDateTime>${issueDateTime.render()}</IssueDateTime>")
-    includedNote?.let { append("<IncludedNote>${it.render()}</IncludedNote>") }
+    includedNote?.let { append(it.render()) }
     referencedIds?.forEach { append("<ReferencedID schemeVersionID=\"RFC 9562-4\">$it</ReferencedID>") }
     append("<RequestedSpecifiedQuery>${queryId.render()}</RequestedSpecifiedQuery>")
     requesterCountry?.let { append("<RequesterTradeParty><PostalTradeAddress><CountryID>$it</CountryID></PostalTradeAddress></RequesterTradeParty>") }
