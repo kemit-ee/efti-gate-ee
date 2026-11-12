@@ -346,6 +346,7 @@ The UI API client (`code/ui/src/api/api.ts`) uses `/admin/v1/` as the default pr
 ## Dev seed data (context:dev)
 
 - Users: Super Admin (60001019906) — still a Liquibase `context:dev` changeset (ADR-011 §9 keeps users on the API).
+- `20261112-superadmin-mary-ann.sql` (no context, so every environment, production included) adds the super administrator MARY ÄNN,O’CONNEŽ-ŠUSLIK, personal code 60001019906. Where the dev seed "Super Admin" already holds that code the changeset reuses its id (a rename, never two active ids for one code); elsewhere it generates an id. The name is written with `U&'…'` escapes so it does not depend on the file encoding. A user that has once been deactivated cannot be reactivated (`protect_registry_append`), so removing this account is final for its id.
 - **Gates, platforms and authorities are not seeded anywhere** — not by Liquibase (no tables exist) and
   not by a sync step. They are the committed YAML files under `registry/`, which the `registry` image
   serves as generated JSON: `registry/gates/{EU-EE,EU-MOCK}.yml`,
