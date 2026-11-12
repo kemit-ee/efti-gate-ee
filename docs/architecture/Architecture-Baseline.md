@@ -157,7 +157,7 @@ Turvaserver → Ruuter → ReSql (local DB lookup)
 
 #### Dataset Query (returns xml) / Followup Query
 ```
-XTR → Ruuter → ReSql (resolve UIL → platform/gate)
+Turvaserver → Ruuter → ReSql (resolve UIL → platform/gate)
               → edelivery (forward to remote gate) OR platform (direct REST/eDelivery)
 ```
 - ReSql looks up UIL to determine: local platform, remote gate, or both

@@ -6,7 +6,7 @@ Otsused on loendurid ja ei kustutata — uus otsus ei asenda vana, vaid täienda
 > **Üks erand (08.10.2026).** ADR-014, ADR-015 ja ADR-016 olid ühe otsuse (registrid
 > konfiguratsioonina) järkjärgulised täpsustused ja need **konsolideeriti [ADR-011](011-registries-as-signed-config.md)-sse**,
 > mis kirjeldab nüüd tegelikku seisu (allkiri on endiselt tegemata). Nende kolme faili sisu on
-> ADR-011-s; numbrid 014–016 on vabad ja **järgmine uus otsus jätkab numbriga 017**. Juba
+> ADR-011-s; numbrid 014–016 on vabad ja **järgmine uus otsus jätkab numbriga 018** (017 on XTR-i otsus). Juba
 > rakendatud Liquibase-migratsioonide kommentaarid viitavad endiselt vanadele numbritele —
 > nende muutmine rikuks checksum'id.
 
@@ -25,3 +25,4 @@ Otsused on loendurid ja ei kustutata — uus otsus ei asenda vana, vaid täienda
 | [ADR-011](011-registries-as-signed-config.md) | Registrid (gate'id, platvormid, asutused) allkirjastatud konfiguratsioonina, release'iga jõustuvad — **rakendatud**, välja arvatud allkiri (vt §2/§8) | 2026-10-01 | Sten Viljus, Rainer Türner |
 | [ADR-012](012-read-model-vs-query-level-denormalisation.md) | Kuumade lugemiste denormaliseerimine: päringutaseme lahendus vs read-model tabelid — **OTSUSTAMISEL** | 2026-10-05 | Sten Viljus, Rainer Türner |
 | [ADR-013](013-retire-multiplexer-ruuter-fanout.md) | Klite multiplexeri kaotamine — laialisaatmine ja seisund Ruuteri DSL-is (K4) | 2026-10-07 | Rasmus |
+| [ADR-017](017-xtr-outbound-x-road.md) | Väljaminev X-Tee REST — XTR vahekomponendina (Ruuter → XTR → turvaserver, mTLS ainult XTR-il) | 2026-10-29 | Sten Viljus |
