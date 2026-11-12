@@ -45,9 +45,14 @@ class EDeliveryPartyRegistryTest {
   }
 
   @Test fun `refreshes periodically`() {
-    every { registryClient.getParties() } returnsMany listOf(mapOf(partyA.id to partyA), mapOf(partyA.id to partyA, partyB.id to partyB))
+    // The refresh thread of a registry cannot be stopped and outlives this test. Its client reports no
+    // generation, so that thread never writes the process-wide generation gauge the other tests assert on.
+    val leakingClient = mockk<RegistryClient> {
+      every { getParties() } returnsMany listOf(mapOf(partyA.id to partyA), mapOf(partyA.id to partyA, partyB.id to partyB))
+      every { getGeneration() } returns null
+    }
 
-    val registry = EDeliveryPartyRegistry(registryClient, 20.milliseconds)
+    val registry = EDeliveryPartyRegistry(leakingClient, 20.milliseconds)
 
     val deadline = System.currentTimeMillis() + 2000
     while (registry.list().size < 2 && System.currentTimeMillis() < deadline) Thread.sleep(10)
