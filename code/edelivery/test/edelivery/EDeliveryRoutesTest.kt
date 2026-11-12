@@ -150,6 +150,70 @@ class EDeliveryRoutesTest {
     verify(timeout = 5000) { mockHandler.invoke(any()) }
   }
 
+  private val certificateMismatch = "Message encrypted for another certificate"
+
+  private fun mismatchLines(body: ByteArray): List<String> {
+    every { exchange.requestStream } returns body.inputStream()
+    every { messageGenerator.soapFault(any()) } returns "<fault/>"
+    every { messageHandlers.rootTags } returns mapOf("hello" to mockHandler)
+    every { mockHandler.invoke(any()) } returns "mockedResponse"
+    return LogCapture.lines { routes.msh(exchange) }.filter { certificateMismatch in it }
+  }
+
+  private fun refusedWithoutHandler() {
+    verify { exchange.send(InternalServerError, "<fault/>", soap) }
+    verify(exactly = 0) { mockHandler.invoke(any()) }
+  }
+
+  @Test fun `a message for another key identifier logs exactly one warning with the claimed sender and both identifiers`() {
+    val lines = mismatchLines(getBody("<hello>world</hello>") { keyIdentifierRegex.replace(it, "<wsse:KeyIdentifier>invalid-ski</wsse:KeyIdentifier>") })
+
+    val line = lines.single()
+    expect(line).toContain("claimed_sender=")
+    expect(line).toContain("expected_ski=${keyManager.ownCertSki}")
+    expect(line).toContain("received_ski=invalid-ski")
+    refusedWithoutHandler()
+  }
+
+  @Test fun `a received key identifier outside the audit character set is logged as a question mark`() {
+    val lines = mismatchLines(getBody("<hello>world</hello>") { keyIdentifierRegex.replace(it, "<wsse:KeyIdentifier>bad ski\nnext line</wsse:KeyIdentifier>") })
+
+    val line = lines.single()
+    expect(line).toContain("received_ski=?")
+    expect(line).notToContain("bad ski")
+    expect(line).notToContain("next line")
+    refusedWithoutHandler()
+  }
+
+  @Test fun `the own key identifier is not warned about`() {
+    expect(mismatchLines(getBody("<hello>world</hello>"))).toEqual(emptyList())
+    verify(timeout = 5000) { mockHandler.invoke(any()) }
+  }
+
+  @Test fun `a message for another serial number logs exactly one warning with the claimed sender and both serial numbers`() {
+    val lines = mismatchLines(getBody("<hello>world</hello>") { keyIdentifierRegex.replace(it, serialNumberXml("123456789")) })
+
+    val line = lines.single()
+    expect(line).toContain("claimed_sender=")
+    expect(line).toContain("expected_serial=${keyManager.ownCertSerialNumber}")
+    expect(line).toContain("received_serial=123456789")
+    refusedWithoutHandler()
+  }
+
+  @Test fun `a received serial number outside the audit character set is logged as a question mark`() {
+    val lines = mismatchLines(getBody("<hello>world</hello>") { keyIdentifierRegex.replace(it, serialNumberXml("12 34\n56")) })
+
+    val line = lines.single()
+    expect(line).toContain("received_serial=?")
+    expect(line).notToContain("12 34")
+    refusedWithoutHandler()
+  }
+
+  @Test fun `the own serial number is not warned about`() {
+    expect(mismatchLines(getBody("<hello>world</hello>") { keyIdentifierRegex.replace(it, serialNumberXml(keyManager.ownCertSerialNumber)) })).toEqual(emptyList())
+    verify(timeout = 5000) { mockHandler.invoke(any()) }
+  }
+
   private fun serialNumberXml(serialNumber: String) =
     "<wsse:X509Data><wsse:X509IssuerSerial><wsse:X509SerialNumber>$serialNumber</wsse:X509SerialNumber></wsse:X509IssuerSerial></wsse:X509Data>"
 
