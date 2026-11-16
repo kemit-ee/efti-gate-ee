@@ -1,5 +1,5 @@
-# Opt-in test data. Not included by db.changelog-master.yaml, so a normal `update` never loads it.
-# Run it with --changeLogFile=test/db.changelog-test.yaml (docs/test-cases/data/README.md).
+# Test consignments for docs/test-cases/. Included by db.changelog-master.yaml, but every changeset
+# carries context:dev,prelive, so only an environment migrated with one of those contexts loads them.
 databaseChangeLog:
   - include:
       file: test-consignments.sql
