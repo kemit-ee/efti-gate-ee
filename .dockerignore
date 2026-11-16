@@ -1,3 +1,5 @@
 # Repo-root build context (GitLab images, compose services with context: .). The committed dev AS4
 # keystore must never enter an image layer; compose mounts it into edelivery instead.
 code/certs
+# XTR mTLS keystore and Security Server CA: mounted at runtime, never in an image layer.
+xtr/ssl
