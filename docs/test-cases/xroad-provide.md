@@ -193,7 +193,7 @@ Same as 4.1 with client `EE/GOV/70000099/testSubsystem` (`EU01` only).
 
 ### 4.5 transport-means: plate seen on two datasets → 200, found 2
 
-Needs the [test data](data/README.md), loaded by hand from `DSL/Liquibase/test/` (the normal migration does not load it).
+Needs the [test data](data/README.md), loaded by the dev/prelive migration from `DSL/Liquibase/test/` (`context:dev,prelive`).
 
 ```bash
 curl -i -X POST $BASE/provide/v1/transport-means \
@@ -341,8 +341,8 @@ curl -i -X POST $BASE/provide/v1/search \
 - Source: observed (prelive and local, 2026-11-03). `dataset` with a valid body uses the same mapper
   on prelive and is affected the same way.
 
-The cases 6.2–6.6 need the [test data](data/README.md), loaded by hand from `DSL/Liquibase/test/`
-(the normal migration does not load it); without it the counts and rows differ.
+The cases 6.2–6.6 need the [test data](data/README.md), loaded by the dev/prelive migration from `DSL/Liquibase/test/`
+(`context:dev,prelive`); without it the counts and rows differ.
 
 ### 6.2 search: by main transport id → 200, two rows
 
@@ -378,7 +378,7 @@ the last five); the first three are derived.
 
 ## 7. Plates of the test data (`…0007`–`…0014`)
 
-Needs the [test data](data/README.md), loaded by hand from `DSL/Liquibase/test/` (the normal migration does not load it). Every case uses the client
+Needs the [test data](data/README.md), loaded by the dev/prelive migration from `DSL/Liquibase/test/` (`context:dev,prelive`). Every case uses the client
 `EE/GOV/70000093/ants` (`EU02`) and a fresh `X-Road-Id`; `$ID` below stands for such a UUID. A truck is
 the main transport means, a trailer is *used equipment*, a container is *carried equipment*, so a
 lookup by any of them finds the consignment. All sources are **derived** (from the stored rows and the

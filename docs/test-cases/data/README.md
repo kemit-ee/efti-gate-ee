@@ -61,27 +61,23 @@ columns (**derived**).
 
 ## Loading
 
-By hand, from the test catalogue. The SQL is [`DSL/Liquibase/test/test-consignments.sql`](../../../DSL/Liquibase/test/test-consignments.sql),
-reached only through its own changelog `test/db.changelog-test.yaml`. `db.changelog-master.yaml` does
-**not** include it (its `includeAll` covers `changelog/` only), so the normal migration never loads
-these rows. The test cases that depend on them (cases 4.5–4.9, 6.2–6.6 and section 7 of
-[../xroad-provide.md](../xroad-provide.md)) answer as documented only after this load.
+The SQL is [`DSL/Liquibase/test/test-consignments.sql`](../../../DSL/Liquibase/test/test-consignments.sql),
+reached from `db.changelog-master.yaml` through `test/db.changelog-test.yaml`. Both changesets carry
+`context:dev,prelive`, so the normal migration loads them wherever `liquibase.contexts` contains `dev` (the
+image default, local compose stack) or `prelive`, and never in production, which must run with a context
+that contains neither (`docs/specs/deploy/resource-and-secrets-requirements.md` §5). The test
+cases that depend on them (cases 4.5–4.9, 6.2–6.6 and section 7 of
+[../xroad-provide.md](../xroad-provide.md)) answer as documented once the migration has run.
 
-Local stack (Liquibase runs as the `liquibase` compose service):
+Local stack (the `liquibase` compose service runs the whole master):
 
 ```bash
-docker compose run --rm liquibase \
-  --defaultsFile=/liquibase/changelog/liquibase.properties \
-  --search-path=/liquibase/changelog \
-  --changeLogFile=test/db.changelog-test.yaml \
-  update -DAUDIT_SALT=dev-local-audit-salt-change-me-32chars
+docker compose run --rm liquibase
 ```
 
-Deployed environment: run the same `update` from the liquibase image with the environment's
-`efti-liquibase-secret`. A re-run does nothing: Liquibase records
-`test/test-consignments.sql::test-consignments-1` and `-2` in `databasechangelog` (the path `include` in
-`test/db.changelog-test.yaml` resolves, so a database that loaded the rows this way before does not
-load them twice) and skips them.
+A re-run does nothing: Liquibase records `test/test-consignments.sql::test-consignments-1` and `-2` in
+`databasechangelog` and skips them. A database that loaded the rows by hand through
+`--changeLogFile=test/db.changelog-test.yaml` has the same two entries, so they are not loaded twice.
 
 Check:
 
@@ -92,7 +88,7 @@ WHERE dataset_id::text LIKE '11111111-0000-4000-8000-%' ORDER BY dataset_id;   -
 
 ## Removing
 
-The store is append-only, so there is no `DELETE`. `liquibase rollback-count 2 --changeLogFile=test/db.changelog-test.yaml`
+The store is append-only, so there is no `DELETE`. `liquibase rollback-count 2` (run against the master with `--contexts=dev`)
 appends an `INACTIVE` row per dataset (the rollback blocks); the datasets then stop matching `ACTIVE`
 queries but stay in the history.
 
