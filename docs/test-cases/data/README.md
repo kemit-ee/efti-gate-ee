@@ -61,36 +61,23 @@ columns (**derived**).
 
 ## Loading
 
-The SQL is [`DSL/Liquibase/test/test-consignments.sql`](../../../DSL/Liquibase/test/test-consignments.sql),
-reached from `db.changelog-master.yaml` through `test/db.changelog-test.yaml`. Both changesets carry
-`context:dev,prelive`, so the normal migration loads them wherever `liquibase.contexts` contains `dev` (the
-image default, local compose stack) or `prelive`, and never in production, which must run with a context
-that contains neither (`docs/specs/deploy/resource-and-secrets-requirements.md` §5). The test
-cases that depend on them (cases 4.5–4.9, 6.2–6.6 and section 7 of
-[../xroad-provide.md](../xroad-provide.md)) answer as documented once the migration has run.
+The migration no longer loads these rows. They were a `context:dev,prelive` Liquibase changeset for a
+short time; `changelog/20261116-deactivate-test-consignments.sql` then appended an `INACTIVE` row per
+dataset in every environment that had loaded them, so they no longer match `ACTIVE` lookups and stay in
+the history. The test cases that depend on them (cases 4.5–4.9, 6.2–6.6 and section 7 of
+[../xroad-provide.md](../xroad-provide.md)) answer as documented only on a database where the rows have
+been loaded again.
 
-Local stack (the `liquibase` compose service runs the whole master):
-
-```bash
-docker compose run --rm liquibase
-```
-
-A re-run does nothing: Liquibase records `test/test-consignments.sql::test-consignments-1` and `-2` in
-`databasechangelog` and skips them. A database that loaded the rows by hand through
-`--changeLogFile=test/db.changelog-test.yaml` has the same two entries, so they are not loaded twice.
+To load them again, run `python3 docs/test-cases/data/generate.py`. It writes
+`DSL/Liquibase/test/test-consignments.sql` (not committed). Run its `INSERT`s with `psql`; a dataset that
+already has an `INACTIVE` row needs a newer `ACTIVE` row, which the same `INSERT` provides.
 
 Check:
 
 ```sql
 SELECT dataset_id, main_transport_id FROM consignments
-WHERE dataset_id::text LIKE '11111111-0000-4000-8000-%' ORDER BY dataset_id;   -- 14 rows
+WHERE dataset_id::text LIKE '11111111-0000-4000-8000-%' ORDER BY dataset_id;
 ```
-
-## Removing
-
-The store is append-only, so there is no `DELETE`. `liquibase rollback-count 2` (run against the master with `--contexts=dev`)
-appends an `INACTIVE` row per dataset (the rollback blocks); the datasets then stop matching `ACTIVE`
-queries but stay in the history.
 
 ## Changing the data
 

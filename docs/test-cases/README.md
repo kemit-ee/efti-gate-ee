@@ -10,7 +10,7 @@ answer looks like.
 | [xroad-provide.md](xroad-provide.md) | The X-Road provider adapter, `/xroad/provide/**` (`ruuter-xroad`) |
 | [admin-api.md](admin-api.md) | The admin API, `/admin/v1/**` (needs an admin token) |
 | [as4-msh.md](as4-msh.md) | AS4 inbound from a peer gate, `POST /services/msh` |
-| [data/README.md](data/README.md) | Six test consignments as `context:dev,prelive` Liquibase changesets, and how they are loaded |
+| [data/README.md](data/README.md) | The test consignments the data cases use, and how to load them again |
 | [xroad-smoke.sh](xroad-smoke.sh) | The status-code checks of `xroad-provide.md` as one script |
 
 ## Reading a case
