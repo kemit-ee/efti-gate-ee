@@ -1,0 +1,87 @@
+# Architecture: Registry Management
+
+## Changes
+
+- _Initial state. Change tracking begins at v1.0.0._
+- **2026-10-08 — [ADR-011](../decisions/011-registries-as-signed-config.md): §1.1, §1.3 and §1.5 rewritten; the registries left the Admin API and the database.**
+  The three registries are declared in the git folder `registry/**` (§1 sources), converted and
+  validated into JSON by `scripts/registry-to-json.py` and served statically by nginx
+  (§3 — no application server, no `registry-sync`/ReSQL step). Since the 2026-11-10 amendment the conversion
+  runs in the one-shot `registry-build` on **mounted** sources at every start, not at image build time: a
+  malformed registry fails `registry-build` (the dependants do not start) and platform API keys are in no
+  image layer. `gates`, `platforms` and `authorities`, their read models and the
+  `gate_status`/`authority_status` types were **dropped** (§4), the platform credential is **plaintext**
+  in the folder, which amends ADR-004 (§5), the admin write surface for those three registries —
+  including `ping` and `api-key` — is deleted (§6), and there is **no tombstone**: deleting the file
+  removes the entity (§7). Only `consignments` and `users` keep admin write endpoints, so §1.1, §1.2 and
+  §1.5 now apply to those.
+
+> Theme-wide architectural rules. Every sub-area below — and every Acceptance Criterion (AC) it carries — must derive from or at minimum **not conflict with** the rules stated here. AC live in the corresponding sub-area files under [`docs/cfr/registry-management/`](https://github.com/kemit-ee/efti-gate-ee/blob/dev/docs/cfr/registry-management/); this document describes the *contract those AC implement*.
+
+> **`registry/**` is a secret store (ADR-011 §5), but since the 2026-11-10 amendment it is mounted, not baked**:
+> platform entries carry a plaintext `apiKey`; in production `platforms/` comes from a Secret and is mounted into
+> `registry-build`, so no image layer, image-registry copy, SBOM or trivy output holds a key. The `registry`
+> service is internal-only and its port must never be published, proxied or ingressed.
+
+**System-wide reference:** [eFTI Gate Reference Architecture](../reference-architecture.md). This document narrows the system-wide rules to the Registry Management surface.
+
+**Sub-architectures in this theme** (each is the architectural surface for the AC tracked in the linked epic):
+
+- [Gate Registry Management (Configuration-Driven, no database)](gate_registry.md) — AC: [`docs/cfr/registry-management/gate_registry.md`](https://github.com/kemit-ee/efti-gate-ee/blob/dev/docs/cfr/registry-management/gate_registry.md)
+- [Platform Registry Management (Configuration-Driven, no database)](platform_registry.md) — AC: [`docs/cfr/registry-management/platform_registry.md`](https://github.com/kemit-ee/efti-gate-ee/blob/dev/docs/cfr/registry-management/platform_registry.md)
+- [Authority Registry Management (Configuration-Driven, no database)](authority_registry.md) — AC: [`docs/cfr/registry-management/authority_registry.md`](https://github.com/kemit-ee/efti-gate-ee/blob/dev/docs/cfr/registry-management/authority_registry.md)
+- [Consignment Management (Admin API)](consignment_management.md) — AC: [`docs/cfr/registry-management/consignment_management.md`](https://github.com/kemit-ee/efti-gate-ee/blob/dev/docs/cfr/registry-management/consignment_management.md)
+
+---
+
+## Overarching rules
+
+These are the cross-cutting invariants every sub-area in this theme derives from. AC bullets in the CFR files specialise them to specific endpoints, error codes, or DB state.
+
+### 1.1 There is exactly one mutation path per registry — and it is not HTTP
+
+The registries have **one** writer each, and no second way in:
+
+| Registry | Sole mutation path | Authorisation |
+|---|---|---|
+| `gates`, `platforms`, `authorities` | the YAML sources in the git folder `registry/**` — the only store; `scripts/registry-to-json.py` converts and validates them into JSON when `registry-build` runs (at every start), and the static nginx `registry` service serves that (`GET /<type>.json`, `GET /<type>/<id>.json`) for each consumer to filter | PR review + the release process (ADR-011 §3); the `registry` service is reachable only on the internal Compose network |
+| `consignments` | admin-API write endpoints | TARA-issued JWT resolving to an active `users` row |
+| `users` | admin-API write endpoints | TARA-issued JWT resolving to an active `users` row |
+
+There are **no** SQL migrations that inject registry business data and **no** "seeder" jobs. The three
+registries have no HTTP write path and no database representation at all — the admin `POST`/`PUT`/`DELETE`
+routes for them, including `ping` and `api-key`, do not exist, and the tables were dropped. Read-only
+`GET` remains, and the Admin UI is a read-only view over the same registry documents the runtime reads.
+
+### 1.2 Authentication check on every admin write
+
+Admin write operations — `consignments` and `users` — require the caller to be authenticated with a valid TARA-issued JWT that resolves to an active `users` row. Registry configuration has no caller to authenticate: its credential is the git history and its authorisation is code review (see §1.1).
+
+### 1.3 Append-only for everything the database still holds
+
+`consignments` and `users` are INSERT-only. Editing an entity means INSERTing a new row sharing the same
+logical identifier; reads use the latest-row-by-`created_at` projection. The runtime `app` PostgreSQL role
+has `SELECT, INSERT` only — no UPDATE/DELETE grants. CronManager-driven archival (Theme 5) moves non-latest
+`consignments` rows to cold storage on schedule.
+
+`gates`, `platforms` and `authorities` have **no table at all** since ADR-011 §4 (§1.1), so nothing in this rule
+applies to them: their history is git, their concurrency control is the review process, and their only
+read path is the generated JSON served statically by the `registry` service (written by `registry-build`).
+
+### 1.4 Listing scope
+
+A caller listing registry entities sees all rows. The intersection check happens at the application layer; no row-level security (RLS) policy is required for registry tables.
+
+### 1.5 Logical deletion
+
+For `consignments` there is no DELETE on the wire: the entity is removed by INSERTing a new row carrying
+the terminal status `deleted`, hidden from default listings but retained for audit until CronManager
+archives it. `users` uses `is_active`/`token_revoked_at` the same way.
+
+For `gates`, `platforms` and `authorities` there is **no tombstone at all** (ADR-011 §7): deleting the file
+removes the entity, so lookups 404 and guards deny. There is no `DELETED` status to carry and no
+reactivation guard to satisfy — the id and (for an authority) the `registryCode` are simply free again.
+
+### 1.6 Multi-tenancy via scope-IDs, not separate schemas
+
+A multi-tenant deployment uses scope-IDs to slice access (one admin per gate or per authority), not separate Postgres schemas or databases. This keeps the deployment topology simple (one DB cluster) and the access-check uniform across tenants.
