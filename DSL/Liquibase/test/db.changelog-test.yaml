@@ -1,6 +1,0 @@
-# Test consignments for docs/test-cases/. Included by db.changelog-master.yaml, but every changeset
-# carries context:dev,prelive, so only an environment migrated with one of those contexts loads them.
-databaseChangeLog:
-  - include:
-      file: test-consignments.sql
-      relativeToChangelogFile: true

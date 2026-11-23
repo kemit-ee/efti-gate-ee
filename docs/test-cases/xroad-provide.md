@@ -193,7 +193,7 @@ Same as 4.1 with client `EE/GOV/70000099/testSubsystem` (`EU01` only).
 
 ### 4.5 transport-means: plate seen on two datasets → 200, found 2
 
-Needs the [test data](data/README.md), loaded by the dev/prelive migration from `DSL/Liquibase/test/` (`context:dev,prelive`).
+Needs the [test data](data/README.md), not loaded by the migration any more (see the data README).
 
 ```bash
 curl -i -X POST $BASE/provide/v1/transport-means \
@@ -378,7 +378,7 @@ the last five); the first three are derived.
 
 ## 7. Plates of the test data (`…0007`–`…0014`)
 
-Needs the [test data](data/README.md), loaded by the dev/prelive migration from `DSL/Liquibase/test/` (`context:dev,prelive`). Every case uses the client
+Needs the [test data](data/README.md), not loaded by the migration any more (see the data README). Every case uses the client
 `EE/GOV/70000093/ants` (`EU02`) and a fresh `X-Road-Id`; `$ID` below stands for such a UUID. A truck is
 the main transport means, a trailer is *used equipment*, a container is *carried equipment*, so a
 lookup by any of them finds the consignment. All sources are **derived** (from the stored rows and the
