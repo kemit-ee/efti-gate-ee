@@ -1,0 +1,14 @@
+# Example outbound REST service: Ruuter calls GET http://xtr:8080/example/echo and XTR sends it to
+# <security_server.url>r1/<xroad_instance>/GOV/<member_code>/<subsystem_code>/<service_code>/<path>.
+# One file is exactly one URL (no prefix or wildcard passthrough). TODO: point it at a real service
+# registered on the ee-test Security Server, or copy it per service.
+kind: rest
+method: GET
+target:
+  member_class: GOV
+  member_code: "00000000"
+  subsystem_code: example
+  service_code: echo
+  path: /v1/echo
+allowed_query_params: []
+forward_body: false

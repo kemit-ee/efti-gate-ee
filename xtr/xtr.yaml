@@ -1,0 +1,26 @@
+# XTR - outbound X-Road REST client (Ruuter -> XTR -> Security Server). Docs: https://turnerrainer.github.io/XTR/
+# Read once at boot; changing it needs `docker compose up --build xtr`. See ADR-017.
+dsl_path: /app/DSL
+port: 8080
+
+xroad_instance: ee-test
+
+# The identity XTR presents. XTR always writes X-Road-Client from here and strips a caller-supplied
+# value. TODO: replace with the gate's registered member / subsystem before first use.
+client_data:
+  member_class: GOV
+  member_code: "00000000"
+  subsystem_code: efti-gate
+
+security_server:
+  url: "https://security-server.invalid:5500/"
+  keystore_path: /app/ssl/xtr-client.p12
+  keystore_password_env: XTR_KEYSTORE_PASSWORD
+  # Exactly ONE certificate (the Security Server's own or its issuing CA); XTR reads only the first one
+  # of the file, a bundle silently fails the TLS handshake.
+  trust_ca_path: /app/ssl/xroad-ca.pem
+
+limits:
+  max_request_bytes: 1048576
+  max_response_bytes: 16777216
+  request_timeout_secs: 30
